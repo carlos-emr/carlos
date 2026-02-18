@@ -29,15 +29,12 @@
 
 package io.github.carlos_emr.carlos.prevention;
 
-//import java.io.ByteArrayInputStream;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.net.URL;
 
 import javax.annotation.PostConstruct;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
 import org.kie.api.runtime.KieSession;
@@ -111,12 +108,6 @@ public class PreventionDSImpl implements PreventionDS {
     private static Logger log = MiscUtils.getLogger();
 
     /**
-     * Flag indicating whether the rule base has been loaded (regardless of success or failure).
-     * Set to {@code true} at the end of {@link #loadRuleBase()}.
-     */
-    static boolean loaded = false;
-
-    /**
      * The compiled Drools knowledge base containing the prevention/immunization rules.
      * Shared across all instances (static) and thread-safe for creating new
      * {@link KieSession} instances. Initialized by {@link #loadRuleBase()} at startup.
@@ -171,9 +162,8 @@ public class PreventionDSImpl implements PreventionDS {
      *       {@code /oscar/oscarPrevention/prevention.drl} from the classpath.</li>
      * </ol>
      *
-     * <p>Sets the {@link #loaded} flag to {@code true} upon completion, regardless of
-     * whether loading succeeded or failed. Errors at each tier are logged and do not
-     * prevent attempting subsequent tiers.</p>
+     * <p>Errors at each tier are logged and do not prevent attempting
+     * subsequent tiers.</p>
      */
     @PostConstruct
     private void loadRuleBase() {
@@ -183,27 +173,30 @@ public class PreventionDSImpl implements PreventionDS {
 
             // Priority 1: Load from filesystem path or classpath: property
             if (preventionPath != null) {
-                File file = new File(OscarProperties.getInstance().getProperty("PREVENTION_FILE"));
-                if (file.isFile() || file.canRead()) {
-                    log.debug("Loading from file " + file.getName());
-
-                    FileInputStream fis = new FileInputStream(file);
-                    try {
-                        kieBase = DroolsHelper.loadFromInputStream(fis);
-                    } catch (Exception e) {
-                        MiscUtils.getLogger().error("Error loading preventions", e);
-                    } finally {
-                        IOUtils.closeQuietly(fis);
-                    }
-
-                    fileFound = true;
-                }
-
-                // Handle classpath: prefix for PREVENTION_FILE property value
-                if (!fileFound && preventionPath.startsWith("classpath:")) {
+                if (preventionPath.startsWith("classpath:")) {
+                    // Handle classpath: prefix for PREVENTION_FILE property value
                     URL url = PreventionDS.class.getResource(preventionPath.substring(10));
-                    log.debug("loading from URL " + url.getFile());
-                    kieBase = DroolsHelper.loadFromUrl(url);
+                    if (url != null) {
+                        log.debug("Loading prevention rules from classpath: {}", url.getFile());
+                        kieBase = DroolsHelper.loadFromUrl(url);
+                        fileFound = true;
+                    } else {
+                        log.warn("Prevention classpath resource not found: {}", preventionPath);
+                    }
+                } else {
+                    // PREVENTION_FILE is an admin-configured property (not user input),
+                    // so path traversal validation is not required here.
+                    File file = new File(preventionPath);
+                    if (file.isFile() && file.canRead()) {
+                        log.debug("Loading prevention rules from file: {}", file.getName());
+
+                        try (FileInputStream fis = new FileInputStream(file)) {
+                            kieBase = DroolsHelper.loadFromInputStream(fis);
+                            fileFound = true;
+                        } catch (Exception e) {
+                            log.error("Failed to load prevention rule base from filesystem '{}', falling back to database/classpath", file.getName(), e);
+                        }
+                    }
                 }
             }
 
@@ -216,25 +209,25 @@ public class PreventionDSImpl implements PreventionDS {
                         log.info("Loading prevention rule base from " + resourceStorage.getResourceName());
                         fileFound = true;
                     } catch (Exception resourceError) {
-                        log.error("ERROR LOADING from resource Storage", resourceError);
+                        log.error("Failed to load prevention rule base from ResourceStorage: {}", resourceStorage.getResourceName(), resourceError);
                     }
                 }
-
-
-                // check if table has new preventions DRL
             }
 
 
             // Priority 3: Classpath fallback to bundled prevention.drl
             if (!fileFound) {
                 URL url = PreventionDS.class.getResource("/oscar/oscarPrevention/prevention.drl");  //TODO: change this so it is configurable;
-                log.debug("loading from URL " + url.getFile());
-                kieBase = DroolsHelper.loadFromUrl(url);
+                if (url != null) {
+                    log.debug("Loading prevention rules from classpath fallback: {}", url.getFile());
+                    kieBase = DroolsHelper.loadFromUrl(url);
+                } else {
+                    log.error("Failed to load prevention rule base: classpath fallback resource /oscar/oscarPrevention/prevention.drl not found");
+                }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            log.error("Failed to load prevention rule base from filesystem/database/classpath", e);
         }
-        loaded = true;
     }
 
 
@@ -259,10 +252,16 @@ public class PreventionDSImpl implements PreventionDS {
      * @param p Prevention the patient prevention fact object containing demographics and
      *          immunization history; must not be {@code null}
      * @return Prevention the same object, now enriched with warnings and reminders
+     * @throws IllegalStateException if the prevention rule base was not successfully
+     *                               initialized (kieBase is null)
      * @throws Exception if rule evaluation fails; wraps the root cause with
-     *                   {@code "ERROR: Drools "} message prefix
+     *                   {@code "Failed to evaluate prevention Drools rules"} message
      */
     public Prevention getMessages(Prevention p) throws Exception {
+        if (kieBase == null) {
+            throw new IllegalStateException("Prevention KieBase is not initialized; rule base loading may have failed.");
+        }
+
         KieSession kieSession = null;
         try {
             // Create a new stateful session for this evaluation
@@ -274,8 +273,8 @@ public class PreventionDSImpl implements PreventionDS {
             // Fire all matching rules; rules modify the Prevention object directly
             kieSession.fireAllRules();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            throw new Exception("ERROR: Drools ", e);
+            log.error("Failed to evaluate prevention rules for patient", e);
+            throw new Exception("Failed to evaluate prevention Drools rules", e);
         } finally {
             // Dispose the session to release resources and prevent memory leaks
             if (kieSession != null) {
@@ -284,51 +283,4 @@ public class PreventionDSImpl implements PreventionDS {
         }
         return p;
     }
-
-
-    ///
-//         URL url = Prevs.class.getResource( "prevention.drl" );
-//      log.debug(url.getFile());
-//      
-//      //RuleBase ruleBase = RuleBaseBuilder.buildFromUrl( url );
-//      RuleBase ruleBase = RuleBaseLoader.loadFromUrl( url );
-//      
-//      
-//      
-//      Prevention[] p = new Prevention[4];
-//      
-//      p[0] = new Prevention("BOB","M", new GregorianCalendar(1998, Calendar.DECEMBER, 12).getTime()); //name, num imm, sex, age in months
-//      p[1] = new Prevention("RITA","F", new GregorianCalendar(2005, Calendar.JANUARY, 1).getTime()); 
-//      p[2] = new Prevention("GEORGE","M", new GregorianCalendar(2004, Calendar.APRIL, 25).getTime()); 
-//      p[3] = new Prevention("Tyler","M", new GregorianCalendar(2005, Calendar.MARCH, 23).getTime()); 
-//            
-//      
-//      PreventionItem pi = new PreventionItem("DTaP IPV", new GregorianCalendar(2005, Calendar.MARCH, 1).getTime());
-//      p[1].addPreventionItem(pi, "DTaP IPV");
-//      log.debug("should be 1 "+p[1].getNumberOfPreventionType("DTaP IPV"));
-//      
-//      log.debug("should be ?? "+p[1].getHowManyMonthsSinceLast("DTaP IPV"));
-//      
-//      for ( int k = 0; k < p.length; k++){
-//         long start = System.currentTimeMillis();
-//         WorkingMemory workingMemory = ruleBase.newWorkingMemory();
-//
-//         workingMemory.assertObject(p[k]);
-//
-//         workingMemory.fireAllRules();
-//         long end = System.currentTimeMillis();
-//         
-//         ArrayList alist = p[k].getWarnings();
-//         log.debug(p[k].getName()+" "+"size:"+alist.size()+ " at months : "+p[k].getAgeInMonths() + " time :"+(end-start));
-//
-//         for (int i = 0; i < alist.size(); i++){         
-//            String s = (String) alist.get(i);
-//            log.debug(s);
-//         }
-//        
-//      }
-
-
-    ////
-
 }

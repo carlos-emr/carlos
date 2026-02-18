@@ -1086,27 +1086,6 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         return d;
     }
 
-    //<rules>
-    //  <recommendation between="3m-6m">Blood Glucose hasn't been reviewed in $NUMMONTHS months"</recommendation>
-    //  <warning gt="6m">Blood Glucose hasn't been reviewed in $NUMMONTHS months</warning>
-    //  <warning eq="-1">Blood Glucose hasn't been reviewed</warning>
-    //</rules>
-/*
-    private Hashtable<String,String> getRecommendationHash(Element recowarn){
-        Hashtable h = new Hashtable();
-        String toParse = recowarn.getAttributeValue("monthrange");
-        h.put("monthrange", toParse);
-
-        if( recowarn.getAttribute("strength") != null){
-            h.put("strength",recowarn.getAttribute("strength") );
-        }
-        if ( recowarn.getText() == null){
-            h.put("text",recowarn.getText());
-        }
-        return h;
-    }
-*/
-
     /**
      * Generates a Drools DRL rule string for a time-based clinical recommendation or warning.
      *
@@ -1210,7 +1189,7 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                 consequence = "m.add" + consequenceType + "(\"" + measurement + "\",\"" + measurement + "\" 3 hasn't been reviewed in \"+m.getLastDateRecordedInMonths(\"" + measurement + "\")+\" months\";";
             }
 
-        } else if (!toParse.equals("")) {
+        } else if (!toParse.isEmpty()) {
             // Exact match style: matches a specific month value (e.g., -1 for "never recorded")
             int eq = Integer.parseInt(toParse);
             list.add(new DSCondition("getLastDateRecordedInMonths", measurement, "==", "" + eq));
@@ -1229,8 +1208,6 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             txt = txt.replaceAll("\\$NUMMONTHS", NUMMONTHS);
             log.debug("TEXT " + txt);
             consequence = "m.add" + consequenceType + "(\"" + measurement + "\",\"" + txt + "\");";
-            //consequence ="MiscUtils.getLogger().debug(\"HAPPY TO BE WORKING\");";
-
         }
 
         // Delegate to RuleBaseCreator to assemble the final DRL rule text.
@@ -1729,8 +1706,6 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
             }
         }
         return va;
-        //XMLOutputter outp = new XMLOutputter();
-        //outp.setFormat(Format.getPrettyFormat());
     }
 
     /**

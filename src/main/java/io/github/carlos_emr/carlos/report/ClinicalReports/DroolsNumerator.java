@@ -27,9 +27,6 @@
 
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.net.URL;
 import java.util.Hashtable;
 
 import org.kie.api.KieBase;
@@ -38,7 +35,6 @@ import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
@@ -74,7 +70,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementD
  * @see DroolsNumerator3
  * @see DroolsNumerator4
  * @see DroolsNumerator5
- * @since 2006-06-17
+ * @since 2006-07-28
  */
 public class DroolsNumerator implements Numerator {
 
@@ -99,38 +95,22 @@ public class DroolsNumerator implements Numerator {
     public DroolsNumerator() {
     }
 
-    /**
-     * Returns the unique identifier for this numerator.
-     *
-     * @return String the numerator identifier, or {@code null} if not set
-     */
+    /** Returns the unique identifier for this numerator. */
     public String getId() {
         return id;
     }
 
-    /**
-     * Returns the human-readable display name of this numerator.
-     *
-     * @return String the numerator name, or {@code null} if not set
-     */
+    /** Returns the human-readable display name for this numerator. */
     public String getNumeratorName() {
         return name;
     }
 
-    /**
-     * Sets the human-readable display name of this numerator.
-     *
-     * @param name String the display name to assign
-     */
+    /** Sets the human-readable display name for this numerator. */
     public void setNumeratorName(String name) {
         this.name = name;
     }
 
-    /**
-     * Sets the unique identifier for this numerator.
-     *
-     * @param id String the identifier to assign
-     */
+    /** Sets the unique identifier for this numerator. */
     public void setId(String id) {
         this.id = id;
     }
@@ -153,16 +133,20 @@ public class DroolsNumerator implements Numerator {
             // Load the DRL rule file into a compiled KieBase
             MiscUtils.getLogger().debug("going to load " + file);
             KieBase kieBase = loadMeasurementRuleBase(file);
+            if (kieBase == null) {
+                MiscUtils.getLogger().error("Cannot evaluate clinical rules: rule base for '{}' failed to load", file);
+                return evalTrue;
+            }
 
             // Create a measurement helper for the patient with no date range filtering
             MeasurementDSHelper dshelper = new MeasurementDSHelper(loggedInInfo, demographicNo);
 
             // KieSession lifecycle: create session, insert fact, fire rules, dispose
-            MiscUtils.getLogger().debug("new working mem");
+            MiscUtils.getLogger().debug("newKieSession");
             KieSession kieSession = kieBase.newKieSession();
             try {
                 // Insert the measurement helper as a fact into the rule engine
-                MiscUtils.getLogger().debug("assertObject");
+                MiscUtils.getLogger().debug("insert");
                 kieSession.insert(dshelper);
 
                 // Execute all matching rules; rules set dshelper.inRange if criteria met
@@ -178,80 +162,31 @@ public class DroolsNumerator implements Numerator {
 
             MiscUtils.getLogger().debug("right before catch");
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to evaluate Drools rules for file '{}'", file, e);
         }
         return evalTrue;
     }
 
-    /**
-     * Sets the DRL rule filename used for evaluation.
-     *
-     * @param file String the filename (not full path) of the DRL file
-     */
+    /** Sets the DRL rule filename to load for evaluation. */
     public void setFile(String file) {
         this.file = file;
     }
 
-    /**
-     * Returns the DRL rule filename used for evaluation.
-     *
-     * @return String the DRL filename, or {@code null} if not set
-     */
+    /** Returns the DRL rule filename. */
     public String getFile() {
         return file;
     }
 
 
     /**
-     * Loads a DRL rule file and compiles it into a {@link KieBase} using a two-tier
-     * resolution strategy.
+     * Loads a measurement decision support DRL file using the standard two-tier strategy.
      *
-     * <p><strong>File resolution priority:</strong></p>
-     * <ol>
-     *   <li><strong>External filesystem</strong> -- If the {@code MEASUREMENT_DS_DIRECTORY}
-     *       property is configured in {@link OscarProperties}, the DRL file is loaded
-     *       from that directory. This allows site-specific rule customization without
-     *       redeploying the application.</li>
-     *   <li><strong>Classpath fallback</strong> -- If no external file is found, the DRL
-     *       is loaded from the classpath at
-     *       {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/}.
-     *       This provides the bundled default rules.</li>
-     * </ol>
-     *
-     * @param string String the DRL filename to load (e.g. "bp_check.drl")
+     * @param string the DRL filename to load (e.g. "bp_check.drl")
      * @return KieBase the compiled rule base, or {@code null} if loading fails
-     * @see DroolsHelper#loadFromInputStream(java.io.InputStream)
-     * @see DroolsHelper#loadFromUrl(URL)
+     * @see DroolsHelper#loadMeasurementRuleBase(String, Class)
      */
     public KieBase loadMeasurementRuleBase(String string) {
-        KieBase measurementRuleBase = null;
-        try {
-            boolean fileFound = false;
-
-            // Priority 1: Try loading from the external MEASUREMENT_DS_DIRECTORY
-            String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
-
-            if (measurementDirPath != null) {
-                //if (measurementDirPath.charAt(measurementDirPath.length()) != /)
-                File file = new File(OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY") + string);
-                if (file.isFile() || file.canRead()) {
-                    MiscUtils.getLogger().debug("Loading from file " + file.getName());
-                    FileInputStream fis = new FileInputStream(file);
-                    measurementRuleBase = DroolsHelper.loadFromInputStream(fis);
-                    fileFound = true;
-                }
-            }
-
-            // Priority 2: Fall back to classpath-bundled DRL resource
-            if (!fileFound) {
-                URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/" + string);  //TODO: change this so it is configurable;
-                MiscUtils.getLogger().debug("loading from URL " + url.getFile());
-                measurementRuleBase = DroolsHelper.loadFromUrl(url);
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-        return measurementRuleBase;
+        return DroolsHelper.loadMeasurementRuleBase(string, MeasurementFlowSheet.class);
     }
 
     /**
@@ -282,7 +217,7 @@ public class DroolsNumerator implements Numerator {
                     outputfields[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Failed to parse output fields from string '{}'", str, e);
             }
         }
     }
@@ -341,7 +276,7 @@ public class DroolsNumerator implements Numerator {
                     replaceKeys[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Failed to parse replaceable value keys from string '{}'", str, e);
             }
         }
     }

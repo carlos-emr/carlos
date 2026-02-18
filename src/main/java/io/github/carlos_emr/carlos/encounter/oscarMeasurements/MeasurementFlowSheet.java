@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.commn.dao.DxDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.OscarProperties;
@@ -464,7 +465,7 @@ public class MeasurementFlowSheet {
     public Map<String, String> getMeasurementFlowSheetInfo(String measurement) {
         Map<String, String> allFields = Collections.emptyMap();
         if (itemList == null) {
-            //DO something
+            // Lazy-initialize to prevent NPE when accessed before items are added
             itemList = new ListOrderedMap();
         }
         log.debug("GETTING " + measurement + " ITEMS IN THE LIST " + itemList.size());
@@ -599,8 +600,8 @@ public class MeasurementFlowSheet {
                 String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
                 InputStream is = null;
                 if (measurementDirPath != null) {
-                    File file = new File(OscarProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY") + topHTMLFileName);
-                    if (file.isFile() || file.canRead()) {
+                    File file = PathValidationUtils.validatePath(topHTMLFileName, new File(measurementDirPath));
+                    if (file.isFile() && file.canRead()) {
                         log.debug("Loading from file " + file.getName());
                         is = new FileInputStream(file);
                     }
@@ -621,7 +622,7 @@ public class MeasurementFlowSheet {
                     bReader.close();
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                log.error("Failed to load top HTML file for flowsheet: {}", topHTMLFileName, e);
             }
         }
         return sb.toString();
@@ -647,8 +648,8 @@ public class MeasurementFlowSheet {
             String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
 
             if (measurementDirPath != null) {
-                File file = new File(OscarProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY") + dsHTML);
-                if (file.isFile() || file.canRead()) {
+                File file = PathValidationUtils.validatePath(dsHTML, new File(measurementDirPath));
+                if (file.isFile() && file.canRead()) {
                     log.debug("Loading from file " + file.getName());
                     is = new FileInputStream(file);
                 }
@@ -670,7 +671,7 @@ public class MeasurementFlowSheet {
             }
 
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            log.error("Failed to load decision support HTML file: {}", dsHTML, e);
         } finally {
             IOUtils.closeQuietly(is);
             IOUtils.closeQuietly(bReader);
@@ -743,10 +744,8 @@ public class MeasurementFlowSheet {
             } catch (Exception e) {
                 log.debug("LOADING EXEPTION");
 
-                MiscUtils.getLogger().error("Error", e);
+                log.error("Failed to compile programmatic rule base for flowsheet: {}", name, e);
             }
-        } else {
-            //empty
         }
     }
 
@@ -782,11 +781,12 @@ public class MeasurementFlowSheet {
             String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
 
             if (measurementDirPath != null) {
-                File file = new File(OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY") + string);
-                if (file.isFile() || file.canRead()) {
-                    log.debug("Loading from file " + file.getName());
-                    FileInputStream fis = new FileInputStream(file);
-                    ruleBase = DroolsHelper.loadFromInputStream(fis);
+                File file = PathValidationUtils.validatePath(string, new File(measurementDirPath));
+                if (file.isFile() && file.canRead()) {
+                    log.debug("Loading DRL from file: {}", file.getName());
+                    try (FileInputStream fis = new FileInputStream(file)) {
+                        ruleBase = DroolsHelper.loadFromInputStream(fis);
+                    }
                     fileFound = true;
                 }
             }
@@ -794,13 +794,17 @@ public class MeasurementFlowSheet {
             // Priority 2: Fall back to classpath resource bundled with the application
             if (!fileFound) {
                 URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/" + string);  //TODO: change this so it is configurable;
+                if (url == null) {
+                    log.warn("DRL resource not found on classpath for flowsheet rule: {}", string);
+                    return;
+                }
                 log.debug("loading from URL {}", url.getFile());
                 ruleBase = DroolsHelper.loadFromUrl(url);
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            log.error("Failed to load flowsheet rule base from DRL file: {}", string, e);
         }
-        rulesLoaded = true;
+        rulesLoaded = (ruleBase != null);
     }
 
     /**
@@ -862,7 +866,7 @@ public class MeasurementFlowSheet {
         } catch (Exception e) {
             log.debug("loadMeasuremntRuleBase EXEPTION");
 
-            MiscUtils.getLogger().error("Error", e);
+            log.error("Failed to compile TargetColour rule base for measurement", e);
         }
         return measurementRuleBase;
 
@@ -870,57 +874,17 @@ public class MeasurementFlowSheet {
 
 
     /**
-     * Loads and compiles a per-item decision support rule base from a static DRL file.
+     * Loads a per-item decision support DRL file using the standard two-tier strategy.
      *
-     * <p>This method is called during {@link #addListItem(FlowSheetItem)} when a
-     * {@link FlowSheetItem} specifies a {@code ds_rules} field (e.g.,
-     * {@code "decisionSupport/diab-A1C.drl"}). The compiled {@link KieBase} is returned
-     * to the caller for storage on the individual item.</p>
+     * <p>Called during {@link #addListItem(FlowSheetItem)} when a {@link FlowSheetItem}
+     * specifies a {@code ds_rules} field.</p>
      *
-     * <p><strong>DRL file resolution priority:</strong></p>
-     * <ol>
-     *   <li><strong>Filesystem first</strong> - Checks the {@code MEASUREMENT_DS_DIRECTORY}
-     *       property for a site-specific override file.</li>
-     *   <li><strong>Classpath fallback</strong> - Loads from
-     *       {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/}.
-     *       Note: this differs from {@link #loadRuleBase(String)} which uses the parent
-     *       {@code flowsheets/} directory.</li>
-     * </ol>
-     *
-     * @param string String the DRL filename, typically prefixed with {@code "decisionSupport/"}
-     *        (e.g., {@code "decisionSupport/diab-A1C.drl"})
-     * @return KieBase the compiled rule base, or {@code null} if the file cannot be found
-     *         or compilation fails
-     * @see DroolsHelper#loadFromInputStream(java.io.InputStream)
-     * @see DroolsHelper#loadFromUrl(URL)
+     * @param string the DRL filename (e.g., {@code "decisionSupport/diab-A1C.drl"})
+     * @return KieBase the compiled rule base, or {@code null} if loading fails
+     * @see DroolsHelper#loadMeasurementRuleBase(String, Class)
      */
     public KieBase loadMeasurementRuleBase(String string) {
-        KieBase measurementRuleBase = null;
-        try {
-            boolean fileFound = false;
-            // Priority 1: Check for DRL file on the filesystem (allows site-specific customization)
-            String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
-
-            if (measurementDirPath != null) {
-                File file = new File(OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY") + string);
-                if (file.isFile() || file.canRead()) {
-                    log.debug("Loading from file " + file.getName());
-                    FileInputStream fis = new FileInputStream(file);
-                    ruleBase = DroolsHelper.loadFromInputStream(fis);
-                    fileFound = true;
-                }
-            }
-
-            // Priority 2: Fall back to classpath resource in the decisionSupport subdirectory
-            if (!fileFound) {
-                URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/" + string);  //TODO: change this so it is configurable;
-                log.debug("loading from URL {}", url.getFile());
-                measurementRuleBase = DroolsHelper.loadFromUrl(url);
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-        return measurementRuleBase;
+        return DroolsHelper.loadMeasurementRuleBase(string, MeasurementFlowSheet.class);
     }
 
 
@@ -963,7 +927,7 @@ public class MeasurementFlowSheet {
                 kieSession.insert(new MeasurementDSHelper(loggedInInfo, mdb));
                 kieSession.fireAllRules();
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                log.error("Failed to execute decision support rules for measurement type: {}", type, e);
             } finally {
                 // Always dispose the session to release resources
                 kieSession.dispose();
@@ -1003,7 +967,9 @@ public class MeasurementFlowSheet {
      */
     public MeasurementInfo getMessages(MeasurementInfo mi) throws Exception {
         if (!rulesLoaded) {
-            throw new Exception("No Drools file loaded" + ruleBase);
+            throw new IllegalStateException(
+                    "Flowsheet '" + name + "' has no loaded Drools rule base; "
+                    + "check logs for prior compilation errors during startup");
         }
 
         // Create a new stateful session for this evaluation
@@ -1013,7 +979,8 @@ public class MeasurementFlowSheet {
             kieSession.insert(mi);
             kieSession.fireAllRules();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            log.error("Failed to execute flowsheet decision support rules for flowsheet: {}", name, e);
+            throw e;
         } finally {
             // Always dispose the session to release resources
             kieSession.dispose();

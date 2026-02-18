@@ -36,6 +36,10 @@
         <cxf.version>3.6.9</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
         <netty.version>4.1.129.Final</netty.version>
+        <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0) -->
+        <drools.version>7.74.1.Final</drools.version>
+        <!-- Override mvel2 transitive dependency: 2.4.x references java.lang.Compiler (removed in JDK 16) -->
+        <mvel2.version>2.5.2.Final</mvel2.version>
         <struts.devMode>false</struts.devMode>
         <!-- Test properties -->
         <skipModernTests>false</skipModernTests>
@@ -609,22 +613,28 @@
         <dependency>
             <groupId>org.kie</groupId>
             <artifactId>kie-api</artifactId>
-            <version>7.74.1.Final</version>
+            <version>${drools.version}</version>
         </dependency>
         <dependency>
             <groupId>org.drools</groupId>
             <artifactId>drools-core</artifactId>
-            <version>7.74.1.Final</version>
+            <version>${drools.version}</version>
         </dependency>
         <dependency>
             <groupId>org.drools</groupId>
             <artifactId>drools-compiler</artifactId>
-            <version>7.74.1.Final</version>
+            <version>${drools.version}</version>
         </dependency>
         <dependency>
             <groupId>org.drools</groupId>
             <artifactId>drools-mvel</artifactId>
-            <version>7.74.1.Final</version>
+            <version>${drools.version}</version>
+        </dependency>
+        <!-- Override mvel2 transitive version: 2.4.x references java.lang.Compiler (removed in JDK 16/JEP 410) -->
+        <dependency>
+            <groupId>org.mvel</groupId>
+            <artifactId>mvel2</artifactId>
+            <version>${mvel2.version}</version>
         </dependency>
 
         <!-- jasper reports -->

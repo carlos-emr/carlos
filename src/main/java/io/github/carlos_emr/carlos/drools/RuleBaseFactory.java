@@ -25,6 +25,9 @@
  */
 package io.github.carlos_emr.carlos.drools;
 
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 import org.apache.commons.lang3.time.DateUtils;
 import org.kie.api.KieBase;
 import io.github.carlos_emr.carlos.utility.QueueCache;
@@ -50,26 +53,33 @@ import io.github.carlos_emr.carlos.utility.QueueCache;
  * <h3>Cache Key Conventions</h3>
  * <p>Callers use different key strategies depending on the subsystem:</p>
  * <ul>
- *   <li>{@code RuleBaseCreator}: Key is {@code "RuleBaseCreator:" + fullDrlString} (guarantees
- *       uniqueness but verbose; the entire DRL text serves as its own cache key)</li>
+ *   <li>{@code RuleBaseCreator}: Key is {@code "RuleBaseCreator:" + sha256(fullDrlString)}
+ *       (a SHA-256 hash of the DRL text ensures uniqueness with a compact key)</li>
  *   <li>{@code DSGuidelineDrools}: Key is the guideline's {@code ruleBaseFactoryKey}
- *       (a compact identifier derived from the guideline's title and UUID)</li>
+ *       (a compact identifier derived from the guideline's JPA ID or title)</li>
  * </ul>
  *
  * <h3>Thread Safety</h3>
- * <p>All methods are {@code synchronized} to ensure thread-safe access to the shared
- * cache instance. Multiple web requests may simultaneously evaluate clinical rules
+ * <p>Uses a {@link ReadWriteLock} to allow concurrent cache reads (the common case)
+ * while serializing writes. This avoids the contention bottleneck of method-level
+ * {@code synchronized} when many threads simultaneously evaluate clinical rules
  * for different patients.</p>
  *
  * <p>Migrated from legacy {@code org.drools.RuleBase} to {@link org.kie.api.KieBase}
  * as part of the Drools 2.0 to 7.74.1.Final upgrade.</p>
  *
- * @since 2001-01-01
+ * @since 2005-06-11
  * @see DroolsHelper
  * @see org.kie.api.KieBase
  * @see io.github.carlos_emr.carlos.utility.QueueCache
  */
 public final class RuleBaseFactory {
+
+    /** Prevent instantiation of this static utility class. */
+    private RuleBaseFactory() {
+    }
+
+    private static final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     /**
      * Cache for storing compiled KieBase instances, keyed by a source identifier string.
@@ -81,8 +91,9 @@ public final class RuleBaseFactory {
     /**
      * Retrieves a cached KieBase instance by its source key.
      *
-     * <p>Provides thread-safe access to compiled rule bases. If the requested rule base
-     * is not in the cache or has expired (after 24 hours), {@code null} is returned.
+     * <p>Provides thread-safe access to compiled rule bases using a read lock,
+     * allowing concurrent cache lookups. If the requested rule base is not in
+     * the cache or has expired (after 24 hours), {@code null} is returned.
      * Callers should check for null and compile/load the rule base if needed, then
      * call {@link #putRuleBase(String, KieBase)} to cache the result.</p>
      *
@@ -90,8 +101,13 @@ public final class RuleBaseFactory {
      *                  (e.g., "prevention", "RuleBaseCreator:...", guideline key)
      * @return KieBase the cached rule base instance, or null if not found or expired
      */
-    public static synchronized KieBase getRuleBase(String sourceKey) {
-        return (ruleBaseInstances.get(sourceKey));
+    public static KieBase getRuleBase(String sourceKey) {
+        lock.readLock().lock();
+        try {
+            return ruleBaseInstances.get(sourceKey);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     /**
@@ -101,11 +117,23 @@ public final class RuleBaseFactory {
      * The rule base will be automatically evicted after 24 hours to ensure
      * updates to rules are reflected without requiring system restarts.</p>
      *
-     * @param sourceKey String unique identifier for the rule base
-     * @param kieBase KieBase compiled rule base instance to cache
+     * @param sourceKey String unique identifier for the rule base; must not be null
+     * @param kieBase KieBase compiled rule base instance to cache; must not be null
+     * @throws IllegalArgumentException if sourceKey or kieBase is null
      */
-    public static synchronized void putRuleBase(String sourceKey, KieBase kieBase) {
-        ruleBaseInstances.put(sourceKey, kieBase);
+    public static void putRuleBase(String sourceKey, KieBase kieBase) {
+        if (sourceKey == null) {
+            throw new IllegalArgumentException("Source key must not be null");
+        }
+        if (kieBase == null) {
+            throw new IllegalArgumentException("KieBase must not be null");
+        }
+        lock.writeLock().lock();
+        try {
+            ruleBaseInstances.put(sourceKey, kieBase);
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     /**
@@ -117,8 +145,13 @@ public final class RuleBaseFactory {
      *
      * @param sourceKey String identifier of the knowledge base to remove
      */
-    public static synchronized void removeRuleBase(String sourceKey) {
-        ruleBaseInstances.remove(sourceKey);
+    public static void removeRuleBase(String sourceKey) {
+        lock.writeLock().lock();
+        try {
+            ruleBaseInstances.remove(sourceKey);
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     /**
@@ -128,8 +161,12 @@ public final class RuleBaseFactory {
      * with the same configuration. This forces all knowledge bases to be recompiled
      * on next access. Useful for administrative cache clearing or after bulk rule updates.</p>
      */
-    public static synchronized void flushAllCached() {
-        // Create new cache instance to clear all cached entries
-        ruleBaseInstances = new QueueCache<String, KieBase>(4, 2048, DateUtils.MILLIS_PER_DAY, null);
+    public static void flushAllCached() {
+        lock.writeLock().lock();
+        try {
+            ruleBaseInstances = new QueueCache<String, KieBase>(4, 2048, DateUtils.MILLIS_PER_DAY, null);
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 }

@@ -1,20 +1,94 @@
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
 // ============================================================================
-// CARLOS EMR - Congestive Heart Failure (CHF) Flowsheet Rules
+// CARLOS EMR - Congestive Heart Failure (CHF) Flowsheet Timeliness Rules
 // ============================================================================
 //
-// Rules for the CHF management flowsheet. Evaluates when key cardiac
-// measurements are overdue. Note: package name is "DiabetesFlowSheet" due to
-// a pre-existing naming inconsistency inherited from the original XML rules.
+// Purpose:
+//   These rules provide clinical decision support for the Heart Failure (CHF)
+//   management flowsheet. They monitor whether key cardiac and metabolic
+//   measurements are overdue and generate yellow "recommendation" or red
+//   "warning" alerts in the flowsheet UI.
 //
-// Fact: MeasurementInfo - bound as "m", provides getLastDateRecordedInMonths()
-// Consequences: addRecommendation() for moderate delays, addWarning() for severe
+// Clinical Context:
+//   Heart failure patients require regular monitoring of cardiac function,
+//   blood glucose, blood pressure, lipid panels, renal function, and
+//   neurological assessments. Canadian clinical practice guidelines (CCS Heart
+//   Failure Guidelines) recommend periodic lab work and physical assessments
+//   to detect decompensation early. These rules encode the monitoring schedule
+//   as overdue-detection logic.
 //
-// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+// How It Works:
+//   A MeasurementInfo fact object is inserted into the Drools working memory
+//   by MeasurementFlowSheet.java. It contains the patient's measurement
+//   history. Each rule checks how many months since a specific measurement
+//   was last recorded:
+//     - getLastDateRecordedInMonths(type) returns months since last entry,
+//       or -1 if the measurement has NEVER been recorded.
+//     - addRecommendation(type, msg) shows a YELLOW alert (moderate overdue)
+//     - addWarning(type, msg) shows a RED alert (severely overdue or missing)
+//
+// Alert Severity Tiers:
+//   For each measurement type, there are typically 3 rules:
+//     Rule "X 1" - RECOMMENDATION: moderately overdue (approaching deadline)
+//     Rule "X 2" - WARNING: severely overdue (past deadline)
+//     Rule "X 3" - WARNING: measurement has NEVER been recorded (-1)
+//
+// Measurement Monitoring Schedule:
+//   3-month cycle (quarterly):  REBG, A1C, DMED, BP, BMED, BMI, DIER, NOSK
+//   10-month cycle (annual):    LDL, TCHD, TG, LMED, FGLC, EYEE, ACR, EGFR,
+//                                FTE, FTLS, PANE, EDGI, DMME
+//
+// Referenced By:
+//   - XML config: chf.xml (ds_rules="chf.drl", triggered by ICD-9 code 428)
+//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Displayed in: E-Chart encounter view, Measurement Flowsheet panel
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
+//   Bound as variable "m" in all rules.
+//
+// Package Name Note:
+//   The package is "DiabetesFlowSheet" rather than "CHFFlowSheet" because this
+//   file was originally generated from the same Drools 2.0 XML template as the
+//   diabetes flowsheet. The package name does not affect rule execution; it is
+//   only used for DRL namespace scoping within the compiled KieBase.
+//
+// History:
+//   - Originally created ~2006 as Drools 2.0 XML rules (Jay Gallagher, McMaster)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
 package DiabetesFlowSheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
+// ---------------------------------------------------------------------------
+// Blood Glucose Monitoring (REBG)
+// Quarterly review of random/fasting blood glucose levels.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "REBG 1"
     when
         m : MeasurementInfo()
@@ -43,6 +117,12 @@ rule "REBG 3"
         m.addWarning("REBG","Blood Glucose hasn't been reviewed");
 end
 
+// ---------------------------------------------------------------------------
+// Hemoglobin A1C (A1C)
+// Glycated hemoglobin test - measures average blood sugar over 2-3 months.
+// Important for CHF patients who may also have diabetes or metabolic syndrome.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "A1C 1"
     when
         m : MeasurementInfo()
@@ -71,6 +151,11 @@ rule "A1C 3"
         m.addWarning("A1C","no A1C values has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Diabetes Medication Changes (DMED)
+// Tracks review/changes to diabetes medications.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "DMED 1"
     when
         m : MeasurementInfo()
@@ -99,6 +184,13 @@ rule "DMED 3"
         m.addWarning("DMED","no DM Med changes have been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Blood Pressure (BP)
+// Critical for CHF - hypertension increases cardiac workload and can
+// precipitate heart failure decompensation. Target BP in CHF is typically
+// <130/80 mmHg per CCS guidelines.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "BP 1"
     when
         m : MeasurementInfo()
@@ -127,6 +219,11 @@ rule "BP 3"
         m.addWarning("BP","no BP has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Blood Pressure Medications (BMED)
+// Tracks whether blood pressure medication changes have been recorded.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "BMED 1"
     when
         m : MeasurementInfo()
@@ -155,6 +252,12 @@ rule "BMED 3"
         m.addWarning("BMED","no BP Meds changes have been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Body Mass Index (BMI)
+// Weight management is important in CHF - both obesity and cardiac cachexia
+// (weight loss) are adverse prognostic indicators.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "BMI 1"
     when
         m : MeasurementInfo()
@@ -183,6 +286,11 @@ rule "BMI 3"
         m.addWarning("BMI","no BMI has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Diet and Exercise (DIER)
+// Tracks whether diet/exercise counselling has been recorded.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "DIER 1"
     when
         m : MeasurementInfo()
@@ -211,6 +319,13 @@ rule "DIER 3"
         m.addWarning("DIER","Diet/Excercise has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Smoking Status - Number of Cigarettes (NOSK)
+// Smoking cessation is critical in CHF patients as smoking worsens
+// cardiovascular outcomes. Rules only fire if patient is a current smoker
+// (last value != 0). If never recorded, prompts to enter zero for non-smokers.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "NOSK 1"
     when
         m : MeasurementInfo()
@@ -241,6 +356,12 @@ rule "NOSK 3"
         m.addWarning("NOSK","Number of Cigarrettes has never been recorded, if non smoker enter zero");
 end
 
+// ---------------------------------------------------------------------------
+// LDL Cholesterol (LDL)
+// Low-density lipoprotein - a key cardiovascular risk factor.
+// Target LDL for CHF patients with coronary disease is typically <2.0 mmol/L.
+// Annual monitoring cycle: recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "LDL 1"
     when
         m : MeasurementInfo()
@@ -269,6 +390,12 @@ rule "LDL 3"
         m.addWarning("LDL","LDL has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Total Cholesterol to HDL Ratio (TCHD)
+// TC/HDL ratio is a strong predictor of cardiovascular risk. A ratio >4.0
+// indicates elevated risk. Annual monitoring for CHF patients.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "TCHD 1"
     when
         m : MeasurementInfo()
@@ -297,6 +424,12 @@ rule "TCHD 3"
         m.addWarning("TCHD","TC/HDL has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Triglycerides (TG)
+// Elevated triglycerides contribute to cardiovascular disease burden.
+// Annual monitoring for CHF patients.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "TG 1"
     when
         m : MeasurementInfo()
@@ -325,6 +458,12 @@ rule "TG 3"
         m.addWarning("TG","Triglycerides has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Lipid-Lowering Medications (LMED)
+// Tracks review/changes to statin or other lipid-lowering therapy.
+// Statins provide cardiovascular benefit in CHF patients with coronary disease.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "LMED 1"
     when
         m : MeasurementInfo()
@@ -353,6 +492,12 @@ rule "LMED 3"
         m.addWarning("LMED","Lipid Lowering Meds has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Fasting Glucose Meter/Lab Comparison (FGLC)
+// Compares home glucose meter readings to laboratory values to ensure
+// meter accuracy. Important for patients self-monitoring blood glucose.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "FGLC 1"
     when
         m : MeasurementInfo()
@@ -381,6 +526,12 @@ rule "FGLC 3"
         m.addWarning("FGLC","Fasting glucose meter/lab comparison has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Ophthalmologist/Optometrist Eye Exam (EYEE)
+// Annual dilated eye exam to screen for diabetic retinopathy and
+// hypertensive retinopathy, both common comorbidities in CHF patients.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "EYEE 1"
     when
         m : MeasurementInfo()
@@ -409,6 +560,13 @@ rule "EYEE 3"
         m.addWarning("EYEE","An Opthalmologist/ Optometrist exam has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Albumin-to-Creatinine Ratio (ACR)
+// Urine ACR screens for nephropathy - elevated values indicate kidney damage.
+// Critical in CHF as cardiorenal syndrome is common: heart failure can cause
+// or worsen renal dysfunction. Target: <2.0 mg/mmol for males, <2.8 for females.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "ACR 1"
     when
         m : MeasurementInfo()
@@ -437,6 +595,11 @@ rule "ACR 3"
         m.addWarning("ACR","An Alb: creat ratio value has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Estimated Glomerular Filtration Rate (eGFR)
+// Tracks whether eGFR has been recorded.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "EGFR 1"
     when
         m : MeasurementInfo()
@@ -465,6 +628,13 @@ rule "EGFR 3"
         m.addWarning("EGFR","An eGFR value has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Lower Extremity Exam / Foot Exam (FTE)
+// Annual foot examination to detect peripheral vascular disease and
+// peripheral neuropathy, which are common in patients with CHF, diabetes,
+// and peripheral arterial disease.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "FTE 1"
     when
         m : MeasurementInfo()
@@ -493,6 +663,12 @@ rule "FTE 3"
         m.addWarning("FTE","A Lower Extremity Exam has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Loss of Sensation Test (FTLS) - Monofilament Testing
+// Screens for peripheral neuropathy using 10g monofilament.
+// Loss of protective sensation increases risk of foot ulceration.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "FTLS 1"
     when
         m : MeasurementInfo()
@@ -521,6 +697,13 @@ rule "FTLS 3"
         m.addWarning("FTLS","A loss of sensation test has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Painful Neuropathy (PANE)
+// Assessment for painful peripheral neuropathy symptoms - burning, tingling,
+// numbness in extremities. Requires annual screening in patients with
+// diabetes or peripheral vascular disease comorbidity.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "PANE 1"
     when
         m : MeasurementInfo()
@@ -549,6 +732,13 @@ rule "PANE 3"
         m.addWarning("PANE","A value for Painful Neuropathy has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Autonomic Neuropathy / Erectile Dysfunction (EDGI)
+// Screens for autonomic neuropathy which can manifest as orthostatic
+// hypotension, gastroparesis, or erectile dysfunction. Particularly relevant
+// in CHF patients who may already have orthostatic symptoms from medications.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "EDGI 1"
     when
         m : MeasurementInfo()
@@ -577,6 +767,13 @@ rule "EDGI 3"
         m.addWarning("EDGI","A value for Autonomic Neuropathy has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Diabetes Education (DMME)
+// Tracks whether the patient has received diabetes self-management education.
+// Education programs improve medication adherence and self-care behaviors,
+// which are critical for CHF patients with comorbid diabetes.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "DMME 1"
     when
         m : MeasurementInfo()

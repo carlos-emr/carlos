@@ -1,19 +1,82 @@
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
 // ============================================================================
-// CARLOS EMR - INR Target Range Decision Support Rules
+// CARLOS EMR - INR Value-Based Decision Support Rules
 // ============================================================================
 //
-// Evaluates INR measurement values against therapeutic ranges and sets
-// colour-coded indicators (LOW/HIGH/VERYHIGH) for anticoagulation management.
+// Purpose:
+//   Per-item decision support rules for the INR (International Normalized
+//   Ratio) measurement. These rules evaluate the CURRENT VALUE of an INR
+//   reading against therapeutic thresholds and colour-code the result in
+//   the flowsheet UI.
 //
-// Fact: MeasurementDSHelper - bound as "m", provides getDataAsDouble()
-// Consequences: setIndicationColor() to flag out-of-range values
+// Clinical Context:
+//   INR measures the anticoagulation level. The standard therapeutic
+//   range is 2.0-3.0. Values outside these ranges indicate:
+//     - INR <2.0 (sub-therapeutic)
+//     - INR 4.0-4.9 (supra-therapeutic): elevated bleeding risk
+//     - INR >=5.0 (critically high): serious hemorrhage risk
 //
-// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+//   Note: The therapeutic range 2.0-3.9 produces no colour alert (displayed
+//   as normal/in-range). Only sub-therapeutic and supra-therapeutic values
+//   trigger visual indicators.
+//
+// Colour Indicator Mapping:
+//   "LOW"    = sub-therapeutic (INR <2.0) - yellow/orange indicator
+//   "HIGH"   = supra-therapeutic (INR 4.0-4.9) - red indicator
+//   "HIGH 1" = critically supra-therapeutic (INR >=5.0) - dark red indicator
+//
+// How It Works:
+//   Unlike the flowsheet timeliness rules (which use MeasurementInfo), these
+//   per-item rules use MeasurementDSHelper, which provides:
+//     - getDataAsDouble(): the numeric measurement value
+//     - setIndicationColor(color): sets the visual indicator in the UI
+//   The MeasurementDSHelper fact is inserted by MeasurementFlowSheet.java
+//   when rendering individual measurement cells.
+//
+// Referenced By:
+//   - XML config: inrFlowsheet.xml, <item> element with ds_rules="INR.drl"
+//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - See also: inrFlowsheet.drl for timeliness rules (when INR is overdue)
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created as Drools 2.0 XML rules (McMaster University)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
 package INR;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
+// ---------------------------------------------------------------------------
+// Sub-therapeutic INR (INR < 2.0)
+// Sets indication colour to "LOW" when INR is below 2.
+// ---------------------------------------------------------------------------
 rule "INR 1"
     when
         m : MeasurementDSHelper()
@@ -23,6 +86,10 @@ rule "INR 1"
         m.setIndicationColor("LOW");
 end
 
+// ---------------------------------------------------------------------------
+// Supra-therapeutic INR (4.0 <= INR < 5.0)
+// Sets indication colour to "HIGH" when INR is between 4.0 and 5.0.
+// ---------------------------------------------------------------------------
 rule "INR 2"
     when
         m : MeasurementDSHelper()
@@ -33,6 +100,11 @@ rule "INR 2"
         m.setIndicationColor("HIGH");
 end
 
+// ---------------------------------------------------------------------------
+// Critically elevated INR (INR >= 5.0)
+// Sets indication colour to "HIGH 1" (more severe than "HIGH")
+// when INR is 5.0 or above.
+// ---------------------------------------------------------------------------
 rule "INR 3"
     when
         m : MeasurementDSHelper()

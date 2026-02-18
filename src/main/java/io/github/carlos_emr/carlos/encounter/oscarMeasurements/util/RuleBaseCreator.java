@@ -25,8 +25,13 @@
  */
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.util;
 
-import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
@@ -59,10 +64,11 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * </ol>
  *
  * <h3>Caching Strategy</h3>
- * <p>Compiled {@link KieBase} instances are cached in {@link RuleBaseFactory} using the
- * full DRL string as the cache key (prefixed with {@code "RuleBaseCreator:"}). This
- * ensures that identical rule sets produce cache hits while different rule configurations
- * trigger fresh compilation. The cache has a 24-hour TTL managed by {@link RuleBaseFactory}.</p>
+ * <p>Compiled {@link KieBase} instances are cached in {@link RuleBaseFactory} using a
+ * SHA-256 hash of the full DRL string as the cache key (prefixed with {@code "RuleBaseCreator:"}).
+ * This ensures that identical rule sets produce cache hits while different rule configurations
+ * trigger fresh compilation, without the memory overhead of storing full DRL text as keys.
+ * The cache has a 24-hour TTL managed by {@link RuleBaseFactory}.</p>
  *
  * <h3>Generated DRL Format</h3>
  * <p>The generated DRL follows this structure:</p>
@@ -101,7 +107,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *   <li>{@code DSGuidelineDrools} - clinical guideline decision support rules</li>
  * </ul>
  *
- * @since 2001-01-01
+ * @since 2009-02-20
  * @see DroolsHelper
  * @see RuleBaseFactory
  * @see DSCondition
@@ -126,16 +132,17 @@ public class RuleBaseCreator {
      *       in the cache for future requests</li>
      * </ol>
      *
-     * <p>The cache key is {@code "RuleBaseCreator:" + fullDrlString}, which guarantees
+     * <p>The cache key is {@code "RuleBaseCreator:" + sha256(fullDrlString)}, which guarantees
      * that identical rule sets always produce cache hits regardless of how they were
-     * constructed. The trade-off is verbose cache keys, but this avoids the need for
-     * a separate key-generation strategy.</p>
+     * constructed, while using a compact hash instead of the full DRL text.</p>
      *
      * @param rulesetName String the DRL package name used in the generated
-     *                    {@code package} declaration (e.g., "rulesetName")
+     *                    {@code package} declaration (e.g., {@code "testPkg"}).
+     *                    Note: callers like DSGuidelineDrools may pass keys containing
+     *                    colons which are not valid Java/DRL package names
      * @param drlRules List of String individual DRL rule definitions, each typically
-     *                 produced by {@link #getRule}; each must contain a complete
-     *                 {@code import ... rule "name" when ... then ... end} block
+     *                 produced by {@link #getRule}; may contain {@code import} statements
+     *                 which are extracted and deduplicated at the package level
      * @return KieBase compiled rule base containing all provided rules, ready for
      *         creating stateful or stateless sessions for rule evaluation
      * @throws Exception if DRL compilation fails due to syntax errors or invalid
@@ -144,28 +151,45 @@ public class RuleBaseCreator {
     public KieBase getRuleBase(String rulesetName, List<String> drlRules) throws Exception {
         long timer = System.currentTimeMillis();
         try {
-            // Assemble a complete DRL file: package declaration followed by all rule strings.
-            // Each rule string (from getRule()) already contains its own import statement,
-            // so no additional imports are needed at the package level.
+            // Assemble a complete DRL file by extracting and deduplicating import
+            // statements from individual rule strings, then placing them once at
+            // the package level for a cleaner generated DRL.
+            Set<String> imports = new LinkedHashSet<>();
+            StringBuilder rulesBody = new StringBuilder();
+            for (String rule : drlRules) {
+                // Separate import lines from the rule body
+                for (String line : rule.split("\n")) {
+                    if (line.startsWith("import ")) {
+                        imports.add(line);
+                    } else {
+                        rulesBody.append(line).append("\n");
+                    }
+                }
+                rulesBody.append("\n");
+            }
+
             StringBuilder drl = new StringBuilder();
             drl.append("package ").append(rulesetName).append(";\n\n");
-            for (String rule : drlRules) {
-                drl.append(rule).append("\n\n");
+            for (String imp : imports) {
+                drl.append(imp).append("\n");
             }
+            drl.append("\n");
+            drl.append(rulesBody);
             String drlString = drl.toString();
             log.debug(drlString);
 
             // Check the RuleBaseFactory cache first to avoid expensive recompilation.
-            // The full DRL string is used as the cache key, ensuring that any change
-            // in rule content (even a single condition value) triggers a fresh compile.
-            KieBase kieBase = RuleBaseFactory.getRuleBase("RuleBaseCreator:" + drlString);
+            // A SHA-256 hash of the DRL content is used as the cache key, ensuring that
+            // any change in rule content triggers a fresh compile while keeping keys compact.
+            String cacheKey = "RuleBaseCreator:" + sha256(drlString);
+            KieBase kieBase = RuleBaseFactory.getRuleBase(cacheKey);
             if (kieBase != null) return kieBase;
 
-            // Cache miss: compile the DRL via the KIE API and store the result.
-            // DroolsHelper handles the KieFileSystem/KieBuilder pipeline and throws
-            // RuntimeException if the DRL contains compilation errors.
+            // Cache miss: compile the DRL via KieHelper and store the result.
+            // DroolsHelper throws DroolsCompilationException if the DRL contains
+            // compilation errors.
             kieBase = DroolsHelper.createKieBaseFromDrl(drlString);
-            RuleBaseFactory.putRuleBase("RuleBaseCreator:" + drlString, kieBase);
+            RuleBaseFactory.putRuleBase(cacheKey, kieBase);
             return kieBase;
         } finally {
             log.debug("generateRuleBase TimeMs : " + (System.currentTimeMillis() - timer));
@@ -258,5 +282,23 @@ public class RuleBaseCreator {
         rule.append("end");
         log.debug("Return Rule: {}", rule);
         return rule.toString();
+    }
+
+    /**
+     * Computes a SHA-256 hex digest of the given string for use as a compact cache key.
+     */
+    private static String sha256(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            // SHA-256 is guaranteed to be available in every JVM
+            throw new RuntimeException("SHA-256 not available", e);
+        }
     }
 }

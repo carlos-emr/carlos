@@ -1,9 +1,51 @@
-// CARLOS EMR - Clinical Report: LDL Lower Than 2.6 Threshold Test
-// Fact: MeasurementDSHelper. Converted from Drools 2.0 XML to 7.x DRL.
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
+// ============================================================================
+// CARLOS EMR - Clinical Report Numerator: LDL Below 2.0 mmol/L (At Target)
+// ============================================================================
+//
+// Purpose:
+//   Population health reporting rule counting patients with LDL <2.0 mmol/L
+//   (the CCS high-risk target). Despite the filename "testLDLlower2p6",
+//   the actual threshold in the code is 2.0, not 2.6 - this is a naming
+//   inconsistency inherited from the original rules.
+//
+// Referenced By:
+//   - XML: ClinicalReports.xml, Numerator id="ldllt2.6"
+//     (name says "LDL lower than 2.5" - another inconsistency)
+//   - Java: DroolsNumerator compiles and fires for each denominator patient
+//   - Displayed in: Clinical Reports interface
+//
+// Fact: MeasurementDSHelper - setMeasurement("LDL") loads latest LDL value.
+// ============================================================================
 package ReportA1C;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
+// LDL <2.0 mmol/L: At high-risk CCS target. No recency window.
+// THRESHOLD MISMATCH: Filename says 2.6, XML says 2.5, code uses 2.0.
 rule "LDL"
     when
         m : MeasurementDSHelper()

@@ -1,19 +1,88 @@
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
 // ============================================================================
-// CARLOS EMR - Hypertension Flowsheet Clinical Recommendation Rules
+// CARLOS EMR - Hypertension Flowsheet Timeliness Rules
 // ============================================================================
 //
-// Rules for the hypertension management flowsheet. Evaluates when key blood
-// pressure and cardiovascular measurements are overdue.
+// Purpose:
+//   These rules provide clinical decision support for the Hypertension
+//   management flowsheet. They monitor whether key blood pressure, lifestyle,
+//   and cardiovascular risk measurements are overdue and generate yellow
+//   "recommendation" or red "warning" alerts in the flowsheet UI.
 //
-// Fact: MeasurementInfo - bound as "m", provides getLastDateRecordedInMonths()
-// Consequences: addRecommendation() for moderate delays, addWarning() for severe
+// Clinical Context:
+//   Hypertension affects approximately 1 in 4 Canadian adults and is the
+//   leading modifiable risk factor for stroke, heart failure, and chronic
+//   kidney disease. Hypertension Canada guidelines recommend regular
+//   monitoring of BP, lifestyle factors (diet, exercise, sodium, alcohol,
+//   smoking, weight), and end-organ damage markers (ACR, eGFR, lipids).
 //
-// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+// Measurement Types Monitored:
+//   Quarterly (3mo recommend / 6mo warn):
+//     BP   - Blood pressure (systolic/diastolic)
+//     NOSK - Number of cigarettes smoked per day (conditional: only if >0)
+//     DIER - Diet and exercise counselling
+//     SODI - Sodium/salt intake assessment
+//     DRPW - Alcoholic drinks per week
+//     WT   - Body weight
+//   Annual (10mo recommend / 12mo warn):
+//     BMI  - Body Mass Index
+//     ACR  - Albumin-to-creatinine ratio (kidney damage screening)
+//     TCHD - Total cholesterol to HDL ratio (cardiovascular risk)
+//     LDL  - LDL cholesterol
+//     TG   - Triglycerides
+//     EGFR - Estimated glomerular filtration rate (kidney function)
+//
+// Referenced By:
+//   - XML config: hypertensionFlowsheet.xml (ds_rules="hypertension.drl",
+//     triggered by ICD-9 code 401)
+//   - XML config: omdHypertensionFlowsheet.xml (ds_rules="hypertension.drl",
+//     Ontario-MD variant)
+//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Displayed in: E-Chart encounter view, Measurement Flowsheet panel
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created as Drools 2.0 XML rules (McMaster University)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
 package HypertensionFlowSheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
+// ---------------------------------------------------------------------------
+// Blood Pressure (BP)
+// The primary measurement for hypertension management. Hypertension Canada
+// targets: <140/90 for most adults, <130/80 for diabetes or CKD.
+// Quarterly monitoring ensures treatment adherence and titration.
+// See also: diab-BP.drl for value-based BP threshold rules.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "BP 1"
     when
         m : MeasurementInfo()
@@ -42,6 +111,16 @@ rule "BP 3"
         m.addWarning("BP","BP hasn't been reviewed");
 end
 
+// ---------------------------------------------------------------------------
+// Number of Cigarettes Smoked per Day (NOSK)
+// Smoking is a major modifiable cardiovascular risk factor. Hypertension +
+// smoking dramatically increases stroke and MI risk. Note the conditional
+// logic: NOSK 1 and NOSK 2 only fire if the last recorded value was >0
+// (i.e., the patient is a smoker). Non-smokers (value=0) won't get alerts.
+// NOSK 3 fires if smoking status has NEVER been recorded (prompts initial
+// assessment regardless of smoking status).
+// Recommendation at 3 months, warning at 6 months (smokers only).
+// ---------------------------------------------------------------------------
 rule "NOSK 1"
     when
         m : MeasurementInfo()
@@ -72,6 +151,11 @@ rule "NOSK 3"
         m.addWarning("NOSK","Number of Cigarrettes has never been recorded, if non smoker enter zero");
 end
 
+// ---------------------------------------------------------------------------
+// Diet and Exercise Counselling (DIER)
+// Tracks whether diet/exercise counselling has been recorded.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "DIER 1"
     when
         m : MeasurementInfo()
@@ -100,6 +184,11 @@ rule "DIER 3"
         m.addWarning("DIER","Diet/Excercise has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Sodium/Salt Intake (SODI)
+// Tracks whether sodium/salt intake has been reviewed.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "SODI 1"
     when
         m : MeasurementInfo()
@@ -128,6 +217,11 @@ rule "SODI 3"
         m.addWarning("SODI","Salt Intake hasn't been reviewed");
 end
 
+// ---------------------------------------------------------------------------
+// Alcoholic Drinks Per Week (DRPW)
+// Tracks whether alcohol consumption (drinks per week) has been reviewed.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "DRPW 1"
     when
         m : MeasurementInfo()
@@ -156,6 +250,11 @@ rule "DRPW 3"
         m.addWarning("DRPW","The Number of Drinks per week hasn't been reviewed");
 end
 
+// ---------------------------------------------------------------------------
+// Body Weight (WT)
+// Tracks whether body weight has been recorded.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "WT 1"
     when
         m : MeasurementInfo()
@@ -184,6 +283,14 @@ rule "WT 3"
         m.addWarning("WT","Weight hasn't been reviewed");
 end
 
+// ---------------------------------------------------------------------------
+// Body Mass Index (BMI)
+// BMI correlates with cardiovascular risk. Target BMI 18.5-24.9 kg/m2.
+// Overweight (BMI 25-29.9) and obese (BMI >=30) patients benefit from
+// structured weight management as part of hypertension treatment.
+// See also: diab-BMI.drl for value-based BMI threshold rules.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "BMI 1"
     when
         m : MeasurementInfo()
@@ -212,6 +319,11 @@ rule "BMI 3"
         m.addWarning("BMI","no BMI has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Albumin-to-Creatinine Ratio (ACR)
+// Tracks whether ACR has been recorded.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "ACR 1"
     when
         m : MeasurementInfo()
@@ -240,6 +352,14 @@ rule "ACR 3"
         m.addWarning("ACR","An Alb: creat ratio value has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Total Cholesterol to HDL Ratio (TCHD)
+// The TC/HDL ratio is a cardiovascular risk predictor used in Canadian
+// risk calculators (Framingham Risk Score). Hypertension + dyslipidemia
+// compounds cardiovascular risk. Target TC/HDL ratio <4.0 for moderate
+// risk, lower for high-risk patients.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "TCHD 1"
     when
         m : MeasurementInfo()
@@ -268,6 +388,11 @@ rule "TCHD 3"
         m.addWarning("TCHD","TC/HDL has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// LDL Cholesterol (LDL)
+// Tracks whether LDL cholesterol has been recorded.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "LDL 1"
     when
         m : MeasurementInfo()
@@ -296,6 +421,14 @@ rule "LDL 3"
         m.addWarning("LDL","LDL has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Triglycerides (TG)
+// Elevated triglycerides are part of the metabolic syndrome cluster
+// (hypertension, dyslipidemia, insulin resistance, central obesity).
+// Hypertriglyceridemia is an independent cardiovascular risk factor.
+// Target: <1.7 mmol/L (fasting).
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "TG 1"
     when
         m : MeasurementInfo()
@@ -324,6 +457,11 @@ rule "TG 3"
         m.addWarning("TG","Triglycerides has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Estimated Glomerular Filtration Rate (EGFR)
+// Tracks whether eGFR has been recorded.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "EGFR 1"
     when
         m : MeasurementInfo()

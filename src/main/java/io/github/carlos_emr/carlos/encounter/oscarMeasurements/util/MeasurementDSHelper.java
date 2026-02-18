@@ -204,9 +204,12 @@ public class MeasurementDSHelper {
 
     public double getNumberFromSplit(String delimiter, int number) {
         double ret = -1;
+        if (mdb == null) {
+            return ret;
+        }
         try {
             String data = mdb.getDataField();
-            log.debug("Trying to parse " + data);
+            log.debug("Trying to parse {}", data);
             ret = Double.parseDouble(data.split(delimiter)[number]);
         } catch (Exception e) {
 
@@ -217,8 +220,12 @@ public class MeasurementDSHelper {
     }
 
     public void setIndicationColor(String c) {
-        log.debug("SETTING COLOUR TO " + c);
-        mdb.setIndicationColour(c);
+        log.debug("SETTING COLOUR TO {}", c);
+        if (mdb != null) {
+            mdb.setIndicationColour(c);
+        } else {
+            log.warn("setIndicationColor('{}') called but no measurement data is loaded (mdb is null); colour will be lost", c);
+        }
     }
 
     public boolean isInRange() {
@@ -230,11 +237,17 @@ public class MeasurementDSHelper {
     }
 
     public String getDateObserved() {
+        if (mdb == null) {
+            return null;
+        }
         return mdb.getDateObserved();
     }
 
     public int getLastDateRecordedInMths() {
         int mths = 0;
+        if (mdb == null) {
+            return mths;
+        }
 
         Date date = mdb.getDateObservedAsDate();
         Date now = new Date();

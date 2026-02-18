@@ -27,9 +27,6 @@
 
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Hashtable;
@@ -42,7 +39,6 @@ import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCreator;
@@ -74,7 +70,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  *       {@code "m.setInRange(true);"} and generate DRL via
  *       {@link TargetColour#getRuleBaseElement(String)}.</li>
  *   <li>Compile the generated DRL into a {@link org.kie.api.KieBase} using
- *       {@link RuleBaseCreator#getRuleBase(String, java.util.ArrayList)}.</li>
+ *       {@link RuleBaseCreator#getRuleBase(String, java.util.List)}.</li>
  *   <li>Create a {@link MeasurementDSHelper} for the patient <strong>with date
  *       range filtering</strong>, insert it into a {@link org.kie.api.runtime.KieSession},
  *       fire all rules, then dispose of the session.</li>
@@ -112,7 +108,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * @see MeasurementFlowSheet
  * @see DroolsNumerator4
  * @see DroolsNumerator2
- * @since 2006-06-17
+ * @since 2006-07-28
  */
 public class DroolsNumerator5 implements Numerator {
 
@@ -141,38 +137,22 @@ public class DroolsNumerator5 implements Numerator {
     public DroolsNumerator5() {
     }
 
-    /**
-     * Returns the unique identifier for this numerator.
-     *
-     * @return String the numerator identifier, or {@code null} if not set
-     */
+    /** Returns the unique identifier for this numerator. */
     public String getId() {
         return id;
     }
 
-    /**
-     * Returns the human-readable display name of this numerator.
-     *
-     * @return String the numerator name, or {@code null} if not set
-     */
+    /** Returns the human-readable display name for this numerator. */
     public String getNumeratorName() {
         return name;
     }
 
-    /**
-     * Sets the human-readable display name of this numerator.
-     *
-     * @param name String the display name to assign
-     */
+    /** Sets the human-readable display name for this numerator. */
     public void setNumeratorName(String name) {
         this.name = name;
     }
 
-    /**
-     * Sets the unique identifier for this numerator.
-     *
-     * @param id String the identifier to assign
-     */
+    /** Sets the unique identifier for this numerator. */
     public void setId(String id) {
         this.id = id;
     }
@@ -202,6 +182,11 @@ public class DroolsNumerator5 implements Numerator {
     public boolean evaluate(LoggedInInfo loggedInInfo, String demographicNo) {
         boolean evalTrue = false;
         try {
+
+            if (replaceableValues == null) {
+                MiscUtils.getLogger().error("Cannot evaluate DroolsNumerator5: replaceableValues not set. Call setReplaceableValues() before evaluate().");
+                return evalTrue;
+            }
 
             // Log all replaceable values for debugging purposes
             Iterator terator = replaceableValues.entrySet().iterator();
@@ -241,6 +226,10 @@ public class DroolsNumerator5 implements Numerator {
 
 
             KieBase kieBase = rcb.getRuleBase("rulesetName", list2);
+            if (kieBase == null) {
+                MiscUtils.getLogger().error("Cannot evaluate clinical rules: programmatic rule compilation failed for demographic '{}'", demographicNo);
+                return evalTrue;
+            }
 
             // Create a measurement helper WITH date range filtering
             // Only measurements within [startDate, endDate] are considered
@@ -249,11 +238,11 @@ public class DroolsNumerator5 implements Numerator {
 
 
             // KieSession lifecycle: create session, insert fact, fire rules, dispose
-            MiscUtils.getLogger().debug("new working mem");
+            MiscUtils.getLogger().debug("newKieSession");
             KieSession kieSession = kieBase.newKieSession();
             try {
                 // Insert the measurement helper as a fact into the rule engine
-                MiscUtils.getLogger().debug("assertObject");
+                MiscUtils.getLogger().debug("insert");
                 kieSession.insert(dshelper);
 
                 // Execute all matching rules; rules set dshelper.inRange if criteria met
@@ -269,90 +258,34 @@ public class DroolsNumerator5 implements Numerator {
 
             MiscUtils.getLogger().debug("right before catch");
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to evaluate Drools rules for demographic '{}'", demographicNo, e);
         }
         return evalTrue;
     }
 
-    /**
-     * Sets the DRL rule filename. While DroolsNumerator5 builds rules programmatically
-     * rather than loading from a file, this setter is retained for configuration compatibility.
-     *
-     * @param file String the filename of the DRL file
-     */
+    /** Sets the DRL rule filename. */
     public void setFile(String file) {
         this.file = file;
     }
 
-    /**
-     * Returns the DRL rule filename.
-     *
-     * @return String the DRL filename, or {@code null} if not set
-     */
+    /** Returns the DRL rule filename. */
     public String getFile() {
         return file;
     }
 
 
     /**
-     * Loads a DRL rule file and compiles it into a {@link KieBase} using a two-tier
-     * resolution strategy.
+     * Loads a measurement decision support DRL file using the standard two-tier strategy.
      *
-     * <p>Note: This method is not called by the {@link #evaluate} method of DroolsNumerator5
-     * (which builds rules programmatically), but is available for subclasses or alternative
-     * evaluation paths.</p>
-     *
-     * <p><strong>File resolution priority:</strong></p>
-     * <ol>
-     *   <li><strong>External filesystem</strong> -- If the {@code MEASUREMENT_DS_DIRECTORY}
-     *       property is configured in {@link OscarProperties}, the DRL file is loaded
-     *       from that directory.</li>
-     *   <li><strong>Classpath fallback</strong> -- If no external file is found, the DRL
-     *       is loaded from the classpath at
-     *       {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/}.</li>
-     * </ol>
-     *
-     * @param string String the DRL filename to load
+     * @param string the DRL filename to load
      * @return KieBase the compiled rule base, or {@code null} if loading fails
-     * @see DroolsHelper#loadFromInputStream(java.io.InputStream)
-     * @see DroolsHelper#loadFromUrl(URL)
+     * @see DroolsHelper#loadMeasurementRuleBase(String, Class)
      */
     public KieBase loadMeasurementRuleBase(String string) {
-        KieBase measurementRuleBase = null;
-        try {
-            boolean fileFound = false;
-
-            // Priority 1: Try loading from the external MEASUREMENT_DS_DIRECTORY
-            String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
-
-            if (measurementDirPath != null) {
-                //if (measurementDirPath.charAt(measurementDirPath.length()) != /)
-                File file = new File(OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY") + string);
-                if (file.isFile() || file.canRead()) {
-                    MiscUtils.getLogger().debug("Loading from file " + file.getName());
-                    FileInputStream fis = new FileInputStream(file);
-                    measurementRuleBase = DroolsHelper.loadFromInputStream(fis);
-                    fileFound = true;
-                }
-            }
-
-            // Priority 2: Fall back to classpath-bundled DRL resource
-            if (!fileFound) {
-                URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/" + string);  //TODO: change this so it is configurable;
-                MiscUtils.getLogger().debug("loading from URL " + url.getFile());
-                measurementRuleBase = DroolsHelper.loadFromUrl(url);
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-        return measurementRuleBase;
+        return DroolsHelper.loadMeasurementRuleBase(string, MeasurementFlowSheet.class);
     }
 
-    /**
-     * Returns the output values map produced by rule evaluation.
-     *
-     * @return Hashtable the output key-value pairs, or {@code null} if not populated
-     */
+    /** Returns the key-value map of output values produced by evaluation. */
     public Hashtable getOutputValues() {
         return outputValues;
     }
@@ -375,16 +308,12 @@ public class DroolsNumerator5 implements Numerator {
                     outputfields[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Failed to parse output fields from string '{}'", str, e);
             }
         }
     }
 
-    /**
-     * Returns the parsed output field names.
-     *
-     * @return String[] the output field name array, or {@code null} if not parsed
-     */
+    /** Returns the parsed output field names. */
     public String[] getOutputFields() {
         return outputfields;
     }
@@ -409,12 +338,7 @@ public class DroolsNumerator5 implements Numerator {
      */
     Hashtable replaceableValues = null;
 
-    /**
-     * Returns the array of replaceable value keys expected by this numerator.
-     *
-     * @return String[] the keys identifying expected replaceable values,
-     *         or {@code null} if none are configured
-     */
+    /** Returns the keys identifying which replaceable values must be injected before evaluation. */
     public String[] getReplaceableKeys() {
         return replaceKeys;
     }
@@ -442,7 +366,7 @@ public class DroolsNumerator5 implements Numerator {
                     replaceKeys[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Failed to parse replaceable value keys from string '{}'", str, e);
             }
         }
     }
@@ -462,26 +386,12 @@ public class DroolsNumerator5 implements Numerator {
         return repVal;
     }
 
-    /**
-     * Sets the replaceable values map containing runtime parameters for this numerator.
-     *
-     * <p>For DroolsNumerator5, the map must contain {@code "measurements"} (the measurement
-     * type code), {@code "value"} (the expected string for equality comparison),
-     * {@code "startDate"}, and {@code "endDate"} (date range boundaries in {@code yyyy-MM-dd}
-     * format). These values are extracted in {@link #evaluate(LoggedInInfo, String)} to build
-     * the programmatic DRL rule and configure date-filtered measurement lookup.</p>
-     *
-     * @param vals Hashtable the runtime parameter map to inject
-     */
+    /** Sets the replaceable values map for runtime parameter injection. */
     public void setReplaceableValues(Hashtable vals) {
         replaceableValues = vals;
     }
 
-    /**
-     * Returns the current replaceable values map.
-     *
-     * @return Hashtable the replaceable values, or {@code null} if not set
-     */
+    /** Returns the replaceable values map. */
     public Hashtable getReplaceableValues() {
         return replaceableValues;
     }

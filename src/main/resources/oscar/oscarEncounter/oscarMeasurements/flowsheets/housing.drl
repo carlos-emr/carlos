@@ -1,19 +1,86 @@
+// Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Centre for Research on Inner City Health,
+// St. Michael's Hospital, Toronto.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
 // ============================================================================
-// CARLOS EMR - Housing Assessment Flowsheet Rules
+// CARLOS EMR - Housing Assessment Flowsheet Timeliness Rules
 // ============================================================================
 //
-// Rules for the housing assessment flowsheet used in community health
-// settings. Evaluates when housing stability assessments need updating.
+// Purpose:
+//   These rules provide decision support for the Housing Assessment
+//   flowsheet, part of the CAISI (Client Access to Integrated Services and
+//   Information) community health module. They monitor whether key housing-
+//   related questions have been answered within the past year.
 //
-// Fact: MeasurementInfo - bound as "m", provides getLastDateRecordedInMonths()
-// Consequences: addRecommendation() / addWarning() for overdue assessments
+// Clinical Context:
+//   Housing instability is one of the strongest social determinants of health.
+//   Homelessness and inadequate housing are associated with higher mortality,
+//   increased emergency department use, higher rates of communicable disease,
+//   mental health crises, and difficulty maintaining treatment plans. This
+//   flowsheet is used by community health centres (CHCs), supportive housing
+//   programs, and outreach services serving homeless and underhoused populations.
 //
-// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+//   Measurement Types Monitored:
+//     - Hass: Housing Assessment status (current housing situation)
+//     - CnAp: Community Needs Assessment/Placement (eligibility for housing)
+//     - HAP:  Housing Action Plan (goals and steps toward stable housing)
+//     - CCAC: Community Care Access Centre referral (Ontario home care access)
+//     - CMSP: Case Management/Support Plan (integrated support coordination)
+//     - HVIS: Housing Visitation status (outreach/home visit tracking)
+//     - Hsup: Housing Support services (referrals to housing support programs)
+//
+// How It Works:
+//   Like the finances flowsheet, this uses a simple 2-rule pattern per question:
+//     Rule "X 1" - WARNING: question not answered in 12+ months
+//     Rule "X 2" - WARNING: question has NEVER been answered (-1)
+//   No "recommendation" tier - only warnings at 12 months.
+//
+// Referenced By:
+//   - XML config: housingFlowsheet.xml (ds_rules="housing.drl",
+//     is_universal="true", is_medical="false")
+//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Displayed in: E-Chart encounter view, CAISI community health programs
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created for CAISI community health module (McMaster)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
 package HousingFlowsheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
+// ---------------------------------------------------------------------------
+// Housing Assessment Status (Hass)
+// Documents the client's current housing situation: housed, sheltered,
+// rough sleeping, couch surfing, transitional housing, etc. This is the
+// primary housing status indicator for the CAISI program.
+// Warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "Hass 1"
     when
         m : MeasurementInfo()
@@ -30,6 +97,10 @@ rule "Hass 2"
         m.addWarning("Hass","Question not answered");
 end
 
+// Community Needs Assessment/Placement (CnAp)
+// Evaluates eligibility for community housing programs, supportive housing,
+// and transitional housing placements. Used by intake workers and case
+// managers to assess placement readiness and priority.
 rule "CnAp 1"
     when
         m : MeasurementInfo()
@@ -46,6 +117,10 @@ rule "CnAp 2"
         m.addWarning("CnAp","Question not answered");
 end
 
+// Housing Action Plan (HAP)
+// Tracks whether an active housing plan exists with goals and steps
+// toward obtaining or maintaining stable housing. Part of the case
+// management approach to addressing homelessness.
 rule "HAP 1"
     when
         m : MeasurementInfo()
@@ -62,6 +137,11 @@ rule "HAP 2"
         m.addWarning("HAP","Question not answered");
 end
 
+// Community Care Access Centre (CCAC)
+// Ontario-specific: CCAC (now part of Ontario Health atHome) coordinates
+// home and community care services including nursing, personal support,
+// therapy, and medical supplies. Referral status tracks whether the client
+// has been connected to home care for health support in their housing.
 rule "CCAC 1"
     when
         m : MeasurementInfo()
@@ -78,6 +158,10 @@ rule "CCAC 2"
         m.addWarning("CCAC","Question not answered");
 end
 
+// Case Management/Support Plan (CMSP)
+// Documents whether the client has an active case management plan that
+// integrates housing, health, mental health, substance use, and social
+// support services. Ensures coordinated wraparound care.
 rule "CMSP 1"
     when
         m : MeasurementInfo()
@@ -94,6 +178,11 @@ rule "CMSP 2"
         m.addWarning("CMSP","Question not answered");
 end
 
+// Housing Visitation Status (HVIS)
+// Tracks outreach and home visit activity for housed clients. Regular
+// visitation is essential for clients in supportive housing to ensure
+// housing stability, medication adherence, and early intervention for
+// emerging crises.
 rule "HVIS 1"
     when
         m : MeasurementInfo()
@@ -110,6 +199,10 @@ rule "HVIS 2"
         m.addWarning("HVIS","Question not answered");
 end
 
+// Housing Support Services (Hsup)
+// Whether the client has been connected with housing support services
+// such as rent-geared-to-income applications, housing tribunal support,
+// tenant advocacy, or housing-first program enrollment.
 rule "Hsup 1"
     when
         m : MeasurementInfo()

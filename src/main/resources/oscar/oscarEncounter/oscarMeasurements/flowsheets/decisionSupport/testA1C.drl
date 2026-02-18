@@ -1,17 +1,76 @@
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
 // ============================================================================
-// CARLOS EMR - Clinical Report: A1C Threshold Test Rules
+// CARLOS EMR - Clinical Report Numerator: A1C Below 7.0% (At Target)
 // ============================================================================
 //
-// Used by DroolsNumerator for clinical reporting. Evaluates if a patient's
-// A1C measurement falls within a specified range, setting isInRange flag.
+// Purpose:
+//   Population health reporting rule used by the Clinical Reports module
+//   to count patients whose most recent A1C is at or below the Diabetes
+//   Canada target of 7.0% (or 0.07 in fraction format).
 //
-// Fact: MeasurementDSHelper - bound as "m"
-// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+// Clinical Context:
+//   This rule is a NUMERATOR test - it determines whether a given patient
+//   should be counted in the numerator of a population health indicator.
+//   The indicator "a1clt0p071" counts diabetic patients who have achieved
+//   glycemic control (A1C <7.0%). This is used for:
+//     - Practice-level quality reporting
+//     - Clinical audit and performance measurement
+//     - Identifying patients needing intervention
+//
+// How It Works:
+//   Unlike flowsheet decision support rules that colour-code individual
+//   measurements, clinical report rules evaluate across a patient's
+//   measurement history. The key methods:
+//     - setMeasurement("A1C"): loads the patient's latest A1C value;
+//       returns true if a value exists, false if never recorded
+//     - setInRange(true): marks this patient as meeting the criteria
+//       (counted in the numerator)
+//   The DroolsNumerator Java class inserts a MeasurementDSHelper fact
+//   for each patient in the denominator and fires these rules.
+//
+// Referenced By:
+//   - XML config: ClinicalReports.xml
+//     <Numerator id="a1clt0p071" name="A1C lower than 0.07" type="DROOLS"
+//      file="testA1C.drl"/>
+//   - Java: DroolsNumerator (in oscarReport package) compiles and fires
+//   - Displayed in: Clinical Reports interface (population health reports)
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created as Drools 2.0 XML rules (McMaster University)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
 package ReportA1C;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
+// A1C at target - percentage format (<7.0%, values >=2.0 to exclude fractions)
 rule "A1C_1"
     when
         m : MeasurementDSHelper()
@@ -23,6 +82,7 @@ rule "A1C_1"
         m.setInRange(true);
 end
 
+// A1C at target - fraction format (<0.07, i.e., <7.0% expressed as decimal)
 rule "A1C_2"
     when
         m : MeasurementDSHelper()

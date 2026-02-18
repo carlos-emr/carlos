@@ -1,19 +1,87 @@
+// Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Centre for Research on Inner City Health,
+// St. Michael's Hospital, Toronto.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
 // ============================================================================
-// CARLOS EMR - Financial Assessment Flowsheet Rules
+// CARLOS EMR - Financial Assessment Flowsheet Timeliness Rules
 // ============================================================================
 //
-// Rules for the financial assessment flowsheet used in community health
-// settings. Evaluates when financial assessment data needs review.
+// Purpose:
+//   These rules provide decision support for the Financial Assessment
+//   flowsheet, part of the CAISI (Client Access to Integrated Services and
+//   Information) community health module. They monitor whether key financial
+//   and social determinant questions have been answered within the past year.
 //
-// Fact: MeasurementInfo - bound as "m", provides getLastDateRecordedInMonths()
-// Consequences: addRecommendation() / addWarning() for overdue assessments
+// Clinical Context:
+//   Social determinants of health, including financial stability, employment,
+//   and access to benefits programs, significantly impact health outcomes.
+//   This flowsheet is used by community health centres (CHCs) and programs
+//   serving marginalized populations (homeless, underhoused, mental health,
+//   substance use). It tracks eligibility and enrollment in Canadian social
+//   assistance programs:
+//     - OW: Ontario Works (provincial social assistance)
+//     - ODSP: Ontario Disability Support Program
+//     - CPP: Canada Pension Plan (federal pension)
+//     - OAS: Old Age Security (federal seniors benefit)
+//     - GAIN: Guaranteed Annual Income for Need
+//     - Empl: Employment status/income
+//     - FTHR: Family/Third-Party financial support
+//     - PGT: Public Guardian and Trustee
+//     - SPDT: Spending/budgeting assessment
+//     - Fsup: Financial support services referral
 //
-// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+// How It Works:
+//   Unlike the clinical flowsheets which have 3 tiers per measurement, this
+//   flowsheet uses a simpler 2-rule pattern per question:
+//     Rule "X 1" - WARNING: question not answered in 12+ months
+//     Rule "X 2" - WARNING: question has NEVER been answered (-1)
+//   There are no "recommendation" tier alerts - only warnings at 12 months.
+//
+// Referenced By:
+//   - XML config: financesFlowsheet.xml (ds_rules="finances.drl",
+//     is_universal="true", is_medical="false")
+//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Displayed in: E-Chart encounter view, CAISI community health programs
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created for CAISI community health module (McMaster)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
 package FinancesFlowsheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
+// ---------------------------------------------------------------------------
+// Ontario Works (OW)
+// Provincial social assistance program providing financial and employment
+// assistance to people in need in Ontario.
+// Warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "OW 1"
     when
         m : MeasurementInfo()
@@ -30,6 +98,8 @@ rule "OW 2"
         m.addWarning("OW","Question not answered");
 end
 
+// Ontario Disability Support Program (ODSP)
+// Provincial disability income support for people with disabilities in Ontario.
 rule "ODSP 1"
     when
         m : MeasurementInfo()
@@ -46,6 +116,9 @@ rule "ODSP 2"
         m.addWarning("ODSP","Question not answered");
 end
 
+// Canada Pension Plan (CPP)
+// Federal retirement/disability pension. CPP Disability is available to
+// contributors who cannot work due to a severe and prolonged disability.
 rule "CPP 1"
     when
         m : MeasurementInfo()
@@ -62,6 +135,9 @@ rule "CPP 2"
         m.addWarning("CPP","Question not answered");
 end
 
+// Old Age Security (OAS)
+// Federal pension program for Canadians aged 65+. Includes Guaranteed
+// Income Supplement (GIS) for low-income seniors.
 rule "OAS 1"
     when
         m : MeasurementInfo()
@@ -78,6 +154,8 @@ rule "OAS 2"
         m.addWarning("OAS","Question not answered");
 end
 
+// Guaranteed Annual Income for Need (GAIN)
+// Provincial income supplement programs for low-income individuals.
 rule "GAIN 1"
     when
         m : MeasurementInfo()
@@ -94,6 +172,8 @@ rule "GAIN 2"
         m.addWarning("GAIN","Question not answered");
 end
 
+// Employment Status (Empl)
+// Tracks current employment status and income sources.
 rule "Empl 1"
     when
         m : MeasurementInfo()
@@ -110,6 +190,8 @@ rule "Empl 2"
         m.addWarning("Empl","Question not answered");
 end
 
+// Family/Third-Party Financial Support (FTHR)
+// Whether the client receives financial support from family or other parties.
 rule "FTHR 1"
     when
         m : MeasurementInfo()
@@ -126,6 +208,10 @@ rule "FTHR 2"
         m.addWarning("FTHR","Question not answered");
 end
 
+// Public Guardian and Trustee (PGT)
+// Whether the client's finances are managed by the Office of the Public
+// Guardian and Trustee, typically for individuals who are incapable of
+// managing their own financial affairs.
 rule "PGT 1"
     when
         m : MeasurementInfo()
@@ -142,6 +228,8 @@ rule "PGT 2"
         m.addWarning("PGT","Question not answered");
 end
 
+// Spending/Budgeting Assessment (SPDT)
+// Assessment of the client's ability to manage spending and budgeting.
 rule "SPDT 1"
     when
         m : MeasurementInfo()
@@ -158,6 +246,9 @@ rule "SPDT 2"
         m.addWarning("SPDT","Question not answered");
 end
 
+// Financial Support Services (Fsup)
+// Whether the client has been connected with financial support services
+// (e.g., financial counselling, tax filing assistance, benefits navigation).
 rule "Fsup 1"
     when
         m : MeasurementInfo()

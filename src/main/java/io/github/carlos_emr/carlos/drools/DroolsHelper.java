@@ -1,43 +1,45 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * CARLOS EMR - https://github.com/carlos-emr/carlos
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.drools;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
-import org.kie.api.KieServices;
-import org.kie.api.builder.KieBuilder;
-import org.kie.api.builder.KieFileSystem;
 import org.kie.api.builder.Message;
-import org.kie.api.builder.ReleaseId;
 import org.kie.api.builder.Results;
-import org.kie.api.runtime.KieContainer;
+import org.kie.api.io.ResourceType;
+import org.kie.internal.utils.KieHelper;
 
+import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 /**
  * Bridge utility for loading Drools rules and creating KieBase instances.
@@ -48,24 +50,23 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * compile them into executable {@link KieBase} instances.</p>
  *
  * <h3>Architecture Overview</h3>
- * <p>The KIE compilation pipeline works as follows:</p>
+ * <p>The KIE compilation pipeline uses {@link KieHelper} as follows:</p>
  * <ol>
- *   <li>DRL content is written to a virtual {@link KieFileSystem}</li>
- *   <li>A {@link KieBuilder} compiles the DRL into an internal knowledge module</li>
- *   <li>A {@link KieContainer} is created from the compiled module</li>
- *   <li>The {@link KieBase} is extracted from the container for rule execution</li>
+ *   <li>A new {@link KieHelper} instance is created (lightweight, no global state)</li>
+ *   <li>DRL content is added as a {@link ResourceType#DRL} resource</li>
+ *   <li>Compilation results are verified for errors</li>
+ *   <li>The {@link KieBase} is built from the helper for rule execution</li>
  * </ol>
  *
  * <h3>Thread Safety</h3>
- * <p>Each compilation uses a unique {@link ReleaseId} generated via an {@link AtomicLong}
- * counter. This prevents collisions when multiple threads compile rules concurrently,
- * as the shared {@code KieRepository} indexes modules by their release ID.</p>
+ * <p>Uses {@link KieHelper} which creates self-contained rule compilations without
+ * installing modules into the global KIE repository. This avoids unbounded metadata
+ * growth and thread-safety issues with the shared {@code KieRepository}.</p>
  *
  * <h3>Usage in CARLOS EMR</h3>
  * <p>This helper is used by:</p>
  * <ul>
- *   <li>{@link RuleBaseFactory} - for caching compiled knowledge bases</li>
- *   <li>{@code PreventionDSImpl} - for loading immunization schedule rules</li>
+ *   <li>{@code PreventionDSImpl} - for loading immunization schedule rules (via compiled KieBase)</li>
  *   <li>{@code MeasurementFlowSheet} - for clinical measurement decision support</li>
  *   <li>{@code WorkFlowDSFactory} - for workflow automation rules</li>
  *   <li>{@code DroolsNumerator} variants - for clinical reporting rules</li>
@@ -79,13 +80,6 @@ public final class DroolsHelper {
 
     private static final Logger log = MiscUtils.getLogger();
 
-    /**
-     * Thread-safe counter for generating unique ReleaseId version numbers.
-     * Each compilation increments this counter to avoid collisions in the
-     * shared KIE repository when multiple threads compile rules simultaneously.
-     */
-    private static final AtomicLong counter = new AtomicLong(0);
-
     /** Utility class - prevent instantiation. */
     private DroolsHelper() {
     }
@@ -94,22 +88,24 @@ public final class DroolsHelper {
      * Loads DRL rules from an InputStream and returns a compiled KieBase.
      *
      * <p>Reads the entire stream content as UTF-8 text and delegates to
-     * {@link #createKieBaseFromDrl(String)} for compilation. The caller is
-     * responsible for closing the InputStream after this method returns.</p>
+     * {@link #createKieBaseFromDrl(String)} for compilation.</p>
+     *
+     * <p><strong>Important</strong>: This method does NOT close the InputStream.
+     * The caller is responsible for closing it, typically via try-with-resources.</p>
      *
      * <p>Used by {@code PreventionDSImpl} to load prevention rules from the filesystem
      * and by {@code DroolsNumerator} variants to load measurement decision support rules.</p>
      *
      * @param inputStream InputStream containing DRL rule text (UTF-8 encoded)
      * @return KieBase compiled rule base ready for creating KieSessions
-     * @throws RuntimeException if the stream cannot be read or rule compilation fails
+     * @throws DroolsCompilationException if the stream cannot be read or rule compilation fails
      */
-    public static KieBase loadFromInputStream(InputStream inputStream) {
+    public static KieBase loadFromInputStream(InputStream inputStream) throws DroolsCompilationException {
         try {
             String drl = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
             return createKieBaseFromDrl(drl);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to read DRL from InputStream", e);
+            throw new DroolsCompilationException("Failed to read DRL from InputStream", e);
         }
     }
 
@@ -124,111 +120,118 @@ public final class DroolsHelper {
      *
      * @param url URL pointing to a DRL rule file (classpath or filesystem)
      * @return KieBase compiled rule base ready for creating KieSessions
-     * @throws RuntimeException if the URL cannot be read or rule compilation fails
+     * @throws DroolsCompilationException if the URL cannot be read or rule compilation fails
      */
-    public static KieBase loadFromUrl(URL url) {
+    public static KieBase loadFromUrl(URL url) throws DroolsCompilationException {
         try (InputStream is = url.openStream()) {
             String drl = IOUtils.toString(is, StandardCharsets.UTF_8);
             return createKieBaseFromDrl(drl);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to read DRL from URL", e);
+            throw new DroolsCompilationException("Failed to read DRL from URL", e);
         }
     }
 
     /**
      * Creates a KieBase from a single DRL string.
      *
-     * <p>This is the core compilation method. It performs the following steps:</p>
+     * <p>This is the core compilation method. It uses {@link KieHelper} which compiles
+     * DRL rules without installing modules into the global KIE repository, avoiding
+     * unbounded metadata growth in long-running server processes.</p>
+     *
+     * <p>Compilation steps:</p>
      * <ol>
-     *   <li>Obtains the singleton {@link KieServices} instance</li>
-     *   <li>Generates a unique {@link ReleaseId} using the atomic counter to avoid
-     *       thread-safety issues with the shared KIE repository</li>
-     *   <li>Creates a virtual {@link KieFileSystem} and writes the DRL content
-     *       to {@code src/main/resources/rules.drl}</li>
-     *   <li>Builds the rules using {@link KieBuilder#buildAll()}</li>
-     *   <li>Checks for compilation errors and throws if any are found</li>
-     *   <li>Creates a {@link KieContainer} and extracts the default {@link KieBase}</li>
+     *   <li>Creates a new {@link KieHelper} instance (lightweight, no global state)</li>
+     *   <li>Adds the DRL content as a {@link ResourceType#DRL} resource</li>
+     *   <li>Verifies compilation results for errors</li>
+     *   <li>Builds and returns the {@link KieBase}</li>
      * </ol>
      *
-     * @param drl String containing complete DRL rules (must include package declaration,
-     *            imports, and rule definitions)
+     * @param drl String containing complete DRL rules (typically includes package declaration,
+     *            imports, and rule definitions; DRL without a package declaration defaults
+     *            to the Drools "defaultpkg" package)
      * @return KieBase compiled rule base containing all successfully compiled rules
-     * @throws RuntimeException if the DRL contains syntax errors or compilation fails;
-     *                          error details are logged at ERROR level before throwing
+     * @throws DroolsCompilationException if the DRL contains syntax errors or compilation fails;
+     *                                    the exception message includes the specific compilation errors
      */
-    public static KieBase createKieBaseFromDrl(String drl) {
-        KieServices kieServices = KieServices.Factory.get();
-
-        // Generate a unique ReleaseId per compilation to prevent thread collisions.
-        // The KIE repository is a global singleton; using the same ReleaseId from
-        // concurrent threads would cause unpredictable behavior.
-        long id = counter.incrementAndGet();
-        ReleaseId releaseId = kieServices.newReleaseId(
-                "io.github.carlos_emr.carlos.drools",
-                "dynamic-rules",
-                "1.0." + id);
-
-        // Write DRL content to a virtual filesystem for KIE compilation.
-        // The path "src/main/resources/rules.drl" follows the KIE convention
-        // for automatic resource discovery within a KIE module.
-        KieFileSystem kfs = kieServices.newKieFileSystem();
-        kfs.generateAndWritePomXML(releaseId);
-        kfs.write("src/main/resources/rules.drl", drl);
-
-        // Compile the DRL rules
-        KieBuilder kieBuilder = kieServices.newKieBuilder(kfs).buildAll();
-        Results results = kieBuilder.getResults();
-
-        // Check for compilation errors (warnings are acceptable)
-        if (results.hasMessages(Message.Level.ERROR)) {
-            String errors = results.getMessages(Message.Level.ERROR).toString();
-            log.error("DRL compilation errors: {}", errors);
-            throw new RuntimeException("DRL compilation errors: see log for details");
+    public static KieBase createKieBaseFromDrl(String drl) throws DroolsCompilationException {
+        if (drl == null || drl.trim().isEmpty()) {
+            throw new DroolsCompilationException("DRL content must not be null or empty");
         }
 
-        // Create a container from the compiled module and extract the KieBase
-        KieContainer kieContainer = kieServices.newKieContainer(releaseId);
-        return kieContainer.getKieBase();
+        // KieHelper creates a self-contained compilation context that does not
+        // register modules in the global KIE repository, preventing unbounded
+        // metadata growth over time.
+        KieHelper kieHelper = new KieHelper();
+        kieHelper.addContent(drl, ResourceType.DRL);
+
+        // Check for compilation errors (warnings are acceptable)
+        Results results = kieHelper.verify();
+        if (results.hasMessages(Message.Level.ERROR)) {
+            List<Message> errorMessages = results.getMessages(Message.Level.ERROR);
+            log.error("DRL compilation errors: {}", errorMessages);
+            throw new DroolsCompilationException("DRL compilation failed with "
+                    + errorMessages.size() + " error(s): " + errorMessages);
+        }
+
+        return kieHelper.build();
     }
 
     /**
-     * Creates a KieBase from multiple DRL rule strings combined into a single rule set.
+     * Loads a measurement decision support DRL file using the standard two-tier loading strategy.
      *
-     * <p>Assembles a complete DRL file from the given package name, imports, and
-     * individual rule strings, then delegates to {@link #createKieBaseFromDrl(String)}
-     * for compilation.</p>
+     * <p>This method centralizes the measurement rule loading logic previously duplicated
+     * across {@code DroolsNumerator} (1-5) and {@code MeasurementFlowSheet}. It uses a
+     * two-tier priority strategy:</p>
+     * <ol>
+     *   <li><strong>Filesystem</strong> -- If the {@code MEASUREMENT_DS_DIRECTORY} property is
+     *       set in {@link OscarProperties}, attempts to load the DRL file from that directory.
+     *       The path is validated via {@link PathValidationUtils#validatePath(String, File)}.</li>
+     *   <li><strong>Classpath fallback</strong> -- If no external file is found, loads from the
+     *       classpath at {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/}.</li>
+     * </ol>
      *
-     * <p>This method is available for programmatic rule builders (e.g., {@code RuleBaseCreator},
-     * {@code DSGuidelineDrools}) that generate individual rule strings and need them
-     * compiled together into a single knowledge base. Currently unused but retained
-     * as a utility for future refactoring of the programmatic DRL generation pipeline.</p>
-     *
-     * @param packageName String the DRL package name (e.g., "preventions", "measurements")
-     * @param imports List of String fully qualified class names to import
-     *                (e.g., "io.github.carlos_emr.carlos.prevention.Prevention")
-     * @param ruleStrings List of String individual DRL rule definitions, each containing
-     *                    a complete {@code rule "name" when ... then ... end} block
-     * @return KieBase compiled rule base containing all provided rules
-     * @throws RuntimeException if compilation produces errors
+     * @param drlFilename the DRL filename to load (e.g. "bp_check.drl")
+     * @param classpathAnchor the class used to resolve classpath resources (determines the classloader)
+     * @return KieBase the compiled rule base, or {@code null} if loading fails
      */
-    public static KieBase createKieBaseFromRules(String packageName, List<String> imports, List<String> ruleStrings) {
-        StringBuilder drl = new StringBuilder();
+    public static KieBase loadMeasurementRuleBase(String drlFilename, Class<?> classpathAnchor) {
+        KieBase measurementRuleBase = null;
+        try {
+            boolean fileFound = false;
 
-        // Build the DRL package header
-        drl.append("package ").append(packageName).append(";\n\n");
+            // Priority 1: Try loading from the external MEASUREMENT_DS_DIRECTORY
+            String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
 
-        // Add import statements for all required fact classes
-        for (String imp : imports) {
-            drl.append("import ").append(imp).append(";\n");
+            if (measurementDirPath != null) {
+                File allowedDir = new File(measurementDirPath);
+                File file = PathValidationUtils.validatePath(drlFilename, allowedDir);
+                if (file.isFile() && file.canRead()) {
+                    log.debug("Loading measurement DRL from file: {}", file.getName());
+                    try (FileInputStream fis = new FileInputStream(file)) {
+                        measurementRuleBase = loadFromInputStream(fis);
+                    }
+                    fileFound = true;
+                }
+            }
+
+            // Priority 2: Fall back to classpath-bundled DRL resource
+            if (!fileFound) {
+                String resourcePath = "/oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/" + drlFilename;
+                URL url = classpathAnchor.getResource(resourcePath);
+                if (url == null) {
+                    log.warn("Measurement DRL resource not found on classpath: {}", resourcePath);
+                    return null;
+                }
+                log.debug("Loading measurement DRL from classpath: {}", url.getFile());
+                measurementRuleBase = loadFromUrl(url);
+            }
+        } catch (SecurityException e) {
+            log.error("Security violation loading measurement DRL '{}': path traversal rejected", drlFilename, e);
+            throw e;
+        } catch (IOException | DroolsCompilationException e) {
+            log.error("Failed to load measurement rule base for DRL file '{}'", drlFilename, e);
         }
-        drl.append("\n");
-
-        // Append each individual rule definition
-        for (String rule : ruleStrings) {
-            drl.append(rule).append("\n\n");
-        }
-
-        log.debug("Generated DRL:\n{}", drl);
-        return createKieBaseFromDrl(drl.toString());
+        return measurementRuleBase;
     }
+
 }

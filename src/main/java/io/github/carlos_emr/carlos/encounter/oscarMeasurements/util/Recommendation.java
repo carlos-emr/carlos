@@ -33,7 +33,6 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import org.jdom2.Element;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.DSCondition;
 
 
 /**
@@ -76,7 +75,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.DSCondition;
  * @see RecommendationCondition
  * @see io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
  * @see io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet
- * @since 2026-01-06
+ * @since 2009-02-20
  */
 public class Recommendation {
     private static final Logger log = MiscUtils.getLogger();
@@ -319,14 +318,6 @@ public class Recommendation {
 
         return ruleText;
     }
-
-//    public String getMonthrange() {
-//        return monthrange;
-//    }
-//
-//    public void setMonthrange(String monthrange) {
-//        this.monthrange = monthrange;
-//    }
 
     /**
      * Returns the strength (severity level) of this recommendation.

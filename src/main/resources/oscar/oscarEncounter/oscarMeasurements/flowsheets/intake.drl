@@ -1,18 +1,95 @@
+// Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Centre for Research on Inner City Health,
+// St. Michael's Hospital, Toronto.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
 // ============================================================================
-// CARLOS EMR - Patient Intake Flowsheet Rules
+// CARLOS EMR - Patient Intake Flowsheet Timeliness Rules
 // ============================================================================
 //
-// Rules for the patient intake flowsheet used in community health settings.
-// Note: package name is "FinancesFlowsheet" due to a pre-existing naming
-// inconsistency inherited from the original XML rules.
+// Purpose:
+//   These rules provide decision support for the Patient Intake flowsheet,
+//   part of the CAISI (Client Access to Integrated Services and Information)
+//   community health module. They monitor whether key intake and enrollment
+//   steps have been completed or reviewed within the past year.
 //
-// Fact: MeasurementInfo - bound as "m"
-// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+// Clinical Context:
+//   The intake flowsheet tracks the onboarding process for new clients
+//   entering community health programs (e.g., supportive housing, mental
+//   health services, substance use programs). It ensures critical
+//   administrative and consent tasks are completed during enrollment and
+//   re-verified annually to maintain program compliance.
+//
+//   Measurement Types Monitored:
+//     - Regn: Program Registration status
+//     - Quat: Quarterly review completion
+//     - CPP:  Client Program Plan (care plan within the CAISI program)
+//     - CAIS: CAISI system enrollment / consent (note: only has rule 2)
+//     - info: Information package provided to client
+//     - pink: "Pink slip" / program admission form completed
+//     - ROI:  Release of Information consent form signed
+//     - Cons: Consent for services signed
+//     - Ornt: Program orientation completed
+//     - Insp: Intake/Initial Service Plan documented
+//
+// Known Quirks:
+//   - Package name is "FinancesFlowsheet" (should be "IntakeFlowsheet").
+//     This is an inherited naming inconsistency from the original Drools 2.0
+//     XML rules. The package name does not affect functionality since each
+//     DRL file is compiled into its own KieBase.
+//   - CPP has only rule 1 (12-month warning) but no rule 2 (never recorded).
+//   - CAIS has only rule 2 (never recorded) but no rule 1 (12-month warning).
+//     These asymmetries appear to be from the original OSCAR CAISI rules.
+//
+// How It Works:
+//   Uses the simple 2-rule pattern per question (warning only, no recommendation):
+//     Rule "X 1" - WARNING: question not answered in 12+ months
+//     Rule "X 2" - WARNING: question has NEVER been answered (-1)
+//
+// Referenced By:
+//   - XML config: intakeFlowsheet.xml (ds_rules="intake.drl",
+//     is_universal="true", is_medical="false")
+//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Displayed in: E-Chart encounter view, CAISI community health programs
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created for CAISI community health module (McMaster)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
 package FinancesFlowsheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
+// ---------------------------------------------------------------------------
+// Program Registration (Regn)
+// Tracks whether the client has completed registration for the community
+// health program. Annual re-verification ensures enrollment status is current.
+// Warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "Regn 1"
     when
         m : MeasurementInfo()
@@ -29,6 +106,9 @@ rule "Regn 2"
         m.addWarning("Regn","Question not answered");
 end
 
+// Quarterly Review (Quat)
+// Documents completion of the quarterly program review with the client.
+// Regular reviews ensure ongoing service appropriateness and goal progress.
 rule "Quat 1"
     when
         m : MeasurementInfo()
@@ -45,6 +125,9 @@ rule "Quat 2"
         m.addWarning("Quat","Question not answered");
 end
 
+// Client Program Plan (CPP)
+// The individualized care/service plan within the CAISI program.
+// Note: Only has rule 1 (12-month check), no rule 2 (never-recorded check).
 rule "CPP 1"
     when
         m : MeasurementInfo()
@@ -53,6 +136,9 @@ rule "CPP 1"
         m.addWarning("CPP","Question not answered in "+m.getLastDateRecordedInMonths("CPP")+" months");
 end
 
+// CAISI System Enrollment (CAIS)
+// Tracks CAISI system enrollment and consent status.
+// Note: Only has rule 2 (never-recorded check), no rule 1 (12-month check).
 rule "CAIS 2"
     when
         m : MeasurementInfo()
@@ -61,6 +147,9 @@ rule "CAIS 2"
         m.addWarning("CAIS","Question not answered");
 end
 
+// Information Package (info)
+// Whether the client has received the program information package
+// explaining available services, rights, responsibilities, and contact info.
 rule "info 1"
     when
         m : MeasurementInfo()
@@ -77,6 +166,10 @@ rule "info 2"
         m.addWarning("info","Question not answered");
 end
 
+// Admission Form / "Pink Slip" (pink)
+// Tracks whether the program admission form has been completed. The term
+// "pink slip" refers to a multi-part carbon copy form traditionally used
+// in Ontario community health programs for intake documentation.
 rule "pink 1"
     when
         m : MeasurementInfo()
@@ -93,6 +186,10 @@ rule "pink 2"
         m.addWarning("pink","Question not answered");
 end
 
+// Release of Information (ROI)
+// Consent form authorizing sharing of client information between service
+// providers. Required for inter-agency communication in community health.
+// Must be renewed annually per Ontario privacy legislation (PHIPA).
 rule "ROI 1"
     when
         m : MeasurementInfo()
@@ -109,6 +206,9 @@ rule "ROI 2"
         m.addWarning("ROI","Question not answered");
 end
 
+// Consent for Services (Cons)
+// General consent form for receiving program services. Distinct from the
+// ROI (which authorizes information sharing) and medical consent.
 rule "Cons 1"
     when
         m : MeasurementInfo()
@@ -125,6 +225,10 @@ rule "Cons 2"
         m.addWarning("Cons","Question not answered");
 end
 
+// Program Orientation (Ornt)
+// Whether the client has completed the program orientation session
+// covering facility rules, available services, safety procedures, and
+// emergency contacts.
 rule "Ornt 1"
     when
         m : MeasurementInfo()
@@ -141,6 +245,9 @@ rule "Ornt 2"
         m.addWarning("Ornt","Question not answered");
 end
 
+// Initial Service Plan (Insp)
+// Documents the initial service/care plan created during intake,
+// identifying immediate needs, goals, and assigned service providers.
 rule "Insp 1"
     when
         m : MeasurementInfo()

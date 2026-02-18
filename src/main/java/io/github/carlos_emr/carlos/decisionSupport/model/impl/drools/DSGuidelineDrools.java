@@ -7,32 +7,21 @@
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
-
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
  *
  * Modifications by CARLOS Contributors, 2026.
- */
-
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
  */
 
 package io.github.carlos_emr.carlos.decisionSupport.model.impl.drools;
@@ -111,9 +100,8 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCrea
  * end
  * }</pre>
  *
- * <p>Note that fact classes are referenced by their fully-qualified class name directly in the
- * DRL pattern, avoiding the need for DRL {@code import} statements. The Drools engine resolves
- * FQCNs at compile time. Conditions with associated {@link java.util.Hashtable} parameters
+ * <p>Fact classes use FQCNs to avoid DRL imports.
+ * Conditions with associated {@link java.util.Hashtable} parameters
  * (e.g., billing options like {@code payer=MSP, notInDays=365}) are bound as separate
  * Hashtable facts and passed to the method alongside the condition values.</p>
  *
@@ -154,9 +142,7 @@ public class DSGuidelineDrools extends DSGuideline {
 
     /**
      * Fully-qualified class name of {@link DSDemographicAccess}, used as the primary fact
-     * type in generated DRL rules. By using the FQCN directly in the DRL pattern (e.g.,
-     * {@code a : io.github.carlos_emr...DSDemographicAccess()}), the generated rule avoids
-     * needing a DRL {@code import} statement. Drools resolves FQCNs at compile time.
+     * type in generated DRL rules. Uses FQCN to avoid DRL import statements.
      */
     private static final String demographicAccessObjectClassPath = "io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess";
 
@@ -170,9 +156,10 @@ public class DSGuidelineDrools extends DSGuideline {
     private KieBase _kieBase = null;
 
     /**
-     * Counter used to generate unique rule names within this guideline's DRL output.
-     * Each call to {@link #generateRuleBase()} increments this counter, producing rule
-     * names like {@code "DSGuidelineDrools:42.0"}, {@code "DSGuidelineDrools:42.1"}, etc.
+     * Counter used to generate unique rule names. Incremented once per call to
+     * {@link #generateRuleBase()}. If the same guideline instance is recompiled
+     * (e.g., after cache eviction), the counter ensures a unique rule name such as
+     * {@code "DSGuidelineDrools:42.1"} instead of reusing {@code "DSGuidelineDrools:42.0"}.
      * Marked {@code @Transient} because it is a runtime artifact.
      */
     @Transient
@@ -214,86 +201,11 @@ public class DSGuidelineDrools extends DSGuideline {
      * @param demographicNo String patient identifier used to retrieve clinical data
      * @return List of {@link DSConsequence} objects representing triggered clinical recommendations
      *         or warnings; {@code null} if the guideline conditions were not met
-     * @throws DecisionSupportException if rule base compilation fails, fact assertion fails,
+     * @throws DecisionSupportException if rule base compilation fails, fact insertion fails,
      *         or a DSParameter class cannot be instantiated via reflection
      */
     public List<DSConsequence> evaluate(LoggedInInfo loggedInInfo, String demographicNo) throws DecisionSupportException {
-        if (_kieBase == null) generateRuleBase();
-        //at this point _kieBase WILL be set or exception is thrown in generateRuleBase()
-        KieSession kieSession = _kieBase.newKieSession();
-        try {
-            DSDemographicAccess dsDemographicAccess = new DSDemographicAccess(loggedInInfo, demographicNo);
-            //put "bob" in working memory
-            try {
-
-                // Insert the primary fact object that provides access to all patient data
-                kieSession.insert(dsDemographicAccess);
-
-                // Insert any Hashtable parameters associated with conditions (e.g., billing options).
-                // These are bound in the DRL as "param0 : java.util.Hashtable()" and passed
-                // to condition methods like billedForAny(searchStrings, options).
-                for (DSCondition dsc : this.getConditions()) {
-                    if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
-                        log.debug("PARAM:" + dsc.getParam().toString());
-                        kieSession.insert(dsc.getParam());
-                    }
-                }
-
-                // Instantiate and insert DSParameter-defined objects via reflection.
-                // These are additional fact types declared in the guideline XML that
-                // the DRL rules may reference (e.g., custom data access objects).
-                List<DSParameter> lDSP = this.getParameters();
-                if (lDSP != null) {
-                    for (DSParameter dsp : lDSP) {
-                        Class clas = Class.forName(dsp.getStrClass());
-                        Constructor constructor = clas.getConstructor();
-                        Object obj = constructor.newInstance();
-
-                        kieSession.insert(obj);
-                    }
-                }
-
-                // Fire all compiled rules; if conditions match, the rule consequence
-                // sets dsDemographicAccess.passedGuideline = true
-                kieSession.fireAllRules();
-                if (dsDemographicAccess.isPassedGuideline()) {
-                    List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
-                    if (this.getConsequences() == null) return returnDsConsequences;
-                    else {
-                        for (DSConsequence dsConsequence : this.getConsequences()) {
-                            if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
-                                // Warning-type consequences are returned as-is with their text
-                                returnDsConsequences.add(dsConsequence);
-                            } else if (dsConsequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
-                                // Java-type consequences collect all objects from working memory,
-                                // which may include objects created or modified by the rule's "then" block
-                                @SuppressWarnings("unchecked")
-                                List<Object> javaConsequences = new ArrayList<>(kieSession.getObjects());
-                                dsConsequence.setObjConsequence(javaConsequences);
-                                returnDsConsequences.add(dsConsequence);
-                            }
-                        }
-                        return returnDsConsequences;
-                    }
-                } else {
-                    return null;
-                }
-            } catch (RuntimeException factException) {
-                throw new DecisionSupportException("Unable to assert guideline", factException);
-            } catch (ClassNotFoundException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (NoSuchMethodException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (InstantiationException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (IllegalAccessException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (InvocationTargetException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            }
-        } finally {
-            kieSession.dispose();
-        }
+        return executeRules(new DSDemographicAccess(loggedInInfo, demographicNo));
     }
 
     /**
@@ -308,74 +220,11 @@ public class DSGuidelineDrools extends DSGuideline {
      * @param providerNo String provider identifier for provider-specific evaluation context
      * @return List of {@link DSConsequence} objects representing triggered clinical recommendations
      *         or warnings; {@code null} if the guideline conditions were not met
-     * @throws DecisionSupportException if rule base compilation fails, fact assertion fails,
+     * @throws DecisionSupportException if rule base compilation fails, fact insertion fails,
      *         or a DSParameter class cannot be instantiated via reflection
      */
     public List<DSConsequence> evaluate(LoggedInInfo loggedInInfo, String demographicNo, String providerNo) throws DecisionSupportException {
-        if (_kieBase == null) generateRuleBase();
-        //at this point _kieBase WILL be set or exception is thrown in generateRuleBase()
-        KieSession kieSession = _kieBase.newKieSession();
-        try {
-            DSDemographicAccess dsDemographicAccess = new DSDemographicAccess(loggedInInfo, demographicNo, providerNo);
-            //put "bob" in working memory
-            try {
-
-                kieSession.insert(dsDemographicAccess);
-
-                for (DSCondition dsc : this.getConditions()) {
-                    if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
-                        log.debug("PARAM:" + dsc.getParam().toString());
-                        kieSession.insert(dsc.getParam());
-                    }
-                }
-
-                List<DSParameter> lDSP = this.getParameters();
-                if (lDSP != null) {
-                    for (DSParameter dsp : lDSP) {
-                        Class clas = Class.forName(dsp.getStrClass());
-                        Constructor constructor = clas.getConstructor();
-                        Object obj = constructor.newInstance();
-
-                        kieSession.insert(obj);
-                    }
-                }
-
-                kieSession.fireAllRules();
-                if (dsDemographicAccess.isPassedGuideline()) {
-                    List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
-                    if (this.getConsequences() == null) return returnDsConsequences;
-                    else {
-                        for (DSConsequence dsConsequence : this.getConsequences()) {
-                            if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
-                                returnDsConsequences.add(dsConsequence);
-                            } else if (dsConsequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
-                                @SuppressWarnings("unchecked")
-                                List<Object> javaConsequences = new ArrayList<>(kieSession.getObjects());
-                                dsConsequence.setObjConsequence(javaConsequences);
-                                returnDsConsequences.add(dsConsequence);
-                            }
-                        }
-                        return returnDsConsequences;
-                    }
-                } else {
-                    return null;
-                }
-            } catch (RuntimeException factException) {
-                throw new DecisionSupportException("Unable to assert guideline", factException);
-            } catch (ClassNotFoundException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (NoSuchMethodException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (InstantiationException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (IllegalAccessException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (InvocationTargetException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            }
-        } finally {
-            kieSession.dispose();
-        }
+        return executeRules(new DSDemographicAccess(loggedInInfo, demographicNo, providerNo));
     }
 
     /**
@@ -394,71 +243,88 @@ public class DSGuidelineDrools extends DSGuideline {
      *                    ATC codes or other runtime values passed from the calling context
      * @return List of {@link DSConsequence} objects representing triggered clinical recommendations
      *         or warnings; {@code null} if the guideline conditions were not met
-     * @throws DecisionSupportException if rule base compilation fails, fact assertion fails,
+     * @throws DecisionSupportException if rule base compilation fails, fact insertion fails,
      *         or a DSParameter class cannot be instantiated via reflection
      */
     public List<DSConsequence> evaluate(LoggedInInfo loggedInInfo, String demographicNo, String providerNo, List<Object> dynamicArgs) throws DecisionSupportException {
+        return executeRules(new DSDemographicAccess(loggedInInfo, demographicNo, providerNo, dynamicArgs));
+    }
+
+    /**
+     * Core rule execution logic shared by all evaluate() overloads.
+     *
+     * <p>Creates a KieSession, inserts the DSDemographicAccess fact along with any condition
+     * parameters and DSParameter-defined objects, fires all rules, and collects consequences
+     * if the guideline conditions were met.</p>
+     *
+     * @param dsDemographicAccess the primary fact object providing access to patient data
+     * @return List of triggered consequences, or {@code null} if conditions were not met
+     * @throws DecisionSupportException if rule compilation, fact insertion, rule execution,
+     *         or DSParameter class instantiation via reflection fails. The exception message
+     *         includes the guideline title and the original exception's class name for diagnostics.
+     */
+    private List<DSConsequence> executeRules(DSDemographicAccess dsDemographicAccess) throws DecisionSupportException {
         if (_kieBase == null) generateRuleBase();
-        //at this point _kieBase WILL be set or exception is thrown in generateRuleBase()
+        if (_kieBase == null) {
+            throw new DecisionSupportException("Rule base compilation failed for guideline '" + this.getTitle() + "'");
+        }
         KieSession kieSession = _kieBase.newKieSession();
         try {
-            DSDemographicAccess dsDemographicAccess = new DSDemographicAccess(loggedInInfo, demographicNo, providerNo, dynamicArgs);
-            //put "bob" in working memory
-            try {
+            // Insert the primary fact object that provides access to all patient data
+            kieSession.insert(dsDemographicAccess);
 
-                kieSession.insert(dsDemographicAccess);
-
-                for (DSCondition dsc : this.getConditions()) {
-                    if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
-                        log.debug("PARAM:" + dsc.getParam().toString());
-                        kieSession.insert(dsc.getParam());
-                    }
+            // Insert any Hashtable parameters associated with conditions (e.g., billing options).
+            // These are bound in the DRL as "param0 : java.util.Hashtable()" and passed
+            // to condition methods like billedForAny(searchStrings, options).
+            for (DSCondition dsc : this.getConditions()) {
+                if (dsc.getParam() != null && !dsc.getParam().isEmpty()) {
+                    log.debug("PARAM:" + dsc.getParam().toString());
+                    kieSession.insert(dsc.getParam());
                 }
-
-                List<DSParameter> lDSP = this.getParameters();
-                if (lDSP != null) {
-                    for (DSParameter dsp : lDSP) {
-                        Class clas = Class.forName(dsp.getStrClass());
-                        Constructor constructor = clas.getConstructor();
-                        Object obj = constructor.newInstance();
-
-                        kieSession.insert(obj);
-                    }
-                }
-
-                kieSession.fireAllRules();
-                if (dsDemographicAccess.isPassedGuideline()) {
-                    List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
-                    if (this.getConsequences() == null) return returnDsConsequences;
-                    else {
-                        for (DSConsequence dsConsequence : this.getConsequences()) {
-                            if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
-                                returnDsConsequences.add(dsConsequence);
-                            } else if (dsConsequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
-                                @SuppressWarnings("unchecked")
-                                List<Object> javaConsequences = new ArrayList<>(kieSession.getObjects());
-                                dsConsequence.setObjConsequence(javaConsequences);
-                                returnDsConsequences.add(dsConsequence);
-                            }
-                        }
-                        return returnDsConsequences;
-                    }
-                } else {
-                    return null;
-                }
-            } catch (RuntimeException factException) {
-                throw new DecisionSupportException("Unable to assert guideline", factException);
-            } catch (ClassNotFoundException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (NoSuchMethodException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (InstantiationException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (IllegalAccessException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
-            } catch (InvocationTargetException e) {
-                throw new DecisionSupportException("Unable to instantiate class", e);
             }
+
+            // Instantiate and insert DSParameter-defined objects via reflection.
+            // These are additional fact types declared in the guideline XML that
+            // the DRL rules may reference (e.g., custom data access objects).
+            List<DSParameter> lDSP = this.getParameters();
+            if (lDSP != null) {
+                for (DSParameter dsp : lDSP) {
+                    Class clas = Class.forName(dsp.getStrClass());
+                    Constructor constructor = clas.getConstructor();
+                    Object obj = constructor.newInstance();
+                    kieSession.insert(obj);
+                }
+            }
+
+            // Fire all compiled rules; if conditions match, the rule consequence
+            // sets dsDemographicAccess.passedGuideline = true
+            kieSession.fireAllRules();
+            if (dsDemographicAccess.isPassedGuideline()) {
+                List<DSConsequence> returnDsConsequences = new ArrayList<DSConsequence>();
+                if (this.getConsequences() == null) return returnDsConsequences;
+                for (DSConsequence dsConsequence : this.getConsequences()) {
+                    if (dsConsequence.getConsequenceType() != DSConsequence.ConsequenceType.java) {
+                        // Warning-type consequences are returned as-is with their text
+                        returnDsConsequences.add(dsConsequence);
+                    } else {
+                        // Java-type consequences collect all objects from working memory,
+                        // which may include objects created or modified by the rule's "then" block
+                        @SuppressWarnings("unchecked")
+                        List<Object> javaConsequences = new ArrayList<>(kieSession.getObjects());
+                        dsConsequence.setObjConsequence(javaConsequences);
+                        returnDsConsequences.add(dsConsequence);
+                    }
+                }
+                return returnDsConsequences;
+            } else {
+                return null;
+            }
+        } catch (RuntimeException e) {
+            throw new DecisionSupportException("Guideline evaluation failed for '"
+                    + this.getTitle() + "': " + e.getClass().getSimpleName() + ": " + e.getMessage(), e);
+        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException
+                 | IllegalAccessException | InvocationTargetException e) {
+            throw new DecisionSupportException("Unable to instantiate class", e);
         } finally {
             kieSession.dispose();
         }
@@ -474,9 +340,11 @@ public class DSGuidelineDrools extends DSGuideline {
      *       previously compiled KieBase using the guideline's cache key. If found, assigns it
      *       directly to the instance field and returns immediately.</li>
      *   <li><strong>RuleBaseCreator cache</strong>: If not in the factory cache, generates a DRL
-     *       string and delegates to {@link RuleBaseCreator#getRuleBase(String, List)}, which has
-     *       its own secondary cache keyed by the full DRL text. The compiled result is then
-     *       stored back into the factory cache.</li>
+     *       string and delegates to {@link RuleBaseCreator#getRuleBase(String, List)} (where the
+     *       first parameter is used as the DRL package name, not as a cache key). RuleBaseCreator
+     *       has its own secondary cache keyed by {@code "RuleBaseCreator:" + sha256(fullDrlString)}.
+     *       The compiled result is then stored in RuleBaseFactory under the guideline's own key
+     *       (by this method).</li>
      * </ol>
      *
      * <p>The DRL generation pipeline proceeds as follows:</p>
@@ -511,7 +379,6 @@ public class DSGuidelineDrools extends DSGuideline {
 
             // Convert each DSParameter into a DRL fact-binding line, e.g.:
             //   "myAlias : com.example.SomeClass()"
-            // The FQCN is used directly, avoiding the need for a DRL import statement.
             if (this.getParameters() != null) {
                 for (DSParameter dsParameter : this.getParameters()) {
                     String parameterElement = this.getDroolsParameter(dsParameter);
@@ -581,9 +448,7 @@ public class DSGuidelineDrools extends DSGuideline {
         rule.append("rule \"").append(ruleName).append("\"\n");
         rule.append("    when\n");
 
-        // Bind the DSDemographicAccess fact as variable "a" using its FQCN.
-        // Using the fully-qualified class path avoids needing a DRL "import" statement;
-        // Drools resolves the class directly from the classpath at compile time.
+        // Bind the DSDemographicAccess fact as variable "a" using its FQCN
         rule.append("        a : ").append(demographicAccessObjectClassPath).append("()\n");
 
         // Append DSParameter-defined fact bindings (e.g., "myAlias : com.example.SomeClass()")
@@ -776,16 +641,17 @@ public class DSGuidelineDrools extends DSGuideline {
      */
     public String getDroolsConsequences(List<DSConsequence> consequences) {
         // Always mark the guideline as passed; this is the signal to evaluate()
-        // that conditions were met and consequences should be returned
-        String consequencesStr = "a.setPassedGuideline(true);";
+        // that conditions were met and consequences should be returned.
+        String passedMarker = "a.setPassedGuideline(true);";
+        StringBuilder result = new StringBuilder(passedMarker);
         for (DSConsequence consequence : consequences) {
             // Only java-type consequences are embedded in the DRL "then" block;
             // warning-type consequences are returned directly by evaluate()
             if (consequence.getConsequenceType() == DSConsequence.ConsequenceType.java) {
-                consequencesStr = consequencesStr + "\n        " + consequence.getText();
+                result.append("\n        ").append(consequence.getText());
             }
         }
-        return consequencesStr;
+        return result.toString();
     }
 
     /**
@@ -798,14 +664,14 @@ public class DSGuidelineDrools extends DSGuideline {
      * from the updated XML on the next call to {@link #evaluate(LoggedInInfo, String)}
      * or any of its overloads.</p>
      *
-     * <p>Note: This does not clear the instance-level {@code _kieBase} field. If the
-     * same Java object instance is reused after the update (within the same session),
-     * the stale in-memory KieBase would still be used. In practice, JPA entity instances
-     * are typically short-lived within a request scope, so a fresh instance is loaded
-     * for the next evaluation.</p>
+     * <p>Both the shared {@link RuleBaseFactory} cache entry and the instance-level
+     * {@code _kieBase} field are cleared, ensuring that even if the same Java object
+     * instance is reused after the update (within the same persistence context), the
+     * stale in-memory KieBase will not be used.</p>
      */
     @PostUpdate
     public void afterSave() {
         RuleBaseFactory.removeRuleBase(getRuleBaseFactoryKey());
+        _kieBase = null;
     }
 }

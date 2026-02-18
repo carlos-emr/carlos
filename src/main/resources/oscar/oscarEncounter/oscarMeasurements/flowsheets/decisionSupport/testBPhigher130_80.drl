@@ -1,9 +1,48 @@
-// CARLOS EMR - Clinical Report: BP Higher Than 130/80 Threshold Test
-// Fact: MeasurementDSHelper. Converted from Drools 2.0 XML to 7.x DRL.
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
+// ============================================================================
+// CARLOS EMR - Clinical Report Numerator: BP Above 130/80 (DM Threshold)
+// ============================================================================
+//
+// Purpose:
+//   Population health reporting rule counting patients with BP >130/80
+//   (above the diabetes-specific target). No recency window applied.
+//
+// ORPHANED: This file is NOT referenced by any XML config or Java code.
+//   Candidate for deletion if confirmed unused.
+//
+// Fact: MeasurementDSHelper - getNumberFromSplit("/",0/1) for systolic/
+//   diastolic components.
+// ============================================================================
 package ReportA1C;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
+// Both systolic >130 AND diastolic >80 (diabetes-specific threshold).
+// No recency window - counts any BP on file regardless of recording date.
+// Rule name "BPo130" means "BP over 130".
 rule "BPo130"
     when
         m : MeasurementDSHelper()

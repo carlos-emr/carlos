@@ -1,19 +1,99 @@
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
 // ============================================================================
-// CARLOS EMR - HIV Flowsheet Clinical Recommendation Rules
+// CARLOS EMR - HIV/AIDS Flowsheet Timeliness Rules
 // ============================================================================
 //
-// Rules for the HIV management flowsheet. Evaluates when key HIV-related
-// measurements (CD4, viral load, resistance testing, etc.) are overdue.
+// Purpose:
+//   These rules provide clinical decision support for the HIV/AIDS management
+//   flowsheet. They monitor whether key HIV-related laboratory tests,
+//   co-infection screenings, and metabolic assessments are overdue.
 //
-// Fact: MeasurementInfo - bound as "m", provides getLastDateRecordedInMonths()
-// Consequences: addRecommendation() for moderate delays, addWarning() for severe
+// Clinical Context:
+//   HIV-positive patients on antiretroviral therapy (ART) require regular
+//   monitoring of viral suppression (viral load), immune status (CD4 count),
+//   organ function (liver, kidney), metabolic parameters (glucose, lipids),
+//   and screening for common co-infections (Hepatitis A/B/C, CMV, syphilis,
+//   toxoplasmosis). These rules encode the Canadian HIV/AIDS monitoring
+//   schedule as used by community health centres and HIV specialty clinics.
 //
-// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+//   This is one of the LARGEST rule files in CARLOS with 25 measurement
+//   types monitored across immunological, virological, metabolic, hepatic,
+//   renal, and co-infection screening domains.
+//
+// Measurement Types Monitored:
+//   Quarterly (3mo recommend / 6mo warn):
+//     CD4  - CD4+ T-lymphocyte count (immune status)
+//     VLOA - Viral Load (HIV RNA copies/mL)
+//   Annual (10mo recommend / 12mo warn):
+//     Hb   - Hemoglobin (anemia screening)
+//     ALT  - Alanine aminotransferase (liver function)
+//     FBS  - Fasting blood sugar (metabolic screening)
+//     TCHL - Total cholesterol
+//     LDL  - LDL cholesterol
+//     HDL  - HDL cholesterol
+//     TG   - Triglycerides
+//     URBH - Urea/BUN (renal function)
+//     USSH - Serum creatinine/eGFR (renal function)
+//     UDUS - Urinalysis/dipstick (proteinuria screening)
+//     UAIP - Urine albumin/protein (nephropathy screening)
+//     UHTP - HIV testing/partner notification
+//     VB12 - Vitamin B12
+//     FTST - Fasting testosterone
+//     VDRL - Syphilis screening (VDRL/RPR)
+//     TOXP - Toxoplasma gondii serology
+//     HpAI - Hepatitis A IgG antibody
+//     HpBS - Hepatitis B surface antigen
+//     HpBA - Hepatitis B surface antibody
+//     HpCA - Hepatitis C antibody
+//     CMVI - Cytomegalovirus (CMV) IgG
+//     G6PD - Glucose-6-Phosphate Dehydrogenase
+//
+// Referenced By:
+//   - XML config: hivFlowsheet.xml (ds_rules="hiv.drl")
+//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Displayed in: E-Chart encounter view, Measurement Flowsheet panel
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created as Drools 2.0 XML rules (McMaster/community health)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
 package HIVFlowSheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
+// ---------------------------------------------------------------------------
+// CD4+ T-Lymphocyte Count (CD4)
+// Tracks whether CD4 count has been recorded.
+// See also: testCD4*.drl for value-based clinical reporting thresholds.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "CD4 1"
     when
         m : MeasurementInfo()
@@ -42,6 +122,14 @@ rule "CD4 3"
         m.addWarning("CD4","CD4 hasn't been reviewed");
 end
 
+// ---------------------------------------------------------------------------
+// HIV Viral Load (VLOA)
+// Measures HIV RNA copies/mL in plasma. The primary marker of ART efficacy.
+// Goal of treatment: undetectable viral load (<50 copies/mL). Detectable
+// viral load suggests treatment failure, non-adherence, or drug resistance.
+// Monitored quarterly along with CD4.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "VLOA 1"
     when
         m : MeasurementInfo()
@@ -70,6 +158,11 @@ rule "VLOA 3"
         m.addWarning("VLOA","no Viral Load values has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Hemoglobin (Hb)
+// Tracks whether hemoglobin has been recorded.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "Hb 1"
     when
         m : MeasurementInfo()
@@ -98,6 +191,11 @@ rule "Hb 3"
         m.addWarning("Hb","no Hb changes have been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Alanine Aminotransferase (ALT)
+// Tracks whether ALT has been recorded.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "ALT 1"
     when
         m : MeasurementInfo()
@@ -126,6 +224,12 @@ rule "ALT 3"
         m.addWarning("ALT","no ALT has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Fasting Blood Sugar (FBS)
+// Tracks whether fasting blood sugar has been recorded.
+// Note: Uses 6mo/9mo schedule (not quarterly) unlike CD4/VLOA.
+// Recommendation at 6 months, warning at 9 months.
+// ---------------------------------------------------------------------------
 rule "FBS 1"
     when
         m : MeasurementInfo()
@@ -154,6 +258,11 @@ rule "FBS 3"
         m.addWarning("FBS","no FBS has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Total Cholesterol (TCHL)
+// Tracks whether total cholesterol has been recorded.
+// Recommendation at 6 months, warning at 9 months.
+// ---------------------------------------------------------------------------
 rule "TCHL 1"
     when
         m : MeasurementInfo()
@@ -182,6 +291,11 @@ rule "TCHL 3"
         m.addWarning("TCHL","no Total Cholesterol has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// LDL Cholesterol (LDL)
+// Tracks whether LDL cholesterol has been recorded.
+// Recommendation at 6 months, warning at 9 months.
+// ---------------------------------------------------------------------------
 rule "LDL 1"
     when
         m : MeasurementInfo()
@@ -210,6 +324,11 @@ rule "LDL 3"
         m.addWarning("LDL","no LDL has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// HDL Cholesterol (HDL)
+// Tracks whether HDL cholesterol has been recorded.
+// Recommendation at 6 months, warning at 9 months.
+// ---------------------------------------------------------------------------
 rule "HDL 1"
     when
         m : MeasurementInfo()
@@ -238,6 +357,11 @@ rule "HDL 3"
         m.addWarning("HDL","no HDL has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Triglycerides (TG)
+// Tracks whether triglycerides have been recorded.
+// Recommendation at 6 months, warning at 9 months.
+// ---------------------------------------------------------------------------
 rule "TG 1"
     when
         m : MeasurementInfo()
@@ -266,6 +390,11 @@ rule "TG 3"
         m.addWarning("TG","no triglyceride has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Urea/BUN - Renal Function (URBH)
+// Tracks whether urea/BUN has been recorded.
+// Recommendation at 6 months, warning at 9 months.
+// ---------------------------------------------------------------------------
 rule "URBH 1"
     when
         m : MeasurementInfo()
@@ -294,6 +423,11 @@ rule "URBH 3"
         m.addWarning("URBH","no URBH has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Serum Creatinine / eGFR (USSH)
+// Tracks whether serum creatinine / eGFR has been recorded.
+// Recommendation at 6 months, warning at 9 months.
+// ---------------------------------------------------------------------------
 rule "USSH 1"
     when
         m : MeasurementInfo()
@@ -322,6 +456,11 @@ rule "USSH 3"
         m.addWarning("USSH","no USSH has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Urinalysis / Dipstick (UDUS)
+// Tracks whether urinalysis/dipstick has been recorded.
+// Recommendation at 6 months, warning at 9 months.
+// ---------------------------------------------------------------------------
 rule "UDUS 1"
     when
         m : MeasurementInfo()
@@ -350,6 +489,11 @@ rule "UDUS 3"
         m.addWarning("UDUS","no UDUS has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Urine Albumin/Protein (UAIP)
+// Tracks whether urine albumin/protein has been recorded.
+// Recommendation at 6 months, warning at 9 months.
+// ---------------------------------------------------------------------------
 rule "UAIP 1"
     when
         m : MeasurementInfo()
@@ -378,6 +522,14 @@ rule "UAIP 3"
         m.addWarning("UAIP","no UAIP has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// HIV Testing / Partner Notification (UHTP)
+// Tracks whether HIV testing and partner notification status has been
+// reviewed. Includes re-testing of indeterminate results, confirmatory
+// testing, and documentation of partner notification/contact tracing
+// as required by Canadian public health guidelines for reportable STIs.
+// Recommendation at 6 months, warning at 9 months.
+// ---------------------------------------------------------------------------
 rule "UHTP 1"
     when
         m : MeasurementInfo()
@@ -406,6 +558,12 @@ rule "UHTP 3"
         m.addWarning("UHTP","no UHTP has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Vitamin B12 (VB12)
+// Tracks whether Vitamin B12 has been recorded.
+// Note: Uses 12mo/18mo schedule (annual monitoring, longer than lipids).
+// Recommendation at 12 months, warning at 18 months.
+// ---------------------------------------------------------------------------
 rule "VB12 1"
     when
         m : MeasurementInfo()
@@ -434,6 +592,11 @@ rule "VB12 3"
         m.addWarning("VB12","no Vit B12 has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Fasting Testosterone (FTST)
+// Tracks whether fasting testosterone has been recorded.
+// Recommendation at 12 months, warning at 18 months.
+// ---------------------------------------------------------------------------
 rule "FTST 1"
     when
         m : MeasurementInfo()
@@ -462,6 +625,11 @@ rule "FTST 3"
         m.addWarning("FTST","no Free Testost has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Syphilis Screening - VDRL/RPR (VDRL)
+// Tracks whether syphilis screening (VDRL/RPR) has been recorded.
+// Recommendation at 12 months, warning at 18 months.
+// ---------------------------------------------------------------------------
 rule "VDRL 1"
     when
         m : MeasurementInfo()
@@ -490,6 +658,11 @@ rule "VDRL 3"
         m.addWarning("VDRL","no VDRL has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Toxoplasma IgG Serology (TOXP)
+// Tracks whether toxoplasma IgG serology has been recorded.
+// Recommendation at 12 months, warning at 18 months.
+// ---------------------------------------------------------------------------
 rule "TOXP 1"
     when
         m : MeasurementInfo()
@@ -518,6 +691,11 @@ rule "TOXP 3"
         m.addWarning("TOXP","no Toxoplasma lgG has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Hepatitis A IgG Antibody (HpAI)
+// Tracks whether hepatitis A IgG antibody has been recorded.
+// Recommendation at 12 months, warning at 18 months.
+// ---------------------------------------------------------------------------
 rule "HpAI 1"
     when
         m : MeasurementInfo()
@@ -546,6 +724,11 @@ rule "HpAI 3"
         m.addWarning("HpAI","no Hep A lgG has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Hepatitis B Surface Antigen (HpBS)
+// Tracks whether hepatitis B surface antigen has been recorded.
+// Recommendation at 12 months, warning at 18 months.
+// ---------------------------------------------------------------------------
 rule "HpBS 1"
     when
         m : MeasurementInfo()
@@ -574,6 +757,11 @@ rule "HpBS 3"
         m.addWarning("HpBS","no Hep BS Ag has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Hepatitis B Surface Antibody (HpBA)
+// Tracks whether hepatitis B surface antibody has been recorded.
+// Recommendation at 12 months, warning at 18 months.
+// ---------------------------------------------------------------------------
 rule "HpBA 1"
     when
         m : MeasurementInfo()
@@ -602,6 +790,11 @@ rule "HpBA 3"
         m.addWarning("HpBA","no Hep BS Ab has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Hepatitis C Antibody (HpCA)
+// Tracks whether hepatitis C antibody has been recorded.
+// Recommendation at 12 months, warning at 18 months.
+// ---------------------------------------------------------------------------
 rule "HpCA 1"
     when
         m : MeasurementInfo()
@@ -630,6 +823,11 @@ rule "HpCA 3"
         m.addWarning("HpCA","no Hep C Ab has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Cytomegalovirus IgG (CMVI)
+// Tracks whether CMV IgG serology has been recorded.
+// Recommendation at 12 months, warning at 18 months.
+// ---------------------------------------------------------------------------
 rule "CMVI 1"
     when
         m : MeasurementInfo()
@@ -658,6 +856,11 @@ rule "CMVI 3"
         m.addWarning("CMVI","no CMV lgG has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Glucose-6-Phosphate Dehydrogenase (G6PD)
+// Tracks whether G6PD screening has been recorded.
+// Recommendation at 12 months, warning at 18 months.
+// ---------------------------------------------------------------------------
 rule "G6PD 1"
     when
         m : MeasurementInfo()

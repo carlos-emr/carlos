@@ -22,16 +22,16 @@
 package io.github.carlos_emr.carlos.drools;
 
 /**
- * Exception thrown when Drools DRL rule compilation fails.
+ * Checked exception thrown when Drools DRL rule compilation or loading fails.
  *
  * <p>This exception is used throughout the CARLOS EMR Drools subsystem to signal
  * errors during the compilation of DRL (Drools Rule Language) rules into executable
- * knowledge bases. Common causes include syntax errors in DRL files, invalid
- * import statements, or missing fact class definitions.</p>
+ * knowledge bases, or when DRL content cannot be read from its source. Common causes
+ * include syntax errors in DRL files, invalid import statements, missing fact class
+ * definitions, or I/O failures when reading DRL resources.</p>
  *
- * <p>Replaces the legacy {@code org.drools.FactException} from Drools 2.0 and provides
- * a consistent, checked exception type for all Drools compilation and loading errors
- * in the Drools 7.74.1 KIE API architecture.</p>
+ * <p>Introduced as part of the Drools 2.0 to 7.74.1 KIE API migration to provide
+ * a consistent, checked exception type for all Drools compilation and loading errors.</p>
  *
  * <p><strong>Usage example:</strong></p>
  * <pre>{@code
@@ -44,6 +44,8 @@ package io.github.carlos_emr.carlos.drools;
  *
  * @since 2026-02-17
  * @see DroolsHelper#createKieBaseFromDrl(String)
+ * @see DroolsHelper#loadFromInputStream(java.io.InputStream)
+ * @see DroolsHelper#loadFromUrl(java.net.URL)
  */
 public class DroolsCompilationException extends Exception {
 

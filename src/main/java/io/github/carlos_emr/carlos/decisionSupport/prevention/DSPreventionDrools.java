@@ -125,7 +125,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCrea
  * was replaced with programmatically generated DRL text while preserving the existing
  * XML guideline definition format consumed by this parser.</p>
  *
- * @since 2005-10-26
+ * @since 2015-12-01
  */
 public class DSPreventionDrools {
     private static final Logger logger = MiscUtils.getLogger();
@@ -620,7 +620,7 @@ public class DSPreventionDrools {
             toParse = toParse.replaceFirst("!=", "");
             int eq = Integer.parseInt(toParse);
             dsConditions.add(new DSCondition(method, param, "!=", "" + eq));
-        } else if (!toParse.equals("")) { // exact match style (plain integer value)
+        } else if (!toParse.isEmpty()) { // exact match style (plain integer value)
             int eq = Integer.parseInt(toParse);
             dsConditions.add(new DSCondition(method, param, "==", "" + eq));
         }
@@ -652,10 +652,8 @@ public class DSPreventionDrools {
      *   <li><strong>Not equal</strong>: {@code "!=12m"} &rarr;
      *       {@code getAgeInMonths() != 12}</li>
      *   <li><strong>Exact match</strong>: {@code "4m"} &rarr;
-     *       {@code getAgeInMonths() == 4}. Note: the {@code eq} variable parsed via
-     *       {@code Integer.parseInt(valueToParse)} will throw {@link NumberFormatException}
-     *       if the unit suffix is still present, but it is unused since the conditional
-     *       branches below it check for the suffix and strip it via {@code replaceAll}.</li>
+     *       {@code getAgeInMonths() == 4}. Checks for "m" suffix (months) or
+     *       assumes years, stripping the suffix via {@code replaceAll}.</li>
      * </ul>
      *
      * <p>Age conditions use no {@code param} argument (empty string) because
@@ -718,49 +716,12 @@ public class DSPreventionDrools {
                 dsConditions.add(new DSCondition("getAgeInYears", "", "!=", valueToParse.replaceAll("y", "")));
             }
 
-        } else if (!valueToParse.equals("")) { // exact match style (plain value)
-            // Note: parseInt will throw NumberFormatException if valueToParse still contains
-            // a unit suffix ("m" or "y"), but the parsed int is unused -- the branches below
-            // strip the suffix before passing the numeric string to DSCondition
-            int eq = Integer.parseInt(valueToParse);
+        } else if (!valueToParse.isEmpty()) { // exact match style (plain value)
             if (valueToParse.indexOf("m") != -1) {
                 dsConditions.add(new DSCondition("getAgeInMonths", "", "==", valueToParse.replaceAll("m", "")));
             } else { // assume years
                 dsConditions.add(new DSCondition("getAgeInYears", "", "==", valueToParse.replaceAll("y", "")));
             }
         }
-
-
-		/*
-		 * String toParse = value;
-            if (toParse.indexOf("-") != -1 && toParse.indexOf("-") != 0 ){ //between style
-                String[] betweenVals = toParse.split("-");
-                if (betweenVals.length == 2 ){
-                    list.add(new DSCondition("getAge", "", ">=", betweenVals[0]));
-                    list.add(new DSCondition("getAge", "", "<=", betweenVals[1]));
-                }
-            }else if (toParse.indexOf("&gt;") != -1 ||  toParse.indexOf(">") != -1 ){ // greater than style
-                toParse = toParse.replaceFirst("&gt;","");
-                toParse = toParse.replaceFirst(">","");
-                int gt = Integer.parseInt(toParse);
-                list.add(new DSCondition("getAge", "", ">", ""+gt));
-
-            }else if (toParse.indexOf("&lt;") != -1  ||  toParse.indexOf("<") != -1 ){ // less than style
-                toParse = toParse.replaceFirst("&lt;","");
-                toParse = toParse.replaceFirst("<","");
-
-                int lt = Integer.parseInt(toParse);
-                list.add(new DSCondition("getAge", "", "<=", ""+lt));
-
-            }else if (toParse.indexOf("!=") != -1 ){ // less than style
-                toParse = toParse.replaceFirst("!=","");
-                int eq = Integer.parseInt(toParse);
-                list.add(new DSCondition("getAge", "", "!=", ""+eq));
-
-            }else if (!toParse.equals("")){ // less than style
-                int eq = Integer.parseInt(toParse);
-                list.add(new DSCondition("getAge", "", "==", ""+eq));
-            }
-	    */
     }
 }

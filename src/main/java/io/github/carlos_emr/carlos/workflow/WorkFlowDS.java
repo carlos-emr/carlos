@@ -67,11 +67,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * to the modern KIE API (Drools 7.74.1) using {@link KieBase} and {@link KieSession}.
  * The rule execution semantics remain unchanged.</p>
  *
- * @since 2001-01-01
+ * @since 2006-03-21
  * @see WorkFlowDSFactory
  * @see WorkFlowInfo
  * @see io.github.carlos_emr.carlos.drools.DroolsHelper
- * @see io.github.carlos_emr.carlos.drools.RuleBaseFactory
  */
 public class WorkFlowDS {
 
@@ -79,18 +78,7 @@ public class WorkFlowDS {
      * The compiled Drools knowledge base containing the DRL rules to execute.
      * Set via the constructor by {@link WorkFlowDSFactory#getWorkFlowDS(String)}.
      */
-    KieBase kieBase = null;
-
-    /**
-     * Creates a new WorkFlowDS instance with no knowledge base.
-     *
-     * <p>An instance created with this constructor cannot execute rules until
-     * a {@link KieBase} is provided. Prefer using
-     * {@link WorkFlowDSFactory#getWorkFlowDS(String)} to obtain a fully
-     * initialized instance.</p>
-     */
-    public WorkFlowDS() {
-    }
+    private final KieBase kieBase;
 
     /**
      * Creates a new WorkFlowDS instance backed by the specified compiled knowledge base.
@@ -99,9 +87,13 @@ public class WorkFlowDS {
      * and compiling DRL rules via {@link io.github.carlos_emr.carlos.drools.DroolsHelper}.</p>
      *
      * @param kb KieBase the compiled Drools knowledge base containing the rules to execute;
-     *           must not be {@code null} if {@link #getMessages(WorkFlowInfo)} will be called
+     *           must not be {@code null}
+     * @throws IllegalArgumentException if {@code kb} is {@code null}
      */
     public WorkFlowDS(KieBase kb) {
+        if (kb == null) {
+            throw new IllegalArgumentException("KieBase must not be null");
+        }
         this.kieBase = kb;
     }
 
@@ -127,8 +119,10 @@ public class WorkFlowDS {
      *          may be modified by the DRL rules during execution
      * @return WorkFlowInfo the same object passed in, potentially modified by rule execution
      *         (e.g., colour set to indicate urgency, currentState updated)
-     * @throws Exception if any error occurs during rule execution, wrapping the original
-     *                   exception with a Drools context message
+     * @throws RuntimeException if a rule's consequence throws a runtime error (caught, logged,
+     *         and re-thrown)
+     * @throws Exception declared for compatibility; currently only {@code RuntimeException}
+     *         is thrown from this method
      */
     public WorkFlowInfo getMessages(WorkFlowInfo w) throws Exception {
         // Create a new stateful KieSession for this rule evaluation
@@ -140,9 +134,9 @@ public class WorkFlowDS {
             // Fire all rules whose conditions match the inserted facts.
             // Rules may modify the WorkFlowInfo object in their "then" clause.
             kieSession.fireAllRules();
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            throw new Exception("ERROR: Drools ", e);
+        } catch (RuntimeException e) {
+            MiscUtils.getLogger().error("Failed to evaluate workflow Drools rules", e);
+            throw e;
         } finally {
             // Always dispose the session to release resources, even if rule execution failed.
             // KieSessions hold references to facts and internal state that must be cleaned up.

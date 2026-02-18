@@ -1,20 +1,98 @@
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
+
 // ============================================================================
-// CARLOS EMR - Diabetes Flowsheet Clinical Recommendation Rules
+// CARLOS EMR - Diabetes Mellitus Flowsheet Timeliness Rules
 // ============================================================================
 //
-// Rules for the diabetes management flowsheet. Evaluates when key diabetes
-// measurements (blood glucose, A1C, LDL, eye exams, foot exams, etc.) are
-// overdue based on the number of months since last recorded.
+// Purpose:
+//   These rules provide clinical decision support for the Diabetes Management
+//   flowsheet - the most widely used flowsheet in CARLOS EMR. They monitor
+//   whether key diabetes-related measurements are overdue and generate
+//   yellow "recommendation" or red "warning" alerts in the flowsheet UI.
 //
-// Fact: MeasurementInfo - bound as "m", provides getLastDateRecordedInMonths()
-// Consequences: addRecommendation() for moderate delays, addWarning() for severe
+// Clinical Context:
+//   Diabetes mellitus (Type 1 and Type 2) requires systematic, ongoing
+//   monitoring of glycemic control, cardiovascular risk factors, and
+//   microvascular/macrovascular complications. The Canadian Diabetes
+//   Association (Diabetes Canada) Clinical Practice Guidelines recommend
+//   specific monitoring intervals for each measurement tracked here.
 //
-// Converted from Drools 2.0 XML to Drools 7.x DRL format.
+//   This is the MOST REUSED flowsheet DRL in CARLOS. It is referenced by
+//   7 different flowsheet XML configurations, not just the diabetes flowsheet:
+//     - diabetesFlowsheet.xml (primary diabetes flowsheet, ICD-9: 250)
+//     - diabetesQueensFlowsheet.xml (CDM Indicators variant)
+//     - omdDiabetesFlowsheet.xml (Ontario MD diabetes flowsheet variant)
+//     - physicalFunctionFlowsheet.xml (physical function assessment)
+//     - omdAsthmaFlowsheet.xml (asthma, uses diabetes rules for shared metrics)
+//     - omdChf.xml (CHF variant, reuses diabetes monitoring schedule)
+//     - omdCOPDFlowsheet.xml (COPD, uses diabetes rules for shared metrics)
+//
+// How It Works:
+//   A MeasurementInfo fact object is inserted into the Drools working memory
+//   by MeasurementFlowSheet.java. Each rule checks months since last recorded:
+//     - getLastDateRecordedInMonths(type) returns months, or -1 if never recorded
+//     - getLastValueAsInt(type) returns the last recorded integer value
+//     - addRecommendation(type, msg) shows a YELLOW alert (approaching deadline)
+//     - addWarning(type, msg) shows a RED alert (past deadline or never recorded)
+//
+// Alert Severity Tiers:
+//   For each measurement type, there are typically 3 rules:
+//     Rule "X 1" - RECOMMENDATION: moderately overdue (approaching deadline)
+//     Rule "X 2" - WARNING: severely overdue (past deadline)
+//     Rule "X 3" - WARNING: measurement has NEVER been recorded (-1)
+//
+// Measurement Monitoring Schedule:
+//   3-month cycle (quarterly):  REBG, A1C, DMED, BP, BMED, BMI, DIER, NOSK
+//   10-month cycle (annual):    LDL, TCHD, TG, LMED, FGLC, EYEE, ACR, EGFR,
+//                                FTE, FTLS, PANE, EDGI, DMME, DMSM
+//
+// Referenced By:
+//   - XML configs: diabetesFlowsheet.xml, diabetesQueensFlowsheet.xml,
+//     omdDiabetesFlowsheet.xml, physicalFunctionFlowsheet.xml,
+//     omdAsthmaFlowsheet.xml, omdChf.xml, omdCOPDFlowsheet.xml
+//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Displayed in: E-Chart encounter view, Measurement Flowsheet panel
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created ~2006 as Drools 2.0 XML rules (Jay Gallagher, McMaster)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
 package DiabetesFlowSheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
+// ---------------------------------------------------------------------------
+// Blood Glucose Monitoring (REBG) - Random/Review Blood Glucose
+// Quarterly review of blood glucose levels. In diabetes, regular glucose
+// monitoring ensures glycemic control between A1C tests.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "REBG 1"
     when
         m : MeasurementInfo()
@@ -43,6 +121,13 @@ rule "REBG 3"
         m.addWarning("REBG","Blood Glucose hasn't been reviewed");
 end
 
+// ---------------------------------------------------------------------------
+// Hemoglobin A1C (A1C)
+// The gold standard for assessing glycemic control over the past 2-3 months.
+// Diabetes Canada target: A1C <= 7.0% (0.07) for most adults with diabetes.
+// A1C >= 7.0% (or >= 0.07 in decimal notation) triggers HIGH in diab-A1C.drl.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "A1C 1"
     when
         m : MeasurementInfo()
@@ -71,6 +156,11 @@ rule "A1C 3"
         m.addWarning("A1C","no A1C values has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Diabetes Medication Changes (DMED)
+// Tracks whether diabetes medication changes have been recorded.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "DMED 1"
     when
         m : MeasurementInfo()
@@ -99,6 +189,14 @@ rule "DMED 3"
         m.addWarning("DMED","no DM Med changes have been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Blood Pressure (BP)
+// Hypertension is extremely common in diabetes and accelerates both
+// macrovascular (heart attack, stroke) and microvascular (nephropathy,
+// retinopathy) complications. Diabetes Canada target: <130/80 mmHg.
+// See also: diab-BP.drl for value-based threshold alerting.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "BP 1"
     when
         m : MeasurementInfo()
@@ -127,6 +225,11 @@ rule "BP 3"
         m.addWarning("BP","no BP has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Blood Pressure Medications (BMED)
+// Tracks whether blood pressure medication changes have been recorded.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "BMED 1"
     when
         m : MeasurementInfo()
@@ -155,6 +258,13 @@ rule "BMED 3"
         m.addWarning("BMED","no BP Meds changes have been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Body Mass Index (BMI)
+// Tracks whether BMI has been recorded.
+// See also: diab-BMI.drl for value-based alerting
+// (overweight >= 25, obese > 30, underweight < 18.5).
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "BMI 1"
     when
         m : MeasurementInfo()
@@ -183,6 +293,11 @@ rule "BMI 3"
         m.addWarning("BMI","no BMI has been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Diet and Exercise Counselling (DIER)
+// Tracks whether diet/exercise counselling has been recorded.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "DIER 1"
     when
         m : MeasurementInfo()
@@ -211,6 +326,13 @@ rule "DIER 3"
         m.addWarning("DIER","Diet/Excercise has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Smoking Status - Number of Cigarettes (NOSK)
+// Smoking dramatically increases cardiovascular risk in diabetic patients.
+// Rules only fire for current smokers (last value != 0). If never recorded,
+// prompts clinician to enter zero for non-smokers to establish baseline.
+// Recommendation at 3 months, warning at 6 months.
+// ---------------------------------------------------------------------------
 rule "NOSK 1"
     when
         m : MeasurementInfo()
@@ -241,6 +363,13 @@ rule "NOSK 3"
         m.addWarning("NOSK","Number of Cigarrettes has never been recorded, if non smoker enter zero");
 end
 
+// ---------------------------------------------------------------------------
+// LDL Cholesterol (LDL)
+// Low-density lipoprotein is a primary cardiovascular risk factor.
+// Diabetes Canada target: LDL <2.0 mmol/L for diabetic patients.
+// See also: diab-LDL.drl for value-based alerting (HIGH >= 2.0, HIGH 1 >= 3.5).
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "LDL 1"
     when
         m : MeasurementInfo()
@@ -269,6 +398,13 @@ rule "LDL 3"
         m.addWarning("LDL","LDL has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Total Cholesterol to HDL Ratio (TCHD)
+// TC/HDL ratio is a strong predictor of cardiovascular risk. A ratio >4.0
+// indicates elevated risk. See also: diab-TCHDL.drl for value-based alerting
+// (HIGH >= 4.0, HIGH 1 >= 5.0).
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "TCHD 1"
     when
         m : MeasurementInfo()
@@ -297,6 +433,12 @@ rule "TCHD 3"
         m.addWarning("TCHD","TC/HDL has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Triglycerides (TG)
+// Elevated triglycerides are common in diabetic dyslipidemia.
+// See also: diab-TG.drl for value-based alerting (HIGH >= 2.0 mmol/L).
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "TG 1"
     when
         m : MeasurementInfo()
@@ -325,6 +467,11 @@ rule "TG 3"
         m.addWarning("TG","Triglycerides has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Lipid-Lowering Medications (LMED)
+// Tracks whether lipid-lowering medication changes have been recorded.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "LMED 1"
     when
         m : MeasurementInfo()
@@ -353,6 +500,12 @@ rule "LMED 3"
         m.addWarning("LMED","Lipid Lowering Meds has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Fasting Glucose Meter/Lab Comparison (FGLC)
+// Compares home glucose meter readings to laboratory values to ensure
+// meter accuracy. Important for patients self-monitoring blood glucose.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "FGLC 1"
     when
         m : MeasurementInfo()
@@ -381,6 +534,14 @@ rule "FGLC 3"
         m.addWarning("FGLC","Fasting glucose meter/lab comparison has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Ophthalmologist/Optometrist Eye Exam (EYEE)
+// Annual dilated eye exam to screen for diabetic retinopathy, the leading
+// cause of blindness in working-age adults. Diabetes Canada recommends
+// screening within 5 years of Type 1 diagnosis, at diagnosis for Type 2,
+// then annually.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "EYEE 1"
     when
         m : MeasurementInfo()
@@ -409,6 +570,13 @@ rule "EYEE 3"
         m.addWarning("EYEE","An Opthalmologist/ Optometrist exam has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Albumin-to-Creatinine Ratio (ACR)
+// Urine ACR screens for diabetic nephropathy (kidney damage from diabetes).
+// See also: diab-ACR.drl for value-based alerting (HIGH if >= 2.0 mg/mmol).
+// Diabetes Canada recommends annual screening starting at diagnosis for Type 2.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "ACR 1"
     when
         m : MeasurementInfo()
@@ -437,6 +605,12 @@ rule "ACR 3"
         m.addWarning("ACR","An Alb: creat ratio value has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Estimated Glomerular Filtration Rate (eGFR)
+// Tracks whether eGFR has been recorded.
+// See also: diab-EFGR.drl for value-based alerting (LOW if <= 60).
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "EGFR 1"
     when
         m : MeasurementInfo()
@@ -465,6 +639,13 @@ rule "EGFR 3"
         m.addWarning("EGFR","An eGFR value has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Lower Extremity Exam / Foot Exam (FTE)
+// Annual comprehensive foot exam for diabetic patients to detect peripheral
+// vascular disease, neuropathy, deformities, and skin breakdown. Diabetic
+// foot ulcers are a leading cause of non-traumatic lower limb amputation.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "FTE 1"
     when
         m : MeasurementInfo()
@@ -493,6 +674,13 @@ rule "FTE 3"
         m.addWarning("FTE","A Lower Extremity Exam has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Loss of Sensation Test (FTLS) - Monofilament Testing
+// 10g monofilament test to detect peripheral neuropathy (loss of protective
+// sensation). Loss of sensation is the primary risk factor for diabetic
+// foot ulceration. Should be tested at each annual foot exam.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "FTLS 1"
     when
         m : MeasurementInfo()
@@ -521,6 +709,11 @@ rule "FTLS 3"
         m.addWarning("FTLS","A loss of sensation test has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Painful Neuropathy (PANE)
+// Tracks whether painful neuropathy assessment has been recorded.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "PANE 1"
     when
         m : MeasurementInfo()
@@ -549,6 +742,12 @@ rule "PANE 3"
         m.addWarning("PANE","A value for Painful Neuropathy has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Autonomic Neuropathy / Erectile Dysfunction (EDGI)
+// Tracks whether autonomic neuropathy / erectile dysfunction screening
+// has been recorded.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "EDGI 1"
     when
         m : MeasurementInfo()
@@ -577,6 +776,13 @@ rule "EDGI 3"
         m.addWarning("EDGI","A value for Autonomic Neuropathy has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Diabetes Education (DMME)
+// Tracks whether the patient has received diabetes self-management education.
+// Diabetes Canada recommends structured education programs covering blood
+// glucose monitoring, medication management, nutrition, and physical activity.
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "DMME 1"
     when
         m : MeasurementInfo()
@@ -605,6 +811,16 @@ rule "DMME 3"
         m.addWarning("DMME","A value for Diabetes Education has not been recorded");
 end
 
+// ---------------------------------------------------------------------------
+// Diabetes Self-Management Goals (DMSM)
+// Tracks whether personalized self-management goals have been reviewed
+// and updated with the patient. This is distinct from DMME (diabetes
+// education) - DMSM focuses on individual goal-setting and action plans
+// developed collaboratively between patient and provider.
+// Note: Rule "DMSM 1" message text says "Diabetes Education" but this is
+// a display message inconsistency; the measurement type is DMSM (Self-Mgmt).
+// Recommendation at 10 months, warning at 12 months.
+// ---------------------------------------------------------------------------
 rule "DMSM 1"
     when
         m : MeasurementInfo()

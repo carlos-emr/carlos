@@ -29,11 +29,14 @@ package io.github.carlos_emr.carlos.workflow;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.URL;
 
 import org.kie.api.KieBase;
+import io.github.carlos_emr.carlos.drools.DroolsCompilationException;
 import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.OscarProperties;
 
@@ -75,11 +78,10 @@ import io.github.carlos_emr.OscarProperties;
  * {@link DroolsHelper#loadFromUrl(URL)} instead of the removed
  * {@code org.drools.io.RuleBaseLoader}.</p>
  *
- * @since 2001-01-01
+ * @since 2006-12-12
  * @see WorkFlowDS
  * @see WorkFlowInfo
  * @see io.github.carlos_emr.carlos.drools.DroolsHelper
- * @see io.github.carlos_emr.carlos.drools.RuleBaseFactory
  */
 public class WorkFlowDSFactory {
 
@@ -104,10 +106,14 @@ public class WorkFlowDSFactory {
      * @return WorkFlowDS a new instance configured with the compiled rules, ready to
      *         execute against {@link WorkFlowInfo} objects via
      *         {@link WorkFlowDS#getMessages(WorkFlowInfo)}
+     * @throws IllegalStateException if the DRL file cannot be found or compiled
      */
     public static WorkFlowDS getWorkFlowDS(String workflow) {
-        KieBase ruleBase = null;
-        ruleBase = loadRuleBase(workflow);
+        KieBase ruleBase = loadRuleBase(workflow);
+        if (ruleBase == null) {
+            throw new IllegalStateException(
+                    "Cannot create WorkFlowDS: failed to load rule base for '" + workflow + "'");
+        }
         return new WorkFlowDS(ruleBase);
     }
 
@@ -128,13 +134,17 @@ public class WorkFlowDSFactory {
      *       via {@link DroolsHelper#loadFromUrl(URL)}.</li>
      * </ol>
      *
-     * <p>If both attempts fail, the error is logged and {@code null} is returned, which will
-     * cause a {@link NullPointerException} when the caller attempts to use the resulting
-     * {@link WorkFlowDS}.</p>
+     * <p>Filesystem paths are validated using {@link PathValidationUtils#validatePath(String, File)}
+     * to prevent path traversal attacks.</p>
+     *
+     * <p>If both attempts fail, an {@link IllegalStateException} is thrown for missing
+     * resources, or {@code null} is returned for I/O and compilation errors (which are
+     * logged before returning).</p>
      *
      * @param string String the DRL filename to load (e.g., {@code "prenatal.drl"})
      * @return KieBase the compiled knowledge base containing the loaded rules, or {@code null}
-     *         if loading fails from both filesystem and classpath
+     *         if loading fails due to I/O or compilation errors
+     * @throws IllegalStateException if the DRL resource cannot be found on the classpath
      */
     public static KieBase loadRuleBase(String string) {
         KieBase ruleBase = null;
@@ -147,11 +157,13 @@ public class WorkFlowDSFactory {
             String workflowDirPath = OscarProperties.getInstance().getProperty("WORKFLOW_DS_DIRECTORY");
 
             if (workflowDirPath != null) {
-                File file = new File(OscarProperties.getInstance().getProperty("WORKFLOW_DS_DIRECTORY") + string);
-                if (file.isFile() || file.canRead()) {
+                File allowedDir = new File(workflowDirPath);
+                File file = PathValidationUtils.validatePath(string, allowedDir);
+                if (file.isFile() && file.canRead()) {
                     MiscUtils.getLogger().debug("Loading workflow from filesystem");
-                    FileInputStream fis = new FileInputStream(file);
-                    ruleBase = DroolsHelper.loadFromInputStream(fis);
+                    try (FileInputStream fis = new FileInputStream(file)) {
+                        ruleBase = DroolsHelper.loadFromInputStream(fis);
+                    }
                     fileFound = true;
                 }
             }
@@ -159,14 +171,20 @@ public class WorkFlowDSFactory {
             // Priority 2: Fall back to loading DRL from the classpath.
             // Default rules are bundled at /oscar/oscarWorkflow/rules/ within the WAR.
             if (!fileFound) {
-                MiscUtils.getLogger().debug("/oscar/oscarWorkFlow/rules/" + string);
-                URL url = WorkFlowDSFactory.class.getResource("/oscar/oscarWorkflow/rules/" + string);  //TODO: change this so it is configurable;
-                MiscUtils.getLogger().debug("is URL instantiated " + url);
-                MiscUtils.getLogger().debug("loading from URL " + url.getFile());
+                String resourcePath = "/oscar/oscarWorkflow/rules/" + string;
+                MiscUtils.getLogger().debug("Looking for workflow DRL at classpath: {}", resourcePath);
+                URL url = WorkFlowDSFactory.class.getResource(resourcePath);
+                if (url == null) {
+                    throw new IllegalStateException("Workflow DRL resource not found on classpath: " + resourcePath);
+                }
+                MiscUtils.getLogger().debug("Loading workflow DRL from: {}", url.getFile());
                 ruleBase = DroolsHelper.loadFromUrl(url);
             }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+        } catch (SecurityException e) {
+            MiscUtils.getLogger().error("Security violation loading workflow DRL '{}': path traversal rejected", string, e);
+            throw e;
+        } catch (IOException | DroolsCompilationException e) {
+            MiscUtils.getLogger().error("Failed to load workflow rule base for DRL file '{}'", string, e);
         }
         return ruleBase;
     }
