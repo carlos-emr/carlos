@@ -2066,7 +2066,7 @@ function addFav(randomId,brandName){
 
     function ShowW(id,resourceId,updated){
 
-				var params = "method=setWarningToShow&resId=" + resourceId + "&updatedat=" + updated + "&rand=" + Math.floor(Math.random() * 10001);
+				var params = "method=setWarningToShow&resId=" + resourceId + "&updatedat=" + updated;
 				var url = ctx + '/oscarRx/GetmyDrugrefInfo.do';
 				new Ajax.Updater('showHideTotal', url, {
 					method: 'post',
@@ -2085,7 +2085,7 @@ function addFav(randomId,brandName){
 			function HideW(id, resourceId, updated) {
 				var url = ctx + '/oscarRx/GetmyDrugrefInfo.do';
 				var ran_number = Math.round(Math.random() * 1000000);
-				var params = "method=setWarningToHide&resId=" + resourceId + "&updatedat=" + updated + "&rand=" + ran_number;  //hack to get around ie caching the page
+				var params = "method=setWarningToHide&resId=" + resourceId + "&updatedat=" + updated;
 				//totalHiddenResources++;
 				new Ajax.Updater('showHideTotal', url, {
 					method: 'post',

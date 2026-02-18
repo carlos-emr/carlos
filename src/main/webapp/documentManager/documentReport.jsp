@@ -233,6 +233,7 @@
                 }
             }
 
+            /** Creates a dynamic POST form to submit a document action (delete/unfile) to documentReport.jsp. */
             function submitDocAction(paramName, docId, func, funcId, viewStatus) {
                 var form = document.createElement('form');
                 form.method = 'post';

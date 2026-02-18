@@ -189,6 +189,7 @@
                 submitDxAction('', startdate, did, demoNo, provNo);
             }
 
+            /** Submits a diagnosis research action via the hidden #dxResearchActionForm. */
             function submitDxAction(status, startdate, did, demoNo, provNo) {
                 var form = document.getElementById('dxResearchActionForm');
                 form.elements['status'].value = status;

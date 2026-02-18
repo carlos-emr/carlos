@@ -94,6 +94,7 @@
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 
 		<script>
+			/** Submits a flowsheet action via the hidden #flowsheetActionForm. */
 			function submitFlowsheetAction(method, name) {
 				var form = document.getElementById('flowsheetActionForm');
 				form.elements['method'].value = method;

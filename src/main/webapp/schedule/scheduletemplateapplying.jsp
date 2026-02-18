@@ -35,6 +35,7 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
@@ -197,7 +198,7 @@
 
             function selectrschedule(s) {
                 var ref = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
-                ref += "?provider_no=<%=request.getParameter("provider_no")%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
+                ref += "?provider_no=<%=URLEncoder.encode(request.getParameter("provider_no"), StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
                 ref += "&sdate=" + s.options[s.selectedIndex].value;
                 self.location.href = ref;
             }
@@ -208,8 +209,8 @@
                     form.method = 'post';
                     form.action = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
                     var fields = {
-                        'provider_no': '<%=request.getParameter("provider_no")%>',
-                        'provider_name': '<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>',
+                        'provider_no': '<%=Encode.forJavaScript(request.getParameter("provider_no"))%>',
+                        'provider_name': '<%=Encode.forJavaScript(request.getParameter("provider_name"))%>',
                         'sdate': s.options[s.selectedIndex].value,
                         'delete': '1',
                         'deldate': 'all'

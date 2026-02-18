@@ -579,6 +579,14 @@ var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
 window.location.href = mypage + "&x=" + X + "&y=" + Y;
 }
 
+/**
+ * Converts a URL with query parameters into a POST form submission.
+ * Parses the query string into hidden form fields and submits via POST.
+ * Also appends current scroll position (x, y) to preserve scroll state
+ * across schedule page navigations.
+ * @param {string} url - Full URL with optional query string (e.g., "page.jsp?key=val")
+ * @param {string} [targetWindow] - Optional form target window name
+ */
 function postViaForm(url, targetWindow) {
 var parts = url.split('?');
 var form = document.createElement('form');
@@ -592,7 +600,7 @@ if (parts.length > 1) {
         var input = document.createElement('input');
         input.type = 'hidden';
         input.name = decodeURIComponent(kv[0]);
-        input.value = kv.length > 1 ? decodeURIComponent(kv[1]) : '';
+        input.value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
         form.appendChild(input);
     }
 }

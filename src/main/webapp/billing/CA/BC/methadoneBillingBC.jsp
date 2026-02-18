@@ -37,7 +37,8 @@
 <%@page import="java.util.*,
                 io.github.carlos_emr.carlos.util.*,
                 org.springframework.web.context.support.WebApplicationContextUtils,
-                org.springframework.web.context.WebApplicationContext" %>
+                org.springframework.web.context.WebApplicationContext,
+                org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -133,7 +134,7 @@
             var form = document.createElement('form');
             form.method = 'post';
             form.action = '<c:out value="${oscar_context_path}"/>/methadoneBillingBC.do';
-            var fields = {remove: index, type: '<%= request.getParameter("type") %>', status: '<%= request.getParameter("status") %>'};
+            var fields = {remove: index, type: '<%= Encode.forJavaScript(request.getParameter("type")) %>', status: '<%= Encode.forJavaScript(request.getParameter("status")) %>'};
             for (var key in fields) {
                 var input = document.createElement('input');
                 input.type = 'hidden';

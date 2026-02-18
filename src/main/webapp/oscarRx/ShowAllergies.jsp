@@ -38,6 +38,7 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
@@ -167,6 +168,7 @@
                 return true;
             }
 
+            /** Submits an allergy reaction via the hidden #addReactionForm. */
             function submitAddReaction(id, type, name) {
                 var form = document.getElementById('addReactionForm');
                 form.elements['ID'].value = id;
@@ -443,7 +445,7 @@
                                                             <input type="hidden" name="demographicNo" value="<%=demoNo %>"/>
                                                             <input type="hidden" name="action" value="<%=actionPath %>"/>
                                                             <a href="javascript:void(0);"
-                                                               onclick="if(confirm('Are you sure you want to set the allergy <%=displayAllergy.getDescription() %> to <%=labelConfirmAction%>?')){this.closest('form').submit();}"><%=labelAction%>
+                                                               onclick="if(confirm('Are you sure you want to set the allergy <%=Encode.forJavaScript(displayAllergy.getDescription()) %> to <%=Encode.forJavaScript(labelConfirmAction)%>?')){this.closest('form').submit();}"><%=labelAction%>
                                                             </a>
                                                         </form>
                                                         <% } %>

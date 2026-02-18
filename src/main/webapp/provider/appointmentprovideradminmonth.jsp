@@ -362,6 +362,12 @@
                 document.jumptodate.year.select();
             }
 
+            /**
+             * Converts a URL with query parameters into a POST form submission in a popup window.
+             * Opens an 'oscar_appt' popup and submits the parsed query string as POST form fields.
+             * Unlike postViaForm in schedulePage.js.jsp, does not track scroll position.
+             * @param {string} url - Full URL with optional query string (e.g., "page.jsp?key=val")
+             */
             function postViaFormPopup(url) {
                 var parts = url.split('?');
                 var form = document.createElement('form');
@@ -375,7 +381,7 @@
                         var input = document.createElement('input');
                         input.type = 'hidden';
                         input.name = decodeURIComponent(kv[0]);
-                        input.value = kv.length > 1 ? decodeURIComponent(kv[1]) : '';
+                        input.value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
                         form.appendChild(input);
                     }
                 }

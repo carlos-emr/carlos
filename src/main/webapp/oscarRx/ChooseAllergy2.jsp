@@ -90,6 +90,7 @@
                 return true;
             }
 
+            /** Submits an allergy reaction via the hidden #addReactionForm with a dynamic action URL. */
             function submitAddReaction(actionUrl, id, type, name) {
                 var form = document.getElementById('addReactionForm');
                 form.action = actionUrl;
@@ -264,14 +265,14 @@
                                                     <!-- 判断是否为平铺结果显示 -->
                                                     <c:if test="${flatResults}">
                                                         <c:forEach var="allergy" items="${flatMap}">
-                                                            <a href="javascript:void(0)" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', '${allergy.value.drugrefId}', '${allergy.value.typeCode}', '${fn:escapeXml(allergy.value.description)}')">
+                                                            <a href="javascript:void(0)" data-id="${fn:escapeXml(allergy.value.drugrefId)}" data-type="${fn:escapeXml(allergy.value.typeCode)}" data-desc="${fn:escapeXml(allergy.value.description)}" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                                     ${allergy.value.description}
                                                             </a>
 
                                                             <!-- 显示药物分类 -->
                                                             <c:forEach var="drugClass" items="${drugClassHash[allergy.value.drugrefId]}">
                                                                 &nbsp;&nbsp;&nbsp;
-                                                                <a style="color: orange" href="javascript:void(0)" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', '${drugClass[0]}', '10', '${fn:escapeXml(drugClass[1])}')">
+                                                                <a style="color: orange" href="javascript:void(0)" data-id="${fn:escapeXml(drugClass[0])}" data-type="10" data-desc="${fn:escapeXml(drugClass[1])}" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                                         ${drugClass[1]}
                                                                 </a>
                                                             </c:forEach>
@@ -292,14 +293,14 @@
 
                                                                 <div id="${type}_content" style="display: ${type == 11 || type == 12 ? 'none' : 'block'}">
                                                                     <c:forEach var="allergy" items="${allergyResults[type]}">
-                                                                        <a href="javascript:void(0)" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', '${allergy.drugrefId}', '${allergy.typeCode}', '${fn:escapeXml(allergy.description)}')">
+                                                                        <a href="javascript:void(0)" data-id="${fn:escapeXml(allergy.drugrefId)}" data-type="${fn:escapeXml(allergy.typeCode)}" data-desc="${fn:escapeXml(allergy.description)}" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                                                 ${allergy.description}
                                                                         </a>
 
                                                                         <!-- 显示药物分类 -->
                                                                         <c:forEach var="drugClass" items="${drugClassHash[allergy.drugrefId]}">
                                                                             &nbsp;&nbsp;&nbsp;
-                                                                            <a style="color: orange" href="javascript:void(0)" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', '${drugClass[0]}', '10', '${fn:escapeXml(drugClass[1])}')">
+                                                                            <a style="color: orange" href="javascript:void(0)" data-id="${fn:escapeXml(drugClass[0])}" data-type="10" data-desc="${fn:escapeXml(drugClass[1])}" onclick="submitAddReaction('<%= request.getContextPath() %>/oscarRx/addReaction.do', this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                                                     ${drugClass[1]}
                                                                             </a>
                                                                         </c:forEach>

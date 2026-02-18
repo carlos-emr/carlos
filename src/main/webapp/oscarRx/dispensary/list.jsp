@@ -346,6 +346,7 @@
 
             }
 
+            /** Deletes a dispensing event via the hidden #deleteDispensingForm after confirmation. */
             function deleteDispensingEvent(eventId) {
                 if (confirm("Are you sure you want to delete this record?")) {
                     var form = document.getElementById('deleteDispensingForm');

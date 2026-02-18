@@ -90,6 +90,7 @@
                 return true;
             }
 
+            /** Submits an allergy reaction via the hidden #addReactionForm. */
             function submitAddReaction(id, type, name) {
                 var form = document.getElementById('addReactionForm');
                 form.elements['ID'].value = id;
@@ -242,12 +243,12 @@
                                     <c:choose>
                                         <c:when test="${flatResults}">
                                             <c:forEach var="allergy" items="${flatMap}">
-                                                <a href="javascript:void(0)" onclick="submitAddReaction('${allergy.value.drugrefId}', '${allergy.value.typeCode}', '${fn:escapeXml(allergy.value.description)}')">
+                                                <a href="javascript:void(0)" data-id="${fn:escapeXml(allergy.value.drugrefId)}" data-type="${fn:escapeXml(allergy.value.typeCode)}" data-desc="${fn:escapeXml(allergy.value.description)}" onclick="submitAddReaction(this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                         ${allergy.value.description}
                                                 </a>
                                                 <c:forEach var="drugClassPair" items="${drugClassHash[allergy.value.drugrefId]}">
                                                     &nbsp;&nbsp;&nbsp;
-                                                    <a style="color: orange" href="javascript:void(0)" onclick="submitAddReaction('${drugClassPair[0]}', '10', '${fn:escapeXml(drugClassPair[1])}')">
+                                                    <a style="color: orange" href="javascript:void(0)" data-id="${fn:escapeXml(drugClassPair[0])}" data-type="10" data-desc="${fn:escapeXml(drugClassPair[1])}" onclick="submitAddReaction(this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                             ${drugClassPair[1]}
                                                     </a>
                                                 </c:forEach>
@@ -263,7 +264,7 @@
                                                 </div>
                                                 <div id="8_content">
                                                     <c:forEach var="allergy" items="${allergyResults[8]}">
-                                                        <a href="javascript:void(0)" onclick="submitAddReaction('${allergy.drugrefId}', '${allergy.typeCode}', '${fn:escapeXml(allergy.description)}')">
+                                                        <a href="javascript:void(0)" data-id="${fn:escapeXml(allergy.drugrefId)}" data-type="${fn:escapeXml(allergy.typeCode)}" data-desc="${fn:escapeXml(allergy.description)}" onclick="submitAddReaction(this.dataset.id, this.dataset.type, this.dataset.desc)">
                                                                 ${allergy.description}
                                                         </a>
                                                         <br/>
