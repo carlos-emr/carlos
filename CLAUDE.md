@@ -385,7 +385,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 
 ## Drools Decision Support System
 
-**Version**: Drools 7.74.1.Final (KIE API), migrated from Drools 2.0 in PR #404
+**Version**: Drools 7.74.1.Final (KIE API), migrated from Drools 2.0 in PR #423
 **MVEL**: `mvel2:2.5.2.Final` (overridden from 2.4.x for Java 21 compatibility; 2.4.x references `java.lang.Compiler` removed in JDK 16)
 **Documentation**: Full architecture, DRL file reference, and known bugs in `docs/drools-decision-support-system.md`
 

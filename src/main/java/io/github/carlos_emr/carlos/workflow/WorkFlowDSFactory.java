@@ -35,6 +35,7 @@ import java.net.URL;
 import org.kie.api.KieBase;
 import io.github.carlos_emr.carlos.drools.DroolsCompilationException;
 import io.github.carlos_emr.carlos.drools.DroolsHelper;
+import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -149,6 +150,12 @@ public class WorkFlowDSFactory {
      *         compilation fails due to I/O or compilation errors
      */
     public static KieBase loadRuleBase(String string) {
+        String cacheKey = "workflow:" + string;
+        KieBase cached = RuleBaseFactory.getRuleBase(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+
         KieBase ruleBase = null;
         try {
             boolean fileFound = false;
@@ -188,6 +195,9 @@ public class WorkFlowDSFactory {
         } catch (IOException | DroolsCompilationException e) {
             MiscUtils.getLogger().error("Failed to load workflow rule base for DRL file '{}'", string, e);
             throw new IllegalStateException("Failed to load workflow rule base for DRL file '" + string + "'", e);
+        }
+        if (ruleBase != null) {
+            RuleBaseFactory.putRuleBase(cacheKey, ruleBase);
         }
         return ruleBase;
     }

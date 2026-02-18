@@ -54,12 +54,6 @@
 //     - LegA: Legal Assessment (outstanding legal issues, court dates)
 //     - Osup: Other Support services (referrals to additional services)
 //
-// Known Bug:
-//   Rule "SoCm 1" incorrectly passes "Lwil" as the measurement type to
-//   addWarning() instead of "SoCm". This means the social/community overdue
-//   warning will appear in the Lwil row of the flowsheet rather than
-//   its correct SoCm row. This is an inherited upstream bug.
-//
 // How It Works:
 //   Uses the simple 2-rule pattern per question (warning only, no recommendation):
 //     Rule "X 1" - WARNING: question not answered in 12+ months
@@ -174,7 +168,7 @@ rule "SoCm 1"
         m : MeasurementInfo()
         eval( m.getLastDateRecordedInMonths("SoCm") >= 12 )
     then
-        m.addWarning("Lwil","Question not answered in "+m.getLastDateRecordedInMonths("SoCm")+" months");
+        m.addWarning("SoCm","Question not answered in "+m.getLastDateRecordedInMonths("SoCm")+" months");
 end
 
 rule "SoCm 2"

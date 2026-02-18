@@ -367,10 +367,6 @@ public class DSPreventionDrools {
      * RuleBaseCreator to generate a truthy eval (the boolean return value itself is the
      * condition).</p>
      *
-     * <p><strong>BUG</strong>: The {@code replaceAll(";",...)} call on the reassigned
-     * {@code param} variable discards its return value (strings are immutable in Java), so
-     * semicolons are never actually removed. This is a pre-existing bug.</p>
-     *
      * @param dsConditions List of {@link DSCondition} objects to append the new condition to
      * @param condition Element the XML {@code <condition>} element with {@code param} and
      *                  {@code value} attributes
@@ -384,8 +380,7 @@ public class DSPreventionDrools {
         // Build multi-argument param: preventionType","startDate","endDate
         // DSCondition.getType() wraps this as: isLastPreventionWithinRange("preventionType","startDate","endDate")
         param = param + "\",\"" + values[0] + "\",\"" + values[1];
-        // BUG: replaceAll() return value is not assigned; semicolons are never removed
-        param.replaceAll(";", "");
+        param = param.replaceAll(";", "");
         dsConditions.add(new DSCondition("isLastPreventionWithinRange", param, "", ""));
 
     }
@@ -397,10 +392,6 @@ public class DSPreventionDrools {
      * <p>Identical to {@link #processLastPreventionIsWithinRange(List, Element)} except the
      * generated DSCondition includes {@code == false} to negate the boolean result.</p>
      *
-     * <p><strong>BUG</strong>: The {@code replaceAll(";",...)} call discards its return value
-     * (strings are immutable), so semicolons are never actually removed. This is a
-     * pre-existing bug.</p>
-     *
      * @param dsConditions List of {@link DSCondition} objects to append the new condition to
      * @param condition Element the XML {@code <condition>} element with {@code param} and
      *                  {@code value} attributes
@@ -411,8 +402,7 @@ public class DSPreventionDrools {
 
         String[] values = value.split(",");
         param = param + "\",\"" + values[0] + "\",\"" + values[1];
-        // BUG: replaceAll() return value is not assigned; semicolons are never removed
-        param.replaceAll(";", "");
+        param = param.replaceAll(";", "");
         dsConditions.add(new DSCondition("isLastPreventionWithinRange", param, "==", "false"));
     }
 
@@ -428,10 +418,6 @@ public class DSPreventionDrools {
      * {@link io.github.carlos_emr.carlos.prevention.Prevention#isTodayinDateRange(String, String)}.
      * The generated DRL expression evaluates as: {@code m.isTodayinDateRange("startDate","endDate")}.</p>
      *
-     * <p><strong>BUG</strong>: The {@code replaceAll(";",...)} call discards its return value
-     * (strings are immutable), so semicolons are never actually removed. This is a
-     * pre-existing bug.</p>
-     *
      * @param dsConditions List of {@link DSCondition} objects to append the new condition to
      * @param condition Element the XML {@code <condition>} element with a {@code value}
      *                  attribute containing comma-separated start and end dates
@@ -443,8 +429,7 @@ public class DSPreventionDrools {
         // Build two-argument param: startDate","endDate
         // DSCondition.getType() wraps this as: isTodayinDateRange("startDate","endDate")
         param = params[0] + "\",\"" + params[1];
-        // BUG: replaceAll() return value is not assigned; semicolons are never removed
-        param.replaceAll(";", "");
+        param = param.replaceAll(";", "");
         dsConditions.add(new DSCondition("isTodayinDateRange", param, "", ""));
     }
 
@@ -455,34 +440,21 @@ public class DSPreventionDrools {
      * <p>Expected XML format:
      * {@code <condition type="!todayIsInDateRange" value="2024-09-01,2025-04-30" />}</p>
      *
-     * <p><strong>BUG (delimiter mismatch)</strong>: This method splits the value on {@code "-"}
-     * (hyphen) instead of {@code ","} (comma) as used in
-     * {@link #processTodayIsInDateRange(List, Element)}. Since date values contain hyphens
-     * (e.g., "2024-09-01"), splitting on "-" will incorrectly fragment the dates. For example,
-     * "2024-09-01,2025-04-30" split on "-" produces ["2024", "09", "01,2025", "04", "30"]
-     * instead of the expected ["2024-09-01", "2025-04-30"]. This is a pre-existing bug.</p>
-     *
-     * <p><strong>BUG</strong>: The {@code replaceAll(";",...)} call discards its return value
-     * (strings are immutable), so semicolons are never actually removed. This is a
-     * pre-existing bug.</p>
-     *
-     * <p>Additionally, this method wraps the param with extra quote characters, producing a
-     * different param format than the positive variant. The positive variant builds
-     * {@code startDate","endDate} while this method builds {@code "startDate","endDate"} with
-     * leading and trailing quotes, creating an inconsistency.</p>
+     * <p>Identical to {@link #processTodayIsInDateRange(List, Element)} except the
+     * generated DSCondition includes {@code == false} to negate the boolean result.</p>
      *
      * @param dsConditions List of {@link DSCondition} objects to append the new condition to
      * @param condition Element the XML {@code <condition>} element with a {@code value}
-     *                  attribute containing the date range
+     *                  attribute containing comma-separated start and end dates
      */
     private static void processTodayIsNotInDateRange(List<DSCondition> dsConditions, Element condition) {
         String param = condition.getAttributeValue("value");
-        // BUG: Splits on "-" (hyphen) instead of "," (comma), which fragments ISO date strings.
-        // The positive variant processTodayIsInDateRange uses "," as the delimiter.
-        String[] params = param.split("-");
-        param = "\"" + params[0] + "\",\"" + params[1] + "\"";
-        // BUG: replaceAll() return value is not assigned; semicolons are never removed
-        param.replaceAll(";", "");
+        // Split "2024-09-01,2025-04-30" on comma into [startDate, endDate]
+        String[] params = param.split(",");
+        // Build two-argument param: startDate","endDate
+        // DSCondition.getType() wraps this as: isTodayinDateRange("startDate","endDate")
+        param = params[0] + "\",\"" + params[1];
+        param = param.replaceAll(";", "");
         dsConditions.add(new DSCondition("isTodayinDateRange", param, "==", "false"));
     }
 

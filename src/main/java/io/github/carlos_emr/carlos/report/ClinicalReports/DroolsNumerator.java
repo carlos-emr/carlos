@@ -32,6 +32,7 @@ import java.util.Hashtable;
 import org.kie.api.KieBase;
 import org.kie.api.runtime.KieSession;
 import io.github.carlos_emr.carlos.drools.DroolsHelper;
+import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -179,14 +180,25 @@ public class DroolsNumerator implements Numerator {
 
 
     /**
-     * Loads a measurement decision support DRL file using the standard two-tier strategy.
+     * Loads a measurement decision support DRL file using the standard two-tier strategy,
+     * with caching via {@link RuleBaseFactory} to avoid recompiling the same DRL file
+     * on every patient evaluation.
      *
      * @param string the DRL filename to load (e.g. "bp_check.drl")
      * @return KieBase the compiled rule base, or {@code null} if loading fails
      * @see DroolsHelper#loadMeasurementRuleBase(String, Class)
      */
     public KieBase loadMeasurementRuleBase(String string) {
-        return DroolsHelper.loadMeasurementRuleBase(string, MeasurementFlowSheet.class);
+        String cacheKey = "measurement:" + string;
+        KieBase cached = RuleBaseFactory.getRuleBase(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        KieBase kieBase = DroolsHelper.loadMeasurementRuleBase(string, MeasurementFlowSheet.class);
+        if (kieBase != null) {
+            RuleBaseFactory.putRuleBase(cacheKey, kieBase);
+        }
+        return kieBase;
     }
 
     /**

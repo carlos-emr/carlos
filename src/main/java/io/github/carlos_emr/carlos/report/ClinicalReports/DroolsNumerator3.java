@@ -191,7 +191,7 @@ public class DroolsNumerator3 implements Numerator {
 
 
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to evaluate measurement existence for demographic '{}'", demographicNo, e);
+            MiscUtils.getLogger().error("Failed to evaluate measurement existence", e);
         }
         return evalTrue;
     }

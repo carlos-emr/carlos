@@ -38,7 +38,7 @@ Comprehensive documentation of the Drools Rule Language (DRL) decision support s
 
 CARLOS EMR uses the [Drools](https://www.drools.org/) rule engine (version 7.74.1.Final) for clinical decision support. The system evaluates patient data against evidence-based clinical rules to generate warnings, recommendations, and colour-coded indicators that help healthcare providers identify patients who need attention.
 
-The Drools system was originally written for the Drools 2.0 API (XML rule format) and was migrated to the modern KIE API (DRL text format) as part of PR #404 in February 2026.
+The Drools system was originally written for the Drools 2.0 API (XML rule format) and was migrated to the modern KIE API (DRL text format) as part of PR #423 in February 2026.
 
 ### Key Java Classes
 
@@ -642,7 +642,7 @@ For the full Drools DRL language reference, see the [Drools Documentation](https
 
 ## Migration Notes (Drools 2.0 to 7.x)
 
-The Drools subsystem was migrated from Drools 2.0 (XML rule format) to Drools 7.74.1.Final (KIE API with DRL text format) in PR #404, February 2026.
+The Drools subsystem was migrated from Drools 2.0 (XML rule format) to Drools 7.74.1.Final (KIE API with DRL text format) in PR #423, February 2026.
 
 ### API Changes
 
