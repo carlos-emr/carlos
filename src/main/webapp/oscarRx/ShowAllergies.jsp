@@ -418,9 +418,14 @@
                                                         <%
                                                             if (securityManager.hasDeleteAccess("_allergies", roleName2$)) {
                                                         %>
-                                                        <a href="<%= request.getContextPath() %>/oscarRx/deleteAllergy.do?ID=<%= String.valueOf(displayAllergy.getId()) %>&demographicNo=<%=demoNo %>&action=<%=actionPath %>"
-                                                           onClick="return confirm('Are you sure you want to set the allergy <%=displayAllergy.getDescription() %> to <%=labelConfirmAction%>?');"><%=labelAction%>
-                                                        </a>
+                                                        <form method="post" action="<%= request.getContextPath() %>/oscarRx/deleteAllergy.do" style="display:inline;">
+                                                            <input type="hidden" name="ID" value="<%= String.valueOf(displayAllergy.getId()) %>"/>
+                                                            <input type="hidden" name="demographicNo" value="<%=demoNo %>"/>
+                                                            <input type="hidden" name="action" value="<%=actionPath %>"/>
+                                                            <a href="javascript:void(0);"
+                                                               onclick="if(confirm('Are you sure you want to set the allergy <%=displayAllergy.getDescription() %> to <%=labelConfirmAction%>?')){this.closest('form').submit();}"><%=labelAction%>
+                                                            </a>
+                                                        </form>
                                                         <% } %>
                                                     </td>
                                                 </tr>
