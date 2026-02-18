@@ -74,6 +74,6 @@ rule "EFGR"
         m : MeasurementDSHelper()
         eval( m.getDataAsDouble() <= 60 )
     then
-        m.log("ACR RULES IS GETTING RUN");
+        m.log("EFGR/eGFR RULE IS GETTING RUN");
         m.setIndicationColor("LOW");
 end
