@@ -138,14 +138,15 @@ public class WorkFlowDSFactory {
      * <p>Filesystem paths are validated using {@link PathValidationUtils#validatePath(String, File)}
      * to prevent path traversal attacks.</p>
      *
-     * <p>If both attempts fail, an {@link IllegalStateException} is thrown for missing
-     * resources, or {@code null} is returned for I/O and compilation errors (which are
-     * logged before returning).</p>
+     * <p>If the DRL resource cannot be found on either the filesystem or the classpath, or
+     * if I/O or compilation errors occur while loading or compiling the DRL, an
+     * {@link IllegalStateException} is thrown. Callers should not rely on a {@code null}
+     * return value to indicate failure.</p>
      *
      * @param string String the DRL filename to load (e.g., {@code "prenatal.drl"})
-     * @return KieBase the compiled knowledge base containing the loaded rules, or {@code null}
-     *         if loading fails due to I/O or compilation errors
-     * @throws IllegalStateException if the DRL resource cannot be found on the classpath
+     * @return KieBase the compiled knowledge base containing the loaded rules
+     * @throws IllegalStateException if the DRL resource cannot be found or if loading or
+     *         compilation fails due to I/O or compilation errors
      */
     public static KieBase loadRuleBase(String string) {
         KieBase ruleBase = null;
