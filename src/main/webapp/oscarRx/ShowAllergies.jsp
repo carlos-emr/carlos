@@ -184,11 +184,31 @@
             }
 
             function moveAllergyDown(allergyId) {
-                window.location = "<%= request.getContextPath() %>/oscarRx/showAllergy.do?method=reorder&direction=down&demographicNo=" + <%=bean.getDemographicNo()%> +"&allergyId=" + allergyId;
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/oscarRx/showAllergy.do';
+                var fields = {method: 'reorder', direction: 'down', demographicNo: '<%=bean.getDemographicNo()%>', allergyId: allergyId};
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden'; input.name = key; input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                form.submit();
             }
 
             function moveAllergyUp(allergyId) {
-                window.location = "<%= request.getContextPath() %>/oscarRx/showAllergy.do?method=reorder&direction=up&demographicNo=" + <%=bean.getDemographicNo()%> +"&allergyId=" + allergyId;
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/oscarRx/showAllergy.do';
+                var fields = {method: 'reorder', direction: 'up', demographicNo: '<%=bean.getDemographicNo()%>', allergyId: allergyId};
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden'; input.name = key; input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                form.submit();
             }
 
             function show_Search_Criteria() {

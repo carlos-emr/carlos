@@ -83,7 +83,7 @@
 </h4>
 
 <%if (action == null || !"run".equals(action)) { %>
-<form action="fixRolesOnNotes.jsp">
+<form action="fixRolesOnNotes.jsp" method="post">
     Choose role to change to: <select name="role_to">
     <%
         for (SecRole role : roles) {

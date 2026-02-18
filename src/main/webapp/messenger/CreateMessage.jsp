@@ -364,11 +364,14 @@
                                         <td>
                                             <table class=messButtonsA cellspacing=0 cellpadding=3>
                                                 <tr>
-                                                    <td class="messengerButtonsA"><a
-                                                            href="${pageContext.request.contextPath}/messenger/ClearMessage.do"
-                                                            class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnClear"/>
-                                                    </a></td>
+                                                    <td class="messengerButtonsA">
+                                                        <form method="post" action="${pageContext.request.contextPath}/messenger/ClearMessage.do" style="display:inline;">
+                                                            <a href="javascript:void(0);" onclick="this.closest('form').submit();"
+                                                               class="messengerButtons">
+                                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnClear"/>
+                                                            </a>
+                                                        </form>
+                                                    </td>
                                                 </tr>
                                             </table>
                                         </td>

@@ -134,10 +134,14 @@
                 <tr>
                     <%}%>
                     <td>
-                        <a href='<%= request.getContextPath() %>/eforms/delGroup.do?group_name=<%=URLEncoder.encode(groupName, "UTF-8")%>'
-                           class="btn btn-small" title="delete this group"
-                           data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><%=groupName%></strong>?"><i
-                                class="fa-solid fa-trash"></i></a></td>
+                        <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup.do" style="display:inline;">
+                            <input type="hidden" name="group_name" value="<%=URLEncoder.encode(groupName, "UTF-8")%>"/>
+                            <a href="javascript:void(0);"
+                               class="btn btn-small" title="delete this group"
+                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><%=groupName%></strong>?"
+><i
+                                    class="fa-solid fa-trash"></i></a>
+                        </form></td>
                     <td title="<%=groupName%>"><a
                             href='<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%>'
                             class="contentLink"><%=groupName%>
@@ -195,10 +199,15 @@
                     data-trigger="hover" data-placement="bottom">
 
                     <td>
-                        <a href="<%= request.getContextPath() %>/eforms/removeFromGroup.do?fid=<%=curForm.get("fid")%>&groupName=<%=URLEncoder.encode(groupView, "UTF-8")%>"
-                           title="remove from group" class="btn btn-small" title="delete eform from group"
-                           data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to remove this eform from this group?"><i
-                                class="fa-solid fa-trash"></i></a>
+                        <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup.do" style="display:inline;">
+                            <input type="hidden" name="fid" value="<%=curForm.get("fid")%>"/>
+                            <input type="hidden" name="groupName" value="<%=URLEncoder.encode(groupView, "UTF-8")%>"/>
+                            <a href="javascript:void(0);"
+                               title="remove from group" class="btn btn-small"
+                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to remove this eform from this group?"
+><i
+                                    class="fa-solid fa-trash"></i></a>
+                        </form>
                     </td>
 
                     <td><a href="#"
