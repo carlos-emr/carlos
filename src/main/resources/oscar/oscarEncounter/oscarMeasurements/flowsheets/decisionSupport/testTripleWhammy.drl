@@ -53,7 +53,7 @@
 // Fact: MeasurementDSHelper - setMeasurement() loads each measurement type
 //   sequentially, isInRange() tracks cumulative pass/fail state.
 // ============================================================================
-package ReportA1C;
+package ReportTripleWhammy;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 

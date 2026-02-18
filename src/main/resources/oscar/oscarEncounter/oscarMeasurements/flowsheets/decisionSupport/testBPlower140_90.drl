@@ -37,7 +37,7 @@
 // Fact: MeasurementDSHelper - getNumberFromSplit("/",0/1) for systolic/
 //   diastolic, getLastDateRecordedInMths() for recency check.
 // ============================================================================
-package ReportA1C;
+package ReportBPLower140_90;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 

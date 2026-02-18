@@ -70,17 +70,11 @@
 //   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
 //   Bound as variable "m" in all rules.
 //
-// Package Name Note:
-//   The package is "DiabetesFlowSheet" rather than "CHFFlowSheet" because this
-//   file was originally generated from the same Drools 2.0 XML template as the
-//   diabetes flowsheet. The package name does not affect rule execution; it is
-//   only used for DRL namespace scoping within the compiled KieBase.
-//
 // History:
 //   - Originally created ~2006 as Drools 2.0 XML rules (Jay Gallagher, McMaster)
 //   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
-package DiabetesFlowSheet;
+package CHFFlowSheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 

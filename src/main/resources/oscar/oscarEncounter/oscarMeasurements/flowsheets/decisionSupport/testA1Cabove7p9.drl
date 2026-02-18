@@ -39,7 +39,7 @@
 // Fact: MeasurementDSHelper - setMeasurement("A1C") loads latest value,
 //   setInRange(true) counts the patient in the numerator.
 // ============================================================================
-package ReportA1C;
+package ReportA1CAbove7p9;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 

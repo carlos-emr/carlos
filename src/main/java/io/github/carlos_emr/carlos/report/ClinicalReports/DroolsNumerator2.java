@@ -226,6 +226,7 @@ public class DroolsNumerator2 implements Numerator {
 
             MiscUtils.getLogger().debug("right before catch");
         } catch (Exception e) {
+            // demographicNo is an internal database sequence number, not PHI
             MiscUtils.getLogger().error("Failed to evaluate Drools rules for demographic '{}'", demographicNo, e);
         }
         return evalTrue;

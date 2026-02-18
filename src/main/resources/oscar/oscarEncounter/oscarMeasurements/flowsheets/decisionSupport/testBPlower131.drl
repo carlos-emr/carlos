@@ -38,7 +38,7 @@
 //
 // Fact: MeasurementDSHelper - getNumberFromSplit("/",0) extracts systolic.
 // ============================================================================
-package ReportA1C;
+package ReportBPLower131;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 

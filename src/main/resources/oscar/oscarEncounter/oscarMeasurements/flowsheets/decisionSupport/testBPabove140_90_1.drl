@@ -35,7 +35,7 @@
 //
 // Fact: MeasurementDSHelper - same as testBPabove140_90.drl.
 // ============================================================================
-package ReportA1C;
+package ReportBPAbove140_90_1;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 

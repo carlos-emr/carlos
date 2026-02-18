@@ -529,12 +529,13 @@ All five variants share the same DRL loading logic (delegated to `DroolsHelper.l
 |------|--------|------------|
 | SoCm 1 | "Lwil" | "SoCm" |
 
-### Package Name Mismatches
+### Package Name Mismatches (Fixed)
 
-| File | Package Name | Expected |
-|------|-------------|----------|
-| `intake.drl` | `FinancesFlowsheet` | `IntakeFlowsheet` |
-| All test*.drl files | `ReportA1C` | Should match their indicator |
+All DRL package names now match their file purpose. Previously, 14 files had
+inherited incorrect package names from copy-paste during the original Drools 2.0
+XML era (e.g., all BP/LDL/TripleWhammy files used `package ReportA1C;`). These
+were corrected during the Drools 7.x migration since the package declaration is
+a DRL-internal namespace with no effect on rule execution in this codebase.
 
 ### Threshold Inconsistencies
 
@@ -623,7 +624,7 @@ To override default rules without modifying the application:
    - `WORKFLOW_DS_DIRECTORY=/path/to/custom/workflow/rules/`
 2. Place your customized DRL file(s) in the specified directory
 3. The filesystem version takes priority over the bundled classpath version
-4. File paths are validated via `PathValidationUtils.validatePath()` to prevent path traversal
+4. `MEASUREMENT_DS_DIRECTORY` and `WORKFLOW_DS_DIRECTORY` file paths are validated via `PathValidationUtils.validatePath()` to prevent path traversal. `PREVENTION_FILE` is an admin-configured property (not user input) and is loaded directly without path traversal validation
 
 ### DRL Syntax Reference
 

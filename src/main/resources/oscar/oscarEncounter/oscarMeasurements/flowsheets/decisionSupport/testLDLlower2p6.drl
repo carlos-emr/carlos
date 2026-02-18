@@ -40,7 +40,7 @@
 //
 // Fact: MeasurementDSHelper - setMeasurement("LDL") loads latest LDL value.
 // ============================================================================
-package ReportA1C;
+package ReportLDLLower2p6;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 

@@ -40,7 +40,7 @@
 // Fact: MeasurementDSHelper - setMeasurement("BP") loads latest BP value,
 //   getNumberFromSplit("/",0) extracts systolic component.
 // ============================================================================
-package ReportA1C;
+package ReportBPAbove139;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 

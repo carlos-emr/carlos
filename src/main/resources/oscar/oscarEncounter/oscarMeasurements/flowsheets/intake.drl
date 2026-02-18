@@ -80,7 +80,7 @@
 //   - Originally created for CAISI community health module (McMaster)
 //   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
 // ============================================================================
-package FinancesFlowsheet;
+package IntakeFlowsheet;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 

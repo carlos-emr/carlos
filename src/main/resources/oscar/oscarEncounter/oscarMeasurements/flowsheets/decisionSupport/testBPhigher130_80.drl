@@ -36,7 +36,7 @@
 // Fact: MeasurementDSHelper - getNumberFromSplit("/",0/1) for systolic/
 //   diastolic components.
 // ============================================================================
-package ReportA1C;
+package ReportBPHigher130_80;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 

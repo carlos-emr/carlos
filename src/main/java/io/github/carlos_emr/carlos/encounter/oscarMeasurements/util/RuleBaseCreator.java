@@ -136,10 +136,10 @@ public class RuleBaseCreator {
      * that identical rule sets always produce cache hits regardless of how they were
      * constructed, while using a compact hash instead of the full DRL text.</p>
      *
-     * @param rulesetName String the DRL package name used in the generated
+     * @param rulesetName String used to derive the DRL package name in the generated
      *                    {@code package} declaration (e.g., {@code "testPkg"}).
-     *                    Note: callers like DSGuidelineDrools may pass keys containing
-     *                    colons which are not valid Java/DRL package names
+     *                    Non-identifier characters (colons, spaces, etc.) are sanitized
+     *                    to underscores to produce a valid DRL package name
      * @param drlRules List of String individual DRL rule definitions, each typically
      *                 produced by {@link #getRule}; may contain {@code import} statements
      *                 which are extracted and deduplicated at the package level
@@ -168,8 +168,13 @@ public class RuleBaseCreator {
                 rulesBody.append("\n");
             }
 
+            // Sanitize rulesetName to produce a valid DRL package identifier.
+            // Callers like DSGuidelineDrools pass keys with colons (e.g., "DSGuidelineDrools:42")
+            // which are not valid in DRL package declarations.
+            String packageName = rulesetName.replaceAll("[^a-zA-Z0-9._]", "_");
+
             StringBuilder drl = new StringBuilder();
-            drl.append("package ").append(rulesetName).append(";\n\n");
+            drl.append("package ").append(packageName).append(";\n\n");
             for (String imp : imports) {
                 drl.append(imp).append("\n");
             }
