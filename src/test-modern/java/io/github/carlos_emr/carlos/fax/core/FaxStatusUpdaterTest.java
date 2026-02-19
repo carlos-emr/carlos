@@ -19,6 +19,8 @@ package io.github.carlos_emr.carlos.fax.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -288,6 +290,93 @@ class FaxStatusUpdaterTest extends OpenOUnitTestBase {
         assertThat(fax.getStatusString())
                 .isEqualTo("Status check failed: API rate limit exceeded");
         verify(faxJobDao).merge(fax);
+    }
+
+    @Test
+    @DisplayName("should skip fax and continue processing when IllegalStateException occurs from credential decryption")
+    void shouldSkipFaxAndContinue_whenIllegalStateExceptionOccurs() throws FaxProviderException {
+        // Given: Two faxes - first account's credential decryption fails
+        FaxJob decryptFailFax = createFaxJob(50, FAX_LINE_D, FaxJob.STATUS.SENT, 5001L);
+        FaxJob normalFax = createFaxJob(51, FAX_LINE_E, FaxJob.STATUS.SENT, 5002L);
+        when(faxJobDao.getInprogressFaxesByJobId())
+                .thenReturn(Arrays.asList(decryptFailFax, normalFax));
+
+        FaxConfig badConfig = createActiveFaxConfig(50, FAX_LINE_D);
+        when(faxConfigDao.getConfigByNumber(FAX_LINE_D)).thenReturn(badConfig);
+        // IllegalStateException from FaxConfig.getPasswd() → decryptField failure
+        when(faxProviderClientFactory.getClient(badConfig))
+                .thenThrow(new IllegalStateException("Failed to decrypt faxPasswd"));
+
+        FaxConfig goodConfig = createActiveFaxConfig(51, FAX_LINE_E);
+        when(faxConfigDao.getConfigByNumber(FAX_LINE_E)).thenReturn(goodConfig);
+        when(faxProviderClientFactory.getClient(goodConfig)).thenReturn(faxProviderClient);
+
+        FaxJob updated = new FaxJob();
+        updated.setStatus(FaxJob.STATUS.COMPLETE);
+        updated.setStatusString("Delivered");
+        when(faxProviderClient.fetchFaxStatus(goodConfig, normalFax)).thenReturn(updated);
+
+        // When
+        faxStatusUpdater.updateStatus();
+
+        // Then: Second fax processed successfully despite first fax's credential failure
+        assertThat(normalFax.getStatus()).isEqualTo(FaxJob.STATUS.COMPLETE);
+        assertThat(normalFax.getStatusString()).isEqualTo("Delivered");
+        verify(faxJobDao).merge(normalFax);
+        // First fax status should remain unchanged (SENT) - no merge called
+        assertThat(decryptFailFax.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
+    }
+
+    @Test
+    @DisplayName("should continue processing remaining faxes when merge throws RuntimeException")
+    void shouldContinueProcessingRemainingFaxes_whenMergeThrowsRuntimeException() throws FaxProviderException {
+        // Given: Two faxes - merge will fail for the first, succeed for the second
+        FaxJob firstFax = createFaxJob(60, FAX_LINE_D, FaxJob.STATUS.SENT, 6001L);
+        FaxJob secondFax = createFaxJob(61, FAX_LINE_E, FaxJob.STATUS.SENT, 6002L);
+        when(faxJobDao.getInprogressFaxesByJobId())
+                .thenReturn(Arrays.asList(firstFax, secondFax));
+
+        FaxConfig config1 = createActiveFaxConfig(60, FAX_LINE_D);
+        FaxConfig config2 = createActiveFaxConfig(61, FAX_LINE_E);
+        when(faxConfigDao.getConfigByNumber(FAX_LINE_D)).thenReturn(config1);
+        when(faxConfigDao.getConfigByNumber(FAX_LINE_E)).thenReturn(config2);
+
+        FaxProviderClient client1 = mock(FaxProviderClient.class);
+        FaxProviderClient client2 = mock(FaxProviderClient.class);
+        when(faxProviderClientFactory.getClient(config1)).thenReturn(client1);
+        when(faxProviderClientFactory.getClient(config2)).thenReturn(client2);
+
+        FaxJob updated1 = new FaxJob();
+        updated1.setStatus(FaxJob.STATUS.COMPLETE);
+        updated1.setStatusString("Delivered");
+        when(client1.fetchFaxStatus(config1, firstFax)).thenReturn(updated1);
+
+        FaxJob updated2 = new FaxJob();
+        updated2.setStatus(FaxJob.STATUS.COMPLETE);
+        updated2.setStatusString("Delivered");
+        when(client2.fetchFaxStatus(config2, secondFax)).thenReturn(updated2);
+
+        // Make merge throw RuntimeException on first call, succeed on second
+        doThrow(new RuntimeException("Database connection lost during merge"))
+                .when(faxJobDao).merge(firstFax);
+        doNothing().when(faxJobDao).merge(secondFax);
+
+        // When
+        faxStatusUpdater.updateStatus();
+
+        // Then: Both faxes should have been polled for status from the provider
+        verify(client1).fetchFaxStatus(config1, firstFax);
+        verify(client2).fetchFaxStatus(config2, secondFax);
+
+        // Then: merge was attempted for both faxes (first threw, second succeeded)
+        verify(faxJobDao).merge(firstFax);
+        verify(faxJobDao).merge(secondFax);
+
+        // Then: Both faxes had their status updated from provider response
+        // (even though first fax's merge failed, the in-memory object was updated)
+        assertThat(firstFax.getStatus()).isEqualTo(FaxJob.STATUS.COMPLETE);
+        assertThat(secondFax.getStatus()).isEqualTo(FaxJob.STATUS.COMPLETE);
+        assertThat(secondFax.getStatusString()).isEqualTo("Delivered");
     }
 
     // -- helper methods --

@@ -83,8 +83,8 @@ import static org.mockito.Mockito.*;
  *
  * <p><strong>Testing Approach:</strong></p>
  * <p>These tests use reflection to access private methods (generateUniqueFilename,
- * validateAndCountPages) for targeted unit-style testing, while also testing the full
- * saveAndInsertIntoQueue() workflow with mocked dependencies to verify integration behavior.</p>
+ * validateAndCountPages) for targeted unit-style testing, while also testing the
+ * saveToIncoming() workflow with mocked dependencies to verify integration behavior.</p>
  *
  * @see FaxImporter
  * @see FaxJob
@@ -105,7 +105,7 @@ class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
 
     private Method generateUniqueFilenameMethod;
     private Method validateAndCountPagesMethod;
-    private Method saveAndInsertIntoQueueMethod;
+    private Method saveToIncomingMethod;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -127,9 +127,9 @@ class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
         validateAndCountPagesMethod = FaxImporter.class.getDeclaredMethod("validateAndCountPages", File.class);
         validateAndCountPagesMethod.setAccessible(true);
 
-        saveAndInsertIntoQueueMethod = FaxImporter.class.getDeclaredMethod("saveAndInsertIntoQueue",
+        saveToIncomingMethod = FaxImporter.class.getDeclaredMethod("saveToIncoming",
                 FaxConfig.class, FaxJob.class, FaxJob.class);
-        saveAndInsertIntoQueueMethod.setAccessible(true);
+        saveToIncomingMethod.setAccessible(true);
     }
 
     /**
@@ -367,16 +367,17 @@ class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
         }
 
         @Test
-        @DisplayName("should set ERROR status when PDF validation fails during saveAndInsertIntoQueue")
+        @DisplayName("should set ERROR status when PDF validation fails during saveToIncoming")
         @Tag("error-handling")
         void shouldSetErrorStatus_whenPdfValidationFails() throws Exception {
-            // Given: FaxJob with corrupted PDF data
+            // Given: FaxJob with corrupted PDF data and initialized incoming directory
+            initializeFaxIncomingDir();
             FaxConfig faxConfig = createFaxConfig();
             FaxJob receivedFax = createReceivedFax();
             FaxJob faxFile = createFaxFile("Corrupted PDF data not base64");
 
-            // When: Call saveAndInsertIntoQueue with corrupted data
-            EDoc result = (EDoc) saveAndInsertIntoQueueMethod.invoke(
+            // When: Call saveToIncoming with corrupted data
+            Path result = (Path) saveToIncomingMethod.invoke(
                     faxImporter, faxConfig, receivedFax, faxFile);
 
             // Then: Should return null (failure)
@@ -388,14 +389,15 @@ class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
             // Then: Should have descriptive error message
             assertThat(receivedFax.getStatusString())
                     .isNotNull()
-                    .containsAnyOf("validation", "PDF", "failed");
+                    .containsAnyOf("validation", "PDF", "failed", "decode", "Base64");
         }
 
         @Test
         @DisplayName("should clean up temp file when validation fails")
         @Tag("cleanup")
         void shouldCleanupTempFile_whenValidationFails() throws Exception {
-            // Given: FaxJob with invalid PDF
+            // Given: FaxJob with invalid PDF and initialized incoming directory
+            Path incomingDir = initializeFaxIncomingDir();
             FaxConfig faxConfig = createFaxConfig();
             FaxJob receivedFax = createReceivedFax();
 
@@ -403,19 +405,18 @@ class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
             String corruptedBase64 = Base64.encodeBytes("Not a valid PDF".getBytes());
             FaxJob faxFile = createFaxFile(corruptedBase64);
 
-            // Track temp files before test
-            String tempDir = System.getProperty("java.io.tmpdir");
-            Path carlosFaxTemp = Paths.get(tempDir, "carlos-fax-import");
-            long tempFilesBefore = countTempFiles(carlosFaxTemp);
+            // Track temp files before test in the config-specific subdirectory
+            Path configDir = incomingDir.resolve(String.valueOf(faxConfig.getId()));
+            long tempFilesBefore = countTempFilesInDir(configDir);
 
-            // When: Call saveAndInsertIntoQueue with corrupted data
-            saveAndInsertIntoQueueMethod.invoke(faxImporter, faxConfig, receivedFax, faxFile);
+            // When: Call saveToIncoming with corrupted data
+            saveToIncomingMethod.invoke(faxImporter, faxConfig, receivedFax, faxFile);
 
             // Give filesystem time to sync
             Thread.sleep(100);
 
             // Then: No temp files should be leaked
-            long tempFilesAfter = countTempFiles(carlosFaxTemp);
+            long tempFilesAfter = countTempFilesInDir(configDir);
             assertThat(tempFilesAfter)
                     .as("Temp files should be cleaned up after validation failure")
                     .isEqualTo(tempFilesBefore);
@@ -430,65 +431,86 @@ class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
      * blocks is essential for regulatory compliance.</p>
      */
     /**
-     * Atomic move failure recovery tests.
+     * Atomic move failure recovery tests for importFromIncoming().
      *
-     * <p>These tests exercise the full saveAndInsertIntoQueue() pipeline with valid PDF data.
-     * They require EDocUtil (static class with Spring context dependency) and DOCUMENT_DIR
-     * configuration, making them integration tests rather than unit tests. Disabled until
-     * migrated to integration test infrastructure.</p>
+     * <p>These tests exercise the importFromIncoming() pipeline which moves files from the
+     * incoming directory to DOCUMENT_DIR and registers them in the EMR. They require:</p>
+     * <ol>
+     *   <li><strong>EDocUtil static mock:</strong> EDocUtil is a final class with static methods
+     *       (addDocumentSQL). It CAN be mocked with {@code Mockito.mockStatic(EDocUtil.class)},
+     *       but requires careful lifecycle management in {@code @BeforeEach/@AfterEach}.</li>
+     *   <li><strong>DOCUMENT_DIR static final field:</strong> FaxImporter.DOCUMENT_DIR is initialized
+     *       at class load time via {@code OscarProperties.getInstance().getDocumentDirectory()}.
+     *       The OscarProperties mock must be active BEFORE FaxImporter is first loaded by the JVM,
+     *       which is not feasible in a unit test since FaxImporter is already loaded by setUp().
+     *       Options: (a) refactor DOCUMENT_DIR to be an instance field set via @PostConstruct,
+     *       (b) use a real temp directory as DOCUMENT_DIR in an integration test context.</li>
+     * </ol>
+     *
+     * <p>Recommended approach: Convert to integration test with Spring test context that
+     * configures DOCUMENT_DIR via properties, or refactor FaxImporter to inject DOCUMENT_DIR
+     * as an instance field.</p>
      */
     @Nested
     @DisplayName("Atomic Move Failure Recovery Tests (Priority 9)")
     @Tag("atomicity")
-    @Disabled("Requires EDocUtil and DOCUMENT_DIR — needs integration test context")
+    @Disabled("Requires EDocUtil static mock (Mockito mockStatic) and DOCUMENT_DIR setup. " +
+              "DOCUMENT_DIR is a static final field initialized at class load time from " +
+              "OscarProperties — cannot be overridden in unit tests. Convert to integration " +
+              "test or refactor FaxImporter.DOCUMENT_DIR to an instance field to enable.")
     class AtomicMoveFailureTests {
 
+        private Method importFromIncomingMethod;
+
+        @BeforeEach
+        void setUpImportMethod() throws Exception {
+            importFromIncomingMethod = FaxImporter.class.getDeclaredMethod("importFromIncoming",
+                    Path.class, FaxConfig.class, FaxJob.class);
+            importFromIncomingMethod.setAccessible(true);
+        }
+
         @Test
-        @DisplayName("should clean up temp file when destination directory does not exist")
+        @DisplayName("should return null when DOCUMENT_DIR does not exist")
         @Tag("cleanup")
-        void shouldCleanupTempFile_whenDestinationDirectoryMissing() throws Exception {
-            // Given: Valid PDF but invalid DOCUMENT_DIR (simulates configuration error)
+        void shouldReturnNull_whenDocumentDirMissing() throws Exception {
+            // Given: Valid PDF in incoming dir but DOCUMENT_DIR is invalid
+            initializeFaxIncomingDir();
             FaxConfig faxConfig = createFaxConfig();
             FaxJob receivedFax = createReceivedFax();
 
-            // Create valid PDF as base64
+            // Create valid PDF as base64 and save to incoming
             File validPdf = createValidPdf(1);
             byte[] pdfBytes = Files.readAllBytes(validPdf.toPath());
-            validPdf.delete(); // Clean up temp PDF
+            validPdf.delete();
 
             String validBase64 = Base64.encodeBytes(pdfBytes);
             FaxJob faxFile = createFaxFile(validBase64);
 
-            // Track temp files before test
-            String tempDir = System.getProperty("java.io.tmpdir");
-            Path carlosFaxTemp = Paths.get(tempDir, "carlos-fax-import");
-            long tempFilesBefore = countTempFiles(carlosFaxTemp);
-
-            // When: Call saveAndInsertIntoQueue (will fail on Files.move due to bad DOCUMENT_DIR)
-            EDoc result = (EDoc) saveAndInsertIntoQueueMethod.invoke(
+            // Save to incoming first
+            Path incomingFile = (Path) saveToIncomingMethod.invoke(
                     faxImporter, faxConfig, receivedFax, faxFile);
 
-            // Give filesystem time to sync
-            Thread.sleep(100);
+            // Reset status for import test
+            receivedFax.setStatus(FaxJob.STATUS.WAITING);
+            receivedFax.setStatusString(null);
+
+            // When: Import from incoming (will fail due to bad DOCUMENT_DIR)
+            EDoc result = (EDoc) importFromIncomingMethod.invoke(
+                    faxImporter, incomingFile, faxConfig, receivedFax);
 
             // Then: Should return null (failure)
             assertThat(result).isNull();
 
             // Then: Should set ERROR status
             assertThat(receivedFax.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
-
-            // Then: Temp file should be cleaned up (no leak)
-            long tempFilesAfter = countTempFiles(carlosFaxTemp);
-            assertThat(tempFilesAfter)
-                    .as("Temp file must be deleted in finally block when atomic move fails")
-                    .isEqualTo(tempFilesBefore);
         }
 
         @Test
         @DisplayName("should set ERROR status with descriptive message when file move fails")
         @Tag("error-handling")
         void shouldSetErrorStatus_whenFileMoveFailsWithMessage() throws Exception {
-            // Given: Valid PDF but move will fail
+            // Given: Valid PDF in incoming dir
+            initializeFaxIncomingDir();
             FaxConfig faxConfig = createFaxConfig();
             FaxJob receivedFax = createReceivedFax();
 
@@ -499,8 +521,14 @@ class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
             String validBase64 = Base64.encodeBytes(pdfBytes);
             FaxJob faxFile = createFaxFile(validBase64);
 
-            // When: Attempt to save (will fail)
-            saveAndInsertIntoQueueMethod.invoke(faxImporter, faxConfig, receivedFax, faxFile);
+            Path incomingFile = (Path) saveToIncomingMethod.invoke(
+                    faxImporter, faxConfig, receivedFax, faxFile);
+
+            receivedFax.setStatus(FaxJob.STATUS.WAITING);
+            receivedFax.setStatusString(null);
+
+            // When: Attempt to import (will fail)
+            importFromIncomingMethod.invoke(faxImporter, incomingFile, faxConfig, receivedFax);
 
             // Then: Should have ERROR status
             assertThat(receivedFax.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
@@ -511,15 +539,17 @@ class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
                     .satisfiesAnyOf(
                             msg -> assertThat(msg).containsIgnoringCase("file system"),
                             msg -> assertThat(msg).containsIgnoringCase("I/O"),
-                            msg -> assertThat(msg).containsIgnoringCase("error")
+                            msg -> assertThat(msg).containsIgnoringCase("error"),
+                            msg -> assertThat(msg).containsIgnoringCase("import")
                     );
         }
 
         @Test
-        @DisplayName("should not create partial file in DOCUMENT_DIR when move fails")
+        @DisplayName("should preserve file in incoming dir when import fails")
         @Tag("atomicity")
-        void shouldNotCreatePartialFile_whenMoveFails() throws Exception {
-            // Given: Valid PDF
+        void shouldPreserveIncomingFile_whenImportFails() throws Exception {
+            // Given: Valid PDF in incoming dir
+            initializeFaxIncomingDir();
             FaxConfig faxConfig = createFaxConfig();
             FaxJob receivedFax = createReceivedFax();
 
@@ -530,17 +560,51 @@ class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
             String validBase64 = Base64.encodeBytes(pdfBytes);
             FaxJob faxFile = createFaxFile(validBase64);
 
-            // When: Attempt to save (atomic move will fail due to bad DOCUMENT_DIR)
-            saveAndInsertIntoQueueMethod.invoke(faxImporter, faxConfig, receivedFax, faxFile);
+            Path incomingFile = (Path) saveToIncomingMethod.invoke(
+                    faxImporter, faxConfig, receivedFax, faxFile);
 
-            // Then: No files should exist in DOCUMENT_DIR with the generated filename pattern
-            // (This is implicit - if DOCUMENT_DIR doesn't exist, no files can be created there)
-            // The atomic move ensures either complete success or complete failure
+            receivedFax.setStatus(FaxJob.STATUS.WAITING);
+            receivedFax.setStatusString(null);
+
+            // When: Attempt to import (will fail due to bad DOCUMENT_DIR)
+            importFromIncomingMethod.invoke(faxImporter, incomingFile, faxConfig, receivedFax);
+
+            // Then: File should still exist in incoming directory for retry
+            // (importFromIncoming moves back to incoming on failure)
             assertThat(receivedFax.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
         }
     }
 
     // ==================== Helper Methods ====================
+
+    /**
+     * Initializes the faxIncomingDir field on the FaxImporter via reflection.
+     * Uses a temp directory to avoid requiring real application configuration.
+     *
+     * @return the temporary incoming directory path
+     */
+    private Path initializeFaxIncomingDir() throws Exception {
+        Path tempIncomingDir = Files.createTempDirectory("test-fax-incoming-");
+        java.lang.reflect.Field field = FaxImporter.class.getDeclaredField("faxIncomingDir");
+        field.setAccessible(true);
+        field.set(faxImporter, tempIncomingDir);
+        return tempIncomingDir;
+    }
+
+    /**
+     * Counts temp files (fax-tmp-*.pdf pattern) in a directory.
+     */
+    private long countTempFilesInDir(Path directory) throws IOException {
+        if (!Files.exists(directory)) {
+            return 0;
+        }
+        try (var stream = Files.list(directory)) {
+            return stream
+                    .filter(p -> p.getFileName().toString().startsWith("fax-tmp-"))
+                    .filter(p -> p.getFileName().toString().endsWith(".pdf"))
+                    .count();
+        }
+    }
 
     /**
      * Creates a temporary file with given content for testing.

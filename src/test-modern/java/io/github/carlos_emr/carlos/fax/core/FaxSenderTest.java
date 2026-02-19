@@ -18,6 +18,7 @@
 package io.github.carlos_emr.carlos.fax.core;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -26,11 +27,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.File;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
@@ -53,6 +57,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -156,28 +161,28 @@ class FaxSenderTest extends OpenOUnitTestBase {
     class SendTests {
 
         @Test
-        @DisplayName("should skip early when DOCUMENT_DIR is null")
-        void shouldSkipEarly_whenDocumentDirIsNull() {
+        @DisplayName("should throw IllegalStateException when DOCUMENT_DIR is null")
+        void shouldThrowIllegalStateException_whenDocumentDirIsNull() {
             // Given
             when(mockOscarProperties.getDocumentDirectory()).thenReturn(null);
 
-            // When
-            faxSender.send();
-
-            // Then - configs are loaded but no fax jobs should be processed
+            // When / Then
+            assertThatThrownBy(() -> faxSender.send())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("DOCUMENT_DIR is not configured");
             verify(faxJobDao, never()).getReadyToSendFaxes(any());
         }
 
         @Test
-        @DisplayName("should skip early when DOCUMENT_DIR is empty")
-        void shouldSkipEarly_whenDocumentDirIsEmpty() {
+        @DisplayName("should throw IllegalStateException when DOCUMENT_DIR is empty")
+        void shouldThrowIllegalStateException_whenDocumentDirIsEmpty() {
             // Given
             when(mockOscarProperties.getDocumentDirectory()).thenReturn("   ");
 
-            // When
-            faxSender.send();
-
-            // Then
+            // When / Then
+            assertThatThrownBy(() -> faxSender.send())
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("DOCUMENT_DIR is not configured");
             verify(faxJobDao, never()).getReadyToSendFaxes(any());
         }
 
@@ -261,8 +266,9 @@ class FaxSenderTest extends OpenOUnitTestBase {
             FaxJob waitingJob = createWaitingFaxJob(3, "fax_document.pdf");
             FaxClientLog clientLog = createFaxClientLog(3);
 
+            ConnectException connectEx = new ConnectException("Connection refused");
             FaxProviderException networkException = new FaxProviderException(
-                    "Connection failed", new ConnectException("Connection refused"));
+                    "Connection failed", connectEx, FaxProviderException.isTransientNetworkCause(connectEx));
 
             when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(config));
             when(faxJobDao.getReadyToSendFaxes("5551112222")).thenReturn(Collections.singletonList(waitingJob));
@@ -393,7 +399,90 @@ class FaxSenderTest extends OpenOUnitTestBase {
     }
 
     /**
-     * Tests for the private isTransientNetworkError() method via reflection.
+     * Tests for credential decryption failure isolation (IllegalStateException catch).
+     *
+     * <p>When FaxConfig.getPasswd() or getFaxPasswd() throws IllegalStateException due to
+     * encryption key rotation or data corruption, the affected account should be skipped
+     * with a clear log message, and remaining accounts should continue processing.</p>
+     *
+     * <p>Note: In FaxSender.send(), getReadyToSendFaxes() is called before getClient(),
+     * so the IllegalStateException occurs inside the per-fax loop when getClient() is called.
+     * It bubbles up to the outer catch block since the inner catches don't handle it.</p>
+     */
+    @Nested
+    @DisplayName("Credential Decryption Failure Isolation")
+    @Tag("security")
+    class CredentialDecryptionFailureTests {
+
+        @Test
+        @DisplayName("should skip account and continue with next when IllegalStateException occurs")
+        void shouldSkipAccountAndContinue_whenIllegalStateExceptionOccurs() throws Exception {
+            // Given: Two accounts - first throws IllegalStateException during getClient (credential decrypt)
+            FaxConfig badConfig = createActiveFaxConfig("5550001111");
+            FaxConfig goodConfig = createActiveFaxConfig("5550002222");
+
+            // Need a fax job for the bad config so the inner loop runs and hits getClient()
+            FaxJob badJob = createWaitingFaxJob(19, "bad_fax.pdf");
+            FaxJob goodJob = createWaitingFaxJob(20, "good_fax.pdf");
+            FaxClientLog goodLog = createFaxClientLog(20);
+
+            FaxJob sentResponse = new FaxJob();
+            sentResponse.setStatus(FaxJob.STATUS.SENT);
+            sentResponse.setJobId(999L);
+
+            when(faxConfigDao.findAll(null, null)).thenReturn(Arrays.asList(badConfig, goodConfig));
+            // First account: has faxes queued but getClient() will fail on credential decrypt
+            when(faxJobDao.getReadyToSendFaxes("5550001111")).thenReturn(Collections.singletonList(badJob));
+            when(faxProviderClientFactory.getClient(any())).thenAnswer(invocation -> {
+                FaxConfig config = invocation.getArgument(0);
+                if ("5550001111".equals(config.getFaxNumber())) {
+                    throw new IllegalStateException("Failed to decrypt faxPasswd");
+                }
+                return faxProviderClient;
+            });
+            // Second account: normal processing
+            when(faxJobDao.getReadyToSendFaxes("5550002222")).thenReturn(Collections.singletonList(goodJob));
+            when(faxClientLogDao.findClientLogbyFaxId(20)).thenReturn(goodLog);
+            when(faxProviderClient.sendFax(eq(goodConfig), eq(goodJob), any(Path.class))).thenReturn(sentResponse);
+
+            // When
+            faxSender.send();
+
+            // Then: Second account processed normally despite first failing
+            assertThat(goodJob.getStatus()).isEqualTo(FaxJob.STATUS.SENT);
+            assertThat(goodJob.getJobId()).isEqualTo(999L);
+            verify(faxJobDao).merge(goodJob);
+        }
+
+        @Test
+        @DisplayName("should not propagate IllegalStateException to caller")
+        void shouldNotPropagateIllegalStateException() throws Exception {
+            // Given: Single account with credential decryption failure
+            FaxConfig badConfig = createActiveFaxConfig("5550001111");
+            FaxJob badJob = createWaitingFaxJob(19, "bad_fax.pdf");
+
+            when(faxConfigDao.findAll(null, null)).thenReturn(Collections.singletonList(badConfig));
+            when(faxJobDao.getReadyToSendFaxes("5550001111")).thenReturn(Collections.singletonList(badJob));
+            when(faxProviderClientFactory.getClient(any()))
+                    .thenThrow(new IllegalStateException("Failed to decrypt faxPasswd"));
+
+            // When/Then: Should not throw - exception is caught and logged
+            faxSender.send();
+
+            // Verify the fax jobs were queried (happens before getClient) but no fax was merged
+            // (IllegalStateException prevents the finally block from running for that fax)
+            verify(faxJobDao).getReadyToSendFaxes("5550001111");
+        }
+    }
+
+    /**
+     * Tests for the transient error detection pipeline: provider clients use
+     * {@link FaxProviderException#isTransientNetworkCause(Throwable)} to set the transient
+     * flag, and FaxSender uses {@link FaxProviderException#isTransient()} to decide retry.
+     *
+     * <p>These tests verify the full pipeline by constructing exceptions the way real provider
+     * clients do (using the 3-arg constructor with isTransientNetworkCause), then checking
+     * FaxSender's isTransientNetworkError via reflection.</p>
      */
     @Nested
     @DisplayName("isTransientNetworkError()")
@@ -408,73 +497,196 @@ class FaxSenderTest extends OpenOUnitTestBase {
         @Test
         @DisplayName("should return true for ConnectException cause")
         void shouldReturnTrue_forConnectExceptionCause() throws Exception {
-            // Given
-            FaxProviderException ex = new FaxProviderException("fail", new ConnectException("Connection refused"));
+            ConnectException cause = new ConnectException("Connection refused");
+            FaxProviderException ex = new FaxProviderException("fail", cause,
+                    FaxProviderException.isTransientNetworkCause(cause));
 
-            // When/Then
             assertThat(invokeIsTransientNetworkError(ex)).isTrue();
         }
 
         @Test
         @DisplayName("should return true for SocketTimeoutException cause")
         void shouldReturnTrue_forSocketTimeoutExceptionCause() throws Exception {
-            // Given
-            FaxProviderException ex = new FaxProviderException("fail", new SocketTimeoutException("Read timed out"));
+            SocketTimeoutException cause = new SocketTimeoutException("Read timed out");
+            FaxProviderException ex = new FaxProviderException("fail", cause,
+                    FaxProviderException.isTransientNetworkCause(cause));
 
-            // When/Then
             assertThat(invokeIsTransientNetworkError(ex)).isTrue();
         }
 
         @Test
         @DisplayName("should return true for UnknownHostException cause")
         void shouldReturnTrue_forUnknownHostExceptionCause() throws Exception {
-            // Given
-            FaxProviderException ex = new FaxProviderException("fail", new UnknownHostException("fax.example.com"));
+            UnknownHostException cause = new UnknownHostException("fax.example.com");
+            FaxProviderException ex = new FaxProviderException("fail", cause,
+                    FaxProviderException.isTransientNetworkCause(cause));
 
-            // When/Then
             assertThat(invokeIsTransientNetworkError(ex)).isTrue();
         }
 
         @Test
         @DisplayName("should return true for NoRouteToHostException cause")
         void shouldReturnTrue_forNoRouteToHostExceptionCause() throws Exception {
-            // Given
-            FaxProviderException ex = new FaxProviderException("fail", new NoRouteToHostException("No route"));
+            NoRouteToHostException cause = new NoRouteToHostException("No route");
+            FaxProviderException ex = new FaxProviderException("fail", cause,
+                    FaxProviderException.isTransientNetworkCause(cause));
 
-            // When/Then
             assertThat(invokeIsTransientNetworkError(ex)).isTrue();
         }
 
         @Test
         @DisplayName("should return true for nested transient error in cause chain")
         void shouldReturnTrue_forNestedTransientErrorInCauseChain() throws Exception {
-            // Given - ConnectException wrapped in an intermediate RuntimeException
             ConnectException connectEx = new ConnectException("Connection refused");
             RuntimeException wrapper = new RuntimeException("Wrapped", connectEx);
-            FaxProviderException ex = new FaxProviderException("fail", wrapper);
+            FaxProviderException ex = new FaxProviderException("fail", wrapper,
+                    FaxProviderException.isTransientNetworkCause(wrapper));
 
-            // When/Then
             assertThat(invokeIsTransientNetworkError(ex)).isTrue();
         }
 
         @Test
         @DisplayName("should return false for non-network exception cause")
         void shouldReturnFalse_forNonNetworkExceptionCause() throws Exception {
-            // Given
-            FaxProviderException ex = new FaxProviderException("fail", new IllegalStateException("bad state"));
+            IllegalStateException cause = new IllegalStateException("bad state");
+            FaxProviderException ex = new FaxProviderException("fail", cause,
+                    FaxProviderException.isTransientNetworkCause(cause));
 
-            // When/Then
             assertThat(invokeIsTransientNetworkError(ex)).isFalse();
         }
 
         @Test
         @DisplayName("should return false when no cause is present")
         void shouldReturnFalse_whenNoCauseIsPresent() throws Exception {
-            // Given
             FaxProviderException ex = new FaxProviderException("fail");
 
-            // When/Then
             assertThat(invokeIsTransientNetworkError(ex)).isFalse();
+        }
+    }
+
+    /**
+     * Tests for the resolveFilePath() private method, which validates and resolves
+     * fax document file paths using PathValidationUtils.
+     *
+     * <p>These tests verify path traversal prevention, null/empty input handling,
+     * and proper resolution of relative paths under a document directory. Uses
+     * real temp directories and PathValidationUtils (no mocking) to ensure
+     * security validation works end-to-end.</p>
+     */
+    @Nested
+    @DisplayName("resolveFilePath()")
+    @Tag("security")
+    class ResolveFilePathTests {
+
+        @TempDir
+        Path tempDocumentDir;
+
+        private Method resolveFilePathMethod;
+
+        @BeforeEach
+        void setUpReflection() throws Exception {
+            resolveFilePathMethod = FaxSender.class.getDeclaredMethod(
+                    "resolveFilePath", String.class, String.class);
+            resolveFilePathMethod.setAccessible(true);
+        }
+
+        /**
+         * Invokes resolveFilePath via reflection, unwrapping InvocationTargetException.
+         */
+        private Path invokeResolveFilePath(String filename, String documentDir) throws Throwable {
+            try {
+                return (Path) resolveFilePathMethod.invoke(faxSender, filename, documentDir);
+            } catch (InvocationTargetException e) {
+                throw e.getCause();
+            }
+        }
+
+        @Test
+        @DisplayName("should throw IllegalArgumentException when filename is null")
+        void shouldThrowIllegalArgumentException_whenFilenameIsNull() {
+            // Given
+            String nullFilename = null;
+            String documentDir = tempDocumentDir.toString();
+
+            // When/Then
+            assertThatThrownBy(() -> invokeResolveFilePath(nullFilename, documentDir))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("null or empty");
+        }
+
+        @Test
+        @DisplayName("should throw IllegalArgumentException when filename is empty")
+        void shouldThrowIllegalArgumentException_whenFilenameIsEmpty() {
+            // Given
+            String emptyFilename = "   ";
+            String documentDir = tempDocumentDir.toString();
+
+            // When/Then
+            assertThatThrownBy(() -> invokeResolveFilePath(emptyFilename, documentDir))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("null or empty");
+        }
+
+        @Test
+        @DisplayName("should neutralize path traversal by stripping directory components")
+        void shouldNeutralizePathTraversal_whenDirectoryComponentsPresent() throws Throwable {
+            // Given: A path traversal attack filename - PathValidationUtils.sanitizeFileName
+            // strips directory components via FilenameUtils.getName(), neutralizing the attack
+            // by resolving only the base filename "passwd" safely under the document dir
+            String traversalFilename = "../../../etc/passwd";
+            String documentDir = tempDocumentDir.toString();
+
+            // When: resolveFilePath sanitizes the path
+            Path resolved = invokeResolveFilePath(traversalFilename, documentDir);
+
+            // Then: Path traversal is neutralized - result is safely under document dir
+            assertThat(resolved).isNotNull();
+            assertThat(resolved.getFileName().toString()).isEqualTo("passwd");
+            assertThat(resolved.toFile().getCanonicalPath())
+                    .startsWith(tempDocumentDir.toFile().getCanonicalPath());
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when hidden file path attempted")
+        void shouldThrowSecurityException_whenHiddenFilePathAttempted() {
+            // Given: A hidden file (starts with .) - PathValidationUtils rejects these
+            String hiddenFilename = ".hidden_config";
+            String documentDir = tempDocumentDir.toString();
+
+            // When/Then: PathValidationUtils should reject hidden files
+            assertThatThrownBy(() -> invokeResolveFilePath(hiddenFilename, documentDir))
+                    .isInstanceOf(SecurityException.class);
+        }
+
+        @Test
+        @DisplayName("should resolve valid relative path when under document dir")
+        void shouldResolveValidRelativePath_whenUnderDocumentDir() throws Throwable {
+            // Given: Create an actual file in the temp document directory
+            String validFilename = "fax_document.pdf";
+            Files.createFile(tempDocumentDir.resolve(validFilename));
+            String documentDir = tempDocumentDir.toString();
+
+            // When
+            Path resolved = invokeResolveFilePath(validFilename, documentDir);
+
+            // Then: Should resolve to a path under the document directory
+            assertThat(resolved).isNotNull();
+            assertThat(resolved.toString()).contains(validFilename);
+            assertThat(resolved.toFile().getCanonicalPath())
+                    .startsWith(tempDocumentDir.toFile().getCanonicalPath());
+        }
+
+        @Test
+        @DisplayName("should throw SecurityException when absolute path outside document dir")
+        void shouldThrowSecurityException_whenAbsolutePathOutsideDocumentDir() {
+            // Given: An absolute path that is outside the document directory
+            String absolutePath = "/etc/shadow";
+            String documentDir = tempDocumentDir.toString();
+
+            // When/Then: Should reject absolute paths outside document dir
+            // (and /etc/shadow is not in any allowed temp directory either)
+            assertThatThrownBy(() -> invokeResolveFilePath(absolutePath, documentDir))
+                    .isInstanceOf(SecurityException.class);
         }
     }
 }

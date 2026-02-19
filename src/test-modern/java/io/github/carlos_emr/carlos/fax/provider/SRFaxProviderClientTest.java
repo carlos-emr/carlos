@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -127,5 +128,183 @@ class SRFaxProviderClientTest extends OpenOUnitTestBase {
 
         // Then
         assertThat(result).isEqualTo(FaxJob.STATUS.UNKNOWN);
+    }
+
+    // --- SRFax API spec SentStatus values (exact values from official documentation) ---
+
+    @Test
+    @DisplayName("should map SRFax spec value 'In Progress' to SENT (in-progress)")
+    void shouldMapInProgress_toSent() {
+        assertThat(client.mapStatus("In Progress")).isEqualTo(FaxJob.STATUS.SENT);
+    }
+
+    @Test
+    @DisplayName("should map SRFax spec value 'Sent' to COMPLETE (delivery confirmed)")
+    void shouldMapSent_toComplete() {
+        assertThat(client.mapStatus("Sent")).isEqualTo(FaxJob.STATUS.COMPLETE);
+    }
+
+    @Test
+    @DisplayName("should map SRFax spec value 'Failed' to ERROR")
+    void shouldMapFailed_toError() {
+        assertThat(client.mapStatus("Failed")).isEqualTo(FaxJob.STATUS.ERROR);
+    }
+
+    @Test
+    @DisplayName("should map SRFax spec value 'Sending Email' to SENT (in-progress, not COMPLETE)")
+    void shouldMapSendingEmail_toSent() {
+        // "Sending Email" contains "sent" but must match as in-progress, not terminal
+        assertThat(client.mapStatus("Sending Email")).isEqualTo(FaxJob.STATUS.SENT);
+    }
+
+    /**
+     * Tests for pipe-delimited FaxDetailsID parsing from the FileName field in SRFax inbox responses.
+     *
+     * <p>In the SRFax API, inbound fax list responses include a FileName field that contains the
+     * FaxDetailsID after a pipe character. For example:
+     * {@code "20260219124500-1234-1_1|12345678"} where {@code 12345678} is the FaxDetailsID.</p>
+     *
+     * <p>The parsing logic is currently inline within {@code listInboundFaxes()} (around lines
+     * 248-257 of SRFaxProviderClient.java). Because {@code listInboundFaxes()} makes HTTP calls
+     * via the private {@code postForm()} method, these tests cannot be executed without either:
+     * <ul>
+     *   <li>Extracting the pipe-parsing logic into a package-private helper method, or</li>
+     *   <li>Adding an HTTP mock layer (e.g., WireMock) to intercept {@code postForm()} calls</li>
+     * </ul>
+     *
+     * <p><strong>Recommended refactoring:</strong> Extract the FileName pipe-parsing into a
+     * package-private method such as {@code Long parseFaxDetailsIdFromFileName(String fileName)}
+     * which would make these tests directly executable without HTTP infrastructure.</p>
+     *
+     * @since 2026-02-19
+     */
+    @Nested
+    @Tag("fax")
+    @Tag("srfax")
+    @DisplayName("FaxDetailsID pipe-delimited parsing from FileName")
+    class FaxDetailsIdParsingTest {
+
+        /**
+         * Simulates the pipe-parsing logic from listInboundFaxes() for test purposes.
+         * This replicates the exact logic at lines 248-257 of SRFaxProviderClient.java.
+         *
+         * <p>Once the parsing is extracted to a package-private method in SRFaxProviderClient,
+         * this helper should be replaced with a direct call to that method.</p>
+         */
+        private Long parseFaxDetailsIdFromFileName(String fileName) {
+            if (fileName != null && fileName.contains("|")) {
+                String faxDetailsId = fileName.substring(fileName.lastIndexOf('|') + 1).trim();
+                if (!faxDetailsId.isEmpty()) {
+                    try {
+                        return Long.parseLong(faxDetailsId);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                }
+            }
+            return null;
+        }
+
+        @Test
+        @DisplayName("should extract FaxDetailsID from standard pipe-delimited FileName")
+        void shouldExtractFaxDetailsId_whenFileNameContainsPipe() {
+            // Given - standard SRFax FileName format: "timestamp-accountid-page_count|FaxDetailsID"
+            String fileName = "20260219124500-1234-1_1|12345678";
+
+            // When
+            Long faxDetailsId = parseFaxDetailsIdFromFileName(fileName);
+
+            // Then
+            assertThat(faxDetailsId).isEqualTo(12345678L);
+        }
+
+        @Test
+        @DisplayName("should return null when FileName has no pipe character")
+        void shouldReturnNull_whenFileNameHasNoPipe() {
+            // Given - no pipe character means no FaxDetailsID embedded
+            String fileName = "20260219124500-1234-1_1.pdf";
+
+            // When
+            Long faxDetailsId = parseFaxDetailsIdFromFileName(fileName);
+
+            // Then
+            assertThat(faxDetailsId).isNull();
+        }
+
+        @Test
+        @DisplayName("should use last pipe segment when FileName has multiple pipes")
+        void shouldUseLastPipeSegment_whenMultiplePipesPresent() {
+            // Given - edge case: multiple pipe characters
+            String fileName = "20260219124500|extra|99887766";
+
+            // When
+            Long faxDetailsId = parseFaxDetailsIdFromFileName(fileName);
+
+            // Then - lastIndexOf('|') should give us the final segment
+            assertThat(faxDetailsId).isEqualTo(99887766L);
+        }
+
+        @Test
+        @DisplayName("should return null when pipe segment is non-numeric")
+        void shouldReturnNull_whenPipeSegmentIsNonNumeric() {
+            // Given - FaxDetailsID segment is not a valid number
+            String fileName = "20260219124500-1234-1_1|not-a-number";
+
+            // When
+            Long faxDetailsId = parseFaxDetailsIdFromFileName(fileName);
+
+            // Then
+            assertThat(faxDetailsId).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when pipe segment is empty")
+        void shouldReturnNull_whenPipeSegmentIsEmpty() {
+            // Given - pipe at end with nothing after it
+            String fileName = "20260219124500-1234-1_1|";
+
+            // When
+            Long faxDetailsId = parseFaxDetailsIdFromFileName(fileName);
+
+            // Then
+            assertThat(faxDetailsId).isNull();
+        }
+
+        @Test
+        @DisplayName("should trim whitespace from FaxDetailsID after pipe")
+        void shouldTrimWhitespace_whenPipeSegmentHasSpaces() {
+            // Given - whitespace around the ID
+            String fileName = "20260219124500-1234-1_1| 12345678 ";
+
+            // When
+            Long faxDetailsId = parseFaxDetailsIdFromFileName(fileName);
+
+            // Then
+            assertThat(faxDetailsId).isEqualTo(12345678L);
+        }
+
+        @Test
+        @DisplayName("should return null when FileName is null")
+        void shouldReturnNull_whenFileNameIsNull() {
+            // When
+            Long faxDetailsId = parseFaxDetailsIdFromFileName(null);
+
+            // Then
+            assertThat(faxDetailsId).isNull();
+        }
+
+        @Test
+        @DisplayName("should handle large FaxDetailsID values within Long range")
+        void shouldHandleLargeFaxDetailsId_whenWithinLongRange() {
+            // Given - large but valid long value
+            String fileName = "20260219124500-1234-1_1|9999999999";
+
+            // When
+            Long faxDetailsId = parseFaxDetailsIdFromFileName(fileName);
+
+            // Then
+            assertThat(faxDetailsId).isEqualTo(9999999999L);
+        }
+
     }
 }

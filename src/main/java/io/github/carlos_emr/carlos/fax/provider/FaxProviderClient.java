@@ -34,6 +34,10 @@ import io.github.carlos_emr.carlos.commn.model.FaxJob;
  * Implementations of this interface encapsulate provider API behavior (middleware relay, SRFax,
  * and future providers) behind a stable contract.</p>
  *
+ * <p><strong>Implementation contract:</strong> All implementations MUST call
+ * {@link #requireMatchingProviderType(FaxConfig)} as the first line of every public method
+ * to enforce provider type safety at runtime.</p>
+ *
  * @since 2026-02-11
  */
 public interface FaxProviderClient {
@@ -50,7 +54,9 @@ public interface FaxProviderClient {
      * Sends an outbound fax.
      *
      * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
-     * @param faxJob FaxJob logical fax job with destination and metadata (should not be mutated by implementations)
+     * @param faxJob FaxJob logical fax job with destination and metadata. Note: implementations may null-out
+     *        the document field after transmission to free memory. Callers must not rely on the document
+     *        field after calling sendFax
      * @param filePath Path resolved path to document payload on local filesystem
      * @return FaxJob new fax job containing provider response fields (jobId, status, statusString)
      * @throws FaxProviderException when send operation fails
@@ -82,8 +88,10 @@ public interface FaxProviderClient {
     /**
      * Marks a remote inbound fax as read/processed after successful local import.
      *
-     * <p>This is the second phase of the two-phase import strategy: download first
-     * (without marking as read), then mark as read only after successful local persistence.
+     * <p>This is the second phase of the three-phase import strategy:
+     * (1) download and save to local incoming directory,
+     * (2) mark as read on provider after local file is safe,
+     * (3) import from incoming directory into EMR document system.
      * This prevents fax loss if import fails after download.</p>
      *
      * <p>Default implementation is a no-op. Providers that use read/unread semantics

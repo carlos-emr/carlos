@@ -59,6 +59,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 import io.github.carlos_emr.OscarProperties;
 
 @Service
@@ -90,8 +91,6 @@ public class FaxManagerImpl implements FaxManager {
 
     private Logger logger = MiscUtils.getLogger();
 
-    // public enum TransactionType {CONSULTATION, EFORM, FORM, RX, DOCUMENT}
-
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -105,8 +104,10 @@ public class FaxManagerImpl implements FaxManager {
     }
 
     /**
-     * @return
-     * @Deprecated Move these rendering methods into a more generic class like the DocumentManager
+     * Renders a fax document for the specified transaction type.
+     *
+     * @deprecated Move rendering methods into DocumentManager.
+     * @return Path to the rendered document, or null if rendering is not implemented for the transaction type
      */
     @Override
     @Deprecated
@@ -209,10 +210,10 @@ public class FaxManagerImpl implements FaxManager {
      * recipient
      * recipientFaxNumber
      * comments (for cover page)
-     * isCoverpage
+     * coverpage
      * senderFaxNumber
      * demographicNo
-     * copytoRecipients (as String[])
+     * copyToRecipients (as String[])
      * <p>
      * The FaxJob list that is returned contains persisted FaxJob Objects
      */
@@ -223,24 +224,17 @@ public class FaxManagerImpl implements FaxManager {
         List<FaxJob> faxJobList = new ArrayList<FaxJob>();
         boolean isCoverpage = Boolean.parseBoolean((String) faxJobMap.get("coverpage"));
 
-        /*
-         * add the first job that contains the original recipient.
-         */
+        // Add the first job that contains the original recipient.
         faxJobList.add(faxJob);
 
-        /*
-         * duplicate the fax job for each copy to recipient
-         * The original receiver is already retained in the list.
-         */
+        // Duplicate the fax job for each copy-to recipient; the original receiver is already in the list.
         String[] copytoRecipients = (String[]) faxJobMap.get("copyToRecipients");
         if (copytoRecipients != null && copytoRecipients.length > 0) {
             List<FaxJob> faxJobRecipients = addRecipients(loggedInInfo, faxJob, copytoRecipients);
             faxJobList.addAll(faxJobRecipients);
         }
 
-        /*
-         * Create a cover page for each of the fax jobs if requested by the user.
-         */
+        // Create a cover page for each fax job if requested by the user.
         if (isCoverpage) {
             String comments = (String) faxJobMap.get("comments");
 
@@ -263,7 +257,7 @@ public class FaxManagerImpl implements FaxManager {
         // Filter out ERROR jobs before saving (they won't be transmitted)
         List<FaxJob> validJobs = faxJobList.stream()
                 .filter(job -> job.getStatus() != STATUS.ERROR)
-                .collect(java.util.stream.Collectors.toList());
+                .collect(Collectors.toList());
 
         if (validJobs.isEmpty()) {
             throw new RuntimeException("All fax jobs failed validation. No faxes will be sent. Check logs for details.");
@@ -279,10 +273,10 @@ public class FaxManagerImpl implements FaxManager {
      * recipient
      * recipientFaxNumber
      * comments (for cover page)
-     * isCoverpage
+     * coverpage
      * senderFaxNumber
      * demographicNo
-     * copytoRecipients (as String[])
+     * copyToRecipients (as String[])
      * The FaxJob returned is NEW UN-PERSISTED FaxJob Object with a single recipient
      */
     @Override
@@ -298,7 +292,7 @@ public class FaxManagerImpl implements FaxManager {
         String senderFaxNumber = (String) faxJobMap.get("senderFaxNumber");
         Integer demographicNo = (Integer) faxJobMap.get("demographicNo");
 
-        //Checking if a file is saved in a temporary directory, then copying it to a permanent directory (/var/lib/OscarDocument/...).
+        // If file is in a temporary directory, copy to the permanent document storage (DOCUMENT_DIR).
         if (faxFilePath.contains("/temp/")) {
             faxFilePath = nioFileManager.copyFileToOscarDocuments(faxFilePath);
         }
@@ -308,19 +302,13 @@ public class FaxManagerImpl implements FaxManager {
 
         //TODO Possible that this could be multiple accounts using the same return fax line.
         FaxConfig faxConfig = faxConfigDao.getActiveConfigByNumber(senderFaxNumber);
-        /*
-         * Build the foundation of a faxJob
-         */
         faxJob.setStamp(new Date());
         faxJob.setOscarUser(loggedInInfo.getLoggedInProviderNo());
         faxJob.setDemographicNo(demographicNo);
         faxJob.setRecipient(recipient);
         faxJob.setDestination(recipientFaxNumber);
 
-        /*
-         * This will be null if the fax number is invalid.
-         * No valid account - No fax
-         */
+        // No valid account means no fax can be sent.
         if (faxConfig == null) {
             logger.error("Fax account " + faxJob.getFax_line() + " is not found, invalid, or inactive");
             faxJob.setStatus(STATUS.ERROR);
@@ -332,10 +320,7 @@ public class FaxManagerImpl implements FaxManager {
         faxJob.setUser(faxConfig.getFaxUser());
         faxJob.setStatus(FaxJob.STATUS.WAITING);
 
-        /*
-         * Create the sender profile
-         * This is set with the clinic address by default.
-         */
+        // Create the sender profile, defaulting to the clinic address.
         FaxAccount faxAccount = new FaxAccount(faxConfig);
         Clinic clinic = clinicDAO.getClinic();
         faxAccount.setSubText(clinic.getClinicName());
@@ -343,15 +328,12 @@ public class FaxManagerImpl implements FaxManager {
         faxAccount.setFacilityName(clinic.getClinicName());
         faxJob.setFaxAccount(faxAccount);
 
-        /*
-         * No document - No Fax. Return an error.
-         * Validate and resolve the file path to prevent path traversal attacks
-         */
+        // Validate and resolve the file path to prevent path traversal attacks.
         Path faxDocument;
         try {
             faxDocument = resolveAndValidateFilePath(faxFilePath);
         } catch (SecurityException | IOException e) {
-            logger.error("Invalid or inaccessible fax file path: " + faxFilePath, e);
+            logger.error("Invalid or inaccessible fax file path: {}", faxFilePath, e);
             faxJob.setStatus(STATUS.ERROR);
             faxJob.setStatusString("File missing on local storage or invalid file path.");
             return faxJob;
@@ -376,9 +358,7 @@ public class FaxManagerImpl implements FaxManager {
         List<String> failedRecipients = new ArrayList<String>();
 
         for (String copytoRecipient : faxRecipients) {
-            /*
-             *  assumes that the recipient entry is a JSONObject
-             */
+            // Assumes that the recipient entry is a JSONObject
             copytoRecipient = "{" + copytoRecipient + "}";
             try {
                 ObjectNode copytoRecipientJson = (ObjectNode) objectMapper.readTree(copytoRecipient);
@@ -406,8 +386,7 @@ public class FaxManagerImpl implements FaxManager {
     }
 
     /**
-     * Create 1 faxJob for each fax recipient. Sets each faxJob to the
-     * default status of WAITNG.
+     * Create 1 faxJob copy for each fax recipient. Status is inherited from the original faxJob.
      */
     @Override
     public List<FaxJob> addRecipients(LoggedInInfo loggedInInfo, FaxJob faxJob, List<FaxRecipient> faxRecipients) {
@@ -420,9 +399,7 @@ public class FaxManagerImpl implements FaxManager {
 
         outer:
         for (FaxRecipient faxRecipient : faxRecipients) {
-            /*
-             * Avoid duplicate fax numbers.
-             */
+            // Avoid duplicate fax numbers.
             if (Objects.equals(faxJob.getDestination(), faxRecipient.getFax())) {
                 continue;
             }
@@ -482,8 +459,8 @@ public class FaxManagerImpl implements FaxManager {
         }
 
         if (faxJob.getId() == null || faxJob.getId() < 1) {
-            logger.error("Unable to save fax job. Contact support. " + faxJob);
-            return null;
+            throw new RuntimeException("Failed to persist fax job - database did not generate an ID. "
+                    + "Check database connectivity and constraints.");
         }
 
         return faxJob;
@@ -623,9 +600,20 @@ public class FaxManagerImpl implements FaxManager {
         List<FaxConfig> sanitizedAccounts = new ArrayList<FaxConfig>();
         for (FaxConfig account : accounts) {
             if (account.isActive()) {
-                account.setFaxPasswd(null);
-                account.setPasswd(null);
-                sanitizedAccounts.add(account);
+                FaxConfig sanitized = new FaxConfig();
+                sanitized.setId(account.getId());
+                sanitized.setFaxNumber(account.getFaxNumber());
+                sanitized.setAccountName(account.getAccountName());
+                sanitized.setSenderEmail(account.getSenderEmail());
+                sanitized.setFaxUser(account.getFaxUser());
+                sanitized.setActive(account.isActive());
+                sanitized.setProviderType(account.getProviderType());
+                sanitized.setQueue(account.getQueue());
+                sanitized.setDownload(account.isDownload());
+                sanitized.setUrl(account.getUrl());
+                sanitized.setSiteUser(account.getSiteUser());
+                // Passwords deliberately omitted to avoid exposing credentials
+                sanitizedAccounts.add(sanitized);
             }
         }
 
@@ -663,14 +651,7 @@ public class FaxManagerImpl implements FaxManager {
             throw new RuntimeException("missing required sec object (_fax)");
         }
 
-        /*
-         * Remove the preview cache.
-         */
         boolean cache = nioFileManager.removeCacheVersion(loggedInInfo, filePath);
-
-        /*
-         * Delete the temp file
-         */
         boolean temp = nioFileManager.deleteTempFile(filePath);
 
         return (cache && temp);
@@ -712,19 +693,19 @@ public class FaxManagerImpl implements FaxManager {
         FaxJob faxJob = null;
 
         if (jobId != null && !jobId.isEmpty()) {
-            faxJob = getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+            try {
+                faxJob = getFaxJob(loggedInInfo, Integer.parseInt(jobId));
+            } catch (NumberFormatException e) {
+                logger.error("Invalid fax job ID format: {}", jobId);
+                return false;
+            }
         }
 
         if (faxJob != null) {
 
-            /*
-             * make a copy
-             */
             FaxJob reSentFaxJob = new FaxJob(faxJob);
 
-            /*
-             * Destination can be replaced with new user input
-             */
+            // Destination can be replaced with new user input.
             if (destination != null && !destination.isEmpty()) {
                 destination = destination.replaceAll("\\D", "");
                 reSentFaxJob.setDestination(destination);
@@ -736,14 +717,9 @@ public class FaxManagerImpl implements FaxManager {
             reSentFaxJob.setStatus(STATUS.WAITING);
             reSentFaxJob.setStatusString("Fax RE-SENT by provider " + loggedInInfo.getLoggedInProviderNo());
 
-            /*
-             * adapt the Fax queue and logs accordingly.
-             */
             FaxJob reSent = saveFaxJob(loggedInInfo, reSentFaxJob);
 
-            /*
-             *  Update the status of the source re-sent fax job.
-             */
+            // Update the status of the source re-sent fax job.
             if (reSent != null) {
                 faxJob.setStatus(STATUS.RESENT);
                 faxJob.setStatusString("Fax RE-SENT as fax id " + reSent.getId() + " by provider " + loggedInInfo.getLoggedInProviderNo());
@@ -751,13 +727,10 @@ public class FaxManagerImpl implements FaxManager {
                 success = true;
             }
 
-            // TODO: update fax and oscar logs.
-
             success = success && !reSentFaxJob.getStatus().equals(STATUS.ERROR);
 
         } else {
-            // something went horribly wrong
-            logger.error("Something went horribly wrong while attempting to resend fax id: " + jobId);
+            logger.error("Cannot resend fax: no fax job found for id {}", jobId);
         }
 
         return success;
@@ -810,12 +783,12 @@ public class FaxManagerImpl implements FaxManager {
     @Override
     public void validateFilePath(String filePath) {
         if (filePath == null || filePath.trim().isEmpty()) {
-            return;
+            throw new IllegalArgumentException("File path must not be null or empty");
         }
 
         // Check for path traversal patterns
         if (filePath.contains("..") || filePath.contains("~")) {
-            logger.error("Path traversal attempt detected: " + filePath);
+            logger.error("Path traversal attempt detected: {}", filePath);
             throw new SecurityException("Invalid file path detected: path traversal patterns not allowed");
         }
 
@@ -828,7 +801,7 @@ public class FaxManagerImpl implements FaxManager {
         } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
-                logger.error("File path outside allowed directories: " + filePath);
+                logger.error("File path outside allowed directories: {}", filePath);
                 throw new SecurityException("File path must be within allowed directories");
             }
         }
@@ -861,7 +834,7 @@ public class FaxManagerImpl implements FaxManager {
         } catch (SecurityException e) {
             // File not in document dir, check if it's in allowed temp directories
             if (!PathValidationUtils.isInAllowedTempDirectory(file)) {
-                logger.error("Path containment check failed - file path outside allowed directories: " + filePath);
+                logger.error("Path containment check failed - file path outside allowed directories: {}", filePath);
                 throw new SecurityException("File path must be within allowed directories");
             }
         }
@@ -870,7 +843,7 @@ public class FaxManagerImpl implements FaxManager {
 
         // Ensure the file exists and is a regular file
         if (!Files.exists(resolvedPath) || !Files.isRegularFile(resolvedPath)) {
-            logger.error("File not found or is not a regular file: " + filePath);
+            logger.error("File not found or is not a regular file: {}", filePath);
             throw new IOException("File not found or is not a regular file");
         }
 
@@ -890,6 +863,8 @@ public class FaxManagerImpl implements FaxManager {
         // Regex pattern for fax number validation: allows digits, spaces, hyphens, plus sign, and parentheses
         final String FAX_NUMBER_PATTERN = "^[0-9\\-\\+\\(\\)\\s]+$";
 
+        // This method validates FORMAT only for non-empty numbers.
+        // Callers are responsible for checking required/non-empty fax numbers separately.
         if (faxNumber != null && !faxNumber.trim().isEmpty()) {
             if (!faxNumber.matches(FAX_NUMBER_PATTERN)) {
                 String errorMsg = "Invalid " + fieldName + " format: contains illegal characters";

@@ -135,7 +135,6 @@ public class ConfigureFax2Action extends ActionSupport {
             int savedidx;
             FaxConfig faxConfig;
             FaxConfig savedFaxConfig;
-            FaxConfig masterFaxConfig;
 
             if (faxConfigIds == null) {
                 for (FaxConfig sfaxConfig : savedFaxConfigList) {
@@ -195,7 +194,6 @@ public class ConfigureFax2Action extends ActionSupport {
                         String faxNumber = faxNumbers[idx];
                         if (faxNumber != null) {
                             faxNumber = faxNumber.trim().replaceAll("\\D", "");
-
                         }
                         savedFaxConfig.setFaxNumber(faxNumber);
                         savedFaxConfig.setSenderEmail(senderEmails[idx]);
@@ -211,10 +209,6 @@ public class ConfigureFax2Action extends ActionSupport {
 
                         if (sitePasswd != null && !PASSWORD_BLANKET.equals(sitePasswd)) {
                             faxConfig.setPasswd(sitePasswd.trim());
-                        }
-                        // the password carries over from the last configuration. Usually the first entry
-                        else if (!savedFaxConfigList.isEmpty() && (masterFaxConfig = savedFaxConfigList.get(0)) != null) {
-                            faxConfig.setPasswd(masterFaxConfig.getPasswd());
                         }
 
                         faxConfig.setUrl(resolvedFaxUrl);
@@ -239,11 +233,9 @@ public class ConfigureFax2Action extends ActionSupport {
                     }
                 }
 
-
                 for (FaxConfig faxConfig1 : faxConfigList) {
                     faxConfigDao.saveEntity(faxConfig1);
                 }
-
 
                 for (FaxConfig faxConfig2 : savedFaxConfigList) {
                     if (!faxConfigList.contains(faxConfig2)) {
@@ -264,10 +256,6 @@ public class ConfigureFax2Action extends ActionSupport {
 
                 if (sitePasswd != null && !PASSWORD_BLANKET.equals(sitePasswd)) {
                     faxConfig.setPasswd(sitePasswd.trim());
-                }
-                // the password carries over from the last configuration. Usually the first entry
-                else if (!savedFaxConfigList.isEmpty() && (masterFaxConfig = savedFaxConfigList.get(0)) != null) {
-                    faxConfig.setPasswd(masterFaxConfig.getPasswd());
                 }
                 faxConfig.setProviderType(FaxConfig.ProviderType.MIDDLEWARE);
                 faxConfigDao.saveEntity(faxConfig);
@@ -312,7 +300,6 @@ public class ConfigureFax2Action extends ActionSupport {
         JSONUtil.jsonResponse(response, jsonObject);
         return null;
     }
-
 
     /**
      * Resolves provider type selection from request arrays with safe middleware fallback.
@@ -427,29 +414,15 @@ public class ConfigureFax2Action extends ActionSupport {
      */
     public void restartFaxScheduler() {
         try {
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            if (loggedInInfo == null) {
-                throw new SecurityException("No valid session found");
-            }
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "w", null)) {
-                throw new SecurityException("missing required sec object (_admin.fax.restart)");
-            }
+            LoggedInInfo loggedInInfo = requireLoggedInWithPrivilege("_admin.fax.restart", "w");
             faxManager.restartFaxScheduler(loggedInInfo);
-            ObjectNode jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", true);
-            JSONUtil.jsonResponse(response, jsonObject);
+            sendJsonSuccess(null);
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Fax scheduler restart denied: {}", e.getMessage());
-            ObjectNode jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", false);
-            jsonObject.put("message", "Insufficient privileges to restart fax scheduler.");
-            JSONUtil.jsonResponse(response, jsonObject);
+            sendJsonError("Insufficient privileges to restart fax scheduler.");
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("Fax scheduler restart failed: {}", e.getMessage(), e);
-            ObjectNode jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", false);
-            jsonObject.put("message", "Fax scheduler restart failed unexpectedly.");
-            JSONUtil.jsonResponse(response, jsonObject);
+            sendJsonError("Fax scheduler restart failed unexpectedly.");
         }
     }
 
@@ -459,13 +432,7 @@ public class ConfigureFax2Action extends ActionSupport {
      */
     public void getPendingIncomingFaxes() {
         try {
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            if (loggedInInfo == null) {
-                throw new SecurityException("No valid session found");
-            }
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax", "r", null)) {
-                throw new SecurityException("missing required sec object (_admin.fax)");
-            }
+            requireLoggedInWithPrivilege("_admin.fax", "r");
 
             FaxImporter faxImporter = SpringUtils.getBean(FaxImporter.class);
             List<Map<String, Object>> pendingFaxes = faxImporter.listPendingIncomingFaxes();
@@ -478,16 +445,10 @@ public class ConfigureFax2Action extends ActionSupport {
             JSONUtil.jsonResponse(response, jsonObject);
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Pending faxes check denied: {}", e.getMessage());
-            ObjectNode jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", false);
-            jsonObject.put("message", "Insufficient privileges.");
-            JSONUtil.jsonResponse(response, jsonObject);
+            sendJsonError("Insufficient privileges.");
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("Failed to list pending incoming faxes: {}", e.getMessage(), e);
-            ObjectNode jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", false);
-            jsonObject.put("message", "Failed to list pending faxes.");
-            JSONUtil.jsonResponse(response, jsonObject);
+            sendJsonError("Failed to list pending faxes.");
         }
     }
 
@@ -496,27 +457,60 @@ public class ConfigureFax2Action extends ActionSupport {
      */
     public void getFaxSchedularStatus() {
         try {
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            if (loggedInInfo == null) {
-                throw new SecurityException("No valid session found");
-            }
-            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.fax.restart", "r", null)) {
-                throw new SecurityException("missing required sec object (_admin.fax.restart)");
-            }
+            LoggedInInfo loggedInInfo = requireLoggedInWithPrivilege("_admin.fax.restart", "r");
             JSONUtil.jsonResponse(response, faxManager.getFaxSchedularStatus(loggedInInfo));
         } catch (SecurityException e) {
             MiscUtils.getLogger().warn("Fax scheduler status check denied: {}", e.getMessage());
-            ObjectNode jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", false);
-            jsonObject.put("message", "Insufficient privileges to view fax scheduler status.");
-            JSONUtil.jsonResponse(response, jsonObject);
+            sendJsonError("Insufficient privileges to view fax scheduler status.");
         } catch (RuntimeException e) {
             MiscUtils.getLogger().error("Fax scheduler status check failed: {}", e.getMessage(), e);
-            ObjectNode jsonObject = objectMapper.createObjectNode();
-            jsonObject.put("success", false);
-            jsonObject.put("message", "Fax scheduler status check failed unexpectedly.");
-            JSONUtil.jsonResponse(response, jsonObject);
+            sendJsonError("Fax scheduler status check failed unexpectedly.");
         }
+    }
+
+    /**
+     * Validates session and privilege, returning the logged-in info.
+     *
+     * @param secObject security object name to check
+     * @param accessLevel access level ("r" for read, "w" for write)
+     * @return LoggedInInfo the authenticated session info
+     * @throws SecurityException if session is missing or privilege check fails
+     */
+    private LoggedInInfo requireLoggedInWithPrivilege(String secObject, String accessLevel) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("No valid session found");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, secObject, accessLevel, null)) {
+            throw new SecurityException("missing required sec object (" + secObject + ")");
+        }
+        return loggedInInfo;
+    }
+
+    /**
+     * Sends a JSON success response, optionally with a message.
+     *
+     * @param message optional message to include (null for no message field)
+     */
+    private void sendJsonSuccess(String message) {
+        ObjectNode jsonObject = objectMapper.createObjectNode();
+        jsonObject.put("success", true);
+        if (message != null) {
+            jsonObject.put("message", message);
+        }
+        JSONUtil.jsonResponse(response, jsonObject);
+    }
+
+    /**
+     * Sends a JSON error response with the given user-facing message.
+     *
+     * @param message error message safe to display to admin users
+     */
+    private void sendJsonError(String message) {
+        ObjectNode jsonObject = objectMapper.createObjectNode();
+        jsonObject.put("success", false);
+        jsonObject.put("message", message);
+        JSONUtil.jsonResponse(response, jsonObject);
     }
 
 }

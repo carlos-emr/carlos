@@ -56,12 +56,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * {@link #DEFAULT_SRFAX_API_URL} but can be overridden via the {@code srfax.api.url} property
  * in oscar_mcmaster.properties. Credentials are mapped from fax config fields as follows:</p>
  * <ul>
- *   <li><strong>sFaxUserName</strong>: {@link FaxConfig#getFaxUser()}</li>
- *   <li><strong>sFaxPassword</strong>: {@link FaxConfig#getFaxPasswd()}</li>
+ *   <li><strong>access_id</strong>: {@link FaxConfig#getFaxUser()} (SRFax account number)</li>
+ *   <li><strong>access_pwd</strong>: {@link FaxConfig#getFaxPasswd()} (SRFax account password)</li>
  * </ul>
  *
- * <p>SRFax response payloads are parsed defensively because payload shape may vary by account-level
- * settings (JSON envelope variants and optional fields).</p>
+ * <p><strong>SRFax API Reference:</strong>
+ * <a href="https://www.srfax.com/developers/internet-fax-api/getting-started/">
+ * https://www.srfax.com/developers/internet-fax-api/getting-started/</a></p>
  *
  * @since 2026-02-11
  */
@@ -74,7 +75,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
     private static final String ACTION_QUEUE_FAX = "Queue_Fax";
     private static final String ACTION_GET_INBOX = "Get_Fax_Inbox";
     private static final String ACTION_RETRIEVE_FAX = "Retrieve_Fax";
-    private static final String ACTION_GET_STATUS = "Get_Fax_Status";
+    private static final String ACTION_GET_STATUS = "Get_FaxStatus";
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -95,14 +96,17 @@ public class SRFaxProviderClient implements FaxProviderClient {
             try {
                 java.net.URI uri = new java.net.URI(trimmed);
                 String host = uri.getHost();
-                if (host != null && host.toLowerCase().endsWith("srfax.com")
-                        && ("https".equals(uri.getScheme()) || "http".equals(uri.getScheme()))) {
+                if (host != null
+                        && (host.equalsIgnoreCase("srfax.com") || host.toLowerCase().endsWith(".srfax.com"))
+                        && "https".equalsIgnoreCase(uri.getScheme())) {
                     return trimmed;
                 }
-            } catch (java.net.URISyntaxException ignored) {
-                // Fall through to warning below
+            } catch (java.net.URISyntaxException e) {
+                logger.warn("Configured srfax.api.url '{}' is not a valid URI: {} - using default",
+                        trimmed, e.getMessage());
+                return DEFAULT_SRFAX_API_URL;
             }
-            logger.warn("Configured srfax.api.url '{}' is not a valid srfax.com endpoint - using default", trimmed);
+            logger.warn("Configured srfax.api.url '{}' is not a valid srfax.com HTTPS endpoint - using default", trimmed);
         }
         return DEFAULT_SRFAX_API_URL;
     }
@@ -172,11 +176,9 @@ public class SRFaxProviderClient implements FaxProviderClient {
             JsonNode root = postForm(getSrfaxApiUrl(), params);
             ensureSuccess(root, "Failed to queue fax with SRFax");
 
-            // SRFax typically returns queue/fax identifiers in Result object; map if present.
-            String jobId = textAt(root, "Result", "Queue_Fax_ID");
-            if (jobId == null) {
-                jobId = textAt(root, "Result", "FaxID");
-            }
+            // SRFax returns the FaxDetailsID directly as a flat string in the Result field.
+            // Example success response: {"Status":"Success","Result":"12345678"}
+            String jobId = textAt(root, "Result");
 
             FaxJob result = new FaxJob();
             if (jobId != null) {
@@ -205,9 +207,9 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * Lists inbound fax headers available in SRFax inbox.
      *
      * <p><strong>Duplicate Prevention Strategy:</strong> This method pulls only unread faxes
-     * (sIncludeRead=false, sUnreadOnly=true) to avoid re-importing documents. Faxes are marked
+     * (sViewedStatus=UNREAD per SRFax API spec) to avoid re-importing documents. Faxes are marked
      * as read after successful local import via {@link #markFaxAsRead(FaxConfig, FaxJob)}.
-     * This two-phase approach prevents both duplicates and fax loss: if import fails, the fax
+     * This three-phase approach prevents both duplicates and fax loss: if import fails, the fax
      * remains unread and will be re-fetched on the next poll.</p>
      *
      * @param faxConfig SRFax account configuration with authentication credentials
@@ -221,27 +223,39 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
         List<NameValuePair> params = createAuthParams(faxConfig);
         params.add(new BasicNameValuePair("action", ACTION_GET_INBOX));
-        // Pull only unread faxes to avoid duplicates.
-        params.add(new BasicNameValuePair("sIncludeRead", "false"));
-        params.add(new BasicNameValuePair("sUnreadOnly", "true"));
+        // Pull only unread faxes to avoid duplicates (per SRFax API spec: sViewedStatus).
+        params.add(new BasicNameValuePair("sViewedStatus", "UNREAD"));
 
         JsonNode root = postForm(getSrfaxApiUrl(), params);
         ensureSuccess(root, "Failed to fetch SRFax inbox");
 
         List<FaxJob> result = new ArrayList<>();
-        JsonNode rows = nodeAt(root, "Result", "faxes");
-        if (rows == null || rows.isMissingNode()) {
-            rows = nodeAt(root, "Result");
-        }
+        // Per SRFax spec, Result is directly an array of fax property objects.
+        JsonNode rows = nodeAt(root, "Result");
 
         if (rows != null && rows.isArray()) {
             for (JsonNode row : rows) {
                 FaxJob faxJob = new FaxJob();
-                faxJob.setFile_name(textOrDefault(row, "FileName", "FaxFileName", "FaxName", String.valueOf(System.currentTimeMillis())));
+                String fileName = textOrDefault(row, "FileName", "FaxFileName", "FaxName", String.valueOf(System.currentTimeMillis()));
+                faxJob.setFile_name(fileName);
                 faxJob.setRecipient(textOrDefault(row, "CallerID", "FromFaxNumber", "Unknown"));
                 faxJob.setStatus(FaxJob.STATUS.RECEIVED);
                 faxJob.setStatusString("Ready for SRFax download");
                 faxJob.setStamp(new Date());
+
+                // Per SRFax spec, the FaxDetailsID is embedded in the FileName after a pipe character.
+                // Example: "20260219124500-1234-1_1|12345678"
+                if (fileName.contains("|")) {
+                    String faxDetailsId = fileName.substring(fileName.lastIndexOf('|') + 1).trim();
+                    if (!faxDetailsId.isEmpty()) {
+                        try {
+                            faxJob.setJobId(Long.parseLong(faxDetailsId));
+                        } catch (NumberFormatException e) {
+                            logger.debug("SRFax FileName pipe segment is non-numeric: {}", faxDetailsId);
+                        }
+                    }
+                }
+
                 result.add(faxJob);
             }
         }
@@ -255,7 +269,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
     /**
      * Downloads a specific fax document from SRFax without marking it as read.
      *
-     * <p>This is the first phase of the two-phase import strategy: download the fax content
+     * <p>This is the first phase of the three-phase import strategy: download the fax content
      * without side-effects. The fax remains unread on the SRFax server until
      * {@link #markFaxAsRead(FaxConfig, FaxJob)} is called after successful local import.
      * This prevents fax loss if the import fails after download.</p>
@@ -271,15 +285,14 @@ public class SRFaxProviderClient implements FaxProviderClient {
         params.add(new BasicNameValuePair("sFaxFileName", fax.getFile_name()));
         params.add(new BasicNameValuePair("sDirection", "IN"));  // Required: "IN" for received faxes, "OUT" for sent
         params.add(new BasicNameValuePair("sFaxFormat", "PDF")); // Explicit format request (API defaults to PDF)
-        // Mark-as-read is deferred to markFaxAsRead() after successful local import (two-phase strategy).
+        // Mark-as-read is deferred to markFaxAsRead() after successful local import (three-phase strategy).
 
         JsonNode root = postForm(getSrfaxApiUrl(), params);
         ensureSuccess(root, "Failed to download SRFax document");
 
-        String base64Doc = textAt(root, "Result", "FileContents");
-        if (base64Doc == null) {
-            base64Doc = textAt(root, "Result", "DocumentContent");
-        }
+        // SRFax returns the base64-encoded document directly in the Result field.
+        // Example success response: {"Status":"Success","Result":"<base64 content>"}
+        String base64Doc = textAt(root, "Result");
         if (base64Doc == null || base64Doc.isEmpty()) {
             throw new FaxProviderException("SRFax download response did not include document content");
         }
@@ -295,7 +308,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
     /**
      * Marks a remote inbound fax as read on the SRFax server after successful local import.
      *
-     * <p>This is the second phase of the two-phase import strategy. The {@link #downloadFax}
+     * <p>This is the second phase of the three-phase import strategy. The {@link #downloadFax}
      * method downloads content without marking as read. This method is called only after the
      * fax has been successfully persisted locally, preventing fax loss if import fails.</p>
      *
@@ -356,10 +369,9 @@ public class SRFaxProviderClient implements FaxProviderClient {
         JsonNode root = postForm(getSrfaxApiUrl(), params);
         ensureSuccess(root, "Failed to fetch SRFax fax status");
 
-        String providerStatus = textAt(root, "Result", "Status");
-        if (providerStatus == null) {
-            providerStatus = textAt(root, "Result", "FaxStatus");
-        }
+        // SRFax returns delivery status in the SentStatus field within the Result object.
+        // Possible values: "In Progress", "Sent", "Failed", "Sending Email"
+        String providerStatus = textAt(root, "Result", "SentStatus");
 
         FaxJob updated = new FaxJob(faxJob);
         updated.setStatus(mapStatus(providerStatus));
@@ -378,10 +390,14 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * are normalized to lowercase for case-insensitive matching. This defensive approach prevents
      * status mapping failures when the SRFax API returns status strings in different formats.</p>
      *
-     * <p>Mapping rules:</p>
+     * <p><strong>SRFax SentStatus values</strong> (per API spec):
+     * "In Progress", "Sent", "Failed", "Sending Email".</p>
+     *
+     * <p>Mapping rules (fuzzy matching for forward-compatibility). Order matters -- in-progress
+     * statuses are checked first because "Sending Email" contains "sent":</p>
      * <ul>
-     *   <li>SUCCESS/COMPLETE/SENT → {@code COMPLETE}</li>
-     *   <li>QUEUE/PROCESSING/PROGRESS/RETRY → {@code SENT} (in-progress)</li>
+     *   <li>QUEUE/PROCESSING/PROGRESS/RETRY/SENDING → {@code SENT} (in-progress, checked first)</li>
+     *   <li>SUCCESS/COMPLETE/SENT → {@code COMPLETE} (delivery confirmed)</li>
      *   <li>CANCEL → {@code CANCELLED}</li>
      *   <li>ERROR/FAIL/BUSY/NO ANSWER → {@code ERROR}</li>
      *   <li>null or unrecognized → {@code UNKNOWN}</li>
@@ -397,14 +413,16 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
         String normalized = providerStatus.trim().toLowerCase();
 
-        // Completed statuses
-        if (normalized.contains("success") || normalized.contains("complete") || normalized.contains("sent")) {
-            return FaxJob.STATUS.COMPLETE;
+        // Queue/in-progress statuses MUST be checked before terminal statuses because
+        // "Sending Email" contains "sent" which would otherwise match COMPLETE.
+        if (normalized.contains("queue") || normalized.contains("processing") || normalized.contains("progress")
+                || normalized.contains("retry") || normalized.contains("sending")) {
+            return FaxJob.STATUS.SENT;
         }
 
-        // Queue/in-progress statuses
-        if (normalized.contains("queue") || normalized.contains("processing") || normalized.contains("progress") || normalized.contains("retry")) {
-            return FaxJob.STATUS.SENT;
+        // Completed/terminal success statuses (SRFax "Sent" = delivery confirmed)
+        if (normalized.contains("success") || normalized.contains("complete") || normalized.contains("sent")) {
+            return FaxJob.STATUS.COMPLETE;
         }
 
         // Explicit cancel/failed statuses
@@ -441,7 +459,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
         try (CloseableHttpClient client = HttpClients.custom()
                 .setDefaultRequestConfig(requestConfig)
                 .build()) {
-            httpPost.setEntity(new UrlEncodedFormEntity(params));
+            httpPost.setEntity(new UrlEncodedFormEntity(params, "UTF-8"));
 
             try (CloseableHttpResponse response = client.execute(httpPost)) {
                 // Validate HTTP status code
@@ -461,7 +479,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 return objectMapper.readTree(payload);
             }
         } catch (IOException e) {
-            throw new FaxProviderException("SRFax API communication failure", e);
+            throw new FaxProviderException("SRFax API communication failure", e, FaxProviderException.isTransientNetworkCause(e));
         }
     }
 
@@ -479,12 +497,12 @@ public class SRFaxProviderClient implements FaxProviderClient {
     }
 
     /**
-     * Creates the standard SRFax auth parameters from fax configuration.
+     * Creates the standard SRFax authentication parameters (access_id, access_pwd) from fax configuration.
      */
     private List<NameValuePair> createAuthParams(FaxConfig faxConfig) {
         List<NameValuePair> params = new ArrayList<>();
-        params.add(new BasicNameValuePair("sFaxUserName", faxConfig.getFaxUser()));
-        params.add(new BasicNameValuePair("sFaxPassword", faxConfig.getFaxPasswd()));
+        params.add(new BasicNameValuePair("access_id", faxConfig.getFaxUser()));
+        params.add(new BasicNameValuePair("access_pwd", faxConfig.getFaxPasswd()));
         params.add(new BasicNameValuePair("sResponseFormat", "JSON"));
         return params;
     }
@@ -493,10 +511,8 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * Ensures provider response indicates success.
      */
     private void ensureSuccess(JsonNode root, String errorMessage) throws FaxProviderException {
+        // Per SRFax spec, Status is always at the top level of the JSON response.
         String status = textAt(root, "Status");
-        if (status == null) {
-            status = textAt(root, "Result", "Status");
-        }
 
         if (status == null) {
             // Check if Result contains data despite missing Status
@@ -517,7 +533,8 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
         String normalized = status.trim().toLowerCase();
         if (normalized.contains("fail") || normalized.contains("error") || "0".equals(normalized)) {
-            String message = textAt(root, "Result", "Result");
+            // Per SRFax spec, on failure the Result field is a flat string with the error reason.
+            String message = textAt(root, "Result");
             throw new FaxProviderException(errorMessage + (message == null ? "" : (": " + message)));
         }
 

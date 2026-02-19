@@ -84,12 +84,14 @@ import org.springframework.stereotype.Service;
  * </ol>
  *
  * <p>If Phase 3 fails, the file stays in the incoming directory. On the next poll cycle,
- * {@link #retryPendingImports()} scans for pending files and retries the import.</p>
+ * {@link #retryPendingImports(List)} scans for pending files and retries the import.</p>
  *
  * <p><strong>Configuration Properties:</strong></p>
  * <pre>
  * # oscar_mcmaster.properties
- * FAX_INCOMING_DIR=/path/to/fax/incoming  # Optional, defaults to ${catalina.base}/fax-incoming
+ * FAX_INCOMING_DIR=/path/to/fax/incoming  # Optional; defaults resolved by OscarProperties:
+ *                                         #   1. ${catalina.base}/fax-incoming (Tomcat)
+ *                                         #   2. ${java.io.tmpdir}/carlos-fax-incoming (non-Tomcat)
  * DOCUMENT_DIR=/path/to/documents         # Required, final document storage location
  * </pre>
  *
@@ -101,12 +103,18 @@ import org.springframework.stereotype.Service;
 @Service
 public class FaxImporter {
 
+    /**
+     * Static initialization is intentional: OscarProperties is a read-once singleton with no
+     * reload mechanism — property changes require a Tomcat restart. This matches the pattern
+     * used by ManageDocument2Action and NioFileManager. The {@link #initialize()} PostConstruct
+     * guard validates this value at Spring startup, failing fast if misconfigured.
+     */
     private static final String DOCUMENT_DIR = OscarProperties.getInstance().getDocumentDirectory();
 
     /** Atomic counter for collision-free filename sequencing */
     private static final AtomicLong fileCounter = new AtomicLong(0);
 
-    private static String DEFAULT_USER = "-1";
+    private static final String DEFAULT_USER = "-1";
     private final FaxConfigDao faxConfigDao;
     private final FaxJobDao faxJobDao;
     private final QueueDocumentLinkDao queueDocumentLinkDao;
@@ -288,6 +296,10 @@ public class FaxImporter {
             } catch (FaxProviderException e) {
                 log.error("Fax provider error for account {} ({}): {}",
                         faxConfig.getFaxUser(), faxConfig.getProviderType(), e.getMessage(), e);
+            } catch (IllegalStateException e) {
+                log.error("Credential decryption failed for fax account {} ({}) - re-enter password in "
+                        + "Administration > Faxes > Configure Fax. Skipping this account.",
+                        faxConfig.getFaxUser(), faxConfig.getProviderType(), e);
             } catch (RuntimeException e) {
                 log.error("Unexpected error processing faxes for account {} ({}) - continuing with next account: {}",
                         faxConfig.getFaxUser(), faxConfig.getProviderType(), e.getMessage(), e);
@@ -521,9 +533,9 @@ public class FaxImporter {
                         if (edoc != null) {
                             try {
                                 providerRouting(Integer.parseInt(edoc.getDocId()));
-                            } catch (Exception e) {
+                            } catch (RuntimeException e) {
                                 log.error("Routing failed for retried fax import doc_no={}: {}",
-                                        edoc.getDocId(), e.getMessage());
+                                        edoc.getDocId(), e.getMessage(), e);
                                 retryFax.setStatus(FaxJob.STATUS.ERROR);
                                 retryFax.setStatusString("IMPORTED ON RETRY BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT");
                             }
@@ -587,6 +599,7 @@ public class FaxImporter {
                             entry.put("sizeBytes", Files.size(pdfFile));
                             entry.put("lastModifiedMs", Files.getLastModifiedTime(pdfFile).toMillis());
                         } catch (IOException e) {
+                            log.debug("Cannot read file metadata for pending fax {}: {}", pdfFile.getFileName(), e.getMessage());
                             entry.put("sizeBytes", 0L);
                             entry.put("lastModifiedMs", 0L);
                         }
@@ -612,6 +625,8 @@ public class FaxImporter {
         try {
             Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException e) {
+            log.warn("Atomic move not supported from {} to {} - falling back to copy+delete (cross-filesystem?)",
+                    source.getParent(), target.getParent());
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             Files.delete(source);
         }
@@ -739,8 +754,8 @@ public class FaxImporter {
 
         Integer id = providerLabRouting.getId();
         if (id == null || id < 1) {
-            log.error("Failed to add Fax document id {} to provider lab routing - fax will not appear in provider inbox",
-                    providerLabRouting.getLabNo());
+            throw new RuntimeException("Failed to add Fax document id " + providerLabRouting.getLabNo()
+                    + " to provider lab routing - database did not generate routing ID");
         }
     }
 

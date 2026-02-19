@@ -97,72 +97,30 @@ public class FaxSender {
     /**
      * Processes all queued outbound faxes for active fax accounts.
      *
-     * <p><strong>Process Flow:</strong></p>
-     * <ol>
-     *   <li>Retrieves all FaxConfig accounts from database (active and inactive)</li>
-     *   <li>Iterates through active accounts only (skip inactive to prevent send attempts)</li>
-     *   <li>For each active account, retrieves faxes with WAITING status (ready to send)</li>
-     *   <li>For each fax:
-     *     <ul>
-     *       <li>Validates file path using PathValidationUtils (prevent path traversal)</li>
-     *       <li>Resolves file location (DOCUMENT_DIR or approved temp directory)</li>
-     *       <li>Sends fax via FaxProviderClient (SRFax, middleware, etc.)</li>
-     *       <li>Updates FaxJob status based on provider response (SENT, ERROR, WAITING)</li>
-     *       <li>Records audit trail in FaxClientLog with timestamps and result</li>
-     *     </ul>
-     *   </li>
-     * </ol>
+     * <p>For each active FaxConfig, retrieves WAITING faxes, validates file paths via
+     * {@link #resolveFilePath}, sends through the appropriate {@link FaxProviderClient},
+     * and updates both FaxJob status and FaxClientLog audit trail.</p>
      *
      * <p><strong>Status Transitions:</strong></p>
      * <ul>
-     *   <li><strong>WAITING → SENT:</strong> Provider successfully accepted fax</li>
+     *   <li><strong>WAITING → SENT (typical):</strong> Provider accepted fax for transmission.
+     *       Actual status is determined by provider response</li>
      *   <li><strong>WAITING → ERROR:</strong> Invalid file path, provider error, or validation failure</li>
-     *   <li><strong>WAITING → WAITING:</strong> Transient network error (retry on next poll)</li>
+     *   <li><strong>WAITING → WAITING:</strong> Transient network error (automatic retry on next poll)</li>
      * </ul>
      *
-     * <p><strong>Error Handling:</strong></p>
-     * <p>Errors are caught and logged but do NOT stop processing of remaining faxes.
-     * This ensures one problematic fax does not block the entire queue:</p>
-     * <ul>
-     *   <li><strong>IllegalArgumentException/SecurityException:</strong> Invalid or unsafe file path
-     *       (path traversal attempt). Fax marked as ERROR with detailed status message.</li>
-     *   <li><strong>FaxProviderException:</strong> Provider communication failure. If the cause chain
-     *       contains a transient network error (ConnectException, SocketTimeoutException,
-     *       UnknownHostException, NoRouteToHostException), fax reverted to WAITING for retry;
-     *       otherwise marked ERROR.</li>
-     *   <li><strong>Finally Block:</strong> Ensures FaxJob status and FaxClientLog are ALWAYS updated
-     *       regardless of success or failure.</li>
-     * </ul>
+     * <p><strong>Error Isolation:</strong> Errors are caught per-fax so one failure does not block
+     * the queue. Path validation failures (IllegalArgumentException/SecurityException) mark ERROR.
+     * Provider failures (FaxProviderException) mark ERROR unless the cause is a transient network
+     * error (ConnectException, SocketTimeoutException, etc.), which reverts to WAITING for retry.
+     * IllegalStateException from credential decryption skips the entire account. The finally block
+     * ensures FaxJob and FaxClientLog are always persisted, with separate try-catch guards on each
+     * merge to prevent one persistence failure from blocking the other.</p>
      *
-     * <p><strong>Connection Error Retry Logic:</strong></p>
-     * <p>When a FaxProviderException's cause chain contains a transient network error
-     * ({@link java.net.ConnectException}, {@link java.net.SocketTimeoutException},
-     * {@link java.net.UnknownHostException}, or {@link java.net.NoRouteToHostException}), the fax
-     * is reverted to WAITING status rather than ERROR. This allows automatic retry on next
-     * scheduled poll, handling transient network issues without manual intervention.</p>
+     * <p>Typically invoked by {@link FaxSchedulerJob}. Provider exceptions are caught and logged
+     * within this method; they are not propagated to callers.</p>
      *
-     * <p><strong>Audit Trail:</strong></p>
-     * <p>FaxClientLog entries are updated with:</p>
-     * <ul>
-     *   <li><strong>result:</strong> Final status (SENT, ERROR, WAITING)</li>
-     *   <li><strong>endTime:</strong> Timestamp when send attempt completed</li>
-     * </ul>
-     *
-     * <p><strong>Security:</strong></p>
-     * <p>File path validation prevents path traversal attacks via {@link #resolveFilePath}.
-     * Only files under DOCUMENT_DIR or in explicitly allowed temp directories can be sent.
-     * Security violations are logged with WARNING level and include fax ID for audit.</p>
-     *
-     * <p><strong>Performance:</strong></p>
-     * <p>Processing is synchronous within each fax account. For high-volume deployments,
-     * consider implementing batch processing or async execution. Current implementation logs
-     * fax count per account to aid monitoring: "SENDING N faxes from fax account X".</p>
-     *
-     * <p>This method is typically invoked by {@link FaxSchedulerJob} but can also be
-     * triggered manually via admin UI or management console.</p>
-     *
-     * <p>Note: {@link FaxProviderException} instances thrown by the underlying provider client
-     * are caught and logged within this method; they are not propagated to callers.</p>
+     * @throws IllegalStateException if DOCUMENT_DIR is not configured
      *
      * @see FaxJobDao#getReadyToSendFaxes
      * @see FaxProviderClient#sendFax
@@ -174,9 +132,10 @@ public class FaxSender {
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
         String documentDir = OscarProperties.getInstance().getDocumentDirectory();
         if (documentDir == null || documentDir.trim().isEmpty()) {
-            log.error("DOCUMENT_DIR is not configured and cannot be derived from BASE_DOCUMENT_DIR. "
-                    + "Skipping fax send cycle. Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in oscar_mcmaster.properties.");
-            return;
+            throw new IllegalStateException(
+                    "DOCUMENT_DIR is not configured and cannot be derived from BASE_DOCUMENT_DIR. "
+                    + "Outbound fax send cycle aborted. "
+                    + "Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in oscar_mcmaster.properties.");
         }
 
         for (FaxConfig faxConfig : faxConfigList) {
@@ -217,17 +176,31 @@ public class FaxSender {
                         }
                     } finally {
                         faxJob.setStatus(faxStatus);
-                        faxJobDao.merge(faxJob);
-                        log.info("Updated Fax with jobid {} and status {}", faxJob.getJobId(), faxJob.getStatus());
+                        try {
+                            faxJobDao.merge(faxJob);
+                            log.info("Updated Fax with jobid {} and status {}", faxJob.getJobId(), faxJob.getStatus());
+                        } catch (RuntimeException e) {
+                            log.error("CRITICAL: Failed to persist fax status for fax id {} - status {} may be lost",
+                                    faxJob.getId(), faxStatus, e);
+                        }
                         if (faxClientLog != null) {
-                            faxClientLog.setResult(faxStatus.name());
-                            faxClientLog.setEndTime(new Date(System.currentTimeMillis()));
-                            faxClientLogDao.merge(faxClientLog);
+                            try {
+                                faxClientLog.setResult(faxStatus.name());
+                                faxClientLog.setEndTime(new Date(System.currentTimeMillis()));
+                                faxClientLogDao.merge(faxClientLog);
+                            } catch (RuntimeException e) {
+                                log.error("Failed to update FaxClientLog for fax id {} - audit trail incomplete",
+                                        faxJob.getId(), e);
+                            }
                         } else {
                             log.warn("No FaxClientLog found for fax id {} - audit trail incomplete", faxJob.getId());
                         }
                     }
                 }
+            } catch (IllegalStateException e) {
+                log.error("Credential decryption failed for fax account {} ({}) - re-enter password in "
+                        + "Administration > Faxes > Configure Fax. Skipping this account.",
+                        faxConfig.getSiteUser(), faxConfig.getProviderType(), e);
             } catch (RuntimeException e) {
                 log.error("Unexpected error sending faxes for account {} ({}) - continuing with next account: {}",
                         faxConfig.getSiteUser(), faxConfig.getProviderType(), e.getMessage(), e);
@@ -236,24 +209,18 @@ public class FaxSender {
     }
 
     /**
-     * Checks if a FaxProviderException was caused by a transient network error that
+     * Checks if a FaxProviderException represents a transient network error that
      * warrants automatic retry (WAITING status) rather than permanent failure (ERROR).
      *
+     * <p>Delegates to {@link FaxProviderException#isTransient()}, which is determined by provider
+     * clients at exception creation time by passing the result of
+     * {@link FaxProviderException#isTransientNetworkCause(Throwable)} to the constructor.</p>
+     *
      * @param e the provider exception to inspect
-     * @return true if any cause in the exception chain is a transient network error
+     * @return true if the provider flagged this as a transient error
      */
     private boolean isTransientNetworkError(FaxProviderException e) {
-        Throwable cause = e.getCause();
-        while (cause != null) {
-            if (cause instanceof java.net.ConnectException
-                    || cause instanceof java.net.SocketTimeoutException
-                    || cause instanceof java.net.UnknownHostException
-                    || cause instanceof java.net.NoRouteToHostException) {
-                return true;
-            }
-            cause = cause.getCause();
-        }
-        return false;
+        return e.isTransient();
     }
 
     /**

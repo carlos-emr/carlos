@@ -206,6 +206,31 @@ class FaxImporterPollTest extends OpenOUnitTestBase {
         verify(faxProviderClient).listInboundFaxes(activeWithDownload);
     }
 
+    @Test
+    @DisplayName("should skip account and continue when IllegalStateException occurs from credential decryption")
+    void shouldSkipAccountAndContinue_whenIllegalStateExceptionOccurs() throws FaxProviderException {
+        // Given: Two active configs with download enabled - first has bad credentials
+        FaxConfig badCredConfig = createFaxConfig(1, true, true);
+        FaxConfig goodConfig = createFaxConfig(2, true, true);
+        when(faxConfigDao.findAll(null, null)).thenReturn(Arrays.asList(badCredConfig, goodConfig));
+
+        // First config: credential decryption fails with IllegalStateException
+        when(faxProviderClientFactory.getClient(badCredConfig))
+                .thenThrow(new IllegalStateException("Failed to decrypt faxPasswd"));
+
+        // Second config: normal processing
+        when(faxProviderClientFactory.getClient(goodConfig)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(goodConfig)).thenReturn(Collections.emptyList());
+
+        // When
+        faxImporter.poll();
+
+        // Then: Second config should still be processed despite first having bad credentials
+        verify(faxProviderClientFactory).getClient(badCredConfig);
+        verify(faxProviderClientFactory).getClient(goodConfig);
+        verify(faxProviderClient).listInboundFaxes(goodConfig);
+    }
+
     // -- helper methods --
 
     /**

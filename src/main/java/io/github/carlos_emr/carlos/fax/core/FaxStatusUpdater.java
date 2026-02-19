@@ -61,7 +61,8 @@ import org.springframework.stereotype.Service;
  * <p><strong>Terminal vs In-Progress States:</strong></p>
  * <ul>
  *   <li><strong>In-Progress (polled by this service):</strong> Faxes with provider job IDs in
- *       SENT or WAITING status (queued with provider, awaiting delivery confirmation)</li>
+ *       SENT status (accepted by provider, awaiting delivery confirmation) or WAITING status
+ *       with a non-null job ID (edge case from admin action or legacy code paths)</li>
  *   <li><strong>Terminal (not polled):</strong> COMPLETE (delivered), ERROR (permanent failure),
  *       CANCELLED (cancelled by user or system), RECEIVED (inbound import), RESOLVED (manually resolved),
  *       UNKNOWN (unrecognized provider status), RESENT (superseded by resend)</li>
@@ -209,17 +210,33 @@ public class FaxStatusUpdater {
                         faxJob.setStatus(faxJobUpdated.getStatus());
                         faxJob.setStatusString(faxJobUpdated.getStatusString());
                         log.info("UPDATED FAX JOB ID {} WITH STATUS {}", faxJob.getJobId(), faxJob.getStatus());
-                        faxJobDao.merge(faxJob);
+                        try {
+                            faxJobDao.merge(faxJob);
+                        } catch (RuntimeException mergeEx) {
+                            log.error("CRITICAL: Failed to persist status update for fax id {} - "
+                                    + "provider reports {} but database still shows old status",
+                                    faxJob.getId(), faxJob.getStatus(), mergeEx);
+                        }
                     } catch (FaxProviderException e) {
                         log.error("Failed to update fax status for fax id {}", faxJob.getId(), e);
                         // Replace rather than append to prevent unbounded growth on prolonged failures
                         faxJob.setStatusString("Status check failed: " + e.getMessage());
-                        faxJobDao.merge(faxJob);
+                        try {
+                            faxJobDao.merge(faxJob);
+                        } catch (RuntimeException mergeEx) {
+                            log.error("CRITICAL: Failed to persist error status for fax id {} - "
+                                    + "status string update may be lost",
+                                    faxJob.getId(), mergeEx);
+                        }
                     }
                 } else {
                     log.debug("Skipping status update for fax id {} - account {} is inactive",
                             faxJob.getId(), faxJob.getFax_line());
                 }
+            } catch (IllegalStateException e) {
+                log.error("Credential decryption failed for fax id {} (fax_line {}) - re-enter password in "
+                        + "Administration > Faxes > Configure Fax. Skipping this fax.",
+                        faxJob.getId(), faxJob.getFax_line(), e);
             } catch (RuntimeException e) {
                 log.error("Unexpected error updating status for fax id {} - continuing with remaining faxes: {}",
                         faxJob.getId(), e.getMessage(), e);

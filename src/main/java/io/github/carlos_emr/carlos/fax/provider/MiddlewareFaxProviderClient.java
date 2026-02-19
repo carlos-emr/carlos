@@ -65,6 +65,11 @@ import org.springframework.stereotype.Component;
  * <p>This class extracts all middleware transport details from core fax orchestration so the
  * pipeline can remain provider-agnostic.</p>
  *
+ * <p><strong>Note on markFaxAsRead:</strong> This client intentionally does NOT override the
+ * default no-op {@link FaxProviderClient#markFaxAsRead} method. Middleware uses delete semantics
+ * for duplicate prevention (via {@link #deleteFax}) rather than read/unread semantics. After
+ * a fax is successfully imported locally, {@link #deleteFax} removes it from the relay server.</p>
+ *
  * @since 2026-02-11
  */
 @Component
@@ -84,6 +89,11 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
     /**
      * Sends outbound fax through existing middleware /fax/send endpoint.
+     *
+     * <p>Note: No URL validation is performed on {@code faxConfig.getUrl()} because the middleware
+     * endpoint is intentionally configurable to any custom external fax handler. Clinics may run
+     * their own relay servers at arbitrary URLs. Credentials are sent via Basic Auth and custom
+     * headers per the middleware protocol.</p>
      */
     @Override
     public FaxJob sendFax(FaxConfig faxConfig, FaxJob faxJob, Path filePath) throws FaxProviderException {
@@ -138,7 +148,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
         } catch (IOException e) {
             throw new FaxProviderException("Failed to read fax document file: " + e.getMessage(), e);
         } catch (ProcessingException e) {
-            throw new FaxProviderException("PROBLEM COMMUNICATING WITH WEB SERVICE", e);
+            throw new FaxProviderException("PROBLEM COMMUNICATING WITH WEB SERVICE", e,
+                    FaxProviderException.isTransientNetworkCause(e));
         } catch (WebApplicationException e) {
             throw new FaxProviderException("WEB SERVICE RESPONDED WITH ERROR: " + e.getMessage(), e);
         } finally {
@@ -191,7 +202,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
             return mapper.readValue(content, new TypeReference<List<FaxJob>>() { });
         } catch (IOException e) {
-            throw new FaxProviderException("Middleware fax list communication failure: " + e.getMessage(), e);
+            throw new FaxProviderException("Middleware fax list communication failure: " + e.getMessage(), e,
+                    FaxProviderException.isTransientNetworkCause(e));
         }
     }
 
@@ -233,7 +245,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             }
             return downloaded;
         } catch (IOException e) {
-            throw new FaxProviderException("Middleware fax download failure for " + fax.getFile_name() + ": " + e.getMessage(), e);
+            throw new FaxProviderException("Middleware fax download failure for " + fax.getFile_name() + ": " + e.getMessage(), e,
+                    FaxProviderException.isTransientNetworkCause(e));
         }
     }
 
@@ -258,7 +271,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 throw new FaxProviderException("CANNOT DELETE " + fax.getFile_name());
             }
         } catch (IOException e) {
-            throw new FaxProviderException("Middleware fax delete communication failure", e);
+            throw new FaxProviderException("Middleware fax delete communication failure", e,
+                    FaxProviderException.isTransientNetworkCause(e));
         }
     }
 
@@ -294,7 +308,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             String content = EntityUtils.toString(httpEntity);
             return mapper.readValue(content, FaxJob.class);
         } catch (IOException e) {
-            throw new FaxProviderException("Middleware status check communication failure", e);
+            throw new FaxProviderException("Middleware status check communication failure", e,
+                    FaxProviderException.isTransientNetworkCause(e));
         }
     }
 
@@ -311,6 +326,12 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
         }
         if (faxConfig.getFaxUser() == null || faxConfig.getFaxUser().trim().isEmpty()) {
             throw new FaxProviderException("Middleware fax user is not configured for this fax account");
+        }
+        if (faxConfig.getPasswd() == null || faxConfig.getPasswd().trim().isEmpty()) {
+            throw new FaxProviderException("Middleware site password is not configured for this fax account");
+        }
+        if (faxConfig.getFaxPasswd() == null || faxConfig.getFaxPasswd().trim().isEmpty()) {
+            throw new FaxProviderException("Middleware fax password is not configured for this fax account");
         }
     }
 

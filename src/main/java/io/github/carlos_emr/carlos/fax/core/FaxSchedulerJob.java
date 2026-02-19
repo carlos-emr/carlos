@@ -47,8 +47,26 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 /**
  * Spring-managed scheduler for fax polling and status processing cycles.
  *
- * <p>The scheduler executes inbound import, outbound send, and outbound status update in a single
- * cycle at the configured poll interval. Runtime telemetry is captured for admin diagnostics.</p>
+ * <p>Each cycle executes three phases in order:</p>
+ * <ol>
+ *   <li><strong>Import:</strong> {@link FaxImporter#poll()} - download and import inbound faxes</li>
+ *   <li><strong>Send:</strong> {@link FaxSender#send()} - transmit queued outbound faxes</li>
+ *   <li><strong>Status:</strong> {@link FaxStatusUpdater#updateStatus()} - poll provider for delivery status</li>
+ * </ol>
+ *
+ * <p><strong>Scheduling:</strong> Poll interval is configurable via the {@code faxPollInterval}
+ * property (milliseconds, default 60000ms / 60 seconds). First cycle starts 3 seconds after bean initialization.
+ * The scheduler only starts if at least one active FaxConfig exists in the database.</p>
+ *
+ * <p><strong>Auto-Restart:</strong> On RuntimeException, the scheduler cancels and retries after
+ * a fixed 10-minute delay with no maximum attempt cap. OOM and other JVM Errors are excluded from
+ * auto-restart to prevent crash loops. Admin visibility is provided via {@link #isRunning()},
+ * {@link #getLastSuccessfulRunEpochMs()}, and {@link #getLastError()}.</p>
+ *
+ * @see FaxImporter
+ * @see FaxSender
+ * @see FaxStatusUpdater
+ * @since 2014-08-29
  */
 @Component
 public class FaxSchedulerJob {

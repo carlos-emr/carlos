@@ -33,17 +33,67 @@ public class FaxProviderException extends Exception {
 
     private static final long serialVersionUID = 1L;
 
+    private final boolean transientError;
+
     /**
-     * Creates a provider exception with message only.
+     * Creates a provider exception with message only (non-transient by default).
      */
     public FaxProviderException(String message) {
         super(message);
+        this.transientError = false;
     }
 
     /**
-     * Creates a provider exception with message and original cause.
+     * Creates a provider exception with message and original cause (non-transient by default).
      */
     public FaxProviderException(String message, Throwable cause) {
         super(message, cause);
+        this.transientError = false;
+    }
+
+    /**
+     * Creates a provider exception with message, cause, and transient flag.
+     *
+     * @param message String the error message
+     * @param cause Throwable the underlying cause
+     * @param transientError boolean true if this is a transient network error that may succeed on retry
+     */
+    public FaxProviderException(String message, Throwable cause, boolean transientError) {
+        super(message, cause);
+        this.transientError = transientError;
+    }
+
+    /**
+     * Returns whether this error is transient (may succeed on retry).
+     * Transient errors include network timeouts, connection refused, and temporary service unavailability.
+     *
+     * @return boolean true if the error is transient and the operation may be retried
+     */
+    public boolean isTransient() {
+        return transientError;
+    }
+
+    /**
+     * Checks whether any cause in the given throwable's chain is a transient network error.
+     *
+     * <p>Provider clients should call this when wrapping {@link java.io.IOException} to determine
+     * whether the {@code transientError} flag should be set. This centralizes the network-error
+     * classification logic so all providers use the same criteria.</p>
+     *
+     * @param cause Throwable the root cause to inspect
+     * @return boolean true if any cause is a transient network exception
+     */
+    public static boolean isTransientNetworkCause(Throwable cause) {
+        Throwable current = cause;
+        while (current != null) {
+            if (current instanceof java.net.ConnectException
+                    || current instanceof java.net.SocketTimeoutException
+                    || current instanceof java.net.UnknownHostException
+                    || current instanceof java.net.NoRouteToHostException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

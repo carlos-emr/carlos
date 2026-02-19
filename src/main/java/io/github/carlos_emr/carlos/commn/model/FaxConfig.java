@@ -40,12 +40,13 @@ import javax.persistence.*;
  *
  * <p><strong>Security:</strong> Password fields (passwd, faxPasswd) are automatically encrypted
  * on write and decrypted on read using {@link io.github.carlos_emr.carlos.utility.EncryptionUtils}.
- * Legacy unencrypted passwords are auto-migrated on first access.</p>
+ * Legacy unencrypted passwords are returned as-is on read; re-encryption occurs only
+ * when the password is explicitly re-saved through the admin UI.</p>
  *
  * <p><strong>Provider Types:</strong></p>
  * <ul>
  *   <li><strong>MIDDLEWARE:</strong> Relay server intermediary (faxws) - requires url, siteUser, passwd</li>
- *   <li><strong>SRFAX:</strong> Direct SRFax API integration - uses fixed endpoint, requires faxUser, faxPasswd</li>
+ *   <li><strong>SRFAX:</strong> Direct SRFax API integration - uses default endpoint (overridable via srfax.api.url property), requires faxUser, faxPasswd</li>
  * </ul>
  *
  * @see io.github.carlos_emr.carlos.fax.provider.FaxProviderClient
@@ -68,20 +69,31 @@ public class FaxConfig extends AbstractModel<Integer> {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer Id;
 
+    /** Middleware relay server base URL (MIDDLEWARE only; not used by SRFAX) */
     private String url = "";
+    /** Middleware site-level username for Basic Auth (MIDDLEWARE only) */
     private String siteUser = "";
+    /** Middleware site-level password, encrypted at rest (MIDDLEWARE only) */
     private String passwd = "";
+    /** Fax account username: middleware fax user (MIDDLEWARE) or SRFax account number (SRFAX) */
     private String faxUser = "";
+    /** Fax account password, encrypted at rest: middleware fax credential or SRFax API password */
     private String faxPasswd = "";
 
+    /** Outbound caller-ID fax number for this account */
     private String faxNumber = "";
+    /** Email address for fax delivery notifications */
     private String senderEmail = "";
 
+    /** Whether this account is enabled for fax operations */
     @Column(columnDefinition = "boolean default false")
     private boolean active;
-    private Integer queue = 0;
+    /** Document review queue ID for inbound fax routing (valid IDs start at 1; defaults to queue 1 "default") */
+    private Integer queue = 1;
+    /** Human-readable display name for this fax account */
     private String accountName = "";
 
+    /** Whether inbound fax downloading is enabled for this account */
     @Column(columnDefinition = "boolean default true")
     private boolean download;
 
@@ -99,81 +111,46 @@ public class FaxConfig extends AbstractModel<Integer> {
     }
 
 
-    /**
-     * @return the url
-     */
     public String getUrl() {
         return url;
     }
 
-
-    /**
-     * @param url the url to set
-     */
     public void setUrl(String url) {
         this.url = url;
     }
 
-
-    /**
-     * @return the siteUser
-     */
     public String getSiteUser() {
         return siteUser;
     }
 
-
-    /**
-     * @param siteUser the siteUser to set
-     */
     public void setSiteUser(String siteUser) {
         this.siteUser = siteUser;
     }
 
-
-    /**
-     * @return the passwd (decrypted plain text)
-     */
+    /** Returns decrypted plain text site password. */
     public String getPasswd() {
         return decryptField(passwd, "password");
     }
 
-
-    /**
-     * @param passwd the passwd to set (plain text, will be encrypted immediately)
-     */
+    /** Sets site password (plain text input, encrypted immediately). */
     public void setPasswd(String passwd) {
         this.passwd = encryptField(passwd, "password");
     }
 
-
-    /**
-     * @return the faxUser
-     */
     public String getFaxUser() {
         return faxUser;
     }
 
-
-    /**
-     * @param faxUser the faxUser to set
-     */
     public void setFaxUser(String faxUser) {
         this.faxUser = faxUser;
     }
 
-
-    /**
-     * @return the faxPasswd (decrypted plain text)
-     */
+    /** Returns decrypted plain text fax password. */
     public String getFaxPasswd() {
         return decryptField(faxPasswd, "fax password");
     }
 
-
-    /**
-     * @param faxPasswd the faxPasswd to set (plain text, will be encrypted immediately)
-     */
+    /** Sets fax password (plain text input, encrypted immediately). */
     public void setFaxPasswd(String faxPasswd) {
         this.faxPasswd = encryptField(faxPasswd, "fax password");
     }
@@ -227,33 +204,18 @@ public class FaxConfig extends AbstractModel<Integer> {
     }
 
 
-    /**
-     * @return the faxNumber
-     */
     public String getFaxNumber() {
         return faxNumber;
     }
 
-
-    /**
-     * @param faxNumber the faxNumber to set
-     */
     public void setFaxNumber(String faxNumber) {
         this.faxNumber = faxNumber;
     }
 
-
-    /**
-     * @return the serialversionuid
-     */
     public static long getSerialversionuid() {
         return serialVersionUID;
     }
 
-
-    /**
-     * @param id the id to set
-     */
     public void setId(Integer id) {
         Id = id;
     }
@@ -277,9 +239,6 @@ public class FaxConfig extends AbstractModel<Integer> {
     }
 
 
-    /**
-     * @return the active
-     */
     public boolean getActive() {
         return active;
     }
@@ -302,25 +261,14 @@ public class FaxConfig extends AbstractModel<Integer> {
     }
 
 
-    /**
-     * @param active the active to set
-     */
     public void setActive(boolean active) {
         this.active = active;
     }
 
-
-    /**
-     * @return the queue
-     */
     public Integer getQueue() {
         return queue;
     }
 
-
-    /**
-     * @param queue the queue to set
-     */
     public void setQueue(Integer queue) {
         this.queue = queue;
     }
