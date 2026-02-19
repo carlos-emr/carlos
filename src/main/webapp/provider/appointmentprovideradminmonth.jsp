@@ -372,7 +372,7 @@
                 var parts = url.split('?');
                 var form = document.createElement('form');
                 form.method = 'post';
-                form.action = parts[0];
+                form.action = "providercontrol.jsp?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference<%=eformIds.toString()%><%=ectFormNames.toString()%>";
                 form.target = 'oscar_appt';
                 if (parts.length > 1) {
                     var pairs = parts[1].split('&');
