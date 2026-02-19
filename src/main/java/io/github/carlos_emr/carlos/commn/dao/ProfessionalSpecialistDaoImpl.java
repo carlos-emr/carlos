@@ -33,7 +33,6 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.persistence.Query;
@@ -64,7 +63,7 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
      */
     @Override
     public List<ProfessionalSpecialist> findByEDataUrlNotNull() {
-        Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName() + " x where x.eDataUrl is not null order by x.lastName,x.firstName");
+        Query query = entityManager.createQuery("select x from ProfessionalSpecialist x where x.deleted = false and x.eDataUrl is not null order by x.lastName,x.firstName");
 
         @SuppressWarnings("unchecked")
         List<ProfessionalSpecialist> results = query.getResultList();
@@ -74,7 +73,7 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
     @Override
     public List<ProfessionalSpecialist> findByFullName(String lastName, String firstName) {
-        Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName() + " x WHERE x.lastName like ?1 and x.firstName like ?2 order by x.lastName");
+        Query query = entityManager.createQuery("select x from ProfessionalSpecialist x WHERE x.deleted = false and x.lastName like ?1 and x.firstName like ?2 order by x.lastName");
         query.setParameter(1, "%" + lastName + "%");
         query.setParameter(2, "%" + firstName + "%");
 
@@ -95,7 +94,7 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
     @Override
     public List<ProfessionalSpecialist> findBySpecialty(String specialty) {
-        Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName() + " x WHERE x.specialtyType like ?1 order by x.lastName");
+        Query query = entityManager.createQuery("select x from ProfessionalSpecialist x WHERE x.deleted = false and x.specialtyType like ?1 order by x.lastName");
         query.setParameter(1, "%" + specialty + "%");
 
         @SuppressWarnings("unchecked")
@@ -116,7 +115,7 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         }
 
         // referral numbers often have zeros prepended and are stored as varchar.
-        Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName() + " x WHERE x.referralNo LIKE ?1 order by x.lastName");
+        Query query = entityManager.createQuery("select x from ProfessionalSpecialist x WHERE x.deleted = false and x.referralNo LIKE ?1 order by x.lastName");
         query.setParameter(1, referralNo);
 
         @SuppressWarnings("unchecked")
@@ -148,28 +147,16 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
     }
     @Override
     public List<ProfessionalSpecialist> search(String keyword) {
-        StringBuilder where = new StringBuilder();
-        List<String> paramList = new ArrayList<String>();
+        String[] temp = keyword.split("\\,\\p{Space}*");
 
-        String searchMode = "search_name";
-        String orderBy = "c.lastName,c.firstName";
-
-        if (searchMode.equals("search_name")) {
-            String[] temp = keyword.split("\\,\\p{Space}*");
-            if (temp.length > 1) {
-                where.append("c.lastName like ?1 and c.firstName like ?2");
-                paramList.add(temp[0] + "%");
-                paramList.add(temp[1] + "%");
-            } else {
-                where.append("c.lastName like ?1");
-                paramList.add(temp[0] + "%");
-            }
-        }
-        String sql = "SELECT c from ProfessionalSpecialist c where " + where.toString() + " order by " + orderBy;
-
-        Query query = entityManager.createQuery(sql);
-        for (int x = 0; x < paramList.size(); x++) {
-            query.setParameter(x + 1, paramList.get(x));
+        Query query;
+        if (temp.length > 1) {
+            query = entityManager.createQuery("SELECT c from ProfessionalSpecialist c where c.deleted = false and c.lastName like :lastName and c.firstName like :firstName order by c.lastName,c.firstName");
+            query.setParameter("lastName", temp[0] + "%");
+            query.setParameter("firstName", temp[1] + "%");
+        } else {
+            query = entityManager.createQuery("SELECT c from ProfessionalSpecialist c where c.deleted = false and c.lastName like :lastName order by c.lastName,c.firstName");
+            query.setParameter("lastName", temp[0] + "%");
         }
 
         @SuppressWarnings("unchecked")
@@ -198,7 +185,7 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         query.setParameter(1, "%" + lastName + "%");
         query.setParameter(2, "%" + firstName + "%");
 
-        paramIndex = 4;
+        paramIndex = 3;
         if (!StringUtils.isEmpty(specialty)) {
             query.setParameter(paramIndex++, "%" + specialty + "%");
         }
@@ -214,7 +201,7 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
     @Override
     public List<ProfessionalSpecialist> findByService(String serviceName) {
-        Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName() + " x, ConsultationServices cs, ServiceSpecialists ss WHERE x.id = ss.id.specId and ss.id.serviceId = cs.serviceId and cs.serviceDesc = ?1");
+        Query query = entityManager.createQuery("select x from ProfessionalSpecialist x, ConsultationServices cs, ServiceSpecialists ss WHERE x.deleted = false and x.id = ss.id.specId and ss.id.serviceId = cs.serviceId and cs.serviceDesc = ?1");
         query.setParameter(1, serviceName);
 
         @SuppressWarnings("unchecked")
@@ -226,7 +213,7 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
     @Override
     public List<ProfessionalSpecialist> findByServiceId(Integer serviceId) {
-        Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName() + " x, ServiceSpecialists ss WHERE x.id = ss.id.specId and ss.id.serviceId = ?1");
+        Query query = entityManager.createQuery("select x from ProfessionalSpecialist x, ServiceSpecialists ss WHERE x.deleted = false and x.id = ss.id.specId and ss.id.serviceId = ?1");
         query.setParameter(1, serviceId);
 
         @SuppressWarnings("unchecked")

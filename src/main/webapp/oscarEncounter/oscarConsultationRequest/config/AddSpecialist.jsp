@@ -228,9 +228,9 @@
                     %>
                     <script>
                         $(document).ready(function () {
-                            $('#institution').val('<%=request.getAttribute("institution")%>');
+                            $('#institution').val('<%= Encode.forJavaScript(String.valueOf(request.getAttribute("institution"))) %>');
                             changeInstitution();
-                            $('#department').val('<%=request.getAttribute("department")%>');
+                            $('#department').val('<%= Encode.forJavaScript(String.valueOf(request.getAttribute("department"))) %>');
                         });
                     </script>
                     <% } %>
@@ -398,7 +398,7 @@
                             <option value="0" ${EctConAddSpecialistForm.eformId == 0 ? 'selected' : ''}>--None--</option>
                             <c:forEach var="eform" items="${eforms}">
                                 <option value="${eform.id}" ${EctConAddSpecialistForm.eformId == eform.id ? 'selected' : ''}>
-                                    ${eform.formName}
+                                    <c:out value="${eform.formName}"/>
                                 </option>
                             </c:forEach>
                         </select>
