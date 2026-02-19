@@ -265,10 +265,11 @@ public class DSGuidelineDrools extends DSGuideline {
      */
     private List<DSConsequence> executeRules(DSDemographicAccess dsDemographicAccess) throws DecisionSupportException {
         if (_kieBase == null) generateRuleBase();
-        if (_kieBase == null) {
+        KieBase localKieBase = _kieBase;
+        if (localKieBase == null) {
             throw new DecisionSupportException("Rule base compilation failed for guideline '" + this.getTitle() + "'");
         }
-        KieSession kieSession = _kieBase.newKieSession();
+        KieSession kieSession = localKieBase.newKieSession();
         try {
             // Insert the primary fact object that provides access to all patient data
             kieSession.insert(dsDemographicAccess);
@@ -307,8 +308,9 @@ public class DSGuidelineDrools extends DSGuideline {
                         // Warning-type consequences are returned as-is with their text
                         returnDsConsequences.add(dsConsequence);
                     } else {
-                        // Java-type consequences collect all objects from working memory,
-                        // which may include objects created or modified by the rule's "then" block
+                        // Java-type consequences receive all objects currently in working memory,
+                        // including the injected dsDemographicAccess, condition Hashtable parameters,
+                        // DSParameter-instantiated objects, and any objects added by rule "then" blocks
                         @SuppressWarnings("unchecked")
                         List<Object> javaConsequences = new ArrayList<>(kieSession.getObjects());
                         dsConsequence.setObjConsequence(javaConsequences);
@@ -580,7 +582,8 @@ public class DSGuidelineDrools extends DSGuideline {
 
         // Join all condition values into a single comma-separated, quoted string argument
         // (e.g., "icd9:250,icd9:401" or ">18y")
-        String parameters = "\"" + StringUtils.join(condition.getValues(), ",") + "\"";
+        String joined = StringUtils.join(condition.getValues(), ",");
+        String parameters = "\"" + joined.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
 
         // Append the capitalized list operator to form the full method name
         // (e.g., "hasDxCodes" + "Any" -> "hasDxCodesAny")
@@ -614,7 +617,8 @@ public class DSGuidelineDrools extends DSGuideline {
      * @return String the formatted DRL fact-binding line (indented with 8 spaces)
      */
     public String getDroolsParameter(DSParameter dsParameter) {
-        return "        " + dsParameter.getStrAlias() + " : " + dsParameter.getStrClass() + "()";
+        String safeAlias = dsParameter.getStrAlias().replaceAll("[^a-zA-Z0-9_]", "_");
+        return "        " + safeAlias + " : " + dsParameter.getStrClass() + "()";
     }
 
     /**

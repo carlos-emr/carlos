@@ -174,6 +174,7 @@ public class DSPreventionDrools {
         ResourceBundle oscarResource = ResourceBundle.getBundle("oscarResources");
 
         SAXBuilder parser = new SAXBuilder();
+        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         Document doc = parser.build(new ByteArrayInputStream(ruleSet));
         Element root = doc.getRootElement();
         // Global counter across all recommendations to ensure unique rule names
@@ -187,31 +188,34 @@ public class DSPreventionDrools {
         for (Element recommendationsElements : recommendations) {
             // The "for" attribute identifies the prevention type (e.g., "DTaP", "Flu", "Td")
             String preventionType = recommendationsElements.getAttributeValue("for");
+            // Escape for DRL string literal embedding (defense-in-depth; values come from trusted XML)
+            String safePreventionType = preventionType.replace("\\", "\\\\").replace("\"", "\\\"");
             List<Element> recommendation = recommendationsElements.getChildren("recommendation");
             for (Element recommendationElement : recommendation) {
                 // Rule name format: "preventionType-N" ensures uniqueness across all rules
-                String ruleNumber = preventionType + "-" + count++;
+                String ruleNumber = safePreventionType + "-" + count++;
                 // "message" and "reminder" attributes are keys into oscarResources bundle
                 String message = recommendationElement.getAttributeValue("message");
                 String reminder = recommendationElement.getAttributeValue("reminder");
                 // Parse all <condition> child elements into DSCondition objects
-                List<DSCondition> dsConditions = getConditions(recommendationElement, preventionType);
+                List<DSCondition> dsConditions = getConditions(recommendationElement, safePreventionType);
                 // Build the DRL "then" block: log + warning + reminder method calls on Prevention object
                 StringBuilder consequence = new StringBuilder();
                 if (OscarProperties.getInstance().getBooleanProperty("DEBUG.PREVENTION", "yes")) {
                     consequence.append("m.log(\"" + ruleNumber + "\"); ");
                 }
                 if (message != null) {
-                    // Resolve the resource bundle key to localized text
-                    message = oscarResource.getString(message);
+                    // Resolve the resource bundle key to localized text, escape before replaceKeys
+                    // so $NUMMONTHS DRL expression fragments are not double-escaped
+                    message = oscarResource.getString(message).replace("\\", "\\\\").replace("\"", "\\\"");
                     // Replace $NUMMONTHS and $PREVENTION_TYPE placeholders with DRL expressions
-                    message = replaceKeys(message, preventionType);
+                    message = replaceKeys(message, safePreventionType);
                     // addWarning(preventionType, message) stores both the type and the message
-                    consequence.append("m.addWarning(\"" + preventionType + "\",\"" + message + "\"); ");
+                    consequence.append("m.addWarning(\"" + safePreventionType + "\",\"" + message + "\"); ");
                 }
                 if (reminder != null) {
-                    reminder = oscarResource.getString(reminder);
-                    reminder = replaceKeys(reminder, preventionType);
+                    reminder = oscarResource.getString(reminder).replace("\\", "\\\\").replace("\"", "\\\"");
+                    reminder = replaceKeys(reminder, safePreventionType);
                     consequence.append("m.addReminder(\"" + reminder + "\"); ");
                 }
                 // Generate DRL rule text and add to the list for compilation
@@ -342,7 +346,7 @@ public class DSPreventionDrools {
             } else if ("!lastPreventionIsWithinRange".equals(type)) {
                 processLastPreventionIsNotWithinRange(dsConditions, condition);
             } else {
-                logger.error("Not processing type " + type);
+                logger.error("Unrecognized condition type '{}' in prevention '{}'; condition will be SKIPPED, making the rule less restrictive", type, preventionType);
                 //throw new IllegalArgumentException("Invalid Type: " + type);
             }
         }

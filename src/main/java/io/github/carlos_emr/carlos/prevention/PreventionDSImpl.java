@@ -177,9 +177,13 @@ public class PreventionDSImpl implements PreventionDS {
                     // Handle classpath: prefix for PREVENTION_FILE property value
                     URL url = PreventionDS.class.getResource(preventionPath.substring(10));
                     if (url != null) {
-                        log.debug("Loading prevention rules from classpath: {}", url.getFile());
-                        kieBase = DroolsHelper.loadFromUrl(url);
-                        fileFound = true;
+                        try {
+                            log.debug("Loading prevention rules from classpath: {}", url.getFile());
+                            kieBase = DroolsHelper.loadFromUrl(url);
+                            fileFound = true;
+                        } catch (Exception e) {
+                            log.error("Failed to load prevention rule base from classpath '{}', falling back to database/classpath", preventionPath, e);
+                        }
                     } else {
                         log.warn("Prevention classpath resource not found: {}", preventionPath);
                     }
