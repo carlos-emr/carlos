@@ -787,7 +787,7 @@
 
 <body>
 
-<form id="mainForm" name="mainForm" action="<%=request.getContextPath()%>/oscarEncounter/FormUpdate.do">
+<form id="mainForm" name="mainForm" method="post" action="<%=request.getContextPath()%>/oscarEncounter/FormUpdate.do">
     <input type="hidden" name="ycoord"
             <%if (request.getParameter("ycoord") != null) { %>
            value="<%=request.getParameter("ycoord")%>"

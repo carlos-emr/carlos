@@ -241,15 +241,18 @@
                 var theLinkComponents = theLink.split('?');
                 var theQueryComponents = theLinkComponents[1].split('&');
 
+                var messageNo = '';
                 for (index = 0; index < theQueryComponents.length; ++index) {
                     var theKeyValue = theQueryComponents[index].split('=');
                     if (theKeyValue[0] == 'messageID') {
-                        var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages.do?btnDelete=archive&messageNo=' + theKeyValue[1];
+                        messageNo = theKeyValue[1];
                     }
                 }
+                var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages.do';
 
-                oRequest.open('GET', theArchiveLink, false);
-                oRequest.send();
+                oRequest.open('POST', theArchiveLink, false);
+                oRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo));
                 document.forms[0].submit();
             }
 
@@ -361,11 +364,14 @@
                                         <td>
                                             <table class=messButtonsA cellspacing=0 cellpadding=3>
                                                 <tr>
-                                                    <td class="messengerButtonsA"><a
-                                                            href="${pageContext.request.contextPath}/messenger/ClearMessage.do"
-                                                            class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnClear"/>
-                                                    </a></td>
+                                                    <td class="messengerButtonsA">
+                                                        <form method="post" action="${pageContext.request.contextPath}/messenger/ClearMessage.do" style="display:inline;">
+                                                            <a href="javascript:void(0);" onclick="this.closest('form').submit();"
+                                                               class="messengerButtons">
+                                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnClear"/>
+                                                            </a>
+                                                        </form>
+                                                    </td>
                                                 </tr>
                                             </table>
                                         </td>

@@ -82,8 +82,12 @@
                         <td><a
                                 href="editServiceCodeAssocAction.do?svcCode=<%=assoc.getServiceCode()%>">Edit</a>
                             <br>
-                            <a
-                                    href="deleteServiceCodeAssoc.do?svcCode=<%=assoc.getServiceCode()%>">Remove</a>
+                            <a href="javascript:void(0)"
+                                    onclick="document.getElementById('deleteAssocForm_<%=i%>').submit()">Remove</a>
+                            <form id="deleteAssocForm_<%=i%>" method="post"
+                                  action="deleteServiceCodeAssoc.do" style="display:none">
+                                <input type="hidden" name="svcCode" value="<%=assoc.getServiceCode()%>"/>
+                            </form>
                         </td>
                     </tr>
                     <%} %>

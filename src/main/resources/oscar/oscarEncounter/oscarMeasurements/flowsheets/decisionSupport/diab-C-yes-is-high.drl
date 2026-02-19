@@ -1,23 +1,79 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
-<rule-set name="DiabetesFGLC"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+// ============================================================================
+// CARLOS EMR - Generic "Yes = Concerning" Value-Based Decision Support Rules
+// ============================================================================
+//
+// Purpose:
+//   A generic per-item decision support rule for Yes/No measurements where
+//   answering "Yes" indicates a CONCERNING finding. The inverse of
+//   diab-C-no-is-high.drl. Used by items where "Yes" is the undesirable answer.
+//
+// Clinical Context:
+//   Some flowsheet items ask Yes/No questions where "Yes" is the alarming
+//   answer. Examples from diabetesFlowsheet.xml:
+//     - PANE: "Peripheral neuropathy symptoms?" - Yes = nerve damage
+//     - EDGI: "Erectile dysfunction?" - Yes = autonomic neuropathy/vascular
+//   And from chf.xml:
+//     - PANE, EDGI: same Yes/No items
+//
+//   When the value is "Yes", the flowsheet cell is highlighted to draw
+//   clinical attention to the positive finding that requires follow-up.
+//
+// Note on Package/Rule Naming:
+//   Same as diab-C-no-is-high.drl - the "DiabetesFGLC" package and "FGLC"
+//   rule name are historical artifacts. This file is used generically by
+//   any item where "Yes" = concerning.
+//
+// Referenced By:
+//   - XML configs: diabetesFlowsheet.xml (PANE, EDGI items),
+//     chf.xml (PANE, EDGI items) - all with ds_rules="diab-C-yes-is-high.drl"
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created as Drools 2.0 XML rules (McMaster University)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
+// ============================================================================
+package DiabetesFGLC;
 
-    <rule name="FGLC">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.isDataEqualTo("Yes")</java:condition>       
-        <java:consequence>     
-              m.log("FGLC RULES IS GETTING RUN");
-              m.setIndicationColor("HIGH");
-        </java:consequence>
-    </rule>
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
-</rule-set>
-
-
+// ---------------------------------------------------------------------------
+// "Yes" answer = concerning finding
+// When the measurement data equals "Yes", flag it as HIGH to indicate
+// a positive finding that needs clinical attention (e.g., symptoms present).
+// ---------------------------------------------------------------------------
+rule "FGLC"
+    when
+        m : MeasurementDSHelper()
+        eval( m.isDataEqualTo("Yes") )
+    then
+        m.log("FGLC RULES IS GETTING RUN");
+        m.setIndicationColor("HIGH");
+end

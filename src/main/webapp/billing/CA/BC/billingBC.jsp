@@ -1342,7 +1342,7 @@
         </div>
         <%}%>
 
-        <form style="bcBillingForm" class="form-inline"
+        <form style="bcBillingForm" class="form-inline" method="post"
               action="${pageContext.request.contextPath}/billing/CA/BC/CreateBilling.do" onsubmit="toggleWCB();">
 
             <input autocomplete="false" name="hidden" type="text" style="display:none;">

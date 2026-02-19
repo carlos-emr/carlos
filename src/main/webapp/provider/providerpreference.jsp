@@ -664,7 +664,7 @@
                         <input type="button" value="Remove"
                                class="btn btn-sm btn-outline-danger"
                                style="font-size:10px; padding:1px 6px"
-                               onclick="document.location='providerPreferenceQuickLinksAction.jsp?action=remove&name='+encodeURIComponent('<%=Encode.forJavaScriptAttribute(ql.getName())%>')">
+                               onclick="submitQuickLinkAction('remove','<%=Encode.forJavaScriptAttribute(ql.getName())%>','')">
                         <strong><%=Encode.forHtml(ql.getName())%></strong>:
                         <%=Encode.forHtml(ql.getUrl())%>
                     </div><%
@@ -1406,7 +1406,30 @@ function checkTypeInAll() {
 }
 
 /**
- * Adds a quick link by navigating to the quick links action JSP.
+ * Submits a quick link action (add/remove) via POST form.
+ * @param {string} action - The action to perform ('add' or 'remove')
+ * @param {string} name - The quick link name
+ * @param {string} url - The quick link URL; omitted from form when falsy (e.g., for 'remove')
+ */
+function submitQuickLinkAction(action, name, url) {
+    var form = document.createElement('form');
+    form.method = 'post';
+    form.action = 'providerPreferenceQuickLinksAction.jsp';
+    var fields = {action: action, name: name};
+    if (url) { fields.url = url; }
+    for (var key in fields) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = fields[key];
+        form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    form.submit();
+}
+
+/**
+ * Adds a quick link by submitting to the quick links action JSP via POST.
  * Quick links appear on the appointment screen for fast access to URLs.
  */
 function addQuickLink() {
@@ -1419,8 +1442,7 @@ function addQuickLink() {
     if (!confirm('Adding a quick link will navigate away from this page. Any unsaved preference changes will be lost. Continue?')) {
         return;
     }
-    document.location = "providerPreferenceQuickLinksAction.jsp?action=add&name="
-        + encodeURIComponent(name) + "&url=" + encodeURIComponent(url);
+    submitQuickLinkAction('add', name, url);
 }
 
 /**
@@ -1472,8 +1494,9 @@ function isValidAutoSaveResponse(transport) {
     el.addEventListener('change', function() {
         var self = this;
         new Ajax.Request(
-            '<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do?method=update&value=' + encodeURIComponent(self.value),
-            { method: 'get',
+            '<c:out value="${ctx}"/>/provider/rxInteractionWarningLevel.do',
+            { method: 'post',
+              parameters: 'method=update&value=' + encodeURIComponent(self.value),
               onSuccess: function(r) {
                   if (isValidAutoSaveResponse(r)) {
                       flashAutoSave(self, true);
@@ -1504,9 +1527,10 @@ function isValidAutoSaveResponse(transport) {
     el.addEventListener('change', function() {
         var self = this;
         new Ajax.Request(
-            '<c:out value="${ctx}"/>/setProviderStaleDate.do?method=OscarMsgRecvd&value=' + encodeURIComponent(self.value)
+            '<c:out value="${ctx}"/>/setProviderStaleDate.do',
+            { method: 'post',
+              parameters: 'method=OscarMsgRecvd&value=' + encodeURIComponent(self.value)
                 + '&provider_no=<%=Encode.forJavaScript(providerNo)%>',
-            { method: 'get',
               onSuccess: function(r) {
                   if (isValidAutoSaveResponse(r)) {
                       flashAutoSave(self, true);

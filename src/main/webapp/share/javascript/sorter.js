@@ -195,13 +195,17 @@ $(document).ready(function () {
 
         $("#tool_savecontinue span").html("Wait...");
 
-        $.getJSON(ctx + '/documentManager/SplitDocument.do?method=split&document=' + docnum + '&' + serialized + '&queueID=' + queueId,
-            function (data) {
+        $.ajax({
+            type: 'POST',
+            url: ctx + '/documentManager/SplitDocument.do',
+            data: serialized + '&method=split&document=' + docnum + '&queueID=' + queueId,
+            dataType: 'json',
+            success: function (data) {
                 $("#tool_savecontinue span").html("Save &amp; Continue");
                 popup(screen.height, screen.width, ctx + "/documentManager/showDocument.jsp?segmentID=" + data["newDocNum"] + '&demoName=' + encodeURIComponent(demoName) + "&inWindow=true", "assignDoc");
                 return false;
             }
-        );
+        });
     });
 
     $("#tool_done").click(function (e) {

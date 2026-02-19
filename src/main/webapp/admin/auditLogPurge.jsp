@@ -145,7 +145,7 @@
             <%
                 if (msg == null) {
             %>
-            <form action="<%=request.getContextPath()%>/admin/AuditLogPurge.do" onsubmit="return submitForm();">
+            <form action="<%=request.getContextPath()%>/admin/AuditLogPurge.do" method="post" onsubmit="return submitForm();">
 
                 <p>Welcome to the Audit Log Purge Tool.</p>
                 <p>

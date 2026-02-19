@@ -106,7 +106,7 @@
     <div class="container-fluid well">
         Use this section to customize the patient letter generated from the screening report.
         <br/>
-        <form action="patientLetterManager.jsp?action=save">
+        <form action="patientLetterManager.jsp" method="post">
             <input type="hidden" name="action" value="save"/>
             <textarea name="letter" rows="30" cols="80"><%=currentLetter%></textarea>
             <br/>

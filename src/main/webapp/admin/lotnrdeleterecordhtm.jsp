@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.util.*" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -112,7 +113,7 @@
                     <td width="50%" align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.add_lot_nr.prevention"/><font color="red">:</font></td>
                     <td>
                         <input type="text" name="prevention" size=30 maxlength="30"
-                               value="<%=request.getParameter("prevention")==null?"":request.getParameter("prevention")%>">
+                               value="<%=request.getParameter("prevention")==null?"":Encode.forHtmlAttribute(request.getParameter("prevention"))%>">
                     </td>
                 </tr>
 
@@ -121,7 +122,7 @@
                     </td>
                     <td><input type="text" name="lotnr" size="20"
                                maxlength="20"
-                               value="<%=request.getParameter("lotnr")==null?"":request.getParameter("lotnr")%>"></td>
+                               value="<%=request.getParameter("lotnr")==null?"":Encode.forHtmlAttribute(request.getParameter("lotnr"))%>"></td>
                 </tr>
 
                 <tr>
