@@ -716,7 +716,7 @@ public class DashboardManagerImpl implements DashboardManager {
      * @param loggedInInfo LoggedInInfo the current logged-in user context containing
      *                     provider information to be included in the encrypted payload
      * @return String the complete dashboard URL with encrypted parameters (e.g.,
-     *         "https://dashboard.example.com?encodedParams=BASE64_STRING&amp;version=1.1"),
+     *         {@code "https://dashboard.example.com?encodedParams=BASE64_STRING&version=1.1"}),
      *         or null if the dashboard URL is not configured or encryption fails
      * @since 2026-01-28
      */
