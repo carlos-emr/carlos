@@ -142,6 +142,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                     csvp.print(prop.getProperty((String) vecFieldCaption.get(j), ""));
                 }
             }
+            csvp.flush();
             in = swr.toString();
 
 
