@@ -360,7 +360,10 @@
                     %>
                     <li title="<%=re.getName()%>"><%=re.getNumeratorCount()%> / <%=re.getDenominatorCount()%>&nbsp;
                         <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/reportExport.jsp?id=<%=i%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
-                        <a style="text-decoration:none;" href="<%= request.getContextPath() %>/report/RemoveClinicalReport.do?id=<%=i%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgDel"/></a>
+                        <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport.do" style="display:inline;">
+                            <input type="hidden" name="id" value="<%=i%>"/>
+                            <a style="text-decoration:none;" href="javascript:void(0);" onclick="this.closest('form').submit();"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.ClinicalReports.msgDel"/></a>
+                        </form>
                     </li>
                     <% }%>
                 </ul>

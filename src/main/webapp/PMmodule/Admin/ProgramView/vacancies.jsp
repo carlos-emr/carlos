@@ -118,14 +118,15 @@
     function saveStatus(vacancyId) {
         var newStatus = $('#status' + vacancyId).val();
 
-        $.getJSON("<%= request.getContextPath() %>/PMmodule/ProgramManager.do?method=saveVacancyStatus&status=" + newStatus + "&vacancyId=" + vacancyId,
+        $.post("<%= request.getContextPath() %>/PMmodule/ProgramManager.do",
+            {method: "saveVacancyStatus", status: newStatus, vacancyId: vacancyId},
             function (data, textStatus) {
                 if (data.success) {
                     alert('Status has been updated');
                 } else {
                     alert("Error saving status - " + data.error);
                 }
-            });
+            }, 'json');
 
     }
 

@@ -96,7 +96,7 @@
 </h3>
 
 <%if (action == null || !"run".equals(action)) { %>
-<form action="upgradeRosterData.jsp">
+<form action="upgradeRosterData.jsp" method="post">
     Run Utility:<br/>
     <!--
 	Physician:

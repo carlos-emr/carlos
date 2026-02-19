@@ -150,10 +150,14 @@
                 </td>
                 <td align='center'><%=curform.get("formDate")%>
                 </td>
-                <td align='center'><a
-                        href="<%= request.getContextPath() %>/eform/removeEForm.do?callpage=independent&fdid=<%=curform.get("fdid")%>"
-                        onClick="javascript: return confirm('Are you sure you want to delete this eform?');"
-                        class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.btnDelete"/></a></td>
+                <td align='center'>
+                    <form method="post" action="<%= request.getContextPath() %>/eform/removeEForm.do" style="display:inline;">
+                        <input type="hidden" name="callpage" value="independent"/>
+                        <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
+                        <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"
+                           class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.btnDelete"/></a>
+                    </form>
+                </td>
             </tr>
             <%
                 }

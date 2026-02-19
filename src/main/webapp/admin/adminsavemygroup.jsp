@@ -39,6 +39,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%
+    if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return;
+    }
     MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
 %>
 

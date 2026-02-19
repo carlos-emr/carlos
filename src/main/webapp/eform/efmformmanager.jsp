@@ -64,9 +64,18 @@
             Popup = window.open(url, id, 'toolbar=no,location=no,status=yes,menubar=no, scrollbars=yes,resizable=yes,width=900,height=600,left=200,top=0');
         }
 
-        function confirmNDelete(url) {
+        function confirmNDelete(fid) {
             if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.confirmDelete"/>")) {
-                document.location = url;
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/eform/delEForm.do';
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'fid';
+                input.value = fid;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
             }
         }
 
@@ -217,7 +226,7 @@
 
 
                         <a class="btn btn-link contentLink"
-                           href='<%= request.getContextPath() %>/eform/delEForm.do?fid=<%=curForm.get("fid")%>'
+                           href='javascript:void(0);' onclick='confirmNDelete("<%=curForm.get("fid")%>")'
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDelete"/> <%=curForm.get("formName")%>'><i
                                 class="fa-solid fa-trash" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnDelete"/>"></i></a>
                     </div>
