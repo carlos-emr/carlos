@@ -236,18 +236,29 @@
             }
 
             function XMLHttpRequestSendnArch() {
-                var oRequest = new XMLHttpRequest();
                 var theLink = document.referrer;
+                if (!theLink || theLink.indexOf('?') === -1) {
+                    document.forms[0].submit();
+                    return;
+                }
+
+                var oRequest = new XMLHttpRequest();
                 var theLinkComponents = theLink.split('?');
                 var theQueryComponents = theLinkComponents[1].split('&');
 
                 var messageNo = '';
-                for (index = 0; index < theQueryComponents.length; ++index) {
+                for (var index = 0; index < theQueryComponents.length; ++index) {
                     var theKeyValue = theQueryComponents[index].split('=');
                     if (theKeyValue[0] == 'messageID') {
                         messageNo = theKeyValue[1];
                     }
                 }
+
+                if (!messageNo) {
+                    document.forms[0].submit();
+                    return;
+                }
+
                 var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages.do';
 
                 oRequest.open('POST', theArchiveLink, false);

@@ -59,6 +59,10 @@
 <%
     String method = request.getParameter("method");
     if (method != null) {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return;
+        }
         if (method.equals("disable")) {
             String name = request.getParameter("name");
             MeasurementTemplateFlowSheetConfig.getInstance().disableFlowsheet(name);
