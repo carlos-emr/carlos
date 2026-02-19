@@ -39,6 +39,7 @@ import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
+import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -79,6 +80,10 @@ public class FrmData {
 
         ArrayList<Form> forms = new ArrayList<Form>();
         for (EncounterForm encounterForm : results) {
+            if (EctFormData.isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             Form frm = new Form(encounterForm.getFormName(), encounterForm.getFormValue(), encounterForm.getFormTable());
             forms.add(frm);
         }
