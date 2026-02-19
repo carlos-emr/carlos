@@ -114,6 +114,7 @@ public class DSGuidelineFactory {
     public DSGuideline createGuidelineFromXml(String xml) throws DecisionSupportParseException {
         if (xml == null || xml.equals("")) throw new DecisionSupportParseException("Xml not set");
         SAXBuilder parser = new SAXBuilder();
+        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         Document doc;
         try {
             doc = parser.build(new StringReader(xml));

@@ -93,7 +93,7 @@
     </script>
 
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
-        <form action="<%= request.getContextPath()%>/oscarRx/copyFavorite2.do">
+        <form action="<%= request.getContextPath()%>/oscarRx/copyFavorite2.do" method="post">
             <input type="hidden" name="dispatch" value="refresh"/>
             <input type="hidden" name="userProviderNo" value="<%=providerNo%>"/>
             <input type="hidden" name="copyProviderNo" value="<%=copyProviderNo%>"/>

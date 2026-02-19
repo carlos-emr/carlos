@@ -146,7 +146,7 @@
                     favoriteName = encodeURIComponent(favoriteName);
                     var data = "drugId=" + encodeURIComponent(drugId) + "&favoriteName=" + favoriteName;
                     new Ajax.Request(url, {
-                        method: 'get', parameters: data, onSuccess: function (transport) {
+                        method: 'post', parameters: data, onSuccess: function (transport) {
                             window.location.href = "<c:out value="${ctx}"/>" + "/oscarRx/StaticScript2.jsp?regionalIdentifier=" + '<%=regionalIdentifier%>' + "&cn=" + '<%=cn%>';
                         }
                     });
@@ -156,8 +156,8 @@
             //represcribe a drug
             function reRxDrugSearch3(reRxDrugId) {
                 var dataUpdateId = "reRxDrugId=" + encodeURIComponent(reRxDrugId) + "&action=addToReRxDrugIdList&rand=" + Math.floor(Math.random() * 10001);
-                var urlUpdateId = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do?parameterValue=updateReRxDrug";
-                new Ajax.Request(urlUpdateId, {method: 'get', parameters: dataUpdateId});
+                var urlUpdateId = "<c:out value="${ctx}"/>" + "/oscarRx/WriteScript.do";
+                new Ajax.Request(urlUpdateId, {method: 'post', parameters: dataUpdateId + "&parameterValue=updateReRxDrug"});
 
                 var data = "drugId=" + encodeURIComponent(reRxDrugId);
                 var url = "<c:out value="${ctx}"/>" + "/oscarRx/rePrescribe2.do?method=saveReRxDrugIdToStash";

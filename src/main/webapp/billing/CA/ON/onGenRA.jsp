@@ -108,9 +108,18 @@
             awnd.focus();
         }
 
-        function checkReconcile(url) {
+        function checkReconcile(action, rano) {
             if (confirm("You are about to reconcile the file, are you sure?")) {
-                location.href = url;
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = action;
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'rano';
+                input.value = rano;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
             } else {
                 alert("You have cancel the action!");
             }
@@ -184,7 +193,7 @@
                     target="_blank">Summary</a>| <a
                     href="<%= request.getContextPath() %>/billing/CA/ON/genRADesc.jsp?rano=<%=raNo%>" target="_blank">Report
             </a></td>
-            <td><%=status.compareTo("N") == 0 ? "<a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle.jsp?rano=" + raNo + "')\">Settle</a> <a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle35.jsp?rano=" + raNo + "')\">S35</a>" : status.compareTo("S") == 0 ? " <a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle35.jsp?rano=" + raNo + "')\">S35</a>" : "Processed"%>
+            <td><%=status.compareTo("N") == 0 ? "<a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle.jsp','" + raNo + "')\">Settle</a> <a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle35.jsp','" + raNo + "')\">S35</a>" : status.compareTo("S") == 0 ? " <a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle35.jsp','" + raNo + "')\">S35</a>" : "Processed"%>
             </td>
         </tr>
         <%

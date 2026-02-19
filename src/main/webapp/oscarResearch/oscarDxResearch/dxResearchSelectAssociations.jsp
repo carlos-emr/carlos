@@ -65,8 +65,9 @@
                     if (confirm('Are you sure you want to delete all associations?')) {
                         //$.get("<%= request.getContextPath() %>/oscarResearch/dxresearch/dxResearchLoadAssociations.do?method=clearAssociations");
                         $.ajax({
-                            type: "GET",
-                            url: "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=clearAssociations",
+                            type: "POST",
+                            url: "<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do",
+                            data: { method: "clearAssociations" },
                             async: false,
                             success: function () {
                                 populateListOfAssociations();
@@ -85,10 +86,11 @@
                 //automatch
                 $("#automatch").click(function () {
                     if (confirm('This function will remove and re-generate all entries in the disease registry where the entry was created by an association.\nWould you like to continue?')) {
-                        $.getJSON("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do?method=autoPopulateAssociations",
+                        $.post("<%= request.getContextPath() %>/oscarResearch/oscarDxResearch/dxResearchLoadAssociations.do",
+                            { method: "autoPopulateAssociations" },
                             function (data, textStatus) {
                                 alert("Automatch generated " + data.recordsAdded + " records.");
-                            });
+                            }, "json");
                     }
                 });
 

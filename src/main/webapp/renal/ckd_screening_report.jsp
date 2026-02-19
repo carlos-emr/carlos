@@ -79,7 +79,9 @@
         <script>
             function createTickler(id) {
                 jQuery.ajax({
-                    url: '<%=request.getContextPath()%>/renal/SendTickler.do?method=sendtickler&demographic_no=' + id,
+                    type: 'POST',
+                    url: '<%=request.getContextPath()%>/renal/SendTickler.do',
+                    data: {method: 'sendtickler', demographic_no: id},
                     async: false,
                     success: function (data) {
                         alert('tickler sent');
@@ -109,7 +111,9 @@
             function generateLabReq(demographicNo) {
                 var url = '<%=request.getContextPath()%>/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographicNo + '&formId=0&provNo=<%=session.getAttribute("user")%>&fromSession=true';
                 jQuery.ajax({
-                    url: '<%=request.getContextPath()%>/renal/Renal.do?method=createLabReq&demographicNo=' + demographicNo,
+                    type: 'POST',
+                    url: '<%=request.getContextPath()%>/renal/Renal.do',
+                    data: {method: 'createLabReq', demographicNo: demographicNo},
                     async: false,
                     success: function (data) {
                         popPage(url, 'LabReq');

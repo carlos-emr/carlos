@@ -71,7 +71,7 @@
                     <div class="row-fluid">
                         <!--ADD GROUP-->
                         <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/addGroup.do"
-                              method="get" id="addGroupTemplate" class="form-inline">
+                              method="post" id="addGroupTemplate" class="form-inline">
                             <input type="text" name="groupName" class="check" placeholder="Group Name">
                             <input type="submit" name="subm" class="btn groupAdd" value="Add Group" disabled>
                         </form>
@@ -101,11 +101,14 @@
                                                 </a>
                                             </td>
                                             <td>
-                                                <a class="pull-right"
-                                                   href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/delGroup.do?groupName=${ groupName }"
-                                                   title="delete group">
-                                                    <i style="color:red;" class="fa-solid fa-xmark"></i>
-                                                </a>
+                                                <form method="post" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/delGroup.do" style="display:inline;">
+                                                    <input type="hidden" name="groupName" value="${ groupName }"/>
+                                                    <a class="pull-right" href="javascript:void(0);"
+                                                       onclick="if(confirm('Are you sure you want to delete this group?')){this.closest('form').submit();}"
+                                                       title="delete group">
+                                                        <i style="color:red;" class="fa-solid fa-xmark"></i>
+                                                    </a>
+                                                </form>
                                                 <span>&nbsp;</span>
                                                 <a class="pull-right"
                                                    href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/tempInGroup.do?groupName=${ groupName }"
@@ -181,10 +184,15 @@
                                                         </td>
 
                                                         <td>
-                                                            <a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/remFromGroup.do?tid=${template}&groupName=${temp.groupName}"
-                                                               class="pull-right" title="delete template from group">
-                                                                <i style="color:red;" class="fa-solid fa-xmark"></i>
-                                                            </a>
+                                                            <form method="post" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/remFromGroup.do" style="display:inline;">
+                                                                <input type="hidden" name="tid" value="${template}"/>
+                                                                <input type="hidden" name="groupName" value="${temp.groupName}"/>
+                                                                <a href="javascript:void(0);"
+                                                                   onclick="if(confirm('Remove template from group?')){this.closest('form').submit();}"
+                                                                   class="pull-right" title="delete template from group">
+                                                                    <i style="color:red;" class="fa-solid fa-xmark"></i>
+                                                                </a>
+                                                            </form>
                                                         </td>
                                                     </c:if>
 
@@ -249,7 +257,7 @@
                 </div>
                 <div class="modal-body">
                     <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/rbtAddToGroup.do"
-                          id="templateToGroupForm">
+                          method="post" id="templateToGroupForm">
                         <div>
                             <select style="width:100%;height:400px;outline:none;" name="tid" id="templateSelect"
                                     multiple>

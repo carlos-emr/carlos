@@ -424,7 +424,7 @@
                                                                        <input type="button" name="cmdAllergies"
                                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgViewEditAllergies"/>"
                                                                               class="ControlPushButton"
-                                                                              onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies.jsp?demographicNo=<%=request.getParameter("demographicNo")%>';"
+                                                                              onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies.jsp?demographicNo=<%=Encode.forUriComponent(request.getParameter("demographicNo"))%>';"
                                                                               style="width: 100px"/>
 								       <input type="button" name="cmdRePrescribe"
                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribe"/>"

@@ -40,8 +40,8 @@
 
 %>
 function storeApptNo(apptNo) {
-var url = "storeApptInSession.jsp?appointment_no="+apptNo;
-new Ajax.Request(url, {method:'get'});
+var url = "storeApptInSession.jsp";
+new Ajax.Request(url, {method:'post', parameters: {appointment_no: apptNo}});
 }
 
 function getElementsByClass(searchClass,node,tag) {
@@ -577,6 +577,43 @@ function refreshSameLoc(mypage) {
 var X = (window.pageXOffset?window.pageXOffset:window.document.body.scrollLeft);
 var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
 window.location.href = mypage + "&x=" + X + "&y=" + Y;
+}
+
+/**
+ * Converts a URL with query parameters into a POST form submission.
+ * Parses the query string into hidden form fields and submits via POST.
+ * Also appends current scroll position (x, y) to preserve scroll state
+ * across schedule page navigations.
+ * @param {string} url - Full URL with optional query string (e.g., "page.jsp?key=val")
+ * @param {string} [targetWindow] - Optional form target window name
+ */
+function postViaForm(url, targetWindow) {
+var parts = url.split('?');
+var form = document.createElement('form');
+form.method = 'post';
+form.action = parts[0];
+if (targetWindow) { form.target = targetWindow; }
+if (parts.length > 1) {
+    var pairs = parts[1].split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        var kv = pairs[i].split('=');
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = decodeURIComponent(kv[0]);
+        input.value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
+        form.appendChild(input);
+    }
+}
+var X = (window.pageXOffset?window.pageXOffset:window.document.body.scrollLeft);
+var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
+var xi = document.createElement('input');
+xi.type = 'hidden'; xi.name = 'x'; xi.value = X;
+form.appendChild(xi);
+var yi = document.createElement('input');
+yi.type = 'hidden'; yi.name = 'y'; yi.value = Y;
+form.appendChild(yi);
+document.body.appendChild(form);
+form.submit();
 }
 
 function scrollOnLoad() {

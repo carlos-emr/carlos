@@ -472,8 +472,9 @@
                 if (element) {
                     Event.observe(element, 'change', function (event) {
                         var val = $('hidecpp_<%=prescriptIdInt%>').checked;
-                        new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/hideCpp.do?method=update&prescriptId=<%=prescriptIdInt%>&value=' + val, {
-                            method: 'get',
+                        new Ajax.Request('<c:out value="${ctx}"/>/oscarRx/hideCpp.do', {
+                            method: 'post',
+                            parameters: {method: 'update', prescriptId: '<%=prescriptIdInt%>', value: val},
                             onSuccess: function (transport) {
                             }
                         });
