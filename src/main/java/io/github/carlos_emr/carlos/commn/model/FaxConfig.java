@@ -111,23 +111,37 @@ public class FaxConfig extends AbstractModel<Integer> {
     }
 
 
+    /**
+     * Returns the URL.
+     */
     public String getUrl() {
         return url;
     }
 
+    /**
+     * Sets the URL.
+     */
     public void setUrl(String url) {
         this.url = url;
     }
 
+    /**
+     * Returns the site user.
+     */
     public String getSiteUser() {
         return siteUser;
     }
 
+    /**
+     * Sets the site user.
+     */
     public void setSiteUser(String siteUser) {
         this.siteUser = siteUser;
     }
 
-    /** Returns decrypted plain text site password. */
+    /**
+     * Returns decrypted plain text site password.
+     */
     public String getPasswd() {
         return decryptField(passwd, "password");
     }
@@ -137,10 +151,16 @@ public class FaxConfig extends AbstractModel<Integer> {
         this.passwd = encryptField(passwd, "password");
     }
 
+    /**
+     * Returns the fax user.
+     */
     public String getFaxUser() {
         return faxUser;
     }
 
+    /**
+     * Sets the fax user.
+     */
     public void setFaxUser(String faxUser) {
         this.faxUser = faxUser;
     }
@@ -150,19 +170,22 @@ public class FaxConfig extends AbstractModel<Integer> {
         return decryptField(faxPasswd, "fax password");
     }
 
-    /** Sets fax password (plain text input, encrypted immediately). */
+    /**
+     * Sets the fax password by encrypting the provided plain text input.
+     */
     public void setFaxPasswd(String faxPasswd) {
         this.faxPasswd = encryptField(faxPasswd, "fax password");
     }
 
     /**
-     * Shared helper method to decrypt a password field.
-     * Handles legacy unencrypted passwords transparently.
+     * Decrypts a password field, handling both encrypted and legacy plain text values.
+     * This method checks if the provided value is not null or empty, then determines
+     * if it is encrypted using the EncryptionUtils. If encrypted, it decrypts the value;
+     * otherwise, it returns the legacy plain text as-is. In case of decryption failure,
+     * an error is logged, and an IllegalStateException is thrown with a descriptive message.
      *
      * @param value the field value (may be encrypted or legacy plain text)
      * @param fieldLabel descriptive label for error messages
-     * @return decrypted plain text password, or empty string if value is null/empty
-     * @throws IllegalStateException if decryption fails (possible key rotation or data corruption)
      */
     private String decryptField(String value, String fieldLabel) {
         if (value != null && !value.isEmpty()) {
@@ -208,14 +231,23 @@ public class FaxConfig extends AbstractModel<Integer> {
         return faxNumber;
     }
 
+    /**
+     * Sets the fax number.
+     */
     public void setFaxNumber(String faxNumber) {
         this.faxNumber = faxNumber;
     }
 
+    /**
+     * Returns the serial version UID.
+     */
     public static long getSerialversionuid() {
         return serialVersionUID;
     }
 
+    /**
+     * Sets the ID.
+     */
     public void setId(Integer id) {
         Id = id;
     }
@@ -244,7 +276,7 @@ public class FaxConfig extends AbstractModel<Integer> {
     }
 
     /**
-     * Returns configured provider type with safe middleware default when null.
+     * Returns the configured provider type or a default middleware type if null.
      */
     public ProviderType getProviderType() {
         if (providerType == null) {
@@ -254,13 +286,16 @@ public class FaxConfig extends AbstractModel<Integer> {
     }
 
     /**
-     * Sets configured fax provider type for this account.
+     * Sets the provider type for this account, defaulting to MIDDLEWARE if null.
      */
     public void setProviderType(ProviderType providerType) {
         this.providerType = (providerType != null) ? providerType : ProviderType.MIDDLEWARE;
     }
 
 
+    /**
+     * Sets the active state.
+     */
     public void setActive(boolean active) {
         this.active = active;
     }
@@ -269,6 +304,9 @@ public class FaxConfig extends AbstractModel<Integer> {
         return queue;
     }
 
+    /**
+     * Sets the queue value.
+     */
     public void setQueue(Integer queue) {
         this.queue = queue;
     }
