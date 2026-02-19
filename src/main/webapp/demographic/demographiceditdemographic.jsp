@@ -47,7 +47,6 @@
     }
 %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.ConformanceTestHelper" %>
 <%@page import="io.github.carlos_emr.OscarProperties" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.Gender" %>
@@ -729,7 +728,22 @@
 
             function addToPatientSet(demoNo, patientSet) {
                 if (patientSet == "-") return;
-                window.open("addDemoToPatientSet.jsp?demoNo=" + demoNo + "&patientSet=" + patientSet, "addpsetwin", "width=50,height=50");
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = 'addDemoToPatientSet.jsp';
+                form.target = 'addpsetwin';
+                var fields = {demoNo: demoNo, patientSet: patientSet};
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                window.open('', 'addpsetwin', 'width=50,height=50');
+                form.submit();
+                document.body.removeChild(form);
             }
 
             </security:oscarSec>
@@ -738,14 +752,6 @@
 
 
             function checkRosterStatus2() {
-                <oscar:oscarPropertiesCheck property="FORCED_ROSTER_INTEGRATOR_LOCAL_STORE" value="yes">
-                var rosterSelect = document.getElementById("roster_status");
-                if (rosterSelect.getValue() == "RO") {
-                    var primaryEmr = document.getElementById("primaryEMR");
-                    primaryEmr.value = "1";
-                    primaryEmr.disable(true);
-                }
-                </oscar:oscarPropertiesCheck>
                 return true;
             }
 
@@ -1012,10 +1018,6 @@
                                         demographicNo='<%=demographic.getDemographicNo().toString()%>'/>
 				</span>
 
-                                <%
-                                    if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {%>
-                                <jsp:include page="/admin/IntegratorStatus.jspf"/>
-                                <%}%>
 
                             </td>
                         </tr>
@@ -1226,16 +1228,6 @@
                             </td>
                         </tr>
 
-                        <%
-                            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                        %>
-                        <tr>
-                            <td><a href="#"
-                                   onclick="popup(500,500,'<%= request.getContextPath() %>/integrator/manage_linked_clients.jsp?demographicId=<%=demographic.getDemographicNo()%>', 'manage_linked_clients'); return false;">Integrator
-                                Linking</a>
-                            </td>
-                        </tr>
-                        <% } %>
 
                         <% if (oscarProps.getProperty("clinic_no", "").startsWith("1022")) { // quick hack to make Dr. Hunter happy
                         %>
@@ -4858,36 +4850,8 @@
                                                                         </select>
                                                                     </td>
 
-                                                                    <oscar:oscarPropertiesCheck
-                                                                            property="INTEGRATOR_LOCAL_STORE"
-                                                                            value="yes">
-                                                                        <td class="alignRight">
-                                                                            <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.primaryEMR"/>:</strong>
-                                                                        </td>
-                                                                        <td>
-                                                                            <%
-                                                                                String primaryEMR = demoExt.get("primaryEMR");
-                                                                                if (primaryEMR == null)
-                                                                                    primaryEMR = "0";
-                                                                            %>
-                                                                            <input type="hidden" name="primaryEMROrig"
-                                                                                   value="<%=StringUtils.trimToEmpty(demoExt.get("primaryEMR"))%>"/>
-                                                                            <select id="primaryEMR" name="primaryEMR">
-                                                                                <option value="0" <%=(primaryEMR.equals("0") ? "selected=\"selected\"" : "") %>>
-                                                                                    No
-                                                                                </option>
-                                                                                <option value="1" <%=(primaryEMR.equals("1") ? "selected=\"selected\"" : "") %>>
-                                                                                    Yes
-                                                                                </option>
-                                                                            </select>
-                                                                        </td>
-                                                                    </oscar:oscarPropertiesCheck>
-                                                                    <oscar:oscarPropertiesCheck
-                                                                            property="INTEGRATOR_LOCAL_STORE"
-                                                                            value="no">
-                                                                        <td><!-- padding --></td>
-                                                                        <td><!-- padding --></td>
-                                                                    </oscar:oscarPropertiesCheck>
+                                                                    <td><!-- padding --></td>
+                                                                    <td><!-- padding --></td>
                                                                 </tr>
                                                             </table>
                                                         </td>
@@ -5019,22 +4983,6 @@
                                                 </table>
                                                     <%-- END BOTTOM TOOLBAR  --%>
 
-                                                <%
-                                                    if (ConformanceTestHelper.enableConformanceOnlyTestFeatures) {
-                                                        String styleBut = "";
-                                                        if (ConformanceTestHelper.hasDifferentRemoteDemographics(loggedInInfo, Integer.parseInt(demographic$))) {
-                                                            styleBut = "style=\"background-color:yellow\"";
-                                                        }%>
-                                                <input type="button" value="Compare with Integrator" <%=styleBut%>
-                                                       onclick="popup(425, 600, 'DiffRemoteDemographics.jsp?demographicId=<%=demographic$%>', 'RemoteDemoWindow')"/>
-                                                <input type="button"
-                                                       value="Update latest integrated demographics information"
-                                                       onclick="document.location='<%=request.getContextPath()%>/demographic/copyLinkedDemographicInfoAction.jsp?demographicId=<%=demographic$%>&<%=request.getQueryString()%>'"/>
-                                                <input type="button" value="Send note to integrated provider"
-                                                       onclick="document.location='<%=request.getContextPath()%>/demographic/followUpSelection.jsp?demographicId=<%=demographic$%>'"/>
-                                                <%
-                                                    }
-                                                %>
                                             </td>
                                         </tr>
                                     </table>

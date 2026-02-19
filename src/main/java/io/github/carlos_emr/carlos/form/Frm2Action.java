@@ -296,7 +296,6 @@ public final class Frm2Action extends ActionSupport {
 
             String newUrl = "?formname=" + props.getProperty("form_class") +
                     "&demographic_no=" + props.getProperty("demographic_no") +
-                    (StringUtils.isNotEmpty(props.getProperty("remoteFacilityId")) ? "&remoteFacilityId=" + props.getProperty("remoteFacilityId") : "") +
                     (StringUtils.isNotEmpty(props.getProperty("appointmentNo")) ? "&appointmentNo=" + props.getProperty("appointmentNo") : "") +
                     "&formId=" + newFormId;
 

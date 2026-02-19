@@ -38,6 +38,7 @@
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
@@ -167,20 +168,49 @@
                 return true;
             }
 
+            /** Submits an allergy reaction via the hidden #addReactionForm. */
+            function submitAddReaction(id, type, name) {
+                var form = document.getElementById('addReactionForm');
+                form.elements['ID'].value = id;
+                form.elements['type'].value = type;
+                form.elements['name'].value = name;
+                form.submit();
+            }
+
             function addCustomAllergy() {
                 var name = document.getElementById('searchString').value;
                 if (isEmpty() == true) {
                     name = name.toUpperCase();
-                    window.location = "<%= request.getContextPath() %>/oscarRx/addReaction.do?ID=0&type=0&name=" + encodeURIComponent(name);
+                    submitAddReaction('0', '0', name);
                 }
             }
 
             function moveAllergyDown(allergyId) {
-                window.location = "<%= request.getContextPath() %>/oscarRx/showAllergy.do?method=reorder&direction=down&demographicNo=" + <%=bean.getDemographicNo()%> +"&allergyId=" + allergyId;
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/oscarRx/showAllergy.do';
+                var fields = {method: 'reorder', direction: 'down', demographicNo: '<%=bean.getDemographicNo()%>', allergyId: allergyId};
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden'; input.name = key; input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                form.submit();
             }
 
             function moveAllergyUp(allergyId) {
-                window.location = "<%= request.getContextPath() %>/oscarRx/showAllergy.do?method=reorder&direction=up&demographicNo=" + <%=bean.getDemographicNo()%> +"&allergyId=" + allergyId;
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/oscarRx/showAllergy.do';
+                var fields = {method: 'reorder', direction: 'up', demographicNo: '<%=bean.getDemographicNo()%>', allergyId: allergyId};
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden'; input.name = key; input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                form.submit();
             }
 
             function show_Search_Criteria() {
@@ -196,6 +226,11 @@
         </script>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
+    <form id="addReactionForm" method="post" action="<%= request.getContextPath() %>/oscarRx/addReaction.do" style="display:none">
+        <input type="hidden" name="ID" value=""/>
+        <input type="hidden" name="type" value=""/>
+        <input type="hidden" name="name" value=""/>
+    </form>
     <table border="0" cellpadding="0" cellspacing="0"
            style="border-collapse: collapse" bordercolor="#111111" width="100%"
            id="AutoNumber1" height="100%">
@@ -397,24 +432,22 @@
                                                     <td><%=StringEscapeUtils.escapeHtml4(displayAllergy.getStartDate())%>
                                                     </td>
                                                     <td>
-                                                        <%
-                                                            // annotations only avaiable for local allergies
-                                                            if (displayAllergy.getRemoteFacilityId() == null) {
-                                                        %>
                                                         <a href="#" title="Annotation"
                                                            onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=displayAllergy.getId()%>&demo=${patient.demographicNo}','anwin','width=400,height=500');"><img
                                                                 src="<%= request.getContextPath() %>/images/notes.gif" border="0"></a>
-                                                        <%
-                                                            }
-                                                        %>
                                                     </td>
                                                     <td>
                                                         <%
-                                                            if (displayAllergy.getRemoteFacilityId() == null && securityManager.hasDeleteAccess("_allergies", roleName2$)) {
+                                                            if (securityManager.hasDeleteAccess("_allergies", roleName2$)) {
                                                         %>
-                                                        <a href="<%= request.getContextPath() %>/oscarRx/deleteAllergy.do?ID=<%= String.valueOf(displayAllergy.getId()) %>&demographicNo=<%=demoNo %>&action=<%=actionPath %>"
-                                                           onClick="return confirm('Are you sure you want to set the allergy <%=displayAllergy.getDescription() %> to <%=labelConfirmAction%>?');"><%=labelAction%>
-                                                        </a>
+                                                        <form method="post" action="<%= request.getContextPath() %>/oscarRx/deleteAllergy.do" style="display:inline;">
+                                                            <input type="hidden" name="ID" value="<%= String.valueOf(displayAllergy.getId()) %>"/>
+                                                            <input type="hidden" name="demographicNo" value="<%=demoNo %>"/>
+                                                            <input type="hidden" name="action" value="<%=actionPath %>"/>
+                                                            <a href="javascript:void(0);"
+                                                               onclick="if(confirm('Are you sure you want to set the allergy <%=Encode.forJavaScript(displayAllergy.getDescription()) %> to <%=Encode.forJavaScript(labelConfirmAction)%>?')){this.closest('form').submit();}"><%=labelAction%>
+                                                            </a>
+                                                        </form>
                                                         <% } %>
                                                     </td>
                                                 </tr>

@@ -226,11 +226,32 @@
             }
 
 
-            function checkDelete(url, docDescription) {
+            function checkDelete(docId, func, funcId, viewStatus, docDescription) {
 // revision Apr 05 2004 - we now allow anyone to delete documents
                 if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
-                    window.location = url;
+                    submitDocAction('delDocumentNo', docId, func, funcId, viewStatus);
                 }
+            }
+
+            /** Creates a dynamic POST form to submit a document action (delete/unfile) to documentReport.jsp. */
+            function submitDocAction(paramName, docId, func, funcId, viewStatus) {
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = 'documentReport.jsp';
+                var fields = {};
+                fields[paramName] = docId;
+                fields['function'] = func;
+                fields['functionid'] = funcId;
+                fields['viewstatus'] = viewStatus;
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                form.submit();
             }
 
             function selectAll(checkboxId, parentEle, className) {
@@ -351,6 +372,7 @@
             }
 
         </style>
+        <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
     </head>
     <body>
@@ -391,13 +413,6 @@
                     ArrayList publicdocs = EDocUtil.listDocs(loggedInInfo, module, moduleid, view, EDocUtil.PUBLIC, EDocUtil.EDocSort.OBSERVATIONDATE, viewstatus);
                     categories.add(publicdocs);
                     categoryKeys.add("Public Documents");
-                }
-
-                //--- get remote documents ---
-                if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                    List<EDoc> remoteDocuments = EDocUtil.getRemoteDocuments(loggedInInfo, Integer.parseInt(moduleid));
-                    categories.add(remoteDocuments);
-                    categoryKeys.add("Remote Documents");
                 }
 
                 for (int i = 0; i < categories.size(); i++) {
@@ -535,7 +550,7 @@
 
                                 <td>
                                     <%
-                                        String url = "ManageDocument.do?method=display&doc_no=" + curdoc.getDocId() + "&providerNo=" + user_no + (curdoc.getRemoteFacilityId() != null ? "&remoteFacilityId=" + curdoc.getRemoteFacilityId() : "");
+                                        String url = "ManageDocument.do?method=display&doc_no=" + curdoc.getDocId() + "&providerNo=" + user_no;
                                     %>
                                     <a <%=curdoc.getStatus() == 'D' ? "style='text-decoration:line-through'" : ""%>
                                             href="javascript:void(0);"
@@ -564,10 +579,9 @@
                                 <td style="text-align: right;">
                                     <div style="white-space: nowrap;">
                                         <%
-                                            if (curdoc.getRemoteFacilityId() == null) {
                                                 if (curdoc.getCreatorId().equalsIgnoreCase(user_no)) {
                                                     if (curdoc.getStatus() == 'D') { %>
-                                        <a href="documentReport.jsp?undelDocumentNo=<%=curdoc.getDocId()%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&viewstatus=<%=Encode.forUriComponent(viewstatus)%>"
+                                        <a href="javascript:void(0);" onclick="submitDocAction('undelDocumentNo','<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>');"
                                            class="btn btn-link" style="padding:0;"
                                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnUnDelete"/>">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -582,7 +596,7 @@
                                         } else { // curdoc get status
                                         %>
                                         <a style="color:red; padding:0;"
-                                           href="javascript: checkDelete('documentReport.jsp?delDocumentNo=<%=Encode.forJavaScript(Encode.forUriComponent(String.valueOf(curdoc.getDocId())))%>&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(moduleid))%>&viewstatus=<%=Encode.forJavaScript(Encode.forUriComponent(viewstatus))%>','<%=Encode.forJavaScript(curdoc.getDescription())%>')"
+                                           href="javascript:void(0);" onclick="checkDelete('<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>','<%=Encode.forJavaScript(curdoc.getDescription())%>');"
                                            class="btn btn-link" title="Delete">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                  fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
@@ -596,7 +610,7 @@
                                         <security:oscarSec roleName="<%=roleName$%>"
                                                            objectName="_admin,_admin.edocdelete" rights="r">
                                             <% if (curdoc.getStatus() == 'D') {%>
-                                            <a href="documentReport.jsp?undelDocumentNo=<%=Encode.forUriComponent(String.valueOf(curdoc.getDocId()))%>&function=<%=Encode.forUriComponent(module)%>&functionid=<%=Encode.forUriComponent(moduleid)%>&viewstatus=<%=Encode.forUriComponent(viewstatus)%>"
+                                            <a href="javascript:void(0);" onclick="submitDocAction('undelDocumentNo','<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>');"
                                                title="<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.btnUnDelete"/>"
                                                class="btn btn-link" style="padding:0;">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
@@ -609,7 +623,7 @@
                                             </a>
                                             <% } else { // curdoc get status %>
                                             <a style="color:red;padding:0;"
-                                                href="javascript: checkDelete('documentReport.jsp?delDocumentNo=<%=Encode.forJavaScript(Encode.forUriComponent(String.valueOf(curdoc.getDocId())))%>&function=<%=Encode.forJavaScript(Encode.forUriComponent(module))%>&functionid=<%=Encode.forJavaScript(Encode.forUriComponent(moduleid))%>&viewstatus=<%=Encode.forJavaScript(Encode.forUriComponent(viewstatus))%>','<%=Encode.forJavaScript(curdoc.getDescription())%>')"
+                                                href="javascript:void(0);" onclick="checkDelete('<%=Encode.forJavaScript(String.valueOf(curdoc.getDocId()))%>','<%=Encode.forJavaScript(module)%>','<%=Encode.forJavaScript(moduleid)%>','<%=Encode.forJavaScript(viewstatus)%>','<%=Encode.forJavaScript(curdoc.getDescription())%>');"
                                                 class="btn btn-link" title="Delete">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                                                      fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
@@ -677,9 +691,6 @@
                                             </svg>
                                         </a>
 
-                                        <% } %>
-                                        <%} else { %>
-                                        Remote Document
                                         <% } %>
                                     </div><!-- button grouping -->
                                 </td>

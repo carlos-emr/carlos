@@ -48,6 +48,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.AppManager" %>
 <%@ page import="java.net.URLEncoder" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -341,7 +342,7 @@
                 <li>
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
                     <a href="javascript:void(0)"
-                       onClick="popupPage(715,680,'providerpreference.jsp?provider_no=<%=curUser_no%>')"
+                       onClick="popupPage(800,1000,'providerpreference.jsp?provider_no=<%= Encode.forUriComponent(curUser_no) %>')"
                        title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
 
                         </security:oscarSec>
@@ -371,27 +372,17 @@
         src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
 <script>
     const contextPath = document.getElementById("contextPath").value;
-    const originalInboxLinkClickEvent = "popupInboxManager('" + contextPath + "/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=<%=curUser_no%>');return false;";
-    const newInboxLinkClickEvent = "popupInboxManager('" + contextPath + "/www/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;";
+    const inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;";
+    const unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;";
 
-    const originalUnclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=0&searchProviderNo=0&status=N&lname=&fname=&hnum=&pageNum=1&startIndex=0');return false;";
-    const newUnclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/www/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;";
-
-     document.getElementById("inboxLink").addEventListener("mouseup", function(event) {
-        if(event.altKey) {
-            document.getElementById("inboxLink").setAttribute("onclick", newInboxLinkClickEvent);
-        } else {
-            document.getElementById("inboxLink").setAttribute("onclick", originalInboxLinkClickEvent);
-        }
-    });
-
-    document.getElementById("unclaimedLabLink").addEventListener("mouseup", function(event) {
-        if(event.altKey) {
-            document.getElementById("unclaimedLabLink").setAttribute("onclick", newUnclaimedLabLinkClickEvent);
-        } else {
-            document.getElementById("unclaimedLabLink").setAttribute("onclick", originalUnclaimedLabLinkClickEvent);
-        }
-    });
+    const inboxLink = document.getElementById("inboxLink");
+    if (inboxLink) {
+        inboxLink.setAttribute("onclick", inboxLinkClickEvent);
+    }
+    const unclaimedLabLink = document.getElementById("unclaimedLabLink");
+    if (unclaimedLabLink) {
+        unclaimedLabLink.setAttribute("onclick", unclaimedLabLinkClickEvent);
+    }
 
     function openPreferences(providerNumber) {
         const $div = jQuery('<div />').appendTo('body');

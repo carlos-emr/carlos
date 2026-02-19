@@ -35,20 +35,13 @@ import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7MshDao;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.labs.LabIdAndType;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.xml.sax.SAXException;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.db.ArchiveDeletedRecords;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
@@ -58,8 +51,6 @@ import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
 import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
-import javax.xml.parsers.ParserConfigurationException;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -727,61 +718,6 @@ public class CommonLabResultData {
         if (labType.equals(LabResultData.HL7TEXT)) {
             Hl7textResultsData.populateMeasurementsTable(labId, demographicNo);
         }
-    }
-
-    public static ArrayList<LabResultData> getRemoteLabs(LoggedInInfo loggedInInfo, Integer demographicId) {
-        ArrayList<LabResultData> results = new ArrayList<LabResultData>();
-
-        try {
-            List<CachedDemographicLabResult> labResults = null;
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                    labResults = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicLabResults(demographicId);
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                labResults = IntegratorFallBackManager.getLabResults(loggedInInfo, demographicId);
-            }
-
-            for (CachedDemographicLabResult cachedDemographicLabResult : labResults) {
-                results.add(toLabResultData(cachedDemographicLabResult));
-            }
-        } catch (Exception e) {
-            logger.error("Error retriving remote labs", e);
-        }
-
-        return (results);
-    }
-
-    private static LabResultData toLabResultData(CachedDemographicLabResult cachedDemographicLabResult) throws IOException, SAXException, ParserConfigurationException {
-        LabResultData result = new LabResultData();
-        result.setRemoteFacilityId(cachedDemographicLabResult.getFacilityIdLabResultCompositePk().getIntegratorFacilityId());
-
-        result.labType = cachedDemographicLabResult.getType();
-
-        Document doc = XmlUtils.toDocument(cachedDemographicLabResult.getData());
-        Node root = doc.getFirstChild();
-        result.acknowledgedStatus = XmlUtils.getChildNodeTextContents(root, "acknowledgedStatus");
-        result.accessionNumber = XmlUtils.getChildNodeTextContents(root, "accessionNumber");
-        result.dateTime = XmlUtils.getChildNodeTextContents(root, "dateTime");
-        result.discipline = XmlUtils.getChildNodeTextContents(root, "discipline");
-        result.healthNumber = XmlUtils.getChildNodeTextContents(root, "healthNumber");
-        result.labPatientId = XmlUtils.getChildNodeTextContents(root, "labPatientId");
-        result.patientName = XmlUtils.getChildNodeTextContents(root, "patientName");
-        result.priority = XmlUtils.getChildNodeTextContents(root, "priority");
-        result.reportStatus = XmlUtils.getChildNodeTextContents(root, "reportStatus");
-        result.requestingClient = XmlUtils.getChildNodeTextContents(root, "requestingClient");
-        result.segmentID = XmlUtils.getChildNodeTextContents(root, "segmentID");
-        result.sex = XmlUtils.getChildNodeTextContents(root, "sex");
-        result.setAckCount(Integer.parseInt(XmlUtils.getChildNodeTextContents(root, "ackCount")));
-        result.setMultipleAckCount(Integer.parseInt(XmlUtils.getChildNodeTextContents(root, "multipleAckCount")));
-
-        return result;
     }
 
     public List<LabIdAndType> getCmlAndEpsilonLabResultsSince(Integer demographicNo, Date updateDate) {

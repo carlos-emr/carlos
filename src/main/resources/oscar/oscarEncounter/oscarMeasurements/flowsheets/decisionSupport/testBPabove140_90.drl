@@ -1,28 +1,58 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
+// ============================================================================
+// CARLOS EMR - Clinical Report Numerator: BP Above 140/90 (13-Month Window)
+// ============================================================================
+//
+// Purpose:
+//   Population health reporting rule counting patients with BP >140/90
+//   AND measurement recorded within the last 13 months (general
+//   hypertension threshold, not the stricter diabetes target of 130/80).
+//
+// ORPHANED: This file is NOT referenced by any XML config or Java code.
+//   It was likely created for a custom report that was later removed.
+//   Candidate for deletion if confirmed unused.
+//
+// Fact: MeasurementDSHelper - getNumberFromSplit("/",0/1) for systolic/
+//   diastolic, getLastDateRecordedInMths() for recency check.
+// ============================================================================
+package ReportBPAbove140_90;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
-<rule-set name="ReportA1C"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
-
-    <rule name="BP">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("BP") == true</java:condition>       
-        <java:condition>m.getNumberFromSplit("/",0) &gt; 140</java:condition>
-        <java:condition>m.getNumberFromSplit("/",1) &gt; 90</java:condition>
-        <java:condition>m.getLastDateRecordedInMths() &lt; 13</java:condition>
-        <java:consequence>     
-              m.log("BP RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
-
-</rule-set>
-
-
+// Both systolic >140 AND diastolic >90 with 13-month recency window.
+// setMeasurement("BP") loads latest BP; getNumberFromSplit parses sys/dia.
+// getLastDateRecordedInMths() <13 ensures only recent readings count.
+rule "BP"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("BP") == true )
+        eval( m.getNumberFromSplit("/",0) > 140 )
+        eval( m.getNumberFromSplit("/",1) > 90 )
+        eval( m.getLastDateRecordedInMths() < 13 )
+    then
+        m.log("BP RULES IS GETTING RUN");
+        m.setInRange(true);
+end

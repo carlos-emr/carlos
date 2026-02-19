@@ -119,7 +119,7 @@
 
         <h3>Reporting of Diabetes </h3>
 
-        <form action="${pageContext.request.contextPath}/demographic/DiabetesExport.do" method="get"
+        <form action="${pageContext.request.contextPath}/demographic/DiabetesExport.do" method="post"
                    onsubmit="return checkAll();">
 
         <table>

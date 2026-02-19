@@ -180,7 +180,7 @@
                         <legend>Document Uploaded :<%=curdoc.getDateTimeStamp()%> - Content
                             Type: <%=contentType%> <%=curdoc.getFileName() %> - Number of Pages: <%=numPageStr%>
                         </legend>
-                        <form id="forms<%=currentDocId%>" action="undocumentReport.jsp"
+                        <form id="forms<%=currentDocId%>" action="undocumentReport.jsp" method="post"
                               onsubmit="return sendToServer('forms<%=currentDocId%>');">
                             <input type="hidden" name="method" value="documentUpdate"/>
                             <input type="hidden" name="documentId" value="<%=currentDocId%>"/>

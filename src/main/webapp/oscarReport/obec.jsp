@@ -44,6 +44,13 @@
         return;
     }
 %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Overnight Batch Eligibility Checking Report</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+</head>
+<body>
 
 <%@ page
         import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.DateUtils, java.net.*" %>
@@ -89,7 +96,7 @@
         Overnight Batch Eligibility Checking Report
         <div class="pull-right">
             <button name="print" onclick="window.print()" class="btn">
-                <i class="icon-print icon-black"></i>
+                <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
         </div>
@@ -178,3 +185,5 @@
 
     registerFormSubmit('obecForm', 'dynamic-content');
 </script>
+</body>
+</html>

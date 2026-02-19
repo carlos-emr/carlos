@@ -93,6 +93,7 @@
                 display: block;
             }
         </style>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     </head>
 
     <body>
@@ -128,7 +129,7 @@
 
             <input type="submit" name="Submit" class="btn btn-primary" value="Import">
 
-            <p><i class="icon-info-sign"></i> Use this function to import data for a specific form into the OSCAR
+            <p><i class="fa-solid fa-circle-info"></i> Use this function to import data for a specific form into the OSCAR
                 database</p>
 
         </form>

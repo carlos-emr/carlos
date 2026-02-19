@@ -243,7 +243,7 @@ Colposcopy Total :
 
     if (!bPremiumList.isEmpty()) {
 %>
-<form action="<%=request.getContextPath() %>/billing/CA/ON/ApplyPractitionerPremium.do">
+<form action="<%=request.getContextPath() %>/billing/CA/ON/ApplyPractitionerPremium.do" method="post">
     <input type="hidden" name="rano" value="<%=raNo%>"/>
     <input type="hidden" name="method" value="applyPremium"/>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="oscar.billing.on.genRADesc.premiumTitle"/></h3>

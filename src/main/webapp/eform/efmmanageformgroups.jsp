@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="java.net.URLEncoder" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -79,7 +80,7 @@
 
         </style>
 
-
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     </head>
 
     <body>
@@ -90,7 +91,7 @@
         <div class="well span6">
 
             <!--ADD GROUP-->
-            <form action="<%= request.getContextPath() %>/eform/addGroup.do" method="get" id="addGroupForm"
+            <form action="<%= request.getContextPath() %>/eform/addGroup.do" method="post" id="addGroupForm"
                   class="form-inline">
                 <div class="controls">
                     <div class="input-append">
@@ -134,10 +135,14 @@
                 <tr>
                     <%}%>
                     <td>
-                        <a href='<%= request.getContextPath() %>/eforms/delGroup.do?group_name=<%=URLEncoder.encode(groupName, "UTF-8")%>'
-                           class="btn btn-small" title="delete this group"
-                           data-confirm="<i class='icon-warning-sign icon-large'></i> Are you sure you would like to delete group: <strong><%=groupName%></strong>?"><i
-                                class="icon-trash"></i></a></td>
+                        <form method="post" action="<%= request.getContextPath() %>/eforms/delGroup.do" style="display:inline;">
+                            <input type="hidden" name="group_name" value="<%=Encode.forHtmlAttribute(groupName)%>"/>
+                            <a href="javascript:void(0);"
+                               class="btn btn-small" title="delete this group"
+                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to delete group: <strong><%=Encode.forHtmlAttribute(groupName)%></strong>?"
+><i
+                                    class="fa-solid fa-trash"></i></a>
+                        </form></td>
                     <td title="<%=groupName%>"><a
                             href='<%= request.getContextPath() %>/eform/efmmanageformgroups.jsp?orderby=form_name&group_view=<%=URLEncoder.encode(groupName, "UTF-8")%>'
                             class="contentLink"><%=groupName%>
@@ -195,10 +200,15 @@
                     data-trigger="hover" data-placement="bottom">
 
                     <td>
-                        <a href="<%= request.getContextPath() %>/eforms/removeFromGroup.do?fid=<%=curForm.get("fid")%>&groupName=<%=URLEncoder.encode(groupView, "UTF-8")%>"
-                           title="remove from group" class="btn btn-small" title="delete eform from group"
-                           data-confirm="<i class='icon-warning-sign icon-large'></i> Are you sure you would like to remove this eform from this group?"><i
-                                class="icon-trash"></i></a>
+                        <form method="post" action="<%= request.getContextPath() %>/eforms/removeFromGroup.do" style="display:inline;">
+                            <input type="hidden" name="fid" value="<%=curForm.get("fid")%>"/>
+                            <input type="hidden" name="groupName" value="<%=Encode.forHtmlAttribute(groupView)%>"/>
+                            <a href="javascript:void(0);"
+                               title="remove from group" class="btn btn-small"
+                               data-confirm="<i class='fa-solid fa-triangle-exclamation fa-lg'></i> Are you sure you would like to remove this eform from this group?"
+><i
+                                    class="fa-solid fa-trash"></i></a>
+                        </form>
                     </td>
 
                     <td><a href="#"
@@ -232,7 +242,7 @@
         </div>
         <!--modal-->
                 <% if (!groupView.equals("")) { %>
-        <form action="${pageContext.request.contextPath}/eform/addToGroup.do" method="get" id="eformToGroupForm">
+        <form action="${pageContext.request.contextPath}/eform/addToGroup.do" method="post" id="eformToGroupForm">
         <div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel"
              aria-hidden="true">
             <div class="modal-header">

@@ -20,6 +20,13 @@
         return;
     }
 %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Patient List Report</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+</head>
+<body>
 
 <div class="page-header">
     <h4>Patient List</h4>
@@ -68,7 +75,7 @@
             <div class="control-group">
                 <div class="controls">
                     <button type="submit" class="btn btn-primary">
-                        <i class="icon-download-alt icon-white"></i>Export
+                        <i class="fa-solid fa-download"></i> Export
                     </button>
                 </div>
             </div>
@@ -103,3 +110,5 @@
         });
     });
 </script>
+</body>
+</html>

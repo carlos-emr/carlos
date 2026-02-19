@@ -242,6 +242,95 @@ When asked to write tests, you MUST:
 5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for EntityManager (integration tests only)
 6. **For Manager unit tests**: Register SpringUtils mocks BEFORE creating static mocks (LogAction, etc.)
 
+### Integration Test Pitfalls (Hibernate/H2)
+
+The test infrastructure uses **dual persistence contexts** (JPA EntityManager + Hibernate Session) sharing one JDBC connection via `TransactionAwareDataSourceProxy`. This creates several non-obvious pitfalls:
+
+**1. Flush Context Mismatch**
+DAOs extending `HibernateDaoSupport` write through the Hibernate Session. `entityManager.flush()` only flushes the JPA context — it will NOT flush Hibernate writes. Always use `hibernateTemplate.flush()` (available via `OpenOTestBase`) when testing `HibernateDaoSupport`-based DAOs.
+```java
+// WRONG - won't flush HibernateDaoSupport DAO writes:
+entityManager.flush();
+
+// CORRECT - flushes the Hibernate Session:
+hibernateTemplate.flush();
+```
+
+**2. HBM Property Names Are Case-Sensitive**
+HQL must use the exact `name` attribute from HBM XML mappings. Some entities use PascalCase (e.g., `Provider.hbm.xml`: `LastName`, `FirstName`, `Status`) while others use camelCase (e.g., `SecProvider.hbm.xml`: `lastName`, `firstName`, `status`). Always check the HBM file before writing HQL.
+
+**3. H2 Reserved Words in HBM Mappings**
+Column names that are SQL reserved words (e.g., `value`, `key`, `order`) must use backtick quoting in HBM XML. Hibernate translates backticks to database-appropriate quoting (double-quotes for H2, backticks for MySQL).
+```xml
+<!-- WRONG - breaks in H2: -->
+<property column="value" name="value" />
+
+<!-- CORRECT - works in both H2 and MySQL: -->
+<property column="`value`" name="value" />
+```
+
+**4. FK Constraints from HBM `<one-to-many>` Mappings**
+When `hbm2ddl.auto=create` runs, `<set>` mappings with `<one-to-many>` generate FK constraints. Tests must create parent records before inserting child records. Check HBM files for relationships:
+```xml
+<!-- This in casemgmt_note.hbm.xml creates FK on casemgmt_note_ext.note_id: -->
+<set name="extend" table="casemgmt_note_ext">
+    <key column="note_id"/>
+    <one-to-many class="CaseManagementNoteExt"/>
+</set>
+```
+Test fix: Create parent records in `@BeforeEach` and use their generated IDs.
+
+**5. VARCHAR Length Constraints**
+Check HBM mappings for column length limits. For example, `provider_no` is `VARCHAR(6)` in `SecProvider.hbm.xml`. Test data (like `uniquePrefix + suffix`) must fit within these limits.
+
+**6. Dual Entity Mappings to Same Table**
+`Provider.hbm.xml` and `SecProvider.hbm.xml` both map to the `provider` table. When creating test data for one entity, you must satisfy NOT NULL constraints from BOTH mappings. For example, `specialty` is required by `Provider.hbm.xml` even when testing through `SecProvider`:
+```java
+secProvider.setSpecialty("");  // NOT NULL in Provider.hbm.xml
+```
+
+**7. H2/MySQL BOOLEAN Incompatibility**
+H2 uses actual `BOOLEAN` type while MySQL uses `TINYINT(1)`. HQL comparisons like `locked<>'1'` work in MySQL (comparing TINYINT with string) but fail in H2. Fix production HQL to use proper boolean comparisons: `cmn.locked = false` instead of `cmn.locked != '1'`. This is both more correct and cross-database compatible.
+
+**8. Formula Columns Require Reference Tables**
+HBM `<property formula="...">` subselects execute even when not directly queried. If a formula references a table (e.g., `secRole`, `program`), that table must exist in the test database. Add `CREATE TABLE IF NOT EXISTS` statements to `test-lookup-tables.sql`.
+
+**9. `hbm2ddl` Execution Order**
+`EntityManagerFactory` with `hbm2ddl.auto=create` DROPS and recreates all managed entity tables. This runs AFTER `databaseInitializer` SQL scripts. So tables created by `test-lookup-tables.sql` for HBM-managed entities will be dropped and recreated by hbm2ddl. Use `CREATE TABLE IF NOT EXISTS` in SQL scripts as a safety net, but understand that hbm2ddl is the authoritative schema source for mapped entities.
+
+**10. HQL LIKE Queries Need Explicit Wildcards**
+DAO methods using HQL `LIKE` do not auto-add `%` wildcards. Tests must include them:
+```java
+// WRONG - will only match exact string:
+dao.searchNotes("111", "diabetes");
+
+// CORRECT - wraps with wildcards for partial matching:
+dao.searchNotes("111", "%diabetes%");
+```
+Note: This is standard SQL behavior, NOT a production bug. Callers provide wildcards from the UI layer.
+
+**11. DAO Methods May Override Test Data**
+Some DAO `save*()` methods override fields like `update_date` with `new Date()`. When testing date-based queries, re-set the date after saving:
+```java
+caseManagementIssueDAO.saveIssue(cmi);  // Overwrites update_date with now()
+cmi.setUpdate_date(desiredDate);         // Re-set to test-specific date
+hibernateTemplate.flush();               // Persist the corrected date
+```
+Always check the DAO implementation before assuming test data is persisted as-is.
+
+**12. SpringUtils Identity Across Multiple Contexts**
+When running the full test suite, classes with `@TestPropertySource` create separate Spring contexts. `SpringUtils.getBean()` may return instances from a different context than `@Autowired` injection. Do NOT assert instance identity (`isSameAs`/`isEqualTo`). Instead assert type:
+```java
+// WRONG - fails across multiple Spring contexts:
+assertThat(springUtilsDao).isSameAs(autowiredDao);
+
+// CORRECT - verifies correct type regardless of context:
+assertThat(springUtilsDao).isInstanceOf(autowiredDao.getClass());
+```
+
+**13. Read DAO Method Semantics Carefully**
+DAO method names can be misleading. For example, `getProviders(boolean active)` returns providers filtered by that status — `getProviders(false)` returns INACTIVE providers, not ALL providers. Always read the DAO implementation before writing test assertions.
+
 ## Code Quality Standards
 
 **Security (CodeQL Integration)**:
@@ -293,6 +382,22 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **BCAR Forms**: British Columbia Antenatal Record for pregnancy care
 - **Mental Health Assessments**: Standardized clinical assessment forms
 - **Laboratory Requisitions**: Province-specific lab ordering forms
+
+## Drools Decision Support System
+
+**Version**: Drools 7.74.1.Final (KIE API), migrated from Drools 2.0 in PR #423
+**MVEL**: `mvel2:2.5.2.Final` (overridden from 2.4.x for Java 21 compatibility; 2.4.x references `java.lang.Compiler` removed in JDK 16)
+**Documentation**: Full architecture, DRL file reference, and known bugs in `docs/drools-decision-support-system.md`
+
+**Key Classes**:
+- `DroolsHelper` — compiles DRL to `KieBase` via `KieHelper` (standalone, no global KIE repository pollution)
+- `RuleBaseFactory` — thread-safe `QueueCache` of compiled `KieBase` objects (24h TTL, SHA-256 keyed)
+- `DroolsCompilationException` — checked exception for DRL compilation failures
+- `RuleBaseCreator` — generates DRL from `DSCondition` objects, compiles and caches
+- `TargetColour` / `Recommendation` — generate DRL from flowsheet XML for color indicators and clinical reminders
+- `WorkFlowDS` — wraps `KieBase` for workflow rule execution (e.g., Rh pregnancy management)
+
+**Test Coverage**: Tests in `src/test-modern/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
 
 ## Technology Stack Details
 
@@ -374,7 +479,7 @@ Located in `/scripts` directory within the container (copied from `.devcontainer
 - **Build Process**: Stops Tomcat → Builds WAR → Creates symlink → Starts Tomcat
 - **Configuration**: Auto-creates `over_ride_config.properties` from template
 - **Parallel builds**: Uses `-T 1C` for faster Maven builds
-- **Deployment**: Handles versioned WAR directories with symlinks to `/usr/local/tomcat/webapps/oscar`
+- **Deployment**: Handles versioned WAR directories with symlinks to `/usr/local/tomcat/webapps/carlos`
 
 ## Architecture Patterns
 

@@ -190,19 +190,15 @@
                         <tbody>
                             <c:forEach var="data" items="${measurementsData.measurementsDataVector}" varStatus="ctr">
 
-                                <!-- Open the row once, add optional background color if remoteFacility is present -->
-                                <tr class="data" style="${not empty data.remoteFacility ? 'background-color:#ffcccc;' : ''}">
+                                <tr class="data">
                                     <!-- Type -->
                                     <td>
                                         <a title="${data.typeDescription}">${data.type}</a>
                                     </td>
 
-                                    <!-- Provider + optional remote facility tag -->
+                                    <!-- Provider -->
                                     <td>
                                         ${data.providerFirstName} ${data.providerLastName}
-                                        <c:if test="${not empty data.remoteFacility}">
-                                            <br/><span style="color:#990000"> @: ${data.remoteFacility}</span>
-                                        </c:if>
                                     </td>
 
                                     <!-- Measuring Instruction -->
@@ -229,12 +225,10 @@
                                         <fmt:formatDate value="${data.dateEnteredAsDate}" pattern="yyyy-MM-dd"/>
                                     </td>
 
-                                    <!-- Delete Checkbox (only render if user has rights & not remote data) -->
+                                    <!-- Delete Checkbox (only render if user has write rights) -->
                                     <security:oscarSec roleName="<%=userroleName%>" objectName="_flowsheet" rights="w">
                                         <td class="DoNotPrint">
-                                            <c:if test="${empty data.remoteFacility}">
-                                                <input type="checkbox" name="deleteCheckbox" value="${data.id}">
-                                            </c:if>
+                                            <input type="checkbox" name="deleteCheckbox" value="${data.id}">
                                         </td>
                                     </security:oscarSec>
 

@@ -30,8 +30,6 @@
 
 package io.github.carlos_emr.carlos.form;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Date;
 import java.util.List;
@@ -40,11 +38,7 @@ import java.util.Properties;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicForm;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdIntegerCompositePk;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
@@ -230,26 +224,4 @@ public class FrmLabReq10Record extends FrmRecord {
     }
 
 
-    public static Properties getRemoteRecordProperties(LoggedInInfo loggedInInfo, Integer remoteFacilityId, Integer formId) throws IOException {
-        FacilityIdIntegerCompositePk pk = new FacilityIdIntegerCompositePk();
-        pk.setIntegratorFacilityId(remoteFacilityId);
-        pk.setCaisiItemId(formId);
-
-        DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-        CachedDemographicForm form = demographicWs.getCachedDemographicForm(pk);
-
-        ByteArrayInputStream bais = new ByteArrayInputStream(form.getFormData().getBytes());
-
-        Properties p = new Properties();
-        p.load(bais);
-
-        // missing
-        // props.setProperty("hcType", demographic.getHcType());
-        // props.setProperty("demoProvider", demographic.getProviderNo());
-        // props.setProperty("clinicProvince",oscar.Misc.getString(rs, "clinic_province"));
-
-        logger.debug("Remote properties : " + p);
-
-        return (p);
-    }
 }

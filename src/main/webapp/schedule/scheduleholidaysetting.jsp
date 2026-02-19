@@ -67,6 +67,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%
+    if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return;
+    }
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
 %>
 

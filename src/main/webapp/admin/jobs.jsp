@@ -63,7 +63,7 @@
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>OSCAR Jobs</title>
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.structure-1.12.1.min.css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">
@@ -86,24 +86,18 @@
 
         <script>
             function cancelJob(jobId) {
-                jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/cancelJob?jobId=" + jobId, {async: true},
+                jQuery.post("<%= request.getContextPath() %>/ws/rs/jobs/cancelJob", {jobId: jobId},
                     function (xml) {
                         listJobs();
-                    });
+                    }, "json");
             }
 
             function updateJobStatus(jobId, status) {
-                if (status) {
-                    jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/enableJob?jobId=" + jobId, {async: true},
-                        function (xml) {
-                            listJobs();
-                        });
-                } else {
-                    jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/disableJob?jobId=" + jobId, {async: true},
-                        function (xml) {
-                            listJobs();
-                        });
-                }
+                var action = status ? "enableJob" : "disableJob";
+                jQuery.post("<%= request.getContextPath() %>/ws/rs/jobs/" + action, {jobId: jobId},
+                    function (xml) {
+                        listJobs();
+                    }, "json");
             }
 
             function scheduleJob(jobId) {
@@ -212,7 +206,7 @@
                                 var job = arr[i];
                                 var extraClass = (job.cronExpression != undefined) ? "blue" : "red";
                                 var html = '<tr>';
-                                html += '<td><a onclick="scheduleJob(' + job.id + ');"><i class="icon-calendar ' + extraClass + '"></i></a></td>';
+                                html += '<td><a onclick="scheduleJob(' + job.id + ');"><i class="fa-solid fa-calendar ' + extraClass + '"></i></a></td>';
                                 html += '<td><u><a href="javascript:void();" onclick="editJob(' + job.id + ');">' + job.name + '</a></u></td>';
                                 html += '<td><a onclick="cancelJob(' + job.id + ');">Cancel</a></td>';
                                 html += '<td>' + ((job.enabled == true) ? "Enabled (<a onclick='updateJobStatus(" + job.id + ",false)'>Disable</a>)" : "<span color='red'>Disabled</span> (<a onclick='updateJobStatus(" + job.id + ",true)'>Enable</a>)") + '</td>';

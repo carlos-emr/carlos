@@ -148,6 +148,7 @@ display:inline-block;
                 display: none;
             }
         </style>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     </head>
 
@@ -169,7 +170,7 @@ display:inline-block;
 <div class="container-fluid" id="container-main">
 
         <div class="span8">
-<form action="FlowSheetCustomAction.do" onsubmit="return validateRuleValue();">
+<form action="FlowSheetCustomAction.do" method="post" onsubmit="return validateRuleValue();">
                 <input type="hidden" name="method" value="update"/>
                 <input type="hidden" name="flowsheet" value="<%=flowsheet%>"/>
                 <input type="hidden" name="measurement" value="<%=measurement%>"/>
@@ -499,7 +500,7 @@ display:inline-block;
         </div>
     </div>
 
-    <div id="scrollToTop"><a href="#updateFlowsheetBody"><i class="icon-arrow-up"></i>Top</a></div>
+    <div id="scrollToTop"><a href="#updateFlowsheetBody"><i class="fa-solid fa-arrow-up"></i>Top</a></div>
 
 
     <script src="<%=request.getContextPath() %>/js/jquery-1.9.1.js"></script>

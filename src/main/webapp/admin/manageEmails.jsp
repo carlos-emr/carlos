@@ -25,7 +25,7 @@
     <link href="${ctx}/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/css/datepicker.css" rel="stylesheet" type="text/css"/>
     <link href="${ctx}/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
-    <link href="${ctx}/css/font-awesome.min.css" rel="stylesheet">
+    <link href="${ctx}/css/fontawesome-all.min.css" rel="stylesheet">
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.6.4.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate.min.js"></script>
@@ -254,7 +254,7 @@
                         <div class="input-group">
                             <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    placeholder="YYYY-MM-DD" id="dateBegin" name="dateBegin" required/>
-                            <span class="input-group-text"><i class="icon-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
                     <div class="col-sm-3 form-group">
@@ -262,7 +262,7 @@
                         <div class="input-group">
                             <input class="form-control" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    placeholder="YYYY-MM-DD" id="dateEnd" name="dateEnd" required/>
-                            <span class="input-group-text"><i class="icon-calendar"></i></span>
+                            <span class="input-group-text"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
                     <div class="col-sm-6 form-group">
@@ -300,12 +300,12 @@
                 <div class="row mt-3">
                     <div class="col-sm-12">
                         <button type="submit" id="btnFetch" class="btn btn-primary btn-md" value="Fetch">
-                            <span class="btn-label"><i class="icon-search"></i></span>
+                            <span class="btn-label"><i class="fa-solid fa-magnifying-glass"></i></span>
                             Fetch Emails
                         </button>
                         <button class="btn btn-secondary btn-md" value="Reset" type="reset"
                                 onclick="return resetForm();">
-                            <span class="btn-label"><i class="icon-repeat"></i></span>
+                            <span class="btn-label"><i class="fa-solid fa-repeat"></i></span>
                             Reset
                         </button>
                     </div>

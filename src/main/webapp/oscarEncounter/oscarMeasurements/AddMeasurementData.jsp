@@ -414,7 +414,7 @@
                 %>
                 <!-- END of Master Calendar Input -->
 
-                <form action="${pageContext.request.contextPath}/<%=saveAction%>" id="measurementForm">
+                <form action="${pageContext.request.contextPath}/<%=saveAction%>" id="measurementForm" method="post">
                     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 
                     <input type="hidden" name="numType" value="<%=measurements.length%>"/>

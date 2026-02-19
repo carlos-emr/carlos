@@ -43,6 +43,13 @@
         return;
     }
 %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Catchment Report</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+</head>
+<body>
 
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"
@@ -98,7 +105,7 @@
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportCatchment.title"/>
         <div class="pull-right">
             <button name='print' onClick='window.print()' class="btn">
-                <i class="icon-print icon-black"></i>
+                <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
         </div>
@@ -185,3 +192,5 @@
         });
     });
 </script>
+</body>
+</html>

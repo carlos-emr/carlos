@@ -244,7 +244,7 @@
     <oscar:customInterface section="invoice"/>
 </head>
 <body>
-<form action="<%=request.getContextPath()%>/BillingInvoice.do">
+<form action="<%=request.getContextPath()%>/BillingInvoice.do" method="post">
     <input type="hidden" name="method" value=""/>
     <input type="hidden" name="invoiceNo" id="invoiceNo" value="<%=invoiceNoStr%>"/>
     <div class="doNotPrint">

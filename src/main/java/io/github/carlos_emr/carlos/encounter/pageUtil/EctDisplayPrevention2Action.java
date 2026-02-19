@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicPrevention;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.prevention.Prevention;
@@ -88,26 +87,12 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             ArrayList<NavBarDisplayDAO.Item> warnings = new ArrayList<NavBarDisplayDAO.Item>();
             ArrayList<NavBarDisplayDAO.Item> items = new ArrayList<NavBarDisplayDAO.Item>();
             String result;
-            Date demographicDateOfBirth = PreventionData.getDemographicDateOfBirth(loggedInInfo, demographicNumber);
-
-            // fetch and cache any remote integrated preventions.
-            List<CachedDemographicPrevention> integratedPreventions = null;
-            List<CachedDemographicPrevention> remotePreventions = PreventionData.getRemotePreventions(loggedInInfo, demographicNumber);
-
-            if (remotePreventions.size() > 0) {
-                integratedPreventions = new ArrayList<CachedDemographicPrevention>();
-                integratedPreventions.addAll(remotePreventions);
-            }
 
             for (int i = 0; i < prevList.size(); i++) {
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
                 HashMap<String, String> h = prevList.get(i);
                 String prevName = h.get("name");
                 ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, demographicNumber);
-
-                if (integratedPreventions != null) {
-                    PreventionData.addRemotePreventions(loggedInInfo, integratedPreventions, alist, prevName, demographicDateOfBirth);
-                }
 
                 boolean show = pdc.display(loggedInInfo, h, bean.demographicNo, alist.size());
                 if (show) {
@@ -132,10 +117,6 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
                             item.setColour(pendingColour);
                         }
 
-                        if (hdata.containsKey("integratorDemographicId")) {
-                            item.setBgColour("#FFCCCC");
-
-                        }
                     } else {
                         item.setDate(null);
                     }

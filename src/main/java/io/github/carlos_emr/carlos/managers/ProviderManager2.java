@@ -456,12 +456,6 @@ public class ProviderManager2 {
         settings.setDefaultDoNotDeleteBilling(pp.getDefaultDoNotDeleteBilling() == 1 ? true : false);
 
         settings.setPrintQrCodeOnPrescription(pp.isPrintQrCodeOnPrescriptions());
-        settings.seteRxEnabled(pp.isERxEnabled());
-        settings.seteRxTrainingMode(pp.isERxTrainingMode());
-        settings.seteRxFacility(pp.getERxFacility());
-        settings.seteRxURL(pp.getERx_SSO_URL());
-        settings.seteRxUsername(pp.getERxUsername());
-        settings.seteRxPassword(pp.getERxPassword());
 
         settings.setDefaultPmm("enabled".equals(pp.getDefaultCaisiPmm()));
 
@@ -527,13 +521,6 @@ public class ProviderManager2 {
         pp.setDefaultDoNotDeleteBilling(settings.isDefaultDoNotDeleteBilling() ? 1 : 0);
 
         pp.setPrintQrCodeOnPrescriptions(settings.isPrintQrCodeOnPrescription());
-        pp.setERxEnabled(settings.iseRxEnabled());
-
-        pp.setERxTrainingMode(settings.iseRxTrainingMode());
-        pp.setERxFacility(settings.geteRxFacility());
-        pp.setERx_SSO_URL(settings.geteRxURL());
-        pp.setERxUsername(settings.geteRxUsername());
-        pp.setERxPassword(settings.geteRxPassword());
 
         pp.setDefaultCaisiPmm(settings.isDefaultPmm() ? "enabled" : "disabled");
         pp.setProviderNo(providerNo);

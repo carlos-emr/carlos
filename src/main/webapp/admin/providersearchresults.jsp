@@ -89,6 +89,7 @@
                 });
             });
         </script>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     </head>
 
@@ -120,7 +121,7 @@
     <body onLoad="setfocus()">
 
     <h4>
-        <i class="icon-search" title="Patient Search"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.description"/></h4>
+        <i class="fa-solid fa-magnifying-glass" title="Patient Search"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providersearchresults.description"/></h4>
 
     <form method="post" action="providersearchresults.jsp" name="searchprovider" onsubmit="return onsub()">
         <div class="well">
@@ -157,7 +158,7 @@
                             <input type="text" name="keyword" class="input input-large" maxlength="100"
                                    style="height:24px">
                             <button type="submit" name="button" class="btn add-on" style="height:24px"><i
-                                    class="icon-search" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.btnSubmit"/>"></i>
+                                    class="fa-solid fa-magnifying-glass" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.btnSubmit"/>"></i>
                             </button>
                         </div>
                         <input type="hidden" name="orderby" value="last_name">

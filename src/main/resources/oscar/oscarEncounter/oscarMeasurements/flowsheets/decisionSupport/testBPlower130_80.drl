@@ -1,28 +1,60 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
+// ============================================================================
+// CARLOS EMR - Clinical Report Numerator: BP At or Below 130/80 (DM Target)
+// ============================================================================
+//
+// Purpose:
+//   Population health reporting rule counting patients with last recorded
+//   BP <131/81 (i.e., <=130/80, the diabetes-specific target) AND measured
+//   within the last 13 months. This is a quality indicator for diabetic
+//   BP control. The 13-month window ensures only current readings count.
+//
+// Referenced By:
+//   - XML: ClinicalReports.xml, Numerator id="bplt130_80"
+//   - Java: DroolsNumerator compiles and fires for each denominator patient
+//   - Displayed in: Clinical Reports interface
+//
+// Fact: MeasurementDSHelper - getNumberFromSplit("/",0/1) parses systolic/
+//   diastolic, getLastDateRecordedInMths() checks recency.
+// ============================================================================
+package ReportBPLower130_80;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
-<rule-set name="ReportA1C"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
-
-    <rule name="BP">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("BP") == true</java:condition>       
-        <java:condition>m.getNumberFromSplit("/",0) &lt; 131</java:condition>         
-        <java:condition>m.getNumberFromSplit("/",1) &lt; 81</java:condition> 
-        <java:condition>m.getLastDateRecordedInMths() &lt; 13</java:condition>
-        <java:consequence>     
-              m.log("BP RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
-
-</rule-set>
-
-
+// BP <=130/80: Checks BOTH systolic (<131) AND diastolic (<81) components.
+// Also requires recording within 13 months (getLastDateRecordedInMths < 13).
+// Patient must pass ALL four conditions to be counted in the numerator.
+rule "BP"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("BP") == true )
+        eval( m.getNumberFromSplit("/",0) < 131 )
+        eval( m.getNumberFromSplit("/",1) < 81 )
+        eval( m.getLastDateRecordedInMths() < 13 )
+    then
+        m.log("BP RULES IS GETTING RUN");
+        m.setInRange(true);
+end

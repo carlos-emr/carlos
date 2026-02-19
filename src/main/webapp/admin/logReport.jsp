@@ -115,7 +115,7 @@
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
 
 
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <title>Log Report</title>
         <script language="JavaScript">
 
@@ -184,7 +184,7 @@
                 <div class="input-append">
                     <input type="text" name="startDate" id="startDate1" value="<%=startDate!=null?startDate:""%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
@@ -193,7 +193,7 @@
                 <div class="input-append">
                     <input type="text" name="endDate" id="endDate1" value="<%=endDate!=null?endDate:""%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
@@ -270,7 +270,7 @@
     %> - Log Report</h4>
 
     <button class="btn pull-right" onClick="window.print()" style="margin-bottom:4px">
-        <i class="icon-print"></i> Print
+        <i class="fa-solid fa-print"></i> Print
     </button>
 
 

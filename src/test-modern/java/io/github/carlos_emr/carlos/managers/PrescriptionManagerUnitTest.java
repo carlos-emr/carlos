@@ -580,18 +580,6 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
             assertThat(result).isEmpty();
         }
 
-        @Test
-        @DisplayName("should not contact integrator when integrator disabled")
-        void shouldNotContactIntegrator_whenIntegratorDisabled() {
-            // Given - integrator is disabled by default in PrescriptionUnitTestBase
-            when(mockDrugDao.findByDemographicId(TEST_DEMO_NO)).thenReturn(new ArrayList<>());
-
-            // When
-            prescriptionManager.getUniqueDrugsByPatient(mockLoggedInInfo, TEST_DEMO_NO);
-
-            // Then
-            verify(mockFacility).isIntegratorEnabled();
-        }
     }
 
     /**
