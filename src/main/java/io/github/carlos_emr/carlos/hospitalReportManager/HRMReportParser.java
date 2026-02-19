@@ -147,13 +147,14 @@ public class HRMReportParser {
                 logger.error("SAX ERROR PARSING XML " + e);
                 if (errors != null) errors.add(e);
             } catch (JAXBException e) {
-                logger.error("error", e);
                 String msg = (e.getLinkedException() != null)
                     ? e.getLinkedException().getMessage()
                     : e.getMessage();
-                SFTPConnector.notifyHrmError(loggedInInfo, msg);
+                logger.error("HRM JAXB parse error: " + msg, e);
+                if (errors != null) errors.add(e);
             } catch (IOException e) {
-                logger.error("ERROR READING report_manager_cds.xsd RESOURCE" + e);
+                logger.error("ERROR READING report_manager_cds.xsd RESOURCE", e);
+                if (errors != null) errors.add(e);
             }
 
             if (root != null && hrmReportFileLocation != null && fileData != null) {
@@ -487,16 +488,7 @@ public class HRMReportParser {
 
         String practitionerNo = report.getDeliverToUserId();
 
-        Provider sendToProvider = null;
-        if (OscarProperties.getInstance().isPropertyActive("OMD_match_using_OLIS_identifier_type")) {
-            if (practitionerNo.startsWith("D")) {
-                sendToProvider = providerDao.getProviderByPractitionerNoAndOlisType(practitionerNo.substring(1), "MDL");
-            } else if (practitionerNo.startsWith("N")) {
-                sendToProvider = providerDao.getProviderByPractitionerNoAndOlisType(practitionerNo.substring(1), "NPL");
-            }
-        } else {
-            sendToProvider = providerDao.getProviderByPractitionerNo(practitionerNo.substring(1));
-        }
+        Provider sendToProvider = providerDao.getProviderByPractitionerNo(practitionerNo.substring(1));
 
         List<Provider> sendToProviderList = new LinkedList<Provider>();
         if (sendToProvider != null) {

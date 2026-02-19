@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.mds.pageUtil;
 
 import java.io.IOException;
+import java.util.Calendar;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -46,6 +47,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -120,15 +123,34 @@ public class ReportMacro2Action extends ActionSupport {
     protected boolean runMacro(ObjectNode macro, HttpServletRequest request) {
         logger.info("running macro " + macro.get("name").asText());
         String segmentID = request.getParameter("segmentID");
-        String providerNo = request.getParameter("providerNo");
         String labType = request.getParameter("labType");
         String demographicNo = request.getParameter("demographicNo");
+
+        // Use session-derived provider ID for security (prevent impersonation)
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (macro.has("acknowledge")) {
             logger.info("Acknowledging lab " + labType + ":" + segmentID);
             ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
             String comment = jAck.get("comment").asText();
-            CommonLabResultData.updateReportStatus(Integer.parseInt(segmentID), providerNo, 'A', comment, labType, skipComment(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo()));
+            if (StringUtils.isBlank(segmentID)) {
+                logger.error("Cannot acknowledge lab: missing or empty segmentID for labType=" + labType);
+                return false;
+            }
+            final int segmentInt;
+            try {
+                segmentInt = Integer.parseInt(segmentID);
+            } catch (NumberFormatException e) {
+                logger.error("Cannot acknowledge lab: non-numeric segmentID='" + segmentID + "' for labType=" + labType, e);
+                return false;
+            }
+            CommonLabResultData.updateReportStatus(segmentInt, providerNo, 'A', comment, labType, skipComment(providerNo));
+
+            // Audit log for lab acknowledgment
+            LogAction.addLogSynchronous(providerNo, LogConst.ACK,
+                "labType=" + labType + ",segmentID=" + segmentID + ",demographicNo=" + demographicNo,
+                LogConst.CON_MDS_LAB, loggedInInfo.getIp());
         }
         if (macro.has("tickler") && !StringUtils.isEmpty(demographicNo)) {
             ObjectNode jTickler = (ObjectNode) macro.get("tickler");
@@ -139,8 +161,62 @@ public class ReportMacro2Action extends ActionSupport {
                 t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
                 t.setDemographicNo(Integer.parseInt(demographicNo));
                 t.setMessage(jTickler.get("message").asText());
-                t.setCreator(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+                t.setCreator(providerNo);
+
+                // Set future service date if quantity and timeUnits are provided
+                if (jTickler.has("quantity") && jTickler.has("timeUnits")) {
+                    // Validate that quantity and timeUnits are not null
+                    if (!jTickler.get("quantity").isNull() && !jTickler.get("timeUnits").isNull()) {
+                        try {
+                            Calendar cal = Calendar.getInstance();
+                            int qty = Integer.parseInt(jTickler.get("quantity").asText());
+                            int code = Integer.parseInt(jTickler.get("timeUnits").asText());
+
+                            // Validate that quantity is positive (negative values would create past-dated ticklers)
+                            if (qty <= 0) {
+                                logger.warn("Tickler quantity must be positive. Received: {}. Skipping date calculation.", qty);
+                            } else {
+                                // Time unit codes: 1=days, 7=weeks, 30=months, 365=years
+                                boolean validCode = false;
+                                switch (code) {
+                                    case 1:  // days
+                                        cal.add(Calendar.DATE, qty);
+                                        validCode = true;
+                                        break;
+                                    case 7:  // weeks
+                                        cal.add(Calendar.WEEK_OF_YEAR, qty);
+                                        validCode = true;
+                                        break;
+                                    case 30:  // months
+                                        cal.add(Calendar.MONTH, qty);
+                                        validCode = true;
+                                        break;
+                                    case 365:  // years
+                                        cal.add(Calendar.YEAR, qty);
+                                        validCode = true;
+                                        break;
+                                    default:
+                                        logger.warn("Invalid timeUnits code. Valid values are 1 (days), 7 (weeks), 30 (months), 365 (years). Received: {}", code);
+                                        break;
+                                }
+                                // Only set service date if code was valid
+                                if (validCode) {
+                                    t.setServiceDate(cal.getTime());
+                                }
+                            }
+                        } catch (NumberFormatException e) {
+                            logger.warn("Invalid numeric value for quantity or timeUnits in tickler macro", e);
+                        }
+                    } else {
+                        logger.warn("Tickler has null quantity or timeUnits - skipping date calculation");
+                    }
+                }
                 ticklerDao.persist(t);
+
+                // Audit log for tickler creation
+                LogAction.addLogSynchronous(providerNo, LogConst.ADD,
+                    "ticklerId=" + t.getId() + ",demographicNo=" + demographicNo,
+                    LogConst.CON_MDS_LAB, loggedInInfo.getIp());
 
                 TicklerLink tl = new TicklerLink();
                 tl.setTableId(Long.valueOf(segmentID));

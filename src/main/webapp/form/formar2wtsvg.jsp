@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -79,9 +80,9 @@
         if (request.getParameter("bgimage") != null) {
     %>
     <image id="img" x="0" y="0"
-           width="<%=request.getParameter("bgimagewidth")%>"
-           height="<%=request.getParameter("bgimageheight")%>"
-           xlink:href="<%=request.getParameter("bgimage")%>" opacity="1"
+           width="<%=Encode.forHtmlAttribute(request.getParameter("bgimagewidth"))%>"
+           height="<%=Encode.forHtmlAttribute(request.getParameter("bgimageheight"))%>"
+           xlink:href="<%=Encode.forHtmlAttribute(request.getParameter("bgimage"))%>" opacity="1"
            onmouseout="showDot(evt)" onmouseover="showDot(evt)"/>
     "
     <%

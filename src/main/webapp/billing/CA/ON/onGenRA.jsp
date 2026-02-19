@@ -82,6 +82,7 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></title>
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script language="JavaScript">
         <!--
@@ -107,9 +108,18 @@
             awnd.focus();
         }
 
-        function checkReconcile(url) {
+        function checkReconcile(action, rano) {
             if (confirm("You are about to reconcile the file, are you sure?")) {
-                location.href = url;
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = action;
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'rano';
+                input.value = rano;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
             } else {
                 alert("You have cancel the action!");
             }
@@ -124,7 +134,7 @@
 
 <div class="container-fluid well">
     <button class="btn btn-primary pull-right" type='button' name='print' value='Print'
-            onClick='window.print(); return false;'><i class="icon icon-print icon-white"></i> Print
+            onClick='window.print(); return false;'><i class="fa-solid fa-print"></i> Print
     </button>
     <br/><br/>
 
@@ -183,7 +193,7 @@
                     target="_blank">Summary</a>| <a
                     href="<%= request.getContextPath() %>/billing/CA/ON/genRADesc.jsp?rano=<%=raNo%>" target="_blank">Report
             </a></td>
-            <td><%=status.compareTo("N") == 0 ? "<a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle.jsp?rano=" + raNo + "')\">Settle</a> <a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle35.jsp?rano=" + raNo + "')\">S35</a>" : status.compareTo("S") == 0 ? " <a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle35.jsp?rano=" + raNo + "')\">S35</a>" : "Processed"%>
+            <td><%=status.compareTo("N") == 0 ? "<a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle.jsp','" + raNo + "')\">Settle</a> <a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle35.jsp','" + raNo + "')\">S35</a>" : status.compareTo("S") == 0 ? " <a href=# onClick=\"checkReconcile('../billing/CA/ON/onGenRAsettle35.jsp','" + raNo + "')\">S35</a>" : "Processed"%>
             </td>
         </tr>
         <%

@@ -192,7 +192,7 @@
 
         <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <oscar:customInterface section="editInvoice"/>
 
@@ -739,7 +739,7 @@
         %>
 
 
-        <form action="<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do">
+        <form action="<%=request.getContextPath() %>/billing/CA/ON/BillingONCorrection.do" method="post">
             <input type="hidden" name="method" value="updateInvoice"/>
             <input type="hidden" name="xml_billing_no" value="<%=billNo%>"/>
             <input type="hidden" name="update_date" value="<%=nullToEmpty(createTimestamp)%>"/>
@@ -782,7 +782,7 @@
                                 <div class="input-append">
                                     <input type="text" name="rdohip" value="<%=r_doctor_ohip%>" class="span2" readonly/>
                                     <a href="javascript:referralScriptAttach2('rdohip','rd')" class="btn"><i
-                                            class="icon icon-search"></i></a>
+                                            class="fa-solid fa-magnifying-glass"></i></a>
                                 </div>
                             </td>
                         </tr>
@@ -899,7 +899,7 @@
                                 <input type="text" name="xml_appointment_date" id="xml_appointment_date"
                                        value="<%=BillDate%>" style="width:90px"
                                        pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                                <span class="add-on"><i class="icon-calendar"></i></span>
+                                <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                             </div>
                         </div><!--cal span2-->
 
@@ -1040,7 +1040,7 @@
                                 <input type="text" name="xml_vdate" id="xml_vdate" value="<%=visitdate%>"
                                        pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" style="width:90px"
                                        autocomplete="off"/>
-                                <span class="add-on"><i class="icon-calendar"></i></span>
+                                <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                             </div>
                         </div><!--date span-->
                         <br>
@@ -1226,7 +1226,7 @@
 
                     <div class="input-append">
                         <input type="text" name="xml_diagnostic_detail" value="<%=diagCode%>" class="span8">
-                        <a href="javascript:ScriptAttach()" class="btn"><i class="icon icon-search"></i></a>
+                        <a href="javascript:ScriptAttach()" class="btn"><i class="fa-solid fa-magnifying-glass"></i></a>
                     </div>
 
                 </div>
@@ -1253,7 +1253,7 @@
                     <%if (billNo != null) {%>
 
                     <a id="reprintLink" onclick="return sanityCheck('<%=nullToEmpty(billNo)%>', <%=billNoErr%>)" href="billingON3rdInv.jsp?billingNo=<%=billNo%>" class="btn"><i
-                            class="icon icon-print"></i> Reprint</a>
+                            class="fa-solid fa-print"></i> Reprint</a>
                     <a id="rebillLink"
                        onclick="document.querySelector(&quot;select[name='status']&quot;).value = 'O'; document.getElementsByName(&quot;submit&quot;)[1].click();"
                        class="btn">Rebill OHIP</a>
@@ -1293,7 +1293,7 @@
                                     <input type="text" name="invoiceDueDate" id="invoiceDueDate" value="<%=dueDateStr%>"
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"
                                            style="width:90px"/>
-                                    <span class="add-on"><i class="icon-calendar"></i></span>
+                                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
                             </div>
                             <% } %>

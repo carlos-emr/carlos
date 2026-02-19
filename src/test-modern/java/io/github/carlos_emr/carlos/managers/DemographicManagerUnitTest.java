@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.managers;
 import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
-import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
@@ -94,9 +93,6 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
     /** The DemographicManagerImpl instance under test. */
     private DemographicManagerImpl manager;
 
-    /** Static mock for LogAction to prevent actual logging during tests. */
-    private MockedStatic<LogAction> logActionMock;
-
     /** Static mock for DemographicContactCreator to avoid static initialization issues. */
     private MockedStatic<DemographicContactCreator> demographicContactCreatorMock;
 
@@ -106,7 +102,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
      * <p>This method performs the following setup:</p>
      * <ol>
      *   <li>Registers mocks with SpringUtils for static bean lookups</li>
-     *   <li>Mocks static classes (LogAction, DemographicContactCreator) to prevent side effects</li>
+     *   <li>Mocks DemographicContactCreator static class to prevent side effects</li>
      *   <li>Configures default security behavior (privileges granted)</li>
      *   <li>Creates the manager instance and injects all 17 dependencies via reflection</li>
      * </ol>
@@ -125,10 +121,6 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         registerMock(DemographicContactDao.class, mockDemographicContactDao);
         registerMock(ProviderManager2.class, mockProviderManager);
 
-        // Register OscarLogDao mock to satisfy LogAction static initialization
-        registerMock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class,
-                    createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class));
-
         // Register mocks for DemographicContactCreator static initialization
         registerMock(ProfessionalSpecialistDao.class, createAndRegisterMock(ProfessionalSpecialistDao.class));
 
@@ -138,9 +130,6 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             .thenAnswer(invocation -> invocation.getArgument(0));
         demographicContactCreatorMock.when(() -> DemographicContactCreator.addContactDetailsToDemographicContact(any(DemographicContact.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
-
-        // Now we can safely mock LogAction
-        logActionMock = mockStatic(LogAction.class);
 
         // Security manager returns true for all privilege checks by default
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
@@ -182,9 +171,6 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
     void tearDown() {
         if (demographicContactCreatorMock != null) {
             demographicContactCreatorMock.close();
-        }
-        if (logActionMock != null) {
-            logActionMock.close();
         }
     }
 
@@ -1459,9 +1445,9 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             ConsentType consentType = new ConsentType();
             consentType.setId(1);
 
-            when(mockPatientConsentManager.getConsentType("INTEGRATOR_PATIENT_CONSENT")).thenReturn(consentType);
+            when(mockPatientConsentManager.getConsentType("TEST_PATIENT_CONSENT")).thenReturn(consentType);
 
-            manager.updatePatientConsent(mockLoggedInInfo, TEST_DEMO_NO, "INTEGRATOR_PATIENT_CONSENT", true);
+            manager.updatePatientConsent(mockLoggedInInfo, TEST_DEMO_NO, "TEST_PATIENT_CONSENT", true);
 
             verify(mockPatientConsentManager).setConsent(mockLoggedInInfo, TEST_DEMO_NO, 1, true);
         }
@@ -1472,10 +1458,10 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             ConsentType consentType = new ConsentType();
             consentType.setId(1);
 
-            when(mockPatientConsentManager.getConsentType("INTEGRATOR_PATIENT_CONSENT")).thenReturn(consentType);
+            when(mockPatientConsentManager.getConsentType("TEST_PATIENT_CONSENT")).thenReturn(consentType);
             when(mockPatientConsentManager.hasPatientConsented(TEST_DEMO_NO, consentType)).thenReturn(true);
 
-            boolean result = manager.isPatientConsented(mockLoggedInInfo, TEST_DEMO_NO, "INTEGRATOR_PATIENT_CONSENT");
+            boolean result = manager.isPatientConsented(mockLoggedInInfo, TEST_DEMO_NO, "TEST_PATIENT_CONSENT");
 
             assertThat(result).isTrue();
         }
@@ -2029,70 +2015,6 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             DemographicContact result = manager.getPersonalEmergencyContactById(mockLoggedInInfo, 456);
 
             assertThat(result).isNotNull();
-        }
-    }
-
-    // ==================== INTEGRATOR OPERATIONS ====================
-
-    /**
-     * Tests for CAISI Integrator operations.
-     *
-     * <p>The Integrator allows data sharing between multiple EMR installations.
-     * These tests verify behavior when integrator is disabled (the default in
-     * unit tests). Integration-enabled scenarios require more complex setup
-     * and are covered separately.</p>
-     *
-     * <p>Methods tested:</p>
-     * <ul>
-     *   <li>getRemoteDemographic - fetching demographics from remote facilities</li>
-     *   <li>linkDemographicToRemoteDemographic - linking local to remote records</li>
-     *   <li>getLinkedDemographics - retrieving linked demographic pairs</li>
-     *   <li>getLinkedDemographicIds - retrieving IDs of linked demographics</li>
-     * </ul>
-     */
-    @Nested
-    @DisplayName("Integrator Operations")
-    @Tag("integrator")
-    class IntegratorOperationsTests {
-
-        @Test
-        @DisplayName("should return null when integrator disabled for getRemoteDemographic")
-        void shouldReturnNull_whenIntegratorDisabledForGetRemoteDemographic() {
-            when(mockFacility.isIntegratorEnabled()).thenReturn(false);
-
-            Demographic result = manager.getRemoteDemographic(mockLoggedInInfo, 1, 1001);
-
-            assertThat(result).isNull();
-        }
-
-        @Test
-        @DisplayName("should return false when integrator disabled for linkDemographicToRemoteDemographic")
-        void shouldReturnFalse_whenIntegratorDisabledForLinkDemographic() {
-            when(mockFacility.isIntegratorEnabled()).thenReturn(false);
-
-            boolean result = manager.linkDemographicToRemoteDemographic(mockLoggedInInfo, 1001, 2, 2001);
-
-            assertThat(result).isFalse();
-        }
-
-        @Test
-        @DisplayName("should return empty list when integrator disabled for getLinkedDemographics")
-        void shouldReturnEmptyList_whenIntegratorDisabledForGetLinkedDemographics() {
-            when(mockFacility.isIntegratorEnabled()).thenReturn(false);
-
-            var result = manager.getLinkedDemographics(mockLoggedInInfo, TEST_DEMO_NO);
-
-            assertThat(result).isEmpty();
-        }
-
-        @Test
-        @DisplayName("should return empty list when integrator disabled for getLinkedDemographicIds")
-        void shouldReturnEmptyList_whenIntegratorDisabledForGetLinkedDemographicIds() {
-            when(mockFacility.isIntegratorEnabled()).thenReturn(false);
-
-            List<Integer> result = manager.getLinkedDemographicIds(mockLoggedInInfo, TEST_DEMO_NO, 1);
-
-            assertThat(result).isEmpty();
         }
     }
 

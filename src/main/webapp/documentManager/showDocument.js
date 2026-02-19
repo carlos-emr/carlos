@@ -16,7 +16,7 @@ function popupPatientTicklerPlus(height, width, url, windowName, docId) {
 function popupPatientTickler(height, width, url, windowName, docId) {
     d = document.getElementById('demofind' + docId).value; //demog  //attachedDemoNo
     n = document.getElementById('demofindName' + docId).value;
-    urlNew = url + "demographic_no=" + d + "&name=" + n + "&chart_no=&bFirstDisp=false&messageID=null&remoteFacilityId=&docType=DOC&docId=" + docId;
+    urlNew = url + "demographic_no=" + d + "&name=" + n + "&chart_no=&bFirstDisp=false&messageID=null&docType=DOC&docId=" + docId;
     return popup2(height, width, 0, 0, urlNew, windowName);
 }
 

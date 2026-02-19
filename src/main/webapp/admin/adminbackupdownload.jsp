@@ -92,7 +92,7 @@
   <head>
     <title>Admin Backup Download</title>
     <link href="<%= request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet"/>
-    <link href="<%= request.getContextPath() %>/css/font-awesome.min.css" rel="stylesheet"/>
+    <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"/>
     <script type="text/javascript"
             src="${pageContext.request.contextPath}${calendarLangUrl}">
     </script>

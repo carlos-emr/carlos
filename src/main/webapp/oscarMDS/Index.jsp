@@ -190,8 +190,6 @@
                                 <% if (!OscarProperties.getInstance().isBritishColumbiaBillingRegion()) { %>
                                 <a href="javascript:popupStart(800,1000, '${pageContext.servletContext.contextPath}/oscarMDS/CreateLab.jsp')"
                                    style="color: #FFFFFF;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.createLab"/></a>
-                                <a href="javascript:popupStart(800,1000, '${pageContext.servletContext.contextPath}/olis/Search.jsp')"
-                                   style="color: #FFFFFF;"><fmt:setBundle basename="oscarResources"/><fmt:message key="olis.olisSearch"/></a>
                                 <a href="javascript:popupPage(400, 1050,'${pageContext.servletContext.contextPath}/hospitalReportManager/hospitalReportManager.jsp')"
                                    style="color: #FFFFFF;">HRM Status/Upload</a>
                                 <% } %>

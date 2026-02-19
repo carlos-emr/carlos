@@ -49,8 +49,6 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.olis.dao.OLISSystemPreferencesDao;
-import io.github.carlos_emr.carlos.olis.model.OLISSystemPreferences;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -272,39 +270,25 @@ public final class MessageUploader {
             demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin, connection);
         }
 
-		if ("OLIS_HL7".equals(type) && "0".equals(demProviderNo)) {
-			OLISSystemPreferencesDao olisPrefDao = (OLISSystemPreferencesDao) SpringUtils.getBean("OLISSystemPreferencesDao");
-            OLISSystemPreferences olisPreferences = olisPrefDao.getPreferences();
+        Integer limit = null;
+        boolean orderByLength = false;
+        String search = null;
+        if ("Spire".equals(type)) {
+            limit = Integer.valueOf(1);
+            orderByLength = true;
+            search = "provider_no";
+        }
 
-            try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
-                if (olisPreferences.isFilterPatients()) {
-                    //set as unclaimed
-                    providerRouteReport(String.valueOf(insertID), null, connection, String.valueOf(0), type);
-                } else {
-                    providerRouteReport(String.valueOf(insertID), docNums, DbConnectionFilter.getThreadLocalDbConnection(), demProviderNo, type);
-                }
-            }
-        } else {
-            Integer limit = null;
-            boolean orderByLength = false;
-            String search = null;
-			if ("Spire".equals(type)) {
-                limit = Integer.valueOf(1);
-                orderByLength = true;
-                search = "provider_no";
-            }
+        if ( "MEDITECH".equals(type) || "ExcellerisON".equals(type) ) {
+            search = "practitionerNo"; // ie the college number <oscarDB>.Provider.practitionerNo
+        }
 
-			if ( "MEDITECH".equals(type) || "ExcellerisON".equals(type) ) {
-				search = "practitionerNo"; // ie the college number <oscarDB>.Provider.practitionerNo
-            }
+        if ("IHAPOI".equals(type)) {
+            search = "hso_no";
+        }
 
-            if ("IHAPOI".equals(type)) {
-                search = "hso_no";
-            }
-
-            try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
-                providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength);
-            }
+        try (Connection connection = DbConnectionFilter.getThreadLocalDbConnection()) {
+            providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength);
         }
         retVal = h.audit();
         if (results != null) {
@@ -455,199 +439,10 @@ public final class MessageUploader {
     }
 
 
-    public static Integer willOLISLabReportMatch(LoggedInInfo loggedInInfo, String lastName, String firstName, String sex, String dob, String hin) {
-        Connection conn = null;
-        PatientLabRoutingResult result = null;
-        String sql = null;
-        String demo = "0";
-        String provider_no = "0";
-        String dobYear = null;
-        String dobMonth = null;
-        String dobDay = null;
-        String hinMod = null;
-
-        try {
-            conn = DbConnectionFilter.getThreadLocalDbConnection();
-
-            if (hin != null) {
-                hinMod = new String(hin);
-                if (hinMod.length() == 12) {
-                    hinMod = hinMod.substring(0, 10);
-                }
-            }
-            if (dob != null && !dob.equals("")) {
-                String[] dobArray = dob.trim().split("-");
-                dobYear = dobArray[0];
-                dobMonth = dobArray[1];
-                dobDay = dobArray[2];
-            }
-
-            if (hinMod == null || dobYear == null || dobMonth == null || dobDay == null) {
-                return null;
-            }
-
-            sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " last_name = '" + lastName + "' and " + " year_of_birth = '" + dobYear + "' and " + " month_of_birth = '" + dobMonth + "' and " + " date_of_birth = '" + dobDay + "' and " + " sex = '" + sex + "' ";
-
-            logger.debug(sql);
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery();
-            int count = 0;
-
-            while (rs.next()) {
-                result = new PatientLabRoutingResult();
-                demo = Misc.getString(rs, "demographic_no");
-                provider_no = Misc.getString(rs, "provider_no");
-                result.setDemographicNo(Integer.parseInt(demo));
-                result.setProviderNo(provider_no);
-                count++;
-            }
-            rs.close();
-            pstmt.close();
-            if (count > 1) {
-                result = null;
-            }
-
-        } catch (SQLException sqlE) {
-            return null;
-        } finally {
-            DbConnectionFilter.releaseThreadLocalDbConnection();
-        }
-
-        if (result != null) {
-            DemographicMerged dm = new DemographicMerged();
-            Integer headDemo = dm.getHead(result.getDemographicNo());
-            if (headDemo != null && headDemo.intValue() != result.getDemographicNo()) {
-                Demographic demoTmp = demographicManager.getDemographic(loggedInInfo, headDemo);
-                if (demoTmp != null) {
-                    result.setDemographicNo(demoTmp.getDemographicNo());
-                    result.setProviderNo(demoTmp.getProviderNo());
-                } else {
-                    logger.info("Unable to load the head record of this patient record. (" + result.getDemographicNo() + ")");
-                    result = null;
-                }
-            }
-        }
-
-
-        return result != null ? result.getDemographicNo() : null;
-    }
-
-
-    private static String patientRouteReportOLIS(LoggedInInfo loggedInInfo, int labId, String lastName, String sex, String dob, String hin, Connection conn) throws SQLException {
-        PatientLabRoutingResult result = null;
-
-        String sql = null;
-        String demo = "0";
-        String provider_no = "0";
-        String dobYear = null;
-        String dobMonth = null;
-        String dobDay = null;
-        String hinMod = null;
-
-        try {
-            if (hin != null) {
-                hinMod = new String(hin);
-                if (hinMod.length() == 12) {
-                    hinMod = hinMod.substring(0, 10);
-                }
-            }
-            if (dob != null && !dob.equals("")) {
-                String[] dobArray = dob.trim().split("-");
-                dobYear = dobArray[0];
-                dobMonth = dobArray[1];
-                dobDay = dobArray[2];
-            }
-
-            if (hinMod == null || dobYear == null || dobMonth == null || dobDay == null) {
-                return null;
-            }
-
-            sql = "select demographic_no, provider_no from demographic where hin='" + hinMod + "' and " + " last_name = '" + lastName + "' and " + " year_of_birth = '" + dobYear + "' and " + " month_of_birth = '" + dobMonth + "' and " + " date_of_birth = '" + dobDay + "' and " + " sex = '" + sex + "' ";
-
-            logger.debug(sql);
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery();
-            int count = 0;
-
-            while (rs.next()) {
-                result = new PatientLabRoutingResult();
-                demo = Misc.getString(rs, "demographic_no");
-                provider_no = Misc.getString(rs, "provider_no");
-                result.setDemographicNo(Integer.parseInt(demo));
-                result.setProviderNo(provider_no);
-                count++;
-            }
-            rs.close();
-            pstmt.close();
-            if (count > 1) {
-                result = null;
-            }
-
-        } catch (SQLException sqlE) {
-            throw sqlE;
-        }
-
-
-        try {
-            //did this link a merged patient? if so, we need to make sure we are the head record, or update
-            //result to be the head record.
-            if (result != null) {
-                DemographicMerged dm = new DemographicMerged();
-                Integer headDemo = dm.getHead(result.getDemographicNo());
-                if (headDemo != null && headDemo.intValue() != result.getDemographicNo()) {
-                    Demographic demoTmp = demographicManager.getDemographic(loggedInInfo, headDemo);
-                    if (demoTmp != null) {
-                        result.setDemographicNo(demoTmp.getDemographicNo());
-                        result.setProviderNo(demoTmp.getProviderNo());
-                    } else {
-                        logger.info("Unable to load the head record of this patient record. (" + result.getDemographicNo() + ")");
-                        result = null;
-                    }
-                }
-            }
-
-
-            if (result == null) {
-                logger.info("Could not find patient for lab: " + labId);
-            } else {
-                Hl7textResultsData.populateMeasurementsTable("" + labId, result.getDemographicNo().toString());
-            }
-
-            if (result != null) {
-                sql = "insert into patientLabRouting (demographic_no, lab_no, lab_type, dateModified, created) values ('" + ((result != null && result.getDemographicNo() != null) ? result.getDemographicNo().toString() : "0") + "', '" + labId + "','HL7', now(), now())";
-                Connection c = null;
-                PreparedStatement pstmt = null;
-                try {
-                    c = DbConnectionFilter.getThreadLocalDbConnection();
-                    pstmt = c.prepareStatement(sql);
-                    pstmt.executeUpdate();
-
-                } finally {
-                    try {
-                        pstmt.close();
-                        c.close();
-                    } catch (SQLException e) {
-
-                    }
-                }
-
-            }
-        } catch (SQLException sqlE) {
-            logger.info("NO MATCHING PATIENT FOR LAB id =" + labId);
-            throw sqlE;
-        }
-
-        return (result != null) ? result.getProviderNo() : "0";
-    }
-
     /**
      * Attempt to match the patient from the lab to a demographic, return the patients providers which is to be used then no other providers can be found to match the patient to.
      */
     private static String patientRouteReport(LoggedInInfo loggedInInfo, String labType, int labId, String lastName, String firstName, String sex, String dob, String hin, Connection conn) throws SQLException {
-
-        if ("OLIS_HL7".equals(labType)) {
-            return patientRouteReportOLIS(loggedInInfo, labId, lastName, sex, dob, hin, conn);
-        }
         PatientLabRoutingResult result = null;
 
         String sql = null;

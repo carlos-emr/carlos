@@ -89,6 +89,7 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.simulateSubFile2"/></title>
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
     <script language="JavaScript">
 
         var checkSubmitFlg = false;
@@ -173,7 +174,7 @@
 </div>
 
 <%if (request.getAttribute("TeleplanHtmlFile") != null) {%>
-<button class="btn noprint" type='button' value='Print' onClick="window.print()"><i class="icon-print"></i> Print
+<button class="btn noprint" type='button' value='Print' onClick="window.print()"><i class="fa-solid fa-print"></i> Print
 </button>
 <%
         out.println(request.getAttribute("TeleplanHtmlFile"));

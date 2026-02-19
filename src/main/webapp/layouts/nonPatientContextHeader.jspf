@@ -265,7 +265,7 @@ label.error {
 			         <li>
 			         <a href=# onClick = "review('0')" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewProvAval"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.schedView"/></a>
 			         </li>
-			 <% } else if((request.getParameter("caseload")!=null && request.getParameter("caseload").equals("1")) || (request.getParameter("displaymode")==null) ) {  %>
+			 <% } else if(request.getParameter("displaymode")==null) {  %>
 			 <li>
 			 <a href='<%=request.getContextPath()%>/provider/providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1'>Schedule</a>
 			 </li>
@@ -276,10 +276,6 @@ label.error {
 			         </li>
 			<% } %>
 			</c:if>
-			
-			 <li>
-			 <a href='<%=request.getContextPath()%>/provider/providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&caseload=1&clProv=<%=curUser_no%>'><fmt:setBundle basename="oscarResources"/><fmt:message key="global.caseload"/></a>
-			 </li>
 			
 			<!-- TODO:mobile version code excluded here re-visit -->
 		
@@ -336,11 +332,11 @@ label.error {
 			 <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">			
 			 <security:oscarSec roleName="<%=roleName$%>" objectName="_appointment.doctorLink" rights="r">
 			   <li>
-			       <a HREF="#" style="display:inline-block;padding-right:0px" onclick="popupInboxManager('<%=request.getContextPath()%>/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=<%=curUser_no%>', 'Lab');return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>
+			       <a HREF="#" style="display:inline-block;padding-right:0px" onclick="popupInboxManager('<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>
 				   <span id="oscar_new_lab" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/></span>
 			       </a>
 			       <oscar:newUnclaimedLab>
-			       <a class="tabalert" HREF="#" style="display:inline-block;padding-left:0px" ONCLICK ="popupInboxManager('<%=request.getContextPath()%>/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=0&searchProviderNo=0&status=N&lname=&fname=&hnum=&pageNum=1&startIndex=0', 'Lab');return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>*</a>
+			       <a class="tabalert" HREF="#" style="display:inline-block;padding-left:0px" ONCLICK ="popupInboxManager('<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewLabReports"/>'>*</a>
 			       </oscar:newUnclaimedLab>
 			   </li>
 			  </security:oscarSec>

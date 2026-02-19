@@ -54,6 +54,7 @@
 
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.title"/></title>
+        <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <script type="text/javascript">
             function popupPage(varpage, windowname) {
@@ -76,6 +77,23 @@
                 }
             }
         </script>
+        <script>
+            function unRemoveIndependent(fdid) {
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%=request.getContextPath()%>/eform/unRemoveEForm.do';
+                var fields = {callpage: 'independent', fdid: fdid};
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                form.submit();
+            }
+        </script>
     </head>
 
     <body>
@@ -84,7 +102,7 @@
 
     <div class="well">
         <h3 style="display:inline"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmIndependent"/>s</h3> <i
-            class="icon-question-sign"></i>
+            class="fa-solid fa-circle-question"></i>
 
         <p>View: <a href="<%=request.getContextPath()%>/eform/efmmanageindependent.jsp"
                     class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnCurrent"/></a> | <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.independent.btnDeleted"/></p>
@@ -142,8 +160,8 @@
                 <td align='center'><%=curform.get("formDate")%>
                 </td>
                 <td align='center'>
-                    <a href="<%=request.getContextPath()%>/eform/unRemoveEForm.do?callpage=independent&fdid=<%=curform.get("fdid")%>"
-                       onClick="javascript: return confirm('Are you sure you want to restore this eform?');"
+                    <a href="javascript:void(0);"
+                       onClick="if(confirm('Are you sure you want to restore this eform?')){unRemoveIndependent('<%=curform.get("fdid")%>');}"
                        class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnRestore"/></a>
                 </td>
             </tr>

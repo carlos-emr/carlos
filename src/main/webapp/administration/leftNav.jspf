@@ -50,7 +50,7 @@ String curProvider_no = (String)session.getAttribute("user");
 			<div class="accordion-group nav nav-tabs">
 			
 			<div class="accordion-heading well-small" style="margin-bottom:0px;color:#000">
-			<a href="${ctx}/administration/"><i class="icon-cog"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/></a>
+			<a href="${ctx}/administration/"><i class="fa-solid fa-gear"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/></a>
 			</div>
 
 <!-- #USER MANAGEMENT -->
@@ -60,7 +60,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseOne">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UserManagement"/>
-				<i class="icon-chevron-right"></i> 
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseOne" class="accordion-body collapse">
@@ -98,7 +98,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseTwo">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.billing"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseTwo" class="accordion-body collapse">
@@ -245,7 +245,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseThree">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.LabsInbox"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				
@@ -270,7 +270,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseForms">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.FormsEforms"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseForms" class="accordion-body collapse">
@@ -316,7 +316,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseFive">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.oscarReport"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				
@@ -441,7 +441,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseSix">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.eChart"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseSix" class="accordion-body collapse">
@@ -460,7 +460,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseSeven">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ScheduleManagement"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				
@@ -507,7 +507,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseCAISI">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseCAISI" class="accordion-body collapse">
@@ -540,7 +540,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseCAISI2">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.caisi"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseCAISI2" class="accordion-body collapse">
@@ -589,7 +589,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseEight">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemManagement"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseEight" class="accordion-body collapse">
@@ -734,7 +734,7 @@ String curProvider_no = (String)session.getAttribute("user");
 	<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseFifteen">
 				Faxes
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				
@@ -755,7 +755,7 @@ String curProvider_no = (String)session.getAttribute("user");
 	<div class="accordion-heading">
 		<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseSeventeen">
 			Emails
-			<i class="icon-chevron-right"></i>
+			<i class="fa-solid fa-chevron-right"></i>
 		</a>
 	</div>
 				
@@ -776,7 +776,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseNine">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.SystemReports"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				
@@ -812,7 +812,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseTen">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.Integration"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseTen" class="accordion-body collapse">
@@ -823,26 +823,12 @@ String curProvider_no = (String)session.getAttribute("user");
 						<li>&nbsp;<a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/api/clients.jsp">REST Clients</a></li>
 						</ul>
 					</li>
-<%--					<li><a  href='javascript:void(0);' class="xlink" rel="${ctx}/admin/integratorStatus.jsp">Integrator Status</a></li>--%>
-					
-<%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/setProviderStaleDate.do?method=viewIntegratorProperties'><fmt:setBundle basename="oscarResources"/><fmt:message key="providers.btnSetIntegratorPreferences"/></a></li>--%>
 <%--					<li><a href='javascript:void(0);' class="xlink" rel='${ctx}/lab/CA/ALL/sendOruR01.jsp'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>--%>
 					
-					<caisi:isModuleLoad moduleName="HRM">	
+					<caisi:isModuleLoad moduleName="HRM">
 						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hospitalReportManager.jsp">Hospital Report Manager (HRM) Status</a></li>
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hrmPreferences.jsp">Hospital Report Manager (HRM) Preferences</a></li>
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hrmShowMapping.jsp">Hospital Report Manager (HRM) Class Mappings</a></li>
-						<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/hospitalReportManager/hrmCategories.jsp">Hospital Report Manager (HRM) Categories</a></li>
 					</caisi:isModuleLoad>
-					
-					<%
-						String olisKeystore = OscarProperties.getInstance().getProperty("olis_keystore", "");
-						if(olisKeystore.length()>0) {
-					%>
-					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/olis/Preferences.jsp">OLIS Preferences</a></li>
-					<% } %>	
-					
-		
+
 					<%
 						if (oscarVariables.getProperty("hsfo.loginSiteCode", "") != null && !"".equalsIgnoreCase(oscarVariables.getProperty("hsfo.loginSiteCode", "")))
 									{
@@ -865,7 +851,6 @@ String curProvider_no = (String)session.getAttribute("user");
 			
 					<li><a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/updateDrugref.jsp" ><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></a></li>	
 <%-- K2A config link removed --%>
-<%--					<li><a  href='javascript:void(0);' class="xlink" rel="${ctx}/admin/integratorPushStatus.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.integratorPush"/></a></li>--%>
 
 					<caisi:isModuleLoad moduleName="BORN">
 						<li><a  href='javascript:void(0);' class="xlink" rel="${ctx}/admin/born.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.born"/></a></li>
@@ -881,7 +866,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseTwelve">
 				<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DataManagement"/>
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseTwelve" class="accordion-body collapse">
@@ -920,7 +905,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div class="accordion-heading">
 				<a class="accordion-toggle" data-toggle="collapse" data-parent="#adminNav" href="#collapseThirteen">
 				Hamilton Public Health
-				<i class="icon-chevron-right"></i>
+				<i class="fa-solid fa-chevron-right"></i>
 				</a>
 				</div>
 				<div id="collapseThirteen" class="accordion-body collapse">

@@ -40,8 +40,8 @@
 
 %>
 function storeApptNo(apptNo) {
-var url = "storeApptInSession.jsp?appointment_no="+apptNo;
-new Ajax.Request(url, {method:'get'});
+var url = "storeApptInSession.jsp";
+new Ajax.Request(url, {method:'post', parameters: {appointment_no: apptNo}});
 }
 
 function getElementsByClass(searchClass,node,tag) {
@@ -64,7 +64,188 @@ return classElements;
 
 document.addEventListener('DOMContentLoaded', function() {
     setDefaultReasonView();
+    initCancelledVisibility();
 });
+
+// Toggle Cancelled Appointments Visibility
+// Toggles .Cancelled elements and saves state to localStorage
+function toggleCancelled() {
+    const cancelledElements = document.querySelectorAll('.Cancelled');
+    const toggleBtn = document.getElementById('toggleCancelledBtn');
+    const eyeIcon = document.getElementById('toggleCancelledIcon');
+    let isHidden = false;
+
+    cancelledElements.forEach(function(el) {
+        if (el.classList.contains('hideCancelled')) {
+            el.classList.remove('hideCancelled');
+            el.style.display = '';
+        } else {
+            el.classList.add('hideCancelled');
+            el.style.display = 'none';
+            isHidden = true;
+        }
+    });
+
+    // Toggle icon appearance and title from data attributes
+    if (eyeIcon && toggleBtn) {
+        if (isHidden) {
+            eyeIcon.classList.add('cancelled-hidden');
+            toggleBtn.title = toggleBtn.dataset.titleShow;
+        } else {
+            eyeIcon.classList.remove('cancelled-hidden');
+            toggleBtn.title = toggleBtn.dataset.titleHide;
+        }
+    }
+
+    try {
+        localStorage.setItem('hideCancelled', isHidden ? 'true' : 'false');
+    } catch (e) {
+        // localStorage may be unavailable (e.g., private browsing); ignore
+    }
+}
+
+// Initialize cancelled appointments visibility on page load
+function initCancelledVisibility() {
+    let hideState = false;
+    try {
+        hideState = localStorage.getItem('hideCancelled') === 'true';
+    } catch (e) {
+        // localStorage may be unavailable; fall back to default visibility
+        hideState = false;
+    }
+
+    if (hideState) {
+        const cancelledElements = document.querySelectorAll('.Cancelled');
+        const toggleBtn = document.getElementById('toggleCancelledBtn');
+        const eyeIcon = document.getElementById('toggleCancelledIcon');
+
+        cancelledElements.forEach(function(el) {
+            el.classList.add('hideCancelled');
+            el.style.display = 'none';
+        });
+
+        if (eyeIcon && toggleBtn) {
+            eyeIcon.classList.add('cancelled-hidden');
+            toggleBtn.title = toggleBtn.dataset.titleShow;
+        }
+    }
+}
+
+// Quick Date Navigation
+// Jumps forward or backward by weeks/months
+var qsParm = {};
+
+function initializeQSArray() {
+    qsParm['year'] = null;
+    qsParm['month'] = null;
+    qsParm['day'] = null;
+    qsParm['view'] = null;
+    qsParm['curProvider'] = null;
+    qsParm['curProviderName'] = null;
+    qsParm['displaymode'] = null;
+    qsParm['dboperation'] = null;
+    qsParm['viewall'] = null;
+    qsParm['provider_no'] = null;
+}
+
+function getQSValues() {
+    var query = window.location.search.substring(1);
+    var parms = query.split('&');
+    for (var i = 0; i < parms.length; i++) {
+        var pos = parms[i].indexOf('=');
+        if (pos > 0) {
+            var key = parms[i].substring(0, pos);
+            var val = parms[i].substring(pos + 1);
+            qsParm[key] = decodeURIComponent(val);
+        }
+    }
+}
+
+function getMonthNumber(month) {
+    return month + 1;
+}
+
+function DateAdd(itemType, dateToWorkOn, valueToBeAdded) {
+    switch (itemType) {
+        case 'd':
+            dateToWorkOn.setDate(dateToWorkOn.getDate() + valueToBeAdded);
+            break;
+        case 'w':
+            dateToWorkOn.setDate(dateToWorkOn.getDate() + (valueToBeAdded * 7));
+            break;
+        case 'm':
+            dateToWorkOn.setMonth(dateToWorkOn.getMonth() + parseInt(valueToBeAdded));
+            break;
+        case 'y':
+            dateToWorkOn.setFullYear(dateToWorkOn.getFullYear() + valueToBeAdded);
+            break;
+    }
+    return dateToWorkOn;
+}
+
+function getLocation(id, multiplier) {
+    // Parse and validate multiplier
+    multiplier = parseInt(multiplier, 10);
+    if (isNaN(multiplier) || multiplier < 1 || multiplier > 99) {
+        alert('Please enter a valid number between 1 and 99');
+        return;
+    }
+
+    initializeQSArray();
+    getQSValues();
+
+    var dateSelected = new Date(qsParm['year'], qsParm['month'] - 1, qsParm['day']);
+    var itemType, valueToAdd;
+
+    switch (id) {
+        case 'dayForward':
+            itemType = 'd';
+            valueToAdd = multiplier;
+            break;
+        case 'dayBackward':
+            itemType = 'd';
+            valueToAdd = -1 * multiplier;
+            break;
+        case 'weekBackward':
+            itemType = 'w';
+            valueToAdd = -1 * multiplier;
+            break;
+        case 'weekForward':
+            itemType = 'w';
+            valueToAdd = multiplier;
+            break;
+        case 'monthBackward':
+            itemType = 'm';
+            valueToAdd = -1 * multiplier;
+            break;
+        case 'monthForward':
+            itemType = 'm';
+            valueToAdd = multiplier;
+            break;
+    }
+
+    var dateDestination = DateAdd(itemType, dateSelected, valueToAdd);
+
+    var destination = 'providercontrol.jsp?year=' + dateDestination.getFullYear()
+        + '&month=' + getMonthNumber(dateDestination.getMonth())
+        + '&day=' + dateDestination.getDate()
+        + '&view=' + encodeURIComponent(qsParm['view'] || '0')
+        + '&displaymode=' + encodeURIComponent(qsParm['displaymode'] || 'day')
+        + '&dboperation=' + encodeURIComponent(qsParm['dboperation'] || 'searchappointmentday')
+        + '&viewall=' + encodeURIComponent(qsParm['viewall'] || '0');
+
+    if (qsParm['curProvider']) {
+        destination += '&curProvider=' + encodeURIComponent(qsParm['curProvider']);
+    }
+    if (qsParm['curProviderName']) {
+        destination += '&curProviderName=' + encodeURIComponent(qsParm['curProviderName']);
+    }
+    if (qsParm['provider_no']) {
+        destination += '&provider_no=' + encodeURIComponent(qsParm['provider_no']);
+    }
+
+    window.location = destination;
+}
 
 function setDefaultReasonView() {
     const hideReasonEl = document.getElementById("hideReason");
@@ -396,6 +577,43 @@ function refreshSameLoc(mypage) {
 var X = (window.pageXOffset?window.pageXOffset:window.document.body.scrollLeft);
 var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
 window.location.href = mypage + "&x=" + X + "&y=" + Y;
+}
+
+/**
+ * Converts a URL with query parameters into a POST form submission.
+ * Parses the query string into hidden form fields and submits via POST.
+ * Also appends current scroll position (x, y) to preserve scroll state
+ * across schedule page navigations.
+ * @param {string} url - Full URL with optional query string (e.g., "page.jsp?key=val")
+ * @param {string} [targetWindow] - Optional form target window name
+ */
+function postViaForm(url, targetWindow) {
+var parts = url.split('?');
+var form = document.createElement('form');
+form.method = 'post';
+form.action = parts[0];
+if (targetWindow) { form.target = targetWindow; }
+if (parts.length > 1) {
+    var pairs = parts[1].split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        var kv = pairs[i].split('=');
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = decodeURIComponent(kv[0]);
+        input.value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
+        form.appendChild(input);
+    }
+}
+var X = (window.pageXOffset?window.pageXOffset:window.document.body.scrollLeft);
+var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
+var xi = document.createElement('input');
+xi.type = 'hidden'; xi.name = 'x'; xi.value = X;
+form.appendChild(xi);
+var yi = document.createElement('input');
+yi.type = 'hidden'; yi.name = 'y'; yi.value = Y;
+form.appendChild(yi);
+document.body.appendChild(form);
+form.submit();
 }
 
 function scrollOnLoad() {

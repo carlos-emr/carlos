@@ -48,7 +48,6 @@ import javax.servlet.http.HttpSession;
 
 import io.github.carlos_emr.OscarProperties;
 import org.apache.commons.io.IOUtils;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.ConformanceTestHelper;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
@@ -298,9 +297,6 @@ public class AddEditDocument2Action extends ActionSupport {
 
             // ---
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            if (ConformanceTestHelper.enableConformanceOnlyTestFeatures) {
-                storeDocumentInDatabase(file, Integer.parseInt(doc_no));
-            }
             LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
             // add note if document is added under a patient
             String module = this.getFunction().trim();

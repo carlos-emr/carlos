@@ -53,7 +53,7 @@
 <head ng-cloak>
     <title>Appointment Search Configuration</title>
     <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script src="<%=request.getContextPath() %>/js/jquery-1.9.1.js"></script>
     <script src="<%=request.getContextPath() %>/library/bootstrap/3.0.0/js/bootstrap.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/library/angular.min.js"></script>

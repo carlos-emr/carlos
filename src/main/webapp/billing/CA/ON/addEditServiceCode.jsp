@@ -310,7 +310,7 @@
 
         <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <script type="text/javascript">
 
@@ -539,7 +539,7 @@
                     <input type="text" name="billingservice_date" id="billingservice_date"
                            value="<%=prop.getProperty("billingservice_date", "")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
@@ -549,7 +549,7 @@
                     <input type="text" name="termination_date" id="termination_date"
                            value="<%=prop.getProperty("termination_date", "9999-12-31")%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 

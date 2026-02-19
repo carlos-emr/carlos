@@ -79,26 +79,6 @@
             <td><c:out value="${facilityManagerForm.facility.enableDigitalSignatures}"/></td>
         </tr>
 
-        <tr class="b">
-            <td width="20%">Integrator Enabled:</td>
-            <td>
-                <c:out value="${facilityManagerForm.facility.integratorEnabled}"/>
-                <%
-                    // this needs to be checked against the running facility, not the viewing facility
-                    // because the running facility is the one who will contact the integrator to see the facility list.
-                    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-                    if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                %>
-                &nbsp;
-                <a target="_blank"
-                   href="<%= request.getContextPath() %>/admin/viewIntegratedCommunity.jsp?facilityId=<c:out value="${requestScope.id}" />">
-                    View Integrated Facilities Community
-                </a>
-                <%
-                    }
-                %>
-            </td>
-        </tr>
 
 
     </table>

@@ -66,6 +66,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%
+    if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return;
+    }
     PreventionsLotNrsDao PreventionsLotNrsDao = (PreventionsLotNrsDao) SpringUtils.getBean(PreventionsLotNrsDao.class);
     String prevention = request.getParameter("prevention");
     String lotNr = request.getParameter("lotnr");

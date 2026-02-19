@@ -259,9 +259,16 @@
                             </td>
                             <td><%=curform.get("formDate")%>
                             </td>
-                            <td><a style="color:red;" href="${pageContext.request.contextPath}/eform/removeEForm.do?fdid=<%=curform.get("fdid")%>&group_view=<%=groupView%>&demographic_no=<%=demographic_no%>&parentAjaxId=<%=parentAjaxId%>"
-                                    onClick="return confirm('Are you sure you want to delete this eform?');">
-                                        <fmt:message key="eform.uploadimages.btnDelete"/></a></td>
+                            <td>
+                                <form method="post" action="${pageContext.request.contextPath}/eform/removeEForm.do" style="display:inline;">
+                                    <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
+                                    <input type="hidden" name="group_view" value="<%=groupView%>"/>
+                                    <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
+                                    <input type="hidden" name="parentAjaxId" value="<%=parentAjaxId%>"/>
+                                    <a style="color:red;" href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}">
+                                        <fmt:message key="eform.uploadimages.btnDelete"/></a>
+                                </form>
+                            </td>
                         </tr>
                         <%
                             }

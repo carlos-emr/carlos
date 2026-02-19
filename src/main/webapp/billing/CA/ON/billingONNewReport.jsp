@@ -60,6 +60,7 @@
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.login.DBHelp" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -111,8 +112,8 @@
             prop = new Properties();
             prop.setProperty("SERVICE DATE", rs.getString("appointment_date"));
             prop.setProperty("TIME", rs.getString("start_time").substring(0, 5));
-            prop.setProperty("PATIENT", rs.getString("name"));
-            prop.setProperty("DESCRIPTION", rs.getString("reason"));
+            prop.setProperty("PATIENT", Encode.forHtml(rs.getString("name")));
+            prop.setProperty("DESCRIPTION", Encode.forHtml(rs.getString("reason")));
             String tempStr = "<a href=# onClick='popupPage(700,1000, \"billingOB.jsp?billForm="
                     + URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8) + "&hotclick=&appointment_no="
                     + rs.getString("appointment_no") + "&demographic_name=" + URLEncoder.encode(rs.getString("name"), StandardCharsets.UTF_8)
@@ -146,7 +147,7 @@
             prop = new Properties();
             prop.setProperty("SERVICE DATE", rs.getString("billing_date"));
             prop.setProperty("TIME", rs.getString("billing_time").substring(0, 5));
-            prop.setProperty("PATIENT", rs.getString("demographic_name"));
+            prop.setProperty("PATIENT", Encode.forHtml(rs.getString("demographic_name")));
 
             String apptDoctorNo = rs.getString("apptProvider_no");
             String userno = rs.getString("provider_no");
@@ -167,7 +168,7 @@
             else if (reason.compareTo("H") == 0) reason = "Capitated Bill ";
             else if (reason.compareTo("P") == 0) reason = "Bill Patient";
 
-            prop.setProperty("DESCRIPTION", reason + "(" + note + ")");
+            prop.setProperty("DESCRIPTION", Encode.forHtml(reason + "(" + note + ")"));
             String tempStr = "<a href=# onClick='popupPage(700,720, \"" + request.getContextPath() + "/billing/CA/ON/billingCorrection.jsp?billing_no="
                     + rs.getString("id") + "&dboperation=search_bill&hotclick=0\"); return false;' title='"
                     + reason + "'>" + rs.getString("id") + "</a>";
@@ -233,7 +234,7 @@
                         + rs.getString("billing_no") + "</a>";
                 prop.setProperty("No", "" + nNo);
                 prop.setProperty("Billing No", strT);
-                prop.setProperty("HIN", rs.getString("hin"));
+                prop.setProperty("HIN", Encode.forHtml(rs.getString("hin")));
                 prop.setProperty("Claim", sAmountclaim);
                 prop.setProperty("Paid", sAmountpay);
                 prop.setProperty("Billing Date", getFormatDateStr(rs.getString("service_date")));
@@ -257,7 +258,7 @@
                         + rs.getString("billing_no") + "</a>";
                 prop.setProperty("No", "" + nNo);
                 prop.setProperty("Billing No", strT);
-                prop.setProperty("HIN", rs.getString("hin"));
+                prop.setProperty("HIN", Encode.forHtml(rs.getString("hin")));
                 // repeated records
                 //prop.setProperty("Claim", sAmountclaim);
                 prop.setProperty("Claim", propTotal.getProperty(tempStr));
@@ -349,46 +350,34 @@
 
 <html>
 <head>
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ontario Billing Report</title>
 
-    <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
-    <link href="<%=request.getContextPath() %>/css/font-awesome.min.css" rel="stylesheet">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/searchBox.css">
+    <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css" rel="stylesheet">
 
-
-    <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet">
-    <link href="${pageContext.request.contextPath}/css/DT_bootstrap.css" rel="stylesheet">
-    <link href="${pageContext.request.contextPath}/css/bootstrap-responsive.css" rel="stylesheet">
-    <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
-          rel="stylesheet">
-
-    <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
-    <script src="${pageContext.request.contextPath}/js/bootstrap.min.2.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
-    <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
-
+    <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script>
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
 
-    <title>Bills - ONTARIO BILLING REPORT</title>
-
-
     <script>
-        <!--
-
         function selectprovider(s) {
+            var a;
             if (self.location.href.lastIndexOf("&providerview=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
             else a = self.location.href;
             self.location.href = a + "&providerview=" + s.options[s.selectedIndex].value;
         }
 
-        function openBrWindow(theURL, winName, features) { //v2.0
+        function openBrWindow(theURL, winName, features) {
             window.open(theURL, winName, features);
         }
 
         function refresh() {
             var u = self.location.href;
             if (u.lastIndexOf("view=1") > 0) {
-                self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(eval(u.lastIndexOf("view=1") + 6));
+                var idx = u.lastIndexOf("view=1");
+                self.location.href = u.substring(0, idx) + "view=0" + u.substring(idx + 6);
             } else {
                 history.go(0);
             }
@@ -401,181 +390,150 @@
             varDate = calDate.getDate() > 9 ? calDate.getDate() : ("0" + calDate.getDate());
             field.value = calDate.getFullYear() + '/' + (varMonth) + '/' + varDate;
         }
-
-        //-->
     </script>
+
+    <style type="text/css" media="print">
+        .searchBox { display: none; }
+    </style>
 </head>
 
 <body>
+<div class="container">
+<div class="searchBox">
 
+    <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
+        <h4 style="margin:0; font-size:18px; display:inline-block;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
+                <path d="M1.92.506a.5.5 0 0 1 .434.14L3 1.293l.646-.647a.5.5 0 0 1 .708 0L5 1.293l.646-.647a.5.5 0 0 1 .708 0L7 1.293l.646-.647a.5.5 0 0 1 .708 0L9 1.293l.646-.647a.5.5 0 0 1 .708 0l.646.647.646-.647a.5.5 0 0 1 .708 0l.646.647.646-.647a.5.5 0 0 1 .801.13l.5 1A.5.5 0 0 1 15 2v12a.5.5 0 0 1-.053.224l-.5 1a.5.5 0 0 1-.8.13L13 14.707l-.646.647a.5.5 0 0 1-.708 0L11 14.707l-.646.647a.5.5 0 0 1-.708 0L9 14.707l-.646.647a.5.5 0 0 1-.708 0L7 14.707l-.646.647a.5.5 0 0 1-.708 0L5 14.707l-.646.647a.5.5 0 0 1-.708 0L3 14.707l-.646.647a.5.5 0 0 1-.801-.13l-.5-1A.5.5 0 0 1 1 14V2a.5.5 0 0 1 .053-.224l.5-1a.5.5 0 0 1 .367-.27m.217 1.338L2 2.118v11.764l.137.274.51-.51a.5.5 0 0 1 .707 0l.646.647.646-.646a.5.5 0 0 1 .708 0l.646.646.646-.646a.5.5 0 0 1 .708 0l.646.646.646-.646a.5.5 0 0 1 .708 0l.646.646.646-.646a.5.5 0 0 1 .708 0l.646.646.646-.646a.5.5 0 0 1 .708 0l.509.509.137-.274V2.118l-.137-.274-.51.51a.5.5 0 0 1-.707 0L12 1.707l-.646.647a.5.5 0 0 1-.708 0L10 1.707l-.646.647a.5.5 0 0 1-.708 0L8 1.707l-.646.647a.5.5 0 0 1-.708 0L6 1.707l-.646.647a.5.5 0 0 1-.708 0L4 1.707l-.646.647a.5.5 0 0 1-.708 0l-.509-.51zM3 4.5a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5m8-6a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5"/>
+            </svg>
+            &nbsp;Ontario Billing Report
+        </h4>
+    </div>
 
-<table style="width:100%">
-    <tr>
-        <td style="width:1%"></td>
-        <td style="width:80%; text-align:left;">
-            <H4><a style="color:black;"
-                   href="billingReportCenter.jsp">OSCARbilling</a></H4>
-        </td>
-        <td style="text-align:right;">
-            <i class=" icon-question-sign"></i>
-            <a href="javascript:void(0)"
-               onClick="popupPage(600,750,'<%=(OscarProperties.getInstance()).getProperty("HELP_SEARCH_URL")%>'+'OscarBilling+Billing')"><fmt:setBundle basename="oscarResources"/><fmt:message key="app.top1"/></a>
-            <i class=" icon-info-sign" style="margin-left:10px;"></i>
-            <a href="javascript:void(0)"
-               onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
-        </td>
-        <td style="width:1%"></td>
-    </tr>
-</table>
-<div class="well">
     <form name="serviceform" method="post" action="billingONReport.jsp">
-        <table style="width:100%;">
-
-            <tr class="form-inline">
-                <td>
-                    <label class="radio inline">
-                        <input
-                                type="radio" name="reportAction" value="unbilled"
-                            <%="unbilled".equals(action)? "checked" : "" %>>Unbilled
-                    </label>
-                    <label class="radio inline">
-                        <input
-                                type="radio" name="reportAction" value="billed"
-                            <%="billed".equals(action)? "checked" : "" %>>Billed
-                    </label>
-                    <!-- broken
-          <label class="radio inline">
-                <input
-                type="radio" name="reportAction" value="paid" <%="paid".equals(action)? "checked" : "" %>>Paid
+        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+        <div class="form-inline" style="margin-bottom:10px;">
+            <label class="radio-inline">
+                <input type="radio" name="reportAction" value="unbilled" <%="unbilled".equals(action)? "checked" : "" %>> Unbilled
             </label>
-            <label class="radio inline">
-                <input type="radio" name="reportAction" value="unpaid" <%="unpaid".equals(action)? "checked" : "" %>>Unpaid
+            <label class="radio-inline">
+                <input type="radio" name="reportAction" value="billed" <%="billed".equals(action)? "checked" : "" %>> Billed
             </label>
-end broken -->
 
-                    <br>&nbsp;Provider
-                    <% if (bMultisites) { // multisite start ==========================================
-                        SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
-                        List<Site> sites = siteDao.getActiveSitesByProviderNo(user_no);
-                        // now get all report providers
+            &nbsp;&nbsp;Provider
+            <% if (bMultisites) { // multisite start ==========================================
+                SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
+                List<Site> sites = siteDao.getActiveSitesByProviderNo(user_no);
 
-                        HashSet<String> reporters = new HashSet<String>();
-                        for (Object[] res : reportProviderDao.search_reportprovider("billingreport")) {
-                            ReportProvider rp = (ReportProvider) res[0];
-                            Provider p = (Provider) res[1];
-                            reporters.add(p.getProviderNo());
+                HashSet<String> reporters = new HashSet<String>();
+                for (Object[] res : reportProviderDao.search_reportprovider("billingreport")) {
+                    ReportProvider rp = (ReportProvider) res[0];
+                    Provider p = (Provider) res[1];
+                    reporters.add(p.getProviderNo());
+                }
+
+            %>
+            <script>
+                var _providers = {};
+                <%  for (int i=0; i<sites.size(); i++) {
+                    Set<Provider> siteProviders = sites.get(i).getProviders();
+                    List<Provider> siteProvidersList = new ArrayList<Provider>(siteProviders);
+                    Collections.sort(siteProvidersList,(new Provider()).ComparatorName()); %>
+                _providers["<%= Encode.forJavaScript(sites.get(i).getName()) %>"] = [
+                    <% Iterator<Provider> iter = siteProvidersList.iterator();
+                    while (iter.hasNext()) {
+                        Provider p = iter.next();
+                        if (reporters.contains(p.getProviderNo())) { %>
+                    {value: '<%= Encode.forJavaScript(p.getProviderNo()) %>', text: '<%= Encode.forJavaScript(p.getLastName() + ", " + p.getFirstName()) %>'},
+                    <% }} %>
+                ];
+                <% } %>
+
+                function changeSite(sel) {
+                    var provSelect = sel.form.providerview;
+                    provSelect.length = 0;
+                    if (sel.value !== "none") {
+                        var providers = _providers[sel.value];
+                        for (var i = 0; i < providers.length; i++) {
+                            var opt = document.createElement('option');
+                            opt.value = providers[i].value;
+                            opt.textContent = providers[i].text;
+                            provSelect.add(opt);
                         }
+                    }
+                    sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
+                }
+            </script>
+            <select id="site" name="site" class="form-control input-sm" style="width:auto; display:inline-block;" onchange="changeSite(this)">
+                <option value="none" style="background-color:white">---select clinic---</option>
+                <%
+                    for (int i = 0; i < sites.size(); i++) {
+                %>
+                <option value="<%= Encode.forHtmlAttribute(sites.get(i).getName()) %>"
+                        style="background-color:<%= Encode.forCssString(sites.get(i).getBgColor()) %>"
+                        <%=sites.get(i).getName().toString().equals(request.getParameter("site")) ? "selected" : "" %>><%= Encode.forHtml(sites.get(i).getName()) %>
+                </option>
+                <% } %>
+            </select>
+            <select id="providerview" name="providerview" class="form-control input-sm" style="width:auto; display:inline-block;"></select>
+            <% if (request.getParameter("providerview") != null) { %>
+            <script>
+                changeSite(document.getElementById("site"));
+                document.getElementById("providerview").value = '<%=Encode.forJavaScript(request.getParameter("providerview"))%>';
+            </script>
+            <% } // multisite end ==========================================
+            } else {
+            %>
+            <select name="providerview" class="form-control input-sm" style="width:auto; display:inline-block;">
+                <%
+                    String proFirst = "";
+                    String proLast = "";
+                    String proOHIP = "";
+                    String specialty_code;
+                    String billinggroup_no;
+                    int Count = 0;
 
-                    %>
-                    <script>
-                        var _providers = [];
-                        <%	for (int i=0; i<sites.size(); i++) {
-                            Set<Provider> siteProviders = sites.get(i).getProviders();
-                            List<Provider>  siteProvidersList = new ArrayList<Provider> (siteProviders);
-                            Collections.sort(siteProvidersList,(new Provider()).ComparatorName());%>
-                        _providers["<%= sites.get(i).getName() %>"] = "<% Iterator<Provider> iter = siteProvidersList.iterator();
-	while (iter.hasNext()) {
-		Provider p=iter.next();
-		if (reporters.contains(p.getProviderNo())) {
-	%><option value='<%= p.getProviderNo() %>'><%= p.getLastName() %>, <%= p.getFirstName() %></option><% }} %>";
-                        <% } %>
+                    for (Object[] res : reportProviderDao.search_reportprovider("billingreport")) {
+                        ReportProvider rp = (ReportProvider) res[0];
+                        Provider p = (Provider) res[1];
+                        proFirst = p.getFirstName();
+                        proLast = p.getLastName();
+                        proOHIP = p.getProviderNo();
+                %>
+                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtml(proLast + ", " + proFirst)%></option>
+                <%
+                    }
+                %>
+            </select>
+            <% } %>
 
-                        function changeSite(sel) {
-                            sel.form.providerview.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
-                            sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
-                        }
-                    </script>
-                    <select id="site" name="site" onchange="changeSite(this)">
-                        <option value="none" style="background-color:white">---select clinic---</option>
-                        <%
-                            for (int i = 0; i < sites.size(); i++) {
-                        %>
-                        <option value="<%= sites.get(i).getName() %>"
-                                style="background-color:<%= sites.get(i).getBgColor() %>"
-                                <%=sites.get(i).getName().toString().equals(request.getParameter("site")) ? "selected" : "" %>><%= sites.get(i).getName() %>
-                        </option>
-                        <% } %>
-                    </select>
-                    <select id="providerview" name="providerview" style="width:140px"></select>
-                    <% if (request.getParameter("providerview") != null) { %>
-                    <script>
-                        changeSite(document.getElementById("site"));
-                        document.getElementById("providerview").value = '<%=request.getParameter("providerview")%>';
-                    </script>
-                    <% } // multisite end ==========================================
-                    } else {
-                    %>
-                    <select
-                            name="providerview">
-                        <%
-                            String proFirst = "";
-                            String proLast = "";
-                            String proOHIP = "";
-                            String specialty_code;
-                            String billinggroup_no;
-                            int Count = 0;
+            <label style="margin-left:10px;">From:
+                <input type="date" name="xml_vdate" id="xml_vdate" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
+            </label>
+            <label>To:
+                <input type="date" name="xml_appointment_date" id="xml_appointment_date" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
+            </label>
 
-
-                            for (Object[] res : reportProviderDao.search_reportprovider("billingreport")) {
-                                ReportProvider rp = (ReportProvider) res[0];
-                                Provider p = (Provider) res[1];
-                                proFirst = p.getFirstName();
-                                proLast = p.getLastName();
-                                proOHIP = p.getProviderNo();
-
-
-                        %>
-                        <option value="<%=proOHIP%>"
-                                <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=proLast%>,
-                            <%=proFirst%>
-                        </option>
-                        <%
-                            }
-                        %>
-                    </select>
-                    <% } %>
-
-
-                    <label class="date">
-                        From:
-                        <input class="input-medium" style="height:30px;"
-                               type="date" name="xml_vdate" id="xml_vdate"
-                               value="<%=xml_vdate%>">
-                    </label>
-                    <label class="date">
-                        To:
-                        <input class="input-medium" style="height:30px;"
-                               type="date" name="xml_appointment_date" id="xml_appointment_date"
-                               value="<%=xml_appointment_date%>">
-                    </label>
-                </td>
-                <td style="text-align:right"><input type="submit" name="Submit" class="btn btn-primary"
-                                                    value="Create Report"></td>
-            </tr>
-            <tr>
-                <td colspan="2"><a href=#
-                                   onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')"
-                                   class="btn btn-link">
-                    Manage Provider List</a></td>
-            </tr>
-        </table>
+            <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">
+        </div>
+        <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-default">Manage Provider List</a>
     </form>
-    <table id="reportTbl" style="width:100%" class="table table-condensed table-striped table-hover">
+
+    <table id="reportTbl" class="table table-condensed table-striped table-hover" style="margin-top:10px;">
         <thead>
         <tr>
-                <% for (int i=0; i<vecHeader.size(); i++) {%>
-            <th><%=vecHeader.get(i) %>
-            </th>
-                <% } %>
+            <% for (int i=0; i<vecHeader.size(); i++) {%>
+            <th><%=vecHeader.get(i) %></th>
+            <% } %>
+        </tr>
         </thead>
         <tbody>
         <% for (int i = 0; i < vecValue.size(); i++) {%>
-
         <tr>
             <% for (int j = 0; j < vecHeader.size(); j++) {
                 prop = (Properties) vecValue.get(i);
             %>
-            <td style="text-align:center;"><%=prop.getProperty((String) vecHeader.get(j), "&nbsp;") %>&nbsp;</td>
+            <td><%=prop.getProperty((String) vecHeader.get(j), "&nbsp;") %></td>
             <% } %>
         </tr>
         <% } %>
@@ -583,23 +541,17 @@ end broken -->
         <% if (vecTotal.size() > 0) { %>
         <tr>
             <% for (int i = 0; i < vecTotal.size(); i++) {%>
-            <th><%=vecTotal.get(i) %>&nbsp;</th>
+            <th><%=vecTotal.get(i) %></th>
             <% } %>
         </tr>
         <% } %>
         </tbody>
     </table>
 
-</div> <!-- well end -->
 
-<table style="width:100%">
-    <tr>
-        <td><a href=# onClick="javascript:history.go(-1);return false;" class="btn btn-link">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/></a></td>
-        <td style="text-align:right;"><a href="" onClick="self.close();" class="btn btn-link">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/></a></td>
-    </tr>
-</table>
+</div>
+</div>
+
 <script>
     $('#reportTbl').DataTable({
         "order": [],
@@ -609,6 +561,7 @@ end broken -->
     });
 </script>
 
+</body>
 </html>
 <%!
     String getFormatDateStr(String str) {

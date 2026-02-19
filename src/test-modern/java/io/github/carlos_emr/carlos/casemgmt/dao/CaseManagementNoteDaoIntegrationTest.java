@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -37,7 +38,7 @@ import static org.assertj.core.api.Assertions.*;
  *
  * <p>These tests validate that HQL queries with multiple positional parameters
  * bind parameters correctly. They are designed to catch parameter index errors
- * during Hibernate migration (?0→?1 parameter renumbering).</p>
+ * during Hibernate migration (?0-&gt;?1 parameter renumbering).</p>
  *
  * <p><b>Test Strategy:</b> Create distinct test data where incorrect parameter
  * binding would return wrong results, then verify only correct data is returned.</p>
@@ -52,6 +53,125 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("casemgmt")
 public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoBaseIntegrationTest {
 
+    /** Tests for CRUD operations on CaseManagementNote entities. */
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should retrieve note by valid ID")
+        void shouldRetrieveNote_whenValidIdProvided() {
+            // Given
+            CaseManagementNote note = createNote("111", "Test note content");
+            hibernateTemplate.flush();
+
+            // When
+            CaseManagementNote found = caseManagementNoteDAO.getNote(note.getId());
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(note.getId());
+            assertThat(found.getNote()).isEqualTo("Test note content");
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist valid note data")
+        void shouldPersistNote_whenValidDataProvided() {
+            // Given
+            CaseManagementNote note = new CaseManagementNote();
+            note.setDemographic_no("500");
+            note.setNote("Persisted note");
+            note.setProviderNo("999998");
+            note.setUuid(UUID.randomUUID().toString());
+            note.setUpdate_date(new Date());
+            note.setObservation_date(new Date());
+            note.setSigned(false);
+            note.setArchived(false);
+            note.setLocked(false);
+
+            // When
+            caseManagementNoteDAO.saveNote(note);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(note.getId()).isNotNull();
+            CaseManagementNote found = caseManagementNoteDAO.getNote(note.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getNote()).isEqualTo("Persisted note");
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should verify UUID is preserved on save")
+        void shouldPreserveUuid_whenNoteSaved() {
+            // Given
+            String assignedUuid = UUID.randomUUID().toString();
+            CaseManagementNote note = new CaseManagementNote();
+            note.setDemographic_no("501");
+            note.setNote("UUID test");
+            note.setProviderNo("999998");
+            note.setUuid(assignedUuid);
+            note.setUpdate_date(new Date());
+            note.setObservation_date(new Date());
+            note.setSigned(false);
+            note.setArchived(false);
+            note.setLocked(false);
+
+            // When
+            caseManagementNoteDAO.saveNote(note);
+            hibernateTemplate.flush();
+
+            // Then
+            CaseManagementNote found = caseManagementNoteDAO.getNote(note.getId());
+            assertThat(found.getUuid()).isEqualTo(assignedUuid);
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update note with changes")
+        void shouldUpdateNote_whenChangesProvided() {
+            // Given
+            CaseManagementNote note = createNote("502", "Original content");
+            hibernateTemplate.flush();
+
+            // When
+            note.setNote("Updated content");
+            caseManagementNoteDAO.updateNote(note);
+            hibernateTemplate.flush();
+
+            // Then
+            CaseManagementNote found = caseManagementNoteDAO.getNote(note.getId());
+            assertThat(found.getNote()).isEqualTo("Updated content");
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should return ID when saving and returning")
+        void shouldReturnId_whenSavingAndReturning() {
+            // Given
+            CaseManagementNote note = new CaseManagementNote();
+            note.setDemographic_no("503");
+            note.setNote("Save and return test");
+            note.setProviderNo("999998");
+            note.setUuid(UUID.randomUUID().toString());
+            note.setUpdate_date(new Date());
+            note.setObservation_date(new Date());
+            note.setSigned(false);
+            note.setArchived(false);
+            note.setLocked(false);
+
+            // When
+            Object result = caseManagementNoteDAO.saveAndReturn(note);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(result).isNotNull();
+        }
+    }
+
+    /** Tests for getCaseManagementNoteByProgramIdAndObservationDate (3 params). */
     @Nested
     @DisplayName("getCaseManagementNoteByProgramIdAndObservationDate (3 params)")
     class GetByProgramIdAndDateRange {
@@ -60,23 +180,23 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         @Tag("query")
         @DisplayName("should filter by all three parameters - programId, minDate, maxDate")
         void shouldFilterByAllThreeParams_whenSearchingByProgramAndDateRange() {
-            // Given - Create notes with different programs and dates
+            // Given
             Date jan15 = createDate(2024, 1, 15);
             Date jan1 = createDate(2024, 1, 1);
             Date jan31 = createDate(2024, 1, 31);
             Date feb15 = createDate(2024, 2, 15);
 
-            CaseManagementNote matchNote = createNoteWithProgram(100, jan15);       // Should match
-            CaseManagementNote wrongProgram = createNoteWithProgram(200, jan15);    // Wrong program
-            CaseManagementNote beforeRange = createNoteWithProgram(100, createDate(2023, 12, 15)); // Before range
-            CaseManagementNote afterRange = createNoteWithProgram(100, feb15);      // After range
-            entityManager.flush();
+            CaseManagementNote matchNote = createNoteWithProgram(100, jan15);
+            CaseManagementNote wrongProgram = createNoteWithProgram(200, jan15);
+            CaseManagementNote beforeRange = createNoteWithProgram(100, createDate(2023, 12, 15));
+            CaseManagementNote afterRange = createNoteWithProgram(100, feb15);
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
                 .getCaseManagementNoteByProgramIdAndObservationDate(100, jan1, jan31);
 
-            // Then - Only matchNote should be returned
+            // Then
             assertThat(results)
                 .isNotNull()
                 .extracting(CaseManagementNote::getId)
@@ -88,17 +208,14 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         @Tag("query")
         @DisplayName("should return empty list when no notes match all criteria")
         void shouldReturnEmptyList_whenNoNotesMatchAllCriteria() {
-            // Given - Create note that matches some but not all criteria
-            Date jan15 = createDate(2024, 1, 15);
-            createNoteWithProgram(100, jan15);  // Program 100, Jan 15
-            entityManager.flush();
+            // Given
+            createNoteWithProgram(100, createDate(2024, 1, 15));
+            hibernateTemplate.flush();
 
-            // When - Search for different program
+            // When
             List<CaseManagementNote> results = caseManagementNoteDAO
                 .getCaseManagementNoteByProgramIdAndObservationDate(
-                    999,  // Different program
-                    createDate(2024, 1, 1),
-                    createDate(2024, 1, 31));
+                    999, createDate(2024, 1, 1), createDate(2024, 1, 31));
 
             // Then
             assertThat(results).isEmpty();
@@ -112,40 +229,41 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             Date jan1 = createDate(2024, 1, 1);
             Date jan31 = createDate(2024, 1, 31);
 
-            CaseManagementNote onMinDate = createNoteWithProgram(100, jan1);   // Exactly on min date
-            CaseManagementNote onMaxDate = createNoteWithProgram(100, jan31);  // Exactly on max date
-            entityManager.flush();
+            CaseManagementNote onMinDate = createNoteWithProgram(100, jan1);
+            CaseManagementNote onMaxDate = createNoteWithProgram(100, jan31);
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
                 .getCaseManagementNoteByProgramIdAndObservationDate(100, jan1, jan31);
 
-            // Then - Both boundary notes should be included
+            // Then
             assertThat(results)
                 .extracting(CaseManagementNote::getId)
                 .contains(onMinDate.getId(), onMaxDate.getId());
         }
     }
 
+    /** Tests for searchDemographicNotes (3 params). */
     @Nested
-    @DisplayName("searchDemographicNotes (3 params: demographicNo, demographicNo, searchString)")
+    @DisplayName("searchDemographicNotes (3 params)")
     class SearchDemographicNotes {
 
         @Test
         @Tag("search")
         @DisplayName("should find notes matching search string in correct demographic")
         void shouldFindNotesMatchingSearchString_whenSearchingInSpecificDemographic() {
-            // Given - Create notes with different demographics and content
+            // Given
             CaseManagementNote match = createNote("111", "Patient has diabetes mellitus");
-            CaseManagementNote wrongDemo = createNote("222", "Patient has diabetes mellitus");  // Same content, different demo
-            CaseManagementNote wrongContent = createNote("111", "Patient is healthy");  // Same demo, different content
-            entityManager.flush();
+            CaseManagementNote wrongDemo = createNote("222", "Patient has diabetes mellitus");
+            CaseManagementNote wrongContent = createNote("111", "Patient is healthy");
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
-                .searchDemographicNotes("111", "diabetes");
+                .searchDemographicNotes("111", "%diabetes%");
 
-            // Then - Only match should be returned
+            // Then
             assertThat(results)
                 .isNotNull()
                 .extracting(CaseManagementNote::getId)
@@ -155,13 +273,13 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
         @Test
         @Tag("search")
-        @DisplayName("should return empty list when search string not found in demographic")
+        @DisplayName("should return empty list when search string not found")
         void shouldReturnEmptyList_whenSearchStringNotFoundInDemographic() {
             // Given
             createNote("111", "Patient has hypertension");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
-            // When - Search for term that doesn't exist
+            // When
             List<CaseManagementNote> results = caseManagementNoteDAO
                 .searchDemographicNotes("111", "nonexistent-term-xyz");
 
@@ -175,11 +293,11 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         void shouldBeCaseInsensitive_whenSearching() {
             // Given
             CaseManagementNote note = createNote("111", "Patient has DIABETES");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
-            // When - Search with different case
+            // When
             List<CaseManagementNote> results = caseManagementNoteDAO
-                .searchDemographicNotes("111", "diabetes");
+                .searchDemographicNotes("111", "%diabetes%");
 
             // Then
             assertThat(results)
@@ -188,6 +306,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         }
     }
 
+    /** Tests for getNotesByDemographicSince (2 params). */
     @Nested
     @DisplayName("getNotesByDemographicSince (2 params)")
     class GetNotesByDemographicSince {
@@ -198,17 +317,16 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         void shouldFilterByBothDemographicAndDate_whenGettingNotesSince() {
             // Given
             Date cutoffDate = daysFromNow(-5);
-
             CaseManagementNote afterCutoff = createNote("111", "Recent note", daysFromNow(-2));
             CaseManagementNote beforeCutoff = createNote("111", "Old note", daysFromNow(-10));
             CaseManagementNote wrongDemoAfter = createNote("222", "Wrong demo recent", daysFromNow(-2));
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
                 .getNotesByDemographicSince("111", cutoffDate);
 
-            // Then - Only afterCutoff should match both criteria
+            // Then
             assertThat(results)
                 .extracting(CaseManagementNote::getId)
                 .contains(afterCutoff.getId())
@@ -217,13 +335,13 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
         @Test
         @Tag("query")
-        @DisplayName("should return empty list when demographic has no recent notes")
+        @DisplayName("should return empty list when no recent notes")
         void shouldReturnEmptyList_whenDemographicHasNoRecentNotes() {
-            // Given - Create old note only
+            // Given
             createNote("111", "Old note", daysFromNow(-30));
-            entityManager.flush();
+            hibernateTemplate.flush();
 
-            // When - Search for notes since yesterday
+            // When
             List<CaseManagementNote> results = caseManagementNoteDAO
                 .getNotesByDemographicSince("111", daysFromNow(-1));
 
@@ -232,6 +350,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         }
     }
 
+    /** Tests for getUnsignedRawNoteInfoMapByDemographic (2 params). */
     @Nested
     @DisplayName("getUnsignedRawNoteInfoMapByDemographic (2 params)")
     class GetUnsignedRawNoteInfoMap {
@@ -243,16 +362,15 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             // Given
             CaseManagementNote unsigned1 = createNoteWithSignedStatus("111", false);
             CaseManagementNote signed1 = createNoteWithSignedStatus("111", true);
-            CaseManagementNote unsigned2 = createNoteWithSignedStatus("222", false);  // Different demo
-            entityManager.flush();
+            CaseManagementNote unsigned2 = createNoteWithSignedStatus("222", false);
+            hibernateTemplate.flush();
 
             // When
             List<Map<String, Object>> results = caseManagementNoteDAO
                 .getUnsignedRawNoteInfoMapByDemographic("111");
 
-            // Then - Only unsigned notes for demo 111 should be returned
+            // Then
             assertThat(results).isNotNull();
-            // Results should contain unsigned1's id but not signed1's or unsigned2's
             List<Long> resultIds = results.stream()
                 .map(m -> (Long) m.get("id"))
                 .toList();
@@ -262,37 +380,21 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         }
     }
 
+    /** Tests for note retrieval query methods. */
     @Nested
-    @DisplayName("Single parameter queries (baseline coverage)")
-    class SingleParamQueries {
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find note by ID")
-        void shouldFindNoteById() {
-            // Given
-            CaseManagementNote note = createNote("111", "Test note content");
-            entityManager.flush();
-
-            // When
-            CaseManagementNote found = caseManagementNoteDAO.getNote(note.getId());
-
-            // Then
-            assertThat(found).isNotNull();
-            assertThat(found.getId()).isEqualTo(note.getId());
-            assertThat(found.getNote()).isEqualTo("Test note content");
-        }
+    @DisplayName("Note retrieval queries")
+    class NoteRetrievalQueries {
 
         @Test
         @Tag("read")
         @DisplayName("should count notes by demographic")
-        void shouldCountNotesByDemographic() {
+        void shouldCountNotes_byDemographic() {
             // Given
             createNote("333", "Note 1");
             createNote("333", "Note 2");
             createNote("333", "Note 3");
-            createNote("444", "Different demo");  // Different demographic
-            entityManager.flush();
+            createNote("444", "Different demo");
+            hibernateTemplate.flush();
 
             // When
             long count = caseManagementNoteDAO.getNotesCountByDemographicId("333");
@@ -303,13 +405,101 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
         @Test
         @Tag("read")
+        @DisplayName("should get notes by demographic number")
+        void shouldGetNotes_byDemographic() {
+            // Given
+            createNote("555", "First note");
+            createNote("555", "Second note");
+            createNote("666", "Other demo");
+            hibernateTemplate.flush();
+
+            // When
+            List<CaseManagementNote> results = caseManagementNoteDAO.getNotesByDemographic("555");
+
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(CaseManagementNote::getDemographic_no)
+                .allMatch(d -> d.equals("555"));
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should apply note count limits when limit specified")
+        void shouldApplyNoteCountLimits_whenLimitSpecified() {
+            // Given
+            for (int i = 0; i < 5; i++) {
+                createNote("777", "Note " + i);
+            }
+            hibernateTemplate.flush();
+
+            // When
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographic("777", 2);
+
+            // Then
+            assertThat(results).hasSize(2);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should fetch most recent note by UUID")
+        void shouldFetchMostRecentNote_byUuid() {
+            // Given
+            String sharedUuid = UUID.randomUUID().toString();
+            CaseManagementNote older = createNote("888", "Older version");
+            older.setUuid(sharedUuid);
+            older.setUpdate_date(daysFromNow(-5));
+            caseManagementNoteDAO.updateNote(older);
+
+            CaseManagementNote newer = createNote("888", "Newer version");
+            newer.setUuid(sharedUuid);
+            newer.setUpdate_date(daysFromNow(-1));
+            caseManagementNoteDAO.updateNote(newer);
+            hibernateTemplate.flush();
+
+            // When
+            CaseManagementNote mostRecent = caseManagementNoteDAO.getMostRecentNote(sharedUuid);
+
+            // Then
+            assertThat(mostRecent).isNotNull();
+            assertThat(mostRecent.getUuid()).isEqualTo(sharedUuid);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should access complete note history by UUID")
+        void shouldAccessNoteHistory_byUuid() {
+            // Given
+            String sharedUuid = UUID.randomUUID().toString();
+            CaseManagementNote v1 = createNote("999", "Version 1");
+            v1.setUuid(sharedUuid);
+            caseManagementNoteDAO.updateNote(v1);
+
+            CaseManagementNote v2 = createNote("999", "Version 2");
+            v2.setUuid(sharedUuid);
+            caseManagementNoteDAO.updateNote(v2);
+            hibernateTemplate.flush();
+
+            // When
+            List<CaseManagementNote> history = caseManagementNoteDAO.getNotesByUUID(sharedUuid);
+
+            // Then
+            assertThat(history).hasSizeGreaterThanOrEqualTo(2);
+            assertThat(history)
+                .extracting(CaseManagementNote::getUuid)
+                .allMatch(u -> u.equals(sharedUuid));
+        }
+
+        @Test
+        @Tag("read")
         @DisplayName("should get most recent notes by appointment number")
         void shouldGetMostRecentNotesByAppointmentNo() {
             // Given
             CaseManagementNote note1 = createNote("111", "Appointment note");
             note1.setAppointmentNo(12345);
             caseManagementNoteDAO.updateNote(note1);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNote> results = caseManagementNoteDAO
@@ -317,6 +507,26 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
             // Then
             assertThat(results).isNotEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should query notes created after specific date")
+        void shouldQueryNotes_afterSpecificDate() {
+            // Given
+            CaseManagementNote recent = createNote("1010", "Recent", daysFromNow(-1));
+            CaseManagementNote old = createNote("1010", "Old", daysFromNow(-30));
+            hibernateTemplate.flush();
+
+            // When
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographicSince("1010", daysFromNow(-5));
+
+            // Then
+            assertThat(results)
+                .extracting(CaseManagementNote::getId)
+                .contains(recent.getId())
+                .doesNotContain(old.getId());
         }
     }
 }

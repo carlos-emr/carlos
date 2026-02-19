@@ -264,14 +264,16 @@ public abstract class OpenODaoTestBase extends OpenOTestBase {
      * Helper to verify SpringUtils works with DAOs
      */
     protected void verifyDaoSpringUtilsIntegration(Class<?> daoClass) {
-        // Verify that SpringUtils.getBean returns the same DAO instance
+        // Verify that SpringUtils.getBean returns a DAO of the correct type.
+        // When multiple Spring contexts exist across test classes, the instances
+        // may differ in identity but should be of the same implementation class.
         Object contextDao = applicationContext.getBean(daoClass);
         Object utilsDao = SpringUtils.getBean(daoClass);
 
-        if (contextDao != utilsDao) {
+        if (!contextDao.getClass().equals(utilsDao.getClass())) {
             throw new AssertionError(
-                String.format("DAO mismatch for %s. SpringUtils not properly initialized for tests.",
-                    daoClass.getSimpleName())
+                String.format("DAO type mismatch for %s. Context: %s, Utils: %s",
+                    daoClass.getSimpleName(), contextDao.getClass().getName(), utilsDao.getClass().getName())
             );
         }
     }

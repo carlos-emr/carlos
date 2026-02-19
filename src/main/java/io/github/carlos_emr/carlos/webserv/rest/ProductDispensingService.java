@@ -205,7 +205,7 @@ public class ProductDispensingService extends AbstractServiceImpl {
         return response;
     }
 
-    @GET
+    @POST
     @Path("/deleteDrugProduct/{drugProductId}")
     @Produces("application/json")
     public GenericRESTResponse deleteDrugProduct(@PathParam("drugProductId") Integer drugProductId) {

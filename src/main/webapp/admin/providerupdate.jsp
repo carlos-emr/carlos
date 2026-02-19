@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -42,6 +43,10 @@
 
 <%
     if (!authed) {
+        return;
+    }
+    if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
         return;
     }
 %>
@@ -202,12 +207,10 @@
                     String officialFirstName = request.getParameter("officialFirstName");
                     String officialSecondName = request.getParameter("officialSecondName");
                     String officialLastName = request.getParameter("officialLastName");
-                    String officialOlisIdtype = request.getParameter("officialOlisIdtype");
 
                     userPropertyDAO.saveProp(provider.getProviderNo(), UserProperty.OFFICIAL_FIRST_NAME, officialFirstName);
                     userPropertyDAO.saveProp(provider.getProviderNo(), UserProperty.OFFICIAL_SECOND_NAME, officialSecondName);
                     userPropertyDAO.saveProp(provider.getProviderNo(), UserProperty.OFFICIAL_LAST_NAME, officialLastName);
-                    userPropertyDAO.saveProp(provider.getProviderNo(), UserProperty.OFFICIAL_OLIS_IDTYPE, officialOlisIdtype);
 
 
                     if (IsPropertiesOn.isMultisitesEnable()) {
@@ -229,7 +232,7 @@
         %>
         <p>
         <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerupdate.msgUpdateSuccess"/>
-            <a href="providerupdateprovider.jsp?keyword=<%=request.getParameter("provider_no")%>"><%= request.getParameter("provider_no") %>
+            <a href="providerupdateprovider.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("provider_no"))%>"><%= Encode.forHtml(request.getParameter("provider_no")) %>
             </a>
         </h2>
         <%

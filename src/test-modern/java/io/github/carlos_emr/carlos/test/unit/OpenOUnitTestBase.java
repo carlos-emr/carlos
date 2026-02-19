@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.test.unit;
 
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +37,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 
 /**
- * Base class for unit tests in OpenO EMR that need to mock the SpringUtils static dependency.
+ * Base class for unit tests in CARLOS EMR that need to mock the SpringUtils static dependency.
  *
  * <p>This class provides infrastructure for true unit testing despite the SpringUtils anti-pattern
  * used throughout the codebase. It uses Mockito's MockedStatic feature to mock static method calls
@@ -65,6 +67,7 @@ import static org.mockito.Mockito.mockStatic;
  * <p><b>Key Features:</b></p>
  * <ul>
  *   <li>Automatic MockedStatic setup and teardown for SpringUtils</li>
+ *   <li>Automatic MockedStatic setup and teardown for LogAction (audit logging no-op)</li>
  *   <li>Registry for managing mock beans returned by SpringUtils.getBean()</li>
  *   <li>No Spring context required - tests run in milliseconds</li>
  *   <li>Proper cleanup to prevent test pollution</li>
@@ -83,14 +86,22 @@ public abstract class OpenOUnitTestBase {
     protected MockedStatic<SpringUtils> springUtilsMock;
 
     /**
+     * MockedStatic instance for LogAction that will be closed after each test.
+     * Silences audit logging calls (LogAction.addLogSynchronous) which are used
+     * by nearly all manager implementations.
+     */
+    protected MockedStatic<LogAction> logActionMock;
+
+    /**
      * Registry of mocked beans that SpringUtils.getBean() should return.
      * Key: Class type, Value: Mock instance
      */
     protected Map<Class<?>, Object> mockedBeans = new HashMap<>();
 
     /**
-     * Sets up the MockedStatic for SpringUtils before each test.
+     * Sets up the MockedStatic for SpringUtils and LogAction before each test.
      * Configures SpringUtils.getBean() to return mocks from the registry.
+     * Configures LogAction to no-op all static logging methods.
      */
     @BeforeEach
     void setUpSpringUtilsMocking() {
@@ -112,13 +123,24 @@ public abstract class OpenOUnitTestBase {
             });
 
         // Note: SpringUtils only has getBean(Class) method, not getBean(String, Class)
+
+        // Pre-register OscarLogDao mock - required because LogAction's static field
+        // initializer calls SpringUtils.getBean(OscarLogDao.class) when the class is loaded
+        registerMock(OscarLogDao.class, Mockito.mock(OscarLogDao.class));
+
+        // Create MockedStatic for LogAction - silences all audit logging calls
+        // Nearly all manager implementations call LogAction.addLogSynchronous()
+        logActionMock = mockStatic(LogAction.class);
     }
 
     /**
-     * Cleans up the MockedStatic after each test to prevent test pollution.
+     * Cleans up the MockedStatic instances after each test to prevent test pollution.
      */
     @AfterEach
     void tearDownSpringUtilsMocking() {
+        if (logActionMock != null) {
+            logActionMock.close();
+        }
         if (springUtilsMock != null) {
             springUtilsMock.close();
         }
@@ -155,5 +177,30 @@ public abstract class OpenOUnitTestBase {
      */
     protected void clearMocks() {
         mockedBeans.clear();
+    }
+
+    /**
+     * Injects a dependency into a target object via reflection.
+     * Searches up the class hierarchy to find the field.
+     *
+     * @param target The object to inject into
+     * @param fieldName The name of the field to inject
+     * @param value The value to inject
+     */
+    protected void injectDependency(Object target, String fieldName, Object value) {
+        Class<?> clazz = target.getClass();
+        while (clazz != null) {
+            try {
+                java.lang.reflect.Field field = clazz.getDeclaredField(fieldName);
+                field.setAccessible(true);
+                field.set(target, value);
+                return;
+            } catch (NoSuchFieldException e) {
+                clazz = clazz.getSuperclass();
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException("Failed to inject dependency: " + fieldName, e);
+            }
+        }
+        throw new RuntimeException("Field not found: " + fieldName + " in " + target.getClass().getName());
     }
 }

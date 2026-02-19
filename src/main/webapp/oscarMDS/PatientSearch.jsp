@@ -172,13 +172,7 @@
 </SCRIPT>
 <script>
     function updateOpener(t1, t2) {
-        <%if(request.getParameter("from") != null && "olis1".equals(request.getParameter("from"))) {
-            %>window.opener.updateLabDemoStatus2(t1, t2);
-        <%
-            } else {
-                %>window.opener.updateLabDemoStatus(t1);
-        <%
-            }%>
+        window.opener.updateLabDemoStatus(t1);
     }
 </script>
 <CENTER>

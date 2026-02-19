@@ -103,10 +103,13 @@ mvn test -Dtest=TicklerDao*       # Specific test pattern
 
 ### 3. BDD Naming Convention
 ```java
-// Clear, self-documenting test names with ONE underscore
-void shouldReturnActiveTicklers_whenDemographicNumberProvided()  // camelCase + underscore
-void shouldReturnNull_whenNotFound()                              // Simple condition
-void shouldThrowException_whenPrivilegeDenied()                   // Exception testing
+// Clear, self-documenting test names with ONE underscore separator
+// Preposition after underscore (_when, _by, _for, _with, _to, _from) should read naturally
+void shouldReturnActiveTicklers_whenDemographicNumberProvided()  // _when for conditions
+void shouldReturnSpecialists_byServiceName()                      // _by for lookups
+void shouldPersistMeasurement_withBloodPressureData()             // _with for parameters
+void shouldReturnTrue_forOMedsCppCode()                           // _for for inputs
+void shouldConvertExtensionList_toMapKeyedByExtKey()              // _to for transformations
 ```
 
 ### 4. Comprehensive Tagging

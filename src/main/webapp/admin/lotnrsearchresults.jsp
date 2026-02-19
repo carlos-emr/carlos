@@ -32,6 +32,7 @@
 <%@page import="java.net.URLEncoder" %>
 <%@page import="java.nio.charset.StandardCharsets" %>
 <%@page import="java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.util.*" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -110,7 +111,7 @@
                                onclick="document.forms['searchlotnr'].keyword.focus();"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearch.prevention"/></font></td>
                     <td valign="middle" rowspan="2" ALIGN="left"><input type="text"
                                                                         NAME="keyword" SIZE="17" MAXLENGTH="100"
-                                                                        value="<%=request.getParameter("keyword") != null ? request.getParameter("keyword") : ""%>">
+                                                                        value="<%=request.getParameter("keyword") != null ? Encode.forHtmlAttribute(request.getParameter("keyword")) : ""%>">
                         <INPUT
                                 TYPE="hidden" NAME="orderby" VALUE="prevention_type"> <INPUT
                                 TYPE="hidden" NAME="dboperation" VALUE="lotnr_search_prevention">
@@ -127,7 +128,7 @@
         <table width="100%" border="0">
             <tr>
                 <td align="left"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.search.keywords"/></i>
-                    : <%=request.getParameter("keyword")%>
+                    : <%=Encode.forHtml(request.getParameter("keyword"))%>
                 </td>
             </tr>
         </table>
@@ -174,11 +175,11 @@
                 nLastPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
                 if (nLastPage >= 0) {
             %> <a
-                href="lotnrsearchresults.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
+                href="lotnrsearchresults.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnLastPage"/></a> | <%
             }
             if (nItems == Integer.parseInt(strLimit2)) {
         %> <a
-                href="lotnrsearchresults.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
+                href="lotnrsearchresults.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.btnNextPage"/></a> <%
             }
         %>
             <p><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.lotnrsearchresults.msgClickForEditing"/></p>

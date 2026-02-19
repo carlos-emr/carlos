@@ -1,4 +1,4 @@
-<%@ taglib uri="http://displaytag.sf.net/el" prefix="display-el" %>
+<%@ taglib uri="http://displaytag.sf.net" prefix="display-el" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 

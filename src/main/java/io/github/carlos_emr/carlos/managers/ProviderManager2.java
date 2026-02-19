@@ -408,16 +408,6 @@ public class ProviderManager2 {
             settings.setDisableCommentOnAck("yes".equals(map.get("lab_ack_comment").getValue()) ? true : false);
         }
 
-        if (map.get("olis_reportingLab") != null) {
-            settings.setOlisDefaultReportingLab(map.get("olis_reportingLab").getValue());
-        }
-        if (map.get("olis_exreportingLab") != null) {
-            settings.setOlisDefaultExcludeReportingLab(map.get("olis_exreportingLab").getValue());
-        }
-
-
-
-
         if (map.get("disable_born_prompts") != null) {
         }
 
@@ -466,12 +456,6 @@ public class ProviderManager2 {
         settings.setDefaultDoNotDeleteBilling(pp.getDefaultDoNotDeleteBilling() == 1 ? true : false);
 
         settings.setPrintQrCodeOnPrescription(pp.isPrintQrCodeOnPrescriptions());
-        settings.seteRxEnabled(pp.isERxEnabled());
-        settings.seteRxTrainingMode(pp.isERxTrainingMode());
-        settings.seteRxFacility(pp.getERxFacility());
-        settings.seteRxURL(pp.getERx_SSO_URL());
-        settings.seteRxUsername(pp.getERxUsername());
-        settings.seteRxPassword(pp.getERxPassword());
 
         settings.setDefaultPmm("enabled".equals(pp.getDefaultCaisiPmm()));
 
@@ -537,13 +521,6 @@ public class ProviderManager2 {
         pp.setDefaultDoNotDeleteBilling(settings.isDefaultDoNotDeleteBilling() ? 1 : 0);
 
         pp.setPrintQrCodeOnPrescriptions(settings.isPrintQrCodeOnPrescription());
-        pp.setERxEnabled(settings.iseRxEnabled());
-
-        pp.setERxTrainingMode(settings.iseRxTrainingMode());
-        pp.setERxFacility(settings.geteRxFacility());
-        pp.setERx_SSO_URL(settings.geteRxURL());
-        pp.setERxUsername(settings.geteRxUsername());
-        pp.setERxPassword(settings.geteRxPassword());
 
         pp.setDefaultCaisiPmm(settings.isDefaultPmm() ? "enabled" : "disabled");
         pp.setProviderNo(providerNo);
@@ -684,10 +661,6 @@ public class ProviderManager2 {
         p.setValue(settings.isDisableCommentOnAck() ? "yes" : "no");
 
 
-        p = getMappedOrNewProperty(map, "olis_reportingLab", providerNo);
-        p.setValue(settings.getOlisDefaultReportingLab());
-        p = getMappedOrNewProperty(map, "olis_exreportingLab", providerNo);
-        p.setValue(settings.getOlisDefaultExcludeReportingLab());
         p = getMappedOrNewProperty(map, "disable_born_prompts", providerNo);
         p = getMappedOrNewProperty(map, "dashboard_share", providerNo);
         p.setValue(String.valueOf(settings.isDashboardShare()));

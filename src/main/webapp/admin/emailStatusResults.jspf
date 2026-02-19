@@ -22,10 +22,10 @@
                 <td>
                 <c:choose>
                     <c:when test="${emailStatusResult.isEncrypted}">
-                        <i class="icon-lock"></i> Encrypted with password <b><c:out value="${ emailStatusResult.password }"/></b>
+                        <i class="fa-solid fa-lock"></i> Encrypted with password <b><c:out value="${ emailStatusResult.password }"/></b>
                     </c:when>
                     <c:otherwise>
-                        <i class="icon-unlock"></i> Unencrypted
+                        <i class="fa-solid fa-unlock"></i> Unencrypted
                     </c:otherwise>
                 </c:choose>
                 </td>
@@ -48,9 +48,9 @@
                 </td>
                 <td class="action-menu">
                     <c:if test="${emailStatusResult.status eq 'FAILED'}">
-                        <button type="button" class="btn btn-outline-secondary btnResolve" id="btnResolve${emailStatusResult.logId}" onclick="resolve('${emailStatusResult.logId}')"><i class="icon-ok-sign"></i> Resolve</button>
+                        <button type="button" class="btn btn-outline-secondary btnResolve" id="btnResolve${emailStatusResult.logId}" onclick="resolve('${emailStatusResult.logId}')"><i class="fa-solid fa-circle-check"></i> Resolve</button>
                     </c:if>
-                    <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="icon-envelope-alt"></i> Copy and Open as New Email to Patient</button>
+                    <button type="button" class="btn btn-success btnResend" id="btnResend${emailStatusResult.logId}" onclick="resend('${emailStatusResult.logId}')"><i class="fa-solid fa-envelope"></i> Copy and Open as New Email to Patient</button>
                 </td>
             </tr>
         </table>

@@ -41,6 +41,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 
 <%
@@ -58,72 +59,79 @@
 
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <title>Billing Report</title>
-    <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
-    <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-    <script language="JavaScript">
-        <!--
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billing Report Center</title>
 
+    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/searchBox.css">
+
+    <script src="${pageContext.request.contextPath}/js/global.js"></script>
+
+    <script>
         function selectprovider(s) {
+            var a;
             if (self.location.href.lastIndexOf("&providerview=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
             else a = self.location.href;
             self.location.href = a + "&providerview=" + s.options[s.selectedIndex].value;
         }
 
-        function openBrWindow(theURL, winName, features) { //v2.0
+        function openBrWindow(theURL, winName, features) {
             window.open(theURL, winName, features);
         }
 
         function refresh() {
             var u = self.location.href;
             if (u.lastIndexOf("view=1") > 0) {
-                self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(eval(u.lastIndexOf("view=1") + 6));
+                var idx = u.lastIndexOf("view=1");
+                self.location.href = u.substring(0, idx) + "view=0" + u.substring(idx + 6);
             } else {
                 history.go(0);
             }
         }
-
-        //-->
     </script>
 
-
+    <style type="text/css" media="print">
+        .searchBox { display: none; }
+    </style>
 </head>
 
-<body bgcolor="#FFFFFF" text="#000000" leftmargin="0" rightmargin="0"
-      topmargin="10">
-<table width="100%" border="0" cellspacing="0" cellpadding="0">
-    <tr>
-        <td align="right"><a href=#
-                             onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">
-            <font size="1">Manage Provider List </font></a></td>
-    </tr>
-</table>
+<body>
+<div class="container">
+<div class="searchBox">
 
-<table width="100%" border="0" cellspacing="0" cellpadding="0">
-    <tr bgcolor="#000000">
-        <td height="40" width="10%"></td>
-        <td width="90%" align="left">
-            <p><b><font face="Verdana, Arial" color="#FFFFFF" size="3">oscarBilling</font></b></p>
-        </td>
-    </tr>
-</table>
+    <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
+        <h4 style="margin:0; font-size:18px; display:inline-block;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
+                <path d="M1.92.506a.5.5 0 0 1 .434.14L3 1.293l.646-.647a.5.5 0 0 1 .708 0L5 1.293l.646-.647a.5.5 0 0 1 .708 0L7 1.293l.646-.647a.5.5 0 0 1 .708 0L9 1.293l.646-.647a.5.5 0 0 1 .708 0l.646.647.646-.647a.5.5 0 0 1 .708 0l.646.647.646-.647a.5.5 0 0 1 .801.13l.5 1A.5.5 0 0 1 15 2v12a.5.5 0 0 1-.053.224l-.5 1a.5.5 0 0 1-.8.13L13 14.707l-.646.647a.5.5 0 0 1-.708 0L11 14.707l-.646.647a.5.5 0 0 1-.708 0L9 14.707l-.646.647a.5.5 0 0 1-.708 0L7 14.707l-.646.647a.5.5 0 0 1-.708 0L5 14.707l-.646.647a.5.5 0 0 1-.708 0L3 14.707l-.646.647a.5.5 0 0 1-.801-.13l-.5-1A.5.5 0 0 1 1 14V2a.5.5 0 0 1 .053-.224l.5-1a.5.5 0 0 1 .367-.27m.217 1.338L2 2.118v11.764l.137.274.51-.51a.5.5 0 0 1 .707 0l.646.647.646-.646a.5.5 0 0 1 .708 0l.646.646.646-.646a.5.5 0 0 1 .708 0l.646.646.646-.646a.5.5 0 0 1 .708 0l.646.646.646-.646a.5.5 0 0 1 .708 0l.646.646.646-.646a.5.5 0 0 1 .708 0l.509.509.137-.274V2.118l-.137-.274-.51.51a.5.5 0 0 1-.707 0L12 1.707l-.646.647a.5.5 0 0 1-.708 0L10 1.707l-.646.647a.5.5 0 0 1-.708 0L8 1.707l-.646.647a.5.5 0 0 1-.708 0L6 1.707l-.646.647a.5.5 0 0 1-.708 0L4 1.707l-.646.647a.5.5 0 0 1-.708 0l-.509-.51zM3 4.5a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 1 1 0 1h-6a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5m8-6a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5m0 2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5"/>
+            </svg>
+            &nbsp;Billing Report Center
+        </h4>
+        <span style="float:right;">
+            <a href="#" onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport'); return false;" class="btn btn-sm btn-default">Manage Provider List</a>
+        </span>
+    </div>
 
-<table width="100%" border="0" bgcolor="#EEEEFF">
-    <form name="serviceform" method="post"
-          action="billingReportControl.jsp">
-        <tr>
-            <td width="50%" align="right"><font size="2" color="#333333"
-                                                face="Verdana, Arial, Helvetica, sans-serif"> <input
-                    type="radio" name="reportAction" value="unbilled" checked>Unbilled
-                <input type="radio" name="reportAction" value="billed">Billed
-                <input type="radio" name="reportAction" value="unsettled">Unsettled
-                <input type="radio" name="reportAction" value="billob">OB <input
-                        type="radio" name="reportAction" value="flu">FLU</font></td>
-            <td width="30%" align="right" nowrap><font
-                    face="Verdana, Arial, Helvetica, sans-serif" size="2" color="#333333">
-                <b>Select provider </b></font> <select name="providerview">
+    <form name="serviceform" method="post" action="billingReportControl.jsp">
+        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+        <div class="form-inline" style="margin-bottom:10px;">
+            <label class="radio-inline">
+                <input type="radio" name="reportAction" value="unbilled" checked> Unbilled
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="reportAction" value="billed"> Billed
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="reportAction" value="unsettled"> Unsettled
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="reportAction" value="billob"> OB
+            </label>
+            <label class="radio-inline">
+                <input type="radio" name="reportAction" value="flu"> FLU
+            </label>
 
+            &nbsp;&nbsp;Provider
+            <select name="providerview" class="form-control input-sm" style="width:auto; display:inline-block;">
                 <%
                     String proFirst = "";
                     String proLast = "";
@@ -138,49 +146,29 @@
                         proFirst = p.getFirstName();
                         proLast = p.getLastName();
                         proOHIP = p.getProviderNo();
-
                 %>
-                <option value="<%=proOHIP%>"
-                        <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=proLast%>,
-                    <%=proFirst%>
-                </option>
+                <option value="<%=Encode.forHtmlAttribute(proOHIP)%>" <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtml(proLast + ", " + proFirst)%></option>
                 <%
                     }
                 %>
-            </select></td>
-            <td align="center"><font color="#333333" size="2"
-                                     face="Verdana, Arial, Helvetica, sans-serif"> <input
-                    type="hidden" name="verCode" value="V03"> <input
-                    type="submit" name="Submit" value="Create Report"> </font></td>
-        </tr>
-        <tr>
-            <td></td>
-            <td align="right"><B>Date</B> &nbsp; <font size="1"
-                                                       face="Arial, Helvetica, sans-serif"> <a href="#"
-                                                                                               onClick="openBrWindow('billingCalendarPopup.jsp?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">From:</a></font>
-                <input type="text" name="xml_vdate" size="10" value="<%=xml_vdate%>">
-                <font size="1" face="Arial, Helvetica, sans-serif"> <a href="#"
-                                                                       onClick="openBrWindow('billingCalendarPopup.jsp?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')">
-                    To:</a></font> <input type="text" name="xml_appointment_date" size="10"
-                                          value="<%=xml_appointment_date%>"></td>
-            <td></td>
-        </tr>
+            </select>
+
+            <input type="hidden" name="verCode" value="V03">
+
+            <label style="margin-left:10px;">From:
+                <input type="date" name="xml_vdate" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
+            </label>
+            <label>To:
+                <input type="date" name="xml_appointment_date" class="form-control input-sm" style="width:auto; display:inline-block;" value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
+            </label>
+
+            <input type="submit" name="Submit" class="btn btn-sm btn-primary" value="Create Report">
+        </div>
     </form>
-</table>
 
-<br>
 
-<hr width="100%">
-<table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <tr>
-        <td><a href=# onClick="javascript:history.go(-1);return false;">
-            <img src="images/leftarrow.gif" border="0" width="25" height="20"
-                 align="absmiddle"> Back </a></td>
-        <td align="right"><a href="" onClick="self.close();">Close
-            the Window<img src="images/rightarrow.gif" border="0" width="25"
-                           height="20" align="absmiddle"></a></td>
-    </tr>
-</table>
+</div>
+</div>
 
 </body>
 </html>

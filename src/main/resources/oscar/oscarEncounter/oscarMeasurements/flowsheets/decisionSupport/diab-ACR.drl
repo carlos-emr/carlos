@@ -1,39 +1,91 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
+// ============================================================================
+// CARLOS EMR - ACR (Albumin-to-Creatinine Ratio) Value-Based Decision
+//              Support Rules
+// ============================================================================
+//
+// Purpose:
+//   Per-item decision support rules for the ACR measurement. These rules
+//   evaluate ACR values against sex-specific thresholds for detecting
+//   diabetic nephropathy (kidney damage from diabetes).
+//
+// Clinical Context:
+//   ACR measures urinary albumin relative to creatinine, screening for
+//   microalbuminuria - the earliest sign of diabetic nephropathy.
+//   Diabetes Canada sex-specific thresholds for abnormal ACR:
+//     - Male: ACR >= 2.0 mg/mmol (indicates albuminuria)
+//     - Female: ACR >= 2.0 mg/mmol (same threshold used here)
+//   Note: Some guidelines use 2.0 for males and 2.8 for females.
+//   The XML flowsheet guideline text shows "M &lt;2.0 F &lt;2.8" but
+//   both rules here use the same 2.0 threshold.
+//
+// Referenced By:
+//   - XML configs: diabetesFlowsheet.xml, chf.xml
+//     (<item> elements with ds_rules="diab-ACR.drl")
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
+//   - See also: diab.drl/ckd.drl for ACR timeliness rules
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created as Drools 2.0 XML rules (McMaster University)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
+// ============================================================================
+package DiabetesACR;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
-<rule-set name="DiabetesACR"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+// ---------------------------------------------------------------------------
+// Elevated ACR - Male (ACR >= 2.0 mg/mmol)
+// Indicates microalbuminuria in male patients.
+// ---------------------------------------------------------------------------
+rule "ACR 1"
+    when
+        m : MeasurementDSHelper()
+        eval( m.isMale() == true )
+        eval( m.getDataAsDouble() >= 2.0 )
+    then
+        m.log("ACR RULES IS GETTING RUN");
+        m.setIndicationColor("HIGH");
+end
 
-    <rule name="ACR 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.isMale() == true </java:condition>       
-        <java:condition>m.getDataAsDouble() &gt;= 2.0</java:condition> 
-        <java:consequence>     
-              m.log("ACR RULES IS GETTING RUN");
-              m.setIndicationColor("HIGH");
-        </java:consequence>
-    </rule>
-
-    <rule name="ACR 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.isFemale() == true </java:condition>       
-        <java:condition>m.getDataAsDouble() &gt;= 2.0</java:condition> 
-        <java:consequence>     
-              m.log("ACR RULES IS GETTING RUN");
-              m.setIndicationColor("HIGH");
-        </java:consequence>
-    </rule>
-
-    
-</rule-set>
-
-
+// ---------------------------------------------------------------------------
+// Elevated ACR - Female (ACR >= 2.0 mg/mmol)
+// Indicates microalbuminuria in female patients.
+// Note: Both male and female rules use the same 2.0 threshold despite
+// some guidelines recommending 2.8 for females.
+// ---------------------------------------------------------------------------
+rule "ACR 2"
+    when
+        m : MeasurementDSHelper()
+        eval( m.isFemale() == true )
+        eval( m.getDataAsDouble() >= 2.0 )
+    then
+        m.log("ACR RULES IS GETTING RUN");
+        m.setIndicationColor("HIGH");
+end

@@ -1,37 +1,90 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
+// ============================================================================
+// CARLOS EMR - A1C (Glycated Hemoglobin) Value-Based Decision Support Rules
+// ============================================================================
+//
+// Purpose:
+//   Per-item decision support rules for the A1C measurement. These rules
+//   evaluate the CURRENT VALUE of an A1C reading against Diabetes Canada
+//   treatment targets and colour-code the result in the flowsheet UI.
+//
+// Clinical Context:
+//   A1C (HbA1c) reflects average blood glucose over the preceding 2-3
+//   months. Diabetes Canada target: <=7.0% for most adults with diabetes.
+//   Values >7.0% indicate suboptimal glycemic control.
+//
+//   Two rule formats handle different A1C value conventions:
+//     - Rule "A1C":  Percentage format (>=7.0, e.g., 7.5 = 7.5%)
+//     - Rule "A1C2": Fraction/decimal format (0.07-2.0, e.g., 0.075 = 7.5%)
+//   Some labs report A1C as a fraction (0.075) rather than percentage (7.5).
+//   Both are flagged as "HIGH" when above target.
+//
+// Referenced By:
+//   - XML configs: diabetesFlowsheet.xml, omdDiabetesFlowsheet.xml
+//     (<item> elements with ds_rules="diab-A1C.drl")
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
+//   - See also: diab.drl for A1C timeliness rules (when A1C is overdue)
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created as Drools 2.0 XML rules (McMaster University)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
+// ============================================================================
+package DiabetesA1C;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
-<rule-set name="DiabetesA1C"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+// ---------------------------------------------------------------------------
+// Above-target A1C - percentage format (A1C >= 7.0%)
+// Values >=7.0% indicate suboptimal glycemic control per Diabetes Canada.
+// ---------------------------------------------------------------------------
+rule "A1C"
+    when
+        m : MeasurementDSHelper()
+        eval( m.getDataAsDouble() >= 7 )
+    then
+        m.log("A1C RULES IS GETTING RUN");
+        m.setIndicationColor("HIGH");
+end
 
-    <rule name="A1C">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.getDataAsDouble() &gt;= 7</java:condition>       
-        <java:consequence>     
-              m.log("A1C RULES IS GETTING RUN");
-              m.setIndicationColor("HIGH");
-        </java:consequence>
-    </rule>
-
-    <rule name="A1C2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.getDataAsDouble() &lt;= 2</java:condition>   
-        <java:condition>m.getDataAsDouble() &gt;= 0.07</java:condition>    
-        <java:consequence>     
-              m.log("A1C RULES IS GETTING RUN");
-              m.setIndicationColor("HIGH");
-        </java:consequence>
-    </rule>
-
-</rule-set>
-
-
+// ---------------------------------------------------------------------------
+// Above-target A1C - fraction/decimal format (0.07 <= A1C <= 2.0)
+// Some labs report A1C as a decimal fraction (e.g., 0.075 = 7.5%).
+// The upper bound of 2.0 prevents percentage-format values (e.g., 7.5)
+// from matching this rule.
+// ---------------------------------------------------------------------------
+rule "A1C2"
+    when
+        m : MeasurementDSHelper()
+        eval( m.getDataAsDouble() <= 2 )
+        eval( m.getDataAsDouble() >= 0.07 )
+    then
+        m.log("A1C RULES IS GETTING RUN");
+        m.setIndicationColor("HIGH");
+end

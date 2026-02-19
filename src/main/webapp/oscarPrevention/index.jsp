@@ -92,7 +92,6 @@
     Prevention p = PreventionData.getPrevention(loggedInInfo, Integer.valueOf(demographic_no));
 
     Integer demographicId = Integer.parseInt(demographic_no);
-    PreventionData.addRemotePreventions(loggedInInfo, p, demographicId);
     Date demographicDateOfBirth = PreventionData.getDemographicDateOfBirth(loggedInInfo, Integer.valueOf(demographic_no));
     String demographicDob = UtilDateUtilities.DateToString(demographicDateOfBirth);
 
@@ -138,13 +137,6 @@
 
 %>
 
-<%!
-    public String getFromFacilityMsg(Map<String, Object> ht) {
-        if (ht.get("id") == null)
-            return ("<br /><span style=\"color:#990000\">(At facility : " + ht.get("remoteFacilityName") + ")<span>");
-        else return ("");
-    }
-%>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
@@ -838,7 +830,7 @@
                   		HashMap<String,String> h = prevList.get(i);
                         String prevName = h.get("name");
                         ArrayList<Map<String,Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, Integer.valueOf(demographic_no));
-                        PreventionData.addRemotePreventions(loggedInInfo, alist, demographicId,prevName,demographicDateOfBirth);
+
                         boolean show = pdc.display(loggedInInfo, h, demographic_no,alist.size());
                         if(!show){
                             Map<String,Object> h2 = new HashMap<String,Object>();
@@ -895,8 +887,6 @@
                                         result = hExt.get("result");
 
                                         String onClickCode = "javascript:popup(600,900,'AddPreventionData.jsp?id=" + hdata.get("id") + "&amp;demographic_no=" + demographic_no + "','addPreventionData')";
-                                        if (hdata.get("id") == null)
-                                            onClickCode = "popup(300,500,'display_remote_prevention.jsp?remoteFacilityId=" + hdata.get("integratorFacilityId") + "&remotePreventionId=" + hdata.get("integratorPreventionId") + "&amp;demographic_no=" + demographic_no + "')";
                                 %>
 
                                 <div class="preventionProcedure" onclick="<%=onClickCode%>"
@@ -919,7 +909,7 @@
                                     }%>
 
                                     <%
-                                        /* Integrated results dont have an "ID" key */
+                                        /* Some results may not have a local database ID */
                                         if (hdata.containsKey("id")) {
                                             List<DHIRSubmissionLog> dhirLogs = submissionManager.findByPreventionId(Integer.parseInt((String) hdata.get("id")));
 
@@ -936,7 +926,7 @@
                                     }
                                 %>
 
-                                            <%=getFromFacilityMsg(hdata)%></p>
+                                            </p>
                                 </div>
                                 <%}%>
                             </div>
@@ -1068,7 +1058,7 @@
                                         <%
                                             String prevType = h.get("name");
                                             ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevType, Integer.valueOf(demographic_no));
-                                            PreventionData.addRemotePreventions(loggedInInfo, alist, demographicId, prevType, demographicDateOfBirth);
+
                                             String result;
                                             for (int k = 0; k < alist.size(); k++) {
                                                 Map<String, Object> hdata = alist.get(k);
@@ -1076,15 +1066,12 @@
                                                 result = hExt.get("result");
 
                                                 String onClickCode = "javascript:popup(600,900,'AddPreventionData.jsp?id=" + hdata.get("id") + "&amp;demographic_no=" + demographic_no + "','addPreventionData')";
-                                                if (hdata.get("id") == null)
-                                                    onClickCode = "popup(300,500,'display_remote_prevention.jsp?remoteFacilityId=" + hdata.get("integratorFacilityId") + "&remotePreventionId=" + hdata.get("integratorPreventionId") + "&amp;demographic_no=" + demographic_no + "')";
                                         %>
                                         <div class="preventionProcedure" onclick="<%=onClickCode%>">
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <%=hdata.get("age")%> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
                                                 Date: <%=StringEscapeUtils.escapeHtml4((String) hdata.get("prevention_date_no_time"))%>
-                                                <%=getFromFacilityMsg(hdata)%>
-                                            </p>
+                                                                                            </p>
                                         </div>
                                         <%}%>
                                     </div>
@@ -1114,7 +1101,7 @@
                     HashMap<String, String> h = prevList.get(i);
                     String prevName = h.get("name");
                     ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, Integer.valueOf(demographic_no));
-                    PreventionData.addRemotePreventions(loggedInInfo, alist, demographicId, prevName, demographicDateOfBirth);
+
                     if (alist.size() > 0) { %>
             <input type="hidden" id="preventionHeader<%=i%>"
                    name="preventionHeader<%=i%>" value="<%=h.get("name")%>">

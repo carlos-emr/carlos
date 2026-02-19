@@ -70,9 +70,14 @@
                requestURI="/PMmodule/Admin/DefaultRoleAccess.do">
     <display:setProperty name="paging.banner.placement" value="bottom"/>
     <display:column sortable="false" title="">
-        <a
-                href="<%=request.getContextPath() %>/PMmodule/Admin/DefaultRoleAccess.do?method=delete&id=<c:out value="${item.id}"/>"
+        <a href="javascript:void(0)"
+                onclick="document.getElementById('deleteForm_<c:out value="${item.id}"/>').submit()"
                 title="Delete"> Delete </a>
+        <form id="deleteForm_<c:out value="${item.id}"/>" method="post"
+              action="<%=request.getContextPath() %>/PMmodule/Admin/DefaultRoleAccess.do" style="display:none">
+            <input type="hidden" name="method" value="delete"/>
+            <input type="hidden" name="id" value="<c:out value="${item.id}"/>"/>
+        </form>
     </display:column>
     <display:column property="caisi_role.name" sortable="true"
                     title="Role"/>

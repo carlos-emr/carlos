@@ -137,14 +137,9 @@
     Map<Integer, LookupListItem> reasonCodesMap = new HashMap<>();
     OscarProperties oscarVariables = OscarProperties.getInstance();
     AppManager appManager = SpringUtils.getBean(AppManager.class);
-    String resourcehelpHtml = "";
-    UserProperty rbuHtml = userPropertyDao.getProp("resource_helpHtml");
     io.github.carlos_emr.carlos.managers.PreventionManager providerPreventionManager = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.PreventionManager.class);
 %>
 <%
-    if (rbuHtml != null) {
-        resourcehelpHtml = rbuHtml.getValue();
-    }
     LookupList reasonCodes = lookupListManager.findLookupListByName(loggedInInfo1, "reasonCode");
     for (LookupListItem lli : reasonCodes.getItems()) {
         reasonCodesMap.put(lli.getId(), lli);
@@ -280,8 +275,6 @@
     // end get eform form links
 
     boolean prescriptionQrCodes = providerPreference.isPrintQrCodeOnPrescriptions();
-    boolean erx_enable = providerPreference.isERxEnabled();
-    boolean erx_training_mode = providerPreference.isERxTrainingMode();
 
     boolean bShortcutIntakeForm = oscarVariables.getProperty("appt_intake_form", "").equalsIgnoreCase("on") ? true : false;
 
@@ -352,8 +345,6 @@
     }
     int nProvider;
 
-    boolean caseload = "1".equals(request.getParameter("caseload"));
-
     GregorianCalendar cal = new GregorianCalendar();
     int curYear = cal.get(Calendar.YEAR);
     int curMonth = (cal.get(Calendar.MONTH) + 1);
@@ -412,6 +403,19 @@
     String strMonth = month > 9 ? ("" + month) : ("0" + month);
     String strDay = day > 9 ? ("" + day) : ("0" + day);
 
+    // Timeline indicator variables - shows current time marker on today's schedule
+    final int TIMELINE_GRACE_OFFSET_MINUTES = 6; // Grace period to account for page load delay
+    SimpleDateFormat formatHour = new SimpleDateFormat("HH");
+    SimpleDateFormat formatMin = new SimpleDateFormat("mm");
+    SimpleDateFormat formatAdate = new SimpleDateFormat("yyyyMMdd");
+    Date curDate = new Date();
+    String curHour = formatHour.format(curDate);
+    String curMin = formatMin.format(curDate);
+    String curDate2 = formatAdate.format(curDate);
+    boolean isToday = curDate2.equals(strYear + strMonth + strDay);
+    int curH = Integer.parseInt(curHour);
+    int totalM = Integer.parseInt(curMin) + curH * 60 - TIMELINE_GRACE_OFFSET_MINUTES;
+    boolean isTimeline = OscarProperties.getInstance().getProperty("display_timeline", "true").equalsIgnoreCase("true");
 
     Calendar apptDate = Calendar.getInstance();
     apptDate.set(year, month - 1, day);
@@ -471,16 +475,10 @@
             }
         %>
 
-        <%
-            if (!caseload) {
-        %>
         <c:if test="${empty sessionScope.archiveView or sessionScope.archiveView != true}">
             <%!String refresh = io.github.carlos_emr.OscarProperties.getInstance().getProperty("refresh.appointmentprovideradminday.jsp", "-1");%>
             <%="-1".equals(refresh) ? "" : "<meta http-equiv=\"refresh\" content=\"" + refresh + "\">"%>
         </c:if>
-        <%
-            }
-        %>
 
 
         <script type="text/javascript"
@@ -524,7 +522,7 @@
                     newGroupNo = s.options[s.selectedIndex].value;
                 }
                 var programId = 0;
-                popupPage(10, 10, "${pageContext.request.contextPath}/provider/providercontrol.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&default_servicetype=<%=defaultServiceType%>&prescriptionQrCodes=<%=prescriptionQrCodes%>&erx_enable=<%=erx_enable%>&erx_training_mode=<%=erx_training_mode%>&mygroup_no=" + newGroupNo + "&programId_oscarView=" + programId + "<%=eformIds.toString()%><%=ectFormNames.toString()%>");
+                postViaForm("${pageContext.request.contextPath}/provider/providercontrol.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&default_servicetype=<%=defaultServiceType%>&prescriptionQrCodes=<%=prescriptionQrCodes%>&mygroup_no=" + newGroupNo + "&programId_oscarView=" + programId + "<%=eformIds.toString()%><%=ectFormNames.toString()%>", "attachment");
             }
 
             function ts1(s) {
@@ -571,6 +569,87 @@
             .ds-btn {
                 background-color: #f4ead7;
                 border: 1px solid #0097cf;
+            }
+
+            /* Quick Date Navigation Buttons */
+            .quick-nav {
+                display: inline-block;
+                vertical-align: middle;
+            }
+            .quick-btn {
+                padding: 2px 6px;
+                margin: 0 1px;
+                font-size: 11px;
+                background-color: #f0f0f0;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            .quick-btn:hover {
+                background-color: #e0e0e0;
+                border-color: #999;
+            }
+            .multiplier-input {
+                width: 24px;
+                padding: 2px 4px;
+                font-size: 11px;
+                text-align: center;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                background-color: #f8f8f8;
+            }
+            .multiplier-input:focus {
+                border-color: #0066cc;
+                outline: none;
+            }
+
+            /* Toggle Cancelled Appointments */
+            #toggleCancelledBtn {
+                display: inline-block;
+                vertical-align: middle;
+                cursor: pointer;
+                color: #333;
+            }
+            #toggleCancelledBtn:hover {
+                color: #0066cc;
+            }
+            #toggleCancelledIcon.cancelled-hidden {
+                opacity: 0.5;
+            }
+            .hideCancelled {
+                display: none !important;
+            }
+
+            /* Timeline Indicator - Current Time Marker */
+            .timeline-indicator {
+                height: 2px;
+            }
+            .timeline-indicator td {
+                padding: 0 !important;
+                border: none !important;
+            }
+            .timeline-marker {
+                border: none;
+                border-top: 2px dotted tomato;
+                margin: 0;
+                padding: 0;
+            }
+
+            /* Clickable Date for Calendar Popup */
+            .clickable-date {
+                color: inherit;
+                text-decoration: none;
+                cursor: pointer;
+            }
+            .clickable-date:hover {
+                color: #0066cc;
+                text-decoration: underline;
+            }
+            .clickable-date .dateAppointment {
+                border-bottom: 1px dashed #999;
+            }
+            .clickable-date:hover .dateAppointment {
+                border-bottom-color: #0066cc;
             }
         </style>
 
@@ -833,20 +912,6 @@
                         <% } %>
                     </c:if>
 
-                    <li>
-                        <a href='providercontrol.jsp?year=<%=curYear%>&month=<%=curMonth%>&day=<%=curDay%>&view=0&displaymode=day&dboperation=searchappointmentday&caseload=1&clProv=<%=loggedInInfo1.getLoggedInProviderNo()%>'><fmt:setBundle basename="oscarResources"/><fmt:message key="global.caseload"/></a>
-                    </li>
-
-                    <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                        <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
-                            <li>
-                                <a href="#" ONCLICK="popupPage2('<%=resourcebaseurl%>');return false;"
-                                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>"
-                                   onmouseover="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.clinicalResources"/></a>
-                            </li>
-                        </security:oscarSec>
-                    </caisi:isModuleLoad>
-
                     <%
                         if (isMobileOptimized) {
                     %>
@@ -884,25 +949,7 @@
                             </security:oscarSec>
 
                             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                                <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
-                                    <li>
-                                        <a HREF="#"
-                                           ONCLICK="popupPage2('<%= request.getContextPath() %>/report/reportindex.jsp','reportPage');return false;"
-                                           TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>'
-                                           OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.report"/></a>
-                                    </li>
-                                </security:oscarSec>
                                 <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">
-
-                                    <c:if test="${billingRights}">
-                                        <li>
-                                            <a HREF="#"
-                                               ONCLICK="popupPage2('<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>');return false;"
-                                               TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>'
-                                               onMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a>
-                                        </li>
-                                    </c:if>
-
                                     <c:if test="${doctorLinkRights}">
                                         <li>
                                        <a HREF="#" id="inboxLink">
@@ -915,10 +962,16 @@
                                         </li>
                                     </c:if>
                                 </oscar:oscarPropertiesCheck>
-
                             </caisi:isModuleLoad>
 
-                                <%-- K2A link block removed --%>
+                            <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
+                                <li>
+                                    <a HREF="#"
+                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ticklerMain.jsp','<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>');return false;"
+                                       TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>'>
+                                        <span id="oscar_new_tickler"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btntickler"/></span></a>
+                                </li>
+                            </security:oscarSec>
 
                             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r">
@@ -960,14 +1013,30 @@
                                     </li>
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
-                            <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
-                                <li>
-                                    <a HREF="#"
-                                       ONCLICK="popupPage2('<%= request.getContextPath() %>/tickler/ticklerMain.jsp','<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>');return false;"
-                                       TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>'>
-                                        <span id="oscar_new_tickler"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btntickler"/></span></a>
-                                </li>
-                            </security:oscarSec>
+
+                            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                                <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
+                                    <li>
+                                        <a HREF="#"
+                                           ONCLICK="popupPage2('<%= request.getContextPath() %>/report/reportindex.jsp','reportPage');return false;"
+                                           TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>'
+                                           OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.report"/></a>
+                                    </li>
+                                </security:oscarSec>
+                            </caisi:isModuleLoad>
+
+                            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                                <oscar:oscarPropertiesCheck property="NOT_FOR_CAISI" value="no" defaultVal="true">
+                                    <c:if test="${billingRights}">
+                                        <li>
+                                            <a HREF="#"
+                                               ONCLICK="popupPage2('<%= request.getContextPath() %>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=loggedInInfo1.getLoggedInProviderNo()%>');return false;"
+                                               TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>'
+                                               onMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a>
+                                        </li>
+                                    </c:if>
+                                </oscar:oscarPropertiesCheck>
+                            </caisi:isModuleLoad>
 
                             <oscar:oscarPropertiesCheck property="referral_menu" value="yes">
                                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.misc" rights="r">
@@ -1034,29 +1103,16 @@
                                 </li>
 
                             </security:oscarSec>
-                            <li id="helpLink">
-                                <%if (resourcehelpHtml == "") { %>
-                                <a href="javascript:void(0)"
-                                   onClick="popupPage(600,750,'<%=resourcebaseurl%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
-                                <%} else {%>
-                                <div id="help-link">
-                                    <a href="javascript:void(0)"
-                                       onclick="document.getElementById('helpHtml').style.display='block';document.getElementById('helpHtml').style.right='0px';"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
 
-                                    <div id="helpHtml">
-                                        <div class="help-title">Help</div>
+                            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
+                                <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
+                                    <li>
+                                        <a href="https://www.oscargalaxy.org" target="_blank" rel="noopener noreferrer"
+                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.clinicalResources"/></a>
+                                    </li>
+                                </security:oscarSec>
+                            </caisi:isModuleLoad>
 
-                                        <div class="help-body">
-
-                                            <%=resourcehelpHtml%>
-                                        </div>
-                                        <a href="javascript:void(0)" class="help-close"
-                                           onclick="document.getElementById('helpHtml').style.right='-280px';document.getElementById('helpHtml').style.display='none'">(X)</a>
-                                    </div>
-
-                                </div>
-                                <%}%>
-                            </li>
                             <% if (isMobileOptimized) { %>
                         </ul>
                     </li> <!-- end menu list for mobile-->
@@ -1082,7 +1138,7 @@
                     </li>
                     <li>
                         <a href="javascript:void(0)" style="display: flex; align-items: flex-end;"
-                           onClick="popupPage(715,680,'providerpreference.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>')"
+                           onClick="popupPage(800,1000,'providerpreference.jsp?provider_no=<%= Encode.forUriComponent(loggedInInfo1.getLoggedInProviderNo()) %>')"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
                             <span class="glyphicon">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
@@ -1119,13 +1175,6 @@
 
     <div id="system_message"></div>
     <div id="facility_message"></div>
-    <%
-        if (caseload) {
-    %>
-    <jsp:include page="caseload.jspf"/>
-    <%
-    } else {
-    %>
 
     <table id="scheduleNavigation">
         <tr id="ivoryBar">
@@ -1135,19 +1184,6 @@
                     <span class="glyphicon glyphicon-step-backward"
                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewPrevDay"/>"></span>
                 </a>
-                <b><span class="dateAppointment"><%
-                    if (isWeekView) {
-                %><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.week"/> <%=week%><%
-                } else {
-                %><%=formatDate%><%
-                    }
-                %></span></b>
-                <a class="redArrow"
-                   href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
-                    <span class="glyphicon glyphicon-step-forward"
-                          title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
-                </a>
-
                 <%
                     String calendarUrl = request.getContextPath() + "/share/CalendarPopup.jsp?urlfrom=" + request.getContextPath() + "/provider/providercontrol.jsp" + "&year=" + strYear + "&month=" + strMonth + "&param=" + URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewall, "UTF-8");
 
@@ -1155,10 +1191,46 @@
                         calendarUrl += URLEncoder.encode("&provider_no=" + provNum, "UTF-8");
                     }
                 %>
+                <b><a href="#" class="clickable-date" onclick="popupPage(425,430,'<%=calendarUrl%>'); return false;"
+                      title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.clickToOpenCalendar"/>">
+                    <span class="dateAppointment"><%
+                    if (isWeekView) {
+                %><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.week"/> <%=week%><%
+                } else {
+                %><%=formatDate%><%
+                    }
+                %></span></a></b>
+                <a class="redArrow"
+                   href="providercontrol.jsp?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%=isWeekView?"&provider_no="+provNum:""%>&viewall=<%=viewall%>">
+                    <span class="glyphicon glyphicon-step-forward"
+                          title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
+                </a>
 
-                <a id="calendarLink" href="#" onClick="popupPage(425,430,'<%=calendarUrl%>')">
-                    <fmt:setBundle basename="oscarResources"/>
-                    <fmt:message key="global.calendar"/>
+                <!-- Quick Date Navigation Shortcuts with Multiplier -->
+                <span class="quick-nav noprint" style="margin-left: 10px;">
+                    <input type="button" value="M-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthBack"/>"/>
+                    <input type="button" value="W-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekBack"/>"/>
+                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"/>
+                    <input type="button" value="W+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekForward"/>"/>
+                    <input type="button" value="M+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthForward"/>"/>
+                    |
+                    <input type="button" value="2W" class="quick-btn" onclick="getLocation('weekForward', 2)" title="2 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weeks"/>"/>
+                    <input type="button" value="4W" class="quick-btn" onclick="getLocation('weekForward', 4)" title="4 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weeks"/>"/>
+                    <input type="button" value="3M" class="quick-btn" onclick="getLocation('monthForward', 3)" title="3 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
+                    <input type="button" value="6M" class="quick-btn" onclick="getLocation('monthForward', 6)" title="6 <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.months"/>"/>
+                </span>
+
+                <!-- Toggle Cancelled Appointments -->
+                <a id="toggleCancelledBtn" href="javascript:void(0)" onclick="toggleCancelled();" class="noprint" style="margin-left: 10px;"
+                   title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>"
+                   data-title-hide="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.hideCancelled"/>"
+                   data-title-show="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.showCancelled"/>">
+                    <span id="toggleCancelledIcon" class="glyphicon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
+                            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
+                            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                        </svg>
+                    </span>
                 </a>
 
                 <c:if test="${infirmaryView_isOscar != 'false'}">
@@ -1318,7 +1390,7 @@
                                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
                                                 var siteName = sel.options[sel.selectedIndex].value;
                                                 var newGroupNo = "<%=(mygroupno == null ? ".default" : mygroupno)%>";
-                                                popupPage(10, 10, "providercontrol.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "&site=" + siteName);
+                                                postViaForm("providercontrol.jsp?provider_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "&site=" + siteName, "attachment");
                                             }
                                         </script>
 
@@ -1708,6 +1780,15 @@
                                                         } else {
                                                             hourmin = new StringBuffer();
                                                         }
+
+                                                        // Timeline indicator - show current time marker on today's schedule
+                                                        if ((ih >= totalM) && (ih < (totalM + depth)) && !isWeekView && isToday && isTimeline) {
+                                                %>
+                                                <tr class="timeline-indicator noprint">
+                                                    <td colspan="8"><hr class="timeline-marker"/></td>
+                                                </tr>
+                                                <%
+                                                        }
                                                 %>
                                                 <tr>
                                                     <td class="<%=bColorHour?"scheduleTime00":"scheduleTimeNot00"%>">
@@ -1840,8 +1921,10 @@
 
                                                          //multi-site. if a site have been selected, only display appointment in that site
                                                    if (!bMultisites || (selectedSite == null && CurrentSiteMap.get(sitename) != null) || sitename.equals(selectedSite)) {
+                                                        // Check if this is a cancelled appointment (C, CS, CV, N, NS, NV)
+                                                        boolean isCancelled = noCountStatus.contains(status);
                                                     %>
-                                                    <td class="appt" bgcolor='<%=as.getBgColor()%>'
+                                                    <td class="appt<%= isCancelled ? " Cancelled" : "" %>" bgcolor='<%=as.getBgColor()%>'
                                                         rowspan="<%=iRows%>"
                                                         nowrap>
                                                         <!-- multisites : add colour-coded to the "location" value of that appointment. -->
@@ -1856,7 +1939,7 @@
                                                         %>
                                                         <!-- Short letters -->
                                                         <a class="apptStatus" href="javascript:void(0)"
-                                                           onclick="refreshSameLoc('providercontrol.jsp?appointment_no=<%=appointment.getId()%>&amp;provider_no=<%=curProvider_no[nProvider]%>&amp;status=&amp;statusch=<%=nextStatus%>&amp;year=<%=year%>&amp;month=<%=month%>&amp;day=<%=day%>&amp;<%=viewString%>&amp;displaymode=addstatus&amp;dboperation=updateapptstatus&amp;viewall=${ not empty param.viewall ? param.viewall : "0" }<%= isWeekView ? "&amp;viewWeek=1" : "" %>');"
+                                                           onclick="postViaForm('providercontrol.jsp?appointment_no=<%=appointment.getId()%>&amp;provider_no=<%=curProvider_no[nProvider]%>&amp;status=&amp;statusch=<%=nextStatus%>&amp;year=<%=year%>&amp;month=<%=month%>&amp;day=<%=day%>&amp;<%=viewString%>&amp;displaymode=addstatus&amp;dboperation=updateapptstatus&amp;viewall=<c:out value="${not empty param.viewall ? param.viewall : '0'}"/><%= isWeekView ? "&amp;viewWeek=1" : "" %>');"
                                                            title='<c:out value="<%=as.getTitleString(request.getLocale())%>" />'>
                                                             <%
                                                                 }
@@ -2252,7 +2335,6 @@
 
 
                     </tr>
-                    <% } // end caseload view %>
                 </table>        <!-- end table for the whole schedule row display -->
 
 
@@ -2308,7 +2390,7 @@
                         return false;
                     }
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.labShortcut"/> :
-                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/>');
+                        popupOscarRx(600, 1024, '<%=request.getContextPath()%>/web/inboxhub/Inboxhub.do?method=displayInboxForm', '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/>');
                         return false;  //run code for 'L'ab
                     case <fmt:setBundle basename="oscarResources"/><fmt:message key="global.msgShortcut"/> :
                         popupOscarRx(600, 1024, '<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname, StandardCharsets.UTF_8)%>');
@@ -2398,25 +2480,15 @@
 
 <script>
     const contextPath = document.getElementById("contextPath").value;
-    const originalInboxLinkClickEvent = "popupInboxManager('" + contextPath + "/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=<%=loggedInInfo1.getLoggedInProviderNo()%>');return false;";
-    const newInboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;";
+    const inboxLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm', 800);return false;";
+    const unclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;";
 
-    const originalUnclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/documentManager/inboxManage.do?method=prepareForIndexPage&providerNo=0&searchProviderNo=0&status=N&lname=&fname=&hnum=&pageNum=1&startIndex=0');return false;"
-    const newUnclaimedLabLinkClickEvent = "popupInboxManager('" + contextPath + "/web/inboxhub/Inboxhub.do?method=displayInboxForm&unclaimed=1', 800);return false;"
-
-    document.getElementById("inboxLink").addEventListener("mouseup", function(event) {
-        if(event.altKey) {
-            document.getElementById("inboxLink").setAttribute("onclick", newInboxLinkClickEvent);
-        } else {
-            document.getElementById("inboxLink").setAttribute("onclick", originalInboxLinkClickEvent);
-        }
-    });
-
-    document.getElementById("unclaimedLabLink").addEventListener("mouseup", function(event) {
-        if(event.altKey) {
-            document.getElementById("unclaimedLabLink").setAttribute("onclick", newUnclaimedLabLinkClickEvent);
-        } else {
-            document.getElementById("unclaimedLabLink").setAttribute("onclick", originalUnclaimedLabLinkClickEvent);
-        }
-    });
+    const inboxLink = document.getElementById("inboxLink");
+    if (inboxLink) {
+        inboxLink.setAttribute("onclick", inboxLinkClickEvent);
+    }
+    const unclaimedLabLink = document.getElementById("unclaimedLabLink");
+    if (unclaimedLabLink) {
+        unclaimedLabLink.setAttribute("onclick", unclaimedLabLinkClickEvent);
+    }
 </script>

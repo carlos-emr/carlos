@@ -100,7 +100,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <td><form action="<%= request.getContextPath() %>/oscarRx/addAllergy.do" focus="reactionDescription" name="RxAddAllergyForm" id="RxAddAllergyForm">
+                        <td><form action="<%= request.getContextPath() %>/oscarRx/addAllergy.do" method="post" focus="reactionDescription" name="RxAddAllergyForm" id="RxAddAllergyForm">
                             <table>
                                 <tr valign="center">
 
