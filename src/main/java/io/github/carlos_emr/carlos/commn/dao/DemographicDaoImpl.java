@@ -70,7 +70,6 @@ import org.hibernate.criterion.Restrictions;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientListsReportFormBean;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicParameters;
 import io.github.carlos_emr.carlos.commn.DemographicSearchResultTransformer;
 import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -2811,7 +2810,6 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
     private String generateDemographicSearchQuery(LoggedInInfo loggedInInfo, DemographicSearchRequest searchRequest,
                                                   Map<String, Object> params, String select) {
         OscarProperties props = OscarProperties.getInstance();
-        MatchingDemographicParameters matchingDemographicParameters = null;
 
         params.put("keyword", searchRequest.getKeyword());
 
@@ -2834,8 +2832,6 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
 
         if (searchRequest.getMode() == SEARCHMODE.HIN) {
             fieldname = "d.hin";
-            matchingDemographicParameters = new MatchingDemographicParameters();
-            matchingDemographicParameters.setHin(searchRequest.getKeyword());
         }
         if (searchRequest.getMode() == SEARCHMODE.DOB) {
             fieldname = "d.year_of_birth = :year and d.month_of_birth = :month and d.date_of_birth ";
@@ -2849,13 +2845,11 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
                 params.put("month", month);
                 params.put("keyword", day);
 
-                GregorianCalendar cal = new GregorianCalendar(Integer.parseInt(year), Integer.parseInt(month) - 1,
+                // Validate the date parts
+                new GregorianCalendar(Integer.parseInt(year), Integer.parseInt(month) - 1,
                     Integer.parseInt(day));
-                matchingDemographicParameters = new MatchingDemographicParameters();
-                matchingDemographicParameters.setBirthDate(cal);
             } catch (Exception e) {
                 // this is okay, person inputed a bad date, we'll ignore for now
-                matchingDemographicParameters = null;
                 params.put("year", null);
                 params.put("month", null);
                 params.put("keyword", null);
@@ -2869,16 +2863,6 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         }
 
         if (searchRequest.getMode() == SEARCHMODE.Name) {
-            matchingDemographicParameters = new MatchingDemographicParameters();
-            String[] lastfirst = searchRequest.getKeyword().split(",");
-
-            if (lastfirst.length > 1) {
-                matchingDemographicParameters.setLastName(lastfirst[0].trim());
-                matchingDemographicParameters.setFirstName(lastfirst[1].trim());
-            } else {
-                matchingDemographicParameters.setLastName(lastfirst[0].trim());
-            }
-
             if (searchRequest.getKeyword().indexOf(",") == -1) {
                 fieldname = "lower(d.last_name)";
             } else if (searchRequest.getKeyword().indexOf(",") == (searchRequest.getKeyword().length() - 1)) {

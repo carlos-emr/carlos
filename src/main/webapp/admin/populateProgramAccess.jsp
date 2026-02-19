@@ -88,7 +88,7 @@
 } else {
 %>
 <h1>This tool will add all missing roles based access_type DB entries.</h1>
-<form action="populateProgramAccess.jsp">
+<form action="populateProgramAccess.jsp" method="post">
     <input type="hidden" name="method" value="run"/>
     <input type="submit"/>
 </form>

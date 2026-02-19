@@ -46,6 +46,7 @@
 %>
 
 <%@ page import="java.math.*,java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -472,10 +473,10 @@
     </div><!-- row well-->
 
 
-    <form name="ReProcessBillingForm" method="get" action="reprocessBill.do">
+    <form name="ReProcessBillingForm" method="post" action="reprocessBill.do">
 
         <input type="hidden" id="hiddenFilterType" name="hiddenFilterType"
-               value="<%=request.getParameter("billTypes")%>">
+               value="<%=Encode.forHtmlAttribute(request.getParameter("billTypes"))%>">
 
 
         <table class="table table-striped table-condensed sortable" id="resultsTable">

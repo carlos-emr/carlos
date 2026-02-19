@@ -29,6 +29,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -240,25 +241,25 @@
                 <th align="center" width="5%">Main Record</th>
                 <%}%>
                 <TH align="center" width="10%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=demographic_no&limit1=0&limit2=<%=strLimit%>">Demographic</a></b></font>
+                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&orderby=demographic_no&limit1=0&limit2=<%=strLimit%>">Demographic</a></b></font>
                 </TH>
                 <TH align="center" width="20%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=last_name&limit1=0&limit2=<%=strLimit%>">Last
+                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&orderby=last_name&limit1=0&limit2=<%=strLimit%>">Last
                     Name</a> </b></font></TH>
                 <TH align="center" width="20%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=first_name&limit1=0&limit2=<%=strLimit%>">First
+                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&orderby=first_name&limit1=0&limit2=<%=strLimit%>">First
                     Name</a> </b></font></TH>
                 <TH align="center" width="10%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=age&limit1=0&limit2=<%=strLimit%>">Age</a></b></font>
+                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&orderby=age&limit1=0&limit2=<%=strLimit%>">Age</a></b></font>
                 </TH>
                 <TH align="center" width="10%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=roster_status&limit1=0&limit2=<%=strLimit%>">Roster
+                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&orderby=roster_status&limit1=0&limit2=<%=strLimit%>">Roster
                     Status</a></b></font></TH>
                 <TH align="center" width="10%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=sex&limit1=0&limit2=<%=strLimit%>">Sex</a></B></font>
+                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&orderby=sex&limit1=0&limit2=<%=strLimit%>">Sex</a></B></font>
                 </TH>
                 <TH align="center" width="10%"><b><a
-                        href="demographicmergerecord.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=date_of_birth&limit1=0&limit2=<%=strLimit%>">DOB(yy/mm/dd)</a></B></Font>
+                        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&orderby=date_of_birth&limit1=0&limit2=<%=strLimit%>">DOB(yy/mm/dd)</a></B></Font>
                 </TH>
             </tr>
             <%
@@ -393,12 +394,12 @@
         nLastPage = Integer.parseInt(strOffset) - Integer.parseInt(strLimit);
         if (nLastPage >= 0) {
     %> <a
-        href="demographicmergerecord.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>">Last
+        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&orderby=<%=Encode.forUriComponent(request.getParameter("orderby"))%>&limit1=<%=nLastPage%>&limit2=<%=strLimit%>">Last
     Page</a> | <%
     }
     if (nItems == Integer.parseInt(strLimit)) {
 %> <a
-        href="demographicmergerecord.jsp?keyword=<%=request.getParameter("keyword")%>&search_mode=<%=request.getParameter("search_mode")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>">
+        href="demographicmergerecord.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("keyword"))%>&search_mode=<%=Encode.forUriComponent(request.getParameter("search_mode"))%>&orderby=<%=Encode.forUriComponent(request.getParameter("orderby"))%>&limit1=<%=nNextPage%>&limit2=<%=strLimit%>">
     Next Page</a> <%
     }
 

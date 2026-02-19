@@ -155,7 +155,6 @@ public class EctDisplayForm2Action extends EctDisplayAction {
                                             "/form/forwardshortcutname.do?formname="
                                             + encounterForm.getFormName() +
                                             "&demographic_no=" + bean.demographicNo +
-                                            (pfrm.getRemoteFacilityId() != null ? "&remoteFacilityId=" + pfrm.getRemoteFacilityId() : "") +
                                             (appointmentNo != null ? "&appointmentNo=" + appointmentNo : "")
                                             + "&formId=latest" + "');");
 

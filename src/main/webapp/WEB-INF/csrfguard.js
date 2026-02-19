@@ -478,6 +478,20 @@
                     this.setRequestHeader(token_name, token_value);
                 }
             };
+
+            /** inject CSRF token into dynamically created forms on submit **/
+            var _originalFormSubmit = HTMLFormElement.prototype.submit;
+            HTMLFormElement.prototype.submit = function() {
+                if (token_name && token_value &&
+                    !this.querySelector('input[name="' + token_name + '"]')) {
+                    var hidden = document.createElement('input');
+                    hidden.setAttribute('type', 'hidden');
+                    hidden.setAttribute('name', token_name);
+                    hidden.setAttribute('value', token_value);
+                    this.appendChild(hidden);
+                }
+                return _originalFormSubmit.call(this);
+            };
         }
 
         /** update nodes in DOM after load **/

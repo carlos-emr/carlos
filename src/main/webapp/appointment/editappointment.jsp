@@ -407,12 +407,13 @@
                 var aptStat = document.EDITAPPT.status.value;
                 if (aptStat.indexOf('B') === 0) {
                     var agree = confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgCanceledBilledConfirmation"/>");
-                    if (agree) {
-                        window.location = 'appointmentcontrol.jsp?buttoncancel=Cancel Appt&displaymode=Update Appt&appointment_no=<%=appointment_no%>';
+                    if (!agree) {
+                        return;
                     }
-                } else {
-                    window.location = 'appointmentcontrol.jsp?buttoncancel=Cancel Appt&displaymode=Update Appt&appointment_no=<%=appointment_no%>';
                 }
+                document.EDITAPPT.displaymode.value = 'Update Appt';
+                document.EDITAPPT.buttoncancel.value = 'Cancel Appt';
+                document.EDITAPPT.submit();
             }
 
             function upCaseCtrl(ctrl) {
@@ -783,6 +784,7 @@
     <div class="container" >
 <form name="EDITAPPT" METHOD="post" class="form-inline" ACTION="appointmentcontrol.jsp" onSubmit="return(onSub())">
     <input type="hidden" name="displaymode" value="">
+    <input type="hidden" name="buttoncancel" value="">
             <div class="header deep">
         <div class="time" id="header"><h4>
                     <!-- We display a shortened title for the mobile version -->
@@ -1320,13 +1322,13 @@
                     <input type="submit" class="btn btn-danger" id="deleteButton"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Delete Appt'; onButDelete();"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnDeleteAppointment"/>">
-                    <input type="button" name="buttoncancel" id="cancelButton" class="btn btn-inverse"
+                    <input type="button" id="cancelButton" class="btn btn-inverse"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnCancelAppointment"/>"
                            onClick="onButCancel();">
                     <input type="button"
-                           name="buttoncancel" id="noShowButton" class="btn"
+                           name="noShowButton" id="noShowButton" class="btn"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnNoShow"/>"
-                           onClick="window.location='appointmentcontrol.jsp?buttoncancel=No Show&displaymode=Update Appt&appointment_no=<%=appointment_no%>'">
+                           onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=appointment_no%>&amp;demo='+document.EDITAPPT.demographic_no.value,'anwin','width=400,height=500');">

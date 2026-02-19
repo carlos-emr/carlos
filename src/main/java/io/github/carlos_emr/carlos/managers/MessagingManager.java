@@ -84,8 +84,6 @@ public interface MessagingManager {
      */
     public int getCountNewMessagesDemographicAttached(LoggedInInfo loggedInInfo, String providerNo);
 
-    public Integer getMyInboxIntegratorMessagesCount(LoggedInInfo loggedInInfo, String providerNo);
-
     /**
      * Get the count of all messages attached to the given demographic Id.
      *
@@ -106,8 +104,8 @@ public interface MessagingManager {
     public Long setMessageStatus(LoggedInInfo loggedInInfo, MessageList messageList, String status);
 
     /**
-     * Set the message opened by this local provider from new to read. Matching provider numbers from
-     * remote locations will be ignored.
+     * Set the message opened by this local provider from new to read. Only messages with a
+     * local destination are updated.
      *
      * @param loggedInInfo
      * @param messageId
@@ -157,14 +155,12 @@ public interface MessagingManager {
     public void addRecipientToMessage(LoggedInInfo loggedInInfo, int messageId, String providerNo, int clinicLocationNo, int facilityId, String status);
 
     /**
-     * A combined result of both the local reply recipients and recipients located in remote
-     * facilities including the original sender.
+     * Returns all reply recipients for the given message, including the original sender.
      */
     public List<ContactIdentifier> getAllMessageReplyRecipients(LoggedInInfo loggedInInfo, final MessageTbl messageTbl);
 
     /**
-     * A combined result of both the local reply recipients and recipients located in remote
-     * facilities inluding the original sender.
+     * Returns all reply recipients for the given message, including the original sender.
      */
     public List<ContactIdentifier> getAllMessageReplyRecipients(LoggedInInfo loggedInInfo, int messageId);
 
@@ -191,8 +187,7 @@ public interface MessagingManager {
     public List<ContactIdentifier> getAllLocalReplyRecipients(LoggedInInfo loggedInInfo, int messageId);
 
     /**
-     * Recipients that were copied in on the message but have an origin in one of the included
-     * remote facilities.
+     * Recipients that were copied in on the message from a different clinic location.
      *
      * @param loggedInInfo
      * @param messageId

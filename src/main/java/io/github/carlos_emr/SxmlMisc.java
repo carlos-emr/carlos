@@ -35,9 +35,9 @@ import java.util.Properties;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
 
-import io.github.carlos_emr.carlos.caisi_integrator.util.MiscUtils;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Simple XML manipulation utility class for working with XML-like data structures.

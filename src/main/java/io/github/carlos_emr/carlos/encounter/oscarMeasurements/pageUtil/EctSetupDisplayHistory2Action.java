@@ -30,8 +30,6 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
-import java.util.List;
-
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -41,7 +39,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 
 import com.opensymphony.xwork2.ActionSupport;
@@ -62,8 +59,6 @@ public final class EctSetupDisplayHistory2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
         EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         request.getSession().setAttribute("EctSessionBean", bean);
         String type = request.getParameter("type");
@@ -73,10 +68,6 @@ public final class EctSetupDisplayHistory2Action extends ActionSupport {
             request.setAttribute("demographicNo", demo);
             if (type != null) {
                 measurementsData = new EctMeasurementsDataBeanHandler(demo, type);
-                if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                    List<EctMeasurementsDataBean> measures = (List<EctMeasurementsDataBean>) measurementsData.getMeasurementsDataVector();
-                    EctMeasurementsDataBeanHandler.addRemoteMeasurements(loggedInInfo, measures, type, demo);
-                }
                 request.setAttribute("type", type);
             }
         } else {

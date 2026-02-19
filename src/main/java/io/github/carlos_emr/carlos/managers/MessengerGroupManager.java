@@ -30,11 +30,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.model.*;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedFacility;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk;
 import io.github.carlos_emr.carlos.commn.dao.GroupMembersDao;
 import io.github.carlos_emr.carlos.commn.dao.GroupsDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao;
@@ -84,7 +80,7 @@ public class MessengerGroupManager {
     }
 
     /**
-     * Get ALL Oscar Messenger Members from ALL locations.
+     * Get all Messenger members from the local clinic.
      * Organize the results in groups of location name.
      *
      * @param loggedInInfo
@@ -100,49 +96,7 @@ public class MessengerGroupManager {
         List<MsgProviderData> localMembers = getAllLocalMembers(loggedInInfo);
         allMembers.put("Local Members", localMembers);
 
-        Map<String, List<MsgProviderData>> remoteMembers = getAllRemoteMembers(loggedInInfo);
-        allMembers.putAll(remoteMembers);
-
         return allMembers;
-    }
-
-    /**
-     * All remote (integrated) members enrolled as a Oscar messenger contact.
-     * Sorted alphabetically into groups of facility location.
-     *
-     * @param loggedInInfo
-     * @return
-     */
-    public Map<String, List<MsgProviderData>> getAllRemoteMembers(LoggedInInfo loggedInInfo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-
-        Map<String, List<MsgProviderData>> remoteMembers = new TreeMap<String, List<MsgProviderData>>();
-
-        if (!loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            logger.warn("Cannot retrieve remote providers contact list. Integrator is disabled.");
-            return remoteMembers;
-        }
-
-        Facility facility = facilityManager.getDefaultFacility(loggedInInfo);
-
-        try {
-            List<CachedFacility> remoteFacilities = CaisiIntegratorManager.getRemoteFacilitiesExcludingCurrent(loggedInInfo, facility);
-            List<GroupMembers> groupMembers = Collections.emptyList();
-            for (CachedFacility remoteFacility : remoteFacilities) {
-                groupMembers = groupMembersDao.findByFacilityId(remoteFacility.getIntegratorFacilityId());
-                List<MsgProviderData> remoteMemberDataList = getMemberData(loggedInInfo, groupMembers);
-                if (remoteMemberDataList.size() > 0) {
-                    Collections.sort(remoteMemberDataList, new SortLastName());
-                    remoteMembers.put(remoteFacility.getName(), remoteMemberDataList);
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Error", e);
-        }
-
-        return remoteMembers;
     }
 
     /**
@@ -181,8 +135,8 @@ public class MessengerGroupManager {
     }
 
     /**
-     * Get all groups that contain all local and remote members.
-     * All members from all local and remote locations sorted alphabetically into groups of assigned groups.
+     * Get all groups that contain all local members.
+     * All members sorted alphabetically into groups of assigned groups.
      *
      * @param loggedInInfo
      * @return
@@ -216,15 +170,7 @@ public class MessengerGroupManager {
 
         List<GroupMembers> groupMembers = Collections.emptyList();
 
-        /*
-         *  get all group members if the Integrator is enabled.
-         *  Otherwise just the local groups is good
-         */
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            groupMembers = groupMembersDao.findByGroupId(groupId);
-        } else {
-            groupMembers = groupMembersDao.findLocalByGroupId(groupId);
-        }
+        groupMembers = groupMembersDao.findLocalByGroupId(groupId);
 
         List<MsgProviderData> messengerContactList = getMemberData(loggedInInfo, groupMembers);
         Collections.sort(messengerContactList, new SortLastName());
@@ -278,7 +224,7 @@ public class MessengerGroupManager {
         if (facilityId == 0 || facilityId == loggedInInfo.getCurrentFacility().getId()) {
             messengerContact = getLocalMember(loggedInInfo, providerNo);
         } else {
-            messengerContact = getRemoteMember(loggedInInfo, providerNo, facilityId);
+            logger.warn("Ignoring non-local facility ID {} for provider {}", facilityId, providerNo);
         }
         return messengerContact;
     }
@@ -301,40 +247,6 @@ public class MessengerGroupManager {
             msgProviderData.getId().setClinicLocationNo(getCurrentLocationId());
         }
         return msgProviderData;
-    }
-
-    /**
-     * Get a remote contact member details(name, location, id etc...) based on the remote Provider Number and Facility Id
-     * Returns data for the providers located at the given Facility data.
-     *
-     * @param loggedInInfo
-     * @param providerNo
-     * @param facilityId
-     * @return MsgProviderData; NULL if retrieval fails
-     */
-    public MsgProviderData getRemoteMember(LoggedInInfo loggedInInfo, String providerNo, int facilityId) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-
-        MsgProviderData messengerContact = null;
-        CachedProvider cachedProvider = null;
-        Facility facility = facilityManager.getDefaultFacility(loggedInInfo);
-        FacilityIdStringCompositePk facilityCompositePk = new FacilityIdStringCompositePk();
-        facilityCompositePk.setCaisiItemId(providerNo);
-        facilityCompositePk.setIntegratorFacilityId(facilityId);
-
-        try {
-            cachedProvider = CaisiIntegratorManager.getProvider(loggedInInfo, facility, facilityCompositePk);
-        } catch (Exception e) {
-            logger.error("Error while getting remote providers list from Integrator. Could be offline. ", e);
-        }
-
-        if (cachedProvider != null) {
-            messengerContact = new MsgProviderData(cachedProvider);
-        }
-
-        return messengerContact;
     }
 
     /**
@@ -363,13 +275,12 @@ public class MessengerGroupManager {
     }
 
     /**
-     * All providers contacts (potential Oscar Messenger Members) from the local Oscar
-     * AND all the Integrated clinics that are connected.
+     * All provider contacts (potential Messenger Members) from the local clinic.
      * This list is used in the Messenger Configuration to present potential members that can be enrolled into
-     * the Oscar Messenger system.
+     * the Messenger system.
      *
      * @param loggedInInfo
-     * @return Map of provider data grouped by facility
+     * @return Map containing local provider data
      */
     public Map<String, List<MsgProviderData>> getAllMessengerContacts(LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)) {
@@ -378,16 +289,14 @@ public class MessengerGroupManager {
 
         Map<String, List<MsgProviderData>> providersMap = new TreeMap<String, List<MsgProviderData>>();
         List<MsgProviderData> localMessengerContactList = getAllLocalMessengerContactList(loggedInInfo);
-        Map<String, List<MsgProviderData>> remoteProviders = getAllRemoteMessengerContactList(loggedInInfo);
         providersMap.put("Local Providers", localMessengerContactList);
-        providersMap.putAll(remoteProviders);
         return providersMap;
     }
 
     /**
-     * All providers contacts (potential Oscar Messenger Members) from the local Oscar server.
+     * All provider contacts (potential Messenger members) from the local server.
      * This list is used in the Messenger Configuration to present potential members that can be enrolled into
-     * the Oscar Messenger system.
+     * the Messenger system.
      *
      * @param loggedInInfo
      * @return List<MsgProviderData>
@@ -419,62 +328,7 @@ public class MessengerGroupManager {
     }
 
     /**
-     * All providers contacts (potential Oscar Messenger Members) from ALL remote Integrated Facilities (remote clinics).
-     * This list is used in the Messenger Configuration to present potential members that can be enrolled into
-     * the Oscar Messenger system.
-     * Sorted by facility name
-     *
-     * @param loggedInInfo
-     * @return
-     */
-    public Map<String, List<MsgProviderData>> getAllRemoteMessengerContactList(LoggedInInfo loggedInInfo) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-
-        Map<String, List<MsgProviderData>> providersMap = new TreeMap<String, List<MsgProviderData>>();
-
-        if (!loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            logger.debug("Cannot retrieve remote providers contact list. Integrator is disabled.");
-            return providersMap;
-        }
-
-        Facility facility = facilityManager.getDefaultFacility(loggedInInfo);
-        List<CachedFacility> remoteFacilities = Collections.emptyList();
-        List<CachedProvider> remoteProviders = Collections.emptyList();
-
-        try {
-            remoteFacilities = CaisiIntegratorManager.getRemoteFacilitiesExcludingCurrent(loggedInInfo, facility);
-            remoteProviders = CaisiIntegratorManager.getAllProviders(loggedInInfo, facility);
-        } catch (Exception e) {
-            logger.error("Error while getting remote providers list from Integrator ", e);
-        }
-
-        // re-sort lists by facility.
-        for (CachedFacility remoteFacility : remoteFacilities) {
-            Integer facilityId = remoteFacility.getIntegratorFacilityId();
-            String facilityName = remoteFacility.getName();
-            List<MsgProviderData> messengerContactList = new ArrayList<MsgProviderData>();
-
-            for (CachedProvider remoteProvider : remoteProviders) {
-                if (facilityId == remoteProvider.getFacilityIdStringCompositePk().getIntegratorFacilityId()
-                        && !remoteProvider.getFacilityIdStringCompositePk().getCaisiItemId().equals("-1")
-                        && remoteProvider.getLastName() != null
-                        && !remoteProvider.getLastName().isEmpty()) {
-                    MsgProviderData messengerContact = new MsgProviderData(remoteProvider);
-                    messengerContactList.add(messengerContact);
-                }
-            }
-            checkMembership(messengerContactList);
-            Collections.sort(messengerContactList, new SortLastName());
-            providersMap.put(facilityName, messengerContactList);
-        }
-
-        return providersMap;
-    }
-
-    /**
-     * Add a new empty Group for adding Oscar messenger members.
+     * Add a new empty group for adding Messenger members.
      *
      * @param loggedInInfo
      * @param groupName
@@ -494,7 +348,7 @@ public class MessengerGroupManager {
 
     /**
      * Remove all members from the given group and delete it from the database.
-     * Members will still remain Oscar messenger members.
+     * Members will still remain Messenger members.
      *
      * @param loggedInInfo
      * @param groupId
@@ -519,7 +373,7 @@ public class MessengerGroupManager {
     }
 
     /**
-     * Make an Oscar Provider from any location into an Oscar Messenger Member.  Adding to a group is
+     * Make a provider into a Messenger member. Adding to a group is
      * optional
      *
      * @param loggedInInfo
@@ -557,8 +411,8 @@ public class MessengerGroupManager {
     }
 
     /**
-     * Remove a Member - from any location - from Oscar Messenger membership.
-     * Member is also removed from all Groups.
+     * Remove a member from Messenger membership.
+     * Member is also removed from all groups.
      *
      * @param loggedInInfo
      * @param contactIdentifier
