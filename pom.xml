@@ -36,6 +36,10 @@
         <cxf.version>3.6.9</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
         <netty.version>4.1.129.Final</netty.version>
+        <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0) -->
+        <drools.version>7.74.1.Final</drools.version>
+        <!-- Override mvel2 transitive dependency: 2.4.x references java.lang.Compiler (removed in JDK 16) -->
+        <mvel2.version>2.5.2.Final</mvel2.version>
         <struts.devMode>false</struts.devMode>
         <!-- Test properties -->
         <skipModernTests>false</skipModernTests>
@@ -165,6 +169,13 @@
                 <groupId>jakarta.persistence</groupId>
                 <artifactId>jakarta.persistence-api</artifactId>
                 <version>2.2.3</version>
+            </dependency>
+            <!-- Override transitive XStream from drools-compiler to fix CVE-2024-47072
+                 (stack overflow DoS when BinaryStreamDriver is configured) -->
+            <dependency>
+                <groupId>com.thoughtworks.xstream</groupId>
+                <artifactId>xstream</artifactId>
+                <version>1.4.21</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -604,10 +615,33 @@
         </dependency>
 
         <!-- apache xmlrpc -->
+
+        <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0 in 2026) -->
         <dependency>
-            <groupId>drools</groupId>
-            <artifactId>drools-all</artifactId>
-            <version>2.0</version>
+            <groupId>org.kie</groupId>
+            <artifactId>kie-api</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-core</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-compiler</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-mvel</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <!-- Override mvel2 transitive version: 2.4.x references java.lang.Compiler (removed in JDK 16/JEP 410) -->
+        <dependency>
+            <groupId>org.mvel</groupId>
+            <artifactId>mvel2</artifactId>
+            <version>${mvel2.version}</version>
         </dependency>
 
         <!-- jasper reports -->
@@ -827,15 +861,13 @@
             <version>1.17.2</version>
         </dependency>
 
-        <!-- janino - CRITICAL: Must stay on version 2.x -->
-        <!-- Drools 2.0 (used by PreventionDSImpl for prevention rules) requires janino 2.x API -->
-        <!-- Janino 3.x removed Scanner$LocatedException class, breaking Drools rule compilation -->
-        <!-- DO NOT upgrade to janino 3.x without first upgrading Drools to 7.x+ -->
-        <!-- Previous comment: Detected as "Unused dependency" but don't remove it, caused 404 error after removing -->
+        <!-- janino - Updated to 3.x now that Drools has been upgraded to 7.x -->
+        <!-- Drools 7.x uses its own internal compiler (ecj), but janino may still be -->
+        <!-- used by other runtime components (e.g., JasperReports, Spring expression evaluation) -->
         <dependency>
-            <groupId>janino</groupId>
+            <groupId>org.codehaus.janino</groupId>
             <artifactId>janino</artifactId>
-            <version>2.3.2</version>
+            <version>3.1.12</version>
         </dependency>
 
 

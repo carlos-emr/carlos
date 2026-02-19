@@ -1,51 +1,43 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map.Entry;
 
-import org.drools.RuleBase;
-import org.drools.WorkingMemory;
-import org.drools.io.RuleBaseLoader;
-import org.jdom2.Element;
+import org.kie.api.KieBase;
+import org.kie.api.runtime.KieSession;
+import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCreator;
@@ -53,135 +45,228 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetColour
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.TargetCondition;
 
 /**
- * @author jay
+ * Programmatic Drools rule numerator using {@code getDataAsDouble} comparison
+ * with no date range filtering for CARLOS EMR clinical reporting.
+ *
+ * <p>Unlike {@link DroolsNumerator} which loads a pre-authored DRL file,
+ * DroolsNumerator2 builds DRL rules programmatically at runtime using the
+ * {@link RuleBaseCreator} / {@link TargetCondition} / {@link TargetColour}
+ * framework. It compares the patient's measurement as a numeric double value.</p>
+ *
+ * <h3>Evaluation strategy</h3>
+ * <ol>
+ *   <li>Extract {@code "measurements"} and {@code "value"} from the
+ *       {@link #replaceableValues} map injected by the clinical report framework.</li>
+ *   <li>Build a {@link TargetCondition} of type {@code "getDataAsDouble"} to
+ *       perform a numeric comparison of the measurement against the threshold value.</li>
+ *   <li>Wrap the condition in a {@link TargetColour} with the consequence
+ *       {@code "m.setInRange(true);"} and generate DRL via
+ *       {@link TargetColour#getRuleBaseElement(String)}.</li>
+ *   <li>Compile the generated DRL into a {@link org.kie.api.KieBase} using
+ *       {@link RuleBaseCreator#getRuleBase(String, java.util.List)}.</li>
+ *   <li>Create a {@link MeasurementDSHelper} for the patient with <strong>no date
+ *       range</strong>, insert it into a {@link org.kie.api.runtime.KieSession},
+ *       fire all rules, then dispose of the session.</li>
+ *   <li>Return {@link MeasurementDSHelper#isInRange()} as the pass/fail result.</li>
+ * </ol>
+ *
+ * <h3>Replaceable values</h3>
+ * <p>This numerator requires two replaceable values to be injected before evaluation:</p>
+ * <ul>
+ *   <li>{@code "measurements"} -- the measurement type code (e.g. "BP", "HbA1c")</li>
+ *   <li>{@code "value"} -- the numeric threshold for comparison (e.g. "7.0")</li>
+ * </ul>
+ *
+ * <h3>Drools migration note</h3>
+ * <p>Originally written for Drools 2.0, migrated to Drools 7.74.1 (KIE API).
+ * The legacy {@code RuleBase} / {@code WorkingMemory} API has been replaced by
+ * {@link org.kie.api.KieBase} / {@link org.kie.api.runtime.KieSession}.</p>
+ *
+ * @see Numerator
+ * @see DroolsHelper
+ * @see RuleBaseCreator
+ * @see TargetColour
+ * @see TargetCondition
+ * @see MeasurementDSHelper
+ * @see MeasurementFlowSheet
+ * @see DroolsNumerator
+ * @see DroolsNumerator4
+ * @since 2006-07-28
  */
 public class DroolsNumerator2 implements Numerator {
+
+    /** Human-readable display name for this numerator (e.g. "HbA1c Level Check"). */
     String name = null;
+
+    /** Unique identifier for this numerator within a clinical report definition. */
     String id = null;
+
+    /**
+     * DRL rule filename. Not used directly by this variant's {@link #evaluate} method
+     * (which builds rules programmatically), but retained for the {@link Numerator} contract
+     * and available via {@link #loadMeasurementRuleBase(String)} if needed.
+     */
     String file = null;
+
+    /** Parsed output field names extracted from a comma-separated configuration string. */
     String[] outputfields = null;
+
+    /** Key-value map of output values produced by rule evaluation. */
     Hashtable outputValues = null;
 
     /**
-     * Creates a new instance of DroolsNumerator
+     * Creates a new instance of DroolsNumerator2 with all fields defaulting to {@code null}.
      */
     public DroolsNumerator2() {
     }
 
+    /** Returns the unique identifier for this numerator. */
     public String getId() {
         return id;
     }
 
+    /** Returns the human-readable display name for this numerator. */
     public String getNumeratorName() {
         return name;
     }
 
+    /** Sets the human-readable display name for this numerator. */
     public void setNumeratorName(String name) {
         this.name = name;
     }
 
+    /** Sets the unique identifier for this numerator. */
     public void setId(String id) {
         this.id = id;
     }
 
+    /**
+     * Evaluates a programmatically-built Drools rule for a specific patient using
+     * a {@code getDataAsDouble} numeric comparison with no date range.
+     *
+     * <p>The {@code "measurements"} and {@code "value"} entries are extracted from
+     * {@link #replaceableValues} and used to construct a {@link TargetCondition}
+     * that compares the patient's measurement as a double against the threshold.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context for the current provider
+     * @param demographicNo String the patient demographic number to evaluate
+     * @return boolean {@code true} if the patient's measurement satisfies the
+     *         numeric comparison (i.e. is "in range"), {@code false} otherwise or on error
+     */
     public boolean evaluate(LoggedInInfo loggedInInfo, String demographicNo) {
         boolean evalTrue = false;
         try {
 
+            if (replaceableValues == null) {
+                MiscUtils.getLogger().error("Cannot evaluate DroolsNumerator2: replaceableValues not set. Call setReplaceableValues() before evaluate().");
+                return evalTrue;
+            }
+
+            // Log all replaceable values for debugging purposes
             Iterator terator = replaceableValues.entrySet().iterator();
             while (terator.hasNext()) {
                 Entry en = (Entry) terator.next();
                 MiscUtils.getLogger().debug("IN DROOLS2 key " + en.getKey() + " val " + en.getValue());
             }
 
+            // Extract the measurement type and comparison value from replaceable values
             String measurement = (String) replaceableValues.get("measurements");
             String value = (String) replaceableValues.get("value");
 
 
+            // Build a TargetCondition that uses "getDataAsDouble" to compare the
+            // measurement's numeric value against the configured threshold
             TargetCondition tc = new TargetCondition();
             tc.setType("getDataAsDouble");
             tc.setParam(measurement);
             tc.setValue(value);
+
+            // Wrap the condition in a TargetColour whose consequence sets inRange=true
             TargetColour tcolour = new TargetColour();
             tcolour.setAdditionConsequence("m.setInRange(true);");
             ArrayList<TargetCondition> list = new ArrayList<TargetCondition>();
             list.add(tc);
             tcolour.setTargetConditions(list);
-            ArrayList<Element> list2 = new ArrayList<Element>();
+
+            // Generate the DRL rule element and compile it into a KieBase
+            ArrayList<String> list2 = new ArrayList<String>();
             list2.add(tcolour.getRuleBaseElement("ClinicalRule"));
             RuleBaseCreator rcb = new RuleBaseCreator();
 
 
-            RuleBase ruleBase = rcb.getRuleBase("rulesetName", list2);
+            KieBase kieBase = rcb.getRuleBase("rulesetName", list2);
+            if (kieBase == null) {
+                MiscUtils.getLogger().error("Cannot evaluate clinical rules: programmatic rule compilation failed for demographic '{}'", demographicNo);
+                return evalTrue;
+            }
 
-//            EctMeasurementsDataBeanHandler ect = new EctMeasurementsDataBeanHandler(demographicNo, measurement);
-//           Collection v = ect.getMeasurementsDataVector();
-//           measurementList.add(new ArrayList(v));
-
+            // Create a measurement helper with no date range, set to the target measurement
             MeasurementDSHelper dshelper = new MeasurementDSHelper(loggedInInfo, demographicNo);
             dshelper.setMeasurement(measurement);
 
 
-            MiscUtils.getLogger().debug("new working mem");
-            WorkingMemory workingMemory = ruleBase.newWorkingMemory();
+            // KieSession lifecycle: create session, insert fact, fire rules, dispose
+            MiscUtils.getLogger().debug("newKieSession");
+            KieSession kieSession = kieBase.newKieSession();
+            try {
+                // Insert the measurement helper as a fact into the rule engine
+                MiscUtils.getLogger().debug("insert");
+                kieSession.insert(dshelper);
 
-            MiscUtils.getLogger().debug("assertObject");
+                // Execute all matching rules; rules set dshelper.inRange if criteria met
+                MiscUtils.getLogger().debug("fireAllRules");
+                kieSession.fireAllRules();
+            } finally {
+                // Always dispose the session to free Drools engine resources
+                kieSession.dispose();
+            }
 
-            workingMemory.assertObject(dshelper);
-
-
-            MiscUtils.getLogger().debug("fireAllRules");
-            workingMemory.fireAllRules();
+            // After rules fire, check whether the measurement was flagged as in-range
             evalTrue = dshelper.isInRange();
 
             MiscUtils.getLogger().debug("right before catch");
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            // demographicNo is an internal database sequence number, not PHI
+            MiscUtils.getLogger().error("Failed to evaluate Drools rules for demographic '{}'", demographicNo, e);
         }
         return evalTrue;
     }
 
+    /** Sets the DRL rule filename. */
     public void setFile(String file) {
         this.file = file;
     }
 
+    /** Returns the DRL rule filename. */
     public String getFile() {
         return file;
     }
 
 
-    public RuleBase loadMeasurementRuleBase(String string) {
-        RuleBase measurementRuleBase = null;
-        try {
-            boolean fileFound = false;
-            String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
-
-            if (measurementDirPath != null) {
-                //if (measurementDirPath.charAt(measurementDirPath.length()) != /)
-                File file = new File(OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY") + string);
-                if (file.isFile() || file.canRead()) {
-                    MiscUtils.getLogger().debug("Loading from file " + file.getName());
-                    FileInputStream fis = new FileInputStream(file);
-                    measurementRuleBase = RuleBaseLoader.loadFromInputStream(fis);
-                    fileFound = true;
-                }
-            }
-
-            if (!fileFound) {
-                URL url = MeasurementFlowSheet.class.getResource("/oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/" + string);  //TODO: change this so it is configurable;
-                MiscUtils.getLogger().debug("loading from URL " + url.getFile());
-                measurementRuleBase = RuleBaseLoader.loadFromUrl(url);
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-        return measurementRuleBase;
+    /**
+     * Loads a measurement decision support DRL file using the standard two-tier strategy.
+     *
+     * @param string the DRL filename to load
+     * @return KieBase the compiled rule base, or {@code null} if loading fails
+     * @see DroolsHelper#loadMeasurementRuleBase(String, Class)
+     */
+    public KieBase loadMeasurementRuleBase(String string) {
+        return DroolsHelper.loadMeasurementRuleBase(string, MeasurementFlowSheet.class);
     }
 
+    /** Returns the key-value map of output values produced by evaluation. */
     public Hashtable getOutputValues() {
         return outputValues;
     }
 
+    /**
+     * Parses a comma-separated string of output field names into the {@link #outputfields} array.
+     *
+     * <p>If the string contains commas, it is split on commas to produce multiple fields.
+     * Otherwise, the entire string is treated as a single field name.</p>
+     *
+     * @param str String comma-separated output field names, or {@code null} to skip parsing
+     */
     public void parseOutputFields(String str) {
         if (str != null) {
             try {
@@ -192,24 +277,50 @@ public class DroolsNumerator2 implements Numerator {
                     outputfields[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Failed to parse output fields from string '{}'", str, e);
             }
         }
     }
 
+    /** Returns the parsed output field names. */
     public String[] getOutputFields() {
         return outputfields;
     }
 
 
-    /////NEW FIELDS
+    /**
+     * Keys identifying which values in {@link #replaceableValues} must be injected
+     * into this numerator before evaluation. For DroolsNumerator2, the expected keys
+     * are {@code "measurements"} and {@code "value"}.
+     */
     String[] replaceKeys = null;
+
+    /**
+     * Replaceable values map populated at runtime by the clinical report framework.
+     * For DroolsNumerator2, this must contain:
+     * <ul>
+     *   <li>{@code "measurements"} -- the measurement type code</li>
+     *   <li>{@code "value"} -- the numeric threshold for comparison</li>
+     * </ul>
+     */
     Hashtable replaceableValues = null;
 
+    /** Returns the keys identifying which replaceable values must be injected before evaluation. */
     public String[] getReplaceableKeys() {
         return replaceKeys;
     }
 
+    /**
+     * Parses a comma-separated string of replaceable value keys into the
+     * {@link #replaceKeys} array.
+     *
+     * <p>These keys define which runtime parameters the clinical report framework
+     * must supply via {@link #setReplaceableValues(Hashtable)} before calling
+     * {@link #evaluate(LoggedInInfo, String)}.</p>
+     *
+     * @param str String comma-separated key names (e.g. "measurements,value"),
+     *            or {@code null} to skip parsing
+     */
     public void parseReplaceValues(String str) {
         if (str != null) {
             try {
@@ -221,11 +332,12 @@ public class DroolsNumerator2 implements Numerator {
                     replaceKeys[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Failed to parse replaceable value keys from string '{}'", str, e);
             }
         }
     }
 
+    /** Returns {@code true} if replaceable value keys have been configured. */
     public boolean hasReplaceableValues() {
         boolean repVal = false;
         if (replaceKeys != null) {
@@ -234,10 +346,12 @@ public class DroolsNumerator2 implements Numerator {
         return repVal;
     }
 
+    /** Sets the replaceable values map for runtime parameter injection. */
     public void setReplaceableValues(Hashtable vals) {
         replaceableValues = vals;
     }
 
+    /** Returns the replaceable values map. */
     public Hashtable getReplaceableValues() {
         return replaceableValues;
     }
