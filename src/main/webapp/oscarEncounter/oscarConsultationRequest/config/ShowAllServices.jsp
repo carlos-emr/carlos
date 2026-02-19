@@ -29,6 +29,24 @@
 
 --%>
 
+<%--
+    ShowAllServices.jsp - Consultation Services List
+
+    Purpose: Displays all configured consultation services with links to view
+             each service's specialist providers. Part of the consultation
+             configuration module.
+
+    Features:
+      - Lists all consultation services from the database
+      - Sidebar navigation to other consultation config pages
+      - Links navigate to service detail in the same window
+
+    Parameters:
+      Session: userrole, user (for security authorization)
+
+    @since 2006-10-04
+--%>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -44,11 +62,12 @@
     }
 %>
 
-<%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
+<fmt:setBundle basename="oscarResources"/>
 
 <!DOCTYPE html>
 <html>
@@ -56,104 +75,60 @@
     <jsp:useBean id="showAllServicesUtil" scope="session"
                  class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServicesUtil"/>
 
-
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.ShowAllServices.title"/>
-        </title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <script>
-            function BackToOscar() {
-                window.close();
-            }
-        </script>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:message key="oscarEncounter.oscarConsultationRequest.config.ShowAllServices.title"/></title>
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
-    <% 
+    <body>
+    <div class="container-fluid">
+        <div class="page-header-bar">
+            <h5 class="page-header-title">
+                <fmt:message key="oscarEncounter.oscarConsultationRequest.config.ShowAllServices.title"/>
+            </h5>
+        </div>
+
+<%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
+        <div class="action-errors">
+            <ul>
+                <% for (String error : actionErrors) { %>
+                    <li><%= Encode.forHtml(error) %></li>
+                <% } %>
+            </ul>
+        </div>
 <% } %>
-    <div id="service-providers-wrapper" style="margin:auto 10px;">
-        <table class="MainTable" id="scrollNumber1" name="encounterTable">
-            <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn">Consultation</td>
-                <td class="MainTableTopRowRightColumn">
-                    <table class="TopStatusBar">
-                        <tr>
-                            <td class="Header"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.ShowAllServices.title"/>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-            <tr style="vertical-align: top">
-                <td class="MainTableLeftColumn">
+
+        <div class="row">
+            <div class="col-md-3 consult-sidebar">
+                <%
+                    EctConTitlebar titlebar = new EctConTitlebar(request);
+                    out.print(titlebar.estBar(request));
+                %>
+            </div>
+
+            <div class="col-md-9">
+                <h6 class="mb-3">
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.ShowAllServices.services"/>
+                </h6>
+
+                <div class="list-group">
                     <%
-                        EctConTitlebar titlebar = new EctConTitlebar(request);
-                        out.print(titlebar.estBar(request));
+                        showAllServicesUtil.estServicesVectors();
+                        String contextPath = request.getContextPath();
+                        for (int i = 0; i < showAllServicesUtil.serviceIdVec.size(); i++) {
+                            String id = (String) showAllServicesUtil.serviceIdVec.elementAt(i);
+                            String desc = (String) showAllServicesUtil.serviceDescVec.elementAt(i);
+                            String url = contextPath + "/oscarEncounter/ShowAllServices.do?serviceId="
+                                + Encode.forUriComponent(id) + "&serviceDesc=" + Encode.forUriComponent(desc);
                     %>
-                </td>
-                <td class="MainTableRightColumn">
-                    <table cellpadding="0" cellspacing="2"
-                           style="border-collapse: collapse" bordercolor="#111111" width="100%">
-
-                        <!----Start new rows here-->
-                        <tr>
-                            <td>
-
-                                <table>
-                                    <form action="${pageContext.request.contextPath}/oscarEncounter/AddService.do" method="post">
-                                        <tr>
-                                            <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.ShowAllServices.services"/>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td>
-
-                                                <table>
-                                                    <%
-                                                        //out.print("<a href=\"/ShowAllServices.do?serviceId="+id+"\">"+desc+"</a>");
-                                                        showAllServicesUtil.estServicesVectors();
-                                                        for (int i = 0; i < showAllServicesUtil.serviceIdVec.size(); i++) {
-                                                            String id = (String) showAllServicesUtil.serviceIdVec.elementAt(i);
-                                                            String desc = (String) showAllServicesUtil.serviceDescVec.elementAt(i);
-                                                    %>
-                                                    <tr>
-                                                        <td>
-                                                            <%
-                                                                String contextPath = request.getContextPath();
-                                                                String url = contextPath + "/oscarEncounter/ShowAllServices.do?serviceId=" + id + "&serviceDesc=" + desc;
-                                                                out.print("<a href=\"" + url + "\">" + desc + "</a>");
-                                                            %>
-                                                        </td>
-                                                    </tr>
-                                                    <%}%>
-                                                </table>
-                                            </td>
-                                        </tr>
-                                    </form>
-                                </table>
-                            </td>
-                        </tr>
-
-                    </table>
-                </td>
-            </tr>
-            <tr>
-                <td class="MainTableBottomRowLeftColumn"></td>
-                <td class="MainTableBottomRowRightColumn"></td>
-            </tr>
-        </table>
+                    <a href="<%= url %>" class="list-group-item list-group-item-action"><%= Encode.forHtml(desc) %></a>
+                    <% } %>
+                </div>
+            </div>
+        </div>
     </div>
     </body>
 </html>

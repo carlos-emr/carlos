@@ -71,7 +71,11 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         if (delete.equals(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"))) {
             if (specialists.length > 0) {
                 for (int i = 0; i < specialists.length; i++) {
-                    professionalSpecialistDao.remove(Integer.parseInt(specialists[i]));
+                    ProfessionalSpecialist specialist = professionalSpecialistDao.find(Integer.parseInt(specialists[i]));
+                    if (specialist != null) {
+                        specialist.setDeleted(true);
+                        professionalSpecialistDao.merge(specialist);
+                    }
                 }
             }
             EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();

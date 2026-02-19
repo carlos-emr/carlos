@@ -78,25 +78,22 @@ public class EctConTitlebar {
 
     public String estBar(HttpServletRequest request) {
         StringBuilder strBuf = new StringBuilder();
-        strBuf.append("<table bgcolor=\"#ffffff\" cellspacing=\"2\">\n");
-        strBuf.append("   <tr>\n");
+        strBuf.append("<nav class=\"nav nav-pills flex-column\">\n");
+        String contextPath = request.getContextPath();
         String uri = request.getRequestURI();
         int ind = uri.lastIndexOf("/");
-        uri = uri.substring(ind + 1);
+        String filename = uri.substring(ind + 1);
 
         for (int i = 0; i < jspVect.size(); i++) {
-            if (uri.equals(jspVect.get(i)) && request.getAttribute("upd") == null) {
-                strBuf.append("      <td bgcolor=\"#ccccff\">\n");
-                strBuf.append("         <a href=" + jspVect.get(i) + " class=\"consultButtonsDormant\">" + displayNameVect.get(i) + "</a>\n");
-                strBuf.append("      </td>\n");
-            } else {
-                strBuf.append("      <td bgcolor=\"#9999ff\">\n");
-                strBuf.append(String.valueOf(String.valueOf((new StringBuilder("         <a href=")).append(jspVect.get(i)).append(" class=\"consultButtonsActive\">").append(displayNameVect.get(i)).append("</a>\n"))));
-                strBuf.append("      </td>\n");
-            }
-            strBuf.append("   </tr>\n");
+            String jspPath = jspVect.get(i);
+            String jspFilename = jspPath.substring(jspPath.lastIndexOf("/") + 1);
+            boolean isActive = jspFilename.equals(filename) && request.getAttribute("upd") == null;
+            String activeClass = isActive ? " active" : "";
+            strBuf.append("  <a href=\"").append(contextPath).append("/").append(jspPath)
+                  .append("\" class=\"nav-link").append(activeClass).append("\">")
+                  .append(displayNameVect.get(i)).append("</a>\n");
         }
-        strBuf.append("</table>\n");
+        strBuf.append("</nav>\n");
         return strBuf.toString();
     }
 

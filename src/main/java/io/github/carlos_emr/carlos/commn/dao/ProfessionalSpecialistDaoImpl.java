@@ -51,7 +51,7 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
     @Override
     public List<ProfessionalSpecialist> findAll() {
-        Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName() + " x order by x.lastName,x.firstName");
+        Query query = entityManager.createQuery("select x from ProfessionalSpecialist x where x.deleted = false order by x.lastName,x.firstName");
 
         @SuppressWarnings("unchecked")
         List<ProfessionalSpecialist> results = query.getResultList();
@@ -179,7 +179,7 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
     @Override
     public List<ProfessionalSpecialist> findByFullNameAndSpecialtyAndAddress(String lastName, String firstName, String specialty, String address, Boolean showHidden) {
-        String sql = "select x from " + modelClass.getSimpleName() + " x WHERE (x.lastName like ?1 and x.firstName like ?2) ";
+        String sql = "select x from ProfessionalSpecialist x WHERE x.deleted = false AND (x.lastName like ?1 and x.firstName like ?2) ";
         int paramIndex = 3;
         if (!StringUtils.isEmpty(specialty)) {
             sql += " AND x.specialtyType LIKE ?" + paramIndex++ + " ";
