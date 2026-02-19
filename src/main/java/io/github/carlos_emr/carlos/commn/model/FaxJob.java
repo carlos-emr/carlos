@@ -289,6 +289,9 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
     }
 
     @Override
+    /**
+     * Compares this FaxJob with the specified FaxJob for order based on their stamps.
+     */
     public int compareTo(FaxJob arg0) {
 
         if (arg0 == null || arg0.getStamp() == null) {
