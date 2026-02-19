@@ -54,7 +54,7 @@
 //   - XML configs: diabetesFlowsheet.xml, diabetesQueensFlowsheet.xml,
 //     omdDiabetesFlowsheet.xml, omdChf.xml, chf.xml
 //     (<item> elements with ds_rules="diab-BP.drl")
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
 //   - See also: diab.drl for BP timeliness rules
 //
 // Fact Class:

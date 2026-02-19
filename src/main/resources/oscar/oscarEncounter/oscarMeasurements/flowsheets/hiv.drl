@@ -73,7 +73,7 @@
 //
 // Referenced By:
 //   - XML config: hivFlowsheet.xml (ds_rules="hiv.drl")
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadRuleBase(String) compiles this DRL
 //   - Displayed in: E-Chart encounter view, Measurement Flowsheet panel
 //
 // Fact Class:

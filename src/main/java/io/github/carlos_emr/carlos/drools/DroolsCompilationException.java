@@ -49,6 +49,8 @@ package io.github.carlos_emr.carlos.drools;
  */
 public class DroolsCompilationException extends Exception {
 
+    private static final long serialVersionUID = 1L;
+
     /**
      * Constructs a new compilation exception with the specified detail message.
      *

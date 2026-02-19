@@ -66,7 +66,7 @@
 // Referenced By:
 //   - XML config: identificationFlowsheet.xml (ds_rules="identification.drl",
 //     is_universal="true", is_medical="false")
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadRuleBase(String) compiles this DRL
 //   - Displayed in: E-Chart encounter view, CAISI community health programs
 //
 // Fact Class:

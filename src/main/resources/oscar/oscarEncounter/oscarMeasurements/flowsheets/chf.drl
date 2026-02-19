@@ -63,7 +63,7 @@
 //
 // Referenced By:
 //   - XML config: chf.xml (ds_rules="chf.drl", triggered by ICD-9 code 428)
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadRuleBase(String) compiles this DRL
 //   - Displayed in: E-Chart encounter view, Measurement Flowsheet panel
 //
 // Fact Class:

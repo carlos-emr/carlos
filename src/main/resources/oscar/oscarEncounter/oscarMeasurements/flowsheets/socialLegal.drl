@@ -62,7 +62,7 @@
 // Referenced By:
 //   - XML config: socialLegalFlowsheet.xml (ds_rules="socialLegal.drl",
 //     is_universal="true", is_medical="false")
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadRuleBase(String) compiles this DRL
 //   - Displayed in: E-Chart encounter view, CAISI community health programs
 //
 // Fact Class:

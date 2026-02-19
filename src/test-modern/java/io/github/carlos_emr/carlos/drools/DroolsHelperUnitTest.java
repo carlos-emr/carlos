@@ -43,7 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * rule files into Drools 7.x {@link KieBase} instances.
  *
  * <p>{@code DroolsHelper} was introduced during the Drools 2.0 &rarr; 7.74.1 migration
- * to replace the legacy {@code RuleBase}/{@code PackageBuilder} API with the modern KIE
+ * to replace the legacy {@code org.drools.io.RuleBaseLoader} API with the modern KIE
  * API. It uses {@link org.kie.internal.utils.KieHelper} internally to compile DRL text
  * into a self-contained {@code KieBase} without polluting the global KIE repository.</p>
  *

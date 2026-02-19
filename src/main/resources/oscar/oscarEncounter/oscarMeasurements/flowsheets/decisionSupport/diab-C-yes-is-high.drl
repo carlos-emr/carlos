@@ -50,7 +50,7 @@
 // Referenced By:
 //   - XML configs: diabetesFlowsheet.xml (PANE, EDGI items),
 //     chf.xml (PANE, EDGI items) - all with ds_rules="diab-C-yes-is-high.drl"
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
 //
 // Fact Class:
 //   io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper

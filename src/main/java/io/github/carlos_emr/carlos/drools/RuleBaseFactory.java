@@ -146,6 +146,9 @@ public final class RuleBaseFactory {
      * @param sourceKey String identifier of the knowledge base to remove
      */
     public static void removeRuleBase(String sourceKey) {
+        if (sourceKey == null) {
+            return;
+        }
         lock.writeLock().lock();
         try {
             ruleBaseInstances.remove(sourceKey);

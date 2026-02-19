@@ -241,7 +241,7 @@ public class DroolsNumerator3 implements Numerator {
                     outputfields[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Failed to parse output fields from string '{}'", str, e);
             }
         }
     }
@@ -297,7 +297,7 @@ public class DroolsNumerator3 implements Numerator {
                     replaceKeys[0] = str;
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                MiscUtils.getLogger().error("Failed to parse replaceable value keys from string '{}'", str, e);
             }
         }
     }

@@ -50,7 +50,7 @@
 // Referenced By:
 //   - XML configs: diabetesFlowsheet.xml, chf.xml
 //     (<item> elements with ds_rules="diab-EFGR.drl")
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
 //   - See also: diab.drl/ckd.drl for EGFR timeliness rules
 //
 // Fact Class:

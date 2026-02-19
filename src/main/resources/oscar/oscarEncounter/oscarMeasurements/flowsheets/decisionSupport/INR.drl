@@ -58,7 +58,7 @@
 //
 // Referenced By:
 //   - XML config: inrFlowsheet.xml, <item> element with ds_rules="INR.drl"
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
 //   - See also: inrFlowsheet.drl for timeliness rules (when INR is overdue)
 //
 // Fact Class:

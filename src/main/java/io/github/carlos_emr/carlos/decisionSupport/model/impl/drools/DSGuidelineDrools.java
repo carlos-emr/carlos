@@ -153,7 +153,7 @@ public class DSGuidelineDrools extends DSGuideline {
      * recompilation.
      */
     @Transient
-    private KieBase _kieBase = null;
+    private volatile KieBase _kieBase = null;
 
     /**
      * Counter used to generate unique rule names. Incremented once per call to
@@ -163,7 +163,7 @@ public class DSGuidelineDrools extends DSGuideline {
      * Marked {@code @Transient} because it is a runtime artifact.
      */
     @Transient
-    int ruleCount = 0;
+    private int ruleCount = 0;
 
     /**
      * Builds the cache key used to store and retrieve the compiled {@link KieBase}

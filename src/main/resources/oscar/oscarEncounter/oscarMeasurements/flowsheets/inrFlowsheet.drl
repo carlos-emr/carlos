@@ -50,7 +50,7 @@
 //   - XML config: inrFlowsheet.xml (ds_rules="inrFlowsheet.drl",
 //     triggered by ICD-9 codes: 42731 (atrial fibrillation), V5861
 //     (long-term anticoagulant use), V1251 (personal history of VTE))
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadRuleBase(String) compiles this DRL
 //   - See also: decisionSupport/INR.drl for value-based INR threshold rules
 //   - Displayed in: E-Chart encounter view, Measurement Flowsheet panel
 //

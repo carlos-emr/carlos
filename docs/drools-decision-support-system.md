@@ -549,14 +549,14 @@ a DRL-internal namespace with no effect on rule execution in this codebase.
 |------|----------|-------------------|
 | `diab-EFGR.drl` | "ACR RULES" | eGFR values |
 
-### Pre-existing Code Bugs in DSPreventionDrools
+### Pre-existing Code Bugs in DSPreventionDrools (Resolved)
 
-These bugs exist in the `DSPreventionDrools` XML-to-DRL conversion code and were documented during the Drools migration but not fixed (they are pre-existing, not introduced by the migration):
+These bugs existed in the legacy `DSPreventionDrools` methods `handleNumberOfPreventionsCondition()` and
+`handleMonthsSinceLastCondition()`. Both methods were replaced by the unified `processGenericNumberValues()`
+during the Drools 7 migration, which resolved both issues:
 
-| Method | Bug | Impact |
-|--------|-----|--------|
-| `handleNumberOfPreventionsCondition()` | `sb.toString().replaceAll("\\|", "\\|\\|")` discards the return value instead of assigning it | `OR` conditions in prevention rules silently fail |
-| `handleMonthsSinceLastCondition()` | Splits on `"-"` but the delimiter in the value is actually `"-"` placed at position 0 for negative numbers | Negative month values may be misparsed |
+- **Discarded `replaceAll` return value** (OR conditions silently failed) — eliminated; `processGenericNumberValues()` does not use string-based OR concatenation.
+- **Negative month misparsing** (split on `"-"` at position 0) — fixed; `processGenericNumberValues()` explicitly guards against this with `toParse.indexOf("-") != 0`.
 
 ---
 

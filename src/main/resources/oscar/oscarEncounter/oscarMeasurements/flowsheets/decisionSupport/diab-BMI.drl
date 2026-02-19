@@ -45,7 +45,7 @@
 //
 // Referenced By:
 //   - XML config: diabetesFlowsheet.xml (<item> with ds_rules="diab-BMI.drl")
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
 //   - See also: diab.drl for BMI timeliness rules
 //
 // Fact Class:

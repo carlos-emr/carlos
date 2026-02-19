@@ -72,7 +72,7 @@
 //   - XML configs: diabetesFlowsheet.xml, diabetesQueensFlowsheet.xml,
 //     omdDiabetesFlowsheet.xml, physicalFunctionFlowsheet.xml,
 //     omdAsthmaFlowsheet.xml, omdChf.xml, omdCOPDFlowsheet.xml
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadRuleBase(String) compiles this DRL
 //   - Displayed in: E-Chart encounter view, Measurement Flowsheet panel
 //
 // Fact Class:

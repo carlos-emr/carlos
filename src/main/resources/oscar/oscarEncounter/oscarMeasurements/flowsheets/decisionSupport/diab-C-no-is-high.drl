@@ -55,7 +55,7 @@
 // Referenced By:
 //   - XML configs: diabetesFlowsheet.xml (FGLC, EYEE, FTE, FTLS items),
 //     chf.xml (same items) - all with ds_rules="diab-C-no-is-high.drl"
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
 //
 // Fact Class:
 //   io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper

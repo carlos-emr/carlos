@@ -59,7 +59,7 @@
 // Referenced By:
 //   - XML config: ckdFlowsheet.xml (ds_rules="ckd.drl",
 //     triggered by ICD-9 code 585 or OscarCode:CKDSCREEN)
-//   - Java: MeasurementFlowSheet.loadFlowsheetRuleBase() compiles this DRL
+//   - Java: MeasurementFlowSheet.loadRuleBase(String) compiles this DRL
 //   - Displayed in: E-Chart encounter view, Measurement Flowsheet panel
 //
 // Fact Class:
