@@ -33,23 +33,17 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Vector;
 
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedMeasurement;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Validations;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -211,104 +205,6 @@ public class EctMeasurementsDataBeanHandler {
         data.put("provider_last", p.getLastName());
         return data;
     }
-
-    private static List<CachedMeasurement> getRemoteMeasurements(LoggedInInfo loggedInInfo, Integer demographicId) {
-        List<CachedMeasurement> remoteMeasurements = null;
-        try {
-            if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                remoteMeasurements = CaisiIntegratorManager.getLinkedMeasurements(loggedInInfo, demographicId);
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Unexpected error.", e);
-            CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-        }
-
-        //if(CaisiIntegratorManager.isIntegratorOffline()){
-        //	remotePreventions = IntegratorFallBackManager.getRemotePreventions(demographicId);
-        //}
-        return remoteMeasurements;
-    }
-
-    public static void addRemoteMeasurements(LoggedInInfo loggedInInfo, List<EctMeasurementsDataBean> alist, String measure, Integer demographicId) {
-        List<CachedMeasurement> remotePreventions = null;
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-
-            remotePreventions = getRemoteMeasurements(loggedInInfo, demographicId);
-
-            if (remotePreventions != null) {
-                for (CachedMeasurement cm : remotePreventions) {
-                    if (measure.equals(cm.getType())) {
-                        EctMeasurementsDataBean emdb = new EctMeasurementsDataBean();
-                        emdb.setType(cm.getType());
-                        // Integer cm.getCaisiDemographicId();
-                        // String cm.getCaisiProviderId();
-                        emdb.setDataField(cm.getDataField());
-                        emdb.setMeasuringInstrc(cm.getMeasuringInstruction());
-                        emdb.setComments(cm.getComments());
-                        emdb.setDateObservedAsDate(cm.getDateObserved().getTime());
-                        emdb.setDateEnteredAsDate(cm.getDateEntered().getTime());
-                        String remoteFacility = "N/A";
-                        try {
-                            remoteFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), cm.getFacilityIdIntegerCompositePk().getIntegratorFacilityId()).getName();
-                        } catch (Exception e) {
-                            MiscUtils.getLogger().error("Error", e);
-                        }
-                        emdb.setRemoteFacility(remoteFacility);
-                        alist.add(emdb);
-                    }
-                }
-            }
-            Collections.sort(alist, new EctMeasurementsDataBeanComparator());
-        }
-    }
-
-
-    public static void addRemoteMeasurementsTypes(LoggedInInfo loggedInInfo, List<EctMeasurementsDataBean> alist, Integer demographicId) {
-        List<CachedMeasurement> remotePreventions = null;
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-
-            remotePreventions = getRemoteMeasurements(loggedInInfo, demographicId);
-            if (remotePreventions != null) {
-                HashMap<String, String> map = new HashMap<String, String>();
-                for (EctMeasurementsDataBean mdb : alist) {
-                    if (mdb.getType() != null && !mdb.getType().equals("") && !map.containsKey(mdb.getType())) {
-                        map.put(mdb.getType(), mdb.getType());
-                    }
-
-                }
-
-                for (CachedMeasurement cm : remotePreventions) {
-                    if (cm.getType() != null && !cm.getType().equals("") && !map.containsKey(cm.getType())) {
-                        EctMeasurementsDataBean emdb = new EctMeasurementsDataBean();
-                        emdb.setType(cm.getType());
-                        emdb.setTypeDisplayName(cm.getType());
-                        // Integer cm.getCaisiDemographicId();
-                        // String cm.getCaisiProviderId();
-                        emdb.setDataField(cm.getDataField());
-                        emdb.setMeasuringInstrc(cm.getMeasuringInstruction());
-                        emdb.setComments(cm.getComments());
-                        emdb.setDateObservedAsDate(cm.getDateObserved().getTime());
-                        emdb.setDateEnteredAsDate(cm.getDateEntered().getTime());
-                        String remoteFacility = "N/A";
-                        try {
-                            remoteFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), cm.getFacilityIdIntegerCompositePk().getIntegratorFacilityId()).getName();
-                        } catch (Exception e) {
-                            MiscUtils.getLogger().error("Error", e);
-                        }
-                        emdb.setRemoteFacility(remoteFacility);
-                        alist.add(emdb);
-                    }
-
-                }
-            }
-
-
-            Collections.sort(alist, new EctMeasurementsDataBeanComparator());
-        }
-
-    }
-
 
     public static class EctMeasurementsDataBeanComparator implements Comparator<EctMeasurementsDataBean> {
         public int compare(EctMeasurementsDataBean o1, EctMeasurementsDataBean o2) {

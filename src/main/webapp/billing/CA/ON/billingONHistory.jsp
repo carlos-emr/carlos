@@ -70,9 +70,24 @@
     <title>BILLING HISTORY</title>
     <link rel="stylesheet" href="billingON.css">
     <script language="JavaScript">
-        function onUnbilled(url) {
+        function onUnbilled(billingNo, billCode) {
             if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.onUnbilled"/>")) {
-                popupPage(700, 720, url);
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = 'billingDeleteNoAppt.jsp';
+                form.target = 'unbill_popup';
+                var fields = {billing_no: billingNo, billCode: billCode, dboperation: 'delete_bill', hotclick: '0'};
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                window.open('', 'unbill_popup', 'height=700,width=720,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes');
+                form.submit();
+                document.body.removeChild(form);
             }
         }
 
@@ -201,11 +216,11 @@
             <% } else if (OscarProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
             <td align="center"><a
                     href="#"
-                    onClick="onUnbilled('billingDeleteNoAppt.jsp?billing_no=<%=obj.getId()%>&billCode=<%=obj.getStatus()%>&hotclick=0');return false;">Unbill</a>
+                    onClick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">Unbill</a>
             </td>
             <% } else { %>
             <td align="center">
-                <a href="billingDeleteNoAppt.jsp?billing_no=<%=obj.getId()%>&billCode=<%=obj.getStatus()%>&dboperation=delete_bill&hotclick=0">Unbill</a>
+                <a href="#" onclick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">Unbill</a>
             </td>
 
             <% }%>

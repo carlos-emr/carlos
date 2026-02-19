@@ -31,7 +31,6 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
-import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -72,12 +71,10 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
             String msgSubject;
             String msgDate;
             int hash;
-            int messageType;
 
             for (MessageTbl message : messageTblList) {
                 msgId = message.getId();
                 msgSubject = message.getSubject();
-                messageType = message.getType();
                 Date date = message.getDate();
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
                 item.setDate(date);
@@ -90,9 +87,6 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
                 item.setURL(url);
                 item.setTitle(StringUtils.maxLenString(msgSubject, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES));
                 item.setLinkTitle(msgSubject + " " + msgDate);
-                if (messageType == OscarMsgType.INTEGRATOR_TYPE) {
-                    item.setBgColour("#FFCCCC");
-                }
                 Dao.addItem(item);
             }
 

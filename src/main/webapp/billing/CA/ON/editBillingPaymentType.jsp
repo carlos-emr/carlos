@@ -78,10 +78,10 @@
                 return;
             }
             $.ajax({
-                type: "GET",
+                type: "POST",
                 async: true,
-                data: {paymentType: document.getElementById("paymentType").value},
-                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType.do?method=<%=method%>",
+                data: {method: "<%=method%>", paymentType: document.getElementById("paymentType").value},
+                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType.do",
                 dataType: "json",
                 success: function (ret) {
                     if (!ret) {
@@ -110,14 +110,15 @@
                 return;
             }
             $.ajax({
-                type: "GET",
+                type: "POST",
                 async: true,
                 data: {
+                    method: "<%=method%>",
                     id: "<%=id%>",
                     oldPaymentType: "<%=type%>",
                     paymentType: document.getElementById("paymentType").value
                 },
-                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType.do?method=<%=method%>",
+                url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType.do",
                 dataType: "json",
                 success: function (ret) {
                     if (!ret) {

@@ -79,7 +79,7 @@ public abstract class DaoTestFixtures {
     }
 
     public void beforeForInnoDB() throws Exception {
-        SchemaUtils.dropTable("IntegratorConsent", "HnrDataValidation", "ClientLink", "IntegratorConsentComplexExitInterview",
+        SchemaUtils.dropTable("HnrDataValidation", "ClientLink",
                 "DigitalSignature", "appointment", "admission", "program", "demographic", "demographicExt");
     }
 

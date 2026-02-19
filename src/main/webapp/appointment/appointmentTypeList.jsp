@@ -327,7 +327,19 @@
     function delType(id) {
         var answer = confirm("Type will be deleted! Are you sure?")
         if (answer) {
-            window.location = "${pageContext.request.contextPath}/appointment/appointmentTypeAction.do?oper=del&no=" + id;
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = '${pageContext.request.contextPath}/appointment/appointmentTypeAction.do';
+            var fields = {oper: 'del', no: id};
+            for (var key in fields) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+            }
+            document.body.appendChild(form);
+            form.submit();
         }
     }
 </script>

@@ -1445,9 +1445,9 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             ConsentType consentType = new ConsentType();
             consentType.setId(1);
 
-            when(mockPatientConsentManager.getConsentType("INTEGRATOR_PATIENT_CONSENT")).thenReturn(consentType);
+            when(mockPatientConsentManager.getConsentType("TEST_PATIENT_CONSENT")).thenReturn(consentType);
 
-            manager.updatePatientConsent(mockLoggedInInfo, TEST_DEMO_NO, "INTEGRATOR_PATIENT_CONSENT", true);
+            manager.updatePatientConsent(mockLoggedInInfo, TEST_DEMO_NO, "TEST_PATIENT_CONSENT", true);
 
             verify(mockPatientConsentManager).setConsent(mockLoggedInInfo, TEST_DEMO_NO, 1, true);
         }
@@ -1458,10 +1458,10 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             ConsentType consentType = new ConsentType();
             consentType.setId(1);
 
-            when(mockPatientConsentManager.getConsentType("INTEGRATOR_PATIENT_CONSENT")).thenReturn(consentType);
+            when(mockPatientConsentManager.getConsentType("TEST_PATIENT_CONSENT")).thenReturn(consentType);
             when(mockPatientConsentManager.hasPatientConsented(TEST_DEMO_NO, consentType)).thenReturn(true);
 
-            boolean result = manager.isPatientConsented(mockLoggedInInfo, TEST_DEMO_NO, "INTEGRATOR_PATIENT_CONSENT");
+            boolean result = manager.isPatientConsented(mockLoggedInInfo, TEST_DEMO_NO, "TEST_PATIENT_CONSENT");
 
             assertThat(result).isTrue();
         }
@@ -2015,70 +2015,6 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             DemographicContact result = manager.getPersonalEmergencyContactById(mockLoggedInInfo, 456);
 
             assertThat(result).isNotNull();
-        }
-    }
-
-    // ==================== INTEGRATOR OPERATIONS ====================
-
-    /**
-     * Tests for CAISI Integrator operations.
-     *
-     * <p>The Integrator allows data sharing between multiple EMR installations.
-     * These tests verify behavior when integrator is disabled (the default in
-     * unit tests). Integration-enabled scenarios require more complex setup
-     * and are covered separately.</p>
-     *
-     * <p>Methods tested:</p>
-     * <ul>
-     *   <li>getRemoteDemographic - fetching demographics from remote facilities</li>
-     *   <li>linkDemographicToRemoteDemographic - linking local to remote records</li>
-     *   <li>getLinkedDemographics - retrieving linked demographic pairs</li>
-     *   <li>getLinkedDemographicIds - retrieving IDs of linked demographics</li>
-     * </ul>
-     */
-    @Nested
-    @DisplayName("Integrator Operations")
-    @Tag("integrator")
-    class IntegratorOperationsTests {
-
-        @Test
-        @DisplayName("should return null when integrator disabled for getRemoteDemographic")
-        void shouldReturnNull_whenIntegratorDisabledForGetRemoteDemographic() {
-            when(mockFacility.isIntegratorEnabled()).thenReturn(false);
-
-            Demographic result = manager.getRemoteDemographic(mockLoggedInInfo, 1, 1001);
-
-            assertThat(result).isNull();
-        }
-
-        @Test
-        @DisplayName("should return false when integrator disabled for linkDemographicToRemoteDemographic")
-        void shouldReturnFalse_whenIntegratorDisabledForLinkDemographic() {
-            when(mockFacility.isIntegratorEnabled()).thenReturn(false);
-
-            boolean result = manager.linkDemographicToRemoteDemographic(mockLoggedInInfo, 1001, 2, 2001);
-
-            assertThat(result).isFalse();
-        }
-
-        @Test
-        @DisplayName("should return empty list when integrator disabled for getLinkedDemographics")
-        void shouldReturnEmptyList_whenIntegratorDisabledForGetLinkedDemographics() {
-            when(mockFacility.isIntegratorEnabled()).thenReturn(false);
-
-            var result = manager.getLinkedDemographics(mockLoggedInInfo, TEST_DEMO_NO);
-
-            assertThat(result).isEmpty();
-        }
-
-        @Test
-        @DisplayName("should return empty list when integrator disabled for getLinkedDemographicIds")
-        void shouldReturnEmptyList_whenIntegratorDisabledForGetLinkedDemographicIds() {
-            when(mockFacility.isIntegratorEnabled()).thenReturn(false);
-
-            List<Integer> result = manager.getLinkedDemographicIds(mockLoggedInInfo, TEST_DEMO_NO, 1);
-
-            assertThat(result).isEmpty();
         }
     }
 

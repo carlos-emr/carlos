@@ -32,23 +32,19 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.w3c.dom.Document;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
-import io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
-import java.net.URLEncoder;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -70,13 +66,6 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
             CommonLabResultData comLab = new CommonLabResultData();
             ArrayList<LabResultData> labs = comLab.populateLabResultsData(loggedInInfo, "", bean.demographicNo, "", "", "", "U");
             logger.debug("local labs found : " + labs.size());
-
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                ArrayList<LabResultData> remoteResults = CommonLabResultData.getRemoteLabs(loggedInInfo, Integer.parseInt(bean.demographicNo));
-                logger.debug("remote labs found : " + remoteResults.size());
-                labs.addAll(remoteResults);
-            }
-
 
             // set text for lefthand module title
             Dao.setLeftHeading(getText("oscarEncounter.LeftNavBar.Labs"));
@@ -148,40 +137,28 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
                 func = new StringBuilder("popupPage(700,960,'");
                 label = result.getLabel();
 
-                String remoteFacilityIdQueryString = "";
-                if (result.getRemoteFacilityId() != null) {
-                    try {
-                        remoteFacilityIdQueryString = "&remoteFacilityId=" + result.getRemoteFacilityId();
-                        String remoteLabKey = LabDisplayHelper.makeLabKey(Integer.parseInt(result.getLabPatientId()), result.getSegmentID(), result.labType, result.getDateTime());
-                        remoteFacilityIdQueryString = remoteFacilityIdQueryString + "&remoteLabKey=" + URLEncoder.encode(remoteLabKey, "UTF-8");
-                    } catch (Exception e) {
-                        logger.error("Error", e);
-                    }
-                }
-
                 if (result.isMDS()) {
                     if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                     else labDisplayName = label;
-                    url = request.getContextPath() + "/oscarMDS/SegmentDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + "&status=" + result.getReportStatus() + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/oscarMDS/SegmentDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + "&status=" + result.getReportStatus();
                 } else if (result.isCML()) {
                     if (label == null || label.equals("")) labDisplayName = result.getDiscipline();
                     else labDisplayName = label;
-                    url = request.getContextPath() + "/lab/CA/ON/CMLDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/lab/CA/ON/CMLDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
                 } else if (result.isHL7TEXT()) {
                     if (label == null || label.equals("")) {
                         labDisplayName = result.getDiscipline();
                     } else {
                         labDisplayName = label;
                     }
-                    // url = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?providerNo="+bean.providerNo+"&segmentID="+result.segmentID;
-                    url = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/lab/CA/ALL/labDisplay.jsp?demographicId=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&segmentID=" + result.segmentID + "&multiID=" + result.multiLabId;
                 } else {
                     if (label == null || label.equals("")) {
                         labDisplayName = result.getDiscipline();
                     } else {
                         labDisplayName = label;
                     }
-                    url = request.getContextPath() + "/lab/CA/BC/labDisplay.jsp?demographicId=" + bean.demographicNo + "&segmentID=" + result.segmentID + "&providerNo=" + bean.providerNo + "&multiID=" + result.multiLabId + remoteFacilityIdQueryString;
+                    url = request.getContextPath() + "/lab/CA/BC/labDisplay.jsp?demographicId=" + bean.demographicNo + "&segmentID=" + result.segmentID + "&providerNo=" + bean.providerNo + "&multiID=" + result.multiLabId;
                 }
                 String labRead = "";
                 if (!oscarLogDao.hasRead(((String) request.getSession().getAttribute("user")), "lab", result.segmentID)) {
@@ -297,11 +274,7 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
             MessageHandler handler = null;
 
             try {
-                if (!labData.isRemoteLab()) {
-                    handler = getLocalHandler(segmentId);
-                } else {
-                    handler = getRemoteHandler(loggedInInfo, labData);
-                }
+                handler = getLocalHandler(segmentId);
             } catch (Exception e) {
                 logger.error("Unable to get handler for " + labData, e);
             }
@@ -312,29 +285,6 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
 
             String serviceDate = handler.getServiceDate();
             return serviceDate;
-        }
-
-        public MessageHandler getRemoteHandler(LoggedInInfo loggedInInfo, LabResultData labData) {
-            Integer labPatientId = null;
-            try {
-                labPatientId = Integer.parseInt(labData.getLabPatientId());
-            } catch (Exception e) {
-                logger.error("Unable to parse " + labData.getLabPatientId(), e);
-                return null;
-            }
-
-            String remoteLabKey = LabDisplayHelper.makeLabKey(labPatientId, labData.getSegmentID(), labData.labType, labData.getDateTime());
-            CachedDemographicLabResult remoteLabResult = LabDisplayHelper.getRemoteLab(loggedInInfo, labData.getRemoteFacilityId(), remoteLabKey, labPatientId);
-            Document xmlData = null;
-            try {
-                xmlData = LabDisplayHelper.getXmlDocument(remoteLabResult);
-            } catch (Exception e) {
-                logger.error("Unable to get remote lab result", e);
-                return null;
-            }
-
-            MessageHandler handler = LabDisplayHelper.getMessageHandler(xmlData);
-            return handler;
         }
 
         public MessageHandler getLocalHandler(String segmentId) {

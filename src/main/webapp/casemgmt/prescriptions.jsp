@@ -53,9 +53,6 @@ Prescriptions
     <tr class="title">
         <td>Start Date</td>
         <td>Prescription Details</td>
-        <c:if test="${isIntegratorEnabled}">
-            <td>Location Prescribed</td>
-        </c:if>
     </tr>
     <c:forEach var="prescription" items="${Prescriptions}">
         <tr>
@@ -96,16 +93,6 @@ Prescriptions
                 </caisirole:SecurityAccess>
             </td>
 
-            <c:if test="${isIntegratorEnabled}">
-                <td bgcolor="white">
-                    <c:if test="${empty prescription.remoteFacilityName}">
-                        local
-                    </c:if>
-                    <c:if test="${not empty prescription.remoteFacilityName}">
-                        <c:out value="${prescription.remoteFacilityName}"/>
-                    </c:if>
-                </td>
-            </c:if>
         </tr>
     </c:forEach>
 </table>

@@ -1553,7 +1553,11 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=' + demographic + '&formId=0&provNo=' + user + '&fromSession=true';
 
                             try {
-                                const response = await fetch('<%= context %>/Pregnancy.do?method=createGBSLabReq&demographicNo=' + demographic + '&penicillin=' + penicillin);
+                                const response = await fetch('<%= context %>/Pregnancy.do', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                    body: 'method=createGBSLabReq&demographicNo=' + encodeURIComponent(demographic) + '&penicillin=' + encodeURIComponent(penicillin)
+                                });
                                 if (!response.ok) {
                                     throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
                                 }
@@ -1865,10 +1869,15 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             var gct_glu = $("#gct_glu").attr('checked');
                             var user = '<%=session.getAttribute("user")%>';
                             url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=' + user + '&fromSession=true';
-                            var pregUrl = '<%= context %>/Pregnancy.do?method=createGCTLabReq&demographicNo=<%=demoNo%>&hb=' + gct_hb + '&urine=' + gct_urine + '&antibody=' + gct_ab + '&glucose=' + gct_glu;
+                            var pregUrl = '<%= context %>/Pregnancy.do';
+                            var pregBody = 'method=createGCTLabReq&demographicNo=<%=demoNo%>&hb=' + encodeURIComponent(gct_hb) + '&urine=' + encodeURIComponent(gct_urine) + '&antibody=' + encodeURIComponent(gct_ab) + '&glucose=' + encodeURIComponent(gct_glu);
 
                             try {
-                                const response = await fetch(pregUrl);
+                                const response = await fetch(pregUrl, {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                    body: pregBody
+                                });
                                 if (!response.ok) {
                                     throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
                                 }
@@ -1899,10 +1908,15 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             var gtt_glu = $("#gtt_glu").attr('checked');
                             var user = '<%=session.getAttribute("user")%>';
                             url = '<%= context %>/form/formlabreq<%=labReqVer %>.jsp?demographic_no=<%=demoNo%>&formId=0&provNo=' + user + '&fromSession=true';
-                            var pregUrl = '<%= context %>/Pregnancy.do?method=createGTTLabReq&demographicNo=<%=demoNo%>&glucose=' + gtt_glu;
+                            var pregUrl = '<%= context %>/Pregnancy.do';
+                            var pregBody = 'method=createGTTLabReq&demographicNo=<%=demoNo%>&glucose=' + encodeURIComponent(gtt_glu);
 
                             try {
-                                const response = await fetch(pregUrl);
+                                const response = await fetch(pregUrl, {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                    body: pregBody
+                                });
                                 if (!response.ok) {
                                     throw new Error('HTTP error ' + response.status + ': ' + response.statusText);
                                 }

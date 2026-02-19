@@ -47,7 +47,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="java.io.Serializable" %>
 <%@page import="org.w3c.dom.Document" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult" %>
 <%@page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
 <%@ page
         import="java.util.*,io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.demographic.data.*" %>
@@ -63,9 +62,6 @@
     String demographicNo = request.getParameter("demo");
     String testName = request.getParameter("testName");
     String identifier = request.getParameter("identifier");
-    String remoteFacilityIdString = request.getParameter("remoteFacilityId");
-    String remoteLabKey = request.getParameter("remoteLabKey");
-
     if (identifier == null) identifier = "NULL";
 
     String highlight = "#E0E0FF";
@@ -78,14 +74,7 @@
     ArrayList list = null;
 
     if (!(demographicNo == null || "null".equals(demographicNo) || "undefined".equals(demographicNo))) {
-        if (remoteFacilityIdString == null) {
-            list = CommonLabTestValues.findValuesForTest(labType, Integer.valueOf(demographicNo), testName, identifier);
-        } else {
-            CachedDemographicLabResult remoteLab = LabDisplayHelper.getRemoteLab(loggedInInfo, Integer.parseInt(remoteFacilityIdString), remoteLabKey, Integer.parseInt(demographicNo));
-            Document labContentsAsXml = LabDisplayHelper.getXmlDocument(remoteLab);
-            HashMap<String, ArrayList<Map<String, Serializable>>> mapOfTestValues = LabDisplayHelper.getMapOfTestValues(labContentsAsXml);
-            list = mapOfTestValues.get(identifier);
-        }
+        list = CommonLabTestValues.findValuesForTest(labType, Integer.valueOf(demographicNo), testName, identifier);
     }
 %>
 <!DOCTYPE html>

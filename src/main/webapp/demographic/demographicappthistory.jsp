@@ -47,16 +47,11 @@
 <%@page import="org.apache.commons.beanutils.BeanUtils" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
-<%@ page
-        import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager, io.github.carlos_emr.carlos.caisi_integrator.ws.CachedAppointment, io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider, io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.CachedAppointmentComparator" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
@@ -78,8 +73,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.AppointmentManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
-<%@ page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 
@@ -285,24 +278,6 @@
                         boolean bodd = false;
                         int nItems = 0;
 
-                        List<CachedAppointment> cachedAppointments = null;
-                        Boolean showRemote = request.getParameter("showRemote") == null ? true : Boolean.parseBoolean(request.getParameter("showRemote"));
-                        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled() && showRemote) {
-                            int demographicNo = Integer.parseInt(request.getParameter("demographic_no"));
-                            try {
-                                if (!CaisiIntegratorManager.isIntegratorOffline(session)) {
-                                    cachedAppointments = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedAppointments(demographicNo);
-                                }
-                            } catch (Exception e) {
-                                MiscUtils.getLogger().error("Unexpected error.", e);
-                                CaisiIntegratorManager.checkForConnectionError(session, e);
-                            }
-
-                            if (CaisiIntegratorManager.isIntegratorOffline(session)) {
-                                cachedAppointments = IntegratorFallBackManager.getRemoteAppointments(loggedInInfo, demographicNo);
-                            }
-                        }
-
 
                         if (appointmentList == null) {
                             out.println("failed!!!");
@@ -412,48 +387,8 @@
                     <%
                             }
                         }
-
-
-                        if (cachedAppointments != null) {
-                            Collections.sort(cachedAppointments, new CachedAppointmentComparator());
-                            for (CachedAppointment a : cachedAppointments) {
-                                bodd = bodd ? false : true;
-                                FacilityIdStringCompositePk providerPk = new FacilityIdStringCompositePk();
-                                providerPk.setIntegratorFacilityId(a.getFacilityIdIntegerCompositePk().getIntegratorFacilityId());
-                                providerPk.setCaisiItemId(a.getCaisiProviderId());
-                                CachedProvider p = CaisiIntegratorManager.getProvider(loggedInInfo, loggedInInfo.getCurrentFacility(), providerPk);
-                                AppointmentStatus as = appointmentStatusDao.findByStatus(a.getStatus());
                     %>
-                    <tr bgcolor="<%=bodd?weakColor:"white"%>">
-                        <td align="center"><%=DateUtils.formatDate(a.getAppointmentDate(), request.getLocale())%>
-                        </td>
-                        <td align="center"><%=DateUtils.formatTime(a.getStartTime(), request.getLocale())%>
-                        </td>
-                        <td align="center"><%=DateUtils.formatTime(a.getEndTime(), request.getLocale())%>
-                        </td>
-                        <td align="center">
-                            <%if (as != null && as.getDescription() != null) {%>
-                            <%=as.getDescription()%>
-                            <% } %>
-                        </td>
-                        <td><%=a.getType() %>
-                        </td>
-                        <td><%=StringUtils.trimToEmpty(a.getReason())%>
-                        </td>
-                        <td>
-                            <%=(p != null ? p.getLastName() + "," + p.getFirstName() : "") %> (remote)
-                        </td>
-                        <td>
-                            &nbsp;<%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : "")) %>
-                        </td>
-                    </tr>
-                    <%
 
-                            }
-
-                            showRemote = false;
-                        }
-                    %>
                 </table>
                 <br>
                 <%
@@ -461,21 +396,15 @@
                     nNextPage = Integer.parseInt(strLimit2) + Integer.parseInt(strLimit1);
                     nPrevPage = Integer.parseInt(strLimit1) - Integer.parseInt(strLimit2);
                     if (nPrevPage >= 0) {
-                        String showRemoteStr;
-                        if (nPrevPage == 0) {
-                            showRemoteStr = "true";
-                        } else {
-                            showRemoteStr = String.valueOf(showRemote);
-                        }
                 %>
-                <a href="demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&last_name=<%=URLEncoder.encode(demolastname,"UTF-8")%>&first_name=<%=URLEncoder.encode(demofirstname,"UTF-8")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nPrevPage%>&limit2=<%=strLimit2%>&showRemote=<%=showRemoteStr%>">
+                <a href="demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&last_name=<%=URLEncoder.encode(demolastname,"UTF-8")%>&first_name=<%=URLEncoder.encode(demofirstname,"UTF-8")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nPrevPage%>&limit2=<%=strLimit2%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnPrevPage"/></a>
                 <%
                     }
 
                     if (nItems >= Integer.parseInt(strLimit2)) {
                 %>
-                <a href="demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&last_name=<%=URLEncoder.encode(demolastname,"UTF-8")%>&first_name=<%=URLEncoder.encode(demofirstname,"UTF-8")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>&showRemote=<%=showRemote%>">
+                <a href="demographiccontrol.jsp?demographic_no=<%=request.getParameter("demographic_no")%>&last_name=<%=URLEncoder.encode(demolastname,"UTF-8")%>&first_name=<%=URLEncoder.encode(demofirstname,"UTF-8")%>&displaymode=<%=request.getParameter("displaymode")%>&dboperation=<%=request.getParameter("dboperation")%>&orderby=<%=request.getParameter("orderby")%>&limit1=<%=nNextPage%>&limit2=<%=strLimit2%>">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicappthistory.btnNextPage"/></a>
                 <%
                     }

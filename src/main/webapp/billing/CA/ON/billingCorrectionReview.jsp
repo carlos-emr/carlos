@@ -254,7 +254,7 @@
             } catch (java.lang.ArrayIndexOutOfBoundsException _e0) {
             }%>
     </table>
-    <form action="billingCorrectionSubmit.jsp"><input type="submit"
+    <form action="billingCorrectionSubmit.jsp" method="post"><input type="submit"
                                                       name="submit"
                                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.btnSubmit"/>"><input
             type="button" name="cancel"

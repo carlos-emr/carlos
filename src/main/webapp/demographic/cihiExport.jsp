@@ -77,7 +77,7 @@
 </head>
 <body>
 <div class="container-fluid well">
-    <form action="${pageContext.request.contextPath}/demographic/cihiExportOMD4.do" method="get">
+    <form action="${pageContext.request.contextPath}/demographic/cihiExportOMD4.do" method="post">
         <h3>Vendor Information</h3>
         <table class="table-condensed">
             <tr>

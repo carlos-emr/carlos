@@ -42,6 +42,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 
 <%
+    if (!"POST".equalsIgnoreCase(request.getMethod()) && request.getParameter("submit") != null) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return;
+    }
     MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
     ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
 
