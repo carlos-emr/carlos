@@ -49,7 +49,7 @@ PATCH_PATTERN = re.compile(r"^update-\d{4}-\d{2}-\d{2}-.+\.sql$")
 
 
 def get_file_path_from_input(tool_input: dict) -> str:
-    """Extract file path from tool input."""
+    """Extracts the file path from the given tool input."""
     return tool_input.get("file_path", "")
 
 
@@ -100,13 +100,20 @@ def is_creating_sql_in_protected_dir(tool_name: str, file_path: str) -> bool:
 
 
 def generate_patch_filename_suggestion() -> str:
-    """Generate a suggested patch filename based on current date."""
+    """Generate a suggested patch filename based on the current date."""
     today = datetime.now().strftime("%Y-%m-%d")
     return f"update-{today}-description-here.sql"
 
 
 def main():
-    """Main entry point for the hook."""
+    """Main entry point for the hook.
+    
+    This function reads JSON input from standard input and processes it based on
+    the specified tool name.  It enforces migration standards by blocking
+    modifications to protected SQL files and the creation of new SQL files in
+    protected directories.  The function also handles JSON parsing errors and other
+    exceptions gracefully, ensuring that the hook does not block on errors.
+    """
     try:
         # Read JSON input from stdin
         input_data = json.load(sys.stdin)
