@@ -27,7 +27,7 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package io.github.carlos_emr.carlos.form.eCARES;
+package io.github.carlos_emr.carlos.form.ecares;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
