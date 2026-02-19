@@ -506,15 +506,7 @@ public class OscarProperties extends Properties {
     }
 
     /**
-     * Returns the directory for inbound fax files downloaded from remote providers.
-     * Faxes are saved here before being fully imported into the EMR document system.
-     *
-     * <p><strong>Security:</strong> This directory MUST be outside the webroot to prevent
-     * direct HTTP access to fax documents containing PHI. The default path uses
-     * {@code catalina.base} (Tomcat instance root), which is above the {@code webapps/}
-     * directory and therefore not web-accessible.</p>
-     *
-     * @return configured FAX_INCOMING_DIR, or ${catalina.base}/fax-incoming if not set
+     * Returns the directory for inbound fax files.
      */
     public String getFaxIncomingDirectory() {
         String faxIncoming = oscarProperties.getProperty("FAX_INCOMING_DIR");
