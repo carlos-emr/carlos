@@ -102,14 +102,14 @@
 
             function deleteProduct(productId) {
                 if (confirm("Are you sure you want to delete this?")) {
-                    jQuery.getJSON("${pageContext.request.contextPath}/ws/rs/productDispensing/deleteDrugProduct/" + productId, {},
+                    jQuery.post("${pageContext.request.contextPath}/ws/rs/productDispensing/deleteDrugProduct/" + productId, {},
                         function (xml) {
                             if (xml.message) {
                                 updatePage();
                             } else {
                                 alert('error deleting drug products');
                             }
-                        });
+                        }, 'json');
                 }
             }
 

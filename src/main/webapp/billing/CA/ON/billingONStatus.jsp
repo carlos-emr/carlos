@@ -347,8 +347,9 @@
                     //alert(('status'+idNum) + document.getElementById('status'+idNum).checked);
                     val = 'Y';
                 }
-                xmlHttp.open("GET", "billingONStatusERUpdateStatus.jsp?id=" + idNum + "&val=" + val, true);
-                xmlHttp.send(null);
+                xmlHttp.open("POST", "billingONStatusERUpdateStatus.jsp", true);
+                xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                xmlHttp.send("id=" + encodeURIComponent(idNum) + "&val=" + encodeURIComponent(val));
             }
 
             function handleStateChange() {

@@ -170,7 +170,7 @@ display:inline-block;
 <div class="container-fluid" id="container-main">
 
         <div class="span8">
-<form action="FlowSheetCustomAction.do" onsubmit="return validateRuleValue();">
+<form action="FlowSheetCustomAction.do" method="post" onsubmit="return validateRuleValue();">
                 <input type="hidden" name="method" value="update"/>
                 <input type="hidden" name="flowsheet" value="<%=flowsheet%>"/>
                 <input type="hidden" name="measurement" value="<%=measurement%>"/>

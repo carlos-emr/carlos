@@ -94,7 +94,16 @@
                 if (control) {
                     control.disabled = true;
                 }
-                window.location.href = "<%= request.getContextPath() %>/mcedt/update.do?resourceId=" + resourceId;
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/mcedt/update.do';
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'resourceId';
+                input.value = resourceId;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
                 return false;
             }
 

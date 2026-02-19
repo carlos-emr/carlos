@@ -39,6 +39,15 @@
 **Stack**: Java 21, Spring 5.3.39, Struts 6.8.0, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
+
+## Fax Provider Feature Context (AI + Dev)
+
+- Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE` or `SRFAX`).
+- Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+- Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
+- SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
+- See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
+
 ## Essential Commands
 
 ```bash
@@ -383,6 +392,22 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Mental Health Assessments**: Standardized clinical assessment forms
 - **Laboratory Requisitions**: Province-specific lab ordering forms
 
+## Drools Decision Support System
+
+**Version**: Drools 7.74.1.Final (KIE API), migrated from Drools 2.0 in PR #423
+**MVEL**: `mvel2:2.5.2.Final` (overridden from 2.4.x for Java 21 compatibility; 2.4.x references `java.lang.Compiler` removed in JDK 16)
+**Documentation**: Full architecture, DRL file reference, and known bugs in `docs/drools-decision-support-system.md`
+
+**Key Classes**:
+- `DroolsHelper` — compiles DRL to `KieBase` via `KieHelper` (standalone, no global KIE repository pollution)
+- `RuleBaseFactory` — thread-safe `QueueCache` of compiled `KieBase` objects (24h TTL, SHA-256 keyed)
+- `DroolsCompilationException` — checked exception for DRL compilation failures
+- `RuleBaseCreator` — generates DRL from `DSCondition` objects, compiles and caches
+- `TargetColour` / `Recommendation` — generate DRL from flowsheet XML for color indicators and clinical reminders
+- `WorkFlowDS` — wraps `KieBase` for workflow rule execution (e.g., Rh pregnancy management)
+
+**Test Coverage**: Tests in `src/test-modern/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
+
 ## Technology Stack Details
 
 ### Core Technologies
@@ -463,7 +488,7 @@ Located in `/scripts` directory within the container (copied from `.devcontainer
 - **Build Process**: Stops Tomcat → Builds WAR → Creates symlink → Starts Tomcat
 - **Configuration**: Auto-creates `over_ride_config.properties` from template
 - **Parallel builds**: Uses `-T 1C` for faster Maven builds
-- **Deployment**: Handles versioned WAR directories with symlinks to `/usr/local/tomcat/webapps/oscar`
+- **Deployment**: Handles versioned WAR directories with symlinks to `/usr/local/tomcat/webapps/carlos`
 
 ## Architecture Patterns
 

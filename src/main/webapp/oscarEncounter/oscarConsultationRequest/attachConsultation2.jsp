@@ -252,7 +252,7 @@ function toggleSelectAll() {
     <h3 style="text-align: left"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.AttachDocPopup.header"/>
         <%=patientName%>
     </h3>
-    <form action="${pageContext.request.contextPath}/oscarConsultationRequest/attachDoc.do">
+    <form action="${pageContext.request.contextPath}/oscarConsultationRequest/attachDoc.do" method="post">
         <input type="hidden" name="requestId" id="requestId" value="<%=requestId%>"/>
         <input type="hidden" name="demoNo" id="demoNo" value="<%=demoNo%>"/>
         <input type="hidden" name="providerNo" id="providerNo" value="<%=providerNo%>"/>

@@ -1,39 +1,87 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
+// ============================================================================
+// CARLOS EMR - LDL Cholesterol Value-Based Decision Support Rules
+// ============================================================================
+//
+// Purpose:
+//   Per-item decision support rules for LDL cholesterol. Evaluates LDL
+//   values against CCS (Canadian Cardiovascular Society) risk-stratified
+//   targets for patients with diabetes.
+//
+// Clinical Context:
+//   CCS lipid guidelines for diabetic patients:
+//     - LDL <2.0 mmol/L: optimal for high-risk patients (no indicator)
+//     - LDL 2.0-3.4 mmol/L: above primary target (HIGH)
+//     - LDL >=3.5 mmol/L: significantly elevated (HIGH 1)
+//
+// Colour Indicator Mapping:
+//   "HIGH"   = LDL 2.0-3.4 mmol/L (above target, moderate concern)
+//   "HIGH 1" = LDL >=3.5 mmol/L (significantly elevated, urgent)
+//
+// Referenced By:
+//   - XML configs: diabetesFlowsheet.xml, chf.xml
+//     (<item> elements with ds_rules="diab-LDL.drl")
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
+//   - See also: diab.drl for LDL timeliness rules
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created as Drools 2.0 XML rules (McMaster University)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
+// ============================================================================
+package DiabetesLDL;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
-<rule-set name="DiabetesLDL"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+// ---------------------------------------------------------------------------
+// Above primary target (LDL 2.0-3.4 mmol/L)
+// Sets indication colour to "HIGH" when LDL is between 2.0 and 3.5.
+// ---------------------------------------------------------------------------
+rule "LDL 1"
+    when
+        m : MeasurementDSHelper()
+        eval( m.getDataAsDouble() >= 2.0 )
+        eval( m.getDataAsDouble() < 3.5 )
+    then
+        m.log("LDL 1 RULES IS GETTING RUN");
+        m.setIndicationColor("HIGH");
+end
 
-    <rule name="LDL 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.getDataAsDouble() &gt;= 2.0</java:condition>       
-        <java:condition>m.getDataAsDouble() &lt; 3.5</java:condition> 
-        <java:consequence>     
-              m.log("LDL 1 RULES IS GETTING RUN");
-              m.setIndicationColor("HIGH");
-        </java:consequence>
-    </rule>
-
-    <rule name="LDL 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>      
-        <java:condition>m.getDataAsDouble() &gt;= 3.5</java:condition> 
-        <java:consequence>     
-              m.log("LDL 2 RULES IS GETTING RUN");
-              m.setIndicationColor("HIGH 1");
-        </java:consequence>
-    </rule>
-
-   
-
-</rule-set>
-
-
+// ---------------------------------------------------------------------------
+// Significantly elevated (LDL >= 3.5 mmol/L)
+// Sets indication colour to "HIGH 1" when LDL is 3.5 or above.
+// ---------------------------------------------------------------------------
+rule "LDL 2"
+    when
+        m : MeasurementDSHelper()
+        eval( m.getDataAsDouble() >= 3.5 )
+    then
+        m.log("LDL 2 RULES IS GETTING RUN");
+        m.setIndicationColor("HIGH 1");
+end

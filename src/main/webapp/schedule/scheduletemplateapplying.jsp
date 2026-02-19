@@ -35,6 +35,7 @@
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
@@ -197,18 +198,32 @@
 
             function selectrschedule(s) {
                 var ref = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
-                ref += "?provider_no=<%=request.getParameter("provider_no")%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
+                ref += "?provider_no=<%=URLEncoder.encode(request.getParameter("provider_no"), StandardCharsets.UTF_8)%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
                 ref += "&sdate=" + s.options[s.selectedIndex].value;
                 self.location.href = ref;
             }
 
             function onBtnDelete(s) {
                 if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="schedule.scheduletemplateapplying.msgDeleteConfirmation"/>")) {
-                    var ref = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
-                    ref += "?provider_no=<%=request.getParameter("provider_no")%>&provider_name=<%=URLEncoder.encode(request.getParameter("provider_name"), StandardCharsets.UTF_8)%>";
-                    ref += "&sdate=" + s.options[s.selectedIndex].value;
-                    ref += "&delete=1&deldate=all";
-                    self.location.href = ref;
+                    var form = document.createElement('form');
+                    form.method = 'post';
+                    form.action = "<rewrite:reWrite jspPage="scheduletemplateapplying.jsp"/>";
+                    var fields = {
+                        'provider_no': '<%=Encode.forJavaScript(request.getParameter("provider_no"))%>',
+                        'provider_name': '<%=Encode.forJavaScript(request.getParameter("provider_name"))%>',
+                        'sdate': s.options[s.selectedIndex].value,
+                        'delete': '1',
+                        'deldate': 'all'
+                    };
+                    for (var key in fields) {
+                        var input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = key;
+                        input.value = fields[key];
+                        form.appendChild(input);
+                    }
+                    document.body.appendChild(form);
+                    form.submit();
                 }
             }
 

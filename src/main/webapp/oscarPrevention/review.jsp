@@ -843,7 +843,7 @@
 
                 <% } %>
 
-                <form action="<%=request.getContextPath()%>/dhir/submit.do">
+                <form action="<%=request.getContextPath()%>/dhir/submit.do" method="post">
                     <input type="hidden" name="uuid" value="<%=bundle.getId()%>"/>
 
                     <input type="submit"

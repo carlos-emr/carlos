@@ -1164,8 +1164,9 @@
                         window.onunload = null;
                         adjustDynamicListTotals();
                         jQuery.ajax({
-                            url: '<%= context %>/Pregnancy.do?method=saveFormAjax',
-                            data: $("form").serialize(),
+                            type: 'POST',
+                            url: '<%= context %>/Pregnancy.do',
+                            data: $("form").serialize() + '&method=saveFormAjax',
                             async: false,
                             dataType: 'json',
                             success: function (data) {
@@ -1672,7 +1673,9 @@
                 if ($('#' + type + '_form').val().length > 0) {
                     $('#' + type + '_chart').val($('#' + type + '_form').val());
                     jQuery.ajax({
-                        url: '<%= context %>/Pregnancy.do?method=saveMeasurementAjax&demographicNo=<%=demoNo%>&type=' + mtype + '&value=' + $('#' + type + '_form').val(),
+                        type: 'POST',
+                        url: '<%= context %>/Pregnancy.do',
+                        data: {method: 'saveMeasurementAjax', demographicNo: '<%=demoNo%>', type: mtype, value: $('#' + type + '_form').val()},
                         async: false,
                         dataType: 'json',
                         success: function (data) {
@@ -1817,7 +1820,9 @@
                             var user = '<%=session.getAttribute("user")%>';
                             url = '<%= context %>/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographic + '&formId=0&provNo=' + user + '&fromSession=true';
                             jQuery.ajax({
-                                url: '<%= context %>/Pregnancy.do?method=createMCVLabReq&demographicNo=' + demographic + '&ferritin=' + ferritin + '&hb_electrophoresis=' + hbElectrophoresis,
+                                type: 'POST',
+                                url: '<%= context %>/Pregnancy.do',
+                                data: {method: 'createMCVLabReq', demographicNo: demographic, ferritin: ferritin, hb_electrophoresis: hbElectrophoresis},
                                 async: false,
                                 success: function (data) {
                                     popPage(url, 'LabReq');

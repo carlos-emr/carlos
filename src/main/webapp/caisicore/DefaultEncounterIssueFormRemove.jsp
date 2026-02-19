@@ -67,7 +67,7 @@
 </table>
 
 <br/>
-<form action="<%=request.getContextPath()%>/DefaultEncounterIssue.do">
+<form action="<%=request.getContextPath()%>/DefaultEncounterIssue.do" method="post">
     <input type="hidden" name="method" value="remove"/>
     <table width="100%" border="0" cellpadding="0" cellspacing="1"
            bgcolor="#C0C0C0">

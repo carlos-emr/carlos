@@ -135,6 +135,9 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     }
 
     @Override
+    /**
+     * Finds Provider instances by a specified property and value.
+     */
     public List findByProperty(String propertyName, Object value) {
         logger.debug("finding Provider instance with property: " + propertyName
                 + ", value: " + value);
@@ -230,6 +233,9 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     }
 
     @Override
+    /**
+     * Retrieves all Provider instances from the database.
+     */
     public List findAll() {
         logger.debug("finding all Provider instances");
         Session session = currentSession();

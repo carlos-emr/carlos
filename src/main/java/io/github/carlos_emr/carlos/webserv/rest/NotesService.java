@@ -251,7 +251,6 @@ public class NotesService extends AbstractServiceImpl {
             note.setProgramName(nd.getProgramName());
             note.setLocation(nd.getLocation());
             note.setRoleName(nd.getRoleName());
-            note.setRemoteFacilityId(nd.getRemoteFacilityId());
             note.setUuid(nd.getUuid());
             note.setHasHistory(nd.getHasHistory());
             note.setLocked(nd.isLocked());
@@ -1365,7 +1364,6 @@ public class NotesService extends AbstractServiceImpl {
         returnNote.setProgramName(nd.getProgramName());
         returnNote.setLocation(nd.getLocation());
         returnNote.setRoleName(nd.getRoleName());
-        returnNote.setRemoteFacilityId(nd.getRemoteFacilityId());
         returnNote.setUuid(nd.getUuid());
         returnNote.setHasHistory(nd.getHasHistory());
         returnNote.setLocked(nd.isLocked());

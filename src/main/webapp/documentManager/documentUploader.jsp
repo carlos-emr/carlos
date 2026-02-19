@@ -94,7 +94,9 @@
             setDropList();
             var destination = select.options[select.selectedIndex].value;
             jQuery.ajax({
-                url: '<%=context%>/documentManager/documentUpload.do?method=setUploadDestination&destination=' + destination,
+                type: 'POST',
+                url: '<%=context%>/documentManager/documentUpload.do',
+                data: {method: 'setUploadDestination', destination: destination},
                 async: false,
                 success: function (data) {
                 }
@@ -105,7 +107,9 @@
             var destFolder = select.options[select.selectedIndex].value;
             jQuery("#destFolder").val(destFolder);
             jQuery.ajax({
-                url: '<%=context%>/documentManager/documentUpload.do?method=setUploadIncomingDocumentFolder&destFolder=' + destFolder,
+                type: 'POST',
+                url: '<%=context%>/documentManager/documentUpload.do',
+                data: {method: 'setUploadIncomingDocumentFolder', destFolder: destFolder},
                 async: false,
                 success: function (data) {
                 }

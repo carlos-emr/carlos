@@ -31,15 +31,12 @@
 
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CodeType;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdDemographicIssueCompositePk;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -151,7 +148,6 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
                 .find("from CaseManagementIssue cmi where cmi.certain = true");
     }
 
-    // for integrator
     @SuppressWarnings("unchecked")
     @Override
     public List<Integer> getIssuesByProgramsSince(Date date, List<Program> programs) {
@@ -176,32 +172,6 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
         return (List<CaseManagementIssue>) this.getHibernateTemplate().find(
                 "from CaseManagementIssue cmi where cmi.demographic_no = ?0 and cmi.update_date > ?1",
                 new Object[]{Integer.valueOf(demographic_no), date});
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public List<FacilityIdDemographicIssueCompositePk> getIssueIdsForIntegrator(Integer facilityId,
-                                                                                Integer demographicNo) {
-        List<Object[]> rs = (List<Object[]>) this.getHibernateTemplate().find(
-                "select i.code,i.type from CaseManagementIssue cmi, Issue i where cmi.issue_id = i.id and cmi.demographic_no = ?0",
-                new Object[]{demographicNo});
-        List<FacilityIdDemographicIssueCompositePk> results = new ArrayList<FacilityIdDemographicIssueCompositePk>();
-        for (Object[] item : rs) {
-            FacilityIdDemographicIssueCompositePk key = new FacilityIdDemographicIssueCompositePk();
-            key.setIntegratorFacilityId(facilityId);
-            key.setCaisiDemographicId(demographicNo);
-            key.setIssueCode((String) item[0]);
-
-            if ("icd9".equals(item[1])) {
-                key.setCodeType(CodeType.ICD_9);
-            } else if ("icd10".equals(item[1])) {
-                key.setCodeType(CodeType.ICD_10);
-            } else {
-                key.setCodeType(CodeType.CUSTOM_ISSUE);
-            }
-            results.add(key);
-        }
-        return results;
     }
 
 }

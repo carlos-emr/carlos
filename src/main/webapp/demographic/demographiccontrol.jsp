@@ -33,11 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicTransferScore" %>
 <%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.carlos.web.DemographicSearchHelper" %>
-<%@page import="java.util.GregorianCalendar" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.MatchingDemographicParameters" %>
 <%@ page import="java.io.UnsupportedEncodingException" %>
 <%@ page import="java.net.URLEncoder" %>
 
@@ -65,7 +61,6 @@
 
     String searchMode = request.getParameter("search_mode");
     String keyword = request.getParameter("keyword");
-    MatchingDemographicParameters matchingDemographicParameters = null;
 
     MiscUtils.getLogger().debug("Search parameters, searchMode=" + searchMode + ", keyword=" + keyword);
 
@@ -93,8 +88,6 @@
         if (searchMode.equals("search_phone")) fieldname = "phone";
         if (searchMode.equals("search_hin")) {
             fieldname = "hin";
-            matchingDemographicParameters = new MatchingDemographicParameters();
-            matchingDemographicParameters.setHin(keyword);
         }
         if (searchMode.equals("search_dob")) {
             fieldname = "year_of_birth " + regularexp + " ?" + " and month_of_birth " + regularexp + " ?" + " and date_of_birth ";
@@ -114,9 +107,6 @@
                     int monthInt = Integer.parseInt(month) - 1; // Calendar months are 0-based
                     int dayInt = Integer.parseInt(day);
                     
-                    GregorianCalendar cal = new GregorianCalendar(yearInt, monthInt, dayInt);
-                    matchingDemographicParameters = new MatchingDemographicParameters();
-                    matchingDemographicParameters.setBirthDate(cal);
                 } else {
                     // Not enough digits, set to empty search that will return no results
                     fieldname = "demographic_no";
@@ -131,16 +121,6 @@
         }
         if (searchMode.equals("search_chart_no")) fieldname = "chart_no";
         if (searchMode.equals("search_name")) {
-            matchingDemographicParameters = new MatchingDemographicParameters();
-            String[] lastfirst = keyword.split(",");
-
-            if (lastfirst.length > 1) {
-                matchingDemographicParameters.setLastName(lastfirst[0].trim());
-                matchingDemographicParameters.setFirstName(lastfirst[1].trim());
-            } else {
-                matchingDemographicParameters.setLastName(lastfirst[0].trim());
-            }
-
             if (keyword.indexOf(",") == -1) fieldname = "lower(last_name)";
             else if (keyword.trim().indexOf(",") == (keyword.trim().length() - 1)) fieldname = "lower(last_name)";
             else fieldname = "lower(last_name) " + regularexp + " ?" + " and lower(first_name) ";
@@ -202,28 +182,6 @@
     apptMainBean.doConfigure(dbQueries, responseTargets);
 
     apptMainBean.doCommand(request); //store request to a help class object Dict - function&params
-
-    //--- add integrator results ---
-
-    boolean searchIntegrator = false;
-    if (request.getParameter("includeIntegratedResults") != null && "true".equals(request.getParameter("includeIntegratedResults"))) {
-        searchIntegrator = true;
-    }
-    MiscUtils.getLogger().debug("search Integrator: " + searchIntegrator);
-
-
-    if (searchIntegrator && matchingDemographicParameters != null && loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-        try {
-            matchingDemographicParameters.setMaxEntriesToReturn(15);
-            matchingDemographicParameters.setMinScore(7);
-            List<MatchingDemographicTransferScore> integratorSearchResults = DemographicSearchHelper.getIntegratedSearchResults(loggedInInfo, matchingDemographicParameters);
-
-            MiscUtils.getLogger().debug("Integrator search results : " + (integratorSearchResults == null ? "null" : String.valueOf(integratorSearchResults.size())));
-            request.setAttribute("integratorSearchResults", integratorSearchResults);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("error searching integrator", e);
-        }
-    }
 
     String pg = apptMainBean.whereTo();
     MiscUtils.getLogger().debug("forward to page : " + pg);

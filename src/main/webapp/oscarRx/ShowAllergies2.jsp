@@ -633,9 +633,6 @@
                                                     List<CaseManagementNoteLink> existingAnnots = cmm.getLinkByTableId(CaseManagementNoteLink.ALLERGIES, Long.valueOf(allergy.getAllergyId()));
                                                 %>
                                                 <td>
-                                                    <%
-                                                        if (!allergy.isIntegratorResult()) {
-                                                    %>
                                                     <a href="#" title="Annotation" onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=String.valueOf(allergy.getAllergyId())%>&demo=${patient.getDemographicNo()}','anwin','width=400,height=500');">
                                                         <% if (existingAnnots.size() > 0) {%>
                                                         <img src="<%= request.getContextPath() %>/images/filledNotes.gif" border="0"/>
@@ -643,11 +640,10 @@
                                                         <img src="<%= request.getContextPath() %>/images/notes.gif" border="0">
                                                         <% } %>
                                                     </a>
-                                                    <% } %>
                                                 </td>
                                                 <td>
                                                     <%
-                                                        if (!allergy.isIntegratorResult() && securityManager.hasDeleteAccess("_allergies", roleName$)) {
+                                                        if (securityManager.hasDeleteAccess("_allergies", roleName$)) {
                                                             if (intArchived == 0) {
                                                     %>
                                                     <a href="#" class="deleteAllergyLink"

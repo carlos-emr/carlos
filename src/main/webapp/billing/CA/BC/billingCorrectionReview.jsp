@@ -284,7 +284,7 @@
         } catch (java.lang.ArrayIndexOutOfBoundsException _e0) {
         }%>
 </table>
-<form action="billingCorrectionSubmit.jsp"><input type="submit"
+<form action="billingCorrectionSubmit.jsp" method="post"><input type="submit"
                                                   name="submit" value="Submit"><input type="button" name="cancel"
                                                                                       value="Cancel"
                                                                                       onclick="history.go(-1);return false;">

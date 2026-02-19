@@ -31,6 +31,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DiagnosticCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 %>
@@ -43,6 +44,11 @@
 
     String codeName = request.getParameter("name");
 
+    // Validate name2 as safe JS property path to prevent script injection
+    String name2 = request.getParameter("name2");
+    if (name2 != null && !name2.matches("[a-zA-Z0-9_.\\[\\]]+")) {
+        name2 = null;
+    }
 %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -56,8 +62,8 @@
             function CodeAttach(File2) {
                 if (self.opener.callChangeCodeDesc) self.opener.callChangeCodeDesc();
 
-                <%if(request.getParameter("name2")!=null) {%>
-                self.opener.<%=request.getParameter("name2")%> = File2.substring(0, 3);
+                <%if(name2 != null) {%>
+                self.opener.<%=name2%> = File2.substring(0, 3);
                 <%} else {%>
                 self.opener.document.forms[1].xml_diagnostic_detail.value = File2;
                 <%}%>
@@ -93,9 +99,9 @@
 
     <form name="codesearch" id="codesearch" method="post"
           action="billingDigSearch.jsp">
-        <%if (request.getParameter("name2") != null) {%>
+        <%if (name2 != null) {%>
         <input type="hidden" name="name2"
-               value="<%=request.getParameter("name2")%>"/>
+               value="<%=Encode.forHtmlAttribute(name2)%>"/>
         <%}%>
         <p><b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.msgRefine"/></b><br>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingDigSearch.msgCodeRange"/>: <select

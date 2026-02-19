@@ -34,8 +34,6 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.rx.StaticScriptBean" %>
 <%@page import="java.util.ArrayList" %>
@@ -109,11 +107,10 @@
                     brandName);
 
                 if (favoriteName !== null && favoriteName.length > 0) {
-                    var s = encodeURIComponent('?regionalIdentifier=<%=Encode.forJavaScript(regionalIdentifier != null ? regionalIdentifier : "")%>&cn=<%=Encode.forJavaScript(cn != null ? cn : "")%>');
-
-                    window.location.href = '<%=request.getContextPath() %>/oscarRx/addFavoriteStaticScript.do?drugId='
-                        + encodeURIComponent(drugId) + '&favoriteName=' + encodeURIComponent(favoriteName)
-                        + '&returnParams=' + s;
+                    var form = document.getElementById('addFavoriteStaticScriptForm');
+                    form.elements['drugId'].value = drugId;
+                    form.elements['favoriteName'].value = favoriteName;
+                    form.submit();
                 }
             }
         </script>
@@ -122,6 +119,11 @@
     </head>
 
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
+    <form id="addFavoriteStaticScriptForm" method="post" action="<%=request.getContextPath() %>/oscarRx/addFavoriteStaticScript.do" style="display:none">
+        <input type="hidden" name="drugId" value=""/>
+        <input type="hidden" name="favoriteName" value=""/>
+        <input type="hidden" name="returnParams" value="?regionalIdentifier=<%=Encode.forHtmlAttribute(regionalIdentifier != null ? regionalIdentifier : "")%>&cn=<%=Encode.forHtmlAttribute(cn != null ? cn : "")%>"/>
+    </form>
     <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111"
            width="100%" id="AutoNumber1" height="100%">
         <%@ include file="TopLinks.jsp"%><!-- Row One included here-->

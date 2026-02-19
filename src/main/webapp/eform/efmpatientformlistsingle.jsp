@@ -184,9 +184,15 @@
                             </td>
                             <td align='center'><%=curform.get("formDate")%>
                             </td>
-                            <td align='center'><a
-                                    href="<%= request.getContextPath() %>/eform/removeEForm.do?fdid=<%=curform.get("fdid")%>&demographic_no=<%=demographic_no%>&callpage=single&parentAjaxId=<%=parentAjaxId%>"
-                                    onClick="javascript: return confirm('Are you sure you want to delete this eform?');"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.btnDelete"/></a></td>
+                            <td align='center'>
+                                <form method="post" action="<%= request.getContextPath() %>/eform/removeEForm.do" style="display:inline;">
+                                    <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
+                                    <input type="hidden" name="demographic_no" value="<%=demographic_no%>"/>
+                                    <input type="hidden" name="callpage" value="single"/>
+                                    <input type="hidden" name="parentAjaxId" value="<%=parentAjaxId%>"/>
+                                    <a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.btnDelete"/></a>
+                                </form>
+                            </td>
                         </tr>
                         <%
                             }
