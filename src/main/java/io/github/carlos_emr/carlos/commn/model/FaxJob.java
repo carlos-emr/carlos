@@ -294,6 +294,9 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
         if (arg0 == null || arg0.getStamp() == null) {
             return 1;
         }
+        if (stamp == null) {
+            return -1;
+        }
 
         return stamp.compareTo(arg0.getStamp());
     }
