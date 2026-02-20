@@ -157,19 +157,6 @@ public class ReportMacro2Action extends ActionSupport {
             if (jTickler.has("taskAssignedTo") && jTickler.has("message")) {
                 logger.info("Sending Tickler");
                 Tickler t = new Tickler();
-                if (jTickler.has("quantity") && jTickler.has("timeUnits")) {
-                    Calendar cal = Calendar.getInstance();
-                    int qty = jTickler.get("quantity").asInt();
-                    int code = jTickler.get("timeUnits").asInt();
-                    switch (code) {
-                        case 1:   cal.add(Calendar.DATE, qty); break;
-                        case 7:   cal.add(Calendar.WEEK_OF_YEAR, qty); break;
-                        case 30:  cal.add(Calendar.MONTH, qty); break;
-                        case 365: cal.add(Calendar.YEAR, qty); break;
-                        default:  cal.add(Calendar.DATE, qty); break;
-                    }
-                    t.setServiceDate(cal.getTime());
-                }
                 t.setTaskAssignedTo(jTickler.get("taskAssignedTo").asText());
                 t.setDemographicNo(Integer.parseInt(demographicNo));
                 t.setMessage(jTickler.get("message").asText());
