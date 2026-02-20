@@ -576,22 +576,6 @@
     "optional" : false,
     "integrity" : "sha512:Gc/JbnIfkDdHrwCXWo5a1A4ewH9m3CxHA/yfDUJk2HDPrAkEBQd5NoJQltzJfBcU0QsRHIMn3867gUnQo8sgTQ=="
   }, {
-    "groupId" : "com.onelogin",
-    "artifactId" : "java-saml-core",
-    "version" : "2.9.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:rnBr678Ftff8+odZ6/gD3uheFVZWl54Snldky/0B6no3YyBGJRKzW0mNPaU0TmQrXsECUSq67x9uwxypYD/kIA=="
-  }, {
-    "groupId" : "com.onelogin",
-    "artifactId" : "java-saml",
-    "version" : "2.9.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:dbePOXzivCXpT9YUTAIcDTbrfBEf9jFgfDnmerBQbvWKD7/zZDPWP77WiGopt1y5leW9F84n6z/KjnptixMb8A=="
-  }, {
     "groupId" : "com.oracle.database.ha",
     "artifactId" : "ons",
     "version" : "19.3.0.0",
@@ -647,14 +631,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:pEVIX5jB60p+O7u4P1Uxa7K+xhfdDMOcpvG0VcSeCiry1s4mA4+1k/iJD3G6tTLmkQSmcUhSl/BUyYutHY32Kg=="
-  }, {
-    "groupId" : "com.ostermiller",
-    "artifactId" : "ostermillerutils",
-    "version" : "1.4.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:uh0OM4Iv8QHKJg3hH1om3U10ie0Ke+ZVRlG8qS7ne/UkPERLpHJMP1Y62IYIHYidXq1s3PjTQaHrOwodV3B0cA=="
   }, {
     "groupId" : "com.sun.activation",
     "artifactId" : "jakarta.activation",
@@ -1211,11 +1187,11 @@
   }, {
     "groupId" : "joda-time",
     "artifactId" : "joda-time",
-    "version" : "2.10.6",
+    "version" : "2.10.10",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:Xd5dVNou6uIB8/XAVi8WOa5mSfezqD0nbih3LOLl2GsmvTUz/c7a+EHMd5gtaDWYwY+OxcW2y6TrR3SPC9QROA=="
+    "integrity" : "sha512:5rhzckgAwNjEo9q6zVPGsyDof8zSYQnyJQirF9lfISg81wXGg5LAT/dr6rOFk6At/5JKruLAfrt69OxqXdqmXw=="
   }, {
     "groupId" : "junit",
     "artifactId" : "junit",
@@ -1368,6 +1344,14 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:8fFA9PQKs88yZZGdudu5WmMaKap4TjBfKR3k5oh2u3EdkhfWLXk3zd3dOTmC3s33GmCLSzq39OY3XPKK8ok9fw=="
+  }, {
+    "groupId" : "org.apache.commons",
+    "artifactId" : "commons-csv",
+    "version" : "1.12.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:xEbv4WnXQV/JtkzKLPDJT2aDZeWz1ur4w5uO7IJT+CTWo3V5DW5pqIikadH3DXVyNqAd9jj34Kvh+1uagSExjQ=="
   }, {
     "groupId" : "org.apache.commons",
     "artifactId" : "commons-dbcp2",
