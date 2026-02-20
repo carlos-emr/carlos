@@ -237,14 +237,13 @@ Legacy billing data classes and handlers.
 | `BillingClaimHeader2Data` | `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/data/BillingClaimHeader2Data.java` |
 | `BillingStatusData` | `src/main/java/io/github/carlos_emr/carlos/billings/ca/on/data/BillingStatusData.java` |
 
-### 7. Jobs and Schedulers (4 classes) - LOW RISK
+### 7. Jobs and Schedulers (3 classes) - LOW RISK
 
 Job classes not configured in any scheduler, Spring job context, or database `OscarJobType` table.
 
 | Class | File |
 |-------|------|
 | `AuditLogPurgeJob` | `src/main/java/io/github/carlos_emr/carlos/admin/job/AuditLogPurgeJob.java` |
-| `OutcomesDashboardMetricSenderJob` | `src/main/java/io/github/carlos_emr/carlos/integration/dashboard/OutcomesDashboardMetricSenderJob.java` |
 | `MatchManagerScheduler` | `src/main/java/io/github/carlos_emr/carlos/match/MatchManagerScheduler.java` |
 | `AutoTickler` | `src/main/java/io/github/carlos_emr/carlos/tickler/AutoTickler.java` |
 
@@ -254,7 +253,7 @@ Job classes not configured in any scheduler, Spring job context, or database `Os
 |-------|------|-------|
 | `FormBooleanValuePK` | `src/main/java/io/github/carlos_emr/carlos/form/model/FormBooleanValuePK.java` | `@Embeddable` but not used by any active `@Entity` |
 
-### 9. Other Unused Classes (72 classes) - LOW-MEDIUM RISK
+### 9. Other Unused Classes (66 classes) - LOW-MEDIUM RISK
 
 | Class | File |
 |-------|------|
@@ -293,12 +292,6 @@ Job classes not configured in any scheduler, Spring job context, or database `Os
 | `AuditFormat` | `src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/xsd/AuditFormat.java` |
 | `MedicalSurgicalFlag` | `src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/xsd/MedicalSurgicalFlag.java` |
 | `PreferredMethodOfContact` | `src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/xsd/PreferredMethodOfContact.java` |
-| `DHIRUtils` | `src/main/java/io/github/carlos_emr/carlos/integration/dhir/DHIRUtils.java` |
-| `RawXmlLoggingInInterceptor` | `src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/RawXmlLoggingInInterceptor.java` |
-| `WSS4JInNonValidatingActionInterceptor` | `src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/WSS4JInNonValidatingActionInterceptor.java` |
-| `PatientContact` | `src/main/java/io/github/carlos_emr/carlos/integration/fhir/model/PatientContact.java` |
-| `RelatedPerson` | `src/main/java/io/github/carlos_emr/carlos/integration/fhir/model/RelatedPerson.java` |
-| `OBECRunner` | `src/main/java/io/github/carlos_emr/carlos/integration/mchcv/OBECRunner.java` |
 | `PathNetController` | `src/main/java/io/github/carlos_emr/carlos/lab/ca/bc/PathNet/PathNetController.java` |
 | `PathNetInfo` | `src/main/java/io/github/carlos_emr/carlos/lab/ca/bc/PathNet/PathNetInfo.java` |
 | `LabResultImport` | `src/main/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultImport.java` |
@@ -350,8 +343,6 @@ These annotations were found on unused classes but do NOT make them active:
 | `@WebServiceClient` | `WaitListService_Service` | Generated client class, never used |
 | `implements Serializable` | 11 classes | Passive interface, no active deserialization paths |
 | `implements MethodInterceptor` | `MergedDemographicInterceptor` | Not registered in any Spring AOP config |
-| `extends AbstractPhaseInterceptor` | `RawXmlLoggingInInterceptor` | Not registered in any CXF bus config |
-| `extends WSS4JInInterceptor` | `WSS4JInNonValidatingActionInterceptor` | Not registered in any CXF config |
 
 ---
 
