@@ -77,18 +77,25 @@
 
             function togglepwd(){
                 const passwordInput = document.getElementById('password');
+                var isNowVisible = passwordInput.type === 'text';
                 const toggleBtn = document.getElementById('toggleBtn');
+                toggleBtn.setAttribute('aria-pressed', isNowVisible ? 'true' : 'false');
+                toggleBtn.setAttribute('aria-label', isNowVisible ? 'Hide password' : 'Show password');
                 const isPassword = passwordInput.type === 'password';
                 passwordInput.type = isPassword ? 'text' : 'password';
 
             }
 
-            function togglepin(){
+            function togglepin(button){
                 const pinInput = document.getElementById('pin');
-                const toggleBtn = document.getElementById('togglePin');
                 // Toggle the custom security class
                 pinInput.classList.toggle('secure-text');
+                const toggleBtn = document.getElementById('togglePin');
+                const isNowVisible = !(pinInput.classList.contains("secure-text"));
+                toggleBtn.setAttribute('aria-pressed', isNowVisible ? 'true' : 'false');
+                toggleBtn.setAttribute('aria-label', isNowVisible ? 'Hide password' : 'Show password');
             }
+
             function setfocus() {
                 document.loginForm.username.focus();
                 document.loginForm.username.select();
@@ -99,11 +106,6 @@
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
                 window.open(page, "gpl", windowprops);
             }
-
-            function addStartTime() {
-                document.getElementById("oneIdLogin").href += (Math.round(new Date().getTime() / 1000).toString());
-            }
-
 
             function enhancedOrClassic(choice) {
                 document.getElementById("loginType").value = choice;
@@ -460,30 +462,6 @@
             @media ( min-width: 1200px) {
             }
 
-            .oneIdLogin {
-                background-color: #000;
-                width: 60%;
-                height: 34px;
-                margin: 0 auto;
-            }
-
-            .oneIdLogo {
-                background-color: transparent;
-                background: url("${pageContext.request.contextPath}/images/oneId/oneIDLogo.png");
-                border: none;
-                display: inline-block;
-                float: left;
-                vertical-align: bottom;
-                width: 70px;
-                height: 16px;
-            }
-
-            .oneIDText {
-                display: inline-block;
-                float: left;
-                padding-left: 10px
-            }
-
             footer {
                 padding: 5px 10px;
                 margin-top: 50px;
@@ -646,26 +624,32 @@
 
                             <div class="input-wrapper form-group ${ login_error }">
                               <input type="password" name="password" id="password" placeholder="<fmt:message key="Logon.passWord"/>" autocomplete="current-password" class="form-control toggle-input" required>
-                              <button type="button" class="toggle-btn" aria-label="Toggle visibility" onclick="console.log('toggle clicked'); togglepwd();" >
-                            </button>
+                              <button type="button"
+                                      class="toggle-btn" 
+                                      aria-label="Show Password"
+                                      aria-pressed="false
+                                      onclick="togglepwd();" >
+                              </button>
                             </div>
 
 							<% if (MfaManager.isOscarLegacyPinEnabled()) { %>
-                            <c:if test="${not LoginResourceBean.ssoEnabled}">
                             <div class="pin-wrapper">
                                 <div class="input-wrapper form-group ${ login_error }">
                                   <!-- The input starts with the secure-text class -->
                                   <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="one-time-code"
                                                inputmode="numeric"  placeholder="<fmt:message key="admin.securityrecord.formPIN"/>">
-                                    <button type="button" class="toggle-btn" aria-label="Toggle visibility" onclick="console.log('toggle clicked'); togglepin();"></button>
+                                    <button type="button" 
+                                      class="toggle-btn" 
+                                      aria-label="Show PIN"
+                                      aria-pressed="false"
+                                      onclick="togglepin();">
+                                    </button>
                                     <span class="extrasmall">
 										    <fmt:message key="loginApplication.formCmt"/>
                                     </span>
                                 </div>
                             </div>
-                            </c:if>
 							<% } %>
-                            <input type="hidden" id="oneIdKey" name="nameId" value="${ nameId }">
                             <input type="hidden" id="loginType" name="loginType" value="">
                             <input type=hidden name='propname'
                                    value='<fmt:message key="loginApplication.propertyFile"/>'>
@@ -687,16 +671,6 @@
                             </div>
 
                         </form>
-
-                        <oscar:oscarPropertiesCheck property="oneid.enabled" value="true" defaultVal="false">
-                            <a href="${ LoginResourceBean.econsultURL }"
-                               id="oneIdLogin" onclick="addStartTime()" class="btn btn-primary btn-block oneIDLogin">
-                                <span class="oneIDLogo"></span>
-                                <span class="oneIdText">
-    									<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.oneid"/>
-    								</span>
-                            </a>
-                        </oscar:oscarPropertiesCheck>
 
                         <c:if test="${ LoginResourceBean.acceptableUseAgreementManager.auaAvailable }">
     			            <span class="extrasmall">
