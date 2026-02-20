@@ -79,6 +79,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *     - All methods check provider authorization via SecurityInfoManager
  *     - Uses role-based access control with security objects (e.g., "_lab")
  *     - Enforces READ/WRITE privilege levels based on operation
+ *     - Throws SecurityException for null/invalid session checks
  *     - Throws RuntimeException on privilege violations
  *
  * Data Flow:
@@ -97,6 +98,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *
  * Exception Handling:
  *     - Invalid JSON triggers validation error (not exception throw)
+ *     - Null session checks throw SecurityException
  *     - Privilege violations throw RuntimeException (consistent with file pattern)
  *     - Database errors propagate to framework (transactional)
  *
@@ -2524,13 +2526,14 @@ public class ProviderProperty2Action extends ActionSupport {
      *     3. Forward to setLabMacroPrefs.jsp (JSP loads macro data from database)
      *
      * @return "genLabMacroPrefs" - Struts2 result name mapping to setLabMacroPrefs.jsp
+     * @throws SecurityException if no valid session found
      * @throws RuntimeException if provider lacks _lab READ privilege
      * @since 2024-12-06 (Security check added 2026-02-17)
      */
     public String viewLabMacroPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
-            throw new RuntimeException("No valid session found");
+            throw new SecurityException("No valid session found");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required security object _lab");
@@ -2584,13 +2587,14 @@ public class ProviderProperty2Action extends ActionSupport {
      *     6. Return to setLabMacroPrefs.jsp with status message
      *
      * @return "genLabMacroPrefs" - Struts2 result name mapping to setLabMacroPrefs.jsp
+     * @throws SecurityException if no valid session found
      * @throws RuntimeException if provider lacks _lab WRITE privilege
      * @since 2024-12-06 (JSON validation added 2026-02-17)
      */
     public String saveLabMacroPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
-            throw new RuntimeException("No valid session found");
+            throw new SecurityException("No valid session found");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required security object _lab");
@@ -2703,6 +2707,16 @@ public class ProviderProperty2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Serializes an object as JSON and writes it to the HTTP response.
+     *
+     * <p>On serialization failure, logs the error and sets HTTP 500 status
+     * (if the response has not already been committed) so the client can
+     * detect the failure rather than receiving an empty 200 response.</p>
+     *
+     * @param response HttpServletResponse the servlet response to write to
+     * @param json Object the object to serialize as JSON
+     */
     private void writeJsonResponse(HttpServletResponse response, Object json) {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
@@ -2712,6 +2726,9 @@ public class ProviderProperty2Action extends ActionSupport {
           mapper.writeValue(response.getWriter(), json);
         } catch (Exception e) {
             logger.error("An error occurred while writing JSON response to the output stream", e);
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
     }
 

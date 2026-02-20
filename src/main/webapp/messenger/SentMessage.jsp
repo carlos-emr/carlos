@@ -37,22 +37,24 @@
   and offers navigation options to continue working.
 
   Main features:
-  - Displays success confirmation
-  - Shows sent confirmation with recipient list
-  - Provides navigation options (close window, new message, inbox)
-  - Auto-refresh of parent window if in popup mode
+  - Displays success confirmation via Bootstrap alert
+  - Shows sent confirmation with OWASP-encoded recipient list
+  - Provides navigation options (compose new, inbox, exit)
+  - Parent window notification on exit (via callRefreshTabAlerts)
 
   Security:
   - Requires "_msg" object with read ("r") permissions
-  - Session validation through msgSessionBean
+  - Session validation through msgSessionBean (redirects to index.jsp if invalid)
+  - OWASP encoding on recipient list output
 
   Session dependencies:
   - msgSessionBean: Must be valid for page access
-  - Contains sent message details for display
+  - SentMessageProvs: Request attribute containing comma-separated recipient names
 
-  UI elements:
-  - Success message with sent details
-  - Action buttons for next steps
+  Frontend Dependencies:
+  - Bootstrap 5.0.2 (alert component, button styling)
+  - Font Awesome 3.x (compose, inbox, exit icons)
+  - global.js (popupPage utility)
 
   @since 2002
 --%>
@@ -94,6 +96,7 @@
         </c:if>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.title"/></title>
         <script type="text/javascript">
+            // Notifies parent window to refresh message alert badge, then closes this popup
             function BackToOscar() {
                 if (opener && opener.callRefreshTabAlerts) {
                     opener.callRefreshTabAlerts("oscar_new_msg");

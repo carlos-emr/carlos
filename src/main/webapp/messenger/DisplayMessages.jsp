@@ -39,22 +39,31 @@
     Key Features:
     - Multiple message box types (inbox, sent, deleted, demographic)
     - Column sorting with ascending/descending toggle
-    - Pagination support for large message lists
+    - Pagination support for large message lists (25 messages per page)
     - Patient demographic filtering
     - Security validation for read permissions
-    - Message status indicators (new, read, unread)
+    - Message status indicators (new, read, unread) with bold styling for unread
     - Quick actions (archive, unarchive, mark read, mark unread)
+    - Select-all checkbox with single-element handling for bulk operations
 
     Request Parameters:
     - boxType: Type of message box to display (0=inbox, 1=sent, 2=deleted, 3=demographic)
     - demographic_no: Filter messages for specific patient
-    - orderby: Column to sort by
+    - orderby: Column to sort by (toggles ascending/descending on repeat click)
     - page: Current page number for pagination
 
     Session Requirements:
-    - msgSessionBean: Must be valid for page access
+    - msgSessionBean: Must be valid for page access (redirects to index.jsp if null)
     - userrole: User's role for security validation
-    - orderby: Stored sort preference
+    - orderby: Stored sort preference (persisted across requests)
+
+    Frontend Dependencies:
+    - Bootstrap 5.0.2 (responsive layout, navigation tabs, table styling)
+    - Font Awesome 3.x (action icons: trash, folder, undo, search, caret)
+
+    Form Routing:
+    - Inbox/Sent/Demographic views POST to DisplayMessages.do (MsgDisplayMessages2Action)
+    - Deleted/Archived view POSTs to ReDisplayMessages.do (MsgReDisplayMessages2Action)
 
     @since 2002
 --%>
@@ -144,6 +153,10 @@
 </c:if>
 <%
     MsgSessionBean bean = (MsgSessionBean) session.getAttribute("msgSessionBean");
+    if (bean == null) {
+        response.sendRedirect(request.getContextPath() + "/messenger/index.jsp");
+        return;
+    }
 %>
 <jsp:useBean id="DisplayMessagesBeanId" scope="session" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayMessagesBean"/>
 <% DisplayMessagesBeanId.setProviderNo(bean.getProviderNo());
@@ -171,7 +184,7 @@
         width:100% !important;
         }
 
-        .integratedMessage {
+        tr.integratedMessage td {
 	        background-color: #FFCCCC;
 	        color: black;
         }
@@ -203,12 +216,14 @@
                 return true;
             }
 
+            // Toggles all message checkboxes in the form; handles both single-element and NodeList cases
             function checkAll(formId) {
                 var f = document.getElementById(formId);
                 var val = f.checkA.checked;
                 var boxes = f.messageNo;
                 if (!boxes) return;
                 if (typeof boxes.length === 'undefined') {
+                    // Single checkbox (single message in list)
                     boxes.checked = val;
                 } else {
                     for (var i = 0; i < boxes.length; i++) {
@@ -217,6 +232,7 @@
                 }
             }
 
+            // Truncate long recipient lists to 30 chars with ellipsis; full text shown on hover via title attribute
             document.addEventListener("DOMContentLoaded", function () {
                 const lengthText = 30;
                 const recipientLists = document.querySelectorAll('.recipientList');
@@ -282,6 +298,9 @@
 </table>
 
                     <%
+                        // Route form to different Struts actions based on view type:
+                        // - Inbox/Sent/Demographic → DisplayMessages.do (handles delete, read, unread)
+                        // - Deleted/Archived → ReDisplayMessages.do (handles unarchive, mark as read)
                         String contextPath = request.getContextPath();
                         String strutsAction = contextPath + "/messenger/DisplayMessages.do";
                         if (pageType == 2) {
@@ -290,6 +309,13 @@
                     %>
 
                     <form action="<%=strutsAction%>" method="post" id="msgList">
+
+                    <c:if test="${not empty updateFailureCount}">
+                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                            <fmt:message key="messenger.DisplayMessages.updatePartialFailure"/>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    </c:if>
 
        <table  class="MainTable" id="scrollNumber1" style="width: 100%;">
         <tr>
@@ -437,27 +463,40 @@
                         </thead>
                         <tbody>
                                 <%
+                                    // Render each message row; build i18n key from status (e.g., "new" → "msgStatusNew")
                                     for (int i = 0; i < theMessages2.size(); i++) {
                                         MsgDisplayMessage dm;
                                         dm = (MsgDisplayMessage) theMessages2.get(i);
-                                        String key = "messenger.DisplayMessages.msgStatus" + dm.getStatus().substring(0, 1).toUpperCase() + dm.getStatus().substring(1);
+                                        // Guard against null/empty status from data corruption or unarchive edge cases
+                                        String statusStr = dm.getStatus();
+                                        if (statusStr == null || statusStr.trim().isEmpty()) {
+                                            statusStr = "read";
+                                        }
+                                        // Build resource bundle key: e.g., "messenger.DisplayMessages.msgStatusNew"
+                                        String key = "messenger.DisplayMessages.msgStatus" + statusStr.substring(0, 1).toUpperCase() + statusStr.substring(1);
                                 %>
 
-                                <% if ("messenger.DisplayMessages.msgStatusNew".equals(key) || "messenger.DisplayMessages.msgStatusUnread".equals(key)){%>
-                                <tr class="newMessage">
-                                <%}else{%>
-                                <tr>
-                                <%}%>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "" %>' style="width:25px;">
+                                <%-- Apply bold styling (newMessage class) for unread messages, and integratedMessage for type 3 --%>
+                                <%
+                                String rowClass = "";
+                                if ("messenger.DisplayMessages.msgStatusNew".equals(key) || "messenger.DisplayMessages.msgStatusUnread".equals(key)) {
+                                    rowClass = "newMessage";
+                                }
+                                if (dm.getType() == 3) {
+                                    rowClass += (rowClass.isEmpty() ? "" : " ") + "integratedMessage";
+                                }
+                                %>
+                                <tr class="<%=rowClass%>">
+                                    <td style="width:25px;">
                                     <%if (pageType != 1){%>
                                        <input type="checkbox" name="messageNo" value="<%=Encode.forHtmlAttribute(dm.getMessageId()) %>">
                                      <% } %>
 
                                     </td>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "" %>'>
+                                    <td>
                                      <fmt:setBundle basename="oscarResources"/><fmt:message key="<%= key %>"/>
                                     </td>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "" %>'>
+                                    <td>
 
                                         <%
                                             if( pageType == 1 ) {
@@ -476,7 +515,7 @@
                                         %>
 
                                     </td>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "" %>'>
+                                    <td>
                                     <a href="<%=request.getContextPath()%>/messenger/ViewMessage.do?messageID=<%=Encode.forUriComponent(dm.getMessageId())%>&boxType=<%=pageType%>">
                                         <%=Encode.forHtml(dm.getThesubject())%>
                                     </a>
@@ -487,11 +526,11 @@
                                             &nbsp;<i class="icon-paper-clip" title="attachment"></i>
                                     <% } %>
                                     </td>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "" %>' title="<%= Encode.forHtmlAttribute(dm.getThedate()) %>&nbsp;&nbsp;<%= Encode.forHtmlAttribute(dm.getThetime()) %>">
+                                    <td title="<%= Encode.forHtmlAttribute(dm.getThedate()) %>&nbsp;&nbsp;<%= Encode.forHtmlAttribute(dm.getThetime()) %>">
                                     	<%=Encode.forHtml(dm.getThedate())%>
 
                                     </td>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "" %>'>
+                                    <td>
 
                                     <%if(dm.getDemographic_no() != null  && !dm.getDemographic_no().equalsIgnoreCase("null")) {%>
                                         <oscar:nameage demographicNo="<%=dm.getDemographic_no()%>"></oscar:nameage>

@@ -38,6 +38,8 @@
 
     Key Features:
     - Message composition with subject and body text
+    - Rich text editing via Toast UI Editor with WYSIWYG and Markdown modes
+    - XSS-safe HTML sanitization for editor content
     - Recipient selection from provider lists
     - Group-based recipient management
     - Patient demographic association for clinical messages
@@ -49,6 +51,8 @@
     - Requires write permissions on "_msg" object
     - Session validation through msgSessionBean
     - OWASP encoding for XSS prevention
+    - Custom HTML sanitizer strips script, iframe, object, embed, form elements
+      and event handler attributes from editor content
 
     Dependencies:
     - MsgSessionBean: Maintains message session state
@@ -56,10 +60,15 @@
     - MessagingManager: Core messaging operations
     - DemographicData: Patient information retrieval
 
+    Frontend Dependencies:
+    - Bootstrap 5.0.2 (responsive layout)
+    - Font Awesome 3.x (icons)
+    - Toast UI Editor 3.x (WYSIWYG/Markdown rich text editor with i18n)
+    - jQuery 1.12.3 (legacy, used for document.ready)
+
     Request Parameters:
     - subject: Initial message subject
-    - demographic_no: Associated patient ID
-    - delegate: Delegate/proxy provider ID
+    - demographic_no: Associated patient ID (request attribute, not parameter)
     - ReSubject: Reply subject (from reply action)
     - ReText: Quoted text for replies
 
@@ -216,6 +225,7 @@
 
 <script>
 
+// Toggles all provider checkboxes within a group when the group header checkbox is clicked
 function checkGroup(group) {
     // 1. Find all input elements that have the same class as the group's ID
     const inputs = document.querySelectorAll("input." + group.id);
@@ -249,15 +259,21 @@ function validateFields() {
     }
     return true;
 }
+	// Checks if at least one provider recipient is selected.
+	// Handles both single-element and NodeList cases for the provider checkbox collection.
 	function validateCheckBoxes(form)
 	{
-	  var retval = "0";
-	  for (var i =0; i < form.provider.length;i++)
-	    if  (form.provider[i].checked)
-	      retval = "1";
-	  return retval
+	  var boxes = form.provider;
+	  if (!boxes) return "0";
+	  if (typeof boxes.length === 'undefined') {
+	    return boxes.checked ? "1" : "0";
+	  }
+	  for (var i = 0; i < boxes.length; i++)
+	    if (boxes[i].checked) return "1";
+	  return "0";
 	}
 
+	// Notifies parent window to refresh message alerts, then closes this popup
 	function BackToOscar()
 	{
 	    if (opener && opener.callRefreshTabAlerts) {
@@ -268,6 +284,9 @@ function validateFields() {
 	    }
 	}
 
+	// Archives the current message via XHR before submitting the compose form.
+	// Includes CSRF token and 10-second timeout. On failure or timeout, still submits
+	// the message without archiving.
 	function XMLHttpRequestSendnArch() {
 		if (!validateFields()) {
 			return;
@@ -299,6 +318,7 @@ function validateFields() {
 
 		oRequest.open('POST', theArchiveLink, true);
 		oRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+		oRequest.timeout = 10000;
 		oRequest.onload = function() {
 			if (oRequest.status >= 200 && oRequest.status < 300) {
 				document.forms[0].submit();
@@ -311,10 +331,19 @@ function validateFields() {
 			alert('Archive request failed. The message will be sent without archiving.');
 			document.forms[0].submit();
 		};
-		oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo));
+		oRequest.ontimeout = function() {
+			alert('Archive timed out. The message will be sent without archiving.');
+			document.forms[0].submit();
+		};
+		var csrfToken = '';
+		var csrfMeta = document.querySelector('meta[name="CSRF-TOKEN"]');
+		if (csrfMeta) { csrfToken = '&CSRF-TOKEN=' + encodeURIComponent(csrfMeta.getAttribute('content')); }
+		else if (typeof OWASPCSRFGuard !== 'undefined') { csrfToken = '&CSRF-TOKEN=' + encodeURIComponent(OWASPCSRFGuard.getToken()); }
+		oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo) + csrfToken);
 	}
 
-	function popupSearchDemo(keyword){ // open a new popup window
+	// Opens demographic search popup for linking a patient to this message
+	function popupSearchDemo(keyword){
 	    var vheight = 700;
 	    var vwidth = 980;
 	    windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
@@ -328,7 +357,8 @@ function validateFields() {
 	    }
 	}
 
-	function popupAttachDemo(demographic){ // open a new popup window
+	// Opens demographic attachment popup for attaching documents from a patient record
+	function popupAttachDemo(demographic){
 	    var vheight = 700;
 	    var vwidth = 900;
 	    windowprops = "height="+vheight+",width="+vwidth+",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";
@@ -351,9 +381,8 @@ function validateFields() {
 
 	}
 
-	/*
-	 * Display any error message returned from the action
-	 */
+	// On page load: displays any server-side error, hides plain textarea,
+	// and syncs editor with initial message body content
 	$(document).ready(function(){
 		<%
 			String createMsgError = (String) request.getAttribute("createMessageError");
@@ -430,6 +459,8 @@ function validateFields() {
 
 						<td style="vertical-align:top"><br>
 
+							<%-- Recipient selection panel: organized by member groups (collapsible)
+							     and local members (expanded by default) --%>
 							<div class="ChooseRecipientsBox" style="max-height: 576px; overflow-y: scroll;">
 							<table>
                                 <tr>
@@ -503,7 +534,9 @@ function validateFields() {
 							</table>
 						</div> <!-- end ChooseRecipientsBox -->
 					</td>
-					<td style="vertical-align:top;" colspan="2"><!--Message and Subject Cell-->
+					<%-- Message composition area with subject field, Toast UI WYSIWYG editor,
+					     send buttons, and attachment display --%>
+					<td style="vertical-align:top;" colspan="2">
                     <div class="row"><div class="col-auto">
 					<label for="subject" class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
                     </div><div class="col">
@@ -534,7 +567,9 @@ function validateFields() {
 					</td>
 				</tr>
 
-				<tr>
+				<%-- Patient demographic linking section: search, select, and attach
+			     a patient record to this message --%>
+			<tr>
 					<td class="subheader"></td>
 					<td class="subheader" colspan="2" style="font-weight: bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgLinkThisMessage" /></td>
 				</tr>
@@ -559,7 +594,7 @@ function validateFields() {
 
 								<input type="text" name="selectedDemo" class="form-control" readonly style="border: none" value="none" />
 								<script>
-			                          if ('<%=Encode.forHtmlUnquotedAttribute(demoName)%>' && '<%=Encode.forHtmlUnquotedAttribute(demoName)%>' !== 'null') {
+			                          if ('<%=Encode.forJavaScript(demoName)%>' && '<%=Encode.forJavaScript(demoName)%>' !== 'null') {
                                         document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
                                         document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
                                        }
@@ -593,18 +628,41 @@ function validateFields() {
 </script>
 <script>
 
-    // note that global.language.code != global.i18nLanguagecode
-    const Editor = toastui.Editor;
-    const editor = new Editor({
-      el: document.getElementById('messagediv'),
-        initialEditType:'wysiwyg',
-        usageStatistics: false,
-        height: '500px',
-        language:'<fmt:setBundle basename="oscarResources"/><fmt:message key="global.language.code" />'
-	    })
+    // Initialize Toast UI Editor in WYSIWYG mode with custom HTML sanitizer for XSS prevention.
+    // Falls back to plain textarea if the editor library fails to load.
+    // Note: global.language.code != global.i18nLanguagecode
+    var editor;
+    try {
+        var Editor = toastui.Editor;
+        editor = new Editor({
+            el: document.getElementById('messagediv'),
+            initialEditType: 'wysiwyg',
+            usageStatistics: false,
+            height: '500px',
+            language: '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.language.code" />',
+            customHTMLSanitizer: function(html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var dangerous = doc.querySelectorAll('script,iframe,object,embed,form');
+                dangerous.forEach(function(el) { el.remove(); });
+                doc.querySelectorAll('*').forEach(function(el) {
+                    Array.from(el.attributes).forEach(function(attr) {
+                        if (attr.name.startsWith('on') || (attr.name === 'href' && attr.value.trim().toLowerCase().startsWith('javascript:'))) {
+                            el.removeAttribute(attr.name);
+                        }
+                    });
+                });
+                return doc.body.innerHTML;
+            }
+        });
+    } catch (e) {
+        console.error('Toast UI Editor failed to initialize:', e);
+        document.getElementsByName("message")[0].style.display = '';
+    }
 
     function writeToMessage() {
-        document.getElementsByName("message")[0].value = editor.getMarkdown();
+        if (typeof editor !== 'undefined') {
+            document.getElementsByName("message")[0].value = editor.getMarkdown();
+        }
     }
 
 </script>

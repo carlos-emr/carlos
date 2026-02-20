@@ -63,7 +63,7 @@ import org.apache.struts2.ServletActionContext;
  * <ul>
  *   <li>Initializes message session for different access patterns</li>
  *   <li>Provides search and filter capabilities for messages</li>
- *   <li>Handles bulk message deletion (soft delete)</li>
+ *   <li>Handles bulk message archiving (sets status to "del" via {@link MessageList#setDeleted(boolean)})</li>
  *   <li>Handles bulk mark-as-read and mark-as-unread operations</li>
  *   <li>Maintains view state across requests via session beans</li>
  * </ul>
@@ -88,7 +88,7 @@ import org.apache.struts2.ServletActionContext;
  * 
  * <p>Security:</p>
  * <ul>
- *   <li>Requires "_msg" read privilege to access messaging functionality</li>
+ *   <li>Requires "_msg" read privilege for page load; mutation operations are guarded individually</li>
  *   <li>IDOR protection: all providerNo parameters are verified against the logged-in
  *       user's session to prevent unauthorized access to other providers' messages</li>
  *   <li>User names are always resolved from the database rather than accepted from
@@ -108,7 +108,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     
     /**
-     * HTTP response object, maintained for consistency but not actively used.
+     * HTTP response object used for redirect on session timeout.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -144,24 +144,27 @@ public class MsgDisplayMessages2Action extends ActionSupport {
      *   <li>Unread: Marks selected messages as unread</li>
      * </ul>
      * 
-     * @return "success" to forward to the message display page
-     * @throws IOException if there's an I/O error
+     * @return String "success" to forward to the message display page, or {@code null}
+     *         if the response was redirected (e.g., session timeout redirect to index.jsp)
+     * @throws IOException if there's an I/O error during redirect
      * @throws ServletException if there's a servlet processing error
-     * @throws SecurityException if the user lacks required permissions or attempts
-     *         to access another provider's messages (IDOR protection)
+     * @throws SecurityException if the user lacks "_msg" read permissions, attempts
+     *         to access another provider's messages (IDOR protection), or the provider
+     *         record is not found in the database
      */
     public String execute() throws IOException, ServletException {
-
-        // Verify user has permission to read messages
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_msg", "r", null)) {
-            throw new SecurityException("missing required sec object (_msg)");
-        }
 
         // Retrieve and validate logged-in provider session
         MsgSessionBean bean = null;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
             throw new SecurityException("No valid session found");
+        }
+
+        // Verify user has permission to view messages (read privilege for page load;
+        // mutation operations are guarded by individual button parameter checks)
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
+            throw new SecurityException("missing required sec object (_msg)");
         }
         String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();
 
@@ -183,12 +186,14 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             // Look up the provider's name from the database (never trust request parameters for userName)
             ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
             Provider p = providerManager.getProvider(loggedInInfo, loggedInProviderNo);
-            if (p != null) {
-                bean = new MsgSessionBean();
-                bean.setProviderNo(loggedInProviderNo);
-                bean.setUserName(p.getFirstName() + " " + p.getLastName());
-                request.getSession().setAttribute("msgSessionBean", bean);
+            if (p == null) {
+                MiscUtils.getLogger().error("Provider record not found for logged-in provider");
+                throw new SecurityException("Unable to initialize messaging session: provider record not found");
             }
+            bean = new MsgSessionBean();
+            bean.setProviderNo(loggedInProviderNo);
+            bean.setUserName(p.getFirstName() + " " + p.getLastName());
+            request.getSession().setAttribute("msgSessionBean", bean);
         } else {
             // Case 2: Use existing session bean
             bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
@@ -196,8 +201,9 @@ public class MsgDisplayMessages2Action extends ActionSupport {
 
         // Ensure we have a valid session bean before processing actions that depend on it
         if (bean == null) {
-            MiscUtils.getLogger().warn("MsgSessionBean is null; possible session timeout or invalid access. Returning to page without processing action.");
-            return findForward;
+            MiscUtils.getLogger().warn("MsgSessionBean is null; possible session timeout or invalid access. Redirecting to login.");
+            response.sendRedirect(request.getContextPath() + "/index.jsp");
+            return null;
         }
 
         // Process user actions based on button clicks
@@ -208,6 +214,8 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 displayMsgBean.setFilter(request.getParameter("searchString"));
             } else {
                 MiscUtils.getLogger().warn("DisplayMessagesBeanId is null in session during search; possible session timeout.");
+                response.sendRedirect(request.getContextPath() + "/index.jsp");
+                return null;
             }
 
         } else if (request.getParameter("btnClearSearch") != null) {
@@ -217,6 +225,8 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 displayMsgBean.clearFilter();
             } else {
                 MiscUtils.getLogger().warn("DisplayMessagesBeanId is null in session during clear search; possible session timeout.");
+                response.sendRedirect(request.getContextPath() + "/index.jsp");
+                return null;
             }
             
         } else if (request.getParameter("btnDelete") != null) {
@@ -231,14 +241,14 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 MiscUtils.getLogger().info("No messages selected for marking as read, returning back to page");
                 return findForward;
             }
-            updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus("read"));
+            updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus(MessageList.STATUS_READ));
 
         } else if (request.getParameter("btnUnread") != null) {
             if (getMessageNo().length == 0) {
                 MiscUtils.getLogger().info("No messages selected for marking as unread, returning back to page");
                 return findForward;
             }
-            updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus("unread"));
+            updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus(MessageList.STATUS_NEW));
 
         } else {
             MiscUtils.getLogger().debug("Unexpected action in MsgDisplayMessages2Action.java");
@@ -250,12 +260,17 @@ public class MsgDisplayMessages2Action extends ActionSupport {
     /**
      * Applies an action to all selected messages for the given provider.
      *
+     * <p>Failures on individual messages are logged and skipped; remaining messages
+     * continue to be processed. The failure count is stored in the request attribute
+     * "updateFailureCount" so the JSP can display a warning to the user.</p>
+     *
      * @param providerNo String the provider number whose messages to update
      * @param messageIds String[] array of message IDs to process
      * @param action Consumer that applies the desired mutation to each message
      */
     private void updateSelectedMessages(String providerNo, String[] messageIds, Consumer<MessageList> action) {
         MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
+        int failureCount = 0;
         for (String messageId : messageIds) {
             try {
                 List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageId));
@@ -263,9 +278,14 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                     action.accept(msg);
                     dao.merge(msg);
                 }
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
+                failureCount++;
                 MiscUtils.getLogger().error("Failed to update message", e);
             }
+        }
+        if (failureCount > 0) {
+            request.setAttribute("updateFailureCount", failureCount);
+            MiscUtils.getLogger().warn("Some messages failed to update");
         }
     }
 

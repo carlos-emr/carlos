@@ -42,10 +42,14 @@
   - Reply, forward, and delete actions
   - Integration with case management notes
   - PDF attachment preview
+  - Markdown rendering via Toast UI Editor viewer mode
+  - XSS-safe HTML sanitization for rendered markdown content
 
   Security:
   - Requires "_msg" object with read ("r") permissions
   - Validates user access to specific messages
+  - XSS-safe custom HTML sanitizer strips dangerous elements and event
+    handlers from markdown output
 
   Request parameters:
   - messageID: Unique identifier of message to view
@@ -53,6 +57,11 @@
   - demographic_no: Associated patient ID if applicable
   - providerview: Filter for provider-specific views
   - bFirstDisp: First display flag for marking as read
+
+  Frontend Dependencies:
+  - Bootstrap 5.0.2 (responsive layout and button styles)
+  - Font Awesome 3.x (icons for reply, forward, delete, etc.)
+  - Toast UI Editor 3.x (viewer mode for markdown-formatted message bodies)
 
   Integration points:
   - Case management notes for clinical documentation
@@ -98,6 +107,10 @@
 %>
 
 <%
+    // View-state variables populated by the controller action and stored in session.
+    // providerview: filters messages by provider ("all" by default).
+    // bFirstDisp: true on initial load, triggers mark-as-read in the action.
+    // bodyTextAsHTML: the message body content retrieved from session for display.
     String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
     boolean bFirstDisp = true; //this is the first time to display the window
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = (request.getParameter("bFirstDisp")).equals("true");
@@ -123,6 +136,7 @@ String boxType = request.getParameter("boxType");
 
 
 <script>
+// Notifies parent window to refresh message alerts, then closes this popup
 function BackToOscar()
 {
     if (opener && opener.callRefreshTabAlerts) {
@@ -133,7 +147,8 @@ function BackToOscar()
     }
 }
 
-function popupViewAttach(vheight,vwidth,varpage) { //open a new popup window
+// Opens attachment in a popup window; routes to the encounter window if the URL contains IncomingEncounter
+function popupViewAttach(vheight,vwidth,varpage) {
   var page = varpage;
   windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
   var winName;
@@ -155,7 +170,12 @@ function popupViewAttach(vheight,vwidth,varpage) { //open a new popup window
 
 }
 
-function popup(demographicNo, msgId, providerNo, action) { //open a new popup window
+// Handles demographic-related actions: writing message content to encounter notes
+// or linking this message to a patient demographic record.
+// When action is "writeToEncounter", attempts multiple strategies to paste the
+// formatted message into the encounter note editor (direct, Angular, or form POST).
+// When action is "linkToDemographic", submits a form to associate the demographic.
+function popup(demographicNo, msgId, providerNo, action) {
   var vheight = 700;
   var vwidth = 980;
 
@@ -249,7 +269,8 @@ function popupSearchDemo(keyword){ // open a new popup window
     }
 }
 
-//format msg for pasting into encounter
+// Formats the current message fields (from, to, date, subject, body) into a
+// plain text string suitable for pasting into encounter notes
 function fmtOscarMsg() {
     txt = "From: ";
     tmp = document.getElementById("sentBy").innerHTML;
@@ -451,6 +472,7 @@ font-size:17px;
 								<c:out value="${ viewMessageDate }" /> <c:out value="${ viewMessageTime }" />
 							</td>
 						</tr>
+						<%-- Display file and PDF attachments if present in session --%>
 						<%  String attach = (String) session.getAttribute("viewMessageAttach");
                                     String id = (String) session.getAttribute("viewMessageId");
                                     if ( attach != null && attach.equals("1") ){
@@ -478,6 +500,11 @@ font-size:17px;
                                     }
                                 %>
 
+						<%--
+						  Message body display: the hidden textarea holds HTML-encoded content
+						  which the Toast UI viewer reads and renders as markdown. The
+						  print_helper div shows plain text for print media.
+						--%>
 						<tr>
 							<td></td>
 							<td colspan="2" class="Printable"><p>&nbsp;</p>
@@ -581,7 +608,9 @@ font-size:17px;
 						</tr>
 
                                             <%
-
+                                                // Demographic search and link section: looks up a patient by
+                                                // demographic_no from the request and allows associating (linking)
+                                                // that patient with this message.
                                                 String demographic_no = request.getParameter("demographic_no");
                                                 DemographicData demoData = new DemographicData();
                                                 Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographic_no);
@@ -628,6 +657,8 @@ font-size:17px;
 								</strong>
 							</td>
 						</tr>
+                        <%-- Display demographics already linked to this message with
+                             encounter (E), prescription (Rx), and appointment shortcuts --%>
                         <% int demoCount = 0; %>
                         <c:forEach items="${ attachedDemographics }" var="demographic">
              			<c:set var="demographicNumber" value="${ demographic.key }" />
@@ -725,17 +756,43 @@ font-size:17px;
 </form>
 
 <script>
+    // Initialize Toast UI Editor in read-only viewer mode to render the message
+    // body as markdown. A custom HTML sanitizer removes dangerous elements
+    // (script, iframe, object, embed, form) and strips event-handler attributes
+    // and javascript: hrefs to prevent XSS. Falls back to showing the plain
+    // textarea if the editor library fails to load.
     var content=document.getElementById("msgBody").value;
     content = content.replace(/\r\n/g, "\n");
 
-    const viewer = new toastui.Editor.factory({
-        el: document.getElementById('viewer'),
-        usageStatistics: false,
-        viewer:true,
-        initialEditType:'wysiwyg',
-        initialValue:content,
-        height: '500px'
-	    });
+    var viewer;
+    try {
+        viewer = new toastui.Editor.factory({
+            el: document.getElementById('viewer'),
+            usageStatistics: false,
+            viewer: true,
+            initialEditType: 'wysiwyg',
+            initialValue: content,
+            height: '500px',
+            customHTMLSanitizer: function(html) {
+                var div = document.createElement('div');
+                div.textContent = '';
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var scripts = doc.querySelectorAll('script,iframe,object,embed,form');
+                scripts.forEach(function(el) { el.remove(); });
+                doc.querySelectorAll('*').forEach(function(el) {
+                    Array.from(el.attributes).forEach(function(attr) {
+                        if (attr.name.startsWith('on') || (attr.name === 'href' && attr.value.trim().toLowerCase().startsWith('javascript:'))) {
+                            el.removeAttribute(attr.name);
+                        }
+                    });
+                });
+                return doc.body.innerHTML;
+            }
+        });
+    } catch (e) {
+        console.error('Toast UI viewer failed to initialize:', e);
+        document.getElementById('msgBody').style.display = '';
+    }
 
 </script>
 </body>
