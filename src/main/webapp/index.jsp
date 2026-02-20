@@ -77,23 +77,22 @@
 
             function togglepwd(){
                 const passwordInput = document.getElementById('password');
-                var isNowVisible = passwordInput.type === 'text';
                 const toggleBtn = document.getElementById('toggleBtn');
+                // Flip the input type first, then read the post-toggle state for ARIA
+                passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+                const isNowVisible = passwordInput.type === 'text';
                 toggleBtn.setAttribute('aria-pressed', isNowVisible ? 'true' : 'false');
                 toggleBtn.setAttribute('aria-label', isNowVisible ? 'Hide password' : 'Show password');
-                const isPassword = passwordInput.type === 'password';
-                passwordInput.type = isPassword ? 'text' : 'password';
-
             }
 
-            function togglepin(button){
+            function togglepin(){
                 const pinInput = document.getElementById('pin');
                 // Toggle the custom security class
                 pinInput.classList.toggle('secure-text');
                 const toggleBtn = document.getElementById('togglePin');
                 const isNowVisible = !(pinInput.classList.contains("secure-text"));
                 toggleBtn.setAttribute('aria-pressed', isNowVisible ? 'true' : 'false');
-                toggleBtn.setAttribute('aria-label', isNowVisible ? 'Hide password' : 'Show password');
+                toggleBtn.setAttribute('aria-label', isNowVisible ? 'Hide PIN' : 'Show PIN');
             }
 
             function setfocus() {
@@ -534,7 +533,7 @@
               width: 24px; /* NO SMALLER for best practice */
               height: 24px;
               background-color: #959595; /* lightest grey that gives 3:1 contrast ratio */
-              -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2"><line x1="0" y1="24" x2="24" y2="0" /><line x1="0" y1="24" x2="24" y2="0" /></svg>');
+              -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/><line x1="0" y1="24" x2="24" y2="0" /></svg>');
               mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/><line x1="0" y1="24" x2="24" y2="0" /></svg>');
               mask-size: contain;
               -webkit-mask-repeat: no-repeat;
@@ -614,7 +613,7 @@
                             - pin: "one-time-code" \u2014 signal browsers this is a session code, not a saveable credential
                         --%>
                         <form action="login.do" method="POST" name="loginForm">
-<input type="hidden" name="${empty _csrf.parameterName ? 'none' : _csrf.parameterName}" value="${_csrf.token}">
+<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 
                             <div class="form-group ${ login_error }">
                                 <input type="text" name="username" id="username" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Logon.userName"/>"
@@ -625,10 +624,11 @@
                             <div class="input-wrapper form-group ${ login_error }">
                               <input type="password" name="password" id="password" placeholder="<fmt:message key="Logon.passWord"/>" autocomplete="current-password" class="form-control toggle-input" required>
                               <button type="button"
-                                      class="toggle-btn" 
+                                      id="toggleBtn"
+                                      class="toggle-btn"
                                       aria-label="Show Password"
-                                      aria-pressed="false
-                                      onclick="togglepwd();" >
+                                      aria-pressed="false"
+                                      onclick="togglepwd();">
                               </button>
                             </div>
 
@@ -638,8 +638,9 @@
                                   <!-- The input starts with the secure-text class -->
                                   <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="one-time-code"
                                                inputmode="numeric"  placeholder="<fmt:message key="admin.securityrecord.formPIN"/>">
-                                    <button type="button" 
-                                      class="toggle-btn" 
+                                    <button type="button"
+                                      id="togglePin"
+                                      class="toggle-btn"
                                       aria-label="Show PIN"
                                       aria-pressed="false"
                                       onclick="togglepin();">
