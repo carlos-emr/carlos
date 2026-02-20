@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import java.io.IOException;
 import java.io.StringReader;
 import java.util.List;
 
@@ -99,6 +100,9 @@ public class GenerateOutFiles2Action extends ActionSupport {
                         data[i][j] = record.get(j);
                     }
                 }
+            } catch (IOException e) {
+                MiscUtils.getLogger().error("Error parsing CSV", e);
+                return null;
             }
 
             HSSFWorkbook wb = new HSSFWorkbook();

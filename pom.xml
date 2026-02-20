@@ -529,22 +529,6 @@
             <version>2.10.9.2</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.onelogin</groupId>
-            <artifactId>java-saml</artifactId>
-            <version>2.9.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.codehaus.woodstox</groupId>
-                    <artifactId>woodstox-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.santuario</groupId>
-                    <artifactId>xmlsec</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <!-- hibernate / sql -->
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -967,10 +951,6 @@
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>joda-time</groupId>
-                    <artifactId>joda-time</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>com.fasterxml.woodstox</groupId>
