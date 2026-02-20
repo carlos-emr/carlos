@@ -28,18 +28,19 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.Calendar;
-
-import org.joda.time.LocalDate;
-import org.joda.time.Period;
-import org.joda.time.PeriodType;
 
 public class AgeCalculator {
 
     public static Age calculateAge(Calendar birthDate) {
-        LocalDate birthdate = LocalDate.fromCalendarFields(birthDate);
-        LocalDate now = new LocalDate();                    //Today's date
-        Period period = new Period(birthdate, now, PeriodType.yearMonthDay());
+        LocalDate birthdate = LocalDate.of(
+                birthDate.get(Calendar.YEAR),
+                birthDate.get(Calendar.MONTH) + 1,
+                birthDate.get(Calendar.DAY_OF_MONTH));
+        LocalDate now = LocalDate.now();
+        Period period = Period.between(birthdate, now);
 
         return new Age(period.getDays(), period.getMonths(), period.getYears());
     }

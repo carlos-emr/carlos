@@ -46,9 +46,7 @@ import java.util.Map.Entry;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.HibernateException;
-import org.joda.time.Days;
-import org.joda.time.MutablePeriod;
-import org.joda.time.PeriodType;
+import java.time.Duration;
 import io.github.carlos_emr.carlos.PMmodule.utility.DateTimeFormatUtils;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Stay;
@@ -136,13 +134,13 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
         }
 
         for (Entry<Integer, Set<Stay>> entry : clientIdToStayMap.entrySet()) {
-            MutablePeriod period = new MutablePeriod(PeriodType.days());
+            Duration totalDuration = Duration.ZERO;
 
             for (Stay stay : entry.getValue()) {
-                period.add(stay.getInterval());
+                totalDuration = totalDuration.plus(stay.getDuration());
             }
 
-            int days = Days.standardDaysIn(period).getDays();
+            int days = (int) totalDuration.toDays();
 
             if (days <= 10) {
                 shelterUsages[LOW] += 1;
