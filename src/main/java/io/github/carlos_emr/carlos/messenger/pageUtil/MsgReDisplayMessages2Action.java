@@ -110,7 +110,7 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
      * @throws IOException if there's an I/O error during redirect
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks "_msg" write permissions, or if the session
-     *         bean's provider does not match the logged-in user (IDOR protection)
+     *         bean's provider does not match the logged-in user (defensive check)
      */
     public String execute() throws IOException, ServletException {
 
@@ -133,7 +133,10 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
             return null;
         }
 
-        // IDOR protection: verify the session bean's provider matches the logged-in user
+        // Defensive check: verify the session bean's provider matches the logged-in user.
+        // MsgDisplayMessages2Action always creates the bean from session, so this guard
+        // should never trigger under normal operation. Retained as defense-in-depth to
+        // ensure fail-closed behavior if session state is corrupted.
         if (!loggedInInfo.getLoggedInProviderNo().equals(bean.getProviderNo())) {
             throw new SecurityException("Cannot access another provider's messages");
         }

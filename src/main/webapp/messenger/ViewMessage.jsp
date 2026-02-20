@@ -55,8 +55,6 @@
   - messageID: Unique identifier of message to view
   - boxType: Source mailbox (inbox, sent, deleted)
   - demographic_no: Associated patient ID if applicable
-  - providerview: Filter for provider-specific views
-  - bFirstDisp: First display flag for marking as read
 
   Frontend Dependencies:
   - Bootstrap 5.0.2 (responsive layout and button styles)
@@ -107,13 +105,7 @@
 %>
 
 <%
-    // View-state variables populated by the controller action and stored in session.
-    // providerview: filters messages by provider ("all" by default).
-    // bFirstDisp: true on initial load, triggers mark-as-read in the action.
     // bodyTextAsHTML: the message body content retrieved from session for display.
-    String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
-    boolean bFirstDisp = true; //this is the first time to display the window
-    if (request.getParameter("bFirstDisp") != null) bFirstDisp = (request.getParameter("bFirstDisp")).equals("true");
     String bodyTextAsHTML = (String) session.getAttribute("viewMessageMessage");
     if (bodyTextAsHTML == null) {
         bodyTextAsHTML = "";
@@ -608,6 +600,10 @@ font-size:17px;
 						</tr>
 
                                             <%
+                                                // Null-safe session attribute retrieval for use in the link button onclick
+                                                String viewMsgId = session.getAttribute("viewMessageId") != null ? (String) session.getAttribute("viewMessageId") : "";
+                                                String viewProvNo = session.getAttribute("providerNo") != null ? (String) session.getAttribute("providerNo") : "";
+
                                                 // Demographic search and link section: looks up a patient by
                                                 // demographic_no from the request and allows associating (linking)
                                                 // that patient with this message.
@@ -639,7 +635,7 @@ font-size:17px;
                                         <input type="button"
 								class="btn" name="linkDemo"
 								value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.linkToDemo" />"
-								onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript((String)session.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>','linkToDemographic')" />
+								onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript(viewMsgId)%>','<%=Encode.forJavaScript(viewProvNo)%>','linkToDemographic')" />
 
 							<input type="button" class="btn"
 								name="clearDemographic" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.clearDemo" />"
@@ -792,6 +788,10 @@ font-size:17px;
     } catch (e) {
         console.error('Toast UI viewer failed to initialize:', e);
         document.getElementById('msgBody').style.display = '';
+        var warning = document.createElement('div');
+        warning.className = 'alert alert-warning mt-2';
+        warning.textContent = 'Rich text viewer could not load. Using plain text mode.';
+        document.getElementById('viewer').parentNode.insertBefore(warning, document.getElementById('viewer'));
     }
 
 </script>

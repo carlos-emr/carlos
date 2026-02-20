@@ -68,31 +68,30 @@ import org.apache.struts2.ServletActionContext;
  *   <li>Maintains view state across requests via session beans</li>
  * </ul>
  *
- * <p>Access patterns supported:</p>
+ * <p>Session initialization:</p>
  * <ul>
- *   <li>Provider number access: providerNo parameter triggers new session creation
- *       with provider name looked up from the database (userName parameter is ignored
- *       for security)</li>
- *   <li>Session-based access: uses existing session bean when no providerNo parameter
- *       is provided</li>
+ *   <li>Always creates the session bean from the logged-in provider's session,
+ *       looking up the provider name from the database</li>
+ *   <li>If a valid session bean already exists for the logged-in user, reuses it</li>
  * </ul>
  *
  * <p>Operations:</p>
  * <ul>
  *   <li>btnSearch - Filters messages based on search string</li>
  *   <li>btnClearSearch - Removes active search filter</li>
- *   <li>btnDelete - Soft deletes selected messages</li>
+ *   <li>btnDelete - Archives selected messages (sets status to deleted)</li>
  *   <li>btnRead - Marks selected messages as read</li>
  *   <li>btnUnread - Marks selected messages as unread</li>
  * </ul>
  * 
  * <p>Security:</p>
  * <ul>
- *   <li>Requires "_msg" read privilege for page load; mutation operations are guarded individually</li>
- *   <li>IDOR protection: all providerNo parameters are verified against the logged-in
- *       user's session to prevent unauthorized access to other providers' messages</li>
- *   <li>User names are always resolved from the database rather than accepted from
- *       request parameters to prevent spoofing</li>
+ *   <li>Requires "_msg" read privilege for page load; mutation operations (delete, read,
+ *       unread) additionally require write privilege</li>
+ *   <li>Provider identity is always derived from the authenticated session, never from
+ *       request parameters. Message operations are scoped to the authenticated provider
+ *       by the DAO query layer, preventing cross-provider access.</li>
+ *   <li>User names are always resolved from the database to prevent spoofing</li>
  * </ul>
  *
  * @version 2.0
@@ -130,16 +129,15 @@ public class MsgDisplayMessages2Action extends ActionSupport {
      * 
      * <p>Session initialization logic:</p>
      * <ul>
-     *   <li>If providerNo parameter provided: Creates new session with provider name
-     *       looked up from database (any userName parameter is ignored for security)</li>
-     *   <li>Otherwise: Uses existing session bean</li>
+     *   <li>Always creates/refreshes session bean from the logged-in provider's session</li>
+     *   <li>Reuses existing session bean if it already belongs to the logged-in user</li>
      * </ul>
      * 
      * <p>The method supports five main operations triggered by button parameters:</p>
      * <ul>
      *   <li>Search: Applies a text filter to the message list</li>
      *   <li>Clear Search: Removes any active filters</li>
-     *   <li>Delete: Soft deletes selected messages (marks as deleted)</li>
+     *   <li>Delete: Archives selected messages (sets status to deleted)</li>
      *   <li>Read: Marks selected messages as read</li>
      *   <li>Unread: Marks selected messages as unread</li>
      * </ul>
@@ -148,8 +146,8 @@ public class MsgDisplayMessages2Action extends ActionSupport {
      *         if the response was redirected (e.g., session timeout redirect to index.jsp)
      * @throws IOException if there's an I/O error during redirect
      * @throws ServletException if there's a servlet processing error
-     * @throws SecurityException if the user lacks "_msg" read permissions, attempts
-     *         to access another provider's messages (IDOR protection), or the provider
+     * @throws SecurityException if no valid session exists, if the user lacks "_msg" read
+     *         permissions (or write permissions for mutation operations), or if the provider
      *         record is not found in the database
      */
     public String execute() throws IOException, ServletException {
@@ -161,8 +159,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             throw new SecurityException("No valid session found");
         }
 
-        // Verify user has permission to view messages (read privilege for page load;
-        // mutation operations are guarded by individual button parameter checks)
+        // Verify user has read permission for page load (mutation operations check write below)
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
             throw new SecurityException("missing required sec object (_msg)");
         }
@@ -171,19 +168,10 @@ public class MsgDisplayMessages2Action extends ActionSupport {
         // Initialize forward location
         String findForward = "success";
 
-        // Case 1: Provider number supplied with or without userName - always look up name from DB
-        if (request.getParameter("providerNo") != null) {
-            String requestedProviderNo = request.getParameter("providerNo");
-
-            // IDOR protection: verify the requested providerNo matches the logged-in user
-            if (!loggedInProviderNo.equals(requestedProviderNo)) {
-                MiscUtils.getLogger().warn("IDOR attempt blocked: logged-in provider " + loggedInProviderNo
-                        + " attempted to access messages for provider "
-                        + requestedProviderNo.replaceAll("[\\r\\n]", ""));
-                throw new SecurityException("Cannot access another provider's messages");
-            }
-
-            // Look up the provider's name from the database (never trust request parameters for userName)
+        // Always derive provider identity from session — never from request parameters.
+        // Reuse existing session bean if it belongs to the logged-in user; otherwise create new.
+        bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
+        if (bean == null || !loggedInProviderNo.equals(bean.getProviderNo())) {
             ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
             Provider p = providerManager.getProvider(loggedInInfo, loggedInProviderNo);
             if (p == null) {
@@ -194,16 +182,6 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             bean.setProviderNo(loggedInProviderNo);
             bean.setUserName(p.getFirstName() + " " + p.getLastName());
             request.getSession().setAttribute("msgSessionBean", bean);
-        } else {
-            // Case 2: Use existing session bean
-            bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
-        }
-
-        // Ensure we have a valid session bean before processing actions that depend on it
-        if (bean == null) {
-            MiscUtils.getLogger().warn("MsgSessionBean is null; possible session timeout or invalid access. Redirecting to login.");
-            response.sendRedirect(request.getContextPath() + "/index.jsp");
-            return null;
         }
 
         // Process user actions based on button clicks
@@ -230,6 +208,9 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             }
             
         } else if (request.getParameter("btnDelete") != null) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
+                throw new SecurityException("missing required sec object (_msg) for write");
+            }
             if (getMessageNo().length == 0) {
                 MiscUtils.getLogger().info("No messages selected for deletion, returning back to page");
                 return findForward;
@@ -237,6 +218,9 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setDeleted(true));
 
         } else if (request.getParameter("btnRead") != null) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
+                throw new SecurityException("missing required sec object (_msg) for write");
+            }
             if (getMessageNo().length == 0) {
                 MiscUtils.getLogger().info("No messages selected for marking as read, returning back to page");
                 return findForward;
@@ -244,6 +228,9 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus(MessageList.STATUS_READ));
 
         } else if (request.getParameter("btnUnread") != null) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
+                throw new SecurityException("missing required sec object (_msg) for write");
+            }
             if (getMessageNo().length == 0) {
                 MiscUtils.getLogger().info("No messages selected for marking as unread, returning back to page");
                 return findForward;

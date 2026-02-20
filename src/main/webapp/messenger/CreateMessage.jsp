@@ -147,9 +147,10 @@
     request.setAttribute("groupManager", groups);
     request.setAttribute("localMembers", localMembers);
 
-    // Set up message subject and body (from new message, reply, or forward)
+    // Set up message subject and body (from new message, reply, or forward).
+    // Note: This always overwrites the subject parameter above. When ReSubject is
+    // null (new message), messageSubject becomes null.
     pageContext.setAttribute("messageSubject", request.getParameter("subject"));
-    // Note: Second setAttribute overwrites the first if ReSubject exists
     pageContext.setAttribute("messageSubject", request.getAttribute("ReSubject"));
     pageContext.setAttribute("messageBody", request.getAttribute("ReText"));
 
@@ -213,7 +214,10 @@
 
 <link rel="stylesheet" href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css">
 <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
-<script src="<%=request.getContextPath() %>/library/toastui/i18n/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/>.js"></script>
+<c:set var="langCode"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/></c:set>
+<c:if test="${langCode != 'en-GB'}">
+<script src="<%=request.getContextPath() %>/library/toastui/i18n/${langCode}.js"></script>
+</c:if>
 
 <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
 
@@ -284,6 +288,10 @@ function validateFields() {
 	    }
 	}
 
+	var msgArchiveFailed = '<fmt:message key="messenger.CreateMessage.archiveFailed"/>';
+	var msgArchiveError = '<fmt:message key="messenger.CreateMessage.archiveError"/>';
+	var msgArchiveTimeout = '<fmt:message key="messenger.CreateMessage.archiveTimeout"/>';
+
 	// Archives the current message via XHR before submitting the compose form.
 	// Includes CSRF token and 10-second timeout. On failure or timeout, still submits
 	// the message without archiving.
@@ -323,16 +331,16 @@ function validateFields() {
 			if (oRequest.status >= 200 && oRequest.status < 300) {
 				document.forms[0].submit();
 			} else {
-				alert('Archive failed. The message will be sent without archiving.');
+				alert(msgArchiveFailed);
 				document.forms[0].submit();
 			}
 		};
 		oRequest.onerror = function() {
-			alert('Archive request failed. The message will be sent without archiving.');
+			alert(msgArchiveError);
 			document.forms[0].submit();
 		};
 		oRequest.ontimeout = function() {
-			alert('Archive timed out. The message will be sent without archiving.');
+			alert(msgArchiveTimeout);
 			document.forms[0].submit();
 		};
 		var csrfToken = '';
@@ -657,6 +665,10 @@ function validateFields() {
     } catch (e) {
         console.error('Toast UI Editor failed to initialize:', e);
         document.getElementsByName("message")[0].style.display = '';
+        var warning = document.createElement('div');
+        warning.className = 'alert alert-warning mt-2';
+        warning.textContent = 'Rich text editor could not load. Using plain text mode.';
+        document.getElementById('messagediv').parentNode.insertBefore(warning, document.getElementById('messagediv'));
     }
 
     function writeToMessage() {

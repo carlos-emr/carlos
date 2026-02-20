@@ -73,6 +73,8 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -385,6 +387,7 @@
                         <span class="float-end">
 		                    <%
 		                    int recordsToDisplay = 25;
+		                    ResourceBundle msgBundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
 		                    String previous = "";
 		                    String next = "";
@@ -395,13 +398,26 @@
 
 		                    int totalPages = totalMsgs / recordsToDisplay + (totalMsgs % recordsToDisplay == 0 ? 0 : 1);
 
+		                    String prevLabel;
+		                    String nextLabel;
+		                    try {
+		                        prevLabel = Encode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnPrevious"));
+		                    } catch (java.util.MissingResourceException e) {
+		                        prevLabel = "&laquo; Previous";
+		                    }
+		                    try {
+		                        nextLabel = Encode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnNext"));
+		                    } catch (java.util.MissingResourceException e) {
+		                        nextLabel = "Next &raquo;";
+		                    }
+
 		                    if(pageNum>1){
-		                    	previous = "<a href='" + path + (pageNum-1) + "' title='previous page'><< Previous</a> ";
+		                    	previous = "<a href='" + path + (pageNum-1) + "' title='previous page'>" + prevLabel + "</a> ";
 		                    	out.print(previous);
 							}
 
 		                    if(pageNum<totalPages){
-		                    	next = "<a href='" + path + (pageNum+1) + "' title='next page'>Next >></a>";
+		                    	next = "<a href='" + path + (pageNum+1) + "' title='next page'>" + nextLabel + "</a>";
 		                    	out.print(next);
 		                    }
 		                    }%></span>
@@ -413,7 +429,7 @@
                                 <thead><tr>
                                     <th style="text-align: left;">
                                     <%if( pageType!=1 ) {%>
-                                       <input type="checkbox" name="checkAll2" onclick="checkAll('msgList')" id="checkA" style="margin-bottom: 10px;" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgAllMessage"/>">
+                                       <input type="checkbox" name="checkA" onclick="checkAll('msgList')" id="checkA" style="margin-bottom: 10px;" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgAllMessage"/>">
                                     <%} %>
                                     </th>
                                     <th style="text-align: left; width:120px;">
@@ -467,10 +483,13 @@
                                     for (int i = 0; i < theMessages2.size(); i++) {
                                         MsgDisplayMessage dm;
                                         dm = (MsgDisplayMessage) theMessages2.get(i);
-                                        // Guard against null/empty status from data corruption or unarchive edge cases
+                                        // Guard against null/empty status from data corruption or unarchive edge cases.
+                                        // Default to "new" so messages with missing status appear as unread (bold),
+                                        // prompting the user to review them rather than silently appearing as read.
                                         String statusStr = dm.getStatus();
                                         if (statusStr == null || statusStr.trim().isEmpty()) {
-                                            statusStr = "read";
+                                            MiscUtils.getLogger().debug("Message " + dm.getMessageId() + " has null/empty status; defaulting to 'new'");
+                                            statusStr = "new";
                                         }
                                         // Build resource bundle key: e.g., "messenger.DisplayMessages.msgStatusNew"
                                         String key = "messenger.DisplayMessages.msgStatus" + statusStr.substring(0, 1).toUpperCase() + statusStr.substring(1);
@@ -522,7 +541,7 @@
                                     <%
                                        String atta = dm.getAttach();
                                        String pdfAtta = dm.getPdfAttach();
-                                       if (atta.equals("1") || pdfAtta.equals("1") ){ %>
+                                       if ("1".equals(atta) || "1".equals(pdfAtta) ){ %>
                                             &nbsp;<i class="icon-paper-clip" title="attachment"></i>
                                     <% } %>
                                     </td>

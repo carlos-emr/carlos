@@ -120,14 +120,28 @@ public class MsgProceed2Action extends ActionSupport {
      */
     public String execute() throws IOException, ServletException {
 
-        // Verify user has write permission for messages
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_msg", "w", null)) {
+        // Validate session and permissions
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        // Retrieve session bean for user context
+        // Retrieve session bean for user context.
+        // The session bean must have been initialized by MsgDisplayMessages2Action.
         MsgSessionBean bean;
         bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
+        if (bean == null) {
+            throw new SecurityException("Message session not initialized");
+        }
+
+        // Defensive check: verify the session bean's provider matches the logged-in user
+        if (!loggedInInfo.getLoggedInProviderNo().equals(bean.getProviderNo())) {
+            throw new SecurityException("Cannot access another provider's messages");
+        }
 
         // Check for existing remote attachment association
         RemoteAttachmentsDao dao = SpringUtils.getBean(RemoteAttachmentsDao.class);
@@ -139,8 +153,8 @@ public class MsgProceed2Action extends ActionSupport {
         } else {
             // Create new remote attachment association
             RemoteAttachments ra = new RemoteAttachments();
-            ra.setDemographicNo(Integer.parseInt(demoId));
-            ra.setMessageId(Integer.parseInt(id));
+            ra.setDemographicNo(ConversionUtils.fromIntString(demoId));
+            ra.setMessageId(ConversionUtils.fromIntString(id));
             ra.setSavedBy(bean.getUserName());
             ra.setDate(new Date());
             ra.setTime(new Date());

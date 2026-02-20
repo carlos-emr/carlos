@@ -130,16 +130,38 @@ public class ProviderProperty2Action extends ActionSupport {
         return methodMap.getOrDefault(method, this::view).get();
     }
 
+    /**
+     * Updates the provider's message-received notification preference.
+     *
+     * <p>Saves the {@code value} request parameter as the provider's
+     * {@link UserProperty#OSCAR_MSG_RECVD} property. The provider identity is
+     * derived from the current session to prevent one provider from modifying
+     * another's preferences.</p>
+     *
+     * @return {@code null} (no Struts result navigation)
+     * @throws SecurityException if no valid session is found
+     */
     public String OscarMsgRecvd() {
-
-
-        userPropertyDAO.saveProp(request.getParameter("provider_no"), UserProperty.OSCAR_MSG_RECVD, request.getParameter("value"));
+        // Derive provider identity from session to prevent one provider from modifying another's preferences
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        String value = request.getParameter("value");
+        if (value != null) {
+            userPropertyDAO.saveProp(providerNo, UserProperty.OSCAR_MSG_RECVD, value);
+        }
 
         return null;
     }
 
     public String remove() {
-        String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+        String provider = loggedInInfo.getLoggedInProviderNo();
 
         UserProperty prop = this.userPropertyDAO.getProp(provider, UserProperty.STALE_NOTEDATE);
         if (prop != null) {
@@ -156,7 +178,11 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
     public String view() {
-        String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+        String provider = loggedInInfo.getLoggedInProviderNo();
         request.setAttribute("providerNo", provider);
 
         UserProperty prop = this.userPropertyDAO.getProp(provider, UserProperty.STALE_NOTEDATE);
@@ -596,7 +622,8 @@ public class ProviderProperty2Action extends ActionSupport {
             request.setAttribute("providermsgSuccess", "provider.setRxProfileView.msgSuccess"); //=Rx Profile View saved
             request.setAttribute("method", "saveRxProfileView");
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to save Rx profile view preference", e);
+            request.setAttribute("status", "error");
         }
 
         return "genRxProfileView";
