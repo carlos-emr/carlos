@@ -953,10 +953,6 @@
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>joda-time</groupId>
-                    <artifactId>joda-time</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>com.fasterxml.woodstox</groupId>
                     <artifactId>woodstox-core</artifactId>
                 </exclusion>
