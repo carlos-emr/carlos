@@ -104,6 +104,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
@@ -185,7 +186,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.title"/></title>
+        <title><fmt:message key="messenger.CreateMessage.title"/></title>
         <style>
 
             summary {
@@ -213,8 +214,9 @@
 
 
 <link rel="stylesheet" href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css">
+<script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
-<c:set var="langCode"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.i18nLanguagecode"/></c:set>
+<c:set var="langCode"><fmt:message key="global.i18nLanguagecode"/></c:set>
 <c:if test="${langCode != 'en-GB'}">
 <script src="<%=request.getContextPath() %>/library/toastui/i18n/${langCode}.js"></script>
 </c:if>
@@ -227,6 +229,7 @@
     }
  </style>
 
+<script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
 <script>
 
 // Toggles all provider checkboxes within a group when the group header checkbox is clicked
@@ -252,13 +255,13 @@ function validateFields() {
     }
     // Check if message body is empty
     if (document.forms[0].message.value.length === 0) {
-        alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>');
+        alert('<fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>');
         return false;
     }
     // Validate check boxes
     var val = validateCheckBoxes(document.forms[0]);
     if (val === "0") {
-        alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgNoProvider"/>');
+        alert('<fmt:message key="messenger.CreateMessage.msgNoProvider"/>');
         return false;
     }
     return true;
@@ -275,17 +278,6 @@ function validateFields() {
 	  for (var i = 0; i < boxes.length; i++)
 	    if (boxes[i].checked) return "1";
 	  return "0";
-	}
-
-	// Notifies parent window to refresh message alerts, then closes this popup
-	function BackToOscar()
-	{
-	    if (opener && opener.callRefreshTabAlerts) {
-		opener.callRefreshTabAlerts("oscar_new_msg");
-	        setTimeout("window.close()", 100);
-	    } else {
-	        window.close();
-	    }
 	}
 
 	var msgArchiveFailed = '<fmt:message key="messenger.CreateMessage.archiveFailed"/>';
@@ -350,21 +342,6 @@ function validateFields() {
 		oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo) + csrfToken);
 	}
 
-	// Opens demographic search popup for linking a patient to this message
-	function popupSearchDemo(keyword){
-	    var vheight = 700;
-	    var vwidth = 980;
-	    windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-	    var page = 'msgSearchDemo.jsp?keyword=' + encodeURIComponent(keyword) + '&firstSearch='+true;
-	    var popUp=window.open(page, "msgSearchDemo", windowprops);
-	    if (popUp != null) {
-	        if (popUp.opener == null) {
-	          popUp.opener = self;
-	        }
-	        popUp.focus();
-	    }
-	}
-
 	// Opens demographic attachment popup for attaching documents from a patient record
 	function popupAttachDemo(demographic){
 	    var vheight = 700;
@@ -416,17 +393,17 @@ function validateFields() {
 <table style="width:100%;">
     <tr>
         <td style="vertical-align:top">
-            <h4>&nbsp;<i class="icon-envelope" title='<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgMessenger"/>'></i>&nbsp;
-<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgCreate"/>
+            <h4>&nbsp;<i class="icon-envelope" title='<fmt:message key="messenger.DisplayMessages.msgMessenger"/>'></i>&nbsp;
+<fmt:message key="messenger.CreateMessage.msgCreate"/>
             </h4>
         </td>
         <td>
         </td>
         <td style="text-align:right" >
             <i class=" icon-question-sign"></i>
-            <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger create')"><fmt:setBundle basename="oscarResources"/><fmt:message key="app.top1"/></a>
+            <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger create')"><fmt:message key="app.top1"/></a>
             <i class=" icon-info-sign" style="margin-left:10px;"></i>
-            <a href="javascript:void(0)" onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+            <a href="javascript:void(0)" onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a>
         </td>
     </tr>
 </table>
@@ -441,13 +418,13 @@ function validateFields() {
 
 						<td>
 						    <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/DisplayMessages.jsp">
-								<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnInbox" />
+								<fmt:message key="messenger.ViewMessage.btnInbox" />
 							</a>
                             <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage.do">
-								<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnClear" />
+								<fmt:message key="messenger.CreateMessage.btnClear" />
 							</a>
-                            <a href="javascript:BackToOscar()">
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnExit" />
+                            <a href="javascript:BackToCarlos()">
+                                <fmt:message key="messenger.CreateMessage.btnExit" />
                             </a>
                             <br>&nbsp;
 						</td>
@@ -460,8 +437,8 @@ function validateFields() {
 				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validateFields()">
 				<table class="well" style="width:100%">
 						<tr class="subheader">
-							<th><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
-							<th colspan="2" style="text-align:left"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgMessage" /></th>
+							<th><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
+							<th colspan="2" style="text-align:left"><fmt:message key="messenger.CreateMessage.msgMessage" /></th>
 						</tr>
 						<tr>
 
@@ -483,7 +460,7 @@ function validateFields() {
 										<!-- Display Member Groups -->
 										<div id="member-groups">
 
-											<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.memberGroups" /></strong>
+											<strong><fmt:message key="messenger.CreateMessage.memberGroups" /></strong>
 
 											<c:forEach items="${ groupManager }" var="group">
 											<details>
@@ -513,13 +490,13 @@ function validateFields() {
 
 										<details open="true">
 											<summary>
-												<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.localMembers" /></strong>
+												<strong><fmt:message key="messenger.CreateMessage.localMembers" /></strong>
 											</summary>
 
 											<!-- Display all local members -->
 											<c:forEach items="${ localMembers }" var="member">
 
-												<%-- this is horrible. try not to repeat it --%>
+												<%-- Nested forEach checks replyList to pre-select recipients for replies --%>
 												<c:set var="providerChecked" value="false" />
 												<c:forEach var="replyId" items="${ replyList }">
 													<c:if test="${ replyId.compositeId eq member.id.compositeId }">
@@ -546,7 +523,7 @@ function validateFields() {
 					     send buttons, and attachment display --%>
 					<td style="vertical-align:top;" colspan="2">
                     <div class="row"><div class="col-auto">
-					<label for="subject" class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
+					<label for="subject" class="form-label"><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
                     </div><div class="col">
 					<input type="text" name="subject" id="subject" class="form-control w-75" value="<c:out value="${messageSubject}"/>"> </div>
                     <div id="messagediv"></div></div>
@@ -554,10 +531,10 @@ function validateFields() {
 							<table>
 								<tr>
 									<td><input type="submit" class="btn btn-primary" onclick="writeToMessage();"
-										value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnSendMessage"/>">
+										value="<fmt:message key="messenger.CreateMessage.btnSendMessage"/>">
 									</td>
 									<td><input type="button" class="btn btn-secondary" id="sendArchive" onclick="writeToMessage(); XMLHttpRequestSendnArch();"
-										value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>" >
+										value="<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>" >
 									</td>
 								</tr>
 							</table>
@@ -567,7 +544,7 @@ function validateFields() {
                        if (att != null || pdfAtt != null){
                     %>
 							<br>
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgAttachments" />
+							<fmt:message key="messenger.CreateMessage.msgAttachments" />
 							<%
 							bean.setSubject(null);
 							bean.setMessage(null);
@@ -579,7 +556,7 @@ function validateFields() {
 			     a patient record to this message --%>
 			<tr>
 					<td class="subheader"></td>
-					<td class="subheader" colspan="2" style="font-weight: bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgLinkThisMessage" /></td>
+					<td class="subheader" colspan="2" style="font-weight: bold"><fmt:message key="messenger.CreateMessage.msgLinkThisMessage" /></td>
 				</tr>
 
 				<tr>
@@ -588,12 +565,12 @@ function validateFields() {
                       <input type="text" name="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>" >
                     </td>
 	                <td>
-                      <input type="button" class="btn btn-light" name="searchDemo" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo(document.forms[0].keyword.value)" >
+                      <input type="button" class="btn btn-light" name="searchDemo" value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo(document.forms[0].keyword.value)" >
                   	</td>
 				</tr>
 				<tr>
 					<td></td>
-					<td colspan="2" style="font-weight: bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgSelectedDemographic" /></td>
+					<td colspan="2" style="font-weight: bold"><fmt:message key="messenger.CreateMessage.msgSelectedDemographic" /></td>
 				</tr>
 				<tr>
 					<td></td>
@@ -612,10 +589,10 @@ function validateFields() {
 	                <td>
                     <input type="button"
 						class="btn btn-light" name="clearDemographic"
-						value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgClearSelectedDemographic" />"
+						value="<fmt:message key="messenger.CreateMessage.msgClearSelectedDemographic" />"
 						onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"' />
 					<input type="button" class="btn btn-light" name="attachDemo"
-						value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgAttachDemographic" />"
+						value="<fmt:message key="messenger.CreateMessage.msgAttachDemographic" />"
 						onclick="popupAttachDemo(document.forms[0].demographic_no.value)"
 						>
 					</td>
@@ -647,19 +624,9 @@ function validateFields() {
             initialEditType: 'wysiwyg',
             usageStatistics: false,
             height: '500px',
-            language: '<fmt:setBundle basename="oscarResources"/><fmt:message key="global.language.code" />',
+            language: '<fmt:message key="global.language.code" />',
             customHTMLSanitizer: function(html) {
-                var doc = new DOMParser().parseFromString(html, 'text/html');
-                var dangerous = doc.querySelectorAll('script,iframe,object,embed,form');
-                dangerous.forEach(function(el) { el.remove(); });
-                doc.querySelectorAll('*').forEach(function(el) {
-                    Array.from(el.attributes).forEach(function(attr) {
-                        if (attr.name.startsWith('on') || (attr.name === 'href' && attr.value.trim().toLowerCase().startsWith('javascript:'))) {
-                            el.removeAttribute(attr.name);
-                        }
-                    });
-                });
-                return doc.body.innerHTML;
+                return DOMPurify.sanitize(html);
             }
         });
     } catch (e) {

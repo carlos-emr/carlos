@@ -53,7 +53,7 @@
  *   - Other: Successful attachment (new attachment created)
  *
  * JavaScript Functions:
- * - BackToOscar(): Handles window closure and parent refresh
+ * - BackToCarlos(): Handles window closure and parent refresh
  *   - Calls parent window's refresh function for message notifications
  *   - Closes current window after brief delay
  *   - Fallback to simple window close if parent function not available
@@ -98,9 +98,9 @@
 
     <script language="JavaScript">
         /**
-         * Returns to main OSCAR application and refreshes message alerts
+         * Returns to main CARLOS application and refreshes message alerts
          */
-        function BackToOscar() {
+        function BackToCarlos() {
             if (opener.callRefreshTabAlerts) {
                 // Refresh message tab alerts in parent window
                 opener.callRefreshTabAlerts("oscar_new_msg");
@@ -143,7 +143,7 @@
                 Attachment has been attached to this demographic 
             <% } %> 
             <br>
-            <a href="javascript:BackToOscar();">Click here</a> to close this
+            <a href="javascript:BackToCarlos();">Click here</a> to close this
             window.
         </td>
     </tr>

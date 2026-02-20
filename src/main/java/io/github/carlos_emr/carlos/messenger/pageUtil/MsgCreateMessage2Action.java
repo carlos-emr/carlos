@@ -77,7 +77,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private static MessengerDemographicManager messengerDemographicManager = SpringUtils.getBean(MessengerDemographicManager.class);
+    private MessengerDemographicManager messengerDemographicManager = SpringUtils.getBean(MessengerDemographicManager.class);
 
     /**
      * Main execution method that processes and sends the message.
@@ -163,17 +163,25 @@ public class MsgCreateMessage2Action extends ActionSupport {
 
         //FIXME remove these deprecated methods and use the Messenger Managers instead
         sentToWho = messageData.createSentToString(providerListing);
-        sentToWho = sentToWho.trim();
+        if (sentToWho != null) {
+            sentToWho = sentToWho.trim();
+        }
         messageId = messageData.sendMessage2(message, subject, userName, sentToWho, userNo, providerListing, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
 
-        // link msg and demographic if both messageId and demographic_no are not null.
+        if (messageId == null || messageId.isEmpty()) {
+            MiscUtils.getLogger().error("sendMessage2 returned null or empty messageId");
+            return ERROR;
+        }
+
+        // Link message and demographic if both IDs are valid (> 0).
+        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
         Integer parsedMessageId = ConversionUtils.fromIntString(messageId);
         Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
-        if (parsedMessageId != null && parsedDemoNo != null) {
+        if (parsedMessageId > 0 && parsedDemoNo > 0) {
             messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageId, parsedDemoNo);
         }
 
-        request.setAttribute("SentMessageProvs", sentToWho.toString());
+        request.setAttribute("SentMessageProvs", sentToWho);
 
         return SUCCESS;
     }
@@ -183,34 +191,42 @@ public class MsgCreateMessage2Action extends ActionSupport {
     private String subject;
     private String demographic_no;
 
+    /** @return String[] array of recipient provider numbers */
     public String[] getProvider() {
         return provider;
     }
 
+    /** @param provider String[] array of recipient provider numbers */
     public void setProvider(String[] provider) {
         this.provider = provider;
     }
 
+    /** @return String the message body content (may contain HTML/Markdown) */
     public String getMessage() {
         return message;
     }
 
+    /** @param message String the message body content */
     public void setMessage(String message) {
         this.message = message;
     }
 
+    /** @return String the message subject line */
     public String getSubject() {
         return subject;
     }
 
+    /** @param subject String the message subject line */
     public void setSubject(String subject) {
         this.subject = subject;
     }
 
+    /** @return String the demographic number to associate with this message, or null */
     public String getDemographic_no() {
         return demographic_no;
     }
 
+    /** @param demographic_no String the demographic number to associate with this message */
     public void setDemographic_no(String demographic_no) {
         this.demographic_no = demographic_no;
     }

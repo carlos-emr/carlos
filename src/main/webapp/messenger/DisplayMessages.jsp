@@ -80,6 +80,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // Build security role string from session attributes
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -171,7 +172,7 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <title>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.title"/>
+            <fmt:message key="messenger.DisplayMessages.title"/>
         </title>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
@@ -199,16 +200,8 @@
         }
         </style>
 
+        <script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
         <script type="text/javascript">
-            function BackToOscar() {
-                if (opener && opener.callRefreshTabAlerts) {
-                    opener.callRefreshTabAlerts("oscar_new_msg");
-                    setTimeout("window.close()", 100);
-                } else {
-                    window.close();
-                }
-            }
-
             function uload() {
                 if (opener && opener.callRefreshTabAlerts) {
                     opener.callRefreshTabAlerts("oscar_new_msg");
@@ -261,16 +254,16 @@
 <table style="width: 100%;">
   <tr>
     <td style="vertical-align:top;">
-			<h4>&nbsp;<i class="icon-envelope" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgMessenger"/>"></i>&nbsp;
+			<h4>&nbsp;<i class="icon-envelope" title="<fmt:message key="messenger.DisplayMessages.msgMessenger"/>"></i>&nbsp;
                         <% switch(pageType){
                             case 0: %>
-     		                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgInbox"/>
+     		                    <fmt:message key="messenger.DisplayMessages.msgInbox"/>
                         <%      break;
                             case 1: %>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgSentTitle"/>
+                                <fmt:message key="messenger.DisplayMessages.msgSentTitle"/>
                         <%      break;
                             case 2: %>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgArchived"/>
+                                <fmt:message key="messenger.DisplayMessages.msgArchived"/>
                         <%      break;
                             case 3: %>
                                 Messages related to <%=Encode.forHtml(demographic_name)%>
@@ -284,17 +277,17 @@
 <div class="input-group">
                             <input name="boxType" type="hidden" value="<%=pageType%>">
                             <input name="searchString" type="text" class="form-control h-50"  value="<%=Encode.forHtmlAttribute(DisplayMessagesBeanId.getFilter())%>">
-                            <button name="btnSearch" type="submit" class="btn"  title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnSearch"/>"><i class="icon-search icon-large"></i></button>
-                            <button name="btnClearSearch" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnClearSearch"/>"><i class="icon-remove icon-large"></i></button>
+                            <button name="btnSearch" type="submit" class="btn"  title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"><i class="icon-search icon-large"></i></button>
+                            <button name="btnClearSearch" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.btnClearSearch"/>"><i class="icon-remove icon-large"></i></button>
 </div>
                             </form>
 
 </td>
     <td style="text-align: right;" >
 		<i class=" icon-question-sign"></i>
-	                        <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger create')"><fmt:setBundle basename="oscarResources"/><fmt:message key="app.top1"/></a>
+	                        <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger create')"><fmt:message key="app.top1"/></a>
 	                        <i class=" icon-info-sign" style="margin-left:10px;"></i>
-                            <a href="javascript:void(0)" onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
+                            <a href="javascript:void(0)" onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a>
     </td>
 </tr>
 </table>
@@ -329,27 +322,27 @@
                             <ul class="nav nav-tabs">
                                 <li class="nav-item">
                                          <a class="nav-link" href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp">
-                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
+                                         <fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 0) { %>active<% } %>"
                                           href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp">
-                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnRefresh"/></a>
+                                         <fmt:message key="messenger.DisplayMessages.btnRefresh"/></a>
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 1) { %>active<% } %>"
                                           href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1">
-                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnSent"/></a><!-- sentMessage link-->
+                                         <fmt:message key="messenger.DisplayMessages.btnSent"/></a><!-- sentMessage link-->
 
                                     </li>
                                     <li class="nav-item">
                                         <a class="nav-link <% if (pageType == 2) { %>active<% } %>"
                                           href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=2">
-                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/></a><!--deletedMessage link-->
+                                         <fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/></a><!--deletedMessage link-->
 
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link" href="javascript:BackToOscar()"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
+                                        <a class="nav-link" href="javascript:BackToCarlos()"><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
                                     </li>
                                     </ul>
                         </td>
@@ -377,11 +370,11 @@
                     <tr>
                         <td style="padding: 10px;" ><span>
                             <%if (pageType == 0){%>
-                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="icon-trash"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formArchive"/></button>
-                                    <button name="btnRead" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="icon-folder-open"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markRead"/></button>
-                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="icon-folder-close"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
+                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="icon-trash"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
+                                    <button name="btnRead" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="icon-folder-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
+                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="icon-folder-close"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
                             <%}else if (pageType == 2){%>
-                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
+                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
                             <%}%>
                             &nbsp;</span>
                         <span class="float-end">
@@ -403,11 +396,13 @@
 		                    try {
 		                        prevLabel = Encode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnPrevious"));
 		                    } catch (java.util.MissingResourceException e) {
+		                        MiscUtils.getLogger().debug("Missing resource key: messenger.DisplayMessages.btnPrevious");
 		                        prevLabel = "&laquo; Previous";
 		                    }
 		                    try {
 		                        nextLabel = Encode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnNext"));
 		                    } catch (java.util.MissingResourceException e) {
+		                        MiscUtils.getLogger().debug("Missing resource key: messenger.DisplayMessages.btnNext");
 		                        nextLabel = "Next &raquo;";
 		                    }
 
@@ -429,13 +424,13 @@
                                 <thead><tr>
                                     <th style="text-align: left;">
                                     <%if( pageType!=1 ) {%>
-                                       <input type="checkbox" name="checkA" onclick="checkAll('msgList')" id="checkA" style="margin-bottom: 10px;" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgAllMessage"/>">
+                                       <input type="checkbox" name="checkA" onclick="checkAll('msgList')" id="checkA" style="margin-bottom: 10px;" title="<fmt:message key="messenger.DisplayMessages.msgAllMessage"/>">
                                     <%} %>
                                     </th>
                                     <th style="text-align: left; width:120px;">
                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=status"
                                                    >
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgStatus"/>
+                                            <fmt:message key="messenger.DisplayMessages.msgStatus"/>
                                             <i class=" icon-caret-down" ></i>
                                         </a>
                                     </th>
@@ -443,13 +438,13 @@
                                       <%if( pageType == 1 ) {%>
                                                  <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=sentto"
                                                     >
-                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgTo"/>
+                                                    <fmt:message key="messenger.DisplayMessages.msgTo"/>
                                                     <i class=" icon-caret-down" ></i>
                                                 </a>
                                        <%} else {%>
                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=from"
                                                    >
-                                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgFrom"/>
+                                                    <fmt:message key="messenger.DisplayMessages.msgFrom"/>
                                                     <i class=" icon-caret-down" ></i>
                                                 </a>
                                        <% } %>
@@ -457,21 +452,21 @@
                                     <th style="text-align: left;">
                                             <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=subject"
                                                    >
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgSubject"/>
+                                                <fmt:message key="messenger.DisplayMessages.msgSubject"/>
                                                 <i class=" icon-caret-down" ></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;">
                                             <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=date"
                                                    >
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgDate"/>
+                                                <fmt:message key="messenger.DisplayMessages.msgDate"/>
                                                 <i class=" icon-caret-down" ></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;" >
                                             <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=linked"
                                                    >
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgLinked"/>
+                                                <fmt:message key="messenger.DisplayMessages.msgLinked"/>
                                                 <i class=" icon-caret-down" ></i>
                                             </a>
                                     </th>
@@ -513,7 +508,7 @@
 
                                     </td>
                                     <td>
-                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="<%= key %>"/>
+                                     <fmt:message key="<%= key %>"/>
                                     </td>
                                     <td>
 
@@ -552,7 +547,7 @@
                                     <td>
 
                                     <%if(dm.getDemographic_no() != null  && !dm.getDemographic_no().equalsIgnoreCase("null")) {%>
-                                        <oscar:nameage demographicNo="<%=dm.getDemographic_no()%>"></oscar:nameage>
+                                        <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(dm.getDemographic_no())%>"></oscar:nameage>
                                     <%} %>
 
                                     </td>
@@ -562,11 +557,11 @@
                             <tr><td colspan="6">
                         <span>
                             <%if (pageType == 0){%>
-                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="icon-trash"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formArchive"/></button>
-                                    <button name="btnRead" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="icon-folder-open"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markRead"/></button>
-                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="icon-folder-close"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
+                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="icon-trash"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
+                                    <button name="btnRead" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="icon-folder-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
+                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="icon-folder-close"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
                             <%}else if (pageType == 2){%>
-                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
+                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
                             <%}%>
                             &nbsp;</span>
                         <span class="float-end">

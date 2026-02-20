@@ -151,11 +151,19 @@ public class ProviderProperty2Action extends ActionSupport {
         String value = request.getParameter("value");
         if (value != null) {
             userPropertyDAO.saveProp(providerNo, UserProperty.OSCAR_MSG_RECVD, value);
+        } else {
+            logger.debug("OscarMsgRecvd called with null value parameter; no preference saved");
         }
 
         return null;
     }
 
+    /**
+     * Removes the stale-note-date and stale-format user properties for the logged-in provider.
+     *
+     * @return {@link #SUCCESS} after deletion, with {@code status} request attribute set to {@code "success"}
+     * @throws SecurityException if no valid session is found
+     */
     public String remove() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
@@ -177,6 +185,15 @@ public class ProviderProperty2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Displays the provider property configuration form with stale-note-date and stale-format options.
+     *
+     * <p>Loads the current property values from the database (or creates defaults)
+     * and populates dropdown option lists for the JSP view.</p>
+     *
+     * @return {@link #SUCCESS} to forward to the property configuration JSP
+     * @throws SecurityException if no valid session is found
+     */
     public String view() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
@@ -219,7 +236,11 @@ public class ProviderProperty2Action extends ActionSupport {
 
 
     public String save() {
-        String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+        String provider = loggedInInfo.getLoggedInProviderNo();
 
         String staleDateValue = request.getParameter("dateProperty.value");
         String singleViewValue = request.getParameter("singleViewProperty.value");

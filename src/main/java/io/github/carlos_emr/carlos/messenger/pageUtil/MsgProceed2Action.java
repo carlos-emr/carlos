@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.RemoteAttachmentsDao;
 import io.github.carlos_emr.carlos.commn.model.RemoteAttachments;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -143,18 +144,27 @@ public class MsgProceed2Action extends ActionSupport {
             throw new SecurityException("Cannot access another provider's messages");
         }
 
+        // Validate IDs before DAO operations.
+        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
+        Integer parsedDemoId = ConversionUtils.fromIntString(demoId);
+        Integer parsedMsgId = ConversionUtils.fromIntString(id);
+        if (parsedDemoId <= 0 || parsedMsgId <= 0) {
+            MiscUtils.getLogger().warn("Invalid demoId or message id: demoId=" + demoId + ", id=" + id);
+            return ERROR;
+        }
+
         // Check for existing remote attachment association
         RemoteAttachmentsDao dao = SpringUtils.getBean(RemoteAttachmentsDao.class);
-        List<RemoteAttachments> rs = dao.findByDemoNoAndMessageId(ConversionUtils.fromIntString(demoId), ConversionUtils.fromIntString(id));
-        
+        List<RemoteAttachments> rs = dao.findByDemoNoAndMessageId(parsedDemoId, parsedMsgId);
+
         if (rs.size() > 0) {
             // Attachment already exists - set confirmation message "1"
             request.setAttribute("confMessage", "1");
         } else {
             // Create new remote attachment association
             RemoteAttachments ra = new RemoteAttachments();
-            ra.setDemographicNo(ConversionUtils.fromIntString(demoId));
-            ra.setMessageId(ConversionUtils.fromIntString(id));
+            ra.setDemographicNo(parsedDemoId);
+            ra.setMessageId(parsedMsgId);
             ra.setSavedBy(bean.getUserName());
             ra.setDate(new Date());
             ra.setTime(new Date());
@@ -186,7 +196,7 @@ public class MsgProceed2Action extends ActionSupport {
      */
     public String getDemoId() {
         if (this.demoId == null) {
-            this.demoId = new String();
+            this.demoId = "";
         }
         return this.demoId;
     }
@@ -207,7 +217,7 @@ public class MsgProceed2Action extends ActionSupport {
      */
     public String getId() {
         if (this.id == null) {
-            this.id = new String();
+            this.id = "";
         }
         return this.id;
     }

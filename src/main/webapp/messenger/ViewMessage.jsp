@@ -86,6 +86,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // Retrieve user information from session
     String providerNo = (String) session.getAttribute("providerNo");
@@ -118,27 +119,18 @@
 <script src="<%= request.getContextPath() %>/js/global.js"></script>
 <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
 <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+<script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
 <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
 
 <%
 String boxType = request.getParameter("boxType");
 %>
 
-<title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.title" /></title>
+<title><fmt:message key="messenger.ViewMessage.title" /></title>
 
 
+<script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
 <script>
-// Notifies parent window to refresh message alerts, then closes this popup
-function BackToOscar()
-{
-    if (opener && opener.callRefreshTabAlerts) {
-	opener.callRefreshTabAlerts("oscar_new_msg");
-        setTimeout("window.close()", 100);
-    } else {
-        window.close();
-    }
-}
-
 // Opens attachment in a popup window; routes to the encounter window if the URL contains IncomingEncounter
 function popupViewAttach(vheight,vwidth,varpage) {
   var page = varpage;
@@ -187,7 +179,7 @@ function popup(demographicNo, msgId, providerNo, action) {
         }
 
       if ( action == "writeToEncounter") {
-          win = window.open("","<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>");
+          win = window.open("","<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>");
           if ( win.pasteToEncounterNote && win.demographicNo == demographicNo ) {
             txt = fmtOscarMsg();
             win.pasteToEncounterNote(txt);
@@ -206,7 +198,7 @@ function popup(demographicNo, msgId, providerNo, action) {
               var writeForm = document.createElement('form');
               writeForm.method = 'post';
               writeForm.action = 'WriteToEncounter.do';
-              writeForm.target = "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
+              writeForm.target = "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
               var writeFields = {'demographic_no': demographicNo, 'msgId': msgId, 'providerNo': providerNo, 'encType': 'messenger'};
               for (var k in writeFields) {
                   var inp = document.createElement('input');
@@ -245,20 +237,6 @@ function popupStart(vheight,vwidth,varpage,windowname) {
     var page = varpage;
     windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
     var popup=window.open(varpage, windowname, windowprops);
-}
-
-function popupSearchDemo(keyword){ // open a new popup window
-    var vheight = 700;
-    var vwidth = 980;
-    windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    var page = 'msgSearchDemo.jsp?keyword=' + encodeURIComponent(keyword) + '&firstSearch='+true;
-    var popUp=window.open(page, "msgSearchDemo", windowprops);
-    if (popUp != null) {
-        if (popUp.opener == null) {
-          popUp.opener = self;
-        }
-        popUp.focus();
-    }
 }
 
 // Formats the current message fields (from, to, date, subject, body) into a
@@ -343,16 +321,16 @@ font-size:17px;
 
 	<table class="MainTable" id="scrollNumber1" style="width:95%">
 		<tr class="MainTableTopRow">
-			<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<i class="icon-envelope" title='<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgMessenger" />'></i>&nbsp;</h4></td>
+			<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<i class="icon-envelope" title='<fmt:message key="messenger.ViewMessage.msgMessenger" />'></i>&nbsp;</h4></td>
 			<td class="MainTableTopRowRightColumn">
 			<table class="TopStatusBar" style="width:100%">
 				<tr>
-					<td><h4><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgViewMessage" /></h4></td>
+					<td><h4><fmt:message key="messenger.ViewMessage.msgViewMessage" /></h4></td>
             <td style="text-align: right;" class="DoNotPrint" >
             <i class=" icon-question-sign"></i>
-            <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger view')"><fmt:setBundle basename="oscarResources"/><fmt:message key="app.top1"/></a>
+            <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger view')"><fmt:message key="app.top1"/></a>
             <i class=" icon-info-sign" style="margin-left:10px;"></i>
-            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About CARLOS','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about" /></a>
+            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About CARLOS','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:message key="global.about" /></a>
         </td>
 		</tr>
 			</table>
@@ -373,7 +351,7 @@ font-size:17px;
 										<td class="messengerButtonsA">
                                             <a href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp"
                                                 class="btn btn-outline-secondary">
-                                                <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnCompose"/>
+                                                <fmt:message key="messenger.ViewMessage.btnCompose"/>
                                             </a>
                                         </td>
 									</tr>
@@ -385,7 +363,7 @@ font-size:17px;
 							<table class=messButtonsA >
 								<tr>
 									<td class="messengerButtonsA">
-									    <a href="javascript:window.print()" class="btn btn-outline-secondary"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnPrint" />
+									    <a href="javascript:window.print()" class="btn btn-outline-secondary"><fmt:message key="messenger.ViewMessage.btnPrint" />
 									    </a>
 									</td>
 								</tr>
@@ -400,7 +378,7 @@ font-size:17px;
 										<td class="messengerButtonsA">
 									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
 									            class="btn btn-outline-secondary">
-									            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnInbox"/>
+									            <fmt:message key="messenger.ViewMessage.btnInbox"/>
 									        </a>
 									    </td>
 									</tr>
@@ -415,7 +393,7 @@ font-size:17px;
 									<td class="messengerButtonsA">
 									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1"
 									        class="btn btn-outline-secondary">
-									        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnSent"/>
+									        <fmt:message key="messenger.ViewMessage.btnSent"/>
 									    </a>
 									</td>
 								</tr>
@@ -427,8 +405,8 @@ font-size:17px;
 							<table class=messButtonsA >
 								<tr>
 									<td class="messengerButtonsA">
-									    <a href="javascript:BackToOscar()" class="nav-link">
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnExit" />
+									    <a href="javascript:BackToCarlos()" class="nav-link">
+                                        <fmt:message key="messenger.ViewMessage.btnExit" />
 									    </a>
 									</td>
 								</tr>
@@ -443,23 +421,23 @@ font-size:17px;
 
 					<table valign="top" class="well"  style="width:100%"><!-- the messageblock -->
 						<tr>
-							<td class="Printable emphasis" ><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgFrom" />:</td>
+							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgFrom" />:</td>
 							<td colspan="2" id="sentBy" class="Printable" ><c:out value="${ viewMessageSentby }" />
 							</td>
 						</tr>
 						<tr>
-							<td class="Printable emphasis" ><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgTo" />:</td>
+							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgTo" />:</td>
 							<td colspan="2" id="sentTo" class="Printable" ><c:out value="${ viewMessageSentto }" />
 							</td>
 						</tr>
 						<tr>
-							<td class="Printable emphasis" ><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgSubject" />:</td>
+							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgSubject" />:</td>
 							<td colspan="2" id="msgSubject" class="Printable" ><c:out value="${ viewMessageSubject }" />
 							</td>
 						</tr>
 
 						<tr>
-							<td class="Printable emphasis" ><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgDate" />:</td>
+							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgDate" />:</td>
 							<td colspan="2" id="sentDate" class="Printable" >
 								<c:out value="${ viewMessageDate }" /> <c:out value="${ viewMessageTime }" />
 							</td>
@@ -470,10 +448,10 @@ font-size:17px;
                                     if ( attach != null && attach.equals("1") ){
                                     %>
 						<tr>
-							<td><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
+							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
 								href="javascript:popupViewAttach(700,960,'ViewAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
+							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
                                     }
@@ -483,10 +461,10 @@ font-size:17px;
                                     if ( pdfAttach != null && pdfAttach.equals("1") ){
                                     %>
 						<tr>
-							<td><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
+							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
 								href="javascript:popupViewAttach(700,960,'ViewPDFAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
-							<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
+							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
 						</tr>
 						<%
                                     }
@@ -494,8 +472,9 @@ font-size:17px;
 
 						<%--
 						  Message body display: the hidden textarea holds HTML-encoded content
-						  which the Toast UI viewer reads and renders as markdown. The
-						  print_helper div shows plain text for print media.
+						  that JavaScript reads and passes to the Toast UI viewer for markdown
+						  rendering. The print_helper div provides a plain-text fallback for
+						  print media.
 						--%>
 						<tr>
 							<td></td>
@@ -517,7 +496,7 @@ font-size:17px;
 								<td></td>
 								<td>
 								<strong>
-									<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.demoLinked" />
+									<fmt:message key="messenger.ViewMessage.demoLinked" />
 								</strong>
 								</td>
 							</tr>
@@ -536,7 +515,7 @@ font-size:17px;
 												<input
 													onclick="javascript:popup('${ fn:escapeXml(demographic_no) }', '${ fn:escapeXml(messageID) }', '${ fn:escapeXml(providerNo) }');"
 													class="btn DoNotPrint" type="button"  name="writeToEncounter"
-													value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.writeToE" />">
+													value="<fmt:message key="messenger.ViewMessage.writeToE" />">
 											 </c:if>
 										</td>
 										</tr>
@@ -548,7 +527,7 @@ font-size:17px;
 									<tr>
 									<td ></td>
 									<td>
-										<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.demoNotLinked" />
+										<fmt:message key="messenger.ViewMessage.demoNotLinked" />
 									</td>
 								</tr>
 								</c:otherwise>
@@ -561,13 +540,13 @@ font-size:17px;
 							<td ></td>
 							<td  colspan="2">
 								<button type="submit" class="btn" name="reply"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/>"><i class="icon-reply"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/></button>
+                                    title="<fmt:message key="messenger.ViewMessage.btnReply"/>"><i class="icon-reply"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnReply"/></button>
                                 <button type="submit" class="btn" name="replyAll"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/>"><i class="icon-reply-all"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/></button>
+                                    title="<fmt:message key="messenger.ViewMessage.btnReplyAll"/>"><i class="icon-reply-all"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnReplyAll"/></button>
                                 <button type="submit" class="btn" name="forward"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/>"><i class="icon-share-alt"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/></button>
+                                    title="<fmt:message key="messenger.ViewMessage.btnForward"/>"><i class="icon-share-alt"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnForward"/></button>
                                 <button type="submit" class="btn" name="delete"
-                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/>"><i class="icon-trash"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/></button>
+                                    title="<fmt:message key="messenger.ViewMessage.btnDelete"/>"><i class="icon-trash"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnDelete"/></button>
                                 <input type="hidden" name="messageNo" id="messageNo" value="${ fn:escapeXml(viewMessageNo) }"/>
 							</td>
 						</tr>
@@ -575,7 +554,7 @@ font-size:17px;
 							<td></td>
 							<td colspan="2">
 							<strong>
-								<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.linkTo" />
+								<fmt:message key="messenger.ViewMessage.linkTo" />
 							</strong>
 							</td>
 						</tr>
@@ -589,14 +568,14 @@ font-size:17px;
 							<input type="hidden" class="btn"
 								name="demographic_no" /> <input type="button"
 								class="btn" name="searchDemo"
-								value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.searchDemo" />"
+								value="<fmt:message key="messenger.ViewMessage.searchDemo" />"
 								onclick="popupSearchDemo(document.forms[0].keyword.value)" />
 							</td>
 
 						</tr>
 						<tr class="DoNotPrint">
 							<td></td>
-							<td colspan="2"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.selectedDemo" /></strong></td>
+							<td colspan="2"><strong><fmt:message key="messenger.ViewMessage.selectedDemo" /></strong></td>
 						</tr>
 
                                             <%
@@ -634,11 +613,11 @@ font-size:17px;
                                 <td>
                                         <input type="button"
 								class="btn" name="linkDemo"
-								value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.linkToDemo" />"
+								value="<fmt:message key="messenger.ViewMessage.linkToDemo" />"
 								onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript(viewMsgId)%>','<%=Encode.forJavaScript(viewProvNo)%>','linkToDemographic')" />
 
 							<input type="button" class="btn"
-								name="clearDemographic" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.clearDemo" />"
+								name="clearDemographic" value="<fmt:message key="messenger.ViewMessage.clearDemo" />"
 								onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"' />
 							</td>
 
@@ -649,7 +628,7 @@ font-size:17px;
 							<td></td>
 							<td colspan="2">
 								<strong>
-									<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.demoLinked" />
+									<fmt:message key="messenger.ViewMessage.demoLinked" />
 								</strong>
 							</td>
 						</tr>
@@ -667,7 +646,7 @@ font-size:17px;
 									value="${ fn:escapeXml(demographic.value) }" />
 								</td>
 								<td class="DoNotPrint">
-								<a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=<%=demoKeyJs%>&displaymode=edit&dboperation=search_detail')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.M" /></a>
+								<a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=<%=demoKeyJs%>&displaymode=edit&dboperation=search_detail')"><fmt:message key="global.M" /></a>
 
 								<%
 									CaseManagementNoteDAO caseManagementNoteDAO = SpringUtils.getBean(CaseManagementNoteDAO.class);
@@ -712,7 +691,7 @@ font-size:17px;
 
 
 	                                                        %>
-	                                                         <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.E" /></a>
+	                                                         <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:message key="global.E" /></a>
 
 								<a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=<%=demoKeyJs%>')">Rx</a>
 
@@ -721,7 +700,7 @@ font-size:17px;
 
 
 								<input type="button" class="btn DoNotPrint"
-									name="writeEncounter" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.writeToE" />"
+									name="writeEncounter" value="<fmt:message key="messenger.ViewMessage.writeToE" />"
 									onclick="popup( '<%=demoKeyJs%>','<%=Encode.forJavaScript((String)session.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>','writeToEncounter')" />
 								</td>
 							</tr>
@@ -729,7 +708,7 @@ font-size:17px;
 								<td></td>
 								<td><a
 									href="javascript:popupStart(400,850,'../demographic/demographiccontrol.jsp?demographic_no=<%=demoKeyJs%>&last_name=<%=Encode.forUriComponent(demoLastName)%>&first_name=<%=Encode.forUriComponent(demoFirstName)%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
-									title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:setBundle basename="oscarResources"/><fmt:message key="caseload.msgNextAppt" />:    <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
+									title="<fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:message key="caseload.msgNextAppt" />:    <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
 								<td></td>
 							</tr>
 						<% ++demoCount; %>
@@ -770,19 +749,7 @@ font-size:17px;
             initialValue: content,
             height: '500px',
             customHTMLSanitizer: function(html) {
-                var div = document.createElement('div');
-                div.textContent = '';
-                var doc = new DOMParser().parseFromString(html, 'text/html');
-                var scripts = doc.querySelectorAll('script,iframe,object,embed,form');
-                scripts.forEach(function(el) { el.remove(); });
-                doc.querySelectorAll('*').forEach(function(el) {
-                    Array.from(el.attributes).forEach(function(attr) {
-                        if (attr.name.startsWith('on') || (attr.name === 'href' && attr.value.trim().toLowerCase().startsWith('javascript:'))) {
-                            el.removeAttribute(attr.name);
-                        }
-                    });
-                });
-                return doc.body.innerHTML;
+                return DOMPurify.sanitize(html);
             }
         });
     } catch (e) {

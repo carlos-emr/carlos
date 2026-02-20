@@ -172,7 +172,7 @@
         </style>
 
         <script type="text/javascript">
-            function BackToOscar() {
+            function BackToCarlos() {
                 if (opener.callRefreshTabAlerts) {
                     opener.callRefreshTabAlerts("oscar_new_msg");
                     setTimeout("window.close()", 100);
@@ -221,7 +221,7 @@
                                         <table class=messButtonsA cellspacing=0 cellpadding=3>
                                             <tr>
                                                 <td class="messengerButtonsA"><a
-                                                        href="javascript:BackToOscar()"
+                                                        href="javascript:BackToCarlos()"
                                                         class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnExit"/></a></td>
                                             </tr>
                                         </table>

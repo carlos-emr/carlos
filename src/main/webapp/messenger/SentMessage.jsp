@@ -65,6 +65,7 @@
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // Build role string for security validation
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -94,18 +95,8 @@
                 <c:redirect url="index.jsp"/>
             </c:if>
         </c:if>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.title"/></title>
-        <script type="text/javascript">
-            // Notifies parent window to refresh message alert badge, then closes this popup
-            function BackToOscar() {
-                if (opener && opener.callRefreshTabAlerts) {
-                    opener.callRefreshTabAlerts("oscar_new_msg");
-                    setTimeout("window.close()", 100);
-                } else {
-                    window.close();
-                }
-            }
-        </script>
+        <title><fmt:message key="messenger.SentMessage.title"/></title>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
 
         <style>
             .TopStatusBar {
@@ -121,17 +112,17 @@
 <!--  -->
 <table class="MainTable" id="scrollNumber1" style="width:100%; margin-top: 10px;">
 	<tr class="MainTableTopRow">
-		<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<i class="icon-envelope" title='<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgMessenger"/>'></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message
-			key="messenger.SentMessage.msgMessenger" />: <fmt:setBundle basename="oscarResources"/><fmt:message
+		<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<i class="icon-envelope" title='<fmt:message key="messenger.DisplayMessages.msgMessenger"/>'></i>&nbsp;<fmt:message
+			key="messenger.SentMessage.msgMessenger" />: <fmt:message
 					key="messenger.SentMessage.msgMessageSent" /></h4></td>
 		<td class="MainTableTopRowRightColumn" >
 		<table class="TopStatusBar" style="width:100%;">
 			<tr>
 				<td style="text-align: right;">
             <i class=" icon-question-sign"></i>
-            <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger sent')"><fmt:setBundle basename="oscarResources"/><fmt:message key="app.top1"/></a>
+            <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger sent')"><fmt:message key="app.top1"/></a>
             <i class=" icon-info-sign" style="margin-left:10px;"></i>
-            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About CARLOS','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about" /></a>
+            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About CARLOS','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:message key="global.about" /></a>
         </td>
 			</tr>
 		</table>
@@ -139,16 +130,16 @@
 	</tr>
 </table>
 <div class="alert alert-success" role="alert" style="margin-left:20px; margin-right:20px; margin-top: 20px;">
-    <fmt:setBundle basename="oscarResources"/><fmt:message
+    <fmt:message
 					key="messenger.SentMessage.msgMessageSentTo" /> <%= Encode.forHtml(request.getAttribute("SentMessageProvs") != null ? request.getAttribute("SentMessageProvs").toString() : "") %>
 </div>
 <div style="width:100%; margin-left:10px; margin-top: 50px;">
 <a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp">
-    <i class="icon-pencil"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
+    <i class="icon-pencil"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
 <a class="btn btn-outline-secondary" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp">
-    <i class="icon-inbox"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessagebtnBack" /></a>
-<a class="btn btn-outline-secondary" href="javascript:BackToOscar()">
-    <i class="icon-signout"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.SentMessage.btnExit" /></a>
+    <i class="icon-inbox"></i>&nbsp;<fmt:message key="messenger.SentMessagebtnBack" /></a>
+<a class="btn btn-outline-secondary" href="javascript:BackToCarlos()">
+    <i class="icon-signout"></i>&nbsp;<fmt:message key="messenger.SentMessage.btnExit" /></a>
 </div>
 </body>
 </html>

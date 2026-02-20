@@ -29,14 +29,11 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.function.Consumer;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
@@ -44,8 +41,6 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -215,7 +210,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 MiscUtils.getLogger().info("No messages selected for deletion, returning back to page");
                 return findForward;
             }
-            updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setDeleted(true));
+            MsgBulkOperationHelper.updateSelectedMessages(request, bean.getProviderNo(), getMessageNo(), msg -> msg.setDeleted(true));
 
         } else if (request.getParameter("btnRead") != null) {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
@@ -225,7 +220,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 MiscUtils.getLogger().info("No messages selected for marking as read, returning back to page");
                 return findForward;
             }
-            updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus(MessageList.STATUS_READ));
+            MsgBulkOperationHelper.updateSelectedMessages(request, bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus(MessageList.STATUS_READ));
 
         } else if (request.getParameter("btnUnread") != null) {
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
@@ -235,45 +230,13 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 MiscUtils.getLogger().info("No messages selected for marking as unread, returning back to page");
                 return findForward;
             }
-            updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus(MessageList.STATUS_NEW));
+            MsgBulkOperationHelper.updateSelectedMessages(request, bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus(MessageList.STATUS_NEW));
 
         } else {
             MiscUtils.getLogger().debug("Unexpected action in MsgDisplayMessages2Action.java");
         }
 
         return findForward;
-    }
-
-    /**
-     * Applies an action to all selected messages for the given provider.
-     *
-     * <p>Failures on individual messages are logged and skipped; remaining messages
-     * continue to be processed. The failure count is stored in the request attribute
-     * "updateFailureCount" so the JSP can display a warning to the user.</p>
-     *
-     * @param providerNo String the provider number whose messages to update
-     * @param messageIds String[] array of message IDs to process
-     * @param action Consumer that applies the desired mutation to each message
-     */
-    private void updateSelectedMessages(String providerNo, String[] messageIds, Consumer<MessageList> action) {
-        MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
-        int failureCount = 0;
-        for (String messageId : messageIds) {
-            try {
-                List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageId));
-                for (MessageList msg : msgs) {
-                    action.accept(msg);
-                    dao.merge(msg);
-                }
-            } catch (RuntimeException e) {
-                failureCount++;
-                MiscUtils.getLogger().error("Failed to update message", e);
-            }
-        }
-        if (failureCount > 0) {
-            request.setAttribute("updateFailureCount", failureCount);
-            MiscUtils.getLogger().warn("Some messages failed to update");
-        }
     }
 
     /**

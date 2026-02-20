@@ -36,10 +36,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -84,11 +82,6 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    /**
-     * Data access object for message list operations.
-     */
-    private MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
-    
     /**
      * Security manager for enforcing write permissions on messaging operations.
      */
@@ -148,25 +141,10 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        // Process each selected message individually; failures are logged and skipped
-        int failureCount = 0;
-        for (int i = 0; i < messageNo.length; i++) {
-            try {
-                // A single message ID may map to multiple MessageList rows (one per recipient)
-                for (MessageList ml : dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageNo[i]))) {
-                    ml.setStatus(MessageList.STATUS_READ);
-                    dao.merge(ml);
-                }
-            } catch (RuntimeException e) {
-                failureCount++;
-                MiscUtils.getLogger().error("Failed to update message", e);
-            }
-        }
-        // Surface partial failures to the UI via request attribute
-        if (failureCount > 0) {
-            request.setAttribute("updateFailureCount", failureCount);
-            MiscUtils.getLogger().warn("Some messages failed to update");
-        }
+        // Delegate to shared helper which validates IDs and logs failures per-message
+        MsgBulkOperationHelper.updateSelectedMessages(
+                request, providerNo, messageNo,
+                msg -> msg.setStatus(MessageList.STATUS_READ));
 
         return SUCCESS;
     }

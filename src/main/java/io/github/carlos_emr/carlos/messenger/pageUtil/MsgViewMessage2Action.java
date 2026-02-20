@@ -162,9 +162,10 @@ public class MsgViewMessage2Action extends ActionSupport {
         String from = request.getParameter("from") == null ? "messenger" : request.getParameter("from");
         String boxType = request.getParameter("boxType") == null ? "" : request.getParameter("boxType");
 
-        // Validate messageNo before use
+        // Validate messageNo before use.
+        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
         Integer parsedMessageNo = ConversionUtils.fromIntString(messageNo);
-        if (parsedMessageNo == null) {
+        if (parsedMessageNo <= 0) {
             MiscUtils.getLogger().warn("Invalid or missing messageID parameter");
             response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.jsp");
             return NONE;
@@ -185,7 +186,7 @@ public class MsgViewMessage2Action extends ActionSupport {
 
         // Get demographics already attached to this message
         Integer msgId = ConversionUtils.fromIntString(msgDisplayMessage.getMessageId());
-        Map<Integer, String> attachedDemographics = (msgId != null)
+        Map<Integer, String> attachedDemographics = (msgId > 0)
                 ? messengerDemographicManager.getAttachedDemographicNameMap(loggedInInfo, msgId)
                 : new HashMap<>();
 
@@ -231,6 +232,8 @@ public class MsgViewMessage2Action extends ActionSupport {
                         list.add(keyValue[1] + ":" + keyValue[2] + ":" + keyValue[3]);
                         hashMap.put(keyValue[0], list);
                     }
+                } else {
+                    MiscUtils.getLogger().debug("Skipping malformed msgType_link segment (expected 4 colon-separated parts): " + s);
                 }
             }
 
@@ -242,7 +245,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         // Mark message as read unless viewing sent items (boxType 1)
         if (!"1".equals(boxType)) {
             Long msgIdLong = ConversionUtils.fromLongString(msgDisplayMessage.getMessageId());
-            if (msgIdLong != null) {
+            if (msgIdLong > 0L) {
                 messagingManager.setMessageRead(loggedInInfo, msgIdLong, providerNo);
             }
         }
@@ -251,7 +254,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         if (linkMsgDemo != null && demographic_no != null) {
             if (linkMsgDemo.equalsIgnoreCase("true")) {
                 Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
-                if (parsedMessageNo != null && parsedDemoNo != null) {
+                if (parsedMessageNo > 0 && parsedDemoNo > 0) {
                     messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageNo, parsedDemoNo);
                 }
             }
