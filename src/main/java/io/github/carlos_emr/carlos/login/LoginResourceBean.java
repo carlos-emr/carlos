@@ -199,53 +199,42 @@ public class LoginResourceBean {
 
     /**
      * Gets the support link URL.
-     *
-     * @return String URL to support resources or help desk
      */
     public String getSupportLink() {
         return supportLink;
     }
 
     /**
-     * Setter that ignores parameter and sets field to null (defensive pattern).
-     *
-     * @param supportLink String parameter is ignored
+     * Sets the support link field to null, ignoring the provided parameter.
      */
     public void setSupportLink(@SuppressWarnings("unused") String supportLink) {
         this.supportLink = null;
     }
 
     /**
-     * Gets the support contact information text.
-     *
-     * @return String support contact information text
+     * Returns the support contact information text.
      */
     public String getSupportText() {
         return supportText;
     }
 
     /**
-     * Setter that ignores parameter and sets field to null (defensive pattern).
-     *
-     * @param supportText String parameter is ignored
+     * Sets the supportText field to null, ignoring the provided parameter.
      */
     public void setSupportText(@SuppressWarnings("unused") String supportText) {
         this.supportText = null;
     }
 
     /**
-     * Gets the clinic descriptive text.
-     *
-     * @return String descriptive text about the clinic
+     * Returns the clinic descriptive text.
      */
     public String getClinicText() {
         return clinicText;
     }
 
     /**
-     * Setter that ignores parameter and sets field to null (defensive pattern).
-     *
-     * @param clinicText String parameter is ignored
+     * Sets the clinicText field to null, ignoring the provided parameter.
+     * @param clinicText ignored parameter
      */
     public void setClinicText(@SuppressWarnings("unused") String clinicText) {
         this.clinicText = null;
@@ -261,27 +250,23 @@ public class LoginResourceBean {
     }
 
     /**
-     * Setter that ignores parameter and sets field to null (defensive pattern).
-     *
-     * @param clinicLink String parameter is ignored
+     * Sets the clinicLink field to null, ignoring the provided parameter.
      */
     public void setClinicLink(@SuppressWarnings("unused") String clinicLink) {
         this.clinicLink = null;
     }
 
     /**
-     * Gets the clinic/organization name.
-     *
-     * @return String name of the clinic/organization
+     * Returns the name of the clinic/organization.
      */
     public String getClinicName() {
         return clinicName;
     }
 
     /**
-     * Setter that ignores parameter and sets field to null (defensive pattern).
+     * Sets the clinic name to null.
      *
-     * @param clinicName String parameter is ignored
+     * @param clinicName ignored parameter
      */
     public void setClinicName(@SuppressWarnings("unused") String clinicName) {
         this.clinicName = null;
@@ -297,39 +282,30 @@ public class LoginResourceBean {
     }
 
     /**
-     * Setter that ignores parameter and sets field to null (defensive pattern).
-     *
-     * @param buildTag String parameter is ignored
+     * Sets the buildTag field to null, ignoring the provided parameter.
      */
     public void setBuildTag(@SuppressWarnings("unused") String buildTag) {
         this.buildTag = null;
     }
 
     /**
-     * Gets the Ontario eConsult integration URL.
-     *
-     * <p>NOTE: Ontario eConsult service status is uncertain. Verify service
-     * is still active before using this URL.
-     *
-     * @return String eConsult backend URL or null if not configured
+     * Returns the Ontario eConsult integration URL.
      */
     public String getEconsultURL() {
         return econsultURL;
     }
 
     /**
-     * Setter that ignores parameter and sets field to null (defensive pattern).
+     * Sets the econsultURL field to null.
      *
-     * @param econsultURL String parameter is ignored
+     * @param econsultURL ignored parameter
      */
     public void setEconsultURL(@SuppressWarnings("unused") String econsultURL) {
         this.econsultURL = null;
     }
 
     /**
-     * Gets the acceptable use agreement manager.
-     *
-     * @return AcceptableUseAgreementManager manager for acceptable use agreement enforcement
+     * Retrieves the acceptable use agreement manager.
      */
     public AcceptableUseAgreementManager getAcceptableUseAgreementManager() {
         return acceptableUseAgreementManager;
@@ -345,18 +321,15 @@ public class LoginResourceBean {
     }
 
     /**
-     * Gets the support contact/organization name.
-     *
-     * @return String name of support contact/organization
+     * Returns the support contact/organization name.
      */
     public String getSupportName() {
         return supportName;
     }
 
     /**
-     * Setter that ignores parameter and sets field to null (defensive pattern).
-     *
-     * @param supportName String parameter is ignored
+     * Sets the supportName field to null.
+     * @param supportName ignored parameter
      */
     public void setSupportName(@SuppressWarnings("unused") String supportName) {
         this.supportName = null;
@@ -372,7 +345,7 @@ public class LoginResourceBean {
     }
 
     /**
-     * Sets the browser tab title for login page.
+     * Sets the browser tab title.
      *
      * @param tabName String browser tab title
      */
