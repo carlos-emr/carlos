@@ -70,9 +70,11 @@ import org.apache.struts2.ServletActionContext;
  *
  * <p>Access patterns supported:</p>
  * <ul>
- *   <li>Direct access with providerNo and userName parameters</li>
- *   <li>Provider-only access (looks up provider name from database)</li>
- *   <li>Session-based access (uses existing session bean)</li>
+ *   <li>Provider number access: providerNo parameter triggers new session creation
+ *       with provider name looked up from the database (userName parameter is ignored
+ *       for security)</li>
+ *   <li>Session-based access: uses existing session bean when no providerNo parameter
+ *       is provided</li>
  * </ul>
  *
  * <p>Operations:</p>
@@ -84,8 +86,15 @@ import org.apache.struts2.ServletActionContext;
  *   <li>btnUnread - Marks selected messages as unread</li>
  * </ul>
  * 
- * <p>Security: Requires "_msg" read privilege to access messaging functionality.</p>
- * 
+ * <p>Security:</p>
+ * <ul>
+ *   <li>Requires "_msg" read privilege to access messaging functionality</li>
+ *   <li>IDOR protection: all providerNo parameters are verified against the logged-in
+ *       user's session to prevent unauthorized access to other providers' messages</li>
+ *   <li>User names are always resolved from the database rather than accepted from
+ *       request parameters to prevent spoofing</li>
+ * </ul>
+ *
  * @version 2.0
  * @since 2003
  * @see MsgSessionBean
@@ -121,8 +130,8 @@ public class MsgDisplayMessages2Action extends ActionSupport {
      * 
      * <p>Session initialization logic:</p>
      * <ul>
-     *   <li>If both providerNo and userName provided: Creates new session</li>
-     *   <li>If only providerNo provided: Looks up provider name from database</li>
+     *   <li>If providerNo parameter provided: Creates new session with provider name
+     *       looked up from database (any userName parameter is ignored for security)</li>
      *   <li>Otherwise: Uses existing session bean</li>
      * </ul>
      * 
@@ -138,7 +147,8 @@ public class MsgDisplayMessages2Action extends ActionSupport {
      * @return "success" to forward to the message display page
      * @throws IOException if there's an I/O error
      * @throws ServletException if there's a servlet processing error
-     * @throws SecurityException if the user lacks required permissions
+     * @throws SecurityException if the user lacks required permissions or attempts
+     *         to access another provider's messages (IDOR protection)
      */
     public String execute() throws IOException, ServletException {
 
@@ -149,27 +159,33 @@ public class MsgDisplayMessages2Action extends ActionSupport {
 
         // Setup variables
         MsgSessionBean bean = null;
-        String providerNo;
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+        String loggedInProviderNo = loggedInInfo.getLoggedInProviderNo();
 
         // Initialize forward location
         String findForward = "success";
 
-        // Case 1: Full initialization with both provider number and username
-        if (request.getParameter("providerNo") != null && request.getParameter("userName") != null) {
-            // Create new session bean with provided credentials
-            bean = new MsgSessionBean();
-            bean.setProviderNo(request.getParameter("providerNo"));
-            bean.setUserName(request.getParameter("userName"));
-            request.getSession().setAttribute("msgSessionBean", bean);
-        }
-        // Case 2: Provider number only - lookup provider name from database
-        else if (request.getParameter("providerNo") != null && request.getParameter("userName") == null) {
+        // Case 1: Provider number supplied with or without userName - always look up name from DB
+        if (request.getParameter("providerNo") != null) {
+            String requestedProviderNo = request.getParameter("providerNo");
+
+            // IDOR protection: verify the requested providerNo matches the logged-in user
+            if (!loggedInProviderNo.equals(requestedProviderNo)) {
+                MiscUtils.getLogger().warn("IDOR attempt blocked: logged-in provider " + loggedInProviderNo
+                        + " attempted to access messages for provider "
+                        + requestedProviderNo.replaceAll("[\\r\\n]", ""));
+                throw new SecurityException("Cannot access another provider's messages");
+            }
+
+            // Look up the provider's name from the database (never trust request parameters for userName)
             ProviderManager2 providerManager = SpringUtils.getBean(ProviderManager2.class);
-            Provider p = providerManager.getProvider(LoggedInInfo.getLoggedInInfoFromSession(request), request.getParameter("providerNo"));
+            Provider p = providerManager.getProvider(loggedInInfo, loggedInProviderNo);
             if (p != null) {
-                // Create session bean with provider's full name
                 bean = new MsgSessionBean();
-                bean.setProviderNo(request.getParameter("providerNo"));
+                bean.setProviderNo(loggedInProviderNo);
                 bean.setUserName(p.getFirstName() + " " + p.getLastName());
                 request.getSession().setAttribute("msgSessionBean", bean);
             }
@@ -200,25 +216,25 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             }
             
         } else if (request.getParameter("btnDelete") != null) {
-            if (messageNo == null) {
+            if (getMessageNo().length == 0) {
                 MiscUtils.getLogger().info("No messages selected for deletion, returning back to page");
                 return findForward;
             }
-            updateSelectedMessages(bean.getProviderNo(), messageNo, msg -> msg.setDeleted(true));
+            updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setDeleted(true));
 
         } else if (request.getParameter("btnRead") != null) {
-            if (messageNo == null) {
+            if (getMessageNo().length == 0) {
                 MiscUtils.getLogger().info("No messages selected for marking as read, returning back to page");
                 return findForward;
             }
-            updateSelectedMessages(bean.getProviderNo(), messageNo, msg -> msg.setStatus("read"));
+            updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus("read"));
 
         } else if (request.getParameter("btnUnread") != null) {
-            if (messageNo == null) {
+            if (getMessageNo().length == 0) {
                 MiscUtils.getLogger().info("No messages selected for marking as unread, returning back to page");
                 return findForward;
             }
-            updateSelectedMessages(bean.getProviderNo(), messageNo, msg -> msg.setStatus("unread"));
+            updateSelectedMessages(bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus("unread"));
 
         } else {
             MiscUtils.getLogger().debug("Unexpected action in MsgDisplayMessages2Action.java");
@@ -237,10 +253,14 @@ public class MsgDisplayMessages2Action extends ActionSupport {
     private void updateSelectedMessages(String providerNo, String[] messageIds, Consumer<MessageList> action) {
         MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
         for (String messageId : messageIds) {
-            List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageId));
-            for (MessageList msg : msgs) {
-                action.accept(msg);
-                dao.merge(msg);
+            try {
+                List<MessageList> msgs = dao.findByProviderNoAndMessageNo(providerNo, ConversionUtils.fromLongString(messageId));
+                for (MessageList msg : msgs) {
+                    action.accept(msg);
+                    dao.merge(msg);
+                }
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to update message", e);
             }
         }
     }
@@ -253,10 +273,6 @@ public class MsgDisplayMessages2Action extends ActionSupport {
 
     /**
      * Gets the array of message IDs selected for processing.
-     *
-     * <p>This method ensures that a non-null array is always returned,
-     * initializing an empty array if messageNo is null to prevent
-     * NullPointerExceptions in calling code.</p>
      *
      * @return String[] array of message IDs selected for processing, never null
      */

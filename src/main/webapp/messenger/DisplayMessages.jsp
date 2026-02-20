@@ -46,7 +46,7 @@
     - Quick actions (view, archive, mark read, mark unread)
 
     Request Parameters:
-    - boxType: Type of message box to display (0=inbox, 1=sent, 2=archived, 3=demographic)
+    - boxType: Type of message box to display (0=inbox, 1=sent, 2=deleted, 3=demographic)
     - demographic_no: Filter messages for specific patient
     - orderby: Column to sort by
     - page: Current page number for pagination
@@ -206,8 +206,14 @@
             function checkAll(formId) {
                 var f = document.getElementById(formId);
                 var val = f.checkA.checked;
-                for (i = 0; i < f.messageNo.length; i++) {
-                    f.messageNo[i].checked = val;
+                var boxes = f.messageNo;
+                if (!boxes) return;
+                if (typeof boxes.length === 'undefined') {
+                    boxes.checked = val;
+                } else {
+                    for (var i = 0; i < boxes.length; i++) {
+                        boxes[i].checked = val;
+                    }
                 }
             }
 
@@ -347,7 +353,7 @@
                                     <button name="btnRead" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="icon-folder-open"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markRead"/></button>
                                     <button name="btnUnread" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="icon-folder-close"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
                             <%}else if (pageType == 2){%>
-                                    <button type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
+                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
                             <%}%>
                             &nbsp;</span>
                         <span class="float-end">
@@ -502,7 +508,7 @@
                                     <button name="btnRead" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="icon-folder-open"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markRead"/></button>
                                     <button name="btnUnread" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="icon-folder-close"></i>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
                             <%}else if (pageType == 2){%>
-                                    <button type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
+                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
                             <%}%>
                             &nbsp;</span>
                         <span class="float-end">

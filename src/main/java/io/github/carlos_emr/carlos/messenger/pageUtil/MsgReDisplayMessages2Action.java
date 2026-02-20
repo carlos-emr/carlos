@@ -46,24 +46,25 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Struts2 action for marking multiple messages as read and redisplaying the message list.
- * 
- * <p>This action handles the bulk operation of marking selected messages as "read" status.
- * It's typically invoked when users want to mark multiple unread messages as read without
- * opening each one individually. The action updates the status in the database and then
- * redisplays the message list to reflect the changes.</p>
- * 
+ * Struts2 action for bulk message operations on the deleted/archived message view.
+ *
+ * <p>This action handles two operations depending on the button clicked:</p>
+ * <ul>
+ *   <li><b>Unarchive (btnUnarchive)</b>: Restores deleted messages by setting their
+ *       deleted flag to false, returning them to the inbox</li>
+ *   <li><b>Default</b>: Marks selected messages as "read" status</li>
+ * </ul>
+ *
  * <p>Key functionality:</p>
  * <ul>
  *   <li>Validates read permissions for messaging operations</li>
- *   <li>Processes an array of message IDs to mark as read</li>
- *   <li>Updates the status field in the messagelisttbl for each message</li>
+ *   <li>Processes an array of message IDs for the selected operation</li>
+ *   <li>Updates message fields in the database for each selected message</li>
  *   <li>Returns to the message display page with updated statuses</li>
  * </ul>
- * 
+ *
  * <p>Important notes:</p>
  * <ul>
- *   <li>Despite the misleading comment in the code, messages are marked as "read" not "del" (deleted)</li>
  *   <li>The action requires an active session with a MsgSessionBean</li>
  *   <li>Each message is individually updated in the database (not batch processed)</li>
  * </ul>
@@ -96,20 +97,16 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Executes the mark-as-read operation for selected messages.
-     * 
+     * Executes the bulk message operation for selected messages.
+     *
      * <p>This method performs the following operations:</p>
      * <ol>
      *   <li>Validates that the user has read permissions for messaging</li>
      *   <li>Retrieves the message session bean from the HTTP session</li>
-     *   <li>Iterates through the provided message IDs</li>
-     *   <li>Updates each message's status to "read" in the database</li>
+     *   <li>Determines operation type: unarchive (btnUnarchive) or mark as read</li>
+     *   <li>Iterates through the provided message IDs and applies the operation</li>
      *   <li>Returns success to redisplay the updated message list</li>
      * </ol>
-     * 
-     * <p>The method handles multiple messages efficiently by processing them
-     * in a loop, though each update is a separate database operation rather
-     * than a batch update.</p>
      * 
      * @return SUCCESS constant to redisplay the message list
      * @throws IOException if there's an I/O error
@@ -140,13 +137,16 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        // Mark each selected message as read
+        // Determine operation: unarchive (restore) or mark as read
+        boolean isUnarchive = request.getParameter("btnUnarchive") != null;
+
         for (int i = 0; i < messageNo.length; i++) {
-            // Find all instances of this message for the provider
             for (MessageList ml : dao.findByProviderNoAndMessageNo(providerNo, Long.valueOf(messageNo[i]))) {
-                // Update status to "read"
-                ml.setStatus("read");
-                // Persist the change to database
+                if (isUnarchive) {
+                    ml.setDeleted(false);
+                } else {
+                    ml.setStatus("read");
+                }
                 dao.merge(ml);
             }
         }

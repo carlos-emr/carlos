@@ -196,7 +196,7 @@
         </style>
 
         <script src="<%=request.getContextPath()%>/js/jquery-1.12.3.js"></script>
-        <!--<script src="<%=request.getContextPath()%>/js/jquery-ui-1.8.18.custom.min.js"></script>-->
+
 
 
 <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
@@ -230,21 +230,12 @@ function checkGroup(group) {
 }
 
 
-/*            function validatefields() {
-
-                if (document.forms[0].message.value.length == 0) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>");
-                    return false;
-                }
-                val = validateCheckBoxes(document.forms[0]);
-                if (val == 0) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgNoProvider"/>");
-                    return false;
-                }
-                return true
-            }*/
 
 function validateFields() {
+    // Sync editor content to hidden textarea before validation
+    if (typeof editor !== 'undefined') {
+        document.getElementsByName("message")[0].value = editor.getMarkdown();
+    }
     // Check if message body is empty
     if (document.forms[0].message.value.length === 0) {
         alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgEmptyMessage"/>');
@@ -252,7 +243,7 @@ function validateFields() {
     }
     // Validate check boxes
     var val = validateCheckBoxes(document.forms[0]);
-    if (val === 0) {
+    if (val === "0") {
         alert('<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgNoProvider"/>');
         return false;
     }
@@ -278,6 +269,9 @@ function validateFields() {
 	}
 
 	function XMLHttpRequestSendnArch() {
+		if (!validateFields()) {
+			return;
+		}
 		var theLink = document.referrer;
 		if (!theLink || theLink.indexOf('?') === -1) {
 			document.forms[0].submit();
@@ -303,17 +297,28 @@ function validateFields() {
 
 		var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages.do';
 
-		oRequest.open('POST', theArchiveLink, false);
+		oRequest.open('POST', theArchiveLink, true);
 		oRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+		oRequest.onload = function() {
+			if (oRequest.status >= 200 && oRequest.status < 300) {
+				document.forms[0].submit();
+			} else {
+				alert('Archive failed. The message will be sent without archiving.');
+				document.forms[0].submit();
+			}
+		};
+		oRequest.onerror = function() {
+			alert('Archive request failed. The message will be sent without archiving.');
+			document.forms[0].submit();
+		};
 		oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo));
-		document.forms[0].submit();
 	}
 
 	function popupSearchDemo(keyword){ // open a new popup window
 	    var vheight = 700;
 	    var vwidth = 980;
 	    windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-	    var page = 'msgSearchDemo.jsp?keyword=' +keyword +'&firstSearch='+true;
+	    var page = 'msgSearchDemo.jsp?keyword=' + encodeURIComponent(keyword) + '&firstSearch='+true;
 	    var popUp=window.open(page, "msgSearchDemo", windowprops);
 	    if (popUp != null) {
 	        if (popUp.opener == null) {
@@ -362,22 +367,28 @@ function validateFields() {
 	}
 
 	/*
-	 * Throw an error returned from the action
+	 * Display any error message returned from the action
 	 */
 	$(document).ready(function(){
-		var submissionerror = '${createMessageError}';
+		<%
+			String createMsgError = (String) request.getAttribute("createMessageError");
+			if (createMsgError == null) { createMsgError = ""; }
+		%>
+		var submissionerror = '<%= Encode.forJavaScript(createMsgError) %>';
 		if(submissionerror)
 		{
 			alert(submissionerror);
 		}
 
         document.getElementsByName("message")[0].setAttribute("style", "display:none;");
-        editor.setMarkdown("<br>" + document.getElementsByName("message")[0].value);
-        editor.moveCursorToStart();
+        if (typeof editor !== 'undefined') {
+            editor.setMarkdown("<br>" + document.getElementsByName("message")[0].value);
+            editor.moveCursorToStart();
+        }
 
-        //disableArchive();
 	})
 </script>
+<script src="${pageContext.request.contextPath}/csrfguard"></script>
 </head>
 <body class="BodyStyle" >
 <table style="width:100%;">
@@ -424,7 +435,7 @@ function validateFields() {
 
 			<tr>
 				<td><!-- colspan -->
-				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validatefields()">
+				<form action="${pageContext.request.contextPath}/messenger/CreateMessage.do" method="post" onsubmit="return validateFields()">
 				<table class="well" style="width:100%">
 						<tr class="subheader">
 							<th><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgRecipients" /></th>
@@ -455,7 +466,7 @@ function validateFields() {
 												<summary>
 													<input type="checkbox" name="tableDFR" id="member_group_${ group.key.id }"
 															value="${ group.key.id }" onclick="checkGroup(this)" >
-													<label for="member_group_${ group.key.id }" >${ group.key.groupDesc }</label>
+													<label for="member_group_${ group.key.id }" ><c:out value="${ group.key.groupDesc }" /></label>
 												</summary>
 
 												<c:forEach items="${ group.value }" var="member">
@@ -511,9 +522,9 @@ function validateFields() {
                     <div class="row"><div class="col-auto">
 					<label for="subject" class="form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
                     </div><div class="col">
-					<input type="text" name="subject" id="subject" class="form-control w-75" value="${messageSubject}"> </div>
+					<input type="text" name="subject" id="subject" class="form-control w-75" value="<c:out value="${messageSubject}"/>"> </div>
                     <div id="messagediv"></div></div>
-					<textarea name="message" rows="15" style="min-width: 100%">${messageBody}</textarea>
+					<textarea name="message" rows="15" style="min-width: 100%"><c:out value="${messageBody}"/></textarea>
 							<table>
 								<tr>
 									<td><input type="submit" class="btn btn-primary" onclick="writeToMessage();"
@@ -546,7 +557,7 @@ function validateFields() {
 				<tr>
 					<td><br><br>&nbsp;</td>
 					<td>
-                      <input type="text" name="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=demographic_no%>" >
+                      <input type="text" name="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>" >
                     </td>
 	                <td>
                       <input type="button" class="btn btn-light" name="searchDemo" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo(document.forms[0].keyword.value)" >

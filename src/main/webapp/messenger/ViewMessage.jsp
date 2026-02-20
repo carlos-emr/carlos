@@ -239,7 +239,7 @@ function popupSearchDemo(keyword){ // open a new popup window
     var vheight = 700;
     var vwidth = 980;
     windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-    var page = 'msgSearchDemo.jsp?keyword=' +keyword +'&firstSearch='+true;
+    var page = 'msgSearchDemo.jsp?keyword=' + encodeURIComponent(keyword) + '&firstSearch='+true;
     var popUp=window.open(page, "msgSearchDemo", windowprops);
     if (popUp != null) {
         if (popUp.opener == null) {
@@ -325,7 +325,7 @@ font-size:17px;
 </head>
 
 <body class="BodyStyle">
-<form action="<%=request.getContextPath()%>/messenger/HandleMessages.do">
+<form action="<%=request.getContextPath()%>/messenger/HandleMessages.do" method="post">
   <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 
 	<table class="MainTable" id="scrollNumber1" style="width:95%">
@@ -636,7 +636,7 @@ font-size:17px;
 								<td>
 								<input type="text" size="30" readonly
 									style=" border: none"
-									value="${ demographic.value }" />
+									value="${ fn:escapeXml(demographic.value) }" />
 								</td>
 								<td class="DoNotPrint">
 								<a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=${ fn:escapeXml(demographic.key) }&displaymode=edit&dboperation=search_detail')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.M" /></a>
