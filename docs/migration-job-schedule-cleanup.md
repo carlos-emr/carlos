@@ -3,19 +3,27 @@
 ## Why this check is needed
 The following integration classes were removed from the codebase as dead/unused code:
 
+**Job/scheduler classes** (implemented `OscarRunnable`, could exist in `OscarJobType`):
 - `io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboardMetricSenderJob`
+- `io.github.carlos_emr.carlos.integration.mchcv.OBECRunner`
+
+**Other unused classes** (not runnable jobs — removed as dead code only, no DB cleanup needed):
 - `io.github.carlos_emr.carlos.integration.dhir.DHIRUtils`
 - `io.github.carlos_emr.carlos.integration.ebs.client.ng.RawXmlLoggingInInterceptor`
 - `io.github.carlos_emr.carlos.integration.ebs.client.ng.WSS4JInNonValidatingActionInterceptor`
 - `io.github.carlos_emr.carlos.integration.fhir.model.PatientContact`
 - `io.github.carlos_emr.carlos.integration.fhir.model.RelatedPerson`
-- `io.github.carlos_emr.carlos.integration.mchcv.OBECRunner`
 
-Although these classes are not present in repo-managed scheduler config/seed SQL anymore, some deployed environments may still contain custom rows in `OscarJobType` / `OscarJob` from manual setup or legacy data.
+Although the job classes are not present in repo-managed scheduler config/seed SQL, some
+deployed environments may still contain custom rows in `OscarJobType` / `OscarJob` from
+manual setup or legacy data.
 
 ---
 
 ## Step 1: Find stale job type entries
+
+> **Note**: The SQL below uses MariaDB/MySQL syntax (`DELETE ... JOIN`).
+
 Run this SQL in each environment (dev/stage/prod) before or during deployment:
 
 ```sql
@@ -23,11 +31,6 @@ SELECT id, name, description, class_name, enabled, created_at
 FROM OscarJobType
 WHERE class_name IN (
   'io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboardMetricSenderJob',
-  'io.github.carlos_emr.carlos.integration.dhir.DHIRUtils',
-  'io.github.carlos_emr.carlos.integration.ebs.client.ng.RawXmlLoggingInInterceptor',
-  'io.github.carlos_emr.carlos.integration.ebs.client.ng.WSS4JInNonValidatingActionInterceptor',
-  'io.github.carlos_emr.carlos.integration.fhir.model.PatientContact',
-  'io.github.carlos_emr.carlos.integration.fhir.model.RelatedPerson',
   'io.github.carlos_emr.carlos.integration.mchcv.OBECRunner'
 );
 ```
@@ -45,11 +48,6 @@ FROM OscarJob j
 JOIN OscarJobType t ON t.id = j.oscarJobTypeId
 WHERE t.class_name IN (
   'io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboardMetricSenderJob',
-  'io.github.carlos_emr.carlos.integration.dhir.DHIRUtils',
-  'io.github.carlos_emr.carlos.integration.ebs.client.ng.RawXmlLoggingInInterceptor',
-  'io.github.carlos_emr.carlos.integration.ebs.client.ng.WSS4JInNonValidatingActionInterceptor',
-  'io.github.carlos_emr.carlos.integration.fhir.model.PatientContact',
-  'io.github.carlos_emr.carlos.integration.fhir.model.RelatedPerson',
   'io.github.carlos_emr.carlos.integration.mchcv.OBECRunner'
 );
 ```
@@ -67,22 +65,12 @@ FROM OscarJob j
 JOIN OscarJobType t ON t.id = j.oscarJobTypeId
 WHERE t.class_name IN (
   'io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboardMetricSenderJob',
-  'io.github.carlos_emr.carlos.integration.dhir.DHIRUtils',
-  'io.github.carlos_emr.carlos.integration.ebs.client.ng.RawXmlLoggingInInterceptor',
-  'io.github.carlos_emr.carlos.integration.ebs.client.ng.WSS4JInNonValidatingActionInterceptor',
-  'io.github.carlos_emr.carlos.integration.fhir.model.PatientContact',
-  'io.github.carlos_emr.carlos.integration.fhir.model.RelatedPerson',
   'io.github.carlos_emr.carlos.integration.mchcv.OBECRunner'
 );
 
 DELETE FROM OscarJobType
 WHERE class_name IN (
   'io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboardMetricSenderJob',
-  'io.github.carlos_emr.carlos.integration.dhir.DHIRUtils',
-  'io.github.carlos_emr.carlos.integration.ebs.client.ng.RawXmlLoggingInInterceptor',
-  'io.github.carlos_emr.carlos.integration.ebs.client.ng.WSS4JInNonValidatingActionInterceptor',
-  'io.github.carlos_emr.carlos.integration.fhir.model.PatientContact',
-  'io.github.carlos_emr.carlos.integration.fhir.model.RelatedPerson',
   'io.github.carlos_emr.carlos.integration.mchcv.OBECRunner'
 );
 

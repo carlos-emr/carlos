@@ -409,7 +409,8 @@ src/main/java/io/github/carlos_emr/carlos/entities/Insclaim.java
 
 ### 10. Integration (6 classes) - MEDIUM RISK
 
-Remaining dashboard integration model classes:
+Dashboard model classes used only for JSON serialization to an external outcomes
+dashboard service. All 6 remaining classes live under `integration/dashboard/model/`.
 
 **Dashboard model classes** (only used by `OutcomesDashboardUtils` for JSON
 serialization to an external dashboard service - if that service is decommissioned,
