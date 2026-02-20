@@ -230,10 +230,19 @@
             }
 
 
-            function checkDelete(url, docDescription) {
+            function checkDelete(docId, docDescription) {
                 // revision Apr 05 2004 - we now allow anyone to delete documents
                 if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
-                    window.location = url;
+                    var form = document.createElement('form');
+                    form.method = 'post';
+                    form.action = 'uploadMultiDocument.jsp';
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'delDocumentNo';
+                    input.value = docId;
+                    form.appendChild(input);
+                    document.body.appendChild(form);
+                    form.submit();
                 }
             }
 

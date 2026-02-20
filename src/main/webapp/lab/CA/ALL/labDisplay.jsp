@@ -109,7 +109,6 @@
 <%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="org.w3c.dom.Document" %>
-<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"%>
 
@@ -166,8 +165,6 @@
     String providerNo = request.getParameter("providerNo");
     String searchProviderNo = StringUtils.trimToEmpty(request.getParameter("searchProviderNo"));
     String patientMatched = request.getParameter("patientMatched");
-    String remoteFacilityIdString = request.getParameter("remoteFacilityId");
-    String remoteLabKey = request.getParameter("remoteLabKey");
     String demographicID = request.getParameter("demographicId");
     String showAllstr = request.getParameter("all");
 
@@ -225,8 +222,6 @@ Hl7TextMessage hl7TextMessage = null;
     MessageHandler handler = null;
     String hl7 = null;
     String reqID = null, reqTableID = null;
-    String remoteFacilityIdQueryString = "";
-
     boolean bShortcutForm = OscarProperties.getInstance().getProperty("appt_formview", "").equalsIgnoreCase("on") ? true : false;
     String formName = bShortcutForm ? OscarProperties.getInstance().getProperty("appt_formview_name") : "";
     String formNameShort = formName.length() > 3 ? (formName.substring(0, 2) + ".") : formName;
@@ -240,52 +235,47 @@ Hl7TextMessage hl7TextMessage = null;
 String duplicateOfLab = null;
 Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
 
-    if (remoteFacilityIdString == null) // local lab
-    {
+    HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
+    if (reqMap.get("id") != null) {
+        reqID = reqMap.get("id").toString();
+        reqTableID = reqMap.get("request_id").toString();
+    } else {
+        reqID = "";
+        reqTableID = "";
+    }
 
-        HashMap<String, Object> reqMap = LabRequestReportLink.getLinkByReport("hl7TextMessage", Long.valueOf(segmentID));
-        if (reqMap.get("id") != null) {
-            reqID = reqMap.get("id").toString();
-            reqTableID = reqMap.get("request_id").toString();
-        } else {
-            reqID = "";
-            reqTableID = "";
+    PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
+    for (PatientLabRouting r : dao.findByLabNoAndLabType(ConversionUtils.fromIntString(segmentID), "HL7")) {
+        demographicID = "" + r.getDemographicNo();
+    }
+
+    if (demographicID != null && !demographicID.equals("") && !demographicID.equals("0")) {
+        isLinkedToDemographic = true;
+        LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), demographicID);
+    } else {
+        LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
+    }
+
+    if (showAll) {
+        multiLabId = request.getParameter("multiID");
+        segmentIDs = multiLabId.split(",");
+        for (int i = 0; i < segmentIDs.length; ++i) {
+            handlers.add(Factory.getHandler(segmentIDs[i]));
         }
 
-
-        PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
-        for (PatientLabRouting r : dao.findByLabNoAndLabType(ConversionUtils.fromIntString(segmentID), "HL7")) {
-            demographicID = "" + r.getDemographicNo();
-        }
-
-        if (demographicID != null && !demographicID.equals("") && !demographicID.equals("0")) {
-            isLinkedToDemographic = true;
-            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr(), demographicID);
-        } else {
-            LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, segmentID, request.getRemoteAddr());
-        }
-
-
-        if (showAll) {
-            multiLabId = request.getParameter("multiID");
-            segmentIDs = multiLabId.split(",");
-            for (int i = 0; i < segmentIDs.length; ++i) {
-                handlers.add(Factory.getHandler(segmentIDs[i]));
-            }
-
-            handler = handlers.get(0);
-        } else {
-            multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
-            segmentIDs = multiLabId.split(",");
+        handler = handlers.get(0);
+    } else {
+        multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
+        segmentIDs = multiLabId.split(",");
 
 		int totalMatchingLabs = segmentIDs.length;
 		if (showLatest != null && "true".equals(showLatest) && totalMatchingLabs > 1) {
 			segmentID = segmentIDs[totalMatchingLabs - 1];
 		}
 
-            List<String> segmentIdList = new ArrayList<String>();
-            handler = Factory.getHandler(segmentID);
-            handlers.add(handler);
+        List<String> segmentIdList = new ArrayList<String>();
+        handler = Factory.getHandler(segmentID);
+        handlers.add(handler);
 
         if ("ExcellerisON".equals(handler.getMsgType()) && segmentIDs.length > 1) {
             LabVersionComparator labVersionComparator = new LabVersionComparator(Arrays.asList(segmentIDs));
@@ -293,35 +283,12 @@ Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>()
             missingTests = labVersionComparator.findMissingTests(segmentID, true);
         }
 
-            segmentIdList.add(segmentID);
+        segmentIdList.add(segmentID);
 
-            //this is where it gets weird. We want to show all messages with different filler order num but same accession in a single report
-            segmentIDs = segmentIdList.toArray(new String[segmentIdList.size()]);
+        //this is where it gets weird. We want to show all messages with different filler order num but same accession in a single report
+        segmentIDs = segmentIdList.toArray(new String[segmentIdList.size()]);
 
-            hl7 = Factory.getHL7Body(segmentID);
-        }
-
-    } else // remote lab
-    {
-        CachedDemographicLabResult remoteLabResult = LabDisplayHelper.getRemoteLab(loggedInInfo, Integer.parseInt(remoteFacilityIdString), remoteLabKey, Integer.parseInt(demographicID));
-        MiscUtils.getLogger().debug("retrieved remoteLab:" + ReflectionToStringBuilder.toString(remoteLabResult));
-        isLinkedToDemographic = true;
-
-        LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, "segmentId=" + segmentID + ", remoteFacilityId=" + remoteFacilityIdString + ", remoteDemographicId=" + demographicID);
-
-        Document cachedDemographicLabResultXmlData = LabDisplayHelper.getXmlDocument(remoteLabResult);
-        ackList = LabDisplayHelper.getReportStatus(cachedDemographicLabResultXmlData);
-        multiLabId = LabDisplayHelper.getMultiLabId(cachedDemographicLabResultXmlData);
-        handler = LabDisplayHelper.getMessageHandler(cachedDemographicLabResultXmlData);
-        handlers.add(handler);
-        segmentIDs = new String[]{"0"};  //fake segment ID for the for loop below to execute
-        hl7 = LabDisplayHelper.getHl7Body(cachedDemographicLabResultXmlData);
-
-        try {
-            remoteFacilityIdQueryString = "&remoteFacilityId=" + remoteFacilityIdString + "&remoteLabKey=" + URLEncoder.encode(remoteLabKey, "UTF-8");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
+        hl7 = Factory.getHL7Body(segmentID);
     }
 
 request.setAttribute("duplicateOfLab", duplicateOfLab);
@@ -1113,11 +1080,9 @@ request.setAttribute("missingTests", missingTests);
 <%
     for (int idx = 0; idx < segmentIDs.length; ++idx) {
 
-        if (remoteFacilityIdString == null) {
-            ackList = AcknowledgementData.getAcknowledgements(segmentID);
-            segmentID = segmentIDs[idx];
-            handler = handlers.get(idx);
-        }
+        ackList = AcknowledgementData.getAcknowledgements(segmentID);
+        segmentID = segmentIDs[idx];
+        handler = handlers.get(idx);
 
         boolean notBeenAcked = ackList.size() == 0;
         boolean ackFlag = false;
@@ -1427,9 +1392,6 @@ request.setAttribute("missingTests", missingTests);
                                 <input type="button" value="Recall"
                                        onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLabRecall');">
                                 <%}%>
-                                <%
-                                    if (remoteLabKey == null || "".equals(remoteLabKey.length())) {
-                                %>
 
 
                                 <span class="Field2"><i>Next Appointment: <oscar:nextAppt
@@ -1464,7 +1426,6 @@ request.setAttribute("missingTests", missingTests);
                                 <span id="labelspan_<%= Encode.forHtmlAttribute(segmentID) %>"
                                       class="Field2"><i><%= Encode.forHtml(labelval) %> </i></span>
 
-                                <% } %>
                             </td>
 
                         </tr>

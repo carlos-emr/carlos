@@ -334,7 +334,9 @@
                 jQuery("#printDateRow").before("<tr><td></td><td>" + test1Str + "</tr></tr>");
                 jQuery("form[name='caseManagementEntryForm']").append("<input name=\"extPrint" + name + "\" id=\"extPrint" + name + "\" value=\"false\" type=\"hidden\"/>");
                 jQuery.ajax({
-                    url: ctx + "/casemgmt/ExtPrintRegistry.do?method=register&name=" + name + "&bean=" + bean,
+                    type: 'POST',
+                    url: ctx + "/casemgmt/ExtPrintRegistry.do",
+                    data: {method: 'register', name: name, bean: bean},
                     async: false,
                     success: function (data) {
                     }

@@ -36,6 +36,10 @@
         <cxf.version>3.6.9</cxf.version>
         <!-- Netty Version (for transitive dependency security fixes) -->
         <netty.version>4.1.129.Final</netty.version>
+        <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0) -->
+        <drools.version>7.74.1.Final</drools.version>
+        <!-- Override mvel2 transitive dependency: 2.4.x references java.lang.Compiler (removed in JDK 16) -->
+        <mvel2.version>2.5.2.Final</mvel2.version>
         <struts.devMode>false</struts.devMode>
         <!-- Test properties -->
         <skipModernTests>false</skipModernTests>
@@ -165,6 +169,13 @@
                 <groupId>jakarta.persistence</groupId>
                 <artifactId>jakarta.persistence-api</artifactId>
                 <version>2.2.3</version>
+            </dependency>
+            <!-- Override transitive XStream from drools-compiler to fix CVE-2024-47072
+                 (stack overflow DoS when BinaryStreamDriver is configured) -->
+            <dependency>
+                <groupId>com.thoughtworks.xstream</groupId>
+                <artifactId>xstream</artifactId>
+                <version>1.4.21</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -303,6 +314,11 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>3.18.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>1.12.0</version>
         </dependency>
         <!-- commons-beanutils removed: migrated to Spring BeanUtils (Phase 1 of issue #2202) -->
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
@@ -513,22 +529,6 @@
             <version>2.10.9.2</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.onelogin</groupId>
-            <artifactId>java-saml</artifactId>
-            <version>2.9.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.codehaus.woodstox</groupId>
-                    <artifactId>woodstox-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.santuario</groupId>
-                    <artifactId>xmlsec</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <!-- hibernate / sql -->
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -604,10 +604,33 @@
         </dependency>
 
         <!-- apache xmlrpc -->
+
+        <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0 in 2026) -->
         <dependency>
-            <groupId>drools</groupId>
-            <artifactId>drools-all</artifactId>
-            <version>2.0</version>
+            <groupId>org.kie</groupId>
+            <artifactId>kie-api</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-core</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-compiler</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-mvel</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <!-- Override mvel2 transitive version: 2.4.x references java.lang.Compiler (removed in JDK 16/JEP 410) -->
+        <dependency>
+            <groupId>org.mvel</groupId>
+            <artifactId>mvel2</artifactId>
+            <version>${mvel2.version}</version>
         </dependency>
 
         <!-- jasper reports -->
@@ -775,15 +798,6 @@
             </exclusions>
         </dependency>
 
-        <!-- ostermillerutils_1_04_03_for_java_1_4.jar
-        we need to stop using this and replace it with apache commons -->
-        <!-- Please look at PR #386 commit: 7da510760a7dd71fd86eabd7eb23842b60a482de for removal -->
-        <dependency>
-            <groupId>com.ostermiller</groupId>
-            <artifactId>ostermillerutils</artifactId>
-            <version>1.4.3</version>
-        </dependency>
-
         <!-- UPGRADED displaytag to actively maintained hazendaz fork -->
         <!-- Temporary bridge solution - full DataTables migration planned for Q2 2026 -->
         <!-- Used in JSP files: admin (6), BC billing (3), PMmodule (1), casemgmt (1) -->
@@ -827,15 +841,13 @@
             <version>1.17.2</version>
         </dependency>
 
-        <!-- janino - CRITICAL: Must stay on version 2.x -->
-        <!-- Drools 2.0 (used by PreventionDSImpl for prevention rules) requires janino 2.x API -->
-        <!-- Janino 3.x removed Scanner$LocatedException class, breaking Drools rule compilation -->
-        <!-- DO NOT upgrade to janino 3.x without first upgrading Drools to 7.x+ -->
-        <!-- Previous comment: Detected as "Unused dependency" but don't remove it, caused 404 error after removing -->
+        <!-- janino - Updated to 3.x now that Drools has been upgraded to 7.x -->
+        <!-- Drools 7.x uses its own internal compiler (ecj), but janino may still be -->
+        <!-- used by other runtime components (e.g., JasperReports, Spring expression evaluation) -->
         <dependency>
-            <groupId>janino</groupId>
+            <groupId>org.codehaus.janino</groupId>
             <artifactId>janino</artifactId>
-            <version>2.3.2</version>
+            <version>3.1.12</version>
         </dependency>
 
 
@@ -939,10 +951,6 @@
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>joda-time</groupId>
-                    <artifactId>joda-time</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>com.fasterxml.woodstox</groupId>

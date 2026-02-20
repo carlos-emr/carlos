@@ -28,105 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
-%>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_demographic" rights="r" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_demographic");%>
-</security:oscarSec>
-<%
-    if (!authed) {
-        return;
-    }
-%>
-
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdStringCompositePk" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
-<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ include file="/casemgmt/taglibs.jsp" %>
-<%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page
-        import="io.github.carlos_emr.carlos.casemgmt.model.*, io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.model.Demographic" %>
-
-
-<%
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    String demographicId = request.getParameter("demographicId");
-    String remoteFacilityId = request.getParameter("remoteFacilityId");
-    String remoteProviderId = request.getParameter("remoteProviderId");
-
-    DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
-    Demographic demographic = demographicDao.getDemographic(demographicId);
-%>
+<%-- This page previously provided integrator follow-up functionality which has been removed. --%>
 <html>
-<script src="${pageContext.request.contextPath}/csrfguard"></script>
 <head>
     <title>Follow-Up Request</title>
 </head>
-<body bgcolor="#FFFFFF" text="#000000" leftmargin="0" rightmargin="0" topmargin="10" onLoad="setfocus()">
-<table width="100%" border="0" cellspacing="0" cellpadding="0">
-    <tr bgcolor="#000000">
-        <td height="40" width="10%"></td>
-        <td width="90%" align="left">
-            <p><font face="Verdana, Arial, Helvetica, sans-serif" color="#FFFFFF"><b><font
-                    face="Arial, Helvetica, sans-serif" size="4">Follow Up Request</font></b></font>
-            </p>
-        </td>
-    </tr>
-</table>
-
-<form method="post" action="${pageContext.request.contextPath}/demographic/FollowUp.do">
-    <table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#EEEEFF">
-        <tr>
-            <td width="35%"><font color="#003366"><font face="Verdana, Arial, Helvetica, sans-serif" size="2"><b>Client
-                Name : </b></font></font></td>
-            <td colspan="2" width="65%">
-                <div align="left">
-                    <input type="hidden" name="demographicId" value="<%=demographicId %>"/>
-                    <%=demographic.getLastName() %>, <%=demographic.getFirstName() %>
-                </div>
-            </td>
-        </tr>
-        <tr>
-            <td width="35%"><font color="#003366"><font face="Verdana, Arial, Helvetica, sans-serif" size="2"><b>Remote
-                Provider Name: </b></font></font></td>
-            <td colspan="2" width="65%">
-                <div align="left">
-                    <input type="hidden" name="remoteProviderId" value="<%=remoteProviderId%>"/>
-                    <input type="hidden" name="remoteFacilityId" value="<%=remoteFacilityId%>"/>
-                    <%
-                        FacilityIdStringCompositePk providerPk = new FacilityIdStringCompositePk();
-                        providerPk.setIntegratorFacilityId(Integer.parseInt(remoteFacilityId));
-                        providerPk.setCaisiItemId(remoteProviderId);
-                        CachedProvider cachedProvider = CaisiIntegratorManager.getProvider(loggedInInfo, loggedInInfo.getCurrentFacility(), providerPk);
-                    %>
-                    <%=cachedProvider.getLastName() + ", " + cachedProvider.getFirstName()%>
-                </div>
-            </td>
-        </tr>
-        <tr>
-            <td width="35%"><font color="#003366"><font face="Verdana, Arial, Helvetica, sans-serif"
-                                                        size="2"><b>Note: </b></font></font></td>
-            <td colspan="2" width="65%">
-                <div align="left">
-                    <textarea name="followUpNote"></textarea>
-                </div>
-            </td>
-        </tr>
-        <tr>
-            <td><input type="button" onclick="window.close()" value="Cancel" name="Button"></td>
-            <td><input type="submit" value="Submit" name="Button"></td>
-            <td></td>
-        </tr>
-
-    </table>
-</form>
+<body>
+<p>This feature has been removed.</p>
 </body>
 </html>

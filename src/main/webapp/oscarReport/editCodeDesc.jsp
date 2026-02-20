@@ -67,7 +67,8 @@
     %>
     <body>
 
-    <form action="<%= request.getContextPath() %>/report/DxresearchReport.do?method=editDesc">
+    <form action="<%= request.getContextPath() %>/report/DxresearchReport.do" method="post">
+        <input type="hidden" name="method" value="editDesc"/>
 
         <input type="hidden" name="editingCodeType" value=<%=editingCodeType%>/>
         <input type="hidden" name="editingCodeCode" value=<%=editingCodeCode%>/>

@@ -505,6 +505,27 @@ public class OscarProperties extends Properties {
         return eform_images;
     }
 
+    /**
+     * Returns the directory for inbound fax files.
+     */
+    public String getFaxIncomingDirectory() {
+        String faxIncoming = oscarProperties.getProperty("FAX_INCOMING_DIR");
+
+        if (faxIncoming == null) {
+            // Default to a path OUTSIDE the webroot for PHI protection.
+            // catalina.base is the Tomcat instance root (e.g., /usr/local/tomcat/)
+            // which is NOT under webapps/ and therefore not web-accessible.
+            String catalinaBase = System.getProperty("catalina.base");
+            if (catalinaBase != null && !catalinaBase.isEmpty()) {
+                faxIncoming = Paths.get(catalinaBase, "fax-incoming").toString();
+            } else {
+                // Non-Tomcat environment (tests, standalone): use system temp
+                faxIncoming = Paths.get(System.getProperty("java.io.tmpdir"), "carlos-fax-incoming").toString();
+            }
+        }
+        return faxIncoming;
+    }
+
 	/**
 	 * Saves property to the specified properties file.
 	 * This method appends the new property to the end of the file.

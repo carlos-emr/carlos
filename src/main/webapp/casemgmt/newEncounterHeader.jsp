@@ -33,8 +33,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page
-        import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager, io.github.carlos_emr.carlos.utility.LoggedInInfo, io.github.carlos_emr.carlos.commn.model.Facility" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo, io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
@@ -118,46 +117,6 @@
         <%=getEChartLinks() %>
     </div>
 
-    <%
-        if (facility.isIntegratorEnabled()) { %>
-    <div>
-        <% int secondsTillConsideredStale = -1;
-            try {
-                secondsTillConsideredStale = Integer.parseInt(OscarProperties.getInstance().getProperty("seconds_till_considered_stale"));
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("OSCAR Property: seconds_till_considered_stale did not parse to an int", e);
-                secondsTillConsideredStale = -1;
-            }
-
-            boolean allSynced = true;
-
-            try {
-                allSynced = CaisiIntegratorManager.haveAllRemoteFacilitiesSyncedIn(loggedInInfo, loggedInInfo.getCurrentFacility(), secondsTillConsideredStale, false);
-                CaisiIntegratorManager.setIntegratorOffline(session, false);
-            } catch (Exception remoteFacilityException) {
-                MiscUtils.getLogger().error("Error checking Remote Facilities Sync status", remoteFacilityException);
-                CaisiIntegratorManager.checkForConnectionError(session, remoteFacilityException);
-            }
-            if (secondsTillConsideredStale == -1) {
-                allSynced = true;
-            }
-        %>
-        <%if (CaisiIntegratorManager.isIntegratorOffline(session)) {%>
-        <div style="background: none repeat scroll 0 0 red; color: white; font-weight: bold; padding-left: 10px; margin-bottom: 2px;">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.integrator.NA"/></div>
-        <%} else if (!allSynced) {%>
-        <div style="background: none repeat scroll 0% 0% orange; color: white; font-weight: bold; padding-left: 10px; margin-bottom: 2px;">
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.integrator.outOfSync"/>
-
-            <a href="javascript:void(0)" onClick="popupPage(233,600,'ViewICommun','<c:out
-                    value="${ctx}"/>/admin/viewIntegratedCommunity.jsp'); return false;">Integrator</a>
-        </div>
-        <%} else {%>
-        <a href="javascript:void(0)" onClick="popupPage(233,600,'ViewICommun','<c:out
-                value="${ctx}"/>/admin/viewIntegratedCommunity.jsp'); return false;">I</a>
-        <%}%>
-    </div>
-    <%}%>
 </div>
 
 <%!

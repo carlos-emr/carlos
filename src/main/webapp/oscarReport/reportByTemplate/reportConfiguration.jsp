@@ -90,6 +90,26 @@
 
         </style>
 
+        <script>
+            function deleteTemplate(templateId) {
+                if (confirm('Are you sure you want to delete this report template?')) {
+                    var form = document.createElement('form');
+                    form.method = 'post';
+                    form.action = 'addEditTemplatesAction.do';
+                    var fields = {templateid: templateId, action: 'delete'};
+                    for (var key in fields) {
+                        var input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = key;
+                        input.value = fields[key];
+                        form.appendChild(input);
+                    }
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            }
+        </script>
+
     </head>
 
     <%
@@ -226,8 +246,7 @@
         <a href="viewTemplate.jsp?templateid=<%=curreport.getTemplateId()%>" class="link">View Template XML</a>
         <a href="addEditTemplate.jsp?templateid=<%=curreport.getTemplateId()%>&opentext=1" class="link">Edit
             Template</a>
-        <a href="addEditTemplatesAction.do?templateid=<%=curreport.getTemplateId()%>&action=delete"
-           onclick="return confirm('Are you sure you want to delete this report template?')" class="link">
+        <a href="javascript:void(0);" onclick="deleteTemplate('<%=curreport.getTemplateId()%>');" class="link">
             Delete Template
         </a>
     </div>

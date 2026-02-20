@@ -119,7 +119,7 @@
 
 
             function deleteClient(id) {
-                jQuery.getJSON("clientManage.json", {
+                jQuery.post("clientManage.json", {
                         method: "delete",
                         id: id
                     },
@@ -128,7 +128,7 @@
                             listClients();
                         else
                             alert(xml.error);
-                    });
+                    }, "json");
             }
 
             $(document).ready(function () {
@@ -146,7 +146,7 @@
                             var name = $("#clientName").val();
                             var uri = $("#clientURI").val();
                             var lifetime = $("#lifetime").val();
-                            jQuery.getJSON("clientManage.json",
+                            jQuery.post("clientManage.json",
                                 {
                                     method: "add",
                                     name: name,
@@ -162,7 +162,7 @@
                                     } else {
                                         alert(xml.error);
                                     }
-                                });
+                                }, "json");
 
                         },
                         Cancel: function () {

@@ -1,38 +1,102 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
-<rule-set name="inrFlowsheet"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+// ============================================================================
+// CARLOS EMR - INR (Anticoagulation) Flowsheet Timeliness Rules
+// ============================================================================
+//
+// Purpose:
+//   These rules provide clinical decision support for the INR/Anticoagulation
+//   management flowsheet. They monitor whether warfarin dosing and INR
+//   lab values are being tracked in a timely manner.
+//
+// Structure:
+//   This is one of the SMALLEST rule files with only 2 rules (no "never
+//   recorded" rules and no recommendation/warning tiers). Both rules fire
+//   at 3 months.
+//
+// Measurement Types Monitored:
+//     COUM - Weekly warfarin (Coumadin) dose in mg
+//     INR  - International Normalized Ratio (prothrombin time)
+//
+// Note on Rule Design:
+//   COUM uses addRecommendation() (yellow alert) while INR uses
+//   addWarning() (red alert), reflecting that a missing INR is more
+//   clinically urgent than a missing dose record. The INR value directly
+//   determines bleeding/clotting risk, while the dose is informational.
+//
+// Referenced By:
+//   - XML config: inrFlowsheet.xml (ds_rules="inrFlowsheet.drl",
+//     triggered by ICD-9 codes: 42731 (atrial fibrillation), V5861
+//     (long-term anticoagulant use), V1251 (personal history of VTE))
+//   - Java: MeasurementFlowSheet.loadRuleBase(String) compiles this DRL
+//   - See also: decisionSupport/INR.drl for value-based INR threshold rules
+//   - Displayed in: E-Chart encounter view, Measurement Flowsheet panel
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created as Drools 2.0 XML rules (McMaster University)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
+// ============================================================================
+package inrFlowsheet;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
-    <rule name="COUM 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("COUM") &gt;= 3</java:condition>
-        
-        <java:consequence>              
-              m.log("COUM 1 getting called");
-              m.addRecommendation("COUM","LAST WEEKLY WARFARIN DOSE MEASUREMENT WAS : "+m.getLastDateRecordedInMonths("COUM")+" months");
-        </java:consequence>
-    </rule>
+// ---------------------------------------------------------------------------
+// Weekly Warfarin (Coumadin) Dose (COUM)
+// Records the patient's total weekly warfarin dose in mg. Dose adjustments
+// are made based on INR results. Tracking dose history helps identify
+// trends and dose-response relationships. A recommendation (yellow) alert
+// is generated at 3 months to prompt dose documentation.
+// Recommendation at 3 months (no warning tier).
+// ---------------------------------------------------------------------------
+rule "COUM 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("COUM") >= 3 )
+    then
+        m.log("COUM 1 getting called");
+        m.addRecommendation("COUM","LAST WEEKLY WARFARIN DOSE MEASUREMENT WAS : "+m.getLastDateRecordedInMonths("COUM")+" months");
+end
 
-    <rule name="INR 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("INR") &gt;= 3</java:condition>        
-        <java:consequence>              
-              m.log("INR 1 getting called");
-              m.addWarning("INR","INR hasn't been reviewed in "+m.getLastDateRecordedInMonths("INR")+" months");
-        </java:consequence>
-    </rule>
-
-
-    
-</rule-set>
-
-
+// ---------------------------------------------------------------------------
+// International Normalized Ratio (INR)
+// The INR measures the anticoagulation effect of warfarin. This is a
+// SAFETY-CRITICAL measurement - patients with unmonitored INR are at risk
+// of stroke (if sub-therapeutic) or life-threatening hemorrhage (if
+// supra-therapeutic). A warning (red) alert fires at 3 months, reflecting
+// higher urgency than the dose tracking rule.
+// Warning at 3 months (no recommendation tier).
+// ---------------------------------------------------------------------------
+rule "INR 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("INR") >= 3 )
+    then
+        m.log("INR 1 getting called");
+        m.addWarning("INR","INR hasn't been reviewed in "+m.getLastDateRecordedInMonths("INR")+" months");
+end

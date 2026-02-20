@@ -23,11 +23,11 @@
  */
 
 /**
- * Case Management Print Service for OpenO EMR.
+ * Case Management Print Service for CARLOS EMR.
  *
  * This service provides comprehensive PDF printing capabilities for patient medical records,
  * including encounter notes, clinical prevention profiles (CPP), prescriptions, laboratory results,
- * preventions, and allergies. It supports both local and remote (integrator) notes, date range
+ * preventions, and allergies. It supports date range
  * filtering, and concatenation of multiple PDF documents into a single output.
  *
  * The service is used by both classic E-Chart and flat E-Chart interfaces to generate
@@ -38,7 +38,6 @@
  * <ul>
  *   <li>Multi-section printing: notes, CPP, Rx, labs, preventions, allergies</li>
  *   <li>Date range filtering for historical data retrieval</li>
- *   <li>Integration with CAISI Integrator for remote facility notes</li>
  *   <li>HL7 laboratory report integration</li>
  *   <li>Configurable note sorting (ascending/descending by observation date)</li>
  *   <li>Extension point system for custom print sections</li>
@@ -61,11 +60,8 @@ import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import com.itextpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicNote;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
@@ -129,7 +125,7 @@ public class CaseManagementPrint {
      * <ol>
      *   <li>Resolves note IDs based on print mode (all notes, date range, or specific selection)</li>
      *   <li>Retrieves patient demographic information for header</li>
-     *   <li>Fetches local and remote (integrator) notes as applicable</li>
+     *   <li>Fetches local notes</li>
      *   <li>Sorts notes according to system configuration (ascending/descending)</li>
      *   <li>Filters notes by date range if specified</li>
      *   <li>Generates CPP sections if requested (OMeds, SocHistory, MedHistory, etc.)</li>
@@ -148,8 +144,7 @@ public class CaseManagementPrint {
      * @param loggedInInfo LoggedInInfo the authenticated session information containing provider and facility context
      * @param demographicNo Integer the patient's unique demographic identifier
      * @param printAllNotes boolean true to print all available notes, false to use noteIds array
-     * @param noteIds String[] array of note IDs to print (ignored if printAllNotes is true); may contain
-     *                         "UUID" prefixed strings for remote integrator notes
+     * @param noteIds String[] array of note IDs to print (ignored if printAllNotes is true)
      * @param printCPP boolean true to include Clinical Prevention Profile sections (OMeds, SocHistory, etc.)
      * @param printRx boolean true to include prescription/medication information
      * @param printLabs boolean true to include laboratory results (HL7 reports)
@@ -195,34 +190,13 @@ public class CaseManagementPrint {
 
 
         List<CaseManagementNote> notes = new ArrayList<>();
-        List<String> remoteNoteUUIDs = new ArrayList<>();
-        String uuid;
         for (String noteIdStr : noteIds) {
-            if (noteIdStr.startsWith("UUID")) {
-                uuid = noteIdStr.substring(4);
-                remoteNoteUUIDs.add(uuid);
-            } else {
-                Long noteId = ConversionUtils.fromLongString(noteIdStr);
-                if (noteId > 0) {
-                    CaseManagementNote note = this.caseManagementMgr.getNote(noteId.toString());
-                    if (note != null && note.getProviderNo() != null
-                            && (note.getProviderNo().isEmpty() || Integer.parseInt(note.getProviderNo()) != -1)) {
-                        notes.add(note);
-                    }
-                }
-            }
-        }
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled() && !remoteNoteUUIDs.isEmpty()) {
-            DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-            List<CachedDemographicNote> remoteNotes = demographicWs.getLinkedCachedDemographicNotes(Integer.parseInt(demono));
-            for (CachedDemographicNote remoteNote : remoteNotes) {
-                for (String remoteUUID : remoteNoteUUIDs) {
-                    if (remoteUUID.equals(remoteNote.getCachedDemographicNoteCompositePk().getUuid())) {
-                        CaseManagementNote fakeNote = getFakedNote(remoteNote);
-                        notes.add(fakeNote);
-                        break;
-                    }
+            Long noteId = ConversionUtils.fromLongString(noteIdStr);
+            if (noteId != null && noteId > 0) {
+                CaseManagementNote note = this.caseManagementMgr.getNote(noteId.toString());
+                if (note != null && note.getProviderNo() != null
+                        && (note.getProviderNo().isEmpty() || Integer.parseInt(note.getProviderNo()) != -1)) {
+                    notes.add(note);
                 }
             }
         }
@@ -458,31 +432,6 @@ public class CaseManagementPrint {
     }
 
     /**
-     * Converts a remote CAISI Integrator note into a local CaseManagementNote for printing.
-     *
-     * This method creates a lightweight CaseManagementNote object populated with data from
-     * a remote facility's cached demographic note. The resulting "faked" note can be processed
-     * by the standard printing pipeline alongside local notes, enabling seamless integration
-     * of multi-facility patient records.
-     *
-     * Only essential fields (observation date and note content) are copied. Other note metadata
-     * remains unpopulated as it is not required for basic printing functionality.
-     *
-     * @param remoteNote CachedDemographicNote the remote note from the CAISI Integrator system
-     * @return CaseManagementNote a local note object populated with remote data
-     */
-    private CaseManagementNote getFakedNote(CachedDemographicNote remoteNote) {
-        CaseManagementNote note = new CaseManagementNote();
-
-        if (remoteNote.getObservationDate() != null)
-            note.setObservation_date(remoteNote.getObservationDate().getTime());
-        note.setNote(remoteNote.getNote());
-
-        return (note);
-    }
-
-
-    /**
      * Retrieves all note IDs for a patient within a specified date range.
      *
      * This method queries the note service with a comprehensive set of filter criteria including
@@ -491,7 +440,7 @@ public class CaseManagementPrint {
      * that may have been set by CaseManagementView2Action.
      *
      * The method defaults to the "OSCAR" program if the provider has not been assigned to a specific
-     * program. Only local notes (NoteDisplayLocal) are returned; remote integrator notes are excluded.
+     * program. Only local notes (NoteDisplayLocal) are included in the returned results.
      *
      * @param loggedInInfo LoggedInInfo the authenticated session information
      * @param request HttpServletRequest the servlet request containing session attributes and parameters
@@ -571,7 +520,7 @@ public class CaseManagementPrint {
      * those dimensions. The method defaults to the "OSCAR" program if the provider has not
      * been assigned to a specific program.
      *
-     * Only local notes (NoteDisplayLocal) are returned; remote integrator notes are excluded.
+     * Only local notes (NoteDisplayLocal) are included in the returned results.
      *
      * @param loggedInInfo LoggedInInfo the authenticated session information
      * @param request HttpServletRequest the servlet request containing session attributes and parameters

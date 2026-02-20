@@ -579,7 +579,9 @@
             function generateRenalLabReq(demographicNo) {
                 var url = ctx + '/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographicNo + '&formId=0&provNo=<%=session.getAttribute("user")%>&fromSession=true';
                 jQuery.ajax({
-                    url: ctx + '/renal/Renal.do?method=createLabReq&demographicNo=' + demographicNo,
+                    type: 'POST',
+                    url: ctx + '/renal/Renal.do',
+                    data: {method: 'createLabReq', demographicNo: demographicNo},
                     async: false,
                     success: function (data) {
                         popupPage(900, 850, url);

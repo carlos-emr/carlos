@@ -86,11 +86,6 @@
                 window.open(page, "gpl", windowprops);
             }
 
-            function addStartTime() {
-                document.getElementById("oneIdLogin").href += (Math.round(new Date().getTime() / 1000).toString());
-            }
-
-
             function enhancedOrClassic(choice) {
                 document.getElementById("loginType").value = choice;
             }
@@ -446,30 +441,6 @@
             @media ( min-width: 1200px) {
             }
 
-            .oneIdLogin {
-                background-color: #000;
-                width: 60%;
-                height: 34px;
-                margin: 0 auto;
-            }
-
-            .oneIdLogo {
-                background-color: transparent;
-                background: url("${pageContext.request.contextPath}/images/oneId/oneIDLogo.png");
-                border: none;
-                display: inline-block;
-                float: left;
-                vertical-align: bottom;
-                width: 70px;
-                height: 16px;
-            }
-
-            .oneIDText {
-                display: inline-block;
-                float: left;
-                padding-left: 10px
-            }
-
             footer {
                 padding: 5px 10px;
                 margin-top: 50px;
@@ -591,18 +562,15 @@
                             </div>
 
 							<% if (MfaManager.isOscarLegacyPinEnabled()) { %>
-                            <c:if test="${not LoginResourceBean.ssoEnabled}">
                                 <div class="form-group ${ login_error }">
-                                    <input type="password" name="pin" placeholder="Enter your PIN" value=""
+                                    <input type="text" name="pin" placeholder="Enter your PIN" value="" style="-webkit-text-security: disc;"
                                            size="15" maxlength="15" autocomplete="one-time-code"
                                            inputmode="numeric" class="form-control"/>
                                     <span class="extrasmall">
 										<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formCmt"/>
 									</span>
                                 </div>
-                            </c:if>
 							<% } %>
-                            <input type="hidden" id="oneIdKey" name="nameId" value="${ nameId }"/>
                             <input type="hidden" id="loginType" name="loginType" value=""/>
                             <input type=hidden name='propname'
                                    value='<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.propertyFile"/>'/>
@@ -624,16 +592,6 @@
                             </div>
 
                         <form>
-
-                        <oscar:oscarPropertiesCheck property="oneid.enabled" value="true" defaultVal="false">
-                            <a href="${ LoginResourceBean.econsultURL }"
-                               id="oneIdLogin" onclick="addStartTime()" class="btn btn-primary btn-block oneIDLogin">
-                                <span class="oneIDLogo"></span>
-                                <span class="oneIdText">
-    									<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.oneid"/>
-    								</span>
-                            </a>
-                        </oscar:oscarPropertiesCheck>
 
                         <c:if test="${ LoginResourceBean.acceptableUseAgreementManager.auaAvailable }">
     			            <span class="extrasmall">

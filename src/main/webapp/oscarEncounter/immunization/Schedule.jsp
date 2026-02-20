@@ -282,11 +282,21 @@
                                 &nbsp;&nbsp;
 
                                 <% if (!status.equals("deleted")) { %>
-                                <a href="deleteSchedule.do?method=delete&tblSet=<%=i%>&demoNo=<%=demoNo%>"
-                                   onclick="return confirm('Are you sure you want to delete this record ?');">del</a>
+                                <a href="javascript:void(0)"
+                                   onclick="if(confirm('Are you sure you want to delete this record ?')){document.getElementById('scheduleForm_<%=i%>').submit()}">del</a>
+                                <form id="scheduleForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
+                                    <input type="hidden" name="method" value="delete"/>
+                                    <input type="hidden" name="tblSet" value="<%=i%>"/>
+                                    <input type="hidden" name="demoNo" value="<%=demoNo%>"/>
+                                </form>
                                 <%} else {%>
-                                <a href="deleteSchedule.do?method=restore&tblSet=<%=i%>&demoNo=<%=demoNo%>"
-                                   onclick="return confirm('Are you sure you want to restore this record ?');">restore</a>
+                                <a href="javascript:void(0)"
+                                   onclick="if(confirm('Are you sure you want to restore this record ?')){document.getElementById('restoreForm_<%=i%>').submit()}">restore</a>
+                                <form id="restoreForm_<%=i%>" method="post" action="deleteSchedule.do" style="display:none">
+                                    <input type="hidden" name="method" value="restore"/>
+                                    <input type="hidden" name="tblSet" value="<%=i%>"/>
+                                    <input type="hidden" name="demoNo" value="<%=demoNo%>"/>
+                                </form>
                                 <%}%>
 
                             </div>

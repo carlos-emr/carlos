@@ -337,6 +337,25 @@
     </style>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
+    <script>
+        function submitFlowsheetCustom(params) {
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = 'FlowSheetCustomAction.do';
+            for (var key in params) {
+                if (params[key] !== null && params[key] !== '') {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = params[key];
+                    form.appendChild(input);
+                }
+            }
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
+
 </head>
 
 <body id="editFlowsheetBody">
@@ -495,21 +514,21 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
 		                } else if (isHidden) {
 		                    // Clickable restore for same-level hides
 		               %>
-		                   <a href="FlowSheetCustomAction.do?method=restore&flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=scope==null?"":"&scope="+scope%>" title="Show this measurement" class="action-icon"><i class="fa-solid fa-eye-slash"></i></a>
+		                   <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'restore',flowsheet:'<%=Encode.forJavaScript(temp)%>',measurement:'<%=Encode.forJavaScript(mstring)%>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});" title="Show this measurement" class="action-icon"><i class="fa-solid fa-eye-slash"></i></a>
 		               <%
 		                } else {
 		                    // Clickable hide
 		               %>
-		                   <a href="FlowSheetCustomAction.do?method=hide&flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=scope==null?"":"&scope="+scope%>" title="Hide this measurement" class="action-icon"><i class="fa-solid fa-eye"></i></a>
+		                   <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'hide',flowsheet:'<%=Encode.forJavaScript(temp)%>',measurement:'<%=Encode.forJavaScript(mstring)%>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});" title="Hide this measurement" class="action-icon"><i class="fa-solid fa-eye"></i></a>
 		               <% } %>
 		               <%
 		                // Show Revert button if current scope has an UPDATE customization
 		                boolean hasUpdate = hasUpdateCustomization(custList, mstring, scope, demographic, (String) session.getAttribute("user"));
 		                if (hasUpdate) {
 		               %>
-		                   <a href="FlowSheetCustomAction.do?method=revertUpdate&flowsheet=<%=temp%>&measurement=<%=mstring%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+scope%>"
+		                   <a href="javascript:void(0);"
 		                      title="Revert to settings from higher scope" class="action-icon"
-		                      onclick="return confirm('Revert this measurement to settings from higher scope?');"><i class="fa-solid fa-arrows-rotate"></i></a>
+		                      onclick="if(confirm('Revert this measurement to settings from higher scope?')){submitFlowsheetCustom({method:'revertUpdate',flowsheet:'<%=Encode.forJavaScript(temp)%>',measurement:'<%=Encode.forJavaScript(mstring)%>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+Encode.forJavaScript(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});}"><i class="fa-solid fa-arrows-rotate"></i></a>
 		               <% } %>
 
 		                </td>
@@ -581,7 +600,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                                         <% if (isHigherScope) { %>
                                         <i class="fa-solid fa-lock action-icon" style="opacity:0.4;" title="Cannot remove - created at <%=custLevel%> level"></i>
                                         <% } else { %>
-                                        <a href="FlowSheetCustomAction.do?method=archiveMod&id=<%=cust.getId()%>&flowsheet=<%=flowsheet%><%=demographicStr%><%=htQueryString%><%=scope==null?"":"&scope="+scope%>"
+                                        <a href="javascript:void(0);" onclick="submitFlowsheetCustom({method:'archiveMod',id:'<%=cust.getId()%>',flowsheet:'<%=Encode.forJavaScript(flowsheet)%>'<%=demographic!=null?",demographic:'"+Encode.forJavaScript(demographic)+"'":""%><%=!htQueryString.isEmpty()?",htracker:'"+Encode.forJavaScript(htQueryString.contains("slim")?"slim":"true")+"'":""%><%=scope!=null?",scope:'"+Encode.forJavaScript(scope)+"'":""%>});"
                                            class="action-icon"><i class="fa-solid fa-trash"></i></a>
                                         <% } %>
                                     </td>
