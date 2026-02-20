@@ -496,6 +496,11 @@
                 text-align: center;
             }
 
+            #supportImageLink img {
+                max-width: 150px;
+                height: auto;
+            }
+
             /* Hide the default browser eye in Edge */
             #password::-ms-reveal,
             #password::-ms-clear {
@@ -714,7 +719,7 @@
             </c:if>
             <div class="support_details">
                 <a target="_blank" href="${ LoginResourceBean.supportLink }" id="supportImageLink">
-                    <img width="150" src="${ pageContext.request.contextPath }/loginResource/supportLogo.png"
+                    <img src="${ pageContext.request.contextPath }/loginResource/supportLogo.png"
                          alt="Support Image"
                          onerror="this.style.display='none'; document.getElementById('supportImageLink').style.display='none';">
                 </a>
