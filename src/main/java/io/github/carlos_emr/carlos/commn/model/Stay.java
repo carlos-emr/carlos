@@ -57,6 +57,9 @@ public class Stay {
         }
     }
 
+    /**
+     * Returns the duration.
+     */
     public Duration getDuration() {
         return duration;
     }
