@@ -329,21 +329,6 @@ function validateFields() {
 	}
 
 	function popupAttachDemo(demographic){ // open a new popup window
-	    var subject = document.forms[0].subject.value;
-	    var message = document.forms[0].message.value;
-	    var formData = "subject=" + subject + "&message=" + message;
-
-	    $.ajax({
-	    	type: "post",
-	    	data : formData,
-	    	success: function(data){
-	    		console.log(data);
-	    	},
-	    	error: function (jqXHR, textStatus, errorThrown){
-	 			console.log("Error: " + textStatus);
-	    	}
-		});
-
 	    var vheight = 700;
 	    var vwidth = 900;
 	    windowprops = "height="+vheight+",width="+vwidth+",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";

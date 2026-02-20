@@ -43,7 +43,7 @@
     - Patient demographic filtering
     - Security validation for read permissions
     - Message status indicators (new, read, unread)
-    - Quick actions (view, archive, mark read, mark unread)
+    - Quick actions (archive, unarchive, mark read, mark unread)
 
     Request Parameters:
     - boxType: Type of message box to display (0=inbox, 1=sent, 2=deleted, 3=demographic)
@@ -304,7 +304,7 @@
                                          <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
                                     </li>
                                     <li class="nav-item">
-                                        <a class="nav-link <% if (pageType == 0) { %>active"<% } %>"
+                                        <a class="nav-link <% if (pageType == 0) { %>active<% } %>"
                                           href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp">
                                          <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnRefresh"/></a>
                                     </li>

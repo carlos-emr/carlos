@@ -157,7 +157,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        // Setup variables
+        // Retrieve and validate logged-in provider session
         MsgSessionBean bean = null;
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
@@ -190,7 +190,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
                 request.getSession().setAttribute("msgSessionBean", bean);
             }
         } else {
-            // Case 3: Use existing session bean
+            // Case 2: Use existing session bean
             bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
         }
 
@@ -206,6 +206,8 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             MsgDisplayMessagesBean displayMsgBean = (MsgDisplayMessagesBean) request.getSession().getAttribute("DisplayMessagesBeanId");
             if (displayMsgBean != null) {
                 displayMsgBean.setFilter(request.getParameter("searchString"));
+            } else {
+                MiscUtils.getLogger().warn("DisplayMessagesBeanId is null in session during search; possible session timeout.");
             }
 
         } else if (request.getParameter("btnClearSearch") != null) {
@@ -213,6 +215,8 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             MsgDisplayMessagesBean displayMsgBean = (MsgDisplayMessagesBean) request.getSession().getAttribute("DisplayMessagesBeanId");
             if (displayMsgBean != null) {
                 displayMsgBean.clearFilter();
+            } else {
+                MiscUtils.getLogger().warn("DisplayMessagesBeanId is null in session during clear search; possible session timeout.");
             }
             
         } else if (request.getParameter("btnDelete") != null) {

@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
@@ -115,24 +116,33 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
      */
     public String execute() throws IOException, ServletException {
 
-        // Verify user has read permission for messages
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_msg", "r", null)) {
+        // Validate session and permissions
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
         // Retrieve session bean for provider context
-        MsgSessionBean bean = null;
-        bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
+        MsgSessionBean bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
 
         if (bean == null) {
-            // No active session - should redirect to login or error page
+            MiscUtils.getLogger().warn("MsgSessionBean is null in MsgReDisplayMessages2Action; "
+                    + "possible session timeout or invalid access.");
             return SUCCESS;
         }
 
+        // IDOR protection: verify the session bean's provider matches the logged-in user
+        if (!loggedInInfo.getLoggedInProviderNo().equals(bean.getProviderNo())) {
+            throw new SecurityException("Cannot access another provider's messages");
+        }
+
         String providerNo = bean.getProviderNo();
-        
+
         // Check if there are messages to process
-        // NOTE: The original comment is incorrect - messages are marked as "read" not deleted
         if (messageNo == null || messageNo.length == 0) {
             return SUCCESS;
         }
@@ -141,13 +151,17 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
         boolean isUnarchive = request.getParameter("btnUnarchive") != null;
 
         for (int i = 0; i < messageNo.length; i++) {
-            for (MessageList ml : dao.findByProviderNoAndMessageNo(providerNo, Long.valueOf(messageNo[i]))) {
-                if (isUnarchive) {
-                    ml.setDeleted(false);
-                } else {
-                    ml.setStatus("read");
+            try {
+                for (MessageList ml : dao.findByProviderNoAndMessageNo(providerNo, Long.valueOf(messageNo[i]))) {
+                    if (isUnarchive) {
+                        ml.setDeleted(false);
+                    } else {
+                        ml.setStatus("read");
+                    }
+                    dao.merge(ml);
                 }
-                dao.merge(ml);
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("Failed to update message", e);
             }
         }
 
@@ -155,15 +169,12 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
     }
 
     /**
-     * Array of message IDs to be marked as read.
+     * Array of message IDs selected for bulk operations (mark as read or unarchive).
      */
     String[] messageNo;
 
     /**
-     * Gets the array of message IDs to be marked as read.
-     * 
-     * <p>Note: The original comment incorrectly states these will be deleted,
-     * but the implementation actually marks them as read.</p>
+     * Gets the array of message IDs selected for processing.
      *
      * @return String[] array of message IDs, never null
      */
@@ -175,12 +186,9 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
     }
 
     /**
-     * Sets the array of message IDs to be marked as read.
-     * 
-     * <p>Note: The original comment incorrectly states these will be deleted,
-     * but the implementation actually marks them as read.</p>
+     * Sets the array of message IDs for bulk operations.
      *
-     * @param mess String[] array of message IDs to mark as read
+     * @param mess String[] array of message IDs selected for processing
      */
     public void setMessageNo(String[] mess) {
         this.messageNo = mess;

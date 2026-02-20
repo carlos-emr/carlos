@@ -88,7 +88,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *     - JSP layer receives status attributes for user feedback
  *
  * Lab Macro Workflow:
- *     1. Provider navigates to setLabMacroPrefs.jsp via method=view
+ *     1. Provider navigates to setLabMacroPrefs.jsp via method=viewLabMacroPrefs
  *     2. JSP renders existing macros from database
  *     3. Provider fills form fields or edits raw JSON directly
  *     4. Form submission calls method=saveLabMacroPrefs
@@ -101,7 +101,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *     - Database errors propagate to framework (transactional)
  *
  * Internationalization:
- *     - Status attributes reference i18n keys (e.g., msgSuccess)
+ *     - Status attributes use simple flag strings ("success", "error") that the JSP maps to localized messages
  *     - JSP layer uses JSTL fmt:message tags for localization
  *     - Currently supports English and Portuguese Brazilian
  *
@@ -2529,6 +2529,9 @@ public class ProviderProperty2Action extends ActionSupport {
      */
     public String viewLabMacroPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new RuntimeException("No valid session found");
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required security object _lab");
         }
@@ -2586,6 +2589,9 @@ public class ProviderProperty2Action extends ActionSupport {
      */
     public String saveLabMacroPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new RuntimeException("No valid session found");
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required security object _lab");
         }
