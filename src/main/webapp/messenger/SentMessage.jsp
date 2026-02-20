@@ -56,7 +56,7 @@
   - Font Awesome 3.x (compose, inbox, exit icons)
   - global.js (popupPage utility)
 
-  @since 2002
+  @since 2002-11-08
 --%>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -68,7 +68,9 @@
 <fmt:setBundle basename="oscarResources"/>
 <%
     // Build role string for security validation
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    String userrole = (String) session.getAttribute("userrole");
+    String user = (String) session.getAttribute("user");
+    String roleName$ = (userrole != null ? userrole : "") + "," + (user != null ? user : "");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">

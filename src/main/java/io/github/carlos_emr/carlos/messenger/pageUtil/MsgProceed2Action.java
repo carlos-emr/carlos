@@ -76,7 +76,7 @@ import org.apache.struts2.ServletActionContext;
  * need to be permanently associated with patient records for medical documentation
  * purposes.</p>
  * 
- * @version 2.0
+ * @version 2.0 Struts2 migration
  * @since 2003
  * @see RemoteAttachments
  * @see RemoteAttachmentsDao
@@ -89,7 +89,7 @@ public class MsgProceed2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     
     /**
-     * HTTP response object, maintained for consistency but not actively used.
+     * HTTP response object, standard for the 2Action pattern.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 

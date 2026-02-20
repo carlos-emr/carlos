@@ -65,7 +65,7 @@
     - Inbox/Sent/Demographic views POST to DisplayMessages.do (MsgDisplayMessages2Action)
     - Deleted/Archived view POSTs to ReDisplayMessages.do (MsgReDisplayMessages2Action)
 
-    @since 2002
+    @since 2002-11-08
 --%>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
@@ -83,7 +83,9 @@
 <fmt:setBundle basename="oscarResources"/>
 <%
     // Build security role string from session attributes
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    String userrole = (String) session.getAttribute("userrole");
+    String user = (String) session.getAttribute("user");
+    String roleName$ = (userrole != null ? userrole : "") + "," + (user != null ? user : "");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">

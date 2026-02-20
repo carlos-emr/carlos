@@ -51,8 +51,7 @@
     - Requires write permissions on "_msg" object
     - Session validation through msgSessionBean
     - OWASP encoding for XSS prevention
-    - Custom HTML sanitizer strips script, iframe, object, embed, form elements
-      and event handler attributes from editor content
+    - DOMPurify sanitizes editor content to prevent XSS
 
     Dependencies:
     - MsgSessionBean: Maintains message session state
@@ -77,7 +76,7 @@
     - userrole: Current user role
     - user: Current username
 
-    @since 2002
+    @since 2002-11-08
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -109,7 +108,9 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
     // Security check: Build role string from session attributes for authorization
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    String userrole = (String) session.getAttribute("userrole");
+    String user = (String) session.getAttribute("user");
+    String roleName$ = (userrole != null ? userrole : "") + "," + (user != null ? user : "");
     boolean authed = true;
 %>
 <%-- Security tag: Verify user has write permissions for messaging module --%>

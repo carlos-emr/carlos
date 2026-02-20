@@ -170,6 +170,26 @@ class MsgViewMessage2ActionTest extends OpenOWebTestBase {
     }
 
     @Test
+    @DisplayName("should mark message as read when boxType is not sent")
+    void shouldMarkMessageAsRead_whenBoxTypeIsNotSent() throws Exception {
+        // Given - inbox view (no boxType param means inbox)
+        allowPrivilege("_msg", "r");
+        addRequestParameter("messageID", "100");
+
+        MsgDisplayMessage msg = createMockMessage("100");
+        when(mockMessagingManager.getInboxMessage(any(LoggedInInfo.class), eq(100)))
+                .thenReturn(msg);
+        when(mockDemoManager.getAttachedDemographicNameMap(any(), anyInt()))
+                .thenReturn(new HashMap<>());
+
+        // When
+        executeAction(action);
+
+        // Then - setMessageRead SHOULD be called for inbox items
+        verify(mockMessagingManager).setMessageRead(any(), eq(100L), eq(TEST_PROVIDER));
+    }
+
+    @Test
     @DisplayName("should not attach demographic when demoNo is zero")
     void shouldNotAttachDemographic_whenDemoNoIsZero() throws Exception {
         // Given

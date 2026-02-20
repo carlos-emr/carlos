@@ -123,6 +123,41 @@ class ProviderProperty2ActionSaveTest extends OpenOWebTestBase {
     }
 
     @Test
+    @DisplayName("should update existing property when prop already exists")
+    void shouldUpdateExistingProperty_whenPropAlreadyExists() throws Exception {
+        // Given - existing properties
+        addRequestParameter("dateProperty.value", "-7");
+        addRequestParameter("singleViewProperty.value", "no");
+
+        UserProperty existingDate = new UserProperty();
+        existingDate.setId(1);
+        existingDate.setProviderNo(TEST_PROVIDER);
+        existingDate.setName(UserProperty.STALE_NOTEDATE);
+        existingDate.setValue("A");
+
+        UserProperty existingFormat = new UserProperty();
+        existingFormat.setId(2);
+        existingFormat.setProviderNo(TEST_PROVIDER);
+        existingFormat.setName(UserProperty.STALE_FORMAT);
+        existingFormat.setValue("yes");
+
+        when(mockUserPropertyDAO.getProp(TEST_PROVIDER, UserProperty.STALE_NOTEDATE))
+                .thenReturn(existingDate);
+        when(mockUserPropertyDAO.getProp(TEST_PROVIDER, UserProperty.STALE_FORMAT))
+                .thenReturn(existingFormat);
+
+        // When
+        String result = executeActionMethod(action, "save");
+
+        // Then - existing props should be updated (not new ones created)
+        assertThat(result).isEqualTo("success");
+        assertThat(existingDate.getValue()).isEqualTo("-7");
+        assertThat(existingFormat.getValue()).isEqualTo("no");
+        verify(mockUserPropertyDAO).saveProp(existingDate);
+        verify(mockUserPropertyDAO).saveProp(existingFormat);
+    }
+
+    @Test
     @DisplayName("should not save prop when OscarMsgRecvd value is null")
     void shouldNotSaveProp_whenOscarMsgRecvdValueIsNull() throws Exception {
         // Given - no "value" parameter (null)

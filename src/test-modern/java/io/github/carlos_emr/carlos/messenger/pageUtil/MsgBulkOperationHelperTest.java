@@ -131,6 +131,23 @@ class MsgBulkOperationHelperTest extends OpenOUnitTestBase {
     }
 
     @Test
+    @DisplayName("should not count as failure when DAO returns empty list")
+    void shouldNotCountAsFailure_whenDaoReturnsEmptyList() {
+        // Given - valid ID but no matching messages found
+        String[] messageIds = {"100"};
+        when(mockDao.findByProviderNoAndMessageNo(PROVIDER_NO, 100L))
+                .thenReturn(Collections.emptyList());
+
+        // When
+        MsgBulkOperationHelper.updateSelectedMessages(
+                mockRequest, PROVIDER_NO, messageIds, msg -> msg.setDeleted(true));
+
+        // Then - no failure count since the ID was valid, just no matching rows
+        assertThat(mockRequest.getAttribute(MsgBulkOperationHelper.ATTR_UPDATE_FAILURE_COUNT)).isNull();
+        verify(mockDao, never()).merge(any());
+    }
+
+    @Test
     @DisplayName("should apply action to all valid messages")
     void shouldApplyAction_toAllValidMessages() {
         // Given - all valid IDs

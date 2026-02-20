@@ -65,9 +65,9 @@ import org.apache.struts2.ServletActionContext;
  *   <li>Each message is individually updated in the database (not batch processed)</li>
  * </ul>
  *
- * @version 2.0
+ * @version 2.0 Struts2 migration
  * @since 2003
- * @see MessageListDao
+ * @see MsgBulkOperationHelper
  * @see MsgSessionBean
  * @see MsgDisplayMessages2Action
  */
@@ -94,7 +94,7 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
      * <ol>
      *   <li>Validates that the user has write permissions for messaging</li>
      *   <li>Retrieves the message session bean from the HTTP session</li>
-     *   <li>Iterates through the provided message IDs and sets status to read</li>
+     *   <li>Restores selected messages from the archive by setting their status to read</li>
      *   <li>Returns success to redisplay the updated message list</li>
      * </ol>
      * 
@@ -150,7 +150,7 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
     }
 
     /**
-     * Array of message IDs selected for bulk operations (mark as read or unarchive).
+     * Array of message IDs selected for the unarchive (restore) operation.
      */
     String[] messageNo;
 

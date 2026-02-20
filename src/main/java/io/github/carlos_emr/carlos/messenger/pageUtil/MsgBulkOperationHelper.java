@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * {@link MsgDisplayMessages2Action} and {@link MsgReDisplayMessages2Action}.
  *
  * <p>Validates each message ID via {@link ConversionUtils#fromLongString(String)},
- * skips invalid IDs (those that parse to 0), catches per-message failures, and
+ * skips invalid IDs (those that parse to 0 or negative), catches per-message failures, and
  * surfaces the failure count to the JSP layer via the {@code updateFailureCount}
  * request attribute.</p>
  *
@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 final class MsgBulkOperationHelper {
 
     private static final Logger logger = MiscUtils.getLogger();
+    static final String ATTR_UPDATE_FAILURE_COUNT = "updateFailureCount";
 
     private MsgBulkOperationHelper() {
     }
@@ -74,6 +75,9 @@ final class MsgBulkOperationHelper {
      */
     static void updateSelectedMessages(HttpServletRequest request, String providerNo,
                                        String[] messageIds, Consumer<MessageList> action) {
+        if (messageIds == null || messageIds.length == 0) {
+            return;
+        }
         MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
         int failureCount = 0;
 
@@ -97,7 +101,7 @@ final class MsgBulkOperationHelper {
         }
 
         if (failureCount > 0) {
-            request.setAttribute("updateFailureCount", failureCount);
+            request.setAttribute(ATTR_UPDATE_FAILURE_COUNT, failureCount);
             logger.warn("{} message(s) failed to update", failureCount);
         }
     }

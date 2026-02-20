@@ -66,8 +66,8 @@ import org.apache.struts2.ServletActionContext;
  * </ul>
  * </p>
  * 
- * @version 2.0
- * @since 2002
+ * @version 2.0 Struts2 migration
+ * @since 2003-07-21
  * @see MsgSessionBean
  * @see MsgMessageData
  */
@@ -161,7 +161,11 @@ public class MsgCreateMessage2Action extends ActionSupport {
         providers = messageData.getDups4(providers);
         providerListing = messageData.getProviderStructure(loggedInInfo, providers);
 
-        //FIXME remove these deprecated methods and use the Messenger Managers instead
+        if (providerListing == null || providerListing.isEmpty()) {
+            MiscUtils.getLogger().warn("No valid recipients after deduplication; message not sent");
+            return ERROR;
+        }
+
         sentToWho = messageData.createSentToString(providerListing);
         if (sentToWho != null) {
             sentToWho = sentToWho.trim();

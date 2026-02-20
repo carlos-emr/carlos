@@ -48,8 +48,7 @@
   Security:
   - Requires "_msg" object with read ("r") permissions
   - Validates user access to specific messages
-  - XSS-safe custom HTML sanitizer strips dangerous elements and event
-    handlers from markdown output
+  - DOMPurify sanitizes rendered HTML to prevent XSS
 
   Request parameters:
   - messageID: Unique identifier of message to view
@@ -66,7 +65,7 @@
   - PDF document management
   - Patient encounter system
 
-  @since 2002
+  @since 2002-11-08
 --%>
 
 <%@page import="java.util.HashMap" %>
@@ -78,6 +77,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.OscarMsgType" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -91,7 +91,8 @@
     // Retrieve user information from session
     String providerNo = (String) session.getAttribute("providerNo");
     String curUser_no = (String) session.getAttribute("user");
-    String roleName$ = (String) session.getAttribute("userrole") + "," + curUser_no;
+    String userrole = (String) session.getAttribute("userrole");
+    String roleName$ = (userrole != null ? userrole : "") + "," + (curUser_no != null ? curUser_no : "");
 
     boolean authed = true;
 %>
@@ -654,8 +655,8 @@ font-size:17px;
 	                                                            String msgType = (String)session.getAttribute("msgType");
 
 	                                                            if( msgType != null ) {
-
-	                                                                    if( Integer.valueOf(msgType).equals(OscarMsgType.OSCAR_REVIEW_TYPE) ) {
+	                                                                    Integer msgTypeInt = ConversionUtils.fromIntString(msgType);
+	                                                                    if( msgTypeInt > 0 && msgTypeInt.equals(OscarMsgType.OSCAR_REVIEW_TYPE) ) {
 	                                                                        HashMap<String,List<String>> hashMap =  (HashMap<String,List<String>>)session.getAttribute("msgTypeLink");
 	                                                                        if( hashMap != null) {
 	                                                                            List<String> demoList = hashMap.get((String) pageContext.getAttribute("demographicNumber"));
@@ -664,7 +665,8 @@ font-size:17px;
 	                                                                             String[] val = demoList.get(demoCount).split(":");
 	                                                                             if( val.length == 3 ) {
 	                                                                                 String note_id = "";
-	                                                                                 CaseManagementNote note = caseManagementNoteDAO.getNote(Long.valueOf(val[2]));
+	                                                                                 Long noteIdLong = ConversionUtils.fromLongString(val[2]);
+	                                                                                 CaseManagementNote note = noteIdLong > 0L ? caseManagementNoteDAO.getNote(noteIdLong) : null;
 	                                                                                 if( note != null ) {
 	                                                                                     String uuid = note.getUuid();
 	                                                                                     List<CaseManagementNote> noteList = caseManagementNoteDAO.getNotesByUUID(uuid);
@@ -732,10 +734,8 @@ font-size:17px;
 
 <script>
     // Initialize Toast UI Editor in read-only viewer mode to render the message
-    // body as markdown. A custom HTML sanitizer removes dangerous elements
-    // (script, iframe, object, embed, form) and strips event-handler attributes
-    // and javascript: hrefs to prevent XSS. Falls back to showing the plain
-    // textarea if the editor library fails to load.
+    // body as markdown. DOMPurify sanitizes the rendered HTML to prevent XSS.
+    // Falls back to showing the plain textarea if the editor library fails to load.
     var content=document.getElementById("msgBody").value;
     content = content.replace(/\r\n/g, "\n");
 

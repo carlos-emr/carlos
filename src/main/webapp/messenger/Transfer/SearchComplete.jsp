@@ -77,7 +77,9 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    String userrole = (String) session.getAttribute("userrole");
+    String user = (String) session.getAttribute("user");
+    String roleName$ = (userrole != null ? userrole : "") + "," + (user != null ? user : "");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="w" reverse="<%=true%>">
@@ -136,7 +138,7 @@
             <%
                 // Display appropriate completion message based on result
                 String conf = (String) request.getAttribute("confMessage");
-                if (conf.equals("1")) { 
+                if ("1".equals(conf)) {
             %> 
                 This attachment has already been attached to this demographic 
             <% } else { %> 

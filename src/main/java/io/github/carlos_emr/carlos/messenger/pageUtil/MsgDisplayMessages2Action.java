@@ -89,11 +89,11 @@ import org.apache.struts2.ServletActionContext;
  *   <li>User names are always resolved from the database to prevent spoofing</li>
  * </ul>
  *
- * @version 2.0
+ * @version 2.0 Struts2 migration
  * @since 2003
  * @see MsgSessionBean
  * @see MsgDisplayMessagesBean
- * @see MessageListDao
+ * @see MsgBulkOperationHelper
  */
 public class MsgDisplayMessages2Action extends ActionSupport {
     /**
@@ -233,7 +233,9 @@ public class MsgDisplayMessages2Action extends ActionSupport {
             MsgBulkOperationHelper.updateSelectedMessages(request, bean.getProviderNo(), getMessageNo(), msg -> msg.setStatus(MessageList.STATUS_NEW));
 
         } else {
-            MiscUtils.getLogger().debug("Unexpected action in MsgDisplayMessages2Action.java");
+            if ("POST".equalsIgnoreCase(request.getMethod())) {
+                MiscUtils.getLogger().warn("POST with no recognized action in MsgDisplayMessages2Action");
+            }
         }
 
         return findForward;

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
+import io.github.carlos_emr.carlos.commn.model.MessageList;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -29,6 +31,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
 import org.mockito.*;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -50,6 +54,9 @@ class MsgDisplayMessages2ActionTest extends OpenOWebTestBase {
     @Mock
     private ProviderManager2 mockProviderManager;
 
+    @Mock
+    private MessageListDao mockMessageListDao;
+
     private MsgDisplayMessages2Action action;
 
     private static final String TEST_PROVIDER = "999998";
@@ -60,6 +67,7 @@ class MsgDisplayMessages2ActionTest extends OpenOWebTestBase {
 
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(ProviderManager2.class, mockProviderManager);
+        replaceSpringUtilsBean(MessageListDao.class, mockMessageListDao);
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         String loggedInInfoKey = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
@@ -174,5 +182,85 @@ class MsgDisplayMessages2ActionTest extends OpenOWebTestBase {
         assertThat(bean).isNotNull();
         assertThat(bean.getProviderNo()).isEqualTo(TEST_PROVIDER);
         assertThat(bean.getUserName()).isEqualTo("Test Provider");
+    }
+
+    @Test
+    @DisplayName("should call bulk helper when delete button pressed")
+    void shouldCallBulkHelper_whenDeleteButtonPressed() throws Exception {
+        // Given
+        allowPrivilege("_msg", "r");
+        allowPrivilege("_msg", "w");
+        addRequestParameter("btnDelete", "true");
+        action.setMessageNo(new String[]{"100"});
+
+        MessageList mockMsg = mock(MessageList.class);
+        when(mockMessageListDao.findByProviderNoAndMessageNo(TEST_PROVIDER, 100L))
+                .thenReturn(List.of(mockMsg));
+
+        // When
+        String result = executeAction(action);
+
+        // Then
+        assertThat(result).isEqualTo("success");
+        verify(mockMsg).setDeleted(true);
+        verify(mockMessageListDao).merge(mockMsg);
+    }
+
+    @Test
+    @DisplayName("should call bulk helper when read button pressed")
+    void shouldCallBulkHelper_whenReadButtonPressed() throws Exception {
+        // Given
+        allowPrivilege("_msg", "r");
+        allowPrivilege("_msg", "w");
+        addRequestParameter("btnRead", "true");
+        action.setMessageNo(new String[]{"100"});
+
+        MessageList mockMsg = mock(MessageList.class);
+        when(mockMessageListDao.findByProviderNoAndMessageNo(TEST_PROVIDER, 100L))
+                .thenReturn(List.of(mockMsg));
+
+        // When
+        String result = executeAction(action);
+
+        // Then
+        assertThat(result).isEqualTo("success");
+        verify(mockMsg).setStatus(MessageList.STATUS_READ);
+        verify(mockMessageListDao).merge(mockMsg);
+    }
+
+    @Test
+    @DisplayName("should call bulk helper when unread button pressed")
+    void shouldCallBulkHelper_whenUnreadButtonPressed() throws Exception {
+        // Given
+        allowPrivilege("_msg", "r");
+        allowPrivilege("_msg", "w");
+        addRequestParameter("btnUnread", "true");
+        action.setMessageNo(new String[]{"100"});
+
+        MessageList mockMsg = mock(MessageList.class);
+        when(mockMessageListDao.findByProviderNoAndMessageNo(TEST_PROVIDER, 100L))
+                .thenReturn(List.of(mockMsg));
+
+        // When
+        String result = executeAction(action);
+
+        // Then
+        assertThat(result).isEqualTo("success");
+        verify(mockMsg).setStatus(MessageList.STATUS_NEW);
+        verify(mockMessageListDao).merge(mockMsg);
+    }
+
+    @Test
+    @DisplayName("should return success when no button pressed")
+    void shouldReturnSuccess_whenNoButtonPressed() throws Exception {
+        // Given - no button parameters set (initial page load)
+        allowPrivilege("_msg", "r");
+
+        // When
+        String result = executeAction(action);
+
+        // Then
+        assertThat(result).isEqualTo("success");
+        verify(mockMessageListDao, never()).findByProviderNoAndMessageNo(anyString(), anyLong());
     }
 }
