@@ -423,8 +423,11 @@
                     <p>Description: <span id="icd9description"></span></p>
                 </div>
                 <div class="modal-footer">
-                    <a href="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do?method=addToDiseaseRegistry&dxUpdateICD9Code=${ drilldown.dxUpdateICD9Code }"
-                       id="confirmAddToDiseaseRegistry" type="submit" class="btn btn-primary">Confirm</a>
+                    <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do" style="display:inline">
+                        <input type="hidden" name="method" value="addToDiseaseRegistry"/>
+                        <input type="hidden" name="dxUpdateICD9Code" value="${ fn:escapeXml(drilldown.dxUpdateICD9Code) }"/>
+                        <button type="submit" id="confirmAddToDiseaseRegistry" class="btn btn-primary">Confirm</button>
+                    </form>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
                 </div>
             </div>
@@ -453,8 +456,11 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <a href="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do?method=excludePatients&indicatorId=${ drilldown.id }"
-                       id="confirmPatientExclusion" type="submit" class="btn btn-primary">Confirm</a>
+                    <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do" style="display:inline">
+                        <input type="hidden" name="method" value="excludePatients"/>
+                        <input type="hidden" name="indicatorId" value="${ fn:escapeXml(drilldown.id) }"/>
+                        <button type="submit" id="confirmPatientExclusion" class="btn btn-primary">Confirm</button>
+                    </form>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
                 </div>
             </div>
@@ -479,8 +485,10 @@
                     <p>Are you sure you want to update the status of the selected patients to inactive?</p>
                 </div>
                 <div class="modal-footer">
-                    <a href="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do?method=setPatientsInactive"
-                       id="confirmPatientStatusUpdate" type="submit" class="btn btn-primary">Confirm</a>
+                    <form method="post" action="${ pageContext.request.contextPath }/web/dashboard/display/BulkPatientAction.do" style="display:inline">
+                        <input type="hidden" name="method" value="setPatientsInactive"/>
+                        <button type="submit" id="confirmPatientStatusUpdate" class="btn btn-primary">Confirm</button>
+                    </form>
                     <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
                 </div>
             </div>

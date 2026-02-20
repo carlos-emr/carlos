@@ -78,7 +78,8 @@
      * Save on page reload.
      * TODO: not really the best method, but will work until there is time to refactor.
      */
-    if (request.getParameter("dboperation") != null && !request.getParameter("dboperation").isEmpty() && request.getParameter("dboperation").equals("Save")) {
+    if (request.getParameter("dboperation") != null && !request.getParameter("dboperation").isEmpty() && request.getParameter("dboperation").equals("Save")
+            && "POST".equalsIgnoreCase(request.getMethod())) {
 
         request.setAttribute("success", false);
 

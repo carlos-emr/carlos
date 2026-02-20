@@ -189,10 +189,19 @@
 
     <script>
         //?segmentID=1&providerNo=999998&searchProviderNo=999998&status=A&demoName=
-        function checkDelete(url, docDescription) {
+        function checkDelete(docId, docDescription) {
             // revision Apr 05 2004 - we now allow anyone to delete documents
             if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDelete"/> " + docDescription)) {
-                window.location = url;
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = 'MultiPageDocDisplay.jsp';
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'delDocumentNo';
+                input.value = docId;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
             }
         }
 
@@ -925,7 +934,7 @@
                                                     if (curdoc.getCreatorId().equals(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo())) {
                                                 %>
                                                 <input type="button" tabindex="<%=tabindex++%>" value="Delete"
-                                                       onClick="javascript: checkDelete('MultiPageDocDisplay.jsp?delDocumentNo=<%=curdoc.getDocId()%>','<%=curdoc.getDescription()%>')"/>
+                                                       onClick="javascript: checkDelete('<%=curdoc.getDocId()%>','<%=curdoc.getDescription()%>')"/>
 
                                                 <%
                                                 } else {
@@ -933,7 +942,7 @@
                                                 <security:oscarSec roleName="<%=roleName$%>"
                                                                    objectName="_admin,_admin.edocdelete" rights="r">
                                                     <input type="button" tabindex="<%=tabindex++%>" value="Delete"
-                                                           onClick="javascript: checkDelete('documentReport.jsp?delDocumentNo=1&amp;function=demographic&amp;functionid=1&amp;viewstatus=active','test')"/>
+                                                           onClick="javascript: checkDelete('<%=curdoc.getDocId()%>','<%=curdoc.getDescription()%>')"/>
                                                 </security:oscarSec>
                                                 <% } %>
                                                 <%}

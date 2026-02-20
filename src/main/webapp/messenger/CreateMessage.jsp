@@ -278,19 +278,34 @@ function validateFields() {
 	}
 
 	function XMLHttpRequestSendnArch() {
-		var oRequest = new XMLHttpRequest();
-		var theLink=document.referrer;
-		var theLinkComponents=theLink.split('?');
-		var theQueryComponents=theLinkComponents[1].split('&');
+		var theLink = document.referrer;
+		if (!theLink || theLink.indexOf('?') === -1) {
+			document.forms[0].submit();
+			return;
+		}
 
-		for (index = 0; index < theQueryComponents.length; ++index) {
-	    		var theKeyValue=theQueryComponents[index].split('=');
-			if(theKeyValue[0]=='messageID'){
-				var theArchiveLink=theLinkComponents[0].substring(0,theLinkComponents[0].lastIndexOf('/'))+'/DisplayMessages.do?btnDelete=archive&messageNo='+theKeyValue[1];
+		var oRequest = new XMLHttpRequest();
+		var theLinkComponents = theLink.split('?');
+		var theQueryComponents = theLinkComponents[1].split('&');
+
+		var messageNo = '';
+		for (var index = 0; index < theQueryComponents.length; ++index) {
+			var theKeyValue = theQueryComponents[index].split('=');
+			if (theKeyValue[0] == 'messageID') {
+				messageNo = theKeyValue[1];
 			}
 		}
-		oRequest.open('GET', theArchiveLink, false);
-		oRequest.send();
+
+		if (!messageNo) {
+			document.forms[0].submit();
+			return;
+		}
+
+		var theArchiveLink = theLinkComponents[0].substring(0, theLinkComponents[0].lastIndexOf('/')) + '/DisplayMessages.do';
+
+		oRequest.open('POST', theArchiveLink, false);
+		oRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+		oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo));
 		document.forms[0].submit();
 	}
 

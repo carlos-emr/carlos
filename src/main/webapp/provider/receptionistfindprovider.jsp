@@ -110,7 +110,19 @@
 
         function selectProvider(p, pn) {
             newGroupNo = p;
-            this.location.href = "providercontrol.jsp?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&default_servicetype=<%=defaultServiceType%>&mygroup_no=" + newGroupNo;
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = 'providercontrol.jsp';
+            var fields = {provider_no: '<%=curUser_no%>', start_hour: '<%=startHour%>', end_hour: '<%=endHour%>', every_min: '<%=everyMin%>', color_template: 'deepblue', dboperation: 'updatepreference', displaymode: 'updatepreference', default_servicetype: '<%=defaultServiceType%>', mygroup_no: newGroupNo};
+            for (var key in fields) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+            }
+            document.body.appendChild(form);
+            form.submit();
         }
 
         function selectProviderCaisi(p, pn) {

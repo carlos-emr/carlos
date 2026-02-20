@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -59,6 +60,10 @@
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%
+    if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return;
+    }
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 %>
 
@@ -127,7 +132,7 @@
                         request.getParameter("security_no") + "->" + request.getParameter("user_name"), request.getRemoteAddr());
         %>
         <p>
-        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <%=request.getParameter("provider_no")%>
+        <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <%=Encode.forHtml(request.getParameter("provider_no"))%>
         </h2>
         <%
         } else {

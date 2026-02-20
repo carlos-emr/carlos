@@ -191,19 +191,39 @@ function popup(demographicNo, msgId, providerNo, action) { //open a new popup wi
         	  window.opener.location.href = newAngJsPath;
           } else {
               win.close();
-              page = 'WriteToEncounter.do?demographic_no='+demographicNo+'&msgId='+msgId+'&providerNo='+providerNo+'&encType=oscarMessenger';
-              var popUp=window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
+              var writeForm = document.createElement('form');
+              writeForm.method = 'post';
+              writeForm.action = 'WriteToEncounter.do';
+              writeForm.target = "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
+              var writeFields = {'demographic_no': demographicNo, 'msgId': msgId, 'providerNo': providerNo, 'encType': 'messenger'};
+              for (var k in writeFields) {
+                  var inp = document.createElement('input');
+                  inp.type = 'hidden'; inp.name = k; inp.value = writeFields[k];
+                  writeForm.appendChild(inp);
+              }
+              document.body.appendChild(writeForm);
+              var popUp = window.open('', writeForm.target, windowprops);
+              writeForm.submit();
               if (popUp != null) {
-                if (popUp.opener == null) {
-                  popUp.opener = self;
-                }
-                popUp.focus();
+                  if (popUp.opener == null) {
+                      popUp.opener = self;
+                  }
+                  popUp.focus();
               }
           }
       }
       else if ( action == "linkToDemographic"){
-          page = 'ViewMessage.do?linkMsgDemo=true&demographic_no='+demographicNo+'&messageID='+msgId+'&providerNo='+providerNo;
-          window.location = page;
+          var linkForm = document.createElement('form');
+          linkForm.method = 'post';
+          linkForm.action = 'ViewMessage.do';
+          var linkFields = {'linkMsgDemo': 'true', 'demographic_no': demographicNo, 'messageID': msgId, 'providerNo': providerNo};
+          for (var lk in linkFields) {
+              var li = document.createElement('input');
+              li.type = 'hidden'; li.name = lk; li.value = linkFields[lk];
+              linkForm.appendChild(li);
+          }
+          document.body.appendChild(linkForm);
+          linkForm.submit();
       }
   }
 

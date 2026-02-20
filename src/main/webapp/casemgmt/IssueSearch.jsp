@@ -63,7 +63,7 @@
 </head>
 
 <body>
-<form action="<%= request.getContextPath() %>/CaseManagementEntry.do">
+<form action="<%= request.getContextPath() %>/CaseManagementEntry.do" method="post">
     <c:url value="/casemgmt/CaseManagementEntry.jsp?demographicNo=${param.demographicNo}&providerNo=${param.providerNo}&demoName=${requestScope.demoName}&demoAge=${requestScope.demoAge}&demoDOB=${requestScope.demoDOB}"
            var="url"/>
     <script type="text/javascript">

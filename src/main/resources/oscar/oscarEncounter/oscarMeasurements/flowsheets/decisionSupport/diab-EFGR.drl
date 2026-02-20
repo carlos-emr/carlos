@@ -1,25 +1,79 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
+// ============================================================================
+// CARLOS EMR - eGFR Value-Based Decision Support Rules
+// ============================================================================
+//
+// Purpose:
+//   Per-item decision support rule for the eGFR measurement. Evaluates
+//   the current eGFR value against the CKD stage 3 threshold (60 mL/min)
+//   and colour-codes values indicating reduced kidney function.
+//
+// Clinical Context:
+//   eGFR (estimated Glomerular Filtration Rate) measures kidney function.
+//   KDIGO CKD stages based on eGFR:
+//     - >=90: Stage 1 (normal or high)
+//     - 60-89: Stage 2 (mildly decreased)
+//     - 45-59: Stage 3a (mild-to-moderately decreased)
+//     - 30-44: Stage 3b (moderately-to-severely decreased)
+//     - 15-29: Stage 4 (severely decreased)
+//     - <15: Stage 5 (kidney failure)
+//
+//   This rule flags eGFR <=60 by setting the indication colour to "LOW".
+//
+// Note on Log Message:
+//   The log message says "ACR RULES" - this is a copy-paste artifact from
+//   the original rules and does not affect functionality.
+//
+// Referenced By:
+//   - XML configs: diabetesFlowsheet.xml, chf.xml
+//     (<item> elements with ds_rules="diab-EFGR.drl")
+//   - Java: MeasurementFlowSheet.loadMeasurementRuleBase(String) compiles this DRL
+//   - See also: diab.drl/ckd.drl for EGFR timeliness rules
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created as Drools 2.0 XML rules (McMaster University)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
+// ============================================================================
+package DiabetesEFGR;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
-<rule-set name="DiabetesEFGR"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
-
-    <rule name="EFGR">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>      
-        <java:condition>m.getDataAsDouble() &lt;= 60</java:condition> 
-        <java:consequence>     
-              m.log("ACR RULES IS GETTING RUN");
-              m.setIndicationColor("LOW");
-        </java:consequence>
-    </rule>
-    
-</rule-set>
-
-
+// ---------------------------------------------------------------------------
+// Reduced eGFR (eGFR <= 60 mL/min/1.73m2)
+// Indicates CKD stage 3 or worse. Sets indication colour to "LOW".
+// ---------------------------------------------------------------------------
+rule "EFGR"
+    when
+        m : MeasurementDSHelper()
+        eval( m.getDataAsDouble() <= 60 )
+    then
+        m.log("EFGR/eGFR RULE IS GETTING RUN");
+        m.setIndicationColor("LOW");
+end

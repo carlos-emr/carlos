@@ -55,16 +55,25 @@ $(document).ready(function() {
     // Use event delegation for dynamic content
     $(document).on("click", 'a[data-confirm]', function(e) {
         var href = $(this).attr('href');
+        var parentForm = $(this).closest('form');
         e.preventDefault();
         $('#confirmModalBody').html($(this).attr('data-confirm'));
-        $('#dataConfirmed').attr('href', href);
+        if (parentForm.length && parentForm.attr('method') === 'post') {
+            $('#dataConfirmed').removeAttr('href').data('confirmForm', parentForm);
+        } else {
+            $('#dataConfirmed').attr('href', href).removeData('confirmForm');
+        }
         $('#confirmModal').modal('show');
         return false;
     });
-    
+
     // Fix the double-handler issue
     $(document).on("click", '#dataConfirmed', function(e) {
         e.stopPropagation(); // Stop the contentLink handler from also firing
+        var confirmForm = $(this).data('confirmForm');
+        if (confirmForm && confirmForm.length) {
+            confirmForm.submit();
+        }
         $('#confirmModal').modal('hide');
     });
     

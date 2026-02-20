@@ -101,10 +101,15 @@
                          value="No programs found."/>
 
     <display:column sortable="false" title="">
-        <a
-                onclick="return ConfirmDelete('<c:out value="${program.nameJs}"/>')"
-                href="<%=request.getContextPath() %>/PMmodule/ProgramManager.do?method=delete&id=<c:out value="${program.id}"/>&name=<c:out value="${program.name}"/>">
+        <a href="javascript:void(0)"
+                onclick="if(ConfirmDelete('<c:out value="${program.nameJs}"/>')){document.getElementById('deleteForm_<c:out value="${program.id}"/>').submit()}">
             Delete </a>
+        <form id="deleteForm_<c:out value="${program.id}"/>" method="post"
+              action="<%=request.getContextPath() %>/PMmodule/ProgramManager.do" style="display:none">
+            <input type="hidden" name="method" value="delete"/>
+            <input type="hidden" name="id" value="<c:out value="${program.id}"/>"/>
+            <input type="hidden" name="name" value="<c:out value="${program.name}"/>"/>
+        </form>
     </display:column>
 
     <c:choose>

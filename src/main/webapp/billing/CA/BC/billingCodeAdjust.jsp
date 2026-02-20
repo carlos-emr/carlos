@@ -61,6 +61,20 @@
 
         </script>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <script>
+            function deletePrivateCode(code) {
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = 'deletePrivateCode.jsp';
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'code';
+                input.value = code;
+                form.appendChild(input);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        </script>
     </head>
     <body class="BodyStyle" vlink="#0000FF" onLoad="setValues()">
     <!--  -->
@@ -143,7 +157,7 @@
                         <td><a
                                 href="billingEditCode.jsp?codeId=<%=bcd.getBillingserviceNo()%>&code=<%=bcd.getServiceCode()%>&desc=<%=bcd.getDescription()%>&value=<%=bcd.getValue()%>">Edit</a>
                             <br>
-                            <a href="deletePrivateCode.jsp?code=<%=bcd.getBillingserviceNo()%>">Delete</a></td>
+                            <a href="javascript:void(0);" onclick="deletePrivateCode('<%=bcd.getBillingserviceNo()%>');">Delete</a></td>
                     </tr>
                     <%} %>
                 </table>

@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <jsp:useBean id="daySheetBean" class="io.github.carlos_emr.AppointmentMainBean" scope="page"/>
 <jsp:useBean id="myGroupBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -66,7 +67,6 @@
     java.util.Properties oscarVariables = io.github.carlos_emr.OscarProperties.getInstance();
 
     SimpleDateFormat dayFormatter = new SimpleDateFormat("yyyy-MM-dd");
-    String deepColor = "#CCCCFF", weakColor = "#EEEEFF";
     int count = 0;
 
     AppointmentArchiveDao appointmentArchiveDao = SpringUtils.getBean(AppointmentArchiveDao.class);
@@ -109,16 +109,14 @@
 %>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.title"/></title>
-        <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
-        <style> td {
-            font-size: 16px;
-        }</style>
-
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/prototype.js"/>"></script>
-        <script language="JavaScript">
+        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
 
+        <script language="JavaScript">
             function hideOnSource() {
                 var selfBooked = document.getElementById('onlySelfBooked');
                 var list = $$('tr.oscar');
@@ -129,6 +127,10 @@
                 }
             }
         </script>
+
+        <style type="text/css" media="print">
+            .searchBox { display: none; }
+        </style>
     </head>
     <%
         boolean bDob = oscarVariables.getProperty("daysheet_dob", "").equalsIgnoreCase("true") ? true : false;
@@ -146,7 +148,6 @@
         String eTime = request.getParameter("eTime") != null ? (request.getParameter("eTime") + ":00:00") : "24:00:00";
         String provider_no = request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "175";
         ResultSet rsdemo = null;
-        boolean bodd = false;
 
         //initial myGroupBean if neccessary
         if (provider_no.startsWith("_grp_")) {
@@ -156,21 +157,29 @@
             }
         }
     %>
-    <body bgproperties="fixed" onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
+    <body>
+    <div class="container">
+    <div class="searchBox">
 
-    <table border="0" cellspacing="0" cellpadding="0" width="100%">
-        <tr bgcolor="<%=deepColor%>">
-            <th><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgMainLabel"/>
-                <input type="checkbox" onclick="hideOnSource();" id="onlySelfBooked"/><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgSelfBookedCheck"/>
-            </th>
-            <th width="10%" nowrap><%=createtime%> <input type="button"
-                                                          name="Button"
-                                                          value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.btnPrint"/>"
-                                                          onClick="window.print()"><input type="button" name="Button"
-                                                                                          value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>"
-                                                                                          onClick="window.close()"></th>
-        </tr>
-    </table>
+        <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
+            <h4 style="margin:0; font-size:18px; display:inline-block;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
+                    <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgMainLabel"/>
+            </h4>
+            <span style="margin-left:15px;">
+                <input type="checkbox" onclick="hideOnSource();" id="onlySelfBooked"/>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgSelfBookedCheck"/>
+            </span>
+            <span style="float:right;">
+                <span style="margin-right:10px; font-size:12px; color:#888;"><%=createtime%></span>
+                <input type="button" class="btn btn-sm btn-default" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.btnPrint"/>" onClick="window.print()">
+                <input type="button" class="btn btn-sm btn-default" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>" onClick="window.close()">
+            </span>
+        </div>
+
+    </div>
 
     <%
         boolean bFistL = true; //first line in a table for TH
@@ -242,95 +251,62 @@
                 if (providerMap.get(rsdemo.getString("provider_no")) == null) continue;
             }
 
-            bodd = bodd ? false : true;
             if (!strTemp.equals(rsdemo.getString("provider_no")) || !dateTemp.equals(rsdemo.getString("appointment_date"))) { //new providers for a new table
                 strTemp = rsdemo.getString("provider_no");
                 dateTemp = rsdemo.getString("appointment_date");
                 bFistL = true;
-                out.println("</table> <p>");
+                out.println("</table>");
             }
             if (bFistL) {
                 bFistL = false;
-                bodd = false;
+                String encodedProviderNo = Encode.forUriComponent(provider_no);
+                String encodedSdate = Encode.forUriComponent(sdate);
+                String encodedEdate = Encode.forUriComponent(edate);
+                String encodedDsmode = request.getParameter("dsmode") != null ? "&dsmode=" + Encode.forUriComponent(request.getParameter("dsmode")) : "";
+                String sortBaseUrl = "reportdaysheet.jsp?provider_no=" + encodedProviderNo + "&sdate=" + encodedSdate + "&edate=" + encodedEdate;
     %>
-    <table width="480" border="0" cellspacing="1" cellpadding="0">
+    <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">
+        <%=Encode.forHtml(providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "")) %>
+    </div>
+    <table class="table table-condensed table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
+        <thead>
         <tr>
-            <td><%=providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>
-            </td>
-            <td align="right"></td>
-        </tr>
-    </table>
-    <table width="100%" border="1" bgcolor="#ffffff" cellspacing="0"
-           cellpadding="1">
-        <tr bgcolor="#CCCCFF" align="center">
-            <!--<TH width="14%"><b><a href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=appointment_date"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgAppointmentDate"/></a></b></TH>-->
-            <TH width="6%"><b><a
-                    href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=start_time<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></b></TH>
-            <TH width="15%"><b><a
-                    href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=name<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a> </b></TH>
-            <!--<TH width="20%"><b><a href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=p_first_name"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgPatientFirstName"/></a> </b></TH>-->
-
-            <TH width="10%"><b><a
-                    href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=phone<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>">
-                Phone</a></b></TH>
-            <TH width="3%"><b><a
-                    href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=sex<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>">
-                Gender </a></b></TH>
-            <TH width="9%"><b><a
-                    href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=hin<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>">
-                Health Card </a></b></TH>
-            <TH width="5%"><b><a
-                    href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=ver<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>">
-                Version </a></b></TH>
-
-            <TH width="6%"><b><a
-                    href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=chart_no<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgChartNo"/></a></b></TH>
-            <!--<TH width="6%"><b><a
-			href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=hin<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.search.demographicSearch.msgHin"/></a></b></TH>-->
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=start_time<%=encodedDsmode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgAppointmentTime"/></a></th>
+            <th style="width:15%"><a href="<%=sortBaseUrl%>&orderby=name<%=encodedDsmode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgPatientLastName"/></a></th>
+            <th style="width:10%"><a href="<%=sortBaseUrl%>&orderby=phone<%=encodedDsmode%>">Phone</a></th>
+            <th style="width:3%"><a href="<%=sortBaseUrl%>&orderby=sex<%=encodedDsmode%>">Gender</a></th>
+            <th style="width:9%"><a href="<%=sortBaseUrl%>&orderby=hin<%=encodedDsmode%>">Health Card</a></th>
+            <th style="width:5%"><a href="<%=sortBaseUrl%>&orderby=ver<%=encodedDsmode%>">Version</a></th>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=chart_no<%=encodedDsmode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgChartNo"/></a></th>
             <% if (!bDob) {%>
-            <TH width="6%"><b><a
-                    href="reportdaysheet.jsp?provider_no=<%=provider_no%>&sdate=<%=sdate%>&edate=<%=edate%>&orderby=roster_status<%=request.getParameter("dsmode")==null?"":"&dsmode="+request.getParameter("dsmode")%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></b></TH>
+            <th style="width:6%"><a href="<%=sortBaseUrl%>&orderby=roster_status<%=encodedDsmode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgRosterStatus"/></a></th>
             <% } else {%>
-            <TH width="10%"><b>DOB</b></TH>
+            <th style="width:10%">DOB</th>
             <% }%>
-
-
             <th><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgBookingStatus"/></th>
-
-            <TH width="30%"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgComments"/></b></TH>
+            <th style="width:30%"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.msgComments"/></th>
         </tr>
+        </thead>
+        <tbody>
         <%
             }
             count++;
         %>
-        <tr bgcolor="<%=bodd?"#EEEEFF":"white"%>" class="<%=rsdemo.getString("bookingSource")==null?"oscar":"self"%>"
-            id="r<%=count %>">
-            <!--<td align="center" nowrap><%=rsdemo.getString("appointment_date")%></td>-->
-            <td align="center" nowrap
-                title="<%="End Time: "+rsdemo.getString("end_time")%>"><%=rsdemo.getString("start_time").substring(0, 5)%>
-            </td>
-            <td align="left"><%=rsdemo.getString("name") == null ? "." : ""%><%=Misc.toUpperLowerCase(rsdemo.getString("name"))%>
-            </td>
-            <td align="center">&nbsp;<%=rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone")%>&nbsp;</td>
-            <td align="center">&nbsp;<%=rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex")%>&nbsp;</td>
-            <td align="center">&nbsp;<%=rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin")%>&nbsp;</td>
-            <td align="center">&nbsp;<%=rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver")%>&nbsp;</td>
-            <td align="center">
-                &nbsp;<%=rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no")%>&nbsp;
-            </td>
-            <!--<td align="center">&nbsp;<%=rsdemo.getString("family_doctor")==null?"":rsdemo.getString("family_doctor")%>&nbsp;</td>-->
-
+        <tr class="<%=rsdemo.getString("bookingSource")==null?"oscar":"self"%>" id="r<%=count %>">
+            <td title="<%=Encode.forHtmlAttribute("End Time: "+rsdemo.getString("end_time"))%>"><%=Encode.forHtml(rsdemo.getString("start_time").substring(0, 5))%></td>
+            <td><%=rsdemo.getString("name") == null ? "." : ""%><%=Encode.forHtml(Misc.toUpperLowerCase(rsdemo.getString("name")))%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone"))%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex"))%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin"))%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver"))%></td>
+            <td><%=Encode.forHtml(rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no"))%></td>
             <% if (!bDob) {%>
-            <td align="center">
-                &nbsp;<%=rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status")%>&nbsp;
-            </td>
+            <td><%=Encode.forHtml(rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status"))%></td>
             <% } else {
                 String dob = rsdemo.getString("dob");
             %>
-            <td align="center">&nbsp;<%=dob == null ? "" : dob%>
-            </td>
+            <td><%=Encode.forHtml(dob == null ? "" : dob)%></td>
             <% }%>
-
             <td>
                 <%if (rsdemo.getString("bookingSource") == null) {%>
                 &nbsp;
@@ -340,24 +316,25 @@
             </td>
             <td>
                 <% if (rsdemo.getString("doc_no") != null && !daySheetBean.getString(rsdemo, "doc_no").equals("") && !daySheetBean.getString(rsdemo, "doc_no").equals(daySheetBean.getString(rsdemo, "provider_no"))) {
-
                     String doc_first_name = daySheetBean.getString(rsdemo, "doc_first_name");
                     char initial = 0x20;
                     if (doc_first_name.length() > 0) {
                         initial = doc_first_name.charAt(0);
                     }
                 %>
-                [<%=daySheetBean.getString(rsdemo, "doc_last_name")%>, <%=initial%>]
+                [<%=Encode.forHtml(daySheetBean.getString(rsdemo, "doc_last_name"))%>, <%=initial%>]
                 &nbsp; <% } %> <% if (bDob && daySheetBean.getString(rsdemo, "family_doctor") != null) {
                 String rd = SxmlMisc.getXmlContent(daySheetBean.getString(rsdemo, "family_doctor"), "rd");
                 rd = rd != null ? rd : "";
-            %> [<%=rd%>]&nbsp; <% } %> <%=daySheetBean.getString(rsdemo, "reason")%>&nbsp;
+            %> [<%=Encode.forHtml(rd)%>]&nbsp; <% } %> <%=Encode.forHtml(daySheetBean.getString(rsdemo, "reason"))%>&nbsp;
             </td>
         </tr>
         <%
             }
         %>
-
+        </tbody>
     </table>
+
+    </div>
     </body>
 </html>

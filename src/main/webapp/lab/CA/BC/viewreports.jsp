@@ -54,7 +54,7 @@
 
     String demo_no = request.getParameter("demo_no"),
             pid = request.getParameter("pid");
-    if (null != request.getParameter("unlink")) {
+    if (null != request.getParameter("unlink") && "POST".equalsIgnoreCase(request.getMethod())) {
         Hl7Link h = linkDao.find(Integer.parseInt(pid));
         if (h != null) {
             h.setStatus("P");
@@ -79,6 +79,24 @@
         function PopupLab(pid) {
             lab = window.open('report.jsp?viewed=true&pid=' + pid, 'Lab', 'height=500,width=900,scrollbars=1,toolbar=0,status=1,menubar=0,location=0,directories=0,resizable=1');
             lab.focus();
+            return false;
+        }
+
+        function unlinkReport(demoNo, pid) {
+            if (!confirm('Are you sure you want to unlink this lab report?')) return false;
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = 'viewreports.jsp';
+            var fields = {unlink: 'true', demo_no: demoNo, pid: pid};
+            for (var key in fields) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+            }
+            document.body.appendChild(form);
+            form.submit();
             return false;
         }
     </script>
@@ -112,14 +130,14 @@
                     diagnostic += ", " + obrDiagnosticServiceSectId;
                 } else {
                     if (!dpid.equals("")) {
-                        out.println("<tr bgcolor='" + (other ? "F6F6F6" : "WHITE") + "'><td class=\"Text\"><a href=\"#\" onclick=\"return PopupLab('" + dpid + "');\">" + format.format(date) + " (" + diagnostic + ")</a></td><td class=\"Text\"><a onclick=\"return confirm('Are you sure you want to unlink this lab report?');\" href=\"viewreports.jsp?unlink=true&demo_no=" + demo_no + "&pid=" + dpid + "\">unlink</a></td></tr>");
+                        out.println("<tr bgcolor='" + (other ? "F6F6F6" : "WHITE") + "'><td class=\"Text\"><a href=\"#\" onclick=\"return PopupLab('" + dpid + "');\">" + format.format(date) + " (" + diagnostic + ")</a></td><td class=\"Text\"><a href=\"#\" onclick=\"return unlinkReport('" + demo_no + "', '" + dpid + "');\">unlink</a></td></tr>");
                     }
                     dpid = "" + linkId;
                     diagnostic = "" + obrDiagnosticServiceSectId;
                     other = !other;
                 }
             }
-            out.println("<tr bgcolor='" + (other ? "F6F6F6" : "WHITE") + "'><td class=\"Text\"><a href=\"#\" onclick=\"return PopupLab('" + dpid + "');\">" + format.format(date) + " (" + diagnostic + ")</a></td><td class=\"Text\"><a onclick=\"return confirm('Are you sure you want to unlink this lab report?');\" href=\"viewreports.jsp?unlink=true&demo_no=" + demo_no + "&pid=" + dpid + "\">unlink</a></td></tr>");
+            out.println("<tr bgcolor='" + (other ? "F6F6F6" : "WHITE") + "'><td class=\"Text\"><a href=\"#\" onclick=\"return PopupLab('" + dpid + "');\">" + format.format(date) + " (" + diagnostic + ")</a></td><td class=\"Text\"><a href=\"#\" onclick=\"return unlinkReport('" + demo_no + "', '" + dpid + "');\">unlink</a></td></tr>");
         %>
     </table>
 </form>
