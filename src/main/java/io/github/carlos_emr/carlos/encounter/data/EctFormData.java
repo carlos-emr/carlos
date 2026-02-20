@@ -134,6 +134,10 @@ public class EctFormData {
         // grab patient forms for all the above form types grouped by date of edit
         ArrayList<PatientForm> allResults = new ArrayList<PatientForm>();
         for (EncounterForm encounterForm : encounterForms) {
+            if (isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             String table = StringUtils.trimToNull(encounterForm.getFormTable());
             if (table != null) {
                 allResults.addAll(getGroupedPatientFormsAsArrayList(demographicId.toString(), encounterForm.getFormName(), table, encounterForm.getFormValue()));
