@@ -97,7 +97,7 @@
 
 
         int rowsAffected = 0;
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         if (props.getProperty("isNewONbilling", "").equals("true")) {
             //search bill status
             BillingCorrectionPrep dbObj = new BillingCorrectionPrep();

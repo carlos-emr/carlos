@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.managers.UserSessionManager;
 import org.owasp.encoder.Encode;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.AlertTimer;
@@ -502,7 +502,7 @@ public final class Login2Action extends ActionSupport {
              * This section is added for forcing the initial password change.
              */
             Security security = getSecurity(userName);
-            if (!OscarProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false") &&
+            if (!CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false") &&
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
                     && forcedpasswordchange) {
 
@@ -540,7 +540,7 @@ public final class Login2Action extends ActionSupport {
             LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
 
             // initial db setting
-            Properties pvar = OscarProperties.getInstance();
+            Properties pvar = CarlosProperties.getInstance();
 
             String providerNo = strAuth[0];
             session.setAttribute("user", strAuth[0]);
@@ -636,13 +636,13 @@ public final class Login2Action extends ActionSupport {
             }
 
             if (where.equals("provider")
-                    && OscarProperties.getInstance().getProperty("useProgramLocation", "false").equals("true")) {
+                    && CarlosProperties.getInstance().getProperty("useProgramLocation", "false").equals("true")) {
                 where = "programLocation";
             }
 
 
             /*
-             * if (OscarProperties.getInstance().isTorontoRFQ()) { where = "caisiPMM"; }
+             * if (CarlosProperties.getInstance().isTorontoRFQ()) { where = "caisiPMM"; }
              */
             // Lazy Loads AlertTimer instance only once, will run as daemon for duration of
             // server runtime
@@ -650,7 +650,7 @@ public final class Login2Action extends ActionSupport {
                 String alertFreq = pvar.getProperty("ALERT_POLL_FREQUENCY");
                 if (alertFreq != null) {
                     Long longFreq = Long.valueOf(alertFreq);
-                    String[] alertCodes = OscarProperties.getInstance().getProperty("CDM_ALERTS").split(",");
+                    String[] alertCodes = CarlosProperties.getInstance().getProperty("CDM_ALERTS").split(",");
                     AlertTimer.getInstance(alertCodes, longFreq.longValue());
                 }
             }
@@ -910,7 +910,7 @@ public final class Login2Action extends ActionSupport {
             newURL = newURL + "?errormsg=Your new password, does NOT match the confirmed password. Please try again.";
         }
         // Verify new password is different from old password (unless requirement is disabled)
-        else if (!Boolean.parseBoolean(OscarProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS"))
+        else if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("IGNORE_PASSWORD_REQUIREMENTS"))
                 && newPassword.equals(oldPassword)) {
             newURL = newURL
                     + "?errormsg=Your new password, is the same as your old password. Please choose a new password.";
@@ -960,7 +960,7 @@ public final class Login2Action extends ActionSupport {
      * configuration.
      *
      * <p>LDAP integration: If LDAP authentication is enabled via
-     * {@link OscarProperties#isLdapAuthenticationEnabled()}, the returned Security
+     * {@link CarlosProperties#isLdapAuthenticationEnabled()}, the returned Security
      * object is wrapped in a {@link LdapSecurity} adapter that delegates password
      * validation to the LDAP server while maintaining the local Security record
      * for session management.
@@ -982,7 +982,7 @@ public final class Login2Action extends ActionSupport {
             return null;
         }
         // Wrap with LDAP authentication support if LDAP is enabled
-        else if (OscarProperties.isLdapAuthenticationEnabled()) {
+        else if (CarlosProperties.isLdapAuthenticationEnabled()) {
             security = new LdapSecurity(security);
         }
 

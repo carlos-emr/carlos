@@ -43,7 +43,7 @@ import java.util.Properties;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.utility.DateUtils;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
@@ -106,7 +106,7 @@ public class AppointmentMailer implements MessageMailer {
 
     private void setMessageHeader() {
         if (this.message == null) {
-            Properties op = OscarProperties.getInstance();
+            Properties op = CarlosProperties.getInstance();
 
             String msgTemplatePath = "";
             Appointment appt = dao.find(this.apptNo);

@@ -25,14 +25,14 @@ package io.github.carlos_emr.carlos.util.plugin;
 
 import java.util.Properties;
 
-public class OscarProperties extends Properties {
+public class CarlosProperties extends Properties {
     private static Properties properties;
 
-    private OscarProperties() {
+    private CarlosProperties() {
     }
 
-    public OscarProperties getInstance() {
-        return (OscarProperties) properties;
+    public CarlosProperties getInstance() {
+        return (CarlosProperties) properties;
     }
 
     /**
@@ -46,6 +46,6 @@ public class OscarProperties extends Properties {
      * @param properties The properties to set.
      */
     public static void setProperties(Properties properties) {
-        OscarProperties.properties = properties;
+        CarlosProperties.properties = properties;
     }
 }

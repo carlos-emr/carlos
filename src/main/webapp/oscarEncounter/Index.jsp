@@ -93,7 +93,7 @@
         import="io.github.carlos_emr.carlos.mds.data.MDSResultsData,io.github.carlos_emr.carlos.lab.ca.on.*, io.github.carlos_emr.carlos.messenger.util.MsgDemoMap, io.github.carlos_emr.carlos.messenger.data.MsgMessageData" %>
 <%@page
         import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.dxresearch.bean.*" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <%
     String ip = request.getRemoteAddr();
@@ -174,7 +174,7 @@
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Allergy" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <html>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
@@ -748,8 +748,8 @@
             // Written by wreby
             // This code supports the autosave function
             //autoSaveTimer is in milliseconds
-            var autoSaveTimerLength = <%= OscarProperties.getInstance().getProperty("ECT_AUTOSAVE_TIMER","-1") %>;
-            var SaveFeedbackTimerLength = <%=OscarProperties.getInstance().getProperty("ECT_SAVE_FEEDBACK_TIMER","2500") %>;
+            var autoSaveTimerLength = <%= CarlosProperties.getInstance().getProperty("ECT_AUTOSAVE_TIMER","-1") %>;
+            var SaveFeedbackTimerLength = <%=CarlosProperties.getInstance().getProperty("ECT_SAVE_FEEDBACK_TIMER","2500") %>;
             var request = null;
             if (autoSaveTimerLength > 0) {
                 var autoSaveTimer = setTimeout("AutoSaveEncounter()", autoSaveTimerLength);
@@ -960,7 +960,7 @@
                                 <oscar:preventionWarnings
                                         demographicNo="<%=bean.demographicNo%>">prevention</oscar:preventionWarnings></a>
                             <br>
-                        </oscar:oscarPropertiesCheck> <% if (OscarProperties.getInstance().getProperty("oscarcomm", "").equals("on")) { %>
+                        </oscar:oscarPropertiesCheck> <% if (CarlosProperties.getInstance().getProperty("oscarcomm", "").equals("on")) { %>
                             <a href="javascript:popupOscarComm(700,960,'RemoteAttachments.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.oscarComm"/></a><br>
                             <% } %> <a href=#
                                        onClick="popupOscarComm(580,900,'<%=request.getContextPath()%>/oscarResearch/dxresearch/setupDxResearch.do?demographicNo=<%=bean.demographicNo%>&providerNo=<%=provNo%>&quickList=');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.disease"/></a><br>

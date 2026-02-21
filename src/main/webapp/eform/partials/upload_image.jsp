@@ -29,7 +29,7 @@
 
 --%>
 <!DOCTYPE html>
-<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 

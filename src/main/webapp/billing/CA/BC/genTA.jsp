@@ -65,7 +65,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12" %>
 <%@ page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanC12Dao" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     TeleplanS21Dao teleplanS21Dao = SpringUtils.getBean(TeleplanS21Dao.class);
     TeleplanS00Dao teleplanS00Dao = SpringUtils.getBean(TeleplanS00Dao.class);
@@ -105,7 +105,7 @@
 
     String forwardPage = "viewReconcileReports.jsp";
 
-    filepath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+    filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
     FileInputStream file = new FileInputStream(filepath + filename);
     InputStreamReader reader = new InputStreamReader(file);

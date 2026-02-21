@@ -65,7 +65,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
 import org.springframework.transaction.annotation.Transactional;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 @Transactional
 public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements CaseManagementNoteDAO {
@@ -230,7 +230,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String staleDate) {
-        if (OscarProperties.getInstance().getDbType().equals("oracle")) {
+        if (CarlosProperties.getInstance().getDbType().equals("oracle")) {
             return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentTimeOra",
                     new Object[]{demographic_no, staleDate});
         } else {
@@ -244,7 +244,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no) {
-        if (OscarProperties.getInstance().getDbType().equals("oracle")) {
+        if (CarlosProperties.getInstance().getDbType().equals("oracle")) {
             return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentOra",
                     new Object[]{demographic_no});
         } else {
@@ -293,7 +293,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, Integer maxNotes) {
-        if (OscarProperties.getInstance().getDbType().equals("oracle")) {
+        if (CarlosProperties.getInstance().getDbType().equals("oracle")) {
             return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentOra",
                     new Object[]{demographic_no});
         } else {

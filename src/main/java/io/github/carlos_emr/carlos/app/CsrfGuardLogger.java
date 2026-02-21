@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.app;
 
 import org.owasp.csrfguard.log.JavaLogger;
 import org.owasp.csrfguard.log.LogLevel;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import java.io.File;
 import java.io.IOException;
@@ -48,7 +48,7 @@ import java.util.logging.SimpleFormatter;
  */
 public class CsrfGuardLogger extends JavaLogger {
 
-    private static final OscarProperties oscarProperties = OscarProperties.getInstance();
+    private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
     private static final List<LogLevel> errorLogLevels = Arrays.asList(LogLevel.Warning, LogLevel.Error, LogLevel.Fatal);
 
     // Create logger that adds to a log file in the oscar document folder just for csrf log lines

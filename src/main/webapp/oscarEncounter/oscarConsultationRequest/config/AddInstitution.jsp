@@ -30,7 +30,7 @@
 --%>
 
 <%@ page import="java.util.ResourceBundle" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -51,7 +51,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddInstitutionForm" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <html>
 

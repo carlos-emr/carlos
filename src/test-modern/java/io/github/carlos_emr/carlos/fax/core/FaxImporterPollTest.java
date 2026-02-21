@@ -52,8 +52,8 @@ import org.junit.jupiter.api.Test;
  * {@link FaxImporterCriticalGapsTest}.</p>
  *
  * <p><strong>Note:</strong> FaxImporter has static fields (DOCUMENT_DIR, FAX_TEMP_DIR) that
- * are initialized at class load time via OscarProperties. This class loads successfully in
- * the test environment because OscarProperties is initialized from the test config.</p>
+ * are initialized at class load time via CarlosProperties. This class loads successfully in
+ * the test environment because CarlosProperties is initialized from the test config.</p>
  *
  * @since 2026-02-13
  */

@@ -37,7 +37,7 @@
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
-<%@page import="io.github.carlos_emr.OscarProperties,io.github.carlos_emr.carlos.log.*" %>
+<%@page import="io.github.carlos_emr.CarlosProperties,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -53,7 +53,7 @@
 
 
 <%
-String rx_enhance = OscarProperties.getInstance().getProperty("rx_enhance");
+String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
 RxPatientData.Patient patient = (RxPatientData.Patient) request.getSession().getAttribute("Patient");
 
 if (rx_enhance!=null && rx_enhance.equals("true")) {
@@ -152,7 +152,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
             RxPharmacyData pharmacyData = new RxPharmacyData();
             List<PharmacyInfo> pharmacyList = pharmacyData.getPharmacyFromDemographic(Integer.toString(demoNo));
 
-            String drugref_route = OscarProperties.getInstance().getProperty("drugref_route");
+            String drugref_route = CarlosProperties.getInstance().getProperty("drugref_route");
             if (drugref_route == null) {
                 drugref_route = "";
             }
@@ -840,14 +840,14 @@ function renderRxStage() {
                                                     <input id="customDrug" type="button" class="ControlPushButton" onclick="customWarning2();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgCustomDrugRx3"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.CustomDrug"/>" />
                                                     <input id="customNote" type="button" class="ControlPushButton"  onclick="customNoteWarning();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgNoteRx3"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.CustomNote"/>"/>
                                                     <input id="reset" type="button" class="ControlPushButton" title="Clear pending prescriptions"   onclick="resetStash();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgResetPrescriptionRx3"/>"/>
-<%--                                                    <% if(!OscarProperties.getInstance().getProperty("rx.drugofchoice.hide","false").equals("true")) { %>--%>
+<%--                                                    <% if(!CarlosProperties.getInstance().getProperty("rx.drugofchoice.hide","false").equals("true")) { %>--%>
 <%--														<input type="button" class="ControlPushButton"--%>
 <%--														       style="width:92px"--%>
 <%--														       onclick="callTreatments('searchString','treatmentsMyD')"--%>
 <%--														       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDrugOfChoiceRx3"/>"--%>
 <%--														       title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.DrugOfChoice"/>"/>--%>
 <%--                                                    <%} %>--%>
-                                                    <%if (OscarProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
+                                                    <%if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
                                                     <a href="javascript:goOMD();" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.OMD"/>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgOMDLookup"/></a>
                                                     <%}%>
                                                     <security:oscarSec roleName="<%=roleName2$%>" objectName="_rx" rights="x">
@@ -856,7 +856,7 @@ function renderRxStage() {
 
                                                     <input id="saveOnlyButton" type="button"  class="ControlPushButton" onclick="updateSaveAllDrugsCheckContinue();" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgSaveOnly"/>" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.help.Save"/>"/>
 <%--                                                    <%--%>
-<%--                                                            if(OscarProperties.getInstance().getProperty("oscarrx.medrec","false").equals("true")) {--%>
+<%--                                                            if(CarlosProperties.getInstance().getProperty("oscarrx.medrec","false").equals("true")) {--%>
 <%--                                                    %>--%>
 <%--                                                        <input id="completeMedRecButton" class="ControlPushButton" type="button"  onclick="completeMedRec();" value="Complete Med Rec" />--%>
 <%--                                                    <% } %>--%>
@@ -993,7 +993,7 @@ function renderRxStage() {
 																						<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgInactive"/>
 																					</a>
 	                                                                            </td>
-																				<%} if(!OscarProperties.getInstance().getProperty("rx.profile_legend.hide","false").equals("true")) {
+																				<%} if(!CarlosProperties.getInstance().getProperty("rx.profile_legend.hide","false").equals("true")) {
 
 																				if(longterm_acute){%>
 																				<td >
@@ -1024,7 +1024,7 @@ function renderRxStage() {
 
                                                             <div id="themeLegend">
                                                                 <a href="javascript:void(0);" class="currentDrug">Drug that is current</a> |
-                                                                <%if(!OscarProperties.getInstance().getProperty("rx.delete_drug.hide","false").equals("true")) {%>
+                                                                <%if(!CarlosProperties.getInstance().getProperty("rx.delete_drug.hide","false").equals("true")) {%>
                                                                 <a href="javascript:void(0);" class="archivedDrug">Drug that is archived</a> |
                                                                 <%} %>
                                                                 <a href="javascript:void(0);" class="expireInReference">Drug that is current but will expire within the reference range</a> |
@@ -2658,7 +2658,7 @@ function updateQty(element){
     		return false;
     	}
 
-		<%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
+		<%if (CarlosProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
 		if(!checkMedTerm()){
 			return false;
 		}
@@ -2691,7 +2691,7 @@ function updateQty(element){
     		return false;
     	}
 		
-		<%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
+		<%if (CarlosProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
 		if(!checkMedTerm()){
 			return false;
 		}
@@ -2729,7 +2729,7 @@ function checkEnterSendRx(){
 }
 
 
-<%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
+<%if (CarlosProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>
 function checkMedTerm(){
 	
 	var randId = 0;
@@ -2788,7 +2788,7 @@ jQuery( document ).ready(function() {
 	jQuery( document ).on( 'change', '.med-term', function() {
 	    var randId = jQuery( this ).attr("id").split("_").pop();
  	   
-	    <%if (OscarProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>   
+	    <%if (CarlosProperties.getInstance().isPropertyActive("rx_strict_med_term")) {%>   
 	    isMedTermChecked(randId);
 	    <%}%>
     });
@@ -2804,7 +2804,7 @@ function updateShortTerm(rand,val) {
 }
 
 function updateLongTerm(rand,repeatEl) {
-	<% if("true".equals(OscarProperties.getInstance().getProperty("rx_select_long_term_when_repeat", "true"))) { %>
+	<% if("true".equals(CarlosProperties.getInstance().getProperty("rx_select_long_term_when_repeat", "true"))) { %>
 	let repeats = jQuery('#repeats_' + rand).val().trim();
 	if(!isNaN(repeats) && repeats > 0) {
 		jQuery("#longTermY_" + rand).prop("checked",true);

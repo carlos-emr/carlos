@@ -214,7 +214,7 @@
 
 <%@ page import="java.lang.*, java.util.*,java.net.*,io.github.carlos_emr.*" %>
 <%
-    java.util.Properties oscarVariables = OscarProperties.getInstance();
+    java.util.Properties oscarVariables = CarlosProperties.getInstance();
 %>
 
 <jsp:useBean id="scheduleHolidayBean" class="java.util.Hashtable"

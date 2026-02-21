@@ -45,7 +45,7 @@ import javax.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Servlet filter that enforces authentication and session management for CARLOS EMR.
@@ -280,7 +280,7 @@ public class LoginFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
         String contextPath = httpRequest.getContextPath();
         String requestURI = httpRequest.getRequestURI();
-        String InActivityLimitInMins = OscarProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
+        String InActivityLimitInMins = CarlosProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
 
         // Handle token-based authentication (for API/service requests)
         SecurityTokenManager stm = SecurityTokenManager.getInstance();

@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxCodesData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
@@ -1095,7 +1095,7 @@ public class RxUtil {
         special = m.replaceAll("");
         MiscUtils.getLogger().debug("after trimming mitte special=" + special);
         //assume drug name is before method and drug name is the first part of the instruction.
-        String rx_enhance = OscarProperties.getInstance().getProperty("rx_enhance");
+        String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
         //rx_enhance changes the behavior by not deleting anything up to the words Take, apply..
         if (!(rx_enhance != null && rx_enhance.equals("true"))) {
             if (special.indexOf("Take") != -1) {
@@ -1149,7 +1149,7 @@ public class RxUtil {
 
     public static void setDefaultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx) {
 
-        String defaultRx = OscarProperties.getInstance().getProperty("prescript.default_instruction");
+        String defaultRx = CarlosProperties.getInstance().getProperty("prescript.default_instruction");
         if (defaultRx != null) {
             rx.setSpecial(defaultRx);
         } else {

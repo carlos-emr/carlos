@@ -57,7 +57,7 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public final class Factory {
 
@@ -126,7 +126,7 @@ public final class Factory {
             logger.error("Could not default Message configuration file ", e2);
         }
 
-        String labTypesPathOverride = OscarProperties.getInstance().getProperty("LAB_TYPES");
+        String labTypesPathOverride = CarlosProperties.getInstance().getProperty("LAB_TYPES");
 
         if (labTypesPathOverride != null && !labTypesPathOverride.isEmpty()) {
             labTypesPath = Paths.get(labTypesPathOverride);

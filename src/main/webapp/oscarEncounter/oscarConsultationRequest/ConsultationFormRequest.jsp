@@ -56,7 +56,7 @@
 <%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 
-<%@page import="java.util.ArrayList, java.util.List, java.util.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.lab.ca.on.*" %>
+<%@page import="java.util.ArrayList, java.util.List, java.util.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote,io.github.carlos_emr.carlos.casemgmt.model.Issue,io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO,org.springframework.web.context.support.*,org.springframework.web.context.*" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
@@ -217,7 +217,7 @@
         String year = Integer.toString(calender.get(java.util.Calendar.YEAR));
         String formattedDate = year + "/" + mon + "/" + day;
 
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         ConsultationServiceDao consultationServiceDao = SpringUtils.getBean(ConsultationServiceDao.class);
     %>
     <%--
@@ -1488,7 +1488,7 @@ for (Provider providerItem: prList) {
 ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
 List<Program> programList = programDao.getAllActivePrograms();
 
-if (OscarProperties.getInstance().getBooleanProperty("consultation_program_letterhead_enabled", "true")) {
+if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_letterhead_enabled", "true")) {
 	if (programList != null) {
 		for (Program program : programList) {
 			String progNo = "prog_" + program.getId();
@@ -1793,7 +1793,7 @@ if (userAgent != null) {
 
         %>
 
-        <% if (!props.isConsultationFaxEnabled() || !OscarProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
+        <% if (!props.isConsultationFaxEnabled() || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
         <input type="hidden" name="providerNo" value="<%=providerNo%>">
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<%=demo%>">
@@ -2136,7 +2136,7 @@ if (userAgent != null) {
                                 %>
 
                                 <table>
-                                    <% if (props.isConsultationFaxEnabled() && OscarProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
+                                    <% if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
                                     <tr>
                                         <td class="tite4" style="width:30%"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgAssociated2"/></td>
                                         <td class="tite1" style="width:70%">
@@ -2217,7 +2217,7 @@ if (userAgent != null) {
 
                                             <%=thisForm.getProfessionalSpecialistName()%>
 
-                                            <% } else if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) { %>
+                                            <% } else if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) { %>
 
                                             <select name="specialist" id="specialist" onchange="getSpecialist(this)">
                                                 <c:forEach items="${ healthCareTeam }" var="contact" varStatus="loop">
@@ -2565,7 +2565,7 @@ if (userAgent != null) {
                                                 <% }
                                                 }
 
-                                                    if (OscarProperties.getInstance().getBooleanProperty("consultation_program_letterhead_enabled", "true")) {
+                                                    if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_letterhead_enabled", "true")) {
                                                         for (Program p : programList) {
                                                 %>
                                                 <option value="prog_<%=p.getId() %>" <%=(thisForm.getLetterheadName() != null && thisForm.getLetterheadName().equalsIgnoreCase("prog_" + p.getId()) ? "selected" : "") %>>
@@ -3109,7 +3109,7 @@ if (userAgent != null) {
             singleClick: true,
             step: 1
         });
-        <%if("false".equals(OscarProperties.getInstance().getProperty("CONSULTATION_LOCK_REFERRAL_DATE", "true"))) {%>
+        <%if("false".equals(CarlosProperties.getInstance().getProperty("CONSULTATION_LOCK_REFERRAL_DATE", "true"))) {%>
         Calendar.setup({
             inputField: "referalDate",
             ifFormat: "%Y/%m/%d",

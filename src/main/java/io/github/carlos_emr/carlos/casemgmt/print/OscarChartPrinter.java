@@ -76,7 +76,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
@@ -862,7 +862,7 @@ public class OscarChartPrinter {
 
         public EndPage() {
             now = new Date();
-            promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+            promoTxt = CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT");
             if (promoTxt == null) {
                 promoTxt = new String();
             }

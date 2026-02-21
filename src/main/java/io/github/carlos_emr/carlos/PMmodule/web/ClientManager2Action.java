@@ -81,7 +81,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Required;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 
@@ -1076,7 +1076,7 @@ public class ClientManager2Action extends ActionSupport {
 
         ArrayList<CdsClientForm> allLatestCdsForms = new ArrayList<CdsClientForm>();
 
-        boolean restrict = "true".equals(OscarProperties.getInstance().getProperty("caisi.cds.restrict_by_program_domain", "false"));
+        boolean restrict = "true".equals(CarlosProperties.getInstance().getProperty("caisi.cds.restrict_by_program_domain", "false"));
         if (restrict) {
             domain = programManager.getProgramDomain(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
         }

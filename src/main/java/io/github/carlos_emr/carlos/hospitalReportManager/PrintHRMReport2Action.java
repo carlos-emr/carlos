@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 
 import javax.servlet.http.HttpServletRequest;
@@ -102,10 +102,10 @@ public class PrintHRMReport2Action extends ActionSupport {
 
                 String fileTempName = "";
                 if (demographic != null) {
-                    fileTempName = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + demographic.getLastName() + "_" + demographic.getFirstName() + "_" + hrmId + "_HRMReport.pdf";
+                    fileTempName = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//" + demographic.getLastName() + "_" + demographic.getFirstName() + "_" + hrmId + "_HRMReport.pdf";
                     fileName = demographic.getLastName() + "_" + demographic.getFirstName() + "_HRMReport" + "_" + (new Date().getTime()) + ".pdf";
                 } else {
-                    fileTempName = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "//HRMReport.pdf";
+                    fileTempName = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "//HRMReport.pdf";
                     fileName = "_HRMReport" + "_" + (new Date().getTime()) + ".pdf";
                 }
                 response.setHeader("Content-Disposition", "attachment; filename=\"" + fileName + "\"");

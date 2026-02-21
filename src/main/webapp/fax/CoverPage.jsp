@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -393,7 +393,7 @@
                                 <div class="col-sm-12">
                                     <label for="commentsTextArea">Comments</label>
                                     <textarea class="form-control" name="comments" id="commentsTextArea"
-                                              rows="5"><%= OscarProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "") %></textarea>
+                                              rows="5"><%= CarlosProperties.getInstance().getProperty("DEFAULT_FAX_COVERPAGE_COMMENT", "") %></textarea>
                                 </div>
                             </div>
                         </div>

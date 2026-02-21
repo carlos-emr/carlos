@@ -67,7 +67,7 @@ import com.itextpdf.text.Paragraph;
 import com.itextpdf.text.Rectangle;
 import com.itextpdf.text.pdf.PdfWriter;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 
@@ -75,7 +75,7 @@ public class OscarOnCallClinic implements OscarRunnable {
     private Provider provider = null;
     private static String SCHEDULE_TEMPLATE = "P:OnCallClinic";
     private static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("EEEE MMMM d, yyyy");
-    private static String DOCUMENTDIR = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+    private static String DOCUMENTDIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
     @Override
     public void run() {

@@ -69,7 +69,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import com.opensymphony.xwork2.ActionSupport;
@@ -101,7 +101,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        if (!"true".equals(OscarProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
+        if (!"true".equals(CarlosProperties.getInstance().getProperty("program_domain.show_echart", "false"))) {
             if (!caseManagementMgr.isClientInProgramDomain(loggedInInfo.getLoggedInProviderNo(), demoNo)
                     && !caseManagementMgr.isClientReferredInProgramDomain(loggedInInfo.getLoggedInProviderNo(),
                     demoNo)) {
@@ -203,7 +203,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
             long notesCount = caseManagementNoteDao.getNotesCountByDemographicId(bean.getDemographicNo());
             if (notesCount == 0
-                    && OscarProperties.getInstance().getProperty("wl_default_issue", "false").equals("true")) {
+                    && CarlosProperties.getInstance().getProperty("wl_default_issue", "false").equals("true")) {
                 // assign default issues for a feature: WL: default issues assignment
                 String wlProgramId = (String) request.getSession().getAttribute(SessionConstants.CURRENT_PROGRAM_ID);
                 DefaultIssueDao defaultIssueDao = SpringUtils.getBean(DefaultIssueDao.class);

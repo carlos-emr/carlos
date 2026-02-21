@@ -30,7 +30,7 @@
 --%>
 <%@page import="java.net.URLEncoder" %>
 <%@page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -82,7 +82,7 @@
 
         <tbody>
         <%
-            //OscarProperties op = OscarProperties.getInstance();
+            //CarlosProperties op = CarlosProperties.getInstance();
             //String project_home = op.getProperty("project_home");
             ArrayList images = EFormUtil.listImages();
             request.setAttribute("images", images);

@@ -25,7 +25,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FileUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 import com.opensymphony.xwork2.ActionSupport;
@@ -73,8 +73,8 @@ public class OscarStatus2Action extends ActionSupport {
     private String getOscarSQLMasterStatus() {
         String output = "$ show master status\\G\n";
 
-        String dbUser = OscarProperties.getInstance().getProperty("db_username");
-        String dbPass = OscarProperties.getInstance().getProperty("db_password");
+        String dbUser = CarlosProperties.getInstance().getProperty("db_username");
+        String dbPass = CarlosProperties.getInstance().getProperty("db_password");
 
         String[] cmd =
                 {
@@ -106,8 +106,8 @@ public class OscarStatus2Action extends ActionSupport {
     private String getOscarSQLSlaveStatus() {
         String output = "$ show slave status\\G\n";
 
-        String dbUser = OscarProperties.getInstance().getProperty("db_username");
-        String dbPass = OscarProperties.getInstance().getProperty("db_password");
+        String dbUser = CarlosProperties.getInstance().getProperty("db_username");
+        String dbPass = CarlosProperties.getInstance().getProperty("db_password");
 
         String[] cmd =
                 {
@@ -212,8 +212,8 @@ public class OscarStatus2Action extends ActionSupport {
     private String documentStorage() {
         String output = "";
 
-        if (OscarProperties.getInstance().getProperty("DOCUMENT_DIR") != null) {
-            String docDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        if (CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") != null) {
+            String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
             output += "$ ls -R " + docDir + " | wc \n";
             String bashCmd = "ls -R " + docDir + " | wc";
@@ -252,9 +252,9 @@ public class OscarStatus2Action extends ActionSupport {
     private String hl7Status() {
 
         String output = "";
-        if (OscarProperties.getInstance().getProperty("HL7_COMPLETED_DIR") != null) {
+        if (CarlosProperties.getInstance().getProperty("HL7_COMPLETED_DIR") != null) {
 
-            String hl7Dir = OscarProperties.getInstance().getProperty("HL7_COMPLETED_DIR");
+            String hl7Dir = CarlosProperties.getInstance().getProperty("HL7_COMPLETED_DIR");
             output += "$ ls -ltr " + hl7Dir + " \n";
 
             String[] cmd =

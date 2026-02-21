@@ -29,7 +29,7 @@
 
 --%>
 
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ include file="/taglibs.jsp" %>
 <%@ page import="java.util.Properties" %>
 <%@ page import="java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>

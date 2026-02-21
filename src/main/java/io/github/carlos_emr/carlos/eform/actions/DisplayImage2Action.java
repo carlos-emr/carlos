@@ -36,7 +36,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import javax.activation.MimetypesFileTypeMap;
 import javax.servlet.http.HttpServletRequest;
@@ -88,7 +88,7 @@ public class DisplayImage2Action extends ActionSupport {
         if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
             throw new IllegalArgumentException("Invalid filename");
         }
-        String home_dir = OscarProperties.getInstance().getEformImageDirectory();
+        String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
 
         File file = null;
         try {
@@ -217,7 +217,7 @@ public class DisplayImage2Action extends ActionSupport {
     }
 
     public static File getImageFile(String imageFileName) throws Exception {
-        String home_dir = OscarProperties.getInstance().getEformImageDirectory();
+        String home_dir = CarlosProperties.getInstance().getEformImageDirectory();
 
         File file = null;
         try {

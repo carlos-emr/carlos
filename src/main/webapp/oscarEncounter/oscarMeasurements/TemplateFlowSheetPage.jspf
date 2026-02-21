@@ -47,7 +47,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
-<%@page import="io.github.carlos_emr.OscarProperties"%>
+<%@page import="io.github.carlos_emr.CarlosProperties"%>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
@@ -86,7 +86,7 @@
     </security:oscarSec>
 
 <%
-	if (OscarProperties.getInstance().getBooleanProperty("new_flowsheet_enabled", "true")) {
+	if (CarlosProperties.getInstance().getBooleanProperty("new_flowsheet_enabled", "true")) {
 		if (temp != null && temp.equals("diab3") || (request.getAttribute("temp") != null && request.getAttribute("temp").equals("diab3"))) {
 	%>
 		<jsp:forward page="DiabFlowSheet.jsp" />

@@ -53,7 +53,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.JdbcBillingReviewImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     BillingONPaymentDao billingOnPaymentDao = SpringUtils.getBean(BillingONPaymentDao.class);
     BillingONCHeader1Dao bCh1Dao = SpringUtils.getBean(BillingONCHeader1Dao.class);
@@ -213,7 +213,7 @@
 
             <% if (obj.getStatus().compareTo("B") == 0 || obj.getStatus().compareTo("S") == 0) { %>
             <td align="center">&nbsp;</td>
-            <% } else if (OscarProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
+            <% } else if (CarlosProperties.getInstance().getBooleanProperty("warnOnDeleteBill", "true")) { %>
             <td align="center"><a
                     href="#"
                     onClick="onUnbilled('<%=obj.getId()%>','<%=obj.getStatus()%>');return false;">Unbill</a>

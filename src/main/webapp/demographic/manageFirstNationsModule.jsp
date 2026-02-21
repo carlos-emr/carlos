@@ -51,7 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%
     String demographic_no = request.getParameter("demo");
@@ -141,7 +141,7 @@
         <input type="text" id="statusNum" name="statusNum" maxlength="10" size="10" value="${ demoExt["statusNum"] }">
         <input type="hidden" name="statusNumOrig" value="${ demoExt["statusNum"] }">
     </td>
-    <% if (!OscarProperties.getInstance().isPropertyActive("showBandNumberOnly")) { %>
+    <% if (!CarlosProperties.getInstance().isPropertyActive("showBandNumberOnly")) { %>
     <td align="right" class="label disableStyle">
         <strong>First Nation Community:</strong>
     </td>

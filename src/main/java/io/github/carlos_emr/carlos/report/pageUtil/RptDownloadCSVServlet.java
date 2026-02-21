@@ -42,7 +42,7 @@ import javax.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.login.DBHelp;
 import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
@@ -194,7 +194,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
         Vector vecSeqSpecSelect = new Vector();
         propSpecSelect.setProperty("prefer_language", "Preferred Language");
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
         if (oscarProps.getProperty("demographicExt") != null) {
             String[] propDemoExt = oscarProps.getProperty("demographicExt", "").split("\\|");
             for (int i = 0; i < propDemoExt.length; i++) {

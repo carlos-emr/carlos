@@ -19,7 +19,7 @@
         errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.login.DBHelp" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportCreator" %>
-<% java.util.Properties oscarVariables = io.github.carlos_emr.OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = io.github.carlos_emr.CarlosProperties.getInstance(); %>
 
 <%
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Report in CSV")) {

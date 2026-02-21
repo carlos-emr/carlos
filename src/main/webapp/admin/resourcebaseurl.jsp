@@ -33,7 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -58,7 +58,7 @@
     UserProperty upUrl = propertyDao.getProp("resource_baseurl");
     UserProperty upHtml = propertyDao.getProp("resource_helphtml");
 
-    Properties oscarVariables = OscarProperties.getInstance();
+    Properties oscarVariables = CarlosProperties.getInstance();
 
     String checkedWebsite = "";
     String checkedDetails = "";

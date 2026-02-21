@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.utility.QrCodeUtils.QrCodesOrientation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import ca.uhn.hl7v2.model.v26.message.OMP_O09;
 
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
@@ -86,7 +86,7 @@ public final class PrescriptionQrCodeUIBean {
             String hl7PrescriptionString = OscarToOscarUtils.pipeParser.encode(hl7PrescriptionMessage);
             logger.debug(hl7PrescriptionString);
 
-            int qrCodeScale = Integer.valueOf(OscarProperties.getInstance().getProperty("QR_CODE_IMAGE_SCALE_FACTOR"));
+            int qrCodeScale = Integer.valueOf(CarlosProperties.getInstance().getProperty("QR_CODE_IMAGE_SCALE_FACTOR"));
 
             byte[] image = QrCodeUtils.toMultipleQrCodePngs(hl7PrescriptionString, getEcLevel(), QrCodesOrientation.VERTICAL, qrCodeScale);
 
@@ -108,7 +108,7 @@ public final class PrescriptionQrCodeUIBean {
      * enums are defined as singletons.
      */
     private static ErrorCorrectionLevel getEcLevel() {
-        String ecLevelString = OscarProperties.getInstance().getProperty("QR_CODE_ERROR_CORRECTION_LEVEL");
+        String ecLevelString = CarlosProperties.getInstance().getProperty("QR_CODE_ERROR_CORRECTION_LEVEL");
 
         if ("L".equals(ecLevelString)) return (ErrorCorrectionLevel.L);
         if ("M".equals(ecLevelString)) return (ErrorCorrectionLevel.M);

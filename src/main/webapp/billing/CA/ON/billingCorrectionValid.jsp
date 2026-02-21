@@ -36,7 +36,7 @@
         import="java.io.*, java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.*, java.math.*"
         errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.*" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="dbBillingDataBean" scope="page"
              class="io.github.carlos_emr.dbBillingData">
     <jsp:setProperty name="dbBillingDataBean" property="*"/>

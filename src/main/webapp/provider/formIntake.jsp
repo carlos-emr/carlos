@@ -29,7 +29,7 @@
     DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
 %>
 
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 
@@ -45,7 +45,7 @@
     }
 %>
 <%
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     String project = request.getContextPath();
     String curUser_no = (String) session.getAttribute("user");
     String demographic_no = "" + Integer.parseInt(request.getParameter("demographic_no"));

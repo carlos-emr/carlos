@@ -30,7 +30,7 @@
 --%>
 
 <%@page
-        import="io.github.carlos_emr.OscarProperties,
+        import="io.github.carlos_emr.CarlosProperties,
                 org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%

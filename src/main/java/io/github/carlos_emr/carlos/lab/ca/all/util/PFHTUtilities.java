@@ -33,7 +33,7 @@ import java.util.Date;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /*
  * @author Divya Mantha, Indivica
@@ -128,7 +128,7 @@ public class PFHTUtilities {
 
 
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             //properties must exist
             String place = props.getProperty("DOCUMENT_DIR");
 

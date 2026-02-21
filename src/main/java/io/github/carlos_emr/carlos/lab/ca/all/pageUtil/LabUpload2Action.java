@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.commn.model.OtherId;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.HHSEmrDownloadHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.HandlerClassFactory;
@@ -133,7 +133,7 @@ public class LabUpload2Action extends ActionSupport {
                 logger.debug("Validated Successfully");
                 MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
 
-                if (type.equals("HHSEMR") && OscarProperties.getInstance().getProperty("lab.hhsemr.filter_ordering_provider", "false").equals("true")) {
+                if (type.equals("HHSEMR") && CarlosProperties.getInstance().getProperty("lab.hhsemr.filter_ordering_provider", "false").equals("true")) {
                     logger.info("Applying filter to HHS EMR lab");
                     String hl7Data = FileUtils.readFileToString(file, "UTF-8");
                     HHSEmrDownloadHandler filterHandler = new HHSEmrDownloadHandler();

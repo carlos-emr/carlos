@@ -81,7 +81,7 @@
         boolean bAlternate = (request.getParameter("alternate") != null && request.getParameter("alternate").equals("checked")) ? true : false;
         boolean bOrigAlt = false;
 
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
 
         boolean bMoreAddr = bMultisites
                 ? true

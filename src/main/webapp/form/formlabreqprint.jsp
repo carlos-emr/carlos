@@ -44,7 +44,7 @@
     }
 %>
 
-<%@ page import="java.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.OscarProperties" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -71,7 +71,7 @@
 	FrmRecord rec = (new FrmRecordFactory()).factory(formClass);
     java.util.Properties props = rec.getPrintRecord(demoNo, formId);
 */
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
     %>
 
     <script type="text/javascript" language="Javascript">

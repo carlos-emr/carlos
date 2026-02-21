@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.decisionSupport.model.DSConsequence;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.billings.ca.bc.decisionSupport.BillingGuidelines;
-import io.github.carlos_emr.carlos.util.plugin.OscarProperties;
+import io.github.carlos_emr.carlos.util.plugin.CarlosProperties;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -57,7 +57,7 @@ public final class Billing2Action extends ActionSupport {
             ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         BillingSessionBean bean = null;
-        String region = request.getParameter("billRegion") != null ? request.getParameter("billRegion") : OscarProperties.getProperties().getProperty("billregion");
+        String region = request.getParameter("billRegion") != null ? request.getParameter("billRegion") : CarlosProperties.getProperties().getProperty("billregion");
 
         if ("ON".equals(region)) {
             String newURL = request.getContextPath() + "/billing/CA/ON/billingOB.jsp";

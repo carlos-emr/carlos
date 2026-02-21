@@ -42,7 +42,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * Class for use with the Ontario MD / eHealth eConsult project
@@ -59,7 +59,7 @@ public class EConsult2Action extends ActionSupport {
     // Maximum length for task parameter to prevent excessive input
     private static final int MAX_TASK_LENGTH = 100;
 
-    private final OscarProperties oscarProperties = OscarProperties.getInstance();
+    private final CarlosProperties oscarProperties = CarlosProperties.getInstance();
     private final String frontendEconsultUrl = oscarProperties.getProperty("frontendEconsultUrl");
     private final String backendEconsultUrl = oscarProperties.getProperty("backendEconsultUrl");
 

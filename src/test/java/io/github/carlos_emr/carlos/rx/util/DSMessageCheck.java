@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.RxDsMessageTo1;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import io.github.carlos_emr.carlos.commn.model.Facility;
 
@@ -80,9 +80,9 @@ public class DSMessageCheck extends DaoTestFixtures {
         regionalIdentifiers.add("01918346");
         regionalIdentifiers.add("02396335");
 
-        OscarProperties.getInstance().setProperty("drugref_url", "http://localhost:9098/drugref2/DrugrefService");
+        CarlosProperties.getInstance().setProperty("drugref_url", "http://localhost:9098/drugref2/DrugrefService");
 
-        OscarProperties.getInstance().setProperty("RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER", "yes");
+        CarlosProperties.getInstance().setProperty("RX_INTERACTION_LOCAL_DRUGREF_REGIONAL_IDENTIFIER", "yes");
 
 
         Locale locale = Locale.CANADA;

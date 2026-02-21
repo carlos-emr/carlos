@@ -34,7 +34,7 @@
 <%@page import="io.github.carlos_emr.carlos.provider.model.PreventionManager" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%@page import="java.util.ArrayList" %>
 <%@page import="java.util.List" %>
@@ -132,7 +132,7 @@
 
 //checking if hide stop signs have been set in the database if not then check to see if
 //show stop signs have been turned off in the property file
-        if (getStatus == "" && OscarProperties.getInstance().getProperty("SHOW_PREVENTION_STOP_SIGNS", "false").equals("false")) {
+        if (getStatus == "" && CarlosProperties.getInstance().getProperty("SHOW_PREVENTION_STOP_SIGNS", "false").equals("false")) {
             //for users who have SHOW_PREVENTION_STOP_SIGNS disabled
             getStatus = "master";
         }

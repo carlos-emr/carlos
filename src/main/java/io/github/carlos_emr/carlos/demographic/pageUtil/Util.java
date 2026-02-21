@@ -71,7 +71,7 @@ import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author Ronnie
@@ -207,7 +207,7 @@ public class Util {
 
     static public boolean cleanFile(String filename) {
         File f = new File(filename);
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
 
         // Try configured directories first (strict validation, no temp fallback)
         String[] allowedDirProperties = {"TMP_DIR", "DOCUMENT_DIR"};

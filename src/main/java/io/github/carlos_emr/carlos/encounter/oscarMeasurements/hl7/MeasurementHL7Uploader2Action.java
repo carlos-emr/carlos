@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabUpload2Action;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import ca.uhn.hl7v2.model.v23.datatype.CE;
@@ -72,14 +72,14 @@ public class MeasurementHL7Uploader2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
-    private static SimpleDateFormat sdf = new SimpleDateFormat(OscarProperties.getInstance().getProperty("oscar.measurements.hl7.datetime.format", "yyyyMMddHHmmss"));
+    private static SimpleDateFormat sdf = new SimpleDateFormat(CarlosProperties.getInstance().getProperty("oscar.measurements.hl7.datetime.format", "yyyyMMddHHmmss"));
 
     private static MeasurementDao measurementsDao = SpringUtils.getBean(MeasurementDao.class);
     private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     // settings to be set in spring config xml, if needed
-    private String defaultProviderNo = OscarProperties.getInstance().getProperty("oscar.measurements.hl7.defaultProviderNo", "999998");
-    private String hl7UploadPassword = OscarProperties.getInstance().getProperty("oscar.measurements.hl7.password");
+    private String defaultProviderNo = CarlosProperties.getInstance().getProperty("oscar.measurements.hl7.defaultProviderNo", "999998");
+    private String hl7UploadPassword = CarlosProperties.getInstance().getProperty("oscar.measurements.hl7.password");
 
     public void setHl7UploadPassword(String uploadPassword) {
         this.hl7UploadPassword = uploadPassword;

@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class CkdScreenerSchedulerJob extends TimerTask {
 
@@ -45,12 +45,12 @@ public class CkdScreenerSchedulerJob extends TimerTask {
 
     @Override
     public void run() {
-        if (!OscarProperties.getInstance().getProperty("ORN_PILOT", "no").equalsIgnoreCase("yes")) {
+        if (!CarlosProperties.getInstance().getProperty("ORN_PILOT", "no").equalsIgnoreCase("yes")) {
             return;
         }
 
         Provider provider = new Provider();
-        provider.setProviderNo(OscarProperties.getInstance().getProperty("ORN_PILOT_USER", "999998"));
+        provider.setProviderNo(CarlosProperties.getInstance().getProperty("ORN_PILOT_USER", "999998"));
         Security security = new Security();
         security.setId(0);
 

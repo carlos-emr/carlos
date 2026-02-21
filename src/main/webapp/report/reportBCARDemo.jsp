@@ -16,7 +16,7 @@
 
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.demographic.data.ProvinceNames"
          errorPage="/errorpage.jsp" %>
-<% java.util.Properties oscarVariables = io.github.carlos_emr.OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = io.github.carlos_emr.CarlosProperties.getInstance(); %>
 <%
     ProvinceNames pNames = ProvinceNames.getInstance();
     String prov = ((String) oscarVariables.getProperty("billregion", "")).trim().toUpperCase();

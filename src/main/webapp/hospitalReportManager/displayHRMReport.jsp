@@ -16,7 +16,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -181,7 +181,7 @@
 
     String currentDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
 
-    boolean obgynShortcuts = OscarProperties.getInstance().getProperty("show_obgyn_shortcuts", "false").equalsIgnoreCase("true");
+    boolean obgynShortcuts = CarlosProperties.getInstance().getProperty("show_obgyn_shortcuts", "false").equalsIgnoreCase("true");
     String formId = "0";
 
 

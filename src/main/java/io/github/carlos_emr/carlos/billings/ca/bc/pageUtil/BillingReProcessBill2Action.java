@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPBillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
@@ -99,7 +99,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         }
 
         for (BillingReProcessBill2Form frm : billingReProcessBillFormList) {
-            String dataCenterId = OscarProperties.getInstance().getProperty("dataCenterId");
+            String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
             String billingmasterNo = frm.getBillingmasterNo();
             String demographicNo = frm.getDemoNo();
             DemographicData demoD = new DemographicData();
@@ -192,7 +192,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
             String hcType = demo.getHcType(); //d
 
             String messageNotes = frm.getMessageNotes();
-            String billRegion = OscarProperties.getInstance().getProperty("billregion");
+            String billRegion = CarlosProperties.getInstance().getProperty("billregion");
             String submit = frm.getSubmit();
             String secondSQL = null;
 

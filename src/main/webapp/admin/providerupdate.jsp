@@ -72,7 +72,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
     ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
@@ -106,7 +106,7 @@
             if (IsPropertiesOn.isProviderFormalizeEnable()) {
 
                 String StrProviderId = request.getParameter("provider_no");
-                OscarProperties props = OscarProperties.getInstance();
+                CarlosProperties props = CarlosProperties.getInstance();
 
                 String[] provider_sites = {};
 

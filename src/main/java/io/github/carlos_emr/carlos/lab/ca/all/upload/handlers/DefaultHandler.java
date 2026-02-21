@@ -55,7 +55,7 @@ import org.w3c.dom.NodeList;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class DefaultHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
@@ -132,7 +132,7 @@ public class DefaultHandler implements MessageHandler {
             }
 
             // Validate the file is within the expected document directory
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir != null && !documentDir.isEmpty()) {
                 File docDir = new File(documentDir).getCanonicalFile();
@@ -165,7 +165,7 @@ public class DefaultHandler implements MessageHandler {
         }
 
         // Validate the file is within the expected document directory
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String documentDir = props.getProperty("DOCUMENT_DIR");
         if (documentDir != null && !documentDir.isEmpty()) {
             File docDir = new File(documentDir).getCanonicalFile();

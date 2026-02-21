@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.*;
 import io.github.carlos_emr.carlos.commn.dao.AdmissionDao;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
 import java.util.ArrayList;
@@ -150,7 +150,7 @@ public class ProgramManagerImpl implements ProgramManager {
      * facilityId can be null, it will return all community programs optionally filtering by facility id if filtering is enabled.
      */
     public List<Program> getCommunityPrograms(Integer facilityId) {
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             return programDao.getCommunityProgramsByFacilityId(facilityId);
         } else {
             return programDao.getPrograms();
@@ -159,7 +159,7 @@ public class ProgramManagerImpl implements ProgramManager {
 
 
     public List<Program> getPrograms(Integer facilityId) {
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             return programDao.getProgramsByFacilityId(facilityId);
         } else {
             return programDao.getAllPrograms();

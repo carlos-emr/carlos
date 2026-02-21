@@ -47,7 +47,7 @@
     }
 %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -81,7 +81,7 @@
         import="java.util.*, java.net.*,java.text.DecimalFormat, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.ProvinceNames, io.github.carlos_emr.carlos.waitinglist.WaitingList, io.github.carlos_emr.carlos.report.data.DemographicSets,io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.OtherIdManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
@@ -107,7 +107,7 @@
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
     WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
     WaitingListNameDao waitingListNameDao = SpringUtils.getBean(WaitingListNameDao.class);
-    OscarProperties oscarProps = OscarProperties.getInstance();
+    CarlosProperties oscarProps = CarlosProperties.getInstance();
     String privateConsentEnabledProperty = oscarProps.getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = (privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true"));
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
@@ -530,7 +530,7 @@
 
             function checkONReferralNo() {
                 <%
-		String skip = OscarProperties.getInstance().getProperty("SKIP_REFERRAL_NO_CHECK","false");
+		String skip = CarlosProperties.getInstance().getProperty("SKIP_REFERRAL_NO_CHECK","false");
 		if(!skip.equals("true")) {
 	%>
                 var referralNo = document.updatedelete.r_doctor_ohip.value;
@@ -1738,7 +1738,7 @@
                                                                         <span class="info"><%=MyDateFormat.getMyStandardDate(demographic.getEndDate())%></span>
                                                                     </li>
 
-                                                                    <%if (!"true".equals(OscarProperties.getInstance().getProperty("phu.hide", "false"))) { %>
+                                                                    <%if (!"true".equals(CarlosProperties.getInstance().getProperty("phu.hide", "false"))) { %>
                                                                     <li><span class="label">
 								<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPHU"/>:</span>
                                                                         <span class="info"><c:out
@@ -2719,7 +2719,7 @@
                                                         <td align="left">
                                                             <% String province = demographic.getProvince(); %>
                                                             <%
-                                                                if ("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
+                                                                if ("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
                                                             %>
                                                             <select name="province" id="province"></select>
                                                             <br/>
@@ -2994,7 +2994,7 @@
                                                             <%
                                                                 String residentialProvince = demographic.getResidentialProvince(); %>
                                                             <%
-                                                                if ("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
+                                                                if ("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
                                                             %>
                                                             <select name="residentialProvince"
                                                                     id="residentialProvince"></select>
@@ -4175,7 +4175,7 @@
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <%if (!"true".equals(OscarProperties.getInstance().getProperty("phu.hide", "false"))) { %>
+                                                        <%if (!"true".equals(CarlosProperties.getInstance().getProperty("phu.hide", "false"))) { %>
                                                         <td align="right"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.formPHU"/>:</b>
                                                         </td>
                                                         <td align="left">
@@ -4898,7 +4898,7 @@
                                                                                         property="billregion">
                                                                 <security:oscarSec roleName="<%=roleName$%>"
                                                                                    objectName="_careconnect" rights="r">
-                                                                    <c:set value="${ OscarProperties.getInstance()['BC_CARECONNECT_URL'] }"
+                                                                    <c:set value="${ CarlosProperties.getInstance()['BC_CARECONNECT_URL'] }"
                                                                            var="url" scope="page"/>
                                                                     <c:if test="${ not empty url }">
                                                                         <script type="text/javascript"
@@ -4906,7 +4906,7 @@
                                                                         <input type="button" value="CareConnect"
                                                                                onclick="callCareConnect('${url}', '${ demographic.hin }', '${ demographic.firstName }',
                                                                                        '${ demographic.lastName }', '${ demographic.formattedDob }', '${ demographic.sex }',
-                                                                                       '${ OscarProperties.getInstance()['BC_CARECONNECT_REGION'] }' )"/>
+                                                                                       '${ CarlosProperties.getInstance()['BC_CARECONNECT_REGION'] }' )"/>
                                                                         <br/>
                                                                     </c:if>
                                                                 </security:oscarSec>
@@ -5087,7 +5087,7 @@ if (privateConsentEnabled) {
 <%!
 
     public String getDisabled(String fieldName) {
-        String val = OscarProperties.getInstance().getProperty("demographic.edit." + fieldName, "");
+        String val = CarlosProperties.getInstance().getProperty("demographic.edit." + fieldName, "");
         if (val != null && val.equals("disabled")) {
             return " disabled=\"disabled\" ";
         }

@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prevention.PreventionDS;
 
 
@@ -84,7 +84,7 @@ public class ResourceService extends AbstractServiceImpl {
         }
         ResourceBundle bundle = getResourceBundle();
 
-        String preventionPath = OscarProperties.getInstance().getProperty("PREVENTION_FILE");
+        String preventionPath = CarlosProperties.getInstance().getProperty("PREVENTION_FILE");
         if (preventionPath != null) {
             return bundle.getString("prevention.currentrules.propertyfile");
         } else {
@@ -107,7 +107,7 @@ public class ResourceService extends AbstractServiceImpl {
         }
         ResourceBundle bundle = getResourceBundle();
 
-        String fileName = OscarProperties.getInstance().getProperty("odb_formulary_file");
+        String fileName = CarlosProperties.getInstance().getProperty("odb_formulary_file");
         if (fileName != null && !fileName.isEmpty()) {
             return bundle.getString("lucodes.currentrules.propertyfile");
         } else {

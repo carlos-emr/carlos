@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
@@ -83,11 +83,11 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
 
             winName = "AllLabs" + bean.demographicNo;
 
-            if (OscarProperties.getInstance().getBooleanProperty("HL7TEXT_LABS", "yes")) {
+            if (CarlosProperties.getInstance().getBooleanProperty("HL7TEXT_LABS", "yes")) {
                 url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues3.jsp?demographic_no=" + bean.demographicNo + "')";
                 Dao.addPopUpUrl(url);
                 Dao.addPopUpText(getText("oscarEncounter.LeftNavBar.LabMenuItem1"));
-                if (OscarProperties.getInstance().getProperty("labs.hide_old_grid_display", "false").equals("false")) {
+                if (CarlosProperties.getInstance().getProperty("labs.hide_old_grid_display", "false").equals("false")) {
                     url = "popupPage(700,1000, '" + winName + "','" + request.getContextPath() + "/lab/CumulativeLabValues2.jsp?demographic_no=" + bean.demographicNo + "')";
                     Dao.addPopUpUrl(url);
                     Dao.addPopUpText(getText("oscarEncounter.LeftNavBar.LabMenuItem1") + "-OLD");

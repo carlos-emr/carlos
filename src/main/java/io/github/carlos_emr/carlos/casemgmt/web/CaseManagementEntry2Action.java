@@ -57,7 +57,7 @@ import io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFor
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.ApptStatusData;
 import io.github.carlos_emr.carlos.form.JSONUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -249,7 +249,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String url = "";
         if ("casemgmt".equals(request.getAttribute("from"))) {
 
-            String province = OscarProperties.getInstance().getProperty("billregion", "").trim().toUpperCase();
+            String province = CarlosProperties.getInstance().getProperty("billregion", "").trim().toUpperCase();
 
             EctSessionBean bean = (EctSessionBean) session.getAttribute("EctSessionBean");
 
@@ -264,7 +264,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             String Hour = Integer.toString(todayCal.get(Calendar.HOUR));
             String Min = Integer.toString(todayCal.get(Calendar.MINUTE));
 
-            String default_view = OscarProperties.getInstance().getProperty("default_view", "");
+            String default_view = CarlosProperties.getInstance().getProperty("default_view", "");
             String contextPath = request.getContextPath();
 
             url = bsurl + contextPath + "/billing.do?billRegion=" + java.net.URLEncoder.encode(province, "UTF-8") + "&billForm=" + java.net.URLEncoder.encode(default_view, "UTF-8") + "&hotclick=" + java.net.URLEncoder.encode("", "UTF-8") + "&appointment_no=" + bean.appointmentNo + "&appointment_date=" + bean.appointmentDate + "&start_time=" + Hour + ":" + Min + "&demographic_name=" + java.net.URLEncoder.encode(bean.patientLastName + "," + bean.patientFirstName, "UTF-8") + "&demographic_no=" + bean.demographicNo
@@ -290,7 +290,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         logger.debug("NoteId " + nId);
 
-        String maxTmpSave = OscarProperties.getInstance().getProperty("maxTmpSave", "off");
+        String maxTmpSave = CarlosProperties.getInstance().getProperty("maxTmpSave", "off");
         logger.debug("maxTmpSave " + maxTmpSave);
         // set date 2 weeks in past so we retrieve more recent saved notes
         Calendar cal = Calendar.getInstance();
@@ -323,7 +323,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             note.setProvider(prov);
             note.setDemographic_no(demono);
 
-            if (!OscarProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
+            if (!CarlosProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
                 this.insertReason(request, note);
             } else {
                 note.setNote("");
@@ -530,7 +530,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         note.setProvider(prov);
         note.setDemographic_no(demographicNo);
 
-        if (!OscarProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
+        if (!CarlosProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
             this.insertReason(request, note);
         } else {
             note.setNote("");
@@ -1437,7 +1437,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         note.setUpdate_date(now);
 
         // Checks whether the user can set the program via the UI - if so, make sure that they can't screw it up if they do
-        if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
             String noteProgramNo = request.getParameter("_note_program_no");
             String noteRoleId = request.getParameter("_note_role_id");
 
@@ -1937,7 +1937,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
 
-        if (OscarProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true")) {
+        if (CarlosProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true")) {
             String verifyStr = request.getParameter("verify");
             if (verifyStr != null && verifyStr.equalsIgnoreCase("on")) {
 
@@ -1985,7 +1985,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             } else {
                 providerview = loggedInInfo.getLoggedInProviderNo();
             }
-            String defaultView = OscarProperties.getInstance().getProperty("default_view", "");
+            String defaultView = CarlosProperties.getInstance().getProperty("default_view", "");
 
             Set setIssues = this.getCaseNote().getIssues();
             Iterator iter = setIssues.iterator();
@@ -2498,7 +2498,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         this.setIssueCheckList(caseIssueList);
         sessionFrm.setIssueCheckList(caseIssueList);
 
-        if (OscarProperties.getInstance().isCaisiLoaded() && iss != null) {
+        if (CarlosProperties.getInstance().isCaisiLoaded() && iss != null) {
             // reset current concern in CPP
             caseManagementMgr.removeIssueFromCPP(demono, iss);
         }
@@ -2576,7 +2576,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setMajor(oldList.get(ind.intValue()).getIssue().isMajor() ? "major" : "not major");
         sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setResolved(oldList.get(ind.intValue()).getIssue().isResolved() ? "resolved" : "unresolved");
 
-        if (OscarProperties.getInstance().isCaisiLoaded()) {
+        if (CarlosProperties.getInstance().isCaisiLoaded()) {
             // get access right
             List accessRight = caseManagementMgr.getAccessRight(providerNo, demono, (String) session.getAttribute("case_program_id"));
 

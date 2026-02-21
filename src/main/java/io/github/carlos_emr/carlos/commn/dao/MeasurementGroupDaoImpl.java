@@ -37,7 +37,7 @@ import javax.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
 import org.springframework.stereotype.Repository;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 @Repository
 @SuppressWarnings("unchecked")
@@ -82,7 +82,7 @@ public class MeasurementGroupDaoImpl extends AbstractDaoImpl<MeasurementGroup> i
 
     @Override
     public List<MeasurementGroup> findByName(String name) {
-        boolean orderById = "true".equals(OscarProperties.getInstance().getProperty("oscarMeasurements.orderGroupById", "false"));
+        boolean orderById = "true".equals(CarlosProperties.getInstance().getProperty("oscarMeasurements.orderGroupById", "false"));
         String orderBy = "";
         if (orderById) {
             orderBy = " ORDER BY x.id ASC";

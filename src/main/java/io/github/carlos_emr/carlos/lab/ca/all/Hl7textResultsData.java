@@ -65,7 +65,7 @@ import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -130,7 +130,7 @@ public class Hl7textResultsData {
          * This OSCAR property determines what is allowed to be written to the measurements
          * table.  No more entire PDF documents written into measurements.
          */
-        String patternstring = OscarProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
+        String patternstring = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
         Pattern pattern = Pattern.compile(patternstring);
 
         /*
@@ -138,7 +138,7 @@ public class Hl7textResultsData {
          * should be mapped to a measurement by Name AND identifier.
          * Excelleris uses only LOINC identifiers for the most part.
          */
-        boolean isSearchName = Boolean.parseBoolean(OscarProperties.getInstance().getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false"));
+        boolean isSearchName = Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false"));
 
         List<MeasurementsExt> measurementsExts = new ArrayList<>();
         for (int i = 0; i < h.getOBRCount(); i++) {

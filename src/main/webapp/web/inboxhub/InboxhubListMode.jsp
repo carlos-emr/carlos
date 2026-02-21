@@ -1,5 +1,5 @@
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -20,7 +20,7 @@
         <div class="d-flex align-items-center position-relative float-end">
             <span class="d-inline me-2 py-1 text-dark fw-bold">Documents <span id="totalDocsCountStat" class="badge" style="background-color: #5a9bd3; color: white;">0</span></span>
             <span class="d-inline me-2 py-1 text-dark fw-bold">Labs <span id="totalLabssCountStat" class="badge" style="background-color: #8cbfda; color: white;">0</span></span>
-            <c:if test="${!OscarProperties.getInstance().isBritishColumbiaBillingRegion()}">
+            <c:if test="${!CarlosProperties.getInstance().isBritishColumbiaBillingRegion()}">
                 <span class="d-inline py-1 text-dark fw-bold">HRMs <span id="totalHRMsCountStat" class="badge" style="background-color: #b3d9eb; color: black;">0</span></span>
             </c:if>
             <div id="loadingLabel" class="loading-label ms-2 me-2 text-dark">Loading Search Results:</div>

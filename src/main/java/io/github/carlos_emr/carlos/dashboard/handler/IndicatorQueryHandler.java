@@ -34,7 +34,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.dashboard.display.beans.GraphPlot;
 import io.github.carlos_emr.carlos.managers.DashboardManagerImpl;
@@ -52,7 +52,7 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
     private static Logger logger = MiscUtils.getLogger();
     private List<GraphPlot[]> graphPlots;
     private static Double DEFAULT_DENOMINATOR = 100.0;
-    private static final boolean showNumbers = OscarProperties.getInstance().getBooleanProperty("SHOW_INDICATOR_DASHBOARD_NUMBERS", "true");
+    private static final boolean showNumbers = CarlosProperties.getInstance().getBooleanProperty("SHOW_INDICATOR_DASHBOARD_NUMBERS", "true");
 
     public IndicatorQueryHandler() {
         if (showNumbers) {

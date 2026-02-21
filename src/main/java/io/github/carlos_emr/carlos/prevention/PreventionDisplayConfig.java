@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 
 public class PreventionDisplayConfig {
@@ -107,8 +107,8 @@ public class PreventionDisplayConfig {
 
         InputStream is = null;
         try {
-            if (OscarProperties.getInstance().getProperty("PREVENTION_ITEMS") != null) {
-                String filename = OscarProperties.getInstance().getProperty("PREVENTION_ITEMS");
+            if (CarlosProperties.getInstance().getProperty("PREVENTION_ITEMS") != null) {
+                String filename = CarlosProperties.getInstance().getProperty("PREVENTION_ITEMS");
                 if (filename.startsWith("classpath:")) {
                     is = this.getClass().getClassLoader().getResourceAsStream(filename.substring(10));
                 } else {
@@ -202,8 +202,8 @@ public class PreventionDisplayConfig {
 
         InputStream is = null;
         try {
-            if (OscarProperties.getInstance().getProperty("PREVENTION_CONFIG_SETS") != null) {
-                String filename = OscarProperties.getInstance().getProperty("PREVENTION_CONFIG_SETS");
+            if (CarlosProperties.getInstance().getProperty("PREVENTION_CONFIG_SETS") != null) {
+                String filename = CarlosProperties.getInstance().getProperty("PREVENTION_CONFIG_SETS");
                 if (filename.startsWith("classpath:")) {
                     is = this.getClass().getClassLoader().getResourceAsStream(filename.substring(10));
                 } else {

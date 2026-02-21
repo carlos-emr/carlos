@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
 
 public class CkdNotificationManager {
@@ -60,7 +60,7 @@ public class CkdNotificationManager {
     }
 
     public void doNotify(LoggedInInfo loggedInInfo, Integer demographicNo, List<String> reasons) {
-        String notificationScheme = OscarProperties.getInstance().getProperty("ckd_notification_scheme", "dsa");
+        String notificationScheme = CarlosProperties.getInstance().getProperty("ckd_notification_scheme", "dsa");
         if (notificationScheme.equalsIgnoreCase("tickler") || notificationScheme.equalsIgnoreCase("all")) {
             notifyByTickler(loggedInInfo, demographicNo, reasons);
         }
@@ -69,7 +69,7 @@ public class CkdNotificationManager {
     public void notifyByTickler(LoggedInInfo loggedInInfo, Integer demographicNo, List<String> reasons) {
         Demographic d = demographicDao.getDemographicById(demographicNo);
 
-        String receiver = OscarProperties.getInstance().getProperty("ckd_notification_receiver");
+        String receiver = CarlosProperties.getInstance().getProperty("ckd_notification_receiver");
         if (receiver == null || receiver.length() == 0) {
             if (d != null) {
                 receiver = d.getProviderNo();
@@ -97,7 +97,7 @@ public class CkdNotificationManager {
             message += "ACR: None" + "<br/>";
         }
 
-        String flowsheet = OscarProperties.getInstance().getProperty("ckd_flowsheet", "indicators");
+        String flowsheet = CarlosProperties.getInstance().getProperty("ckd_flowsheet", "indicators");
         if (flowsheet.equals("indicators")) {
             message += "Go to CDM Indicators <a href=\"javascript:void(0);\" onclick=\"popupPage(700,1000,'../oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + demographicNo + "&amp;template=diab3');return false;\">here</a><br/>";
         } else if (flowsheet.equals("diabetes")) {
@@ -122,7 +122,7 @@ public class CkdNotificationManager {
         }
 
 
-        String labReqVer = OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+        String labReqVer = CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
         if (labReqVer.equals("")) {
             labReqVer = "07";
         }

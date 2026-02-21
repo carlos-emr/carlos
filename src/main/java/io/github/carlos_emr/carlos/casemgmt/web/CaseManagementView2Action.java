@@ -27,7 +27,7 @@
 
 package io.github.carlos_emr.carlos.casemgmt.web;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.casemgmt.service.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
@@ -363,7 +363,7 @@ public class CaseManagementView2Action extends ActionSupport {
         }
         request.setAttribute("teamName", teamName);
 
-        if (OscarProperties.getInstance().isCaisiLoaded() && !useNewCaseMgmt) {
+        if (CarlosProperties.getInstance().isCaisiLoaded() && !useNewCaseMgmt) {
 
             logger.debug("Get program providers");
             List<String> teamMembers = new ArrayList<String>();
@@ -495,7 +495,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         //load up custom JavaScript
         //1. try from Properties
-        String customCmeJs = OscarProperties.getInstance().getProperty("cme_js");
+        String customCmeJs = CarlosProperties.getInstance().getProperty("cme_js");
         if (customCmeJs == null || customCmeJs.length() == 0) {
             request.setAttribute("cme_js", "default");
         } else {
@@ -626,7 +626,7 @@ public class CaseManagementView2Action extends ActionSupport {
         if (noteSort != null && noteSort.length() > 0) {
             notesToDisplay = sortNotes(notesToDisplay, noteSort);
         } else {
-            OscarProperties p = OscarProperties.getInstance();
+            CarlosProperties p = CarlosProperties.getInstance();
             noteSort = p.getProperty("CMESort", "");
             if (noteSort.trim().equalsIgnoreCase("UP"))
                 notesToDisplay = sortNotes(notesToDisplay, "observation_date_asc");
@@ -757,13 +757,13 @@ public class CaseManagementView2Action extends ActionSupport {
                 notesToDisplay.add(new NoteDisplayNonNote(patientForm));
             }
 
-            if (OscarProperties.getInstance().getProperty("billregion", "").equalsIgnoreCase("ON")) {
+            if (CarlosProperties.getInstance().getProperty("billregion", "").equalsIgnoreCase("ON")) {
                 fetchInvoices(notesToDisplay, demoNo);
             }
         }
 
         // sort the notes
-        String noteSort = OscarProperties.getInstance().getProperty("CMESort", "");
+        String noteSort = CarlosProperties.getInstance().getProperty("CMESort", "");
         if (noteSort.trim().equalsIgnoreCase("UP")) notesToDisplay = sortNotes(notesToDisplay, "observation_date_asc");
         else notesToDisplay = sortNotes(notesToDisplay, "observation_date_desc");
 
@@ -993,7 +993,7 @@ public class CaseManagementView2Action extends ActionSupport {
         Issue issue = issueDao.getIssue(issueId);
 
         issueDisplay.code = issue.getCode();
-        issueDisplay.codeType = OscarProperties.getInstance().getProperty("COMMUNITY_ISSUE_CODETYPE").toUpperCase();
+        issueDisplay.codeType = CarlosProperties.getInstance().getProperty("COMMUNITY_ISSUE_CODETYPE").toUpperCase();
         issueDisplay.description = issue.getDescription();
         issueDisplay.location = "local";
         issueDisplay.major = cmi.isMajor() ? "major" : "not major";

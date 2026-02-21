@@ -74,7 +74,7 @@
 <%@page import="java.security.NoSuchAlgorithmException" %>
 <%@page import="org.apache.http.client.methods.HttpGet" %>
 <%@page import="javax.servlet.http.Cookie" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="org.apache.http.client.HttpClient" %>
 <%@page import="org.apache.http.HttpResponse" %>
 <%@page import="org.codehaus.jettison.json.*" %>
@@ -87,7 +87,7 @@
 
     Logger logger = MiscUtils.getLogger();
 
-    OscarProperties oscarProperties = OscarProperties.getInstance();
+    CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
     String oneIdEmail = session.getAttribute("oneIdEmail") != null ? session.getAttribute("oneIdEmail").toString() : "";
 
@@ -101,7 +101,7 @@
     }
     //logger.debug("providerEmail is " + providerEmail);
 
-    String backendEconsultUrl = OscarProperties.getInstance().getProperty("backendEconsultUrl");
+    String backendEconsultUrl = CarlosProperties.getInstance().getProperty("backendEconsultUrl");
 
 
     String url = backendEconsultUrl + "/api/test";
@@ -349,7 +349,7 @@
                         httpPost.addHeader("x-access-token", oneIdToken);
 
                         JSONObject obj = new JSONObject();
-                        obj.put("url", OscarProperties.getInstance().getProperty("dhir.url"));
+                        obj.put("url", CarlosProperties.getInstance().getProperty("dhir.url"));
                         obj.put("service", "DHIR");
                         obj.put("body", jbundle);
                         obj.put("client-request-id", clientRequestId);
@@ -514,7 +514,7 @@
         SSLConnectionSocketFactory sf = new SSLConnectionSocketFactory(sslcontext);
 
         //setup timeouts
-        int timeout = Integer.parseInt(OscarProperties.getInstance().getProperty("dhir.timeout", "60"));
+        int timeout = Integer.parseInt(CarlosProperties.getInstance().getProperty("dhir.timeout", "60"));
         RequestConfig config = RequestConfig.custom().setSocketTimeout(timeout * 1000).setConnectTimeout(timeout * 1000).build();
 
         CloseableHttpClient httpclient3 = HttpClients.custom().setDefaultRequestConfig(config).setSSLSocketFactory(sf).build();

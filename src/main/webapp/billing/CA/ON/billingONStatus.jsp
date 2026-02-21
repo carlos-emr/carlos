@@ -33,7 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="org.owasp.encoder.Encode" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
 <%@page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@page import="io.github.carlos_emr.carlos.util.*" %>
@@ -57,7 +57,7 @@
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean isTeamBillingOnly = false;
     boolean isSiteAccessPrivacy = false;
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     boolean hideName = Boolean.valueOf(props.getProperty("invoice_reports.print.hide_name", "false"));
 %>
 <security:oscarSec objectName="_team_billing_only" roleName="<%=roleName$ %>" rights="r" reverse="false">

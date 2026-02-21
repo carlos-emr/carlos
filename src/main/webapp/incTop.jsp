@@ -1,4 +1,4 @@
-<%@ page import="io.github.carlos_emr.OscarProperties" %><%--
+<%@ page import="io.github.carlos_emr.CarlosProperties" %><%--
 
 
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
@@ -30,7 +30,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <html>
 <body>
-    <%    OscarProperties props = OscarProperties.getInstance(); %>
+    <%    CarlosProperties props = CarlosProperties.getInstance(); %>
 <table border=0 width='100%' cellpadding="3">
     <tr bgcolor='gold'>
         <td>

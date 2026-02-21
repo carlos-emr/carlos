@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -66,7 +66,7 @@ import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.I
 @Service
 public class DocumentManagerImpl implements DocumentManager {
 
-    private static final String PARENT_DIR = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+    private static final String PARENT_DIR = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
     private final Logger logger = MiscUtils.getLogger();
 
     @Autowired
@@ -159,7 +159,7 @@ public class DocumentManagerImpl implements DocumentManager {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         Date today = new Date();
         // Generates filename and path data and saves the document data to the file system
-        String documentPath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String documentPath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         String fileName = dateTimeFormat.format(today) + "_" + document.getDocfilename();
 		fileName = MiscUtils.sanitizeFileName(fileName);
         File file = new File(documentPath + File.separator + fileName);
@@ -338,7 +338,7 @@ public class DocumentManagerImpl implements DocumentManager {
 
     public String getFullPathToDocument(String filename) {
 
-        String path = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         if (!path.endsWith(File.separator)) {
             path += File.separator;

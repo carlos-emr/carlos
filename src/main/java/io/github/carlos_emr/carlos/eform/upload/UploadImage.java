@@ -52,7 +52,7 @@ import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.FileUploadException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class UploadImage extends HttpServlet {
     final static int BUFFER = 2048;
@@ -60,7 +60,7 @@ public class UploadImage extends HttpServlet {
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
         String foldername = "", fileheader = "";
 
-        Properties ap = OscarProperties.getInstance();
+        Properties ap = CarlosProperties.getInstance();
         foldername = ap.getProperty("EFORM_IMAGES_DIR");
 
         //		 Create a new file upload handler

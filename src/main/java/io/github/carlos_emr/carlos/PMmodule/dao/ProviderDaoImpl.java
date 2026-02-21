@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
 import org.springframework.transaction.annotation.Transactional;
@@ -372,7 +372,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<Provider> search(String name) {
-        boolean isOracle = OscarProperties.getInstance().getDbType().equals(
+        boolean isOracle = CarlosProperties.getInstance().getDbType().equals(
                 "oracle");
         // Session session = getSession();
         Session session = currentSession();

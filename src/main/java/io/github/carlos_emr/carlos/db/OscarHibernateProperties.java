@@ -29,16 +29,16 @@ package io.github.carlos_emr.carlos.db;
 
 import java.util.Properties;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class OscarHibernateProperties extends Properties {
     public OscarHibernateProperties() {
         //get db config from carlos properties
-        Properties opr = OscarProperties.getInstance();
-        setProperty("hibernate.connection.url", opr.getProperty("db_uri") + OscarProperties.getInstance().getProperty("db_name"));
-        setProperty("hibernate.connection.username", OscarProperties.getInstance().getProperty("db_username"));
-        setProperty("hibernate.connection.password", OscarProperties.getInstance().getProperty("db_password"));
-        setProperty("hibernate.connection.driver_class", OscarProperties.getInstance().getProperty("db_driver"));
+        Properties opr = CarlosProperties.getInstance();
+        setProperty("hibernate.connection.url", opr.getProperty("db_uri") + CarlosProperties.getInstance().getProperty("db_name"));
+        setProperty("hibernate.connection.username", CarlosProperties.getInstance().getProperty("db_username"));
+        setProperty("hibernate.connection.password", CarlosProperties.getInstance().getProperty("db_password"));
+        setProperty("hibernate.connection.driver_class", CarlosProperties.getInstance().getProperty("db_driver"));
         setProperty("hibernate.dialect", opr.getProperty("hibernate.dialect"));
     }
 }

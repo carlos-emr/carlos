@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.Recommendation;
@@ -597,7 +597,7 @@ public class MeasurementFlowSheet {
         if (topHTMLFileName != null) {
             try {
                 // Priority 1: Check for HTML file on the filesystem (site-specific override)
-                String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
+                String measurementDirPath = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
                 InputStream is = null;
                 if (measurementDirPath != null) {
                     File file = PathValidationUtils.validatePath(topHTMLFileName, new File(measurementDirPath));
@@ -645,7 +645,7 @@ public class MeasurementFlowSheet {
         BufferedReader bReader = null;
         try {
             // Priority 1: Check for HTML file on the filesystem (site-specific override)
-            String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
+            String measurementDirPath = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_HTML_DIRECTORY");
 
             if (measurementDirPath != null) {
                 File file = PathValidationUtils.validatePath(dsHTML, new File(measurementDirPath));
@@ -778,7 +778,7 @@ public class MeasurementFlowSheet {
         try {
             boolean fileFound = false;
             // Priority 1: Check for DRL file on the filesystem (allows site-specific customization)
-            String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
+            String measurementDirPath = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
 
             if (measurementDirPath != null) {
                 File file = PathValidationUtils.validatePath(string, new File(measurementDirPath));

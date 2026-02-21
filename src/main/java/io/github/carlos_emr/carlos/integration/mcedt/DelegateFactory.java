@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import ca.ontario.health.edt.EDTDelegate;
 
 import java.io.File;
@@ -62,12 +62,12 @@ public class DelegateFactory {
     }
 
     public static EDTDelegate getEDTDelegateInstance() {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         return getEDTDelegateInstance(props.getProperty("mcedt.service.id"));
     }
 
     private static EDTDelegate newDelegate(String serviceId) {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         EdtClientBuilderConfig config = new EdtClientBuilderConfig();
         config.setLoggingRequired(!Boolean.valueOf(props.getProperty("mcedt.logging.skip")));
         config.setKeystoreUser(props.getProperty("mcedt.keystore.user"));

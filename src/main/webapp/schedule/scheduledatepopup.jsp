@@ -139,7 +139,7 @@
                             </select></td>
                         </tr>
                         <%
-                            OscarProperties props = OscarProperties.getInstance();
+                            CarlosProperties props = CarlosProperties.getInstance();
                             boolean bMoreAddr = bMultisites
                                     ? true
                                     : props.getProperty("scheduleSiteID", "").equals("") ? false : true;

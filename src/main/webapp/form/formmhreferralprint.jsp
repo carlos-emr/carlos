@@ -51,8 +51,8 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.util.EctFileUtil" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
     <head>

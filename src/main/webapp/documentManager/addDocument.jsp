@@ -48,7 +48,7 @@
 <%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
+        import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -76,7 +76,7 @@
         curUser = (String) request.getAttribute("curUser");
     }
 
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
 
     AddEditDocument2Form formdata = new AddEditDocument2Form();
     formdata.setAppointmentNo(appointment);

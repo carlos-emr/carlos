@@ -59,7 +59,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.sec.SecurityTokenManager;
 
 public class StJoesTokenManager extends SecurityTokenManager {
@@ -76,7 +76,7 @@ public class StJoesTokenManager extends SecurityTokenManager {
 
         String key = request.getParameter("key");
 
-        String storedKey = OscarProperties.getInstance().getProperty("sec.token.key");
+        String storedKey = CarlosProperties.getInstance().getProperty("sec.token.key");
 
         if (key == null || storedKey == null || key.length() == 0 || storedKey.length() == 0) {
             response.getWriter().println("ERROR: no valid keys found");
@@ -88,7 +88,7 @@ public class StJoesTokenManager extends SecurityTokenManager {
             return;
         }
 
-        String expiryMins = OscarProperties.getInstance().getProperty("sec.token.expiry", "60");
+        String expiryMins = CarlosProperties.getInstance().getProperty("sec.token.expiry", "60");
         int expiry = 60;
         try {
             expiry = Integer.parseInt(expiryMins);
@@ -167,7 +167,7 @@ public class StJoesTokenManager extends SecurityTokenManager {
             sb.append(role);
         }
 
-        session.setAttribute("oscarVariables", OscarProperties.getInstance());
+        session.setAttribute("oscarVariables", CarlosProperties.getInstance());
         session.setAttribute("user", provider.getProviderNo());
         session.setAttribute("userfirstname", provider.getFirstName());
         session.setAttribute("userlastname", provider.getLastName());

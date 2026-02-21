@@ -67,7 +67,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicNbrDao" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -79,7 +79,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
 %>
@@ -180,7 +180,7 @@
     Vector vecHistD = new Vector();
     List aL = null;
 
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     if (!props.getProperty("isNewONbilling", "").equals("true")) {
 
         BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
@@ -516,7 +516,7 @@
                 alert("Please select a providers.");
                 return false;
             }
-                <% if (!OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                <% if (!CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
             else if (document.forms[0].xml_visittype.options[2].selected && (document.forms[0].xml_vdate.value == "" || document.forms[0].xml_vdate.value == "0000-00-00")) {
                 alert("Need an admission date.");
                 return false;
@@ -901,10 +901,10 @@
                                 <tr>
 
                                     <td width="30%">
-                                        <b><%if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                                        <b><%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                                             Clinic Nbr <% } else { %> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formVisitType"/> <% } %></b></td>
                                     <td width="20%"><select name="xml_visittype">
-                                        <% if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                                        <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                                         <%
                                             ClinicNbrDao cnDao = (ClinicNbrDao) SpringUtils.getBean(ClinicNbrDao.class);
                                             ArrayList<ClinicNbr> nbrs = cnDao.findAll();

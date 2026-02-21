@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.stereotype.Repository;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 
 @Repository
@@ -256,7 +256,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                         "AND p.labType = 'HL7' " +
                         "AND p.demographicNo = ?1 " +
                         "GROUP BY hl7.labNumber ";
-        if (OscarProperties.getInstance().isPropertyActive("abnormal_labs_first")) {
+        if (CarlosProperties.getInstance().isPropertyActive("abnormal_labs_first")) {
             sql += "ORDER BY hl7.resultStatus DESC, hl7.obrDate DESC";
         } else {
             sql += "ORDER BY hl7.labNumber DESC";
@@ -296,7 +296,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         if (patientHealthNumber != null) {
             sql = sql + " AND info.healthNumber like ?5 ";
         }
-        if (OscarProperties.getInstance().isPropertyActive("abnormal_labs_first")) {
+        if (CarlosProperties.getInstance().isPropertyActive("abnormal_labs_first")) {
             sql += "ORDER BY hl7.resultStatus DESC, hl7.obrDate DESC";
         } else {
             sql += "ORDER BY info.labNumber DESC";

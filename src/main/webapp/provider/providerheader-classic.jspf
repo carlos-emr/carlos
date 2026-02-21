@@ -32,7 +32,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.util.*" %>
@@ -48,7 +48,7 @@
 LoggedInInfo loggedInInfo=LoggedInInfo.getLoggedInInfoFromSession(request);
 UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
     		
-Properties oscarVariables = OscarProperties.getInstance();
+Properties oscarVariables = CarlosProperties.getInstance();
 
 String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 String curUser_no = (String) session.getAttribute("user");
@@ -269,7 +269,7 @@ function popupPage2(varpage) {
 	     <a HREF="#" ONCLICK ="popupPage2('<%= request.getContextPath() %>/admin/admin.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.admin"/></a>
 	  </li>
 	
-	<% if (OscarProperties.getInstance().getBooleanProperty("admin2.enabled", "true")) { %>
+	<% if (CarlosProperties.getInstance().getBooleanProperty("admin2.enabled", "true")) { %>
 	<li id="admin2">
 	 <a href="<%=request.getContextPath()%>/administration/" TITLE='Administration Panel'>New Administration</a>
 	<!--title new is temp for development-->

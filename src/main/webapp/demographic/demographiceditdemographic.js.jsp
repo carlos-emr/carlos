@@ -29,7 +29,7 @@
 
 --%>
 <%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 function rs(n,u,w,h,x) {
 args="width="+w+",height="+h+",resizable=yes,scrollbars=yes,status=0,top=360,left=30";
 remote=window.open(u,n,args);
@@ -170,7 +170,7 @@ if ( !checkName() ) return false;
 if ( !checkDob() ) return false;
 if ( !checkHin() ) return false;
 if ( !checkSex() ) return false;
-<% if ("false".equals(OscarProperties.getInstance().getProperty("skip_postal_code_validation", "false"))) { %>
+<% if ("false".equals(CarlosProperties.getInstance().getProperty("skip_postal_code_validation", "false"))) { %>
 if ( !isPostalCode() ) return false;
 <% } %>
 if ( !checkRosterStatus() ) return false;

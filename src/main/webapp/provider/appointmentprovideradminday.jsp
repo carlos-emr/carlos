@@ -135,7 +135,7 @@
     OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
     LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
     Map<Integer, LookupListItem> reasonCodesMap = new HashMap<>();
-    OscarProperties oscarVariables = OscarProperties.getInstance();
+    CarlosProperties oscarVariables = CarlosProperties.getInstance();
     AppManager appManager = SpringUtils.getBean(AppManager.class);
     io.github.carlos_emr.carlos.managers.PreventionManager providerPreventionManager = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.PreventionManager.class);
 %>
@@ -309,7 +309,7 @@
     programId_oscarView = "0";
     session.setAttribute("programId_oscarView", programId_oscarView);
     int lenLimitedL = 11; //L - long
-    if (OscarProperties.getInstance().getProperty("APPT_SHOW_FULL_NAME", "").equalsIgnoreCase("true")) {
+    if (CarlosProperties.getInstance().getProperty("APPT_SHOW_FULL_NAME", "").equalsIgnoreCase("true")) {
         lenLimitedL = 25;
     }
     int lenLimitedS = 3; //S - short
@@ -415,7 +415,7 @@
     boolean isToday = curDate2.equals(strYear + strMonth + strDay);
     int curH = Integer.parseInt(curHour);
     int totalM = Integer.parseInt(curMin) + curH * 60 - TIMELINE_GRACE_OFFSET_MINUTES;
-    boolean isTimeline = OscarProperties.getInstance().getProperty("display_timeline", "true").equalsIgnoreCase("true");
+    boolean isTimeline = CarlosProperties.getInstance().getProperty("display_timeline", "true").equalsIgnoreCase("true");
 
     Calendar apptDate = Calendar.getInstance();
     apptDate.set(year, month - 1, day);
@@ -476,7 +476,7 @@
         %>
 
         <c:if test="${empty sessionScope.archiveView or sessionScope.archiveView != true}">
-            <%!String refresh = io.github.carlos_emr.OscarProperties.getInstance().getProperty("refresh.appointmentprovideradminday.jsp", "-1");%>
+            <%!String refresh = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("refresh.appointmentprovideradminday.jsp", "-1");%>
             <%="-1".equals(refresh) ? "" : "<meta http-equiv=\"refresh\" content=\"" + refresh + "\">"%>
         </c:if>
 
@@ -654,7 +654,7 @@
         </style>
 
         <%
-            if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) {
+            if (CarlosProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) {
         %>
         <script src="${pageContext.servletContext.contextPath}/hcHandler/hcHandler.js"></script>
         <script src="${pageContext.servletContext.contextPath}/hcHandler/hcHandlerAppointment.js"></script>
@@ -994,7 +994,7 @@
                                 </security:oscarSec>
                             </caisi:isModuleLoad>
                             <%
-                                boolean hide_eConsult = OscarProperties.getInstance().isPropertyActive("hide_eConsult_link");
+                                boolean hide_eConsult = CarlosProperties.getInstance().isPropertyActive("hide_eConsult_link");
                                 if ("on".equalsIgnoreCase(prov) && !hide_eConsult) {
                             %>
                             <li id="econ">
@@ -1650,7 +1650,7 @@
                                                    onClick="goWeekView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekView"/>"
                                                    style="color:black" class="noprint">
-                                            <% if (OscarProperties.getInstance().isPropertyActive("view.appointmentdaysheetbutton")) { %>
+                                            <% if (CarlosProperties.getInstance().isPropertyActive("view.appointmentdaysheetbutton")) { %>
                                             <input type='button' value="DS" name='daysheetview'
                                                    onClick=goDaySheet('<%=curProvider_no[nProvider]%>')
                                                    title="Day Sheet" style="color:black">
@@ -1726,8 +1726,8 @@
                                                     bFirstTimeRs = true;
                                                     bFirstFirstR = true;
 
-                                                    String useProgramLocation = OscarProperties.getInstance().getProperty("useProgramLocation");
-                                                    String moduleNames = OscarProperties.getInstance().getProperty("ModuleNames");
+                                                    String useProgramLocation = CarlosProperties.getInstance().getProperty("useProgramLocation");
+                                                    String moduleNames = CarlosProperties.getInstance().getProperty("ModuleNames");
                                                     boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
                                                     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
@@ -1910,7 +1910,7 @@
                                                                             reasonCodeName += reason;
                                                                       }
 
-                                                                      if ( "yes".equalsIgnoreCase(OscarProperties.getInstance().getProperty("SHOW_APPT_TYPE_WITH_REASON")) ) {
+                                                                      if ( "yes".equalsIgnoreCase(CarlosProperties.getInstance().getProperty("SHOW_APPT_TYPE_WITH_REASON")) ) {
                                                                         reasonCodeName = type
                                                                                 + ((type != null && ! type.isEmpty()) ? " : " : "")
                                                                                 + reasonCodeName;
@@ -1944,8 +1944,8 @@
                                                             <%
                                                                 }
                                                                 if (nextStatus != null) {
-                                                                    if (OscarProperties.getInstance().getProperty("APPT_SHOW_SHORT_LETTERS", "false") != null
-                                                                            && OscarProperties.getInstance().getProperty("APPT_SHOW_SHORT_LETTERS", "false").equals("true")) {
+                                                                    if (CarlosProperties.getInstance().getProperty("APPT_SHOW_SHORT_LETTERS", "false") != null
+                                                                            && CarlosProperties.getInstance().getProperty("APPT_SHOW_SHORT_LETTERS", "false").equals("true")) {
 
                                                                         String colour = as.getShortLetterColour();
                                                                         if (colour == null) {
@@ -1995,7 +1995,7 @@
 
 
                                                         <!--  alerts -->
-                                                        <% if (OscarProperties.getInstance().getProperty("displayAlertsOnScheduleScreen", "").equals("true")) { %>
+                                                        <% if (CarlosProperties.getInstance().getProperty("displayAlertsOnScheduleScreen", "").equals("true")) { %>
                                                         <% if (dCust != null && dCust.getAlert() != null && !dCust.getAlert().isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
@@ -2007,7 +2007,7 @@
                                                         %>
 
                                                         <!--  notes -->
-                                                        <% if (OscarProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) { %>
+                                                        <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) { %>
                                                         <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
@@ -2029,7 +2029,7 @@
                                                             String dotTooltipFull = dotTooltipShort + "&#013;&#010;reason: " + Encode.forHtmlAttribute(dotReasonDisplay) + "&#013;&#010;notes: " + Encode.forHtmlAttribute(dotNotesDisplay);
 
                                                             // Check if tooltips should be shown (defaults to true if property not set)
-                                                            boolean showTooltipDot = OscarProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
+                                                            boolean showTooltipDot = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
                                                         %>
                                                         <a href="javascript:void(0)"
                                                            class="<%= showTooltipDot ? "appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>"
@@ -2055,7 +2055,7 @@
                                                         <%} %>
 
                                                         <!--  alerts -->
-                                                        <% if (OscarProperties.getInstance().getProperty("displayAlertsOnScheduleScreen", "").equals("true")) {%>
+                                                        <% if (CarlosProperties.getInstance().getProperty("displayAlertsOnScheduleScreen", "").equals("true")) {%>
                                                         <% if (dCust != null && dCust.getAlert() != null && !dCust.getAlert().isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
@@ -2066,7 +2066,7 @@
                                                         %>
 
                                                         <!--  notes -->
-                                                        <% if (OscarProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) {%>
+                                                        <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) {%>
                                                         <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
@@ -2130,7 +2130,7 @@
                                                             String tooltipFull = tooltipShort + "&#013;&#010;reason: " + Encode.forHtmlAttribute(reasonDisplay) + "&#013;&#010;notes: " + Encode.forHtmlAttribute(notesDisplay);
 
                                                             // Check if tooltips should be shown (defaults to true if property not set)
-                                                            boolean showTooltip = OscarProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
+                                                            boolean showTooltip = CarlosProperties.getInstance().getBooleanProperty("SHOW_APPT_REASON_TOOLTIP", "yes");
                                                         %>
                                                         <a class="apptLink<%= showTooltip ? " appt-reason-tooltip appt-tooltip-provider-" + curProvider_no[nProvider] : "" %>" href="javascript:void(0)"
                                                            onClick="popupPage(535,860,'<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp?appointment_no=<%=appointment.getId()%>&provider_no=<%=curProvider_no[nProvider]%>&year=<%=year%>&month=<%=month%>&day=<%=day%>&start_time=<%=iS+":"+iSm%>&demographic_no=<%=demographic_no%>&displaymode=edit&dboperation=search');return false;"
@@ -2462,7 +2462,7 @@
         });
     </script>
     <!-- end of keycode block -->
-    <% if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
+    <% if (CarlosProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
     <jsp:include page="/hcHandler/hcHandler.html"/>
     <% } %>
     </body>

@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.xhtmlrenderer.layout.SharedContext;
 import org.xhtmlrenderer.pdf.ITextRenderer;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 
 import java.io.ByteArrayOutputStream;
@@ -76,7 +76,7 @@ public final class ConvertToEdoc {
     private enum FileType {pdf, css, jpeg, png, gif, js, jpg}
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
-    private static final String DEFAULT_IMAGE_DIRECTORY = String.format("%1$s", OscarProperties.getInstance().getEformImageDirectory());
+    private static final String DEFAULT_IMAGE_DIRECTORY = String.format("%1$s", CarlosProperties.getInstance().getEformImageDirectory());
     private static final String DEFAULT_FILENAME = "temporaryPDF";
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_CONTENT_TYPE = "application/pdf";

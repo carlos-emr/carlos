@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -73,7 +73,7 @@ public class CombinePDF2Action extends ActionSupport {
         if (files != null) {
             MiscUtils.getLogger().debug("size = " + files.length);
             EDocUtil docData = new EDocUtil();
-            String path = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             Path filePath;
             for (int i = 0; i < files.length; i++) {
                 String filename = docData.getDocumentName(files[i]);

@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.QrCodeUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -89,11 +89,11 @@ public class MfaManagerImpl implements MfaManager {
         }
 
         byte[] qrCodeImageData = this.getQRCodeImageData(
-                OscarProperties.getInstance().getProperty(MFA_PROVIDER_NAME_KEY, "Open OSP"),
+                CarlosProperties.getInstance().getProperty(MFA_PROVIDER_NAME_KEY, "Open OSP"),
                 security.getUserName(), secret
         );
 
-        String logoFilePath = OscarProperties.getInstance().getProperty(LOGO_FILE_PATH_KEY);
+        String logoFilePath = CarlosProperties.getInstance().getProperty(LOGO_FILE_PATH_KEY);
         if (logoFilePath != null) {
             qrCodeImageData = addLogoToQR(logoFilePath, qrCodeImageData);
         }

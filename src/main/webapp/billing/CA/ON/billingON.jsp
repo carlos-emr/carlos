@@ -66,7 +66,7 @@
     if (session.getAttribute("user") == null) {
         response.sendRedirect("${ pageContext.request.contextPath }/logout.jsp");
     }
-    OscarProperties oscarVariables = OscarProperties.getInstance();
+    CarlosProperties oscarVariables = CarlosProperties.getInstance();
 
     String user_no = (String) session.getAttribute("user");
     String providerview = request.getParameter("providerview") == null ? "" : request.getParameter("providerview");
@@ -341,7 +341,7 @@
 
                                         if (ctlBillForm == null || ctlBillForm.isEmpty()) {
                                             // check carlos.properties to show a default bill form
-                                            String dv = OscarProperties.getInstance().getProperty("default_view");
+                                            String dv = CarlosProperties.getInstance().getProperty("default_view");
                                             if (dv!=null) ctlBillForm = dv;
                                         }
                                 }
@@ -369,7 +369,7 @@
     }
 
     //Read default clinic_view from carlos.properties file
-    String cv = OscarProperties.getInstance().getProperty("clinic_view");
+    String cv = CarlosProperties.getInstance().getProperty("clinic_view");
     if (cv != null) clinicview = cv;
 
     String visitdate = null;
@@ -573,7 +573,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <html>
 <head>
@@ -758,7 +758,7 @@
                 alert("Please select a providers.");
                 b = false;
             }
-                <% if (!OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                <% if (!CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
             else if (document.forms[0].xml_visittype.options[2].selected && (document.forms[0].xml_vdate.value == "" || document.forms[0].xml_vdate.value == "0000-00-00")) {
                 alert("Need an admission date.");
                 b = false;
@@ -1564,7 +1564,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                 </tr>
                                 <tr>
                                     <td style="width: 30%"><b><%
-                                        if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
+                                        if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
                                     %>
                                         Clinic Nbr <%
                                         } else {
@@ -1574,7 +1574,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                     </b></td>
                                     <td style="width: 20%"><select name="xml_visittype" onchange="updateDate()">
                                         <%
-                                            if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
+                                            if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
                                         %>
                                         <%
 													ClinicNbrDao cnDao = SpringUtils.getBean(ClinicNbrDao.class);
@@ -1770,7 +1770,7 @@ function toggleDiv(selectedBillForm, selectedBillFormName,billType)
                                 </tr>
                                 <%
                                     if (!IsPropertiesOn.isMultisitesEnable()) {
-                                        OscarProperties props = OscarProperties.getInstance();
+                                        CarlosProperties props = CarlosProperties.getInstance();
                                         boolean bMoreAddr = props.getProperty("scheduleSiteID", "").equals("") ? false : true;
                                         if (bMoreAddr) {
                                             BillingSiteIdPrep sitePrep = new BillingSiteIdPrep();

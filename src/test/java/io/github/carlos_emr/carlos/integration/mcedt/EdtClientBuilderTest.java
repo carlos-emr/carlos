@@ -38,7 +38,7 @@ import org.apache.logging.log4j.Logger;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.utils.ConfigUtils;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilderConfig;
@@ -65,7 +65,7 @@ public class EdtClientBuilderTest {
         // Check if the Spring context (bean factory) has been initialized yet
         // Set up the context if it's null
         if (SpringUtils.getBeanFactory() == null) {
-            OscarProperties p = OscarProperties.getInstance();
+            CarlosProperties p = CarlosProperties.getInstance();
             // Set the properties
             p.setProperty("db_name", ConfigUtils.getProperty("db_schema") + ConfigUtils.getProperty("db_schema_properties"));
             p.setProperty("db_username", ConfigUtils.getProperty("db_user"));
@@ -116,7 +116,7 @@ public class EdtClientBuilderTest {
     @Test
     public void clientKeystoreConfigurationIsIsolatedPerBuilderInstance() throws Exception {
         // Arrange: create two independent EDT configurations and builders
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         EdtClientBuilderConfig config1 = new EdtClientBuilderConfig();
         config1.setMtomEnabled(true);
         config1.setServiceUrl(props.getProperty("mcedt.service.url"));
@@ -162,7 +162,7 @@ public class EdtClientBuilderTest {
     @Test
     public void setExternalClientKeystoreFilename_nullPath_usesDefaultKeystore() throws Exception {
         // Arrange
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         EdtClientBuilderConfig config = new EdtClientBuilderConfig();
         config.setMtomEnabled(true);
         config.setServiceUrl(props.getProperty("mcedt.service.url"));
@@ -191,7 +191,7 @@ public class EdtClientBuilderTest {
     @Test
     public void setExternalClientKeystoreFilename_nonExistentPath_usesDefaultKeystore() throws Exception {
         // Arrange
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         EdtClientBuilderConfig config = new EdtClientBuilderConfig();
         config.setMtomEnabled(true);
         config.setServiceUrl(props.getProperty("mcedt.service.url"));

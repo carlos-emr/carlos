@@ -103,7 +103,7 @@ public class DocumentMgtUploadServlet extends HttpServlet {
 
 
         // Get properties from carlos.properties
-        Properties ap = OscarProperties.getInstance();
+        Properties ap = CarlosProperties.getInstance();
 
         forwardTo = ap.getProperty("DOC_FORWARD");
         foldername = ap.getProperty("DOCUMENT_DIR");

@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.Bill;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingClaimHeader1Data;
@@ -73,7 +73,7 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
         //set text for lefthand module title
         Dao.setLeftHeading("Billing History");
 
-        String billRegion = OscarProperties.getInstance().getProperty("billregion", "ON");
+        String billRegion = CarlosProperties.getInstance().getProperty("billregion", "ON");
 
         if (billRegion.equals("ON")) {
 
@@ -93,7 +93,7 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
                 OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
                 Demographic d = demographicManager.getDemographic(loggedInInfo, Integer.parseInt(bean.demographicNo));
                 Appointment appt = appointmentDao.find(Integer.parseInt(appointmentNo));
-                String billform = OscarProperties.getInstance().getProperty("default_view");
+                String billform = CarlosProperties.getInstance().getProperty("default_view");
                 SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
                 SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm");
                 Provider p = loggedInInfo.getLoggedInProvider();

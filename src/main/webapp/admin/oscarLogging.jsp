@@ -58,7 +58,7 @@
 <%@page import="org.apache.commons.io.FileUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <div class="page-header">
     <h4>
@@ -119,7 +119,7 @@
 
 <%
     if (runReport) {
-        Properties pr = OscarProperties.getInstance();
+        Properties pr = CarlosProperties.getInstance();
         String path = pr.getProperty("LOGGING_PATH");
         String suffix = reportDate.replaceAll("-", "");
         String fileName = "";

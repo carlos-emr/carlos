@@ -73,7 +73,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  * traversal attacks. All uploaded files are validated before storage.</p>
  * 
  * @see PathValidationUtils
- * @see OscarProperties
+ * @see CarlosProperties
  */
 public class DocumentUploadServlet extends HttpServlet {
 
@@ -91,11 +91,11 @@ public class DocumentUploadServlet extends HttpServlet {
      */
     public void service(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
         String foldername = "", fileheader = "", forwardTo = "";
-        forwardTo = OscarProperties.getInstance().getProperty("RA_FORWORD");
-        foldername = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        forwardTo = CarlosProperties.getInstance().getProperty("RA_FORWORD");
+        foldername = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
-        String inboxFolder = OscarProperties.getInstance().getProperty("ONEDT_INBOX");
-        String archiveFolder = OscarProperties.getInstance().getProperty("ONEDT_ARCHIVE");
+        String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
+        String archiveFolder = CarlosProperties.getInstance().getProperty("ONEDT_ARCHIVE");
 
         if (forwardTo == null || forwardTo.length() < 1)
             return;
@@ -202,7 +202,7 @@ public class DocumentUploadServlet extends HttpServlet {
                             fileheader = savedFile.getName();
                             item.write(savedFile);
 
-                            if (OscarProperties.getInstance().isPropertyActive("moh_file_management_enabled")) {
+                            if (CarlosProperties.getInstance().isPropertyActive("moh_file_management_enabled")) {
                                 File inboxDir = new File(inboxFolder);
                                 FileUtils.copyFileToDirectory(savedFile, inboxDir);
                             }

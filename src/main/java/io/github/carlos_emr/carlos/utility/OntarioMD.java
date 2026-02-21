@@ -47,7 +47,7 @@ import org.jdom2.Element;
 import org.jdom2.filter.ElementFilter;
 import org.jdom2.input.SAXBuilder;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author jaygallagher
@@ -56,11 +56,11 @@ public class OntarioMD {
 
 
     static public boolean hasIncomingRequestor() {
-        return OscarProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR");
+        return CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR");
     }
 
     static public String getIncomingRequestor() {
-        return OscarProperties.getInstance().getProperty("ONTARIO_MD_INCOMINGREQUESTOR");
+        return CarlosProperties.getInstance().getProperty("ONTARIO_MD_INCOMINGREQUESTOR");
     }
 
     public boolean showOntarioMDLink() {

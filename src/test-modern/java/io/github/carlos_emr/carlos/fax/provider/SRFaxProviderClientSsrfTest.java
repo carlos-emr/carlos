@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,8 +55,8 @@ class SRFaxProviderClientSsrfTest extends OpenOUnitTestBase {
 
     private SRFaxProviderClient client;
     private Method getSrfaxApiUrlMethod;
-    private MockedStatic<OscarProperties> oscarPropertiesMock;
-    private OscarProperties mockProperties;
+    private MockedStatic<CarlosProperties> oscarPropertiesMock;
+    private CarlosProperties mockProperties;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -65,9 +65,9 @@ class SRFaxProviderClientSsrfTest extends OpenOUnitTestBase {
         getSrfaxApiUrlMethod = SRFaxProviderClient.class.getDeclaredMethod("getSrfaxApiUrl");
         getSrfaxApiUrlMethod.setAccessible(true);
 
-        mockProperties = mock(OscarProperties.class);
-        oscarPropertiesMock = Mockito.mockStatic(OscarProperties.class);
-        oscarPropertiesMock.when(OscarProperties::getInstance).thenReturn(mockProperties);
+        mockProperties = mock(CarlosProperties.class);
+        oscarPropertiesMock = Mockito.mockStatic(CarlosProperties.class);
+        oscarPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockProperties);
     }
 
     @AfterEach

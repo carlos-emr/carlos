@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.login;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
@@ -110,7 +110,7 @@ public class UploadLoginText2Action extends ActionSupport {
         try {
             if (importFile.getName().length() > 0) {
                 fis = Files.newInputStream(importFile.toPath());
-                String savePath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR") + "/OSCARloginText.txt";
+                String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR") + "/OSCARloginText.txt";
                 fos = new FileOutputStream(savePath);
                 byte[] buf = new byte[128 * 1024];
                 int i = 0;

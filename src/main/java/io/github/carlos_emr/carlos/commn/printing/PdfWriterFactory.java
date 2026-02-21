@@ -36,12 +36,12 @@ import io.github.carlos_emr.carlos.casemgmt.service.PageNumberStamper;
 import io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class PdfWriterFactory {
 
-    private static String confidentialtyStatement = OscarProperties.getConfidentialityStatement();
-    private static String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+    private static String confidentialtyStatement = CarlosProperties.getConfidentialityStatement();
+    private static String promoText = CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 
     /**
      * @param pdfContentByte
@@ -77,13 +77,13 @@ public class PdfWriterFactory {
             return null;
         }
 
-//		String confidentialtyStatement = OscarProperties.getConfidentialityStatement();
+//		String confidentialtyStatement = CarlosProperties.getConfidentialityStatement();
 //		PromoTextStamper pts = new PromoTextStamper(confidentialtyStatement, 30);
 //		pts.setFontSize(settings.getFontSize());
 //		result.setPageEvent(pts);
 //
 //		SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd");
-//		String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") + " " + f.format(new Date());
+//		String promoText = CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") + " " + f.format(new Date());
 //		pts = new PromoTextStamper(promoText, 20);
 //		pts.setFontSize(settings.getFontSize());
 //		result.setPageEvent(pts);

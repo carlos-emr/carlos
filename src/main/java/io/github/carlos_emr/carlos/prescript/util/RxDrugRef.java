@@ -36,7 +36,7 @@ package io.github.carlos_emr.carlos.prescript.util;
  */
 
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.xmlrpc.Base64;
@@ -81,7 +81,7 @@ public class RxDrugRef {
      * Creates a new instance of DrugRef
      */
     public RxDrugRef() {
-        server_url = OscarProperties.getInstance().getProperty("drugref_url");
+        server_url = CarlosProperties.getInstance().getProperty("drugref_url");
         //server_url = System.getProperty("drugref_url");
 
     }

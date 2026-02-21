@@ -34,7 +34,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*, java.text.SimpleDateFormat,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,java.net.*,io.github.carlos_emr.carlos.eform.*" %>
-<%@page import="io.github.carlos_emr.OscarProperties"%>
+<%@page import="io.github.carlos_emr.CarlosProperties"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -528,7 +528,7 @@
         %>
         <form name="frmBatchBill" action="" method="post">
             <input type="hidden" name="clinic_view"
-                   value="<%=OscarProperties.getInstance().getProperty("clinic_view","")%>">
+                   value="<%=CarlosProperties.getInstance().getProperty("clinic_view","")%>">
             <input type="hidden" name="followUpType" value="<%=followUpType%>">
             <table class="ele" width="90%">
                 <tr>

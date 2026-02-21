@@ -74,7 +74,7 @@ public class OscarDbPropertiesListener implements ServletContextListener {
         } catch (Exception e) {
             throw new RuntimeException("Unable to read properties file " + f.getAbsolutePath());
         }
-        OscarProperties.setProperties(p2);
+        CarlosProperties.setProperties(p2);
     }
 
     public void contextDestroyed(ServletContextEvent arg0) {

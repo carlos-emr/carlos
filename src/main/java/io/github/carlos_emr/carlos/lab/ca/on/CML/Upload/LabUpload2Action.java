@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -67,7 +67,7 @@ public class LabUpload2Action extends ActionSupport {
             proNo = "";
         }
         String key = request.getParameter("key");
-        String keyToMatch = OscarProperties.getInstance().getProperty("CML_UPLOAD_KEY");
+        String keyToMatch = CarlosProperties.getInstance().getProperty("CML_UPLOAD_KEY");
         MiscUtils.getLogger().debug("key=" + key);
         String outcome = "";
 
@@ -107,7 +107,7 @@ public class LabUpload2Action extends ActionSupport {
                 if (localFileName != null) {
                     // Validate the localFileName path using PathValidationUtils
                     File localFile = new File(localFileName);
-                    OscarProperties props = OscarProperties.getInstance();
+                    CarlosProperties props = CarlosProperties.getInstance();
                     String documentDir = props.getProperty("DOCUMENT_DIR");
                     if (documentDir != null) {
                         try {
@@ -176,7 +176,7 @@ public class LabUpload2Action extends ActionSupport {
         String retVal = null;
 
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             //properties must exist
             String place = props.getProperty("DOCUMENT_DIR");
 

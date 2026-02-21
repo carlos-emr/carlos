@@ -97,7 +97,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.LabUploadWs;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicAddResult;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
@@ -174,7 +174,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     String programId = null;
     HashMap<String, Integer> entries = new HashMap<String, Integer>();
     Integer importNo = 0;
-    OscarProperties oscarProperties = OscarProperties.getInstance();
+    CarlosProperties oscarProperties = CarlosProperties.getInstance();
     List<String> importErrors = new ArrayList<String>();
 
     ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);

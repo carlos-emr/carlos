@@ -70,12 +70,12 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
 
-    OscarProperties op = OscarProperties.getInstance();
+    CarlosProperties op = CarlosProperties.getInstance();
 %>
 
 <fmt:setBundle basename="oscarResources"/>
@@ -339,7 +339,7 @@
 
                 <%
 		}
-                    if (!OscarProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false")) {
+                    if (!CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false")) {
                 %>
                 <tr>
                     <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.forcePasswordReset"/>:

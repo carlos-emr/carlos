@@ -26,7 +26,7 @@ package io.github.carlos_emr.carlos.util.plugin;
 import javax.servlet.jsp.JspException;
 import javax.servlet.jsp.tagext.TagSupport;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class SpecialEncounter extends TagSupport {
     /**
@@ -44,7 +44,7 @@ public class SpecialEncounter extends TagSupport {
 
     public int doStartTag() throws JspException {
         try {
-            OscarProperties proper = OscarProperties.getInstance();
+            CarlosProperties proper = CarlosProperties.getInstance();
 
             if (!isExactEqual() && (proper.getProperty("specialencounter", "").indexOf(moduleName) >= 0)) {
 

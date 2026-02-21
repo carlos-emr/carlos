@@ -32,7 +32,7 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.providers.data.*" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
@@ -170,7 +170,7 @@
                     <td width="50%" align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formProviderNo"/><font color="red">:</font></td>
                     <td>
                         <%
-                            if (OscarProperties.getInstance().isProviderNoAuto()) {
+                            if (CarlosProperties.getInstance().isProviderNoAuto()) {
                         %> <input
                             type="text" name="provider_no" maxlength="6" readonly="readonly"
                             value="-new-"> <%
@@ -389,7 +389,7 @@
                     </tr>
 
                     <%
-                        if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
+                        if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) {
                     %>
                     <tr>
                         <td align="right">Default Clinic NBR:</td>
@@ -421,7 +421,7 @@
                                 String billCode = "";
                                 String codeDesc = "";
                                 Enumeration<?> keys = billCenter.getAllBillCenter().propertyNames();
-                                String defaultBillCenter = OscarProperties.getInstance().getProperty("default_bill_center", "");
+                                String defaultBillCenter = CarlosProperties.getInstance().getProperty("default_bill_center", "");
 
                                 for (int i = 0; i < billCenter.getAllBillCenter().size(); i++) {
 

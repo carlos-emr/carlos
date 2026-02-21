@@ -48,7 +48,7 @@
 <%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
@@ -131,7 +131,7 @@
 
             String htmlNoteTxt = note.getNote() + addlData;
 
-            boolean singleLine = Boolean.valueOf(OscarProperties.getInstance().getProperty("echart.cpp.single_line", "false"));
+            boolean singleLine = Boolean.valueOf(CarlosProperties.getInstance().getProperty("echart.cpp.single_line", "false"));
             UserPropertyDAO userPropertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
             UserProperty prop = userPropertyDao.getProp(loggedInInfo.getLoggedInProviderNo(), UserProperty.CPP_SINGLE_LINE);
             if (prop != null) {

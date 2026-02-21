@@ -46,7 +46,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -421,7 +421,7 @@ public class FrmPDFServlet extends HttpServlet {
 
             // create a reader for a certain document
             //String propFilename = "../../OscarDocument/" + getProjectName() + "/form/" + template;
-            String propFilename = OscarProperties.getInstance().getProperty("pdfFORMDIR", "") + "/" + template;
+            String propFilename = CarlosProperties.getInstance().getProperty("pdfFORMDIR", "") + "/" + template;
             float height;
             int n;
             try {
@@ -566,12 +566,12 @@ public class FrmPDFServlet extends HttpServlet {
                                     .parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
                             cb.endText();
                         } else if (tempName.toString().equals("forms_promotext")) {
-//	                        if ( OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
+//	                        if ( CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
 //	                            log.info("adding user placed forms_promotext");
 //	                            cb.beginText();
 //	                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
 //	                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT : PdfContentByte.ALIGN_CENTER)),
-//	                                    OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT"),
+//	                                    CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT"),
 //	                                    Integer.parseInt(cfgVal[1].trim()),
 //	                                    (height - Integer.parseInt(cfgVal[2].trim())),
 //	                                    0);
@@ -593,7 +593,7 @@ public class FrmPDFServlet extends HttpServlet {
                     }
 
                     //----------
-                    if (OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
+                    if (CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
 //	                    log.info("adding forms_promotext");
 //
 //	                    // remove elements of the PDF file
@@ -603,7 +603,7 @@ public class FrmPDFServlet extends HttpServlet {
 //
 //	                    cb.beginText();
 //	                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA,BaseFont.CP1252,BaseFont.NOT_EMBEDDED), 6);
-//	                    cb.showTextAligned(PdfContentByte.ALIGN_CENTER, OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT"), width/2, 16, 0);
+//	                    cb.showTextAligned(PdfContentByte.ALIGN_CENTER, CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT"), width/2, 16, 0);
 //	                    cb.endText();
                     }
 
@@ -837,7 +837,7 @@ public class FrmPDFServlet extends HttpServlet {
         // Now cleanFilename is safe to use
         
         // Try loading from file system
-        String pdfFormDir = OscarProperties.getInstance().getProperty("pdfFORMDIR", "");
+        String pdfFormDir = CarlosProperties.getInstance().getProperty("pdfFORMDIR", "");
         if (!pdfFormDir.isEmpty()) {
             Properties fsProps = loadFromFileSystem(pdfFormDir, cleanFilename);
             if (fsProps != null) {

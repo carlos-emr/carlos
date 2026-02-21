@@ -55,11 +55,11 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ page import="io.github.carlos_emr.carlos.security.MfaActions2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 
 <%!
-    OscarProperties op = OscarProperties.getInstance();
+    CarlosProperties op = CarlosProperties.getInstance();
 %>
 
 <fmt:setBundle basename="oscarResources"/>
@@ -314,7 +314,7 @@
 		<% } %>
 
                 <%
-                    if (!OscarProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false")) {
+                    if (!CarlosProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false")) {
                 %>
                 <tr>
                     <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.forcePasswordReset"/>:

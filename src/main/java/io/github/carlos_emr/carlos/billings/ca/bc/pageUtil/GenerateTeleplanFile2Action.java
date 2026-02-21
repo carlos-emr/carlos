@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanFileWriter;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanSubmission;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO;
@@ -73,8 +73,8 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
     public String execute() throws Exception {
         MiscUtils.getLogger().debug("SimulateTeleplanAction2 action jackson");
 
-        String home_dir = OscarProperties.getInstance().getProperty("HOME_DIR");
-        String dataCenterId = OscarProperties.getInstance().getProperty("dataCenterId");
+        String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
 
         String batchCount = "0";
         String providerNo = request.getParameter("user");

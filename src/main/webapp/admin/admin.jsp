@@ -58,21 +58,21 @@
 %>
 
 <%@ page errorPage="/errorpage.jsp" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%
     String country = request.getLocale().getCountry();
 %>
 
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>
     <head>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/> Start Time
-            : <%=OscarProperties.getInstance().getStartTime()%>
+            : <%=CarlosProperties.getInstance().getStartTime()%>
         </title>
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
@@ -355,7 +355,7 @@
                            onclick='popupPage(700,640, "${pageContext.request.contextPath}/billing/CA/ON/inr/reportINR.jsp?provider_no=all");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/billingONUpload.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.uploadMOHFile"/></a></li>
-                    <% if (OscarProperties.getInstance().isPropertyActive("moh_file_management_enabled")) { %>
+                    <% if (CarlosProperties.getInstance().isPropertyActive("moh_file_management_enabled")) { %>
                     <li><a href="#" onclick='popupPage(600,900, "${pageContext.request.contextPath}/billing/CA/ON/viewMOHFiles.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.viewMOHFiles"/></a></li>
                     <% } %>
                     <li><a href="#"
@@ -369,7 +369,7 @@
                            onclick='popupPage(800,1000,"${pageContext.request.contextPath}/billing/CA/ON/billStatus.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/></a></li>
                     <li><a href="#"
                            onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/CA/ON/endYearStatement.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.endYearStatement"/></a></li>
-                    <%if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                    <%if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <li>
                         <a href='#' onclick='popupPage(300,750,"${pageContext.request.contextPath}/admin/clinicNbrManage.jsp");return false;'>Manage Clinic NBR Codes</a>
                     </li>
@@ -840,7 +840,7 @@
             <div class="adminBox">
                 <h3>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.Status"/></h3>
                 <ul>
-                    <% if (OscarProperties.getInstance().isFaxEnabled()) { %>
+                    <% if (CarlosProperties.getInstance().isFaxEnabled()) { %>
                     <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/faxStatus.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
                     <% } %>
                     <li><a href="#" onclick='popupPage(800, 800, "${pageContext.request.contextPath}/admin/oscarStatus.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.oscarStatus.oscarStatus"/></a></li>

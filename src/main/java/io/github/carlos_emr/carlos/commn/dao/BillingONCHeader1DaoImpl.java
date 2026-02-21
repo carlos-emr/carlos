@@ -62,7 +62,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.data.BillingDataHlp;
 import io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingStatusPrep;
 import io.github.carlos_emr.carlos.util.ParamAppender;
@@ -125,7 +125,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                              String curUser) {
         BillingONCHeader1 header1 = null;
         Provider prov = providerDao.getProvider(provider);
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         ArrayList<String> codes = new ArrayList<String>();
         ArrayList<String> dxCodes = new ArrayList<String>();
 
@@ -146,7 +146,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                              Date serviceDate, String curUser) {
         BillingONCHeader1 header1 = null;
         Provider prov = providerDao.getProvider(provider);
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
         ArrayList<String> codes = new ArrayList<String>();
         ArrayList<String> dxCodes = new ArrayList<String>();
 
@@ -169,7 +169,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
                               String clinicRefCode, Date serviceDate, String curUser) {
         BillingONCHeader1 header1 = null;
         Provider prov = providerDao.getProvider(provider);
-        OscarProperties properties = OscarProperties.getInstance();
+        CarlosProperties properties = CarlosProperties.getInstance();
 
         String total = calcTotal(codes, serviceDate);
         for (String demographic : demographic_nos) {
@@ -185,7 +185,7 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     }
 
     private BillingONCHeader1 assembleHeader1(Provider prov, Integer demographic, String clinicRefCode,
-                                              Date serviceDate, String total, String curUser, OscarProperties properties) {
+                                              Date serviceDate, String total, String curUser, CarlosProperties properties) {
 
         BillingONCHeader1 header1 = new BillingONCHeader1();
         header1.setTranscId(BillingDataHlp.CLAIMHEADER1_TRANSACTIONIDENTIFIER);

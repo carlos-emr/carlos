@@ -27,12 +27,12 @@
 
 package io.github.carlos_emr.carlos.commn;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class IsPropertiesOn {
 
     public static boolean propertiesOn(String proName) {
-        OscarProperties proper = OscarProperties.getInstance();
+        CarlosProperties proper = CarlosProperties.getInstance();
 
         if (proper.getProperty(proName, "").equalsIgnoreCase("yes") || proper.getProperty(proName, "").equalsIgnoreCase("true") || proper.getProperty(proName, "").equalsIgnoreCase("on"))
             return true;

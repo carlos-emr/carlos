@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -111,11 +111,11 @@ public final class RxChoosePatient2Action extends ActionSupport {
 
         if (patient != null) {
 
-            if (OscarProperties.getInstance().getBooleanProperty("RX3", "yes") || providerUseRx3) {
+            if (CarlosProperties.getInstance().getBooleanProperty("RX3", "yes") || providerUseRx3) {
                 redirect = "successRX3";
             }
             // place holder.
-//			else if ( OscarProperties.getInstance().getBooleanProperty("ENABLE_RX4", "yes") ) {
+//			else if ( CarlosProperties.getInstance().getBooleanProperty("ENABLE_RX4", "yes") ) {
 //				redirect = "successRX4";
 //			} 
             else {

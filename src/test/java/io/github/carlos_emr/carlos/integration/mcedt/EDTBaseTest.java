@@ -47,7 +47,7 @@ import ca.ontario.health.edt.TypeListData;
 import ca.ontario.health.edt.TypeListResult;
 import ca.ontario.health.edt.UpdateRequest;
 import ca.ontario.health.edt.UploadData;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public abstract class EDTBaseTest {
     protected static Logger logger = MiscUtils.getLogger();
@@ -137,7 +137,7 @@ public abstract class EDTBaseTest {
         // Check if the Spring context (bean factory) has been initialized yet
         // Set up the context if it's null
         if(SpringUtils.getBeanFactory() == null) {
-            io.github.carlos_emr.OscarProperties p = io.github.carlos_emr.OscarProperties.getInstance();
+            io.github.carlos_emr.CarlosProperties p = io.github.carlos_emr.CarlosProperties.getInstance();
             // Set the properties
             p.setProperty("db_name", ConfigUtils.getProperty("db_schema") + ConfigUtils.getProperty("db_schema_properties"));
             p.setProperty("db_username", ConfigUtils.getProperty("db_user"));
@@ -325,7 +325,7 @@ public abstract class EDTBaseTest {
     }
 
     protected static EDTDelegate newDelegate(String serviceId) {
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         EdtClientBuilderConfig config = new EdtClientBuilderConfig();
         config.setLoggingRequired(!Boolean.valueOf(props.getProperty("mcedt.logging.skip")));
         config.setKeystoreUser(props.getProperty("mcedt.keystore.user"));

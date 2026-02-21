@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.DBPreparedHandler;
 import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
 
@@ -378,7 +378,7 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
             SaveAsOrgCode(GetCode(tableId, id), tableId);
         }
         if ("PRP".equals(tableId)) {
-            OscarProperties prp = OscarProperties.getInstance();
+            CarlosProperties prp = CarlosProperties.getInstance();
             LookupCodeValue prpCd = GetCode(tableId, id);
             if (prp.getProperty(prpCd.getDescription()) != null)
                 prp.remove(prpCd.getDescription());

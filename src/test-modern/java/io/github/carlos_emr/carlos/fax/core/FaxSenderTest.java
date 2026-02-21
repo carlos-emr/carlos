@@ -40,7 +40,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
@@ -91,8 +91,8 @@ class FaxSenderTest extends OpenOUnitTestBase {
     @Mock
     private FaxProviderClient faxProviderClient;
 
-    private MockedStatic<OscarProperties> oscarPropertiesMock;
-    private OscarProperties mockOscarProperties;
+    private MockedStatic<CarlosProperties> oscarPropertiesMock;
+    private CarlosProperties mockOscarProperties;
 
     private FaxSender faxSender;
     private AutoCloseable mockitoCloseable;
@@ -102,10 +102,10 @@ class FaxSenderTest extends OpenOUnitTestBase {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
         faxSender = new FaxSender(faxConfigDao, faxJobDao, faxClientLogDao, faxProviderClientFactory);
 
-        // Mock OscarProperties.getInstance() static call
-        mockOscarProperties = mock(OscarProperties.class);
-        oscarPropertiesMock = mockStatic(OscarProperties.class);
-        oscarPropertiesMock.when(OscarProperties::getInstance).thenReturn(mockOscarProperties);
+        // Mock CarlosProperties.getInstance() static call
+        mockOscarProperties = mock(CarlosProperties.class);
+        oscarPropertiesMock = mockStatic(CarlosProperties.class);
+        oscarPropertiesMock.when(CarlosProperties::getInstance).thenReturn(mockOscarProperties);
         when(mockOscarProperties.getDocumentDirectory()).thenReturn("/test/documents");
     }
 

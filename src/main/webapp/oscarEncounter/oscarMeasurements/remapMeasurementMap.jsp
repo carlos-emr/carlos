@@ -33,7 +33,7 @@
 
 
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.util.StringUtils" %>
+        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
 
 <%

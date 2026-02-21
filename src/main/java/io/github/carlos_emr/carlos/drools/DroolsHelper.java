@@ -37,7 +37,7 @@ import org.kie.api.builder.Results;
 import org.kie.api.io.ResourceType;
 import org.kie.internal.utils.KieHelper;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
@@ -184,7 +184,7 @@ public final class DroolsHelper {
      * two-tier priority strategy:</p>
      * <ol>
      *   <li><strong>Filesystem</strong> -- If the {@code MEASUREMENT_DS_DIRECTORY} property is
-     *       set in {@link OscarProperties}, attempts to load the DRL file from that directory.
+     *       set in {@link CarlosProperties}, attempts to load the DRL file from that directory.
      *       The path is validated via {@link PathValidationUtils#validatePath(String, File)}.</li>
      *   <li><strong>Classpath fallback</strong> -- If no external file is found, loads from the
      *       classpath at {@code /oscar/oscarEncounter/oscarMeasurements/flowsheets/decisionSupport/}.</li>
@@ -200,7 +200,7 @@ public final class DroolsHelper {
             boolean fileFound = false;
 
             // Priority 1: Try loading from the external MEASUREMENT_DS_DIRECTORY
-            String measurementDirPath = OscarProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
+            String measurementDirPath = CarlosProperties.getInstance().getProperty("MEASUREMENT_DS_DIRECTORY");
 
             if (measurementDirPath != null) {
                 File allowedDir = new File(measurementDirPath);

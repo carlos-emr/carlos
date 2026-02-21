@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.commn.dao.IncomingLabRulesDao;
 import io.github.carlos_emr.carlos.commn.model.IncomingLabRules;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ForwardingRules;
 
 /**
@@ -170,7 +170,7 @@ public class ForwardingRules2Action extends ActionSupport {
 
     private boolean removeRule(String providerNo, String remProviderNum) {
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String autoFileLabs = props.getProperty("AUTO_FILE_LABS");
 
             ForwardingRules fr = new ForwardingRules();

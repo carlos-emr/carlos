@@ -75,7 +75,7 @@
 
     Boolean writeToEncounter = false;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    Boolean caisiEnabled = OscarProperties.getInstance().isPropertyActive("caisi");
+    Boolean caisiEnabled = CarlosProperties.getInstance().isPropertyActive("caisi");
     Integer defaultProgramId = null;
     List<ProgramProvider> programProviders = new ArrayList<ProgramProvider>();
 
@@ -416,7 +416,7 @@
                 <%
                     String searchMode = request.getParameter("search_mode");
                     if (searchMode == null || searchMode.isEmpty()) {
-                        searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
+                        searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
                     }
                 %>
                 <INPUT TYPE="hidden" name="search_mode" VALUE="<%=searchMode%>">

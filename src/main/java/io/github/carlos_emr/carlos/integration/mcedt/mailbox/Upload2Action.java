@@ -36,7 +36,7 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -105,7 +105,7 @@ public class Upload2Action extends ActionSupport {
         ActionUtils.removeUploadResourceId(request);
         ActionUtils.removeUploadFileName(request);
         List<File> files = ActionUtils.getSuccessfulUploads(request);
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         File sent = new File(props.getProperty("ONEDT_SENT", ""));
         if (!sent.exists())
             FileUtils.mkDir(sent);
@@ -159,7 +159,7 @@ public class Upload2Action extends ActionSupport {
 
                 if (result.getResponse().get(0).getResult().getCode().equals("IEDTS0001")) {
                     ActionUtils.setUploadResourceId(request, result.getResponse().get(0).getResourceID());
-                    OscarProperties props = OscarProperties.getInstance();
+                    CarlosProperties props = CarlosProperties.getInstance();
                     File file = new File(props.getProperty("ONEDT_OUTBOX", "") + this.getFileName());
                     ActionUtils.setSuccessfulUploads(request, file);
                 } else {
@@ -247,7 +247,7 @@ public class Upload2Action extends ActionSupport {
                 }
 
                 List<BigInteger> ids = new ArrayList<BigInteger>();
-                OscarProperties props = OscarProperties.getInstance();
+                CarlosProperties props = CarlosProperties.getInstance();
                 File sent = new File(props.getProperty("ONEDT_SENT", ""));
                 if (!sent.exists())
                     FileUtils.mkDir(sent);
@@ -315,7 +315,7 @@ public class Upload2Action extends ActionSupport {
     public String deleteUpload() {
         try {
             List<String> fileNames = Arrays.asList(this.getFileName().trim().split(","));
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             for (String fileName : fileNames) {
                 File file = new File(props.getProperty("ONEDT_OUTBOX", "") + fileName);
                 file.delete();
@@ -335,7 +335,7 @@ public class Upload2Action extends ActionSupport {
             addActionError(getText("uploadAction.upload.add.failure", new String[]{this.getFileName() + " is not a supported file Name. Please upload only claim/OBEC files"}));
             return "failure";
         } else {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             File myFile = new File(props.getProperty("ONEDT_OUTBOX", "") + this.getFileName());
             try (FileOutputStream outputStream = new FileOutputStream(myFile)) {
                 outputStream.write(Files.readAllBytes(this.getAddUploadFile().toPath()));
@@ -364,7 +364,7 @@ public class Upload2Action extends ActionSupport {
         UploadData result = new UploadData();
         result.setDescription(this.getDescription());
         result.setResourceType(this.getResourceType());
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         File file = new File(props.getProperty("ONEDT_OUTBOX", "") + this.getFileName());
         try (FileInputStream fis = new FileInputStream(file)) {
             byte[] data = new byte[fis.available()];
@@ -388,7 +388,7 @@ public class Upload2Action extends ActionSupport {
                 UploadData result = new UploadData();
                 result.setDescription(fileNames.get(i));
                 result.setResourceType(resourceTypes.get(i));
-                OscarProperties props = OscarProperties.getInstance();
+                CarlosProperties props = CarlosProperties.getInstance();
                 File file = new File(props.getProperty("ONEDT_OUTBOX", "") + fileNames.get(i));
                 try (FileInputStream fis = new FileInputStream(file);) {
                     byte[] data = new byte[fis.available()];

@@ -59,7 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <jsp:useBean id="SxmlMisc" class="io.github.carlos_emr.SxmlMisc" scope="session"/>
 
 <head>
@@ -74,7 +74,7 @@
         String nowDate = UtilDateUtilities.DateToString(new java.util.Date()); //"yyyy-MM-dd HH:mm"
         String monthCode = BillingDataHlp.propMonthCode.getProperty("" + curMonth);
 
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String billCenter = props.getProperty("billcenter", "").trim();
         String healthOffice = BillingDataHlp.propBillingCenter.getProperty(billCenter);
 

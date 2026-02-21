@@ -34,7 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
@@ -45,7 +45,7 @@ import java.util.List;
 public class EctDisplayEconsult2Action extends EctDisplayAction {
 
     private final String cmd = "eConsult";
-    private final String backendEconsultUrl = OscarProperties.getInstance().getProperty("backendEconsultUrl");
+    private final String backendEconsultUrl = CarlosProperties.getInstance().getProperty("backendEconsultUrl");
     private ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
 
     /**

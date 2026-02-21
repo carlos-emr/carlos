@@ -541,7 +541,7 @@ public class NotesService extends AbstractServiceImpl {
 		
 		/* Currently not available from this method
 		// Checks whether the user can set the program via the UI - if so, make sure that they can't screw it up if they do
-				if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
+				if (CarlosProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
 					String noteProgramNo = request.getParameter("_note_program_no");
 					String noteRoleId = request.getParameter("_note_role_id");
 
@@ -1209,7 +1209,7 @@ public class NotesService extends AbstractServiceImpl {
             note.setDemographic_no("" + demographicNo);
 
 //////This adds the note text i think
-//			if (!OscarProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
+//			if (!CarlosProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
 //				this.insertReason(request, note);
 //			} else {
 //				note.setNote("");

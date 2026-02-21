@@ -52,7 +52,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.billing.ca.on.pageUtil.*" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
@@ -62,7 +62,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingSavePrep" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%
@@ -365,7 +365,7 @@
                 int nBillDetailNo = 0;
 
                 // for new billing
-                OscarProperties props = OscarProperties.getInstance();
+                CarlosProperties props = CarlosProperties.getInstance();
                 if (props.getProperty("isNewONbilling", "").equals("true")) {
                     BillingSavePrep saveObj = new BillingSavePrep();
                     // combine two vecs into one

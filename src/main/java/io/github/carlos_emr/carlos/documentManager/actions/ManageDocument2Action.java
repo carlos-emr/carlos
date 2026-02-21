@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.documentManager.actions;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import com.itextpdf.text.pdf.PdfReader;
@@ -106,8 +106,8 @@ public class ManageDocument2Action extends ActionSupport {
     private final ProviderInboxRoutingDao providerInboxRoutingDAO = SpringUtils.getBean(ProviderInboxRoutingDao.class);
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private static final String DOCUMENT_DIR = OscarProperties.getInstance().getDocumentDirectory();
-    private static final String DOCUMENT_CACHE_DIR = OscarProperties.getInstance().getDocumentCacheDirectory();
+    private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
+    private static final String DOCUMENT_CACHE_DIR = CarlosProperties.getInstance().getDocumentCacheDirectory();
 
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
 
@@ -588,7 +588,7 @@ public class ManageDocument2Action extends ActionSupport {
      */
     public File createCacheVersion(Document d) throws Exception {
 
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File documentDir = new File(docdownload);
         File documentCacheDir = getDocumentCacheDir(docdownload);
         log.debug("Document Dir is a dir" + documentDir.isDirectory());
@@ -731,7 +731,7 @@ public class ManageDocument2Action extends ActionSupport {
 
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
 
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File documentDir = new File(docdownload);
         log.debug("Document Dir is a dir" + documentDir.isDirectory());
 
@@ -783,7 +783,7 @@ public class ManageDocument2Action extends ActionSupport {
         }
 
         String doc_no = request.getParameter("doc_no");
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         // File documentDir = new File(docdownload);
         Document d = documentDao.getDocument(doc_no);
         String filePath = docdownload + d.getDocfilename();
@@ -988,7 +988,7 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("Invalid filename");
         }
 
-        String savePath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String savePath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!savePath.endsWith(File.separator)) {
             savePath += File.separator;
         }
@@ -1055,7 +1055,7 @@ public class ManageDocument2Action extends ActionSupport {
         File f1 = new File(sourceFilePath);
 
         // Validate source file is within INCOMINGDOCUMENT_DIR to prevent path traversal
-        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (incomingDocDir != null && !incomingDocDir.isEmpty()) {
             File incomingDir = new File(incomingDocDir);
             f1 = PathValidationUtils.validateExistingPath(f1, incomingDir);
@@ -1162,7 +1162,7 @@ public class ManageDocument2Action extends ActionSupport {
         String filePath = IncomingDocUtil.getIncomingDocumentFilePathName(queueId, pdfDir, sanitizedPdfName);
         
         // Validate canonical path to ensure file is within allowed directory
-        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (incomingDocDir == null || incomingDocDir.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
         }
@@ -1217,7 +1217,7 @@ public class ManageDocument2Action extends ActionSupport {
 
     public int countNumOfPages(String fileName) { // count number of pages in a pdf file
         int numOfPage = 0;
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docdownload = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         if (!docdownload.endsWith(File.separator)) {
             docdownload += File.separator;
@@ -1266,7 +1266,7 @@ public class ManageDocument2Action extends ActionSupport {
         String filePath = IncomingDocUtil.getIncomingDocumentFilePathName(queueId, pdfDir, sanitizedPdfName);
         
         // Validate canonical path to ensure file is within allowed directory
-        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (incomingDocDir == null || incomingDocDir.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
         }
@@ -1393,7 +1393,7 @@ public class ManageDocument2Action extends ActionSupport {
         String incomingDocPath = IncomingDocUtil.getIncomingDocumentFilePath(queueId, pdfDir);
         
         // Validate canonical path to ensure file is within allowed directory
-        String incomingDocDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         if (incomingDocDir == null || incomingDocDir.isEmpty()) {
             throw new IllegalStateException("INCOMINGDOCUMENT_DIR not configured");
         }
@@ -1480,7 +1480,7 @@ public class ManageDocument2Action extends ActionSupport {
         // Get all allowed directories
         File documentDir = new File(DOCUMENT_DIR);
         File documentCacheDir = new File(getDocumentCacheDir());
-        String incomingDir = OscarProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
+        String incomingDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         File incomingDirFile = new File(incomingDir);
         File incomingCacheDir = getDocumentCacheDir(incomingDir);
 

@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 
 
@@ -100,7 +100,7 @@ public class RptByExample2Action extends ActionSupport {
             sql = "";
 
         RptByExampleData exampleData = new RptByExampleData();
-        Properties proppies = OscarProperties.getInstance();
+        Properties proppies = CarlosProperties.getInstance();
 
         String results = exampleData.exampleReportGenerate(sql, proppies) == null ? null : exampleData.exampleReportGenerate(sql, proppies);
         String resultText = exampleData.exampleTextGenerate(sql, proppies) == null ? null : exampleData.exampleTextGenerate(sql, proppies);

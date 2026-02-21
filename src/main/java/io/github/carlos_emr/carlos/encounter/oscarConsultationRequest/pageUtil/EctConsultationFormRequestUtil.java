@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -233,7 +233,7 @@ public class EctConsultationFormRequestUtil {
 
             // attempting to make this code as backwards compatible as possible while enabling
             // the use of a patients health care team directly in the Consultation module.
-            if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
+            if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
                 Integer demographicContactId = cr.getDemographicContactId();
                 DemographicContact demographicContact = cr.getDemographicContact();
                 Integer contactType = null;

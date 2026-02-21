@@ -2,7 +2,7 @@
 // we are opting to directly import cme.js into newEncounterLayout.jsp to load the ocean toolbar without utilizing the CME tag.
 
 // Here, the 'ocean-host' script attribute is added in the cme.js script tag as follows:
-// '<script id="mainScript" src="${ pageContext.request.contextPath }/js/custom/ocean/cme.js?no-cache=<%=randomNo%>&autoRefresh=true" ocean-host=<%=Encode.forUriComponent(OscarProperties.getInstance().getProperty("ocean_host"))%>></script>'
+// '<script id="mainScript" src="${ pageContext.request.contextPath }/js/custom/ocean/cme.js?no-cache=<%=randomNo%>&autoRefresh=true" ocean-host=<%=Encode.forUriComponent(CarlosProperties.getInstance().getProperty("ocean_host"))%>></script>'
 // when it is being imported into the newEncounterLayout.jsp.
 (function (script) {
     let oceanHost = script.attributes['ocean-host'];

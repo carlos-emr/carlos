@@ -18,7 +18,7 @@
 <%@ page import="java.util.*,io.github.carlos_emr.*,java.io.*,java.net.*,io.github.carlos_emr.carlos.util.*,org.apache.commons.io.FileUtils,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.billing.CA.ON.util.EDTFolder,io.github.carlos_emr.carlos.utility.MiscUtils"%>
 <%@ page import="io.github.carlos_emr.carlos.util.FileSortByDate" %>
 <%@ page import="io.github.carlos_emr.carlos.util.zip" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
@@ -54,7 +54,7 @@
             } else if (fileType == "L") {
                 form.action = "<%= request.getContextPath() %>/billing/CA/ON/billingLreport.jsp";
             } else {
-                form.action = "/<%= OscarProperties.getInstance().getProperty("project_home") %>/oscarBilling/DocumentErrorReportUpload.do";
+                form.action = "/<%= CarlosProperties.getInstance().getProperty("project_home") %>/oscarBilling/DocumentErrorReportUpload.do";
             }
             form.submit();
         }

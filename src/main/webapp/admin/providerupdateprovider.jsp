@@ -65,7 +65,7 @@
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
@@ -504,7 +504,7 @@
                                    value="<%= Encode.forHtmlAttribute(StringUtils.trimToEmpty(userPropertyDAO.getStringValue(provider_no, UserProperty.OFFICIAL_LAST_NAME))) %>"
                                    maxlength="255"></td>
                     </tr>
-                    <% if (OscarProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
+                    <% if (CarlosProperties.getInstance().getBooleanProperty("rma_enabled", "true")) { %>
                     <tr>
                         <td align="right">Default Clinic NBR:</td>
                         <td colspan="3">

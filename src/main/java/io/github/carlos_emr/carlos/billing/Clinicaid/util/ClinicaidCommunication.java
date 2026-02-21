@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.util.UtilMisc;
 import io.github.carlos_emr.carlos.billings.data.BillingFormData;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class ClinicaidCommunication {
 
@@ -61,7 +61,7 @@ public class ClinicaidCommunication {
     }
 
     public String buildClinicaidURL(HttpServletRequest request, String action) {
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
         String clinicaid_domain = oscarProps.getProperty("clinicaid_domain");
         String clinicaid_link = "";
         String nonce = "";
@@ -269,7 +269,7 @@ public class ClinicaidCommunication {
             String identifier,
             String first_name,
             String last_name) throws IOException {
-        OscarProperties oscarProps = OscarProperties.getInstance();
+        CarlosProperties oscarProps = CarlosProperties.getInstance();
 
         // Create the URL
         final String clinicaid_domain = oscarProps.getProperty("clinicaid_domain");

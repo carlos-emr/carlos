@@ -70,7 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.BillingService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -111,7 +111,7 @@
     String specialty = "";
     String r_status = "";
     String roster_status = "";
-    String billRegion = OscarProperties.getInstance().getProperty("billRegion", "BC");
+    String billRegion = CarlosProperties.getInstance().getProperty("billRegion", "BC");
     int rowCount = 0;
     int rowReCount = 0;
 

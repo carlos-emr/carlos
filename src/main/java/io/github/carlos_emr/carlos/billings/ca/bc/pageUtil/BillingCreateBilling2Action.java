@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.PaymentType;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.AgeValidator;
@@ -360,7 +360,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
                                ArrayList<BillingItem> billItem, String serviceDate) {
         for (Iterator<BillingItem> iter = billItem.iterator(); iter.hasNext(); ) {
             BillingItem item = iter.next();
-            String[] cnlsCodes = OscarProperties.getInstance().getProperty(
+            String[] cnlsCodes = CarlosProperties.getInstance().getProperty(
                     "COUNSELING_CODES", "").split(",");
             Vector vCodes = new Vector(Arrays.asList(cnlsCodes));
             if (vCodes.contains(item.getServiceCode())) {

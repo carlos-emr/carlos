@@ -54,7 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     String formClass = "ONAREnhanced";
     String formLink = "formonarenhancedpg1.jsp";
@@ -74,9 +74,9 @@
     List<LabelValueBean> cytologyForms = Pregnancy2Action.getEformsByGroup("Cytology");
     List<LabelValueBean> ultrasoundForms = Pregnancy2Action.getEformsByGroup("Ultrasound");
 
-    String customEformGroup = OscarProperties.getInstance().getProperty("prenatal_screening_eform_group");
-    String prenatalScreenName = OscarProperties.getInstance().getProperty("prenatal_screening_name");
-    String prenatalScreen = OscarProperties.getInstance().getProperty("prenatal_screening_abbrv");
+    String customEformGroup = CarlosProperties.getInstance().getProperty("prenatal_screening_eform_group");
+    String prenatalScreenName = CarlosProperties.getInstance().getProperty("prenatal_screening_name");
+    String prenatalScreen = CarlosProperties.getInstance().getProperty("prenatal_screening_abbrv");
 
     List<LabelValueBean> customForms = Pregnancy2Action.getEformsByGroup(customEformGroup);
 
@@ -84,7 +84,7 @@
         props.setProperty("obxhx_num", "0");
     }
 
-    String labReqVer = OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.equals("")) {
         labReqVer = "07";
     }

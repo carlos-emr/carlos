@@ -56,7 +56,7 @@ import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 @Entity
 @Table(name = "custom_filter")
@@ -165,7 +165,7 @@ public class CustomFilter extends AbstractModel<Integer> {
         }
         providers = new HashSet<Provider>();
         assignees = new HashSet<Provider>();
-        setSort_order(OscarProperties.getInstance().getProperty("tickler.default_sort_order", "asc"));
+        setSort_order(CarlosProperties.getInstance().getProperty("tickler.default_sort_order", "asc"));
     }
 
 

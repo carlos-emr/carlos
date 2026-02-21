@@ -84,7 +84,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData;
 import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -501,7 +501,7 @@ public final class EDocUtil {
             }
         }
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
@@ -583,7 +583,7 @@ public final class EDocUtil {
             resultDocs.add(currentdoc);
         }
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
@@ -603,7 +603,7 @@ public final class EDocUtil {
             edocList.add(edoc);
         }
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             edocList = documentFacilityFiltering(loggedInInfo, edocList);
         }
 
@@ -626,7 +626,7 @@ public final class EDocUtil {
             resultDocs.add(currentdoc);
         }
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
@@ -775,7 +775,7 @@ public final class EDocUtil {
             resultDocs.add(currentdoc);
         }
 
-        if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
+        if (CarlosProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY", "true")) {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
@@ -867,7 +867,7 @@ public final class EDocUtil {
 
     public static void refileDocument(String documentNo, String queueId) throws Exception {
 
-        String sourceDocDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String sourceDocDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         Document d = documentDao.find(ConversionUtils.fromIntString(documentNo));
         File sourceFile = new File(sourceDocDir, d.getDocfilename());
 
@@ -1170,7 +1170,7 @@ public final class EDocUtil {
      * @throws IOException IOException is thrown in case of any save errors
      */
     public static void writeDocContent(String fileName, byte[] content) throws IOException {
-        String docDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File file = new File(docDir, fileName);
         writeContent(file.getAbsolutePath(), content);
     }
@@ -1188,7 +1188,7 @@ public final class EDocUtil {
         }
 
         try {
-            String docDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+            String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
             File documentDir = new File(docDir);
 
             // Determine the input file - if relative, resolve against document directory
@@ -1224,7 +1224,7 @@ public final class EDocUtil {
     }
 
     private static void writeContent(String fileName, byte[] content) throws IOException {
-        String docDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDirFile = new File(docDir);
 
         // Use PathValidationUtils to validate and get safe file path

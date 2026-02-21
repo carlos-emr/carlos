@@ -31,7 +31,7 @@
     <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
     <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
     <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO"%>
-    <%@page import="io.github.carlos_emr.OscarProperties"%>
+    <%@page import="io.github.carlos_emr.CarlosProperties"%>
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
     <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>

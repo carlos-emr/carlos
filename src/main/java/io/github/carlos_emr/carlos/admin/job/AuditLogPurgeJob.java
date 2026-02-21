@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /*
  *  a) determine which rows to be purged 
@@ -66,7 +66,7 @@ public class AuditLogPurgeJob implements OscarRunnable {
         loggedInInfo.setLoggedInProvider(provider);
         loggedInInfo.setLoggedInSecurity(security);
 
-        String daysFromNowToRemove = OscarProperties.getInstance().getProperty("log.purge.daysfromnowtopurge");
+        String daysFromNowToRemove = CarlosProperties.getInstance().getProperty("log.purge.daysfromnowtopurge");
 
 
         Integer daysRemove = null;

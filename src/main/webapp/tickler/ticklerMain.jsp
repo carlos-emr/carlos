@@ -41,7 +41,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerLink" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
@@ -81,7 +81,7 @@
 %>
 
 <%
-    String labReqVer = io.github.carlos_emr.OscarProperties.getInstance().getProperty("onare_labreqver", "07");
+    String labReqVer = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("onare_labreqver", "07");
     if (labReqVer.isEmpty()) {
         labReqVer = "07";
     }
@@ -701,7 +701,7 @@
                         <select id="assignedTo" class="form-control" name="assignedTo">
                             <%
                                 // Check for property to default assigned providers and if present - default to user logged in
-                                boolean ticklerDefaultAssignedProvier = OscarProperties.getInstance().isPropertyActive("tickler_default_assigned_provider");
+                                boolean ticklerDefaultAssignedProvier = CarlosProperties.getInstance().isPropertyActive("tickler_default_assigned_provider");
                                 if (ticklerDefaultAssignedProvier) {
                                     if ("all".equals(assignedTo)) {
                                         assignedTo = user_no;
@@ -848,7 +848,7 @@
                         ticklers = ticklerManager.getTicklers(loggedInInfo, filter);
                     }
 
-                    String numDaysUntilWarn = OscarProperties.getInstance().getProperty("tickler_warn_period");
+                    String numDaysUntilWarn = CarlosProperties.getInstance().getProperty("tickler_warn_period");
                     if (numDaysUntilWarn == null || numDaysUntilWarn.isEmpty()) {
                         numDaysUntilWarn = "0";
                     }
@@ -1045,7 +1045,7 @@
         </form>
 
         <p class="yesprint">
-            <%=OscarProperties.getConfidentialityStatement()%>
+            <%=CarlosProperties.getConfidentialityStatement()%>
         </p>
 
         <div id="note-form" title="Edit Tickler Note" style="display:none;">

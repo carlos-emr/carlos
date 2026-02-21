@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimBatchAcknowledgementReportBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingClaimsErrorReportBeanHandler;
 import io.github.carlos_emr.carlos.billings.ca.on.bean.BillingEDTOBECOutputSpecificationBean;
@@ -113,7 +113,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
         boolean isAdded = true;
 
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
 
             // Get target directory
             String place = props.getProperty("DOCUMENT_DIR");
@@ -194,7 +194,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
         boolean isGot = false;
 
         try {
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
             String filepath = props.getProperty(pathDir);
             boolean bNewBilling = "true".equals(props.getProperty("isNewONbilling", ""));
 

@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.caisi;
 import javax.servlet.jsp.JspException;
 import javax.servlet.jsp.tagext.TagSupport;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class IsModuleLoadTag extends TagSupport {
 
@@ -44,7 +44,7 @@ public class IsModuleLoadTag extends TagSupport {
     public int doStartTag() throws JspException {
         try {
 
-            OscarProperties proper = OscarProperties.getInstance();
+            CarlosProperties proper = CarlosProperties.getInstance();
 
             if (proper.getProperty(moduleName, "").equalsIgnoreCase("yes") || proper.getProperty(moduleName, "").equalsIgnoreCase("true") || proper.getProperty(moduleName, "").equalsIgnoreCase("on"))
                 if (reverse)

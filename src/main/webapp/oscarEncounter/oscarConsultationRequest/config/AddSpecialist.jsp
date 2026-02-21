@@ -47,7 +47,7 @@
 %>
 
 <%@ page import="java.util.ResourceBundle" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -65,7 +65,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Department" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.EForm" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);
@@ -76,7 +76,7 @@
     List<EForm> eforms = eformDao.findAll(true);
     pageContext.setAttribute("eforms", eforms);
 
-    String referralNoMsg = OscarProperties.getInstance().getProperty("referral_no.msg", "Must be an integer");
+    String referralNoMsg = CarlosProperties.getInstance().getProperty("referral_no.msg", "Must be an integer");
 
     ConsultationServiceDao specialtyDao = SpringUtils.getBean(ConsultationServiceDao.class);
     List<ConsultationServices> specialties = specialtyDao.findActive();

@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
 import io.github.carlos_emr.carlos.integration.mcedt.ResourceForm;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import ca.ontario.health.edt.Detail;
 import ca.ontario.health.edt.DetailData;
@@ -235,7 +235,7 @@ public class Download2Action extends ActionSupport {
 
             //----------start to save file
             for (DownloadData d : downloadResult.getData()) {
-                String inboxFolder = OscarProperties.getInstance().getProperty("ONEDT_INBOX");
+                String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
                 File document = new File(inboxFolder + File.separator + d.getDescription());
                 byte[] inputBytes = d.getContent();
 
@@ -291,8 +291,8 @@ public class Download2Action extends ActionSupport {
 
     private String getLastDownloadedID() {
         String resourceID = "0";
-        String inboxFolder = OscarProperties.getInstance().getProperty("ONEDT_INBOX");
-        String lastDownloadedFile = OscarProperties.getInstance().getProperty("mcedt.last.downloadedID.file");
+        String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
+        String lastDownloadedFile = CarlosProperties.getInstance().getProperty("mcedt.last.downloadedID.file");
         Path path = Paths.get(inboxFolder, lastDownloadedFile);
         try {
             File document;
@@ -317,8 +317,8 @@ public class Download2Action extends ActionSupport {
 
     private void updateLastDownloadedID(String lastID) {
         boolean writeResult = false;
-        String inboxFolder = OscarProperties.getInstance().getProperty("ONEDT_INBOX");
-        String lastDownloadedFile = OscarProperties.getInstance().getProperty("mcedt.last.downloadedID.file");
+        String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
+        String lastDownloadedFile = CarlosProperties.getInstance().getProperty("mcedt.last.downloadedID.file");
 
 
         try {
@@ -367,7 +367,7 @@ public class Download2Action extends ActionSupport {
 
             //----------start to save file
             for (DownloadData d : downloadResult.getData()) {
-                String inboxFolder = OscarProperties.getInstance().getProperty("ONEDT_INBOX");
+                String inboxFolder = CarlosProperties.getInstance().getProperty("ONEDT_INBOX");
                 File document = new File(inboxFolder + File.separator + d.getDescription());
                 byte[] inputBytes = d.getContent();
 

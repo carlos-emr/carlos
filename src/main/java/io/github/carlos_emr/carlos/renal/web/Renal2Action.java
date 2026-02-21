@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.renal.web;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -74,7 +74,7 @@ public class Renal2Action extends ActionSupport {
     static String labReqVersion;
 
     static {
-        labReqVersion = OscarProperties.getInstance().getProperty("orn_labreqver", "07");
+        labReqVersion = CarlosProperties.getInstance().getProperty("orn_labreqver", "07");
         if (labReqVersion == "") {
             labReqVersion = "10";
         }
@@ -278,7 +278,7 @@ public class Renal2Action extends ActionSupport {
         String demographicNo = request.getParameter("demographic_no");
         response.setContentType("text/html");
         try {
-            String documentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "");
+            String documentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR", "");
             File f = new File(documentDir, "orn_patient_letter.txt");
             String template = IOUtils.toString(new FileInputStream(f));
 
@@ -291,7 +291,7 @@ public class Renal2Action extends ActionSupport {
             if (d.getProviderNo() != null && d.getProviderNo().length() > 0) {
                 velocityContext.put("mrp", providerDao.getProvider(d.getProviderNo()));
             } else {
-                velocityContext.put("mrp", OscarProperties.getInstance().getProperty("orn.default_mrp", ""));
+                velocityContext.put("mrp", CarlosProperties.getInstance().getProperty("orn.default_mrp", ""));
             }
 
 
@@ -365,7 +365,7 @@ public class Renal2Action extends ActionSupport {
         // if(success) {
 
         // 	try {
-        // 		String documentDir = oscar.OscarProperties.getInstance().getProperty("DOCUMENT_DIR","");
+        // 		String documentDir = oscar.CarlosProperties.getInstance().getProperty("DOCUMENT_DIR","");
         // 		File f = new File(documentDir,"orn_patient_letter.txt");
         //         String template=IOUtils.toString(new FileInputStream(f));
 
@@ -378,7 +378,7 @@ public class Renal2Action extends ActionSupport {
         //         if(d.getProviderNo() != null && d.getProviderNo().length()>0) {
         //         	mrp = providerDao.getProvider(d.getProviderNo());
         //         } else {
-        //         	mrp = providerDao.getProvider(OscarProperties.getInstance().getProperty("orn.default_mrp",""));
+        //         	mrp = providerDao.getProvider(CarlosProperties.getInstance().getProperty("orn.default_mrp",""));
         //         }
         //         velocityContext.put("mrp", mrp);
 
@@ -392,8 +392,8 @@ public class Renal2Action extends ActionSupport {
         //            public void prepare(MimeMessage mimeMessage) throws Exception {
         //               MimeMessageHelper message = new MimeMessageHelper(mimeMessage);
         //               message.setTo(d.getEmail());
-        //               message.setSubject(OscarProperties.getInstance().getProperty("orn.email.subject", "Important Message from " +  mrp1));
-        //               message.setFrom(OscarProperties.getInstance().getProperty("orn.email.from","no-reply@oscarmcmaster.org"));
+        //               message.setSubject(CarlosProperties.getInstance().getProperty("orn.email.subject", "Important Message from " +  mrp1));
+        //               message.setFrom(CarlosProperties.getInstance().getProperty("orn.email.from","no-reply@oscarmcmaster.org"));
         //               message.setText(letter, true);
         //            }
         //         };

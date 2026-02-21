@@ -58,7 +58,7 @@
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -258,7 +258,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         boolean fulltxt;
         pos = noteSize - 1;
 
-        String issuesToHide = OscarProperties.getInstance().getProperty("encounter.hide_notes_with_issue", "");
+        String issuesToHide = CarlosProperties.getInstance().getProperty("encounter.hide_notes_with_issue", "");
         String[] is = issuesToHide.split(",");
 
         boolean remoteCapableProfessionalSpecialists = professionalSpecialistDao.hasRemoteCapableProfessionalSpecialists();
@@ -321,11 +321,11 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             }
 
             boolean editWarn = !note.isSigned() && !note.getProviderNo().equals(provNo);
-            boolean hideCppNotes = OscarProperties.getInstance().isPropertyActive("encounter.hide_cpp_notes");
-            boolean hideDocumentNotes = OscarProperties.getInstance().isPropertyActive("encounter.hide_document_notes");
-            boolean hideEformNotes = OscarProperties.getInstance().isPropertyActive("encounter.hide_eform_notes");
-            //boolean hideMetaData = OscarProperties.getInstance().isPropertyActive("encounter.hide_metadata");
-            boolean hideInvoices = OscarProperties.getInstance().isPropertyActive("encounter.hide_invoices");
+            boolean hideCppNotes = CarlosProperties.getInstance().isPropertyActive("encounter.hide_cpp_notes");
+            boolean hideDocumentNotes = CarlosProperties.getInstance().isPropertyActive("encounter.hide_document_notes");
+            boolean hideEformNotes = CarlosProperties.getInstance().isPropertyActive("encounter.hide_eform_notes");
+            //boolean hideMetaData = CarlosProperties.getInstance().isPropertyActive("encounter.hide_metadata");
+            boolean hideInvoices = CarlosProperties.getInstance().isPropertyActive("encounter.hide_invoices");
 
             String noteDisplay = "block";
             if (note.isCpp() && hideCppNotes) {
@@ -395,7 +395,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
                 savedNoteId =<%=note.getNoteId()%>;
             </script>
             <%
-                if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
+                if (CarlosProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
             %>
             <script>
                 _setupNewNote();
@@ -710,7 +710,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 						if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice())
 						{
 
-                    if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
+                    if (CarlosProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
             %>
             <div class="_program" noteId="<%=globalNoteId %>" programName="<%=note.getProgramName() %>"
                  roleName="<%=note.getRoleName() %>">
@@ -885,7 +885,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 </div>
 <!-- end of div nc<%=offset%><%=savedId%> -->
 
-<% if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) { %>
+<% if (CarlosProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) { %>
 <script>
     _setupNewNote();
 </script>
@@ -1059,7 +1059,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
         messagesLoaded('<%=savedId%>');
     }
     <%
-	if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
+	if (CarlosProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
 	%>
     _setupProgramList();
     <% } %>
@@ -1067,7 +1067,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 </script>
 
 <%
-    if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
+    if (CarlosProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
 %>
 <script type="text/javascript">
     jQuery("._program .program").unbind("click");
@@ -1084,7 +1084,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
      */
 
     protected String insertReason(HttpServletRequest request) {
-        if (OscarProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
+        if (CarlosProperties.getInstance().isPropertyActive("encounter.empty_new_note")) {
             return new String();
         }
         String encounterText = "";

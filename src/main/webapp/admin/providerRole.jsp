@@ -55,7 +55,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
@@ -106,7 +106,7 @@
         //This should only temporarily apply to oscar, not caisi.
         //You cannot assign providers to one program "OSCAR" here if you have caisi enabled.
         //If there is no program called "OSCAR", it will only assign empty program to the providers which is not acceptable.
-        if ((users != null && users.size() > 0) || OscarProperties.getInstance().getProperty("CASEMANAGEMENT", "").equalsIgnoreCase("all"))
+        if ((users != null && users.size() > 0) || CarlosProperties.getInstance().getProperty("CASEMANAGEMENT", "").equalsIgnoreCase("all"))
             newCaseManagement = true;
     }
 
@@ -129,7 +129,7 @@
 
     String omit = "";
     if (isSiteAccessPrivacy) {
-        omit = OscarProperties.getInstance().getProperty("multioffice.admin.role.name", "");
+        omit = CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", "");
     }
 
     List<SecRole> secRoles = secRoleDao.findAllOrderByRole();

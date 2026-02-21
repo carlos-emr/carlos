@@ -42,7 +42,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -114,7 +114,7 @@
 
     boolean dhirEnabled = false;
 
-    if ("true".equals(OscarProperties.getInstance().getProperty("dhir.enabled", "false"))) {
+    if ("true".equals(CarlosProperties.getInstance().getProperty("dhir.enabled", "false"))) {
         dhirEnabled = true;
     }
 
@@ -768,7 +768,7 @@
                     <% } %>
 
                     <br/>
-                    <%if (!StringUtils.isEmpty(OscarProperties.getInstance().getProperty("cvc.url"))) { %>
+                    <%if (!StringUtils.isEmpty(CarlosProperties.getInstance().getProperty("cvc.url"))) { %>
                     <table>
                         <tr>
                             <td style="font-size:12pt">Add by Brand/Generic/Lot#</td>
@@ -824,7 +824,7 @@
                         <input type="hidden" name="mrp" value="<%=mrp%>"/>
                         <input type="hidden" name="module" value="prevention">
                                 <%
-                 if (!io.github.carlos_emr.OscarProperties.getInstance().getBooleanProperty("PREVENTION_CLASSIC_VIEW","yes")){
+                 if (!io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("PREVENTION_CLASSIC_VIEW","yes")){
                    ArrayList<Map<String,Object>> hiddenlist = new ArrayList<Map<String,Object>>();
                   for (int i = 0 ; i < prevList.size(); i++){
                   		HashMap<String,String> h = prevList.get(i);
@@ -899,7 +899,7 @@
                                         <!--<%=refused(hdata.get("refused"))%>-->
                                         Date: <%=StringEscapeUtils.escapeHtml4((String)hdata.get("prevention_date_no_time"))%>
                                                 <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
-                    if (io.github.carlos_emr.OscarProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){%>
+                    if (io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){%>
                                     <div class="comments">
                                         <span><%=StringEscapeUtils.escapeHtml4((String) hExt.get("comments"))%></span>
                                     </div>
@@ -986,7 +986,7 @@
                                                 <!--<%=refused(hdata.get("refused"))%>-->
                                                 Date: <%=StringEscapeUtils.escapeHtml4((String)hdata.get("prevention_date_no_time"))%>
                                                         <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
-                     if (io.github.carlos_emr.OscarProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){ %>
+                     if (io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){ %>
                                             <div class="comments">
                                                 <span><%=StringEscapeUtils.escapeHtml4((String) hExt.get("comments"))%></span>
                                             </div>

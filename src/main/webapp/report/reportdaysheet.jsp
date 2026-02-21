@@ -64,7 +64,7 @@
     String curProvider_no = (String) session.getAttribute("user");
     String orderby = request.getParameter("orderby") != null ? request.getParameter("orderby") : ("start_time");
 
-    java.util.Properties oscarVariables = io.github.carlos_emr.OscarProperties.getInstance();
+    java.util.Properties oscarVariables = io.github.carlos_emr.CarlosProperties.getInstance();
 
     SimpleDateFormat dayFormatter = new SimpleDateFormat("yyyy-MM-dd");
     int count = 0;

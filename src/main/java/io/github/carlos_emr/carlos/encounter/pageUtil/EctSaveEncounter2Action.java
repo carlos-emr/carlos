@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -286,7 +286,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
         if (httpservletrequest.getParameter("btnPressed").equals(
                 "Sign,Save and Bill")) {
 
-            String billRegion = OscarProperties.getInstance().getProperty(
+            String billRegion = CarlosProperties.getInstance().getProperty(
                     "billregion");
             //
             BillingSessionBean bean = new BillingSessionBean();

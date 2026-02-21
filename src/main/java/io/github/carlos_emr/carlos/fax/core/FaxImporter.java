@@ -62,7 +62,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import com.itextpdf.text.pdf.codec.Base64;
 import com.itextpdf.text.pdf.PdfReader;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -89,7 +89,7 @@ import org.springframework.stereotype.Service;
  * <p><strong>Configuration Properties:</strong></p>
  * <pre>
  * # carlos.properties
- * FAX_INCOMING_DIR=/path/to/fax/incoming  # Optional; defaults resolved by OscarProperties:
+ * FAX_INCOMING_DIR=/path/to/fax/incoming  # Optional; defaults resolved by CarlosProperties:
  *                                         #   1. ${catalina.base}/fax-incoming (Tomcat)
  *                                         #   2. ${java.io.tmpdir}/carlos-fax-incoming (non-Tomcat)
  * DOCUMENT_DIR=/path/to/documents         # Required, final document storage location
@@ -104,12 +104,12 @@ import org.springframework.stereotype.Service;
 public class FaxImporter {
 
     /**
-     * Static initialization is intentional: OscarProperties is a read-once singleton with no
+     * Static initialization is intentional: CarlosProperties is a read-once singleton with no
      * reload mechanism — property changes require a Tomcat restart. This matches the pattern
      * used by ManageDocument2Action and NioFileManager. The {@link #initialize()} PostConstruct
      * guard validates this value at Spring startup, failing fast if misconfigured.
      */
-    private static final String DOCUMENT_DIR = OscarProperties.getInstance().getDocumentDirectory();
+    private static final String DOCUMENT_DIR = CarlosProperties.getInstance().getDocumentDirectory();
 
     /** Atomic counter for collision-free filename sequencing */
     private static final AtomicLong fileCounter = new AtomicLong(0);
@@ -148,7 +148,7 @@ public class FaxImporter {
                     + "Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in carlos.properties.");
         }
 
-        String incomingDirPath = OscarProperties.getInstance().getFaxIncomingDirectory();
+        String incomingDirPath = CarlosProperties.getInstance().getFaxIncomingDirectory();
         if (incomingDirPath == null || incomingDirPath.trim().isEmpty()) {
             throw new IllegalStateException(
                     "FAX_INCOMING_DIR cannot be resolved. "

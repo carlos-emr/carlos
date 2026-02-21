@@ -37,7 +37,7 @@
         import="java.util.*, java.net.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
         errorPage="/errorpage.jsp" %>
 <%@ page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
@@ -54,7 +54,7 @@
 %>
 <% //save or delete the settings
     int rowsAffected = 0;
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     int STEP = request.getParameter("step") != null && !request.getParameter("step").equals("") ? Integer.parseInt(request.getParameter("step")) : (props.getProperty("template_time", "").length() > 0 ? Integer.parseInt(props.getProperty("template_time", "")) : 15);
     if (request.getParameter("dboperation") != null && (request.getParameter("dboperation").compareTo(" Save ") == 0 || request.getParameter("dboperation").equals("Delete"))) {
         String pre = request.getParameter("providerid").equals("Public") && !request.getParameter("name").startsWith("P:") ? "P:" : "";

@@ -31,8 +31,8 @@
 
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
-<% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 

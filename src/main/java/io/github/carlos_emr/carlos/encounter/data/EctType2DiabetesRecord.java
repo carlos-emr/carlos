@@ -37,7 +37,7 @@ import java.util.Date;
 import java.util.Properties;
 
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -88,7 +88,7 @@ public class EctType2DiabetesRecord {
     public int saveType2DiabetesRecord(Properties props) throws SQLException {
 
         /* if database = postgres, make a properties with ignore case */
-        String db_type = OscarProperties.getInstance().getProperty("db_type").trim();
+        String db_type = CarlosProperties.getInstance().getProperty("db_type").trim();
         if (db_type.equalsIgnoreCase("postgresql")) {
             Properties temp = new Properties();
             java.util.Enumeration varEnum = props.propertyNames();

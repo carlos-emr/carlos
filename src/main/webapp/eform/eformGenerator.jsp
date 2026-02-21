@@ -49,7 +49,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.apache.logging.log4j.Logger" %>
 <!--
 eForm Generator version 7.4 (C) Peter Hutten-Czapski 2014-2023
@@ -83,9 +83,9 @@ and other liscences (MIT, LGPL etc) as indicated
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormLoader" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
-    boolean eformGeneratorIndivicaPrintEnabled = OscarProperties.getInstance().isPropertyActive("eform_generator_indivica_print_enabled");
-    boolean eformGeneratorIndivicaFaxEnabled = OscarProperties.getInstance().isPropertyActive("eform_generator_indivica_fax_enabled");
-    boolean eformGeneratorIndivicaSignatureEnabled = OscarProperties.getInstance().isPropertyActive("eform_generator_indivica_signature_enabled");
+    boolean eformGeneratorIndivicaPrintEnabled = CarlosProperties.getInstance().isPropertyActive("eform_generator_indivica_print_enabled");
+    boolean eformGeneratorIndivicaFaxEnabled = CarlosProperties.getInstance().isPropertyActive("eform_generator_indivica_fax_enabled");
+    boolean eformGeneratorIndivicaSignatureEnabled = CarlosProperties.getInstance().isPropertyActive("eform_generator_indivica_signature_enabled");
 %>
 <html>
 <head>
@@ -823,7 +823,7 @@ and other liscences (MIT, LGPL etc) as indicated
             textTop += " .DoNotPrint {\n\tdisplay:none;\n }\n .noborder {\n\tborder:0px;\n\tbackground: transparent;\n";
             textTop += "&lt;/style&gt;\n\n";
 
-            if (<% if (OscarProperties.getInstance().isPropertyActive("eform_generator_indivica_print_enabled")) { %>(document.getElementById('includePdfPrintControl').checked) || <%}%> <% if (OscarProperties.getInstance().isPropertyActive("eform_generator_indivica_fax_enabled")) { %>(document.getElementById("includeFaxControl").checked) || <% } %> (document.getElementById('AddSignature').checked)) {
+            if (<% if (CarlosProperties.getInstance().isPropertyActive("eform_generator_indivica_print_enabled")) { %>(document.getElementById('includePdfPrintControl').checked) || <%}%> <% if (CarlosProperties.getInstance().isPropertyActive("eform_generator_indivica_fax_enabled")) { %>(document.getElementById("includeFaxControl").checked) || <% } %> (document.getElementById('AddSignature').checked)) {
                 textTop += "&lt;!-- jQuery for greater functionality --&gt;\n"
                 // dependency on jquery up to version 2.2.1 for pdf and faxing for OSCAR Pro
                 // ensure that we check the integrety of the CDN's version
@@ -1926,7 +1926,7 @@ and other liscences (MIT, LGPL etc) as indicated
                          This function/scriplet looks in the images directory and populates the selection
                          so that the user can select which image they want to use for generating an eform
                          */
-                        String imagePath = OscarProperties.getInstance().getEformImageDirectory();
+                        String imagePath = CarlosProperties.getInstance().getEformImageDirectory();
                         if (imagePath == null) {
                             MiscUtils.getLogger().debug("Please provide a valid image path for EFORM_IMAGES_DIR in properties");
                         }

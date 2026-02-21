@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.eform;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.commons.digester3.Digester;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -187,7 +187,7 @@ public class EFormLoader {
         digester.addBeanPropertySetter("eformap-config/databaseap/ap-json-output", "apJsonOutput");
         digester.addSetNext("eformap-config/databaseap", "addDatabaseAP");
         try {
-            Properties op = OscarProperties.getInstance();
+            Properties op = CarlosProperties.getInstance();
             String configpath = op.getProperty("eform_databaseap_config");
             InputStream fs = null;
             if (configpath == null) {

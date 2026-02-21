@@ -45,11 +45,11 @@ import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelp
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceResolver;
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class ContextStartupListener implements javax.servlet.ServletContextListener {
     private static final Logger logger = MiscUtils.getLogger();
-    private static final OscarProperties oscarProperties = OscarProperties.getInstance();
+    private static final CarlosProperties oscarProperties = CarlosProperties.getInstance();
 
     @Override
     public void contextInitialized(javax.servlet.ServletContextEvent sce) {

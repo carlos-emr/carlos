@@ -57,7 +57,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="java.lang.*" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="org.owasp.encoder.Encode" %>
 
 <%
@@ -281,7 +281,7 @@
         <% String searchMode = request.getParameter("search_mode");
             String keyWord = request.getParameter("keyword");
             if (searchMode == null || searchMode.equals("")) {
-                searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
+                searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
             }
             if (keyWord == null) {
                 keyWord = "";

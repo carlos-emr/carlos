@@ -99,7 +99,7 @@ public abstract class DaoTestFixtures {
 
         start = System.currentTimeMillis();
         if (SpringUtils.getBeanFactory() == null) {
-            io.github.carlos_emr.OscarProperties p = io.github.carlos_emr.OscarProperties.getInstance();
+            io.github.carlos_emr.CarlosProperties p = io.github.carlos_emr.CarlosProperties.getInstance();
             p.setProperty("db_name", ConfigUtils.getProperty("db_schema") + ConfigUtils.getProperty("db_schema_properties"));
             p.setProperty("db_username", ConfigUtils.getProperty("db_user"));
             p.setProperty("db_password", ConfigUtils.getProperty("db_password"));

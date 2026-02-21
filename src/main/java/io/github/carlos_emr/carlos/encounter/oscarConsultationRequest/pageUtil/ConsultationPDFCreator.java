@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
@@ -59,7 +59,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     private Font boldFontHeading;
     private Font heading;
     private EctConsultationFormRequestUtil reqFrm;
-    private OscarProperties props;
+    private CarlosProperties props;
     private ClinicData clinic;
     private ResourceBundle oscarR;
     private EctConsultationFaxForm ectConsultationFaxForm;
@@ -88,7 +88,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         this.os = os;
         reqFrm = new EctConsultationFormRequestUtil();
         reqFrm.estRequestFromId(LoggedInInfo.getLoggedInInfoFromSession(request), request.getParameter("reqId") == null ? (String) request.getAttribute("reqId") : request.getParameter("reqId"));
-        props = OscarProperties.getInstance();
+        props = CarlosProperties.getInstance();
         clinic = new ClinicData();
         oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
     }
@@ -371,7 +371,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
 
         // If not set to Patient Will Book then maybe a Custom Appointment Instruction is used.
-        else if (OscarProperties.getInstance().getBooleanProperty("CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP", "true")) {
+        else if (CarlosProperties.getInstance().getBooleanProperty("CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP", "true")) {
             cell.setPhrase(new Phrase(reqFrm.getAppointmentInstructionsLabel(), boldFontHeading));
         } else if (IsPropertiesOn.isMultisitesEnable()) {
             cell.setPhrase(new Phrase("Please reply", boldFontHeading));

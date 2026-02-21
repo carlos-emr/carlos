@@ -34,7 +34,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.pageUtil.BillingCorrectionPrep" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
     BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
 %>
@@ -74,7 +74,7 @@
     <%
     } else {
         int rowsAffected = 0;
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         if (props.getProperty("isNewONbilling", "").equals("true")) {
             BillingCorrectionPrep dbObj = new BillingCorrectionPrep();
             rowsAffected = dbObj.deleteBilling(request.getParameter("billing_no"), "D", curUser_no) ? 1 : 0;

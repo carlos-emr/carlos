@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS25;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * @author jay
@@ -96,7 +96,7 @@ public class GenTa2Action extends ActionSupport {
 
         String forwardPage = "S21";
 
-        String filepath = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        String filepath = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
 
         FileInputStream file = new FileInputStream(filepath + filename);
         BufferedReader input = new BufferedReader(new InputStreamReader(file));

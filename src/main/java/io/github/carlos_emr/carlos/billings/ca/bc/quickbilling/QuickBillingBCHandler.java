@@ -63,7 +63,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
@@ -129,7 +129,7 @@ public class QuickBillingBCHandler {
 
         this.today = new Date();
         providerDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
-        oscarProperties = OscarProperties.getInstance();
+        oscarProperties = CarlosProperties.getInstance();
         bmanager = new BillingBillingManager();
         billing = new Billing();
         billingmasterDAO = (BillingmasterDAO) SpringUtils.getBean(BillingmasterDAO.class);
@@ -146,7 +146,7 @@ public class QuickBillingBCHandler {
 
         this.today = new Date();
         providerDao = (ProviderDataDao) SpringUtils.getBean(ProviderDataDao.class);
-        oscarProperties = OscarProperties.getInstance();
+        oscarProperties = CarlosProperties.getInstance();
         bmanager = new BillingBillingManager();
         billing = new Billing();
         billingmasterDAO = (BillingmasterDAO) SpringUtils.getBean(BillingmasterDAO.class);

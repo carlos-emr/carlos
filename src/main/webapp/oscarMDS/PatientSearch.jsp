@@ -202,7 +202,7 @@
                 int age = 0;
 
                 ResultSet rs = null;
-                Properties props = io.github.carlos_emr.OscarProperties.getInstance();
+                Properties props = io.github.carlos_emr.CarlosProperties.getInstance();
                 DBPreparedHandler db = new DBPreparedHandler();
 
                 String keyword = "";

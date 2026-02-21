@@ -34,7 +34,7 @@
 
 <%@page import="java.util.Enumeration, org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -66,7 +66,7 @@
     String frmName = "caseManagementEntryForm" + request.getParameter("demographicNo");
     CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
 
-    String encTimeMandatoryValue = OscarProperties.getInstance().getProperty("ENCOUNTER_TIME_MANDATORY", "false");
+    String encTimeMandatoryValue = CarlosProperties.getInstance().getProperty("ENCOUNTER_TIME_MANDATORY", "false");
 
     CppPreferencesUIBean cppPreferences = new CppPreferencesUIBean(loggedInInfo.getLoggedInProviderNo());
     cppPreferences.loadValues();
@@ -158,7 +158,7 @@
             <%-- Javascripts for the BC Care Connect Button --%>
         <oscar:oscarPropertiesCheck value="BC" property="billregion">
             <security:oscarSec roleName="<%=roleName%>" objectName="_careconnect" rights="r">
-                <c:set value="${ OscarProperties.getInstance()['BC_CARECONNECT_URL'] }" var="careconnecturl"
+                <c:set value="${ CarlosProperties.getInstance()['BC_CARECONNECT_URL'] }" var="careconnecturl"
                        scope="application"/>
                 <c:if test="${ not empty careconnecturl }">
                     <script type="text/javascript"
@@ -167,7 +167,7 @@
             </security:oscarSec>
         </oscar:oscarPropertiesCheck>
 
-        <% if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) { %>
+        <% if (CarlosProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) { %>
         <link rel="stylesheet" href="<c:out value="${ctx}/casemgmt/noteProgram.css" />"/>
         <script type="text/javascript" src="<c:out value="${ctx}/casemgmt/noteProgram.js" />"></script>
         <% } %>
@@ -374,11 +374,11 @@
         <% } %>
 
         <!-- Instead of importing cme.js using the CME tag (as done in Oscar19/OscarPro), we are opting to directly import cme.js without utilizing the CME tag. -->
-        <% if ("ocean".equals(OscarProperties.getInstance().get("cme_js"))) {
+        <% if ("ocean".equals(CarlosProperties.getInstance().get("cme_js"))) {
             int randomNo = new Random().nextInt();%>
         <script id="mainScript"
                 src="${ pageContext.request.contextPath }/js/custom/ocean/cme.js?no-cache=<%=randomNo%>&autoRefresh=true"
-                ocean-host=<%=Encode.forUriComponent(OscarProperties.getInstance().getProperty("ocean_host"))%>></script>
+                ocean-host=<%=Encode.forUriComponent(CarlosProperties.getInstance().getProperty("ocean_host"))%>></script>
         <% } %>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
@@ -873,7 +873,7 @@
             </div>
 
             <%
-                if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
+                if (CarlosProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
             %>
             <span class="popup" style="display: none;" id="_program_popup">
 				<div class="arrow"></div>
@@ -922,7 +922,7 @@
     <div id="encounterModal"></div>
     <%
         String apptNo = request.getParameter("appointmentNo");
-        if (OscarProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true") &&
+        if (CarlosProperties.getInstance().getProperty("resident_review", "false").equalsIgnoreCase("true") &&
                 loggedInInfo.getLoggedInProvider().getProviderType().equals("resident") && !"null".equalsIgnoreCase(apptNo) && !"".equalsIgnoreCase(apptNo)) {
             ProviderDataDao providerDao = SpringUtils.getBean(ProviderDataDao.class);
             List<ProviderData> providerList = providerDao.findAllBilling("1");

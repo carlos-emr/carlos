@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -120,7 +120,7 @@ public class ImageUpload2Action extends ActionSupport {
     }
 
     public static File getImageFolder() throws IOException {
-        File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory() + "/");
+        File imageFolder = new File(CarlosProperties.getInstance().getEformImageDirectory() + "/");
         if (!imageFolder.exists() && !imageFolder.mkdirs())
             throw new IOException("Could not create directory " + imageFolder.getAbsolutePath() + " check permissions and ensure the correct EFORM_IMAGES_DIR property is set in the properties file");
         return imageFolder;

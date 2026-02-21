@@ -68,7 +68,7 @@
 <%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
@@ -91,7 +91,7 @@
     EFormDao eformDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
     ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
     ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
-    String privateConsentEnabledProperty = OscarProperties.getInstance().getProperty("privateConsentEnabled");
+    String privateConsentEnabledProperty = CarlosProperties.getInstance().getProperty("privateConsentEnabled");
     boolean privateConsentEnabled = privateConsentEnabledProperty != null && privateConsentEnabledProperty.equals("true");
 %>
 <%
@@ -103,7 +103,7 @@
 <%
     java.util.Locale vLocale = request.getLocale();
 
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
 
     GregorianCalendar now = new GregorianCalendar();
     String curYear = Integer.toString(now.get(Calendar.YEAR));
@@ -113,7 +113,7 @@
     if (curDay.length() < 2) curDay = "0" + curDay;
 
     int nStrShowLen = 20;
-    OscarProperties oscarProps = OscarProperties.getInstance();
+    CarlosProperties oscarProps = CarlosProperties.getInstance();
 
     ProvinceNames pNames = ProvinceNames.getInstance();
     String prov = (props.getProperty("billregion", "")).trim().toUpperCase();
@@ -146,7 +146,7 @@
 
 
     //get a list of programs the patient has consented to.
-    if (OscarProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
+    if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
         PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
         pageContext.setAttribute("consentTypes", patientConsentManager.getConsentTypes());
     }
@@ -180,7 +180,7 @@
                     return false;
                 }
 
-                <% if("false".equals(OscarProperties.getInstance().getProperty("skip_postal_code_validation","false"))) { %>
+                <% if("false".equals(CarlosProperties.getInstance().getProperty("skip_postal_code_validation","false"))) { %>
                 if (!isPostalCode()) {
                     return false;
                 }
@@ -212,7 +212,7 @@
 
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
 
-        <% if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
+        <% if (CarlosProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
         <script language="javascript" src="<%=request.getContextPath() %>/hcHandler/hcHandler.js"></script>
         <script language="javascript"
                 src="<%=request.getContextPath() %>/hcHandler/hcHandlerNewDemographic.js"></script>
@@ -609,7 +609,7 @@
             }
 
             <%
-if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","false"))) {
+if("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled","false"))) {
 %>
             jQuery(document).ready(function () {
 
@@ -632,7 +632,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
                             jQuery('#country').append(jQuery('<option>').text(value.label).attr('value', value.value));
                         });
 
-                        var defaultProvince = '<%=OscarProperties.getInstance().getProperty("demographic.default_province","")%>';
+                        var defaultProvince = '<%=CarlosProperties.getInstance().getProperty("demographic.default_province","")%>';
                         var defaultCountry = '';
 
                         if (defaultProvince == '' && defaultCountry == '') {
@@ -658,7 +658,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
                             jQuery('#residentialCountry').append(jQuery('<option>').text(value.label).attr('value', value.value));
                         });
 
-                        var defaultProvince = '<%=OscarProperties.getInstance().getProperty("demographic.default_province","")%>';
+                        var defaultProvince = '<%=CarlosProperties.getInstance().getProperty("demographic.default_province","")%>';
                         var defaultCountry = '';
 
                         if (defaultProvince == '' && defaultCountry == '') {
@@ -765,7 +765,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
         <tr>
             <td class="RowTop" colspan="4">
 
-                <% if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
+                <% if (CarlosProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
                 <span style="position: relative; float: right; font-style: italic; background: black; color: white; padding: 4px; font-size: 12px; border-radius: 3px;">
 			<span class="_hc_status_icon _hc_status_success"></span>Ready for Card Swipe
 		</span>
@@ -803,7 +803,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
                     <table id="addDemographicTbl" bgcolor="#EEEEFF">
 
 
-                        <%if (OscarProperties.getInstance().getProperty("workflow_enhance") != null && OscarProperties.getInstance().getProperty("workflow_enhance").equals("true")) { %>
+                        <%if (CarlosProperties.getInstance().getProperty("workflow_enhance") != null && CarlosProperties.getInstance().getProperty("workflow_enhance").equals("true")) { %>
                         <tr bgcolor="#CCCCFF">
                             <td colspan="4">
                                 <input type="hidden" name="dboperation"
@@ -951,7 +951,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
                                 } %> : </b></td>
                             <td id="provCell" align="left">
                                 <%
-                                    if ("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
+                                    if ("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
                                 %>
                                 <select name="province" id="province"></select>
                                 <br/>
@@ -1184,7 +1184,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
                             <td class="postalLbl" align="right">
                                 <b><% if (oscarProps.getProperty("demographicLabelPostal") == null) { %>
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.formPostal"/>
-                                    <% if ("false".equals(OscarProperties.getInstance().getProperty("skip_postal_code_validation", "false"))) { %>
+                                    <% if ("false".equals(CarlosProperties.getInstance().getProperty("skip_postal_code_validation", "false"))) { %>
                                     <span style="color:red">*</span>
                                     <% } %>
 
@@ -1214,7 +1214,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
                             </td>
                             <td class="provCell" align="left">
                                 <%
-                                    if ("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
+                                    if ("true".equals(CarlosProperties.getInstance().getProperty("iso3166.2.enabled", "false"))) {
                                 %>
                                 <select name="residentialProvince" id="residentialProvince"></select>
                                 <br/>
@@ -1835,7 +1835,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
                             </td>
                             <oscar:oscarPropertiesCheck property="privateConsentEnabled" value="true">
                                 <%
-                                    String[] privateConsentPrograms = OscarProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
+                                    String[] privateConsentPrograms = CarlosProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
                                     ProgramProvider pp2 = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
                                     boolean showConsentsThisTime = false;
                                     if (pp2 != null) {
@@ -2116,7 +2116,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
                                 <select id="PHU" name="PHU">
                                     <option value="">Select Below</option>
                                     <%
-                                        String defaultPhu = OscarProperties.getInstance().getProperty("default_phu");
+                                        String defaultPhu = CarlosProperties.getInstance().getProperty("default_phu");
 
                                         LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
                                         LookupList ll = lookupListManager.findLookupListByName(LoggedInInfo.getLoggedInInfoFromSession(request), "phu");
@@ -2303,7 +2303,7 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
                         <oscar:oscarPropertiesCheck property="privateConsentEnabled" value="true">
 
                             <%
-                                String[] privateConsentPrograms2 = OscarProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
+                                String[] privateConsentPrograms2 = CarlosProperties.getInstance().getProperty("privateConsentPrograms", "").split(",");
                                 ProgramProvider pp3 = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
                                 boolean showConsents = false;
                                 if (pp3 != null) {

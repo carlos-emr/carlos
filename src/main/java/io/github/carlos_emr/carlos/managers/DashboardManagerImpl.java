@@ -60,7 +60,7 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 @Service
@@ -723,7 +723,7 @@ public class DashboardManagerImpl implements DashboardManager {
     @Override
     public String getSharedOutcomesDashboardLaunchURL(LoggedInInfo loggedInInfo) {
 
-        String url = OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_url");
+        String url = CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_url");
         if (url == null) {
             return null;
         }
@@ -732,7 +732,7 @@ public class DashboardManagerImpl implements DashboardManager {
         Clinic clinic = new Clinic();
         clinic.setApplication("oscar");
 
-        String clinicIdentifier = OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_clinic_id");
+        String clinicIdentifier = CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_clinic_id");
 
         if (clinicIdentifier == null || clinicIdentifier.length() == 0 || clinicIdentifier.length() > 42) {
             clinicIdentifier = oClinic.getClinicName();
@@ -767,8 +767,8 @@ public class DashboardManagerImpl implements DashboardManager {
         String b64 = null;
 
         try {
-            String password = OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_key");
-            String salt = OscarProperties.getInstance().getProperty("shared_outcomes_dashboard_salt");
+            String password = CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_key");
+            String salt = CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_salt");
 
             if (password == null || password.isEmpty()) {
                 throw new IllegalArgumentException("shared_outcomes_dashboard_key property is required");

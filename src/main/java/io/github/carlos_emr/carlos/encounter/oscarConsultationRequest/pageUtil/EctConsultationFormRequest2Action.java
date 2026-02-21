@@ -57,7 +57,7 @@ import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.managers.FaxManager.TransactionType;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
@@ -219,7 +219,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 // converting the newer Contacts Table and Health Care Team back and forth
                 // from the older professionalSpecialist module.
                 // This should persist and retrieve values to be backwards compatible.
-                if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
+                if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
 
                     // when this is enabled the demographicContactId is being posted as a specId variable.
                     Integer demographicContactId = Integer.valueOf(specId);
@@ -321,7 +321,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 // converting the newer Contacts Table and Health Care Team back and forth
                 // from the older professionalSpecialist module.
                 // This should persist and retrieve values to be backwards compatible.
-                if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
+                if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
                     DemographicContact demographicContact = demographicManager.getHealthCareMemberbyId(loggedInInfo, specId);
                     if (demographicContact != null) {
                         consult.setDemographicContact(demographicContact);

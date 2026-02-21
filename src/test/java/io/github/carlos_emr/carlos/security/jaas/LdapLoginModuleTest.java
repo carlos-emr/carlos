@@ -41,7 +41,7 @@ import org.junit.Test;
 import io.github.carlos_emr.carlos.commn.dao.DaoTestFixtures;
 import io.github.carlos_emr.carlos.commn.dao.utils.SchemaUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.login.jaas.LdapLoginModule;
 import io.github.carlos_emr.carlos.login.jaas.LoginModuleFactory;
 import io.github.carlos_emr.carlos.login.jaas.OscarCallbackHandler;
@@ -57,7 +57,7 @@ public class LdapLoginModuleTest extends DaoTestFixtures {
 
     @Test
     public void runTests() throws Exception {
-        if (!OscarProperties.isLdapAuthenticationEnabled()) return;
+        if (!CarlosProperties.isLdapAuthenticationEnabled()) return;
 
         testLogin();
         testLoginModule();
@@ -71,8 +71,8 @@ public class LdapLoginModuleTest extends DaoTestFixtures {
         // test direct auth first
         LdapLoginModule lm = new LdapLoginModule();
         Map<String, Object> config = new HashMap<String, Object>();
-        config.put(LdapLoginModule.OPTION_BASE_DN, OscarProperties.getInstance().getProperty("ldap.baseDn"));
-        config.put(LdapLoginModule.OPTION_LDAP_URL, OscarProperties.getInstance().getProperty("ldap.url"));
+        config.put(LdapLoginModule.OPTION_BASE_DN, CarlosProperties.getInstance().getProperty("ldap.baseDn"));
+        config.put(LdapLoginModule.OPTION_LDAP_URL, CarlosProperties.getInstance().getProperty("ldap.url"));
 
         lm.initialize(new Subject(), new OscarCallbackHandler("oscardoc", "mac2002"), new HashMap<String, Object>(), config);
         boolean isSuccess = lm.login();

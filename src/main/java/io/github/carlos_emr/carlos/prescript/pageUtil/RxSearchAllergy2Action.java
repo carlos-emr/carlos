@@ -50,7 +50,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util.JsonUtil;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 
@@ -133,17 +133,17 @@ public final class RxSearchAllergy2Action extends ActionSupport {
 
         boolean itemsFound = true;
 
-        String wildcardRightOnly = OscarProperties.getInstance().getProperty("allergies.search_right_wildcard_only", "false");
+        String wildcardRightOnly = CarlosProperties.getInstance().getProperty("allergies.search_right_wildcard_only", "false");
         
         vec = drugRef.list_search_element_select_categories(this.getSearchString(), catVec, Boolean.valueOf(wildcardRightOnly));
 
         //  'id':'0','category':'','name'
         Allergy[] arr = new Allergy[vec == null ? 0 : vec.size()];
 
-        String includeClassesStr = OscarProperties.getInstance().getProperty("allergies.include_ahfs_class_in_results", "true");
+        String includeClassesStr = CarlosProperties.getInstance().getProperty("allergies.include_ahfs_class_in_results", "true");
         boolean includeClasses = Boolean.valueOf(includeClassesStr);
 
-        boolean flatResults = Boolean.valueOf(OscarProperties.getInstance().getProperty("allergies.flat_results", "false"));
+        boolean flatResults = Boolean.valueOf(CarlosProperties.getInstance().getProperty("allergies.flat_results", "false"));
         TreeMap<String, Allergy> flatList = new TreeMap<String, Allergy>();
 
         //we want to categorize the search results.

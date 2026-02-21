@@ -33,7 +33,7 @@ import java.io.FileOutputStream;
 import java.util.List;
 import java.util.TimerTask;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -50,7 +50,7 @@ public class SpireClient extends TimerTask {
     private ChannelSftp spireSFTPChannel;
     private Session spireSession;
 
-    private OscarProperties p = OscarProperties.getInstance();
+    private CarlosProperties p = CarlosProperties.getInstance();
     private static Logger logger = MiscUtils.getLogger();
 
     /**

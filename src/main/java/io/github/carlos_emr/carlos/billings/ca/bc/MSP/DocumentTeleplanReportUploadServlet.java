@@ -49,7 +49,7 @@ import org.apache.commons.fileupload.FileUploadException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.DocumentBean;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class DocumentTeleplanReportUploadServlet extends HttpServlet {
     final static int BUFFER = 2048;
@@ -72,7 +72,7 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
         String userHomePath = System.getProperty("user.home", "user.dir");
         MiscUtils.getLogger().debug(userHomePath);
 
-        Properties ap = OscarProperties.getInstance();
+        Properties ap = CarlosProperties.getInstance();
 
         forwardTo = ap.getProperty("TA_FORWARD");
         foldername = ap.getProperty("DOCUMENT_DIR");

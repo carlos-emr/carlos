@@ -57,7 +57,7 @@
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String providerNo = loggedInInfo.getLoggedInProviderNo();
     String scriptid = request.getParameter("scriptId");
-    String rx_enhance = OscarProperties.getInstance().getProperty("rx_enhance");
+    String rx_enhance = CarlosProperties.getInstance().getProperty("rx_enhance");
     RxSessionBean bean = null;
 %>
 
@@ -206,7 +206,7 @@
 //doctorName = doctorName.replaceAll("\\d{6}","");
 //doctorName = doctorName.replaceAll("\\-","");
 
-        if ("true".equalsIgnoreCase(OscarProperties.getInstance().getProperty("FIRST_NATIONS_MODULE"))) {
+        if ("true".equalsIgnoreCase(CarlosProperties.getInstance().getProperty("FIRST_NATIONS_MODULE"))) {
             // Addition of First Nations Band Number to prescriptions
             DemographicExt demographicExtStatusNum = demographicManager.getDemographicExt(loggedInInfo, bean.getDemographicNo(), "statusNum");
             DemographicExt demographicExtBandName = null;
@@ -276,7 +276,7 @@
             pageContext.setAttribute("bandNumber", bandNumber);
         }
 
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
 
         String pracNo = provider.getPractitionerNo();
         String strUser = (String) session.getAttribute("user");
@@ -532,8 +532,8 @@
                         </tr>
                         </thead>
                         <tfoot>
-                        <% if (io.github.carlos_emr.OscarProperties.getInstance().getProperty("RX_FOOTER") != null) {
-                            out.write(io.github.carlos_emr.OscarProperties.getInstance().getProperty("RX_FOOTER"));
+                        <% if (io.github.carlos_emr.CarlosProperties.getInstance().getProperty("RX_FOOTER") != null) {
+                            out.write(io.github.carlos_emr.CarlosProperties.getInstance().getProperty("RX_FOOTER"));
                         } %>
 
                         <tr valign=bottom>
@@ -638,10 +638,10 @@
                         </tr>
                         <% } %>
 
-                        <% if (io.github.carlos_emr.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && io.github.carlos_emr.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT").length() > 0) { %>
+                        <% if (io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT").length() > 0) { %>
                         <tr valign=bottom align="center">
                             <td height=25px colspan="2" style="font-size: 9px"></br>
-                                <%= io.github.carlos_emr.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") %>
+                                <%= io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") %>
                             </td>
                         </tr>
                         <% } %>

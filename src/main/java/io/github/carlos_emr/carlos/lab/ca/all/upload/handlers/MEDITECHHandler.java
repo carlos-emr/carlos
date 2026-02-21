@@ -46,7 +46,7 @@ import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.commons.io.IOUtils;
@@ -209,7 +209,7 @@ public class MEDITECHHandler implements MessageHandler {
         }
         
         // Get the base directory for documents
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
         String documentDir = props.getProperty("DOCUMENT_DIR");
         
         if (documentDir == null || documentDir.isEmpty()) {

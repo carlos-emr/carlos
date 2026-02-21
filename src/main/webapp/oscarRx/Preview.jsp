@@ -141,7 +141,7 @@
         doctorName = doctorName.replaceAll("\\d{6}", "");
         doctorName = doctorName.replaceAll("\\-", "");
 
-        OscarProperties props = OscarProperties.getInstance();
+        CarlosProperties props = CarlosProperties.getInstance();
 
         String pracNo = provider.getPractitionerNo();
         String strUser = (String) session.getAttribute("user");
@@ -268,8 +268,8 @@
                         </tr>
 
 
-                        <% if (io.github.carlos_emr.OscarProperties.getInstance().getProperty("RX_FOOTER") != null) {
-                            out.write(io.github.carlos_emr.OscarProperties.getInstance().getProperty("RX_FOOTER"));
+                        <% if (io.github.carlos_emr.CarlosProperties.getInstance().getProperty("RX_FOOTER") != null) {
+                            out.write(io.github.carlos_emr.CarlosProperties.getInstance().getProperty("RX_FOOTER"));
                         }%>
 
 
@@ -305,10 +305,10 @@
 
                         <%
                             }
-                            if (io.github.carlos_emr.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null) {%>
+                            if (io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null) {%>
                         <tr valign=bottom align="center" style="font-size: 9px">
                             <td height=25px colspan="2"></br>
-                                <%= io.github.carlos_emr.OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") %>
+                                <%= io.github.carlos_emr.CarlosProperties.getInstance().getProperty("FORMS_PROMOTEXT") %>
                             </td>
                         </tr>
                         <%}%>

@@ -49,7 +49,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 
 import java.util.*;
@@ -248,7 +248,7 @@ public class CaseManagementViewAction {
         Issue issue = issueDao.getIssue(issueId);
 
         issueDisplay.code = issue.getCode();
-        issueDisplay.codeType = OscarProperties.getInstance().getProperty("COMMUNITY_ISSUE_CODETYPE").toUpperCase();
+        issueDisplay.codeType = CarlosProperties.getInstance().getProperty("COMMUNITY_ISSUE_CODETYPE").toUpperCase();
         issueDisplay.description = issue.getDescription();
         issueDisplay.location = "local";
         issueDisplay.major = cmi.isMajor() ? "major" : "not major";

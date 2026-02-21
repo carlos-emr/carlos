@@ -38,7 +38,7 @@ import org.owasp.csrfguard.log.LogLevel;
 import org.owasp.csrfguard.util.RandomGenerator;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.multipart.commons.CommonsMultipartResolver;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -100,8 +100,8 @@ public class OscarCsrfGuardFilter implements Filter {
             // Default to not redirect unless csrf_do_redirect is set
             // TODO: reverse this when there are more pages by csrf covered 
             boolean doRedirect = false;
-            if (OscarProperties.getInstance().getProperty("csrf_do_redirect") != null) {
-                doRedirect = OscarProperties.getInstance().isPropertyActive("csrf_do_redirect");
+            if (CarlosProperties.getInstance().getProperty("csrf_do_redirect") != null) {
+                doRedirect = CarlosProperties.getInstance().isPropertyActive("csrf_do_redirect");
             }
             if (!doRedirect) {
                 IAction redirectActionToRemove = null;

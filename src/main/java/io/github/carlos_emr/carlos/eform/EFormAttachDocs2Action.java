@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -69,7 +69,7 @@ public class EFormAttachDocs2Action
         if (StringUtils.isEmpty(requestId)) {
             return SUCCESS;
         }
-        if (!OscarProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
+        if (!CarlosProperties.getInstance().isPropertyActive("consultation_indivica_attachment_enabled")) {
             String[] arrDocs = attachedDocs;
 
             EFormAttachDocs Doc = new EFormAttachDocs(provNo, demoNo, requestId, arrDocs);

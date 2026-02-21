@@ -61,7 +61,7 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%
     String mode = "";
@@ -90,7 +90,7 @@
         moduleid = (String) request.getAttribute("functionid");
     }
 
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
     String defaultType = props.getProperty("eDocAddTypeDefault", "");
     String defaultDesc = "Enter Title"; //if defaultType isn't defined, this value is used for the title/description
 

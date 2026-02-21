@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
@@ -217,7 +217,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         if (searchStr == null) {
             searchStr = request.getParameter("name");
         }
-        String wildcardRightOnly = OscarProperties.getInstance().getProperty("rx.search_right_wildcard_only", "false");
+        String wildcardRightOnly = CarlosProperties.getInstance().getProperty("rx.search_right_wildcard_only", "false");
         Vector<Hashtable<String, Object>> vec = null;
 
         try {

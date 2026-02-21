@@ -37,7 +37,7 @@ import java.util.Locale;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.service.PdfRecordPrinter;
 import io.github.carlos_emr.carlos.managers.BillingONManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -136,7 +136,7 @@ public class BillingInvoice2Action extends ActionSupport {
                 try {
                     Integer invoiceNo = Integer.parseInt(invoiceNoStr);
                     String filename = "BillingInvoice" + invoiceNo + "_" + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf";
-                    String savePath = OscarProperties.getInstance().getProperty("INVOICE_DIR") + "/" + filename;
+                    String savePath = CarlosProperties.getInstance().getProperty("INVOICE_DIR") + "/" + filename;
                     fos = new FileOutputStream(savePath);
                     processPrintPDF(invoiceNo, request.getLocale(), fos);
                     fileList.add(savePath);

@@ -67,7 +67,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
@@ -89,15 +89,15 @@
     int limit = Integer.parseInt(strLimit2);
     boolean caisi = Boolean.valueOf(request.getParameter("caisi")).booleanValue();
 
-    OscarProperties props = OscarProperties.getInstance();
+    CarlosProperties props = CarlosProperties.getInstance();
 
     List<Demographic> demoList = null;
     DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
     OscarLogDao oscarLogDao = (OscarLogDao) SpringUtils.getBean(OscarLogDao.class);
     String providerNo = loggedInInfo.getLoggedInProviderNo();
     boolean outOfDomain = true;
-    if (OscarProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
-        if (!"true".equals(OscarProperties.getInstance().getProperty("pmm.client.search.outside.of.domain.enabled", "true"))) {
+    if (CarlosProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1) {
+        if (!"true".equals(CarlosProperties.getInstance().getProperty("pmm.client.search.outside.of.domain.enabled", "true"))) {
             outOfDomain = false;
         }
         if (request.getParameter("outofdomain") != null && request.getParameter("outofdomain").equals("true")) {
@@ -393,7 +393,7 @@
                     List<String> stati = Arrays.asList(pstatus.split(","));
 
                     if (request.getParameter("keyword") != null && request.getParameter("keyword").length() == 0) {
-                        int mostRecentPatientListSize = Integer.parseInt(OscarProperties.getInstance().getProperty("MOST_RECENT_PATIENT_LIST_SIZE", "3"));
+                        int mostRecentPatientListSize = Integer.parseInt(CarlosProperties.getInstance().getProperty("MOST_RECENT_PATIENT_LIST_SIZE", "3"));
                         List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize);
                         demoList = new ArrayList<Demographic>();
                         for (Integer r : results) {
@@ -550,8 +550,8 @@
 
                 pageContext.setAttribute("apptParamsName", params);
 
-                if (OscarProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1 &&
-                        OscarProperties.getInstance().getProperty("caisi.search.workflow", "false").equals("true")) {
+                if (CarlosProperties.getInstance().getProperty("ModuleNames", "").indexOf("Caisi") != -1 &&
+                        CarlosProperties.getInstance().getProperty("caisi.search.workflow", "false").equals("true")) {
 
         %>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.noResultsWereFound"/>

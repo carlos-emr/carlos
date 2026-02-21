@@ -39,7 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.apache.logging.log4j.Logger" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
@@ -195,7 +195,7 @@
                         for (int x = 0; x < CaseManagementViewFormBean.tabs.length; x++) {
                     %>
                     <%
-                        if (OscarProperties.getInstance().isTorontoRFQ()) {
+                        if (CarlosProperties.getInstance().isTorontoRFQ()) {
                             if (CaseManagementViewFormBean.tabs[x].equals("Prescriptions") || CaseManagementViewFormBean.tabs[x].equals("Allergies")) {
                                 continue;
                             }
@@ -288,7 +288,7 @@
                             </c:forEach></td>
                         </tr>
                         <%
-                            if (!OscarProperties.getInstance().isTorontoRFQ()) {
+                            if (!CarlosProperties.getInstance().isTorontoRFQ()) {
                         %>
 
                         <tr>

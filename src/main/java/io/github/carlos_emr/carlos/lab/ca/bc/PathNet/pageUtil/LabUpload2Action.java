@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.Connection;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.Message;
@@ -158,7 +158,7 @@ public class LabUpload2Action extends ActionSupport {
             //retrieve the file data
             // ByteArrayOutputStream baos = new ByteArrayOutputStream();
             //InputStream stream = file.getInputStream();
-            OscarProperties props = OscarProperties.getInstance();
+            CarlosProperties props = CarlosProperties.getInstance();
 
             //properties must exist
             String place = props.getProperty("DOCUMENT_DIR");

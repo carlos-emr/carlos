@@ -45,10 +45,10 @@
 <%@ page
         import="java.lang.*,io.github.carlos_emr.*"
         errorPage="/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <%!
-    OscarProperties op = OscarProperties.getInstance();
+    CarlosProperties op = CarlosProperties.getInstance();
 %>
 
 <html>

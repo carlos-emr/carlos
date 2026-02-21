@@ -30,7 +30,7 @@
 
 package io.github.carlos_emr.carlos.dxresearch.util;
 
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 public class dxResearchCodingSystem {
 
@@ -38,7 +38,7 @@ public class dxResearchCodingSystem {
     private String[] arrCodingSystems;
 
     public dxResearchCodingSystem() {
-        codingSystem = OscarProperties.getInstance().getProperty("dxResearch_coding_sys", "icd9,ichppccode");
+        codingSystem = CarlosProperties.getInstance().getProperty("dxResearch_coding_sys", "icd9,ichppccode");
         arrCodingSystems = codingSystem.split(",");
 
     }

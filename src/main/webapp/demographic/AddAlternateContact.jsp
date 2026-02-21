@@ -62,7 +62,7 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CtlRelationshipsDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CtlRelationships" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -142,7 +142,7 @@
                         <%
                             String searchMode = request.getParameter("search_mode");
                             if (searchMode == null || searchMode.isEmpty()) {
-                                searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
+                                searchMode = CarlosProperties.getInstance().getProperty("default_search_mode", "search_name");
                             }
 	searchMode = Encode.forHtmlAttribute(searchMode);
                         %>

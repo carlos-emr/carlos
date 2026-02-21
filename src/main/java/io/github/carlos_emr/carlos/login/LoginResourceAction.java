@@ -41,7 +41,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.io.FilenameUtils;
 
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
-import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.CarlosProperties;
 
 /**
  * This class safely fetches static image resources for the login Index page.
@@ -57,7 +57,7 @@ public class LoginResourceAction extends HttpServlet {
     private String images;
 
     public void init() throws ServletException {
-        String oscarDocument = OscarProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
+        String oscarDocument = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR");
         // all image files for the login page go into OscarDocuments/login
         this.images = oscarDocument + File.separator + "login";
     }

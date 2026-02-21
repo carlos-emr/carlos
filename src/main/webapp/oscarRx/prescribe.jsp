@@ -68,7 +68,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@page import="java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.rx.util.*" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -383,7 +383,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
        	  <input type="text" size="6" id="dispenseInterval_<%=rand%>" name="dispenseInterval_<%=rand%>" value="<%=dispenseInterval%>" />
        	  </div>
        	  
-	     <%if(OscarProperties.getInstance().getProperty("rx.enable_internal_dispensing","false").equals("true")) {%>  
+	     <%if(CarlosProperties.getInstance().getProperty("rx.enable_internal_dispensing","false").equals("true")) {%>  
 	       <div>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="WriteScript.msgDispenseInternal"/>
 			  <input type="checkbox" name="dispenseInternal_<%=rand%>" id="dispenseInternal_<%=rand%>" <%if(dispenseInternal) {%> checked="checked" <%}%> />
