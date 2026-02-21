@@ -90,7 +90,6 @@
         destFolder = uProp.getValue();
     }
     String context = request.getContextPath();
-    String resourcePath = context + "/share/documentUploader/";
 
 %>
 <!DOCTYPE HTML>
@@ -109,7 +108,7 @@
 	<link rel="stylesheet" href="${pageContext.request.contextPath}/share/documentUploader/style.css">
 
     <!-- tested with jQuery 1.12.3 and jQuery 3.6.4 -->
-    <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
+    <script src="<%= Encode.forHtmlAttribute(context) %>/library/jquery/jquery-3.6.4.min.js"></script>
 
     <!-- jQuery ui OR just the jQuery ui widget factory to match the jQuery above -->
     <script src="${pageContext.request.contextPath}/js/jquery.ui.widget.js"></script> <!-- 1.12.1 -->
@@ -497,14 +496,14 @@
                     }
                 }
             }
-            $("#tbodyid tr:first-child").remove();
+            $("#tbodyid tr.template-upload:first-child").remove();
             })
         .on('fileuploadadd', function (e, data) {
             $('#msg').hide();
             $('#msgU').hide();
             });
 
-        jQuery('.alert').on('click', function () {
+        jQuery('#msg, #msgU').on('click', function () {
             $(this).hide();
         });
     </script>

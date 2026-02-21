@@ -103,7 +103,7 @@
           action = this.action,
           prefix = this.prefix === true ? action : this.prefix;
         $.each(this, function (key, value) {
-          if ($.type(value) === 'string' && value.charAt(0) === '@') {
+          if (typeof value === 'string' && value.charAt(0) === '@') {
             settings[key] =
               options[
                 value.slice(1) ||
