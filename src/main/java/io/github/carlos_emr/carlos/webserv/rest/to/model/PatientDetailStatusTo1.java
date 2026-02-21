@@ -37,7 +37,7 @@ public class PatientDetailStatusTo1 implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    //from oscar.properties
+    //from carlos.properties
     private boolean conformanceFeaturesEnabled = false;
     private boolean workflowEnhance = false;
     private boolean showPrimaryCarePhysicianCheck = false;

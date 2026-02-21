@@ -56,8 +56,8 @@ import java.util.*;
  * <p><strong>Important:</strong> This is a singleton class. Do not instantiate directly.
  * Use {@link #getInstance()} to obtain the instance.</p>
  * 
- * <p><strong>Configuration File:</strong> Properties are loaded from the OpenO properties
- * file. Any changes to the properties file require a Tomcat restart to take effect.</p>
+ * <p><strong>Configuration File:</strong> Properties are loaded from the CARLOS properties
+ * file (carlos.properties). Any changes to the properties file require a Tomcat restart to take effect.</p>
  * 
  * <p><strong>Namespace Migration:</strong> This class includes validation to detect and
  * ignore deprecated namespace values (org.oscarehr.*, oscar.*) that should be migrated
@@ -182,12 +182,20 @@ public class OscarProperties extends Properties {
 
     /* Do not use this constructor. Use getInstance instead */
     private OscarProperties() {
-        MiscUtils.getLogger().debug("OSCAR PROPS CONSTRUCTOR");
+        MiscUtils.getLogger().debug("CARLOS PROPS CONSTRUCTOR");
 
         try {
-            readFromFile("/oscar_mcmaster.properties");
+            readFromFile("/carlos.properties");
 
-            String overrideProperties = System.getProperty("oscar_override_properties");
+            // Check new property name first, fall back to legacy name for backward compatibility
+            String overrideProperties = System.getProperty("carlos_override_properties");
+            if (overrideProperties == null) {
+                overrideProperties = System.getProperty("oscar_override_properties");
+                if (overrideProperties != null) {
+                    MiscUtils.getLogger().warn("Using deprecated system property 'oscar_override_properties'. "
+                            + "Please migrate to 'carlos_override_properties'.");
+                }
+            }
             if (overrideProperties != null) {
                 MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
                 readFromFile(overrideProperties);

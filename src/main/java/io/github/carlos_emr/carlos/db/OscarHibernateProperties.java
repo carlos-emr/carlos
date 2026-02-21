@@ -33,7 +33,7 @@ import io.github.carlos_emr.OscarProperties;
 
 public class OscarHibernateProperties extends Properties {
     public OscarHibernateProperties() {
-        //get db config from oscar properties
+        //get db config from carlos properties
         Properties opr = OscarProperties.getInstance();
         setProperty("hibernate.connection.url", opr.getProperty("db_uri") + OscarProperties.getInstance().getProperty("db_name"));
         setProperty("hibernate.connection.username", OscarProperties.getInstance().getProperty("db_username"));

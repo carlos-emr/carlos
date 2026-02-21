@@ -38,7 +38,7 @@ import io.github.carlos_emr.OscarProperties;
 
 
 /**
- * Tag class for evaulating a property from oscar properties.
+ * Tag class for evaluating a property from carlos properties.
  * <p>
  * If the value is equal, the jsp code will be included in the page.
  */

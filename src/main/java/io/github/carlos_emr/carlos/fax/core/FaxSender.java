@@ -135,7 +135,7 @@ public class FaxSender {
             throw new IllegalStateException(
                     "DOCUMENT_DIR is not configured and cannot be derived from BASE_DOCUMENT_DIR. "
                     + "Outbound fax send cycle aborted. "
-                    + "Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in oscar_mcmaster.properties.");
+                    + "Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in carlos.properties.");
         }
 
         for (FaxConfig faxConfig : faxConfigList) {

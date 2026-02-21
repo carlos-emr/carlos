@@ -35,7 +35,7 @@
 //   Purpose: Powers the Prevention module's clinical decision support warnings
 //     shown on the prevention summary page (oscarPrevention/index.jsp).
 //   Loading: Three-tier priority:
-//     1. Filesystem path from PREVENTION_FILE property in oscar_mcmaster.properties
+//     1. Filesystem path from PREVENTION_FILE property in carlos.properties
 //     2. Database ResourceStorage (active PREVENTION_RULES record)
 //     3. Classpath fallback: /oscar/oscarPrevention/prevention.drl (this file)
 //   Execution: PreventionDSImpl.getMessages(Prevention) creates a KieSession,

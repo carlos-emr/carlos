@@ -38,7 +38,10 @@ public class ConfigUtils {
 
     static {
         try {
-            String overrideProperties = System.getProperty("oscar_override_properties");
+            String overrideProperties = System.getProperty("carlos_override_properties");
+            if (overrideProperties == null) {
+                overrideProperties = System.getProperty("oscar_override_properties");
+            }
             logger.info("loading " + overrideProperties);
             properties = getProperties(overrideProperties, "/over_ride_config.properties");
         } catch (IOException e) {
