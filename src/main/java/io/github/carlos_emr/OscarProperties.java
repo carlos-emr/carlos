@@ -187,15 +187,7 @@ public class OscarProperties extends Properties {
         try {
             readFromFile("/carlos.properties");
 
-            // Check new property name first, fall back to legacy name for backward compatibility
             String overrideProperties = System.getProperty("carlos_override_properties");
-            if (overrideProperties == null) {
-                overrideProperties = System.getProperty("oscar_override_properties");
-                if (overrideProperties != null) {
-                    MiscUtils.getLogger().warn("Using deprecated system property 'oscar_override_properties'. "
-                            + "Please migrate to 'carlos_override_properties'.");
-                }
-            }
             if (overrideProperties != null) {
                 MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
                 readFromFile(overrideProperties);
