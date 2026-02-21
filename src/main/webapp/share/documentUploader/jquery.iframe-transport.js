@@ -51,7 +51,7 @@
       // javascript:false as initial iframe src
       // prevents warning popups on HTTPS in IE6:
       // eslint-disable-next-line no-script-url
-      var initialIframeSrc = options.initialIframeSrc || 'javascript:false;',
+      var initialIframeSrc = options.initialIframeSrc || 'about:blank',
         form,
         iframe,
         addParamChar;
@@ -129,7 +129,7 @@
               });
             }
             if (
-              options.fileInput &&
+              options.fileInput instanceof jQuery &&
               options.fileInput.length &&
               options.type === 'POST'
             ) {

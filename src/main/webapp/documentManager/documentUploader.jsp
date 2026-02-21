@@ -427,11 +427,6 @@
                           <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete" /></span>
                       </button>
                       <input type="checkbox" name="delete" value="1" class="toggle">
-                  {% } else { %}
-                      <!--<button class="btn btn-warning cancel">
-                          <i class="glyphicon glyphicon-ban-circle"></i>
-                          <span>Cancel</span>
-                      </button> -->
                   {% } %}
               </td>
           </tr>

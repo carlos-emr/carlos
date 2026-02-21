@@ -135,27 +135,29 @@
         if (this._processing === 0) {
           this._trigger('processstart');
         }
-        $.each(data.files, function (index) {
-          var opts = index ? $.extend({}, options) : options,
-            func = function () {
-              if (data.errorThrown) {
-                // eslint-disable-next-line new-cap
-                return $.Deferred().rejectWith(that, [data]).promise();
+        if (data.files && data.files.length) {
+          $.each(data.files, function (index) {
+            var opts = index ? $.extend({}, options) : options,
+              func = function () {
+                if (data.errorThrown) {
+                  // eslint-disable-next-line new-cap
+                  return $.Deferred().rejectWith(that, [data]).promise();
+                }
+                return that._processFile(opts, data);
+              };
+            opts.index = index;
+            that._processing += 1;
+            that._processingQueue = that._processingQueue[that._promisePipe](
+              func,
+              func
+            ).always(function () {
+              that._processing -= 1;
+              if (that._processing === 0) {
+                that._trigger('processstop');
               }
-              return that._processFile(opts, data);
-            };
-          opts.index = index;
-          that._processing += 1;
-          that._processingQueue = that._processingQueue[that._promisePipe](
-            func,
-            func
-          ).always(function () {
-            that._processing -= 1;
-            if (that._processing === 0) {
-              that._trigger('processstop');
-            }
+            });
           });
-        });
+        }
       }
       return this._processingQueue;
     },

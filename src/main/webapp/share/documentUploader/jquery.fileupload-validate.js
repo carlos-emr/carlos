@@ -77,13 +77,14 @@
         // eslint-disable-next-line new-cap
         var dfd = $.Deferred(),
           settings = this.options,
-          file = data.files[data.index],
+          file = data.files[data.index] || {},
           fileSize;
         if (options.minFileSize || options.maxFileSize) {
           fileSize = file.size;
         }
         if (
           $.type(options.maxNumberOfFiles) === 'number' &&
+          options.maxNumberOfFiles > 0 &&
           (settings.getNumberOfFiles() || 0) + data.files.length >
             options.maxNumberOfFiles
         ) {
@@ -106,7 +107,7 @@
         } else {
           delete file.error;
         }
-        if (file.error || data.files.error) {
+        if (file.error || (data.files && data.files.error)) {
           data.files.error = true;
           dfd.rejectWith(this, [data]);
         } else {

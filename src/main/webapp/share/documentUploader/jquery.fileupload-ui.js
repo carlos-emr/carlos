@@ -552,7 +552,7 @@
           .fail(function () {
             template.find('.edit').prop('disabled', false);
             var error = (data.files[index] && data.files[index].error) ||
-              (data.result && data.result[0] && data.result[0].error) ||
+              (data.result && data.result[index] && data.result[index].error) ||
               '';
             if (error) {
               template.find('.error').text(error);
