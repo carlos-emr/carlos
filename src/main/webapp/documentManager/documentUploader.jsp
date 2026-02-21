@@ -34,7 +34,6 @@
 
 <%@page import="io.github.carlos_emr.carlos.mds.data.*"%>
 <%@page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData"%>
-<%@page import="io.github.carlos_emr.carlos.mds.data.ProviderData"%>
 <%@page import="java.util.*"%>
 <%@page import="org.owasp.encoder.Encode"%>
 
@@ -299,7 +298,7 @@
 				</select>
              </div>
              <div class="form-group" id="destFolderDiv">
-                <label for="destinationDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.folder" />:</label>
+                <label for="destFolderDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.folder" />:</label>
                     <select onchange="javascript:setDestFolder(this);"  id="destFolderDrop"  name="destFolderDrop" class="form-control input-block-level">
                         <option value="Fax" <%=( destFolder.equals("Fax") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax" /></option>
                         <option value="Mail" <%=( destFolder.equals("Mail") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.mail" /></option>
@@ -489,8 +488,8 @@
                     li.textContent = data.result[0].error;
                     $('#msg').append(li);
                 } else {
-                    if (data.textStatus == 'error') {
-                        let error = "Server error";
+                    if (data.textStatus === 'error') {
+                        let error = '<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.errors.upload.failed" />';
                         let li = document.createElement('li');
                         li.textContent = error;
                         $('#msg').append(li);

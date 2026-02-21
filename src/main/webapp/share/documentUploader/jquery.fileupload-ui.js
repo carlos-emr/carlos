@@ -187,8 +187,8 @@
                 //error: 'Empty file upload result'
                 };
 
-            var error = data.result && Array.isArray(data.result) && data.result.length > 0
-                ? data.result[0].error
+            var error = data.result && Array.isArray(data.result) && data.result[index]
+                ? data.result[index].error
                 : undefined;
 
             if (error) {
