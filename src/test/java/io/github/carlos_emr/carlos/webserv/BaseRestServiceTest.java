@@ -154,7 +154,7 @@ public abstract class BaseRestServiceTest {
         String userName = props.getProperty(KEY_USERNAME, "oscardoc");
         String password = props.getProperty(KEY_PASSWORD, "mac2002");
         String pin = props.getProperty(KEY_PIN, "1117");
-        String propName = props.getProperty(KEY_PROPNAME, "oscar_mcmaster");
+        String propName = props.getProperty(KEY_PROPNAME, "carlos");
 
         logger.info("Authenticating against " + host + " as " + userName);
 
