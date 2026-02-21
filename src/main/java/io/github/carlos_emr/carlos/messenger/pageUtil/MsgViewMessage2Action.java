@@ -76,7 +76,7 @@ import java.util.Map;
  * information. It then redirects to the ViewMessage.jsp page for rendering.</p>
  * 
  * @version 2.0 Struts2 migration
- * @since 2003
+ * @since 2003-07-21
  * @see MessagingManager
  * @see MessengerDemographicManager
  * @see MsgDisplayMessage

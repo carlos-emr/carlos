@@ -176,16 +176,8 @@
             }
         </style>
 
+        <script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
         <script type="text/javascript">
-            function BackToCarlos() {
-                if (opener.callRefreshTabAlerts) {
-                    opener.callRefreshTabAlerts("oscar_new_msg");
-                    setTimeout("window.close()", 100);
-                } else {
-                    window.close();
-                }
-            }
-
             function unlink() {
                 document.forms[0].submit();
             }
@@ -194,7 +186,6 @@
     </head>
 
     <body class="BodyStyle" vlink="#0000FF" onload="window.focus()">
-    <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgMessenger"/></td>

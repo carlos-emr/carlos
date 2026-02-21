@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.logging.log4j.Logger;
+import org.springframework.dao.DataAccessException;
 
 import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
@@ -63,7 +64,7 @@ final class MsgBulkOperationHelper {
      *   <li>Skips the ID and increments failure count if the parsed value is {@code <= 0}</li>
      *   <li>Looks up all {@link MessageList} rows for the provider/message combination</li>
      *   <li>Applies the consumer action and merges the entity</li>
-     *   <li>Catches {@link RuntimeException} per message, logging the ID</li>
+     *   <li>Catches {@link DataAccessException} per message, logging the ID</li>
      * </ol>
      *
      * <p>If any messages fail, sets {@code request.setAttribute("updateFailureCount", count)}.</p>
@@ -76,6 +77,10 @@ final class MsgBulkOperationHelper {
     static void updateSelectedMessages(HttpServletRequest request, String providerNo,
                                        String[] messageIds, Consumer<MessageList> action) {
         if (messageIds == null || messageIds.length == 0) {
+            return;
+        }
+        if (providerNo == null || providerNo.isEmpty()) {
+            logger.error("updateSelectedMessages called with null/empty providerNo");
             return;
         }
         MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
@@ -94,7 +99,7 @@ final class MsgBulkOperationHelper {
                     action.accept(msg);
                     dao.merge(msg);
                 }
-            } catch (RuntimeException e) {
+            } catch (DataAccessException e) {
                 failureCount++;
                 logger.error("Failed to update message ID={}", messageId, e);
             }

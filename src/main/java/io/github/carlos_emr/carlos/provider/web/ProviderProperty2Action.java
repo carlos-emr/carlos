@@ -76,9 +76,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *     - saveLabMacroPrefs(): Persist lab macro JSON to database with validation
  *
  * Security Model:
- *     - All methods check provider authorization via SecurityInfoManager
- *     - Uses role-based access control with security objects (e.g., "_lab")
- *     - Enforces READ/WRITE privilege levels based on operation
+ *     - All methods require a valid session (centralized null-session guard in execute())
+ *     - Lab-related methods enforce role-based access control via SecurityInfoManager with the "_lab" security object
+ *     - Enforces READ/WRITE privilege levels for lab macro and HL7 lab result methods
+ *     - Other preference methods rely on session authentication only (non-null LoggedInInfo)
  *     - Throws SecurityException for null/invalid session checks
  *     - Throws RuntimeException on privilege violations
  *
@@ -125,7 +126,24 @@ public class ProviderProperty2Action extends ActionSupport {
 
     private UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
 
+    /**
+     * Dispatches to the appropriate preference method based on the "method" request parameter.
+     *
+     * <p>Routes to method implementations registered in {@link #init()}. Falls back to
+     * {@link #view()} when the method parameter is null or unrecognized.</p>
+     *
+     * <p>Validates the provider session before dispatching. All routed methods can safely
+     * assume a valid, non-null {@link LoggedInInfo} with a non-null provider number.</p>
+     *
+     * @return String the Struts2 result name from the dispatched method
+     * @throws SecurityException if no valid session or provider number is found
+     */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+
         String method = request.getParameter("method");
         return methodMap.getOrDefault(method, this::view).get();
     }
@@ -150,7 +168,12 @@ public class ProviderProperty2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         String value = request.getParameter("value");
         if (value != null) {
-            userPropertyDAO.saveProp(providerNo, UserProperty.OSCAR_MSG_RECVD, value);
+            // OSCAR_MSG_RECVD expects "H:m" format (e.g., "9:0", "14:30")
+            if (value.matches("^\\d{1,2}:\\d{1,2}$")) {
+                userPropertyDAO.saveProp(providerNo, UserProperty.OSCAR_MSG_RECVD, value);
+            } else {
+                logger.warn("OscarMsgRecvd called with invalid value format: expected H:m");
+            }
         } else {
             logger.debug("OscarMsgRecvd called with null value parameter; no preference saved");
         }
@@ -2784,7 +2807,7 @@ public class ProviderProperty2Action extends ActionSupport {
         }
     }
 
-    private static final Map<String, Supplier<String>> methodMap = new HashMap<>();
+    private final Map<String, Supplier<String>> methodMap = new HashMap<>();
 
     @PostConstruct
     public void init() {

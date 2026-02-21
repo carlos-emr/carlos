@@ -106,6 +106,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
 <%
     // Security check: Build role string from session attributes for authorization
     String userrole = (String) session.getAttribute("userrole");
@@ -219,7 +220,7 @@
 <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
 <c:set var="langCode"><fmt:message key="global.i18nLanguagecode"/></c:set>
 <c:if test="${langCode != 'en-GB'}">
-<script src="<%=request.getContextPath() %>/library/toastui/i18n/${langCode}.js"></script>
+<script src="<%=request.getContextPath() %>/library/toastui/i18n/${fn:escapeXml(langCode)}.js"></script>
 </c:if>
 
 <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
@@ -466,17 +467,17 @@ function validateFields() {
 											<c:forEach items="${ groupManager }" var="group">
 											<details>
 												<summary>
-													<input type="checkbox" name="tableDFR" id="member_group_${ group.key.id }"
-															value="${ group.key.id }" onclick="checkGroup(this)" >
-													<label for="member_group_${ group.key.id }" ><c:out value="${ group.key.groupDesc }" /></label>
+													<input type="checkbox" name="tableDFR" id="member_group_${ fn:escapeXml(group.key.id) }"
+															value="${ fn:escapeXml(group.key.id) }" onclick="checkGroup(this)" >
+													<label for="member_group_${ fn:escapeXml(group.key.id) }" ><c:out value="${ group.key.groupDesc }" /></label>
 												</summary>
 
 												<c:forEach items="${ group.value }" var="member">
 													<div class="group_member_contact" style="white-space: nowrap;">
-														<input type="checkbox" name="provider" class="member_group_${ group.key.id }"
-															id="${ group.key.id }-${ member.id.compositeId }" value="${ member.id.compositeId }" >
+														<input type="checkbox" name="provider" class="member_group_${ fn:escapeXml(group.key.id) }"
+															id="${ fn:escapeXml(group.key.id) }-${ fn:escapeXml(member.id.compositeId) }" value="${ fn:escapeXml(member.id.compositeId) }" >
 
-														<label for="${ group.key.id }-${ member.id.compositeId }" >
+														<label for="${ fn:escapeXml(group.key.id) }-${ fn:escapeXml(member.id.compositeId) }" >
 															<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
 														</label>
 													</div>
@@ -506,9 +507,9 @@ function validateFields() {
 												</c:forEach>
 
 												<div class="member_contact" style="white-space: nowrap;">
-													<input type="checkbox" name="provider" id="0-${ member.id.compositeId }"
-														value="${ member.id.compositeId }"  ${ providerChecked ? 'checked' : '' }/>
-													<label for="0-${ member.id.compositeId }" >
+													<input type="checkbox" name="provider" id="0-${ fn:escapeXml(member.id.compositeId) }"
+														value="${ fn:escapeXml(member.id.compositeId) }"  ${ providerChecked ? 'checked' : '' }/>
+													<label for="0-${ fn:escapeXml(member.id.compositeId) }" >
 														<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
 													</label>
 												</div>

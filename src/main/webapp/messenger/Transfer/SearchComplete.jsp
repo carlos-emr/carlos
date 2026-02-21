@@ -68,7 +68,7 @@
  * - Called after PostItems.jsp processing completes
  * - Part of complete document transfer workflow
  *
- * @since 2003
+ * @since 2003-07-21
  */
 --%>
 
@@ -98,28 +98,13 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Search Complete</title>
 
-    <script language="JavaScript">
-        /**
-         * Returns to main CARLOS application and refreshes message alerts
-         */
-        function BackToCarlos() {
-            if (opener.callRefreshTabAlerts) {
-                // Refresh message tab alerts in parent window
-                opener.callRefreshTabAlerts("oscar_new_msg");
-                setTimeout("window.close()", 100);
-            } else {
-                // Fallback to simple window close
-                window.close();
-            }
-        }
-    </script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
 </head>
 
 <body class="BodyStyle" vlink="#0000FF">
-<!--  -->
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
     <tr class="MainTableTopRow">
-        <td class="MainTableTopRowLeftColumn">oscarComm</td>
+        <td class="MainTableTopRowLeftColumn">CARLOS EMR</td>
         <td class="MainTableTopRowRightColumn">
             <table class="TopStatusBar">
                 <tr>

@@ -111,7 +111,6 @@
     </head>
 
  <body class="BodyStyle" >
-<!--  -->
 <table class="MainTable" id="scrollNumber1" style="width:100%; margin-top: 10px;">
 	<tr class="MainTableTopRow">
 		<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<i class="icon-envelope" title='<fmt:message key="messenger.DisplayMessages.msgMessenger"/>'></i>&nbsp;<fmt:message

@@ -77,7 +77,7 @@ import org.apache.struts2.ServletActionContext;
  * purposes.</p>
  * 
  * @version 2.0 Struts2 migration
- * @since 2003
+ * @since 2003-07-21
  * @see RemoteAttachments
  * @see RemoteAttachmentsDao
  * @see MsgSessionBean

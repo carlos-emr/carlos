@@ -92,7 +92,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
      * </ol>
      * </p>
      *
-     * @return SUCCESS constant for Struts navigation
+     * @return String {@code SUCCESS} if message was sent, or {@code ERROR} if no valid recipients or message creation failed
      * @throws IOException if there's an I/O error during processing
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks message write permissions
@@ -156,13 +156,14 @@ public class MsgCreateMessage2Action extends ActionSupport {
             subject = "none";
         }
 
-        //FIXME remove these deprecated methods and use the Messenger Managers instead (the deprecated classes still use JDBC)
+        //FIXME remove MsgMessageData.getDups4/getProviderStructure/sendMessage2/createSentToString (JDBC-based) and migrate to MessagingManager/MessagingManagerImpl (Hibernate-based)
         MsgMessageData messageData = new MsgMessageData();
         providers = messageData.getDups4(providers);
         providerListing = messageData.getProviderStructure(loggedInInfo, providers);
 
         if (providerListing == null || providerListing.isEmpty()) {
             MiscUtils.getLogger().warn("No valid recipients after deduplication; message not sent");
+            request.setAttribute("createMessageError", "No valid recipients selected. Please select at least one recipient.");
             return ERROR;
         }
 
@@ -174,6 +175,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
 
         if (messageId == null || messageId.isEmpty()) {
             MiscUtils.getLogger().error("sendMessage2 returned null or empty messageId");
+            request.setAttribute("createMessageError", "Failed to send message. Please try again.");
             return ERROR;
         }
 

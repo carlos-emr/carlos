@@ -173,14 +173,28 @@ class ProviderProperty2ActionSaveTest extends OpenOWebTestBase {
     @Test
     @DisplayName("should save prop when OscarMsgRecvd value is provided")
     void shouldSaveProp_whenOscarMsgRecvdValueIsProvided() throws Exception {
-        // Given
-        addRequestParameter("value", "yes");
+        // Given - value must be in H:m format (e.g., "9:0", "14:30")
+        addRequestParameter("value", "9:0");
 
         // When
         String result = executeActionMethod(action, "OscarMsgRecvd");
 
         // Then
         assertThat(result).isNull();
-        verify(mockUserPropertyDAO).saveProp(TEST_PROVIDER, UserProperty.OSCAR_MSG_RECVD, "yes");
+        verify(mockUserPropertyDAO).saveProp(TEST_PROVIDER, UserProperty.OSCAR_MSG_RECVD, "9:0");
+    }
+
+    @Test
+    @DisplayName("should not save prop when OscarMsgRecvd value has invalid format")
+    void shouldNotSaveProp_whenOscarMsgRecvdValueHasInvalidFormat() throws Exception {
+        // Given - value is not in H:m format
+        addRequestParameter("value", "yes");
+
+        // When
+        String result = executeActionMethod(action, "OscarMsgRecvd");
+
+        // Then - should not call saveProp since value format is invalid
+        assertThat(result).isNull();
+        verify(mockUserPropertyDAO, never()).saveProp(anyString(), anyString(), anyString());
     }
 }

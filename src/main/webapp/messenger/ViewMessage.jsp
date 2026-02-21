@@ -191,9 +191,12 @@ function popup(demographicNo, msgId, providerNo, action) {
           } else if ( noteEditor == undefined && ngApp != undefined ){
         	  win.close();
         	  txt = "\n" + fmtOscarMsg();
-        	  getAngJsPath = window.opener.location.href;
-        	  newAngJsPath = getAngJsPath.substring(0, getAngJsPath.indexOf('#')+2) + "record/" + demographicNo + "/summary?noteEditorText=" + encodeURI(txt);
-        	  window.opener.location.href = newAngJsPath;
+        	  var openerRef = window.parent.opener || window.opener;
+        	  if (openerRef) {
+        	      getAngJsPath = openerRef.location.href;
+        	      newAngJsPath = getAngJsPath.substring(0, getAngJsPath.indexOf('#')+2) + "record/" + demographicNo + "/summary?noteEditorText=" + encodeURI(txt);
+        	      openerRef.location.href = newAngJsPath;
+        	  }
           } else {
               win.close();
               var writeForm = document.createElement('form');

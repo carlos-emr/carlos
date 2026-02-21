@@ -90,7 +90,7 @@ class MsgBulkOperationHelperTest extends OpenOUnitTestBase {
         when(mockDao.findByProviderNoAndMessageNo(PROVIDER_NO, 100L))
                 .thenReturn(List.of(msg1));
         when(mockDao.findByProviderNoAndMessageNo(PROVIDER_NO, 200L))
-                .thenThrow(new RuntimeException("DB error"));
+                .thenThrow(new org.springframework.dao.DataRetrievalFailureException("DB error"));
         when(mockDao.findByProviderNoAndMessageNo(PROVIDER_NO, 300L))
                 .thenReturn(List.of(msg3));
 
