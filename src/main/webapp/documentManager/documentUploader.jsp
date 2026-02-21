@@ -23,7 +23,7 @@
     Ontario, Canada
 
 --%>
-<%@page contentType="text/html"%>
+<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.QueueDao"%>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO"%>
@@ -35,8 +35,6 @@
 <%@page import="io.github.carlos_emr.carlos.mds.data.*"%>
 <%@page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData"%>
 <%@page import="io.github.carlos_emr.carlos.mds.data.ProviderData"%>
-<%@page import="ca.openosp.OscarProperties"%>
-
 <%@page import="java.util.*"%>
 <%@page import="org.owasp.encoder.Encode"%>
 
@@ -51,7 +49,7 @@
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="w" reverse="<%=true%>">
 	<%authed=false; %>
-	<%response.sendRedirect("../securityError.jsp?type=_edoc");%>
+	<%response.sendRedirect(request.getContextPath() + "/securityError.jsp?type=_edoc");%>
 </security:oscarSec>
 <%
 	if(!authed) {
@@ -259,7 +257,7 @@
 				</select>
              </div>
              <div class="form-group">
-				<label for="queueDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.queue" />:</label>
+				<label for="queueDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.queue" />:</label>
 				<select onchange="javascript:setQueue(this);" id="queueDrop" name="queueDrop" class="form-control input-block-level">
 					<%
 					for (Map.Entry<Integer,String> entry : queues.entrySet()) {
