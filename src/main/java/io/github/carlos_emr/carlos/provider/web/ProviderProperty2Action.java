@@ -54,9 +54,58 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.*;
 import java.util.function.Supplier;
 
+import java.io.IOException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 /**
- * @author rjonasz
+ * ProviderProperty2Action
+ *
+ * Purpose:
+ *     Struts2 action class managing provider-specific preferences and settings.
+ *     Provides method-based routing to handle viewing and saving various provider
+ *     configuration options including lab macros, prevention warnings, and HL7
+ *     lab result delivery preferences.
+ *
+ * Architecture:
+ *     - Implements Struts2 ActionSupport for MVC pattern integration
+ *     - Uses method-based action routing via methodMap for flexibility
+ *     - Delegates to Spring-managed service/DAO layers for business logic
+ *     - Supports multiple provider preference types through single action class
+ *
+ * Key Methods (focus of this documentation):
+ *     - viewLabMacroPrefs(): Display lab macro configuration form
+ *     - saveLabMacroPrefs(): Persist lab macro JSON to database with validation
+ *
+ * Security Model:
+ *     - All methods check provider authorization via SecurityInfoManager
+ *     - Uses role-based access control with security objects (e.g., "_lab")
+ *     - Enforces READ/WRITE privilege levels based on operation
+ *     - Throws RuntimeException on privilege violations
+ *
+ * Data Flow:
+ *     - Request parameters parsed and validated by action methods
+ *     - Spring-managed DAOs handle database operations
+ *     - Preferences stored as UserProperty records keyed by name
+ *     - JSP layer receives status attributes for user feedback
+ *
+ * Lab Macro Workflow:
+ *     1. Provider navigates to setLabMacroPrefs.jsp via method=view
+ *     2. JSP renders existing macros from database
+ *     3. Provider fills form fields or edits raw JSON directly
+ *     4. Form submission calls method=saveLabMacroPrefs
+ *     5. Action validates JSON and persists to UserProperty table
+ *     6. JSP displays success or error status
+ *
+ * Exception Handling:
+ *     - Invalid JSON triggers validation error (not exception throw)
+ *     - Privilege violations throw RuntimeException (consistent with file pattern)
+ *     - Database errors propagate to framework (transactional)
+ *
+ * Internationalization:
+ *     - Status attributes reference i18n keys (e.g., msgSuccess)
+ *     - JSP layer uses JSTL fmt:message tags for localization
+ *     - Currently supports English and Portuguese Brazilian
+ *
+ * @since 2007-12-21 (Migrated to Struts2 2024-12-06, lab macro methods enhanced 2026-02-17)
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -2456,36 +2505,131 @@ public class ProviderProperty2Action extends ActionSupport {
         return "genPreventionPrefs";
     }
 
+    /**
+     * viewLabMacroPrefs()
+     *
+     * Purpose:
+     *     Display the lab macro preferences form for the logged-in provider.
+     *     This method loads and displays the setLabMacroPrefs.jsp page where
+     *     providers can view, create, edit, or delete lab result macro templates.
+     *
+     * Security:
+     *     - Requires authenticated provider session (injected via LoggedInInfo)
+     *     - Checks _lab READ privilege via SecurityInfoManager
+     *     - Throws RuntimeException if privilege is missing
+     *
+     * Flow:
+     *     1. Extract logged-in provider info from HTTP session
+     *     2. Verify provider has READ access to "_lab" security object
+     *     3. Forward to setLabMacroPrefs.jsp (JSP loads macro data from database)
+     *
+     * @return "genLabMacroPrefs" - Struts2 result name mapping to setLabMacroPrefs.jsp
+     * @throws RuntimeException if provider lacks _lab READ privilege
+     * @since 2024-12-06 (Security check added 2026-02-17)
+     */
     public String viewLabMacroPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        UserProperty prefs = loadProperty(providerNo, "labMacroJSON");
-
-        request.setAttribute("prefs", prefs);
-
-        request.setAttribute("providertitle", "provider.labMacroPrefs.title");
-        request.setAttribute("providermsgPrefs", "provider.labMacroPrefs.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnSubmit", "provider.labMacroPrefs.btnSubmit"); //=Save
-        request.setAttribute("providerbtnCancel", "provider.labMacroPrefs.btnCancel"); //=Cancel
-        request.setAttribute("method", "saveLabMacroPrefs");
-
-        this.setLabMacroJSON(prefs);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
+            throw new RuntimeException("missing required security object _lab");
+        }
 
         return "genLabMacroPrefs";
     }
 
-
+    /**
+     * saveLabMacroPrefs()
+     *
+     * Purpose:
+     *     Persists lab macro preferences for the logged-in provider.
+     *     Receives macro definitions from the form submission (either assembled
+     *     from form fields or raw JSON from advanced editor), validates JSON
+     *     structure, and stores in the UserProperty table.
+     *
+     * Security:
+     *     - Requires authenticated provider session (injected via LoggedInInfo)
+     *     - Checks _lab WRITE privilege via SecurityInfoManager
+     *     - Throws RuntimeException if privilege is missing
+     *     - Server-side JSON validation prevents malformed data persistence
+     *     - Audit log records save operation (without sensitive data content)
+     *
+     * Input Processing:
+     *     - Retrieves macro JSON via Struts2 OGNL property injection (getLabMacroJSON())
+     *     - Defaults to empty string if no macros provided
+     *     - Allows empty string (user can delete all macros)
+     *
+     * Validation:
+     *     - Uses Jackson ObjectMapper.readTree() to parse JSON
+     *     - If non-empty JSON fails parsing, returns "error" status
+     *     - Empty strings bypass validation (valid state = no macros)
+     *
+     * Storage:
+     *     - Creates or updates UserProperty record with name="labMacroJSON"
+     *     - Provider number is extracted from logged-in session
+     *     - UserProperty is persisted to database via userPropertyDAO
+     *
+     * Audit Logging:
+     *     - Records action to audit log as "LabMacroPreferences"
+     *     - Logs "updated" event (not full JSON content, for privacy)
+     *     - Audit visible to administrators for compliance/forensics
+     *
+     * Flow:
+     *     1. Extract logged-in provider and verify WRITE privilege
+     *     2. Get macro JSON from form submission
+     *     3. Validate JSON structure (if non-empty)
+     *     4. On validation error: set status="error" and return to form
+     *     5. On success: persist to database, set status="success"
+     *     6. Return to setLabMacroPrefs.jsp with status message
+     *
+     * @return "genLabMacroPrefs" - Struts2 result name mapping to setLabMacroPrefs.jsp
+     * @throws RuntimeException if provider lacks _lab WRITE privilege
+     * @since 2024-12-06 (JSON validation added 2026-02-17)
+     */
     public String saveLabMacroPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
+            throw new RuntimeException("missing required security object _lab");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        // Retrieve macro JSON via Struts2 OGNL property injection.
+        // The form textarea name "labMacroJSON.value" maps to setLabMacroJSON().setValue() on this action.
         UserProperty s = this.getLabMacroJSON();
 
+        // Extract JSON string, or empty string if no macros submitted.
         String prefs = s != null ? s.getValue() : "";
 
+        // ================================================================
+        // SERVER-SIDE JSON VALIDATION
+        // ================================================================
+        // If user submitted non-empty JSON (from either form assembly or
+        // raw editor), validate that it parses correctly as JSON. This
+        // prevents corrupted data from being stored.
+        // Empty string is always valid (user can delete all macros).
+        if (!prefs.isEmpty()) {
+            try {
+                // Attempt to parse JSON. If successful, structure is valid.
+                // If parsing fails, the exception is caught below.
+                new ObjectMapper().readTree(prefs);
+            } catch (IOException e) {
+                // JSON parsing failed. Log warning (admin visibility) but
+                // do not persist. Show user-friendly error message on JSP.
+                MiscUtils.getLogger().warn("User submitted invalid JSON for lab macros", e);
+                request.setAttribute("status", "error");
+                // Preserve submitted JSON so user can correct it in the raw editor
+                // without losing their input on validation error.
+                request.setAttribute("submittedJSON", prefs);
+                return "genLabMacroPrefs";
+            }
+        }
+
+        // ================================================================
+        // DATABASE PERSISTENCE
+        // ================================================================
+        // Create or update UserProperty record for this provider's macros.
+        // Each provider has one UserProperty record with name="labMacroJSON".
         UserProperty wProperty = this.userPropertyDAO.getProp(providerNo, "labMacroJSON");
         if (wProperty == null) {
+            // First time saving macros for this provider: create new record
             wProperty = new UserProperty();
             wProperty.setProviderNo(providerNo);
             wProperty.setName("labMacroJSON");
@@ -2493,16 +2637,15 @@ public class ProviderProperty2Action extends ActionSupport {
         wProperty.setValue(prefs);
         userPropertyDAO.saveProp(wProperty);
 
-        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request), "LabMacroPreferences", "labMacroJSON", "", null, wProperty.getValue());
+        // ================================================================
+        // AUDIT LOGGING
+        // ================================================================
+        // Record the save action to audit log for compliance/forensics.
+        // Log the action name only (not full JSON content, for privacy).
+        LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request),
+            "LabMacroPreferences", "labMacroJSON", "", null, "updated");
 
         request.setAttribute("status", "success");
-        // request.setAttribute("labMacroJSON", wProperty);
-        request.setAttribute("providertitle", "provider.labMacroPrefs.title");
-        request.setAttribute("providermsgPrefs", "provider.labMacroPrefs.msgPrefs"); //=Preferences
-        request.setAttribute("providerbtnClose", "provider.labMacroPrefs.btnClose"); //=Close
-        request.setAttribute("providermsgSuccess", "provider.labMacroPrefs.msgSuccess");
-        request.setAttribute("method", "saveLabMacroPrefs");
-
         return "genLabMacroPrefs";
     }
 

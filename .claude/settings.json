@@ -44,6 +44,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/enforce-sql-migration-pattern.py",
+            "timeout": 5
+          }
+        ]
       }
     ]
   },
@@ -61,6 +71,8 @@
   },
   "permissions": {
     "allow": [
+      "Write(path:database/mysql/updates/update-*.sql)",
+      "Edit(path:database/mysql/updates/update-*.sql)",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_snapshot",
       "mcp__playwright__browser_take_screenshot",
@@ -141,7 +153,20 @@
       "Write(path:.git/**)",
       "Write(path:.github/**)",
       "Write(path:.github/workflows/**)",
-      "Write(path:database/**)",
+      "Write(path:database/mysql/oscarinit*.sql)",
+      "Write(path:database/mysql/oscardata*.sql)",
+      "Write(path:database/mysql/icd*.sql)",
+      "Write(path:database/mysql/measurementMapData.sql)",
+      "Write(path:database/mysql/caisi/**)",
+      "Write(path:database/mysql/olis/**)",
+      "Write(path:database/mysql/SnomedCore/**)",
+      "Edit(path:database/mysql/oscarinit*.sql)",
+      "Edit(path:database/mysql/oscardata*.sql)",
+      "Edit(path:database/mysql/icd*.sql)",
+      "Edit(path:database/mysql/measurementMapData.sql)",
+      "Edit(path:database/mysql/caisi/**)",
+      "Edit(path:database/mysql/olis/**)",
+      "Edit(path:database/mysql/SnomedCore/**)",
       "Bash(gh repo create *)",
       "Bash(gh repo delete *)",
       "Bash(gh repo fork *)",

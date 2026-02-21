@@ -33,7 +33,74 @@
 <%@ page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
 <%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 
+<%--
+    ================================================================================
+    labDisplay.jsp
+    ================================================================================
+    Purpose:
+        Comprehensive lab results display and acknowledgment interface for CARLOS EMR.
+        This JSP renders HL7 lab results with full formatting, segmentation, and
+        provider-initiated acknowledgment workflows. Supports multi-jurisdictional
+        lab systems (Ontario OLIS, etc.) with custom parsing and display rules.
+
+    Key Features:
+        - HL7 v2 lab result parsing and display with segment handling
+        - Rich formatting for critical values, abnormal flags, and reference ranges
+        - Patient-friendly and provider-friendly view options
+        - Lab result acknowledgment with auto-populated comments via macros
+        - Macro system integration: Quick-action templates for common acknowledgments
+        - Tickler (follow-up reminder) creation during acknowledgment
+        - Multi-lab display with result status tracking
+        - Case management note linking and comment attachment
+        - Results history and comparative views
+        - Print-friendly output with RTF support
+        - OWASP XSS encoding for all user inputs and data outputs
+        - OWASP CSRF protection via security tokens
+
+    Architecture:
+        - Displays HL7 lab results from database or file storage
+        - Parses HL7 v2 segments: MSH, PID, OBR, OBX, NTE, etc.
+        - Provides acknowledgment UI with optional macro quick-actions
+        - Macro dropdown renders user-configured lab result templates
+        - Macro application via runMacro() JavaScript function (defined elsewhere)
+        - Result acknowledgment submitted to backend action for persistence
+        - Audit logging for all result views and acknowledgments
+
+    Lab Macro Integration:
+        - Loads provider's configured lab macros from UserProperty.LAB_MACRO_JSON
+        - Renders macro names as clickable links in results page
+        - Macro application pre-fills acknowledgment comment and optionally creates tickler
+        - Supports multiple macro templates per result (e.g., "Abnormal", "Critical")
+        - Macro parsing uses Jackson ObjectMapper with error handling
+        - Failed macro parsing displays user-friendly error in macro dropdown
+
+    Security:
+        - Requires "_lab" READ privilege via security.oscarSec tag
+        - All JSP outputs escaped with OWASP Encoder for XSS prevention
+        - Macro names XSS-encoded: Encode.forJavaScript() in onClick, Encode.forHtml() in link text
+        - Audit logging via LogAction for all sensitive operations
+        - HL7 message sanitization to prevent data leakage
+
+    Known Issues & Limitations:
+        - RTF conversion may fail silently on unsupported characters
+
+    Issue History:
+        - 2007-07-13: Original lab result display implementation
+        - 2026-02-17: Added macro null-safety check (macro.path vs macro.get)
+        - 2026-02-17: Narrowed exception catch to IOException for clarity
+
+    Dependencies:
+        - HL7 parsing: io.github.carlos_emr.carlos.lab.ca.all.parsers.*
+        - Lab display helper: io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper
+        - User properties: io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO
+        - Macros: Jackson ObjectMapper for JSON parsing
+        - Security: OWASP Encoder for XSS prevention
+
+    @since 2007-07-13 (Macro improvements 2026-02-17)
+--%>
+
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@page import="java.io.IOException" %>
 <%@page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%@page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 <%@page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
@@ -895,12 +962,24 @@ input[id^='acklabel_']{
                                 %>
 
                                 <%
+                                    // ============================================================
+                                    // LAB RESULT MACRO DROPDOWN RENDERING
+                                    // ============================================================
+                                    // Load provider's configured lab result macro templates.
+                                    // Macros are quick-action buttons that apply pre-configured
+                                    // acknowledgments (comments + optional ticklers) to lab results.
+                                    // This feature improves workflow efficiency for providers
+                                    // handling high-volume lab result acknowledgments.
+
                                     UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
+                                    // Load the logged-in provider's macro preferences from database.
+                                    // If no macros have been configured, up will be null/empty.
                                     UserProperty up = upDao.getProp(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), UserProperty.LAB_MACRO_JSON);
                                     String btnClass = "btn-outline-primary";
                                 %>
 <div class="d-flex align-items-center input-group-sm">
                                 <%
+                                    // Only render the dropdown if provider has saved macros.
                                     if (up != null && !StringUtils.isEmpty(up.getValue())) {
                                         btnClass = "";
                                 %>
@@ -909,22 +988,60 @@ input[id^='acklabel_']{
                                     <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
                                         <%
                                             try {
+                                                // ====================================================
+                                                // MACRO JSON PARSING
+                                                // ====================================================
+                                                // Parse the stored macro JSON into a tree for inspection.
                                                 ObjectMapper mapper = new ObjectMapper();
                                                 JsonNode macros = mapper.readTree(up.getValue());
-                                                if (macros != null && macros.isArray()) {
+
+                                                // If JSON is valid but not an array, log and show error.
+                                                if (macros == null || !macros.isArray()) {
+                                                    MiscUtils.getLogger().warn("Lab macro JSON is not an array, type: " + (macros != null ? macros.getNodeType() : "null"));
+                                        %>
+                                                    <span class="text-danger" style="padding:4px;"><fmt:message key="provider.labMacroPrefs.msgLoadError" /></span>
+                                        <%
+                                                } else {
+                                                    // Iterate through each macro template.
                                                     for (int x = 0; x < macros.size(); x++) {
                                                         JsonNode macro = macros.get(x);
-                                                        String name = macro.get("name").asText();
-                                                        boolean closeOnSuccess = macro.has("closeOnSuccess") && macro.get("closeOnSuccess").asBoolean();
+
+                                                        // ================================================
+                                                        // FIELD EXTRACTION
+                                                        // ================================================
+                                                        // Extract macro name: display text for dropdown button.
+                                                        // Uses macro.path() for null-safe access (returns MissingNode, not null, so .asText("") provides the default).
+                                                        String name = macro.path("name").asText("");
+
+                                                        // Skip macros with empty or missing names to avoid rendering blank dropdown entries.
+                                                        if (name.isEmpty()) continue;
+
+                                                        // Extract closeOnSuccess flag: whether to auto-close
+                                                        // the lab result display after applying the macro.
+                                                        boolean closeOnSuccess = macro.has("closeOnSuccess") &&
+                                                                                 macro.get("closeOnSuccess").asBoolean();
 
                                         %><li><a class="dropdown-item" href="javascript:void(0);"
                                              onClick="runMacro('<%=Encode.forJavaScript(name)%>','acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>',<%=closeOnSuccess%>)"><%=Encode.forHtml(name)%>
                                     </a></li><%
+                                                    }
                                                 }
+                                            } catch (IOException e) {
+                                                // ====================================================
+                                                // ERROR HANDLING
+                                                // ====================================================
+                                                // JSON parsing failed. Log warning for admin visibility.
+                                                // This can occur if:
+                                                //   - Macros were corrupted in database
+                                                //   - User submitted malformed JSON (if server validation
+                                                //     was bypassed)
+                                                //   - Version incompatibility in JSON structure
+                                                MiscUtils.getLogger().warn("Invalid JSON for lab macros", e);
+                                        %>
+                                            <!-- Display user-friendly error message in dropdown -->
+                                            <span class="text-danger" style="padding:4px;"><fmt:message key="provider.labMacroPrefs.msgLoadError" /></span>
+                                        <%
                                             }
-                                        } catch (Exception e) {
-                                            MiscUtils.getLogger().warn("Invalid JSON for lab macros", e);
-                                        }
                                     %>
                                       </ul>
                                     </div>

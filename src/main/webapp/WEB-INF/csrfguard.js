@@ -482,13 +482,22 @@
             /** inject CSRF token into dynamically created forms on submit **/
             var _originalFormSubmit = HTMLFormElement.prototype.submit;
             HTMLFormElement.prototype.submit = function() {
-                if (token_name && token_value &&
-                    !this.querySelector('input[name="' + token_name + '"]')) {
-                    var hidden = document.createElement('input');
-                    hidden.setAttribute('type', 'hidden');
-                    hidden.setAttribute('name', token_name);
-                    hidden.setAttribute('value', token_value);
-                    this.appendChild(hidden);
+                if (token_name && token_value) {
+                    // Only inject for same-origin forms to prevent token leakage
+                    var action = this.action || window.location.href;
+                    try {
+                        var formUrl = new URL(action, window.location.href);
+                        if (formUrl.origin === window.location.origin &&
+                            !this.querySelector('input[name="' + token_name + '"]')) {
+                            var hidden = document.createElement('input');
+                            hidden.setAttribute('type', 'hidden');
+                            hidden.setAttribute('name', token_name);
+                            hidden.setAttribute('value', token_value);
+                            this.appendChild(hidden);
+                        }
+                    } catch (e) {
+                        // If URL parsing fails, skip injection to avoid leaking token
+                    }
                 }
                 return _originalFormSubmit.call(this);
             };

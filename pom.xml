@@ -315,6 +315,11 @@
             <artifactId>commons-lang3</artifactId>
             <version>3.18.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-csv</artifactId>
+            <version>1.12.0</version>
+        </dependency>
         <!-- commons-beanutils removed: migrated to Spring BeanUtils (Phase 1 of issue #2202) -->
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
         <!-- https://mvnrepository.com/artifact/commons-net/commons-net -->
@@ -522,22 +527,6 @@
             <groupId>net.sf.ehcache</groupId>
             <artifactId>ehcache</artifactId>
             <version>2.10.9.2</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.onelogin</groupId>
-            <artifactId>java-saml</artifactId>
-            <version>2.9.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.codehaus.woodstox</groupId>
-                    <artifactId>woodstox-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.santuario</groupId>
-                    <artifactId>xmlsec</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <!-- hibernate / sql -->
@@ -809,15 +798,6 @@
             </exclusions>
         </dependency>
 
-        <!-- ostermillerutils_1_04_03_for_java_1_4.jar
-        we need to stop using this and replace it with apache commons -->
-        <!-- Please look at PR #386 commit: 7da510760a7dd71fd86eabd7eb23842b60a482de for removal -->
-        <dependency>
-            <groupId>com.ostermiller</groupId>
-            <artifactId>ostermillerutils</artifactId>
-            <version>1.4.3</version>
-        </dependency>
-
         <!-- UPGRADED displaytag to actively maintained hazendaz fork -->
         <!-- Temporary bridge solution - full DataTables migration planned for Q2 2026 -->
         <!-- Used in JSP files: admin (6), BC billing (3), PMmodule (1), casemgmt (1) -->
@@ -971,10 +951,6 @@
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>joda-time</groupId>
-                    <artifactId>joda-time</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>com.fasterxml.woodstox</groupId>

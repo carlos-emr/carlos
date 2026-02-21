@@ -75,6 +75,26 @@
                 }
             }
 
+            function togglepwd(){
+                const passwordInput = document.getElementById('password');
+                const toggleBtn = document.getElementById('toggleBtn');
+                // Flip the input type first, then read the post-toggle state for ARIA
+                passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+                const isNowVisible = passwordInput.type === 'text';
+                toggleBtn.setAttribute('aria-pressed', isNowVisible ? 'true' : 'false');
+                toggleBtn.setAttribute('aria-label', isNowVisible ? 'Hide password' : 'Show password');
+            }
+
+            function togglepin(){
+                const pinInput = document.getElementById('pin');
+                // Toggle the custom security class
+                pinInput.classList.toggle('secure-text');
+                const toggleBtn = document.getElementById('togglePin');
+                const isNowVisible = !(pinInput.classList.contains("secure-text"));
+                toggleBtn.setAttribute('aria-pressed', isNowVisible ? 'true' : 'false');
+                toggleBtn.setAttribute('aria-label', isNowVisible ? 'Hide PIN' : 'Show PIN');
+            }
+
             function setfocus() {
                 document.loginForm.username.focus();
                 document.loginForm.username.select();
@@ -85,11 +105,6 @@
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
                 window.open(page, "gpl", windowprops);
             }
-
-            function addStartTime() {
-                document.getElementById("oneIdLogin").href += (Math.round(new Date().getTime() / 1000).toString());
-            }
-
 
             function enhancedOrClassic(choice) {
                 document.getElementById("loginType").value = choice;
@@ -136,7 +151,7 @@
             img {
                 max-width: 100%;
                 height: auto;
-                width: auto \9;
+                width: auto;
             }
 
             #clinic_logo {
@@ -446,30 +461,6 @@
             @media ( min-width: 1200px) {
             }
 
-            .oneIdLogin {
-                background-color: #000;
-                width: 60%;
-                height: 34px;
-                margin: 0 auto;
-            }
-
-            .oneIdLogo {
-                background-color: transparent;
-                background: url("${pageContext.request.contextPath}/images/oneId/oneIDLogo.png");
-                border: none;
-                display: inline-block;
-                float: left;
-                vertical-align: bottom;
-                width: 70px;
-                height: 16px;
-            }
-
-            .oneIDText {
-                display: inline-block;
-                float: left;
-                padding-left: 10px
-            }
-
             footer {
                 padding: 5px 10px;
                 margin-top: 50px;
@@ -503,6 +494,56 @@
             .support_details div {
                 font-size: smaller;
                 text-align: center;
+            }
+
+            #supportImageLink img {
+                max-width: 150px;
+                height: auto;
+            }
+
+            /* Hide the default browser eye in Edge */
+            #password::-ms-reveal,
+            #password::-ms-clear {
+              display: none;
+            }
+            .secure-text { -webkit-text-security: disc; }
+
+            .input-wrapper { position: relative; display: inline-block; margin-bottom: 15px; width: 100%; }
+            .toggle-input { width: 100%; padding-right: 35px; box-sizing: border-box; }
+
+            .toggle-btn {
+              position: absolute; right: 10px; top: 17px; transform: translateY(-50%);
+              width: 26px; height: 26px; border: none;
+              cursor: pointer;
+            }
+
+            /* Svg for "Hidden" state (Class-based OR Type-based) */
+            .toggle-input.secure-text + .toggle-btn,
+            .toggle-input[type="password"] + .toggle-btn {
+              display: inline-block;
+              width: 24px; /* 24px+ for click area WCAG SC 2.5.8 AA */
+              height: 24px;
+              background-color: #959595; /* 3:1 contrast ratio as per WCAG, alternately use currentColor; to match text color */
+              -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>');
+              mask-size: contain;
+              -webkit-mask-repeat: no-repeat;
+              mask-repeat: no-repeat;
+              mask-position: center;
+            }
+
+            /* Svg for "Visible" state */
+            .toggle-input:not(.secure-text):not([type="password"]) + .toggle-btn {
+            display: inline-block;
+              width: 24px; /* NO SMALLER for best practice */
+              height: 24px;
+              background-color: #959595; /* lightest grey that gives 3:1 contrast ratio */
+              -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/><line x1="0" y1="24" x2="24" y2="0" /></svg>');
+              mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/><line x1="0" y1="24" x2="24" y2="0" /></svg>');
+              mask-size: contain;
+              -webkit-mask-repeat: no-repeat;
+              mask-repeat: no-repeat;
+              mask-position: center;
             }
         </style>
 
@@ -547,8 +588,8 @@
                 <div class="panel-heading">
 
                         <%--			    	<div id="oscar_logo">--%>
-                        <%--				    	<!-- Oscar logo -->--%>
-                        <%--			        	<img title="OSCAR EMR Login" src="${pageContext.request.contextPath}/images/Logo.png"  alt="OSCAR EMR Login"--%>
+                        <%--				    	<!-- EMR logo -->--%>
+                        <%--			        	<img title="EMR Login" src="${pageContext.request.contextPath}/images/Logo.png"  alt="EMR Login"--%>
                         <%--			        		onerror="document.getElementById('default_logo').style.display='block'; this.style.display='none'; " />--%>
                         <%--		        	</div>--%>
 
@@ -569,71 +610,73 @@
                     <div class="leftinput">
                         <%--
                             Autocomplete attribute strategy (WHATWG HTML spec):
-                            - username: "off" — shared clinical workstations; prevent autofill of another provider's identity
-                            - password: "current-password" — enable browser password manager save/fill per
+                            - username: "off" \u2014 shared clinical workstations; prevent autofill of another provider's identity
+                            - password: "current-password" \u2014 enable browser password manager save/fill per
                               NIST SP 800-63B (https://pages.nist.gov/800-63-3/sp800-63b.html) and
                               OWASP Authentication Cheat Sheet (https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
                               which recommend allowing password managers for stronger credential hygiene
-                            - pin: "one-time-code" — signal browsers this is a session code, not a saveable credential
+                            - pin: "one-time-code" \u2014 signal browsers this is a session code, not a saveable credential
                         --%>
-                        <form action="login.do" method="POST">
+                        <form action="login.do" method="POST" name="loginForm">
+<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 
                             <div class="form-group ${ login_error }">
-                                <input type="text" name="username" placeholder="Enter your username"
+                                <input type="text" name="username" id="username" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Logon.userName"/>"
                                        value="" size="15" maxlength="15" autocomplete="off"
-                                       class="form-control" required/>
+                                       class="form-control" required>
                             </div>
 
-                            <div class="form-group ${ login_error }">
-                                <input type="password" name="password" placeholder="Enter your password"
-                                       value="" size="15" maxlength="32" autocomplete="current-password"
-                                       class="form-control" required/>
+                            <div class="input-wrapper form-group ${ login_error }">
+                              <input type="password" name="password" id="password" placeholder="<fmt:message key="Logon.passWord"/>" autocomplete="current-password" class="form-control toggle-input" required>
+                              <button type="button"
+                                      id="toggleBtn"
+                                      class="toggle-btn"
+                                      aria-label="Show Password"
+                                      aria-pressed="false"
+                                      onclick="togglepwd();">
+                              </button>
                             </div>
 
 							<% if (MfaManager.isOscarLegacyPinEnabled()) { %>
-                            <c:if test="${not LoginResourceBean.ssoEnabled}">
-                                <div class="form-group ${ login_error }">
-                                    <input type="text" name="pin" placeholder="Enter your PIN" value="" style="-webkit-text-security: disc;"
-                                           size="15" maxlength="15" autocomplete="one-time-code"
-                                           inputmode="numeric" class="form-control"/>
+                            <div class="pin-wrapper">
+                                <div class="input-wrapper form-group ${ login_error }">
+                                  <!-- The input starts with the secure-text class -->
+                                  <input type="text" id="pin" class="form-control secure-text toggle-input" name="pin" autocomplete="one-time-code"
+                                               inputmode="numeric"  placeholder="<fmt:message key="admin.securityrecord.formPIN"/>">
+                                    <button type="button"
+                                      id="togglePin"
+                                      class="toggle-btn"
+                                      aria-label="Show PIN"
+                                      aria-pressed="false"
+                                      onclick="togglepin();">
+                                    </button>
                                     <span class="extrasmall">
-										<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.formCmt"/>
-									</span>
+										    <fmt:message key="loginApplication.formCmt"/>
+                                    </span>
                                 </div>
-                            </c:if>
+                            </div>
 							<% } %>
-                            <input type="hidden" id="oneIdKey" name="nameId" value="${ nameId }"/>
-                            <input type="hidden" id="loginType" name="loginType" value=""/>
+                            <input type="hidden" id="loginType" name="loginType" value="">
                             <input type=hidden name='propname'
-                                   value='<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.propertyFile"/>'/>
+                                   value='<fmt:message key="loginApplication.propertyFile"/>'>
 
                             <div id="buttonContainer">
                                 <c:choose>
                                     <c:when test="${ isMobileDevice }">
                                         <input class="btn btn-oscar btn-primary btn-block" name="submit" id="fullSubmit"
-                                               type="submit" onclick="enhancedOrClassic('C');" value="Full"/>
+                                               type="submit" onclick="enhancedOrClassic('C');" value="Full">
                                         <input class="btn btn-oscar btn-primary btn-block" name="submit"
                                                id="mobileSubmit" type="submit" onclick="enhancedOrClassic('C');"
-                                               value="Mobile"/>
+                                               value="Mobile">
                                     </c:when>
                                     <c:otherwise>
                                         <input class="btn btn-oscar btn-primary btn-block" name="submit" type="submit"
-                                               onclick="enhancedOrClassic('C');" value="Login"/>
+                                               onclick="enhancedOrClassic('C');" value="<fmt:message key="index.btnSignIn"/>">
                                     </c:otherwise>
                                 </c:choose>
                             </div>
 
-                        <form>
-
-                        <oscar:oscarPropertiesCheck property="oneid.enabled" value="true" defaultVal="false">
-                            <a href="${ LoginResourceBean.econsultURL }"
-                               id="oneIdLogin" onclick="addStartTime()" class="btn btn-primary btn-block oneIDLogin">
-                                <span class="oneIDLogo"></span>
-                                <span class="oneIdText">
-    									<fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.oneid"/>
-    								</span>
-                            </a>
-                        </oscar:oscarPropertiesCheck>
+                        </form>
 
                         <c:if test="${ LoginResourceBean.acceptableUseAgreementManager.auaAvailable }">
     			            <span class="extrasmall">
@@ -676,7 +719,7 @@
             </c:if>
             <div class="support_details">
                 <a target="_blank" href="${ LoginResourceBean.supportLink }" id="supportImageLink">
-                    <img width="150px" src="${ pageContext.request.contextPath }/loginResource/supportLogo.png"
+                    <img src="${ pageContext.request.contextPath }/loginResource/supportLogo.png"
                          alt="Support Image"
                          onerror="this.style.display='none'; document.getElementById('supportImageLink').style.display='none';">
                 </a>
