@@ -386,7 +386,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
 
         String[] parts = searchStr.split(",");
         if (searchStr.indexOf(",") != -1 && searchStr.trim().indexOf(",") != (searchStr.trim().length() - 1)) {
-            hql += "last_name like ?0 and ( first_name like ?1 or alias like ?1)";
+            hql += "last_name like ?0 and (first_name like ?1 or Alias like ?1)";
             params.add(parts[0].trim() + "%");
             params.add(parts[1].trim() + "%");
         } else {
@@ -424,7 +424,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
                     if (sh[1] != null && sh[1].trim().length() > 0) {
                         if (where.length() > 0)
                             where = where + " and ";
-                        where = where + "( x.FirstName like :fn or x.alias like :fn ) ";
+                        where = where + "( x.FirstName like :fn or x.Alias like :fn ) ";
                         fn = sh[1].trim();
                     }
                 } else {
@@ -511,7 +511,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         String[] name = Objects.requireNonNullElse(searchStr, "").split(",");
 
         if (name.length == 2) {
-            queryString +=  "and ( d.FirstName like :firstName or d.Alias like :firstName ) ";
+            queryString += " and (d.FirstName like :firstName or d.Alias like :firstName) ";
         }
 
         if (statuses != null) {
@@ -562,7 +562,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
 
         String[] name = searchStr.split(",");
         if (name.length == 2) {
-            queryString += " and first_name like :firstName ";
+            queryString += " and (d.FirstName like :firstName or d.Alias like :firstName) ";
         }
 
         // Session session = this.getSession();
@@ -1098,7 +1098,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         if (hin != null)
             sqlParameters.append(" and d.Hin like :hin");
         if (firstName != null)
-            sqlParameters.append(" and d.FirstName like :firstName or d.Alias like :firstName ) ";
+            sqlParameters.append(" and (d.FirstName like :firstName or d.Alias like :firstName)");
         if (lastName != null)
             sqlParameters.append(" and d.LastName like :lastName");
         if (gender != null)
