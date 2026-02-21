@@ -23,8 +23,7 @@
       max-width: 300px;
     }
     .files .name {
-      word-wrap: break-word;
-      overflow-wrap: anywhere;
+      overflow-wrap: break-word;
       -webkit-hyphens: auto;
       hyphens: auto;
     }

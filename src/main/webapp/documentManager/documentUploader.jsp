@@ -44,6 +44,7 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
 <%
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed=true;
@@ -140,13 +141,13 @@
         var destination=select.options[select.selectedIndex].value;
 		document.getElementById("destination").value = destination;
         setDropList();
-        jQuery.ajax({url:'${pageContext.request.contextPath}/documentManager/documentUpload.do?method=setUploadDestination&destination='+destination,async:false, success:function(data) {}});
+        jQuery.ajax({url:'${pageContext.request.contextPath}/documentManager/documentUpload.do?method=setUploadDestination&destination='+encodeURIComponent(destination), success:function(data) {}});
 	}
 
     function setDestFolder(select){
         var destFolder=select.options[select.selectedIndex].value;
 		document.getElementById("destFolder").value = destFolder;
-        jQuery.ajax({url:'${pageContext.request.contextPath}/documentManager/documentUpload.do?method=setUploadIncomingDocumentFolder&destFolder='+destFolder,async:false, success:function(data) {}});
+        jQuery.ajax({url:'${pageContext.request.contextPath}/documentManager/documentUpload.do?method=setUploadIncomingDocumentFolder&destFolder='+encodeURIComponent(destFolder), success:function(data) {}});
 	}
 
     function setDropList(){
@@ -226,13 +227,14 @@
       <!-- The file upload form used as target for the file upload widget.  Enabled drag and drop anywhere here -->
       <form
         id="fileupload"
-        action="<%=context%>/documentManager/documentUpload.do?method=executeUpload"
+        action="<%= Encode.forHtmlAttribute(context) %>/documentManager/documentUpload.do?method=executeUpload"
         method="POST"
         enctype="multipart/form-data"
       >
-            <input type="hidden" id="destination" name="destination" value="<%=destination%>"/>
-            <input type="hidden" id="destFolder" name="destFolder" value="<%=destFolder%>"/>
-			<input type="hidden" id="provider" name="provider" value="<%=provider%>" />
+            <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
+            <input type="hidden" id="destination" name="destination" value="<%= Encode.forHtmlAttribute(destination) %>"/>
+            <input type="hidden" id="destFolder" name="destFolder" value="<%= Encode.forHtmlAttribute(destFolder) %>"/>
+			<input type="hidden" id="provider" name="provider" value="<%= Encode.forHtmlAttribute(provider) %>" />
 		    <input type="hidden" id="queue" name="queue" value="<%=queueId%>"/>
 
              <div class="form-group">
@@ -243,9 +245,9 @@
                     </select>
              </div>
              <div class="form-group" id="providerDropDiv">
-                <label for="providerDrop" class="fields">Send to Provider:</label>
+                <label for="providerDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.sendToProvider" />:</label>
 				<select onchange="javascript:setProvider(this);" id="providerDrop" name="providerDrop" class="form-control input-block-level">
-					<option value="0" <%=("0".equals(provider) ? " selected" : "")%>>None</option>
+					<option value="0" <%=("0".equals(provider) ? " selected" : "")%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.none" /></option>
 					<%
 					for (int i = 0; i < providers.size(); i++) {
 	                	Provider h = providers.get(i);
@@ -257,7 +259,7 @@
 				</select>
              </div>
              <div class="form-group">
-				<label for="queueDrop" class="fields">Queue:</label>
+				<label for="queueDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.queue" />:</label>
 				<select onchange="javascript:setQueue(this);" id="queueDrop" name="queueDrop" class="form-control input-block-level">
 					<%
 					for (Map.Entry<Integer,String> entry : queues.entrySet()) {
@@ -298,7 +300,6 @@
               <i class="glyphicon glyphicon-ban-circle"></i>
               <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.reset" /></span>
             </button>
-            <p>
             <!-- The global file processing state -->
             <span class="fileupload-process"></span>
           </div>
@@ -316,7 +317,6 @@
                 style="width: 0%;"
               ></div>
             </div>
-            <p>
             <!-- The extended global progress state -->
             <div class="progress-extended">&nbsp;</div>
           </div>
@@ -449,25 +449,24 @@
                     data.files.error = true;
                     $('#msg').show();
                     let li = document.createElement('li');
-                    li.innerHTML = data.result[0].error;
+                    li.textContent = data.result[0].error;
                     $('#msg').append(li);
                 } else {
                     if (data.textStatus == 'error') {
                         let error = "Server error";
                         let li = document.createElement('li');
-                        li.innerHTML = error;
+                        li.textContent = error;
                         $('#msg').append(li);
                         $('#msg').show();
                     } else {
                         let li = document.createElement('li');
-                        li.innerHTML = data.result[0].name;
+                        li.textContent = data.result[0].name;
                         $('#msgU').append(li);
                         $('#msgU').show();
-                        console.log(data.textStatus);
                     }
                 }
             }
-            $("tr:first-child").remove();
+            $("#tbodyid tr:first-child").remove();
             })
         .on('fileuploadadd', function (e, data) {
             $('#msg').hide();

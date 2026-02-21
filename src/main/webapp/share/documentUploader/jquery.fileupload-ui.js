@@ -187,12 +187,12 @@
                 //error: 'Empty file upload result'
                 };
 
-            var error = data.result[0].error;
+            var error = data.result && Array.isArray(data.result) && data.result.length > 0
+                ? data.result[0].error
+                : undefined;
 
             if (error) {
-
-console.log(error);
-
+                file.error = error;
             }
             deferred = that._addFinishedDeferreds();
             that._transition($(this)).done(function () {
@@ -551,7 +551,9 @@ console.log(error);
           })
           .fail(function () {
             template.find('.edit').prop('disabled', false);
-            var error = data.files[index].error + data.result[0].error;
+            var error = (data.files[index] && data.files[index].error) ||
+              (data.result && data.result[0] && data.result[0].error) ||
+              '';
             if (error) {
               template.find('.error').text(error);
             }
