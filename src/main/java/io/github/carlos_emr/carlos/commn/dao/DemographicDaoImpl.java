@@ -382,26 +382,23 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
     @Override
     public List<Demographic> searchDemographic(String searchStr) {
         String hql = "From Demographic d where ";
-        List<String> params = new ArrayList<>();
-
         String[] parts = searchStr.split(",");
-        if (searchStr.indexOf(",") != -1 && searchStr.trim().indexOf(",") != (searchStr.trim().length() - 1)) {
-            hql += "last_name like ?0 and (first_name like ?1 or Alias like ?1)";
-            params.add(parts[0].trim() + "%");
-            params.add(parts[1].trim() + "%");
+        boolean hasFirstName = searchStr.indexOf(",") != -1
+            && searchStr.trim().indexOf(",") != (searchStr.trim().length() - 1);
+
+        if (hasFirstName) {
+            hql += "d.LastName like :ln and (d.FirstName like :fn or d.Alias like :fn)";
         } else {
-            hql += "last_name like ?0";
-            params.add(parts[0].trim() + "%");
+            hql += "d.LastName like :ln";
         }
 
-        Object[] object = null;
-        if (parts.length > 1) {
-            object = new Object[]{parts[0].trim() + "%", parts[1].trim() + "%"};
-        } else {
-            object = new Object[]{parts[0].trim() + "%"};
+        Session session = currentSession();
+        Query q = session.createQuery(hql);
+        q.setParameter("ln", parts[0].trim() + "%");
+        if (hasFirstName) {
+            q.setParameter("fn", parts[1].trim() + "%");
         }
-        List list = getHibernateTemplate().find(hql, object);
-        return list;
+        return q.list();
     }
 
     @SuppressWarnings("unchecked")
@@ -1061,7 +1058,12 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
      * parameter.
      *
      * @param hin           it will do a substring match
-     * @param firstName     it will do a substring match
+     * @param firstName     it will do a substring match against both the FirstName
+     *                      and Alias fields (i.e. matches if either field contains the value).
+     *                      If both {@code firstName} and {@code alias} are non-null, the Alias
+     *                      field must satisfy both constraints simultaneously, so callers should
+     *                      pass {@code alias=null} when using {@code firstName} to avoid
+     *                      over-constraining the search.
      * @param lastName      it will do a substring match
      * @param gender        it will do an exact match
      * @param dateOfBirth   it will do an exact match
@@ -1069,7 +1071,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
      * @param province      it will do an exact match
      * @param phone         it will do an substring match
      * @param email         it will do an substring match
-     * @param alias         it will do an substring match
+     * @param alias         it will do a substring match against the Alias field only
      * @param startIndex    index of the first result
      * @param itemsToReturn number of items to return
      * @param orderByName   order by last name and first name
