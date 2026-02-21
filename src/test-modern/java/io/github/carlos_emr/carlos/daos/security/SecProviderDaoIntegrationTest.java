@@ -183,6 +183,7 @@ public class SecProviderDaoIntegrationTest extends OpenOTestBase {
                 .extracting(SecProvider::getProviderNo)
                 .contains(uniquePrefix + "01", uniquePrefix + "02", uniquePrefix + "03");
         }
+
         @Test
         @Tag("read")
         @DisplayName("should find providers by status")

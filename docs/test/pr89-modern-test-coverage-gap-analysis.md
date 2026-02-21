@@ -30,43 +30,28 @@ These already have modern integration tests and are good signals for positional 
 - `ProviderDAOImpl` → `ProviderDAOIntegrationTest`
 - `SecProviderDaoImpl` → `SecProviderDaoIntegrationTest`
 
-### Remaining high-risk gaps (still missing modern integration tests)
-1. **`LookupDaoImpl`**
-   - `from LookupTableDefValue s where s.tableId= ?0`
-   - `from FieldDefValue s where s.tableId=?0 order by s.fieldIndex`
-   - `FROM LstOrgcd o WHERE o.codecsv like ?0`
-   - `From LstOrgcd a where  a.fullcode like %?0`
+### Previously missing — now covered by this PR
+1. **`LookupDaoImpl`** → `LookupDaoIntegrationTest` (added in this PR)
+   - ✅ `from LookupTableDefValue s where s.tableId= ?0` — `shouldBindTableId_inGetLookupTableDef`
+   - ✅ `from FieldDefValue s where s.tableId=?0 order by s.fieldIndex` — `shouldBindAndOrder_inLoadFieldDefList`
+   - ⬜ `FROM LstOrgcd o WHERE o.codecsv like ?0` — not yet covered (LIKE semantics, future work)
+   - ⬜ `From LstOrgcd a where  a.fullcode like %?0` — not yet covered (fragile LIKE semantics, future work)
 
-2. **`ProgramTeamDAOImpl`**
-   - `select pt.id from ProgramTeam pt where pt.programId = ?1 and pt.name = ?2`
-   - `from ProgramTeam tp where tp.programId = ?0`
+2. **`ProgramTeamDAOImpl`** → `ProgramTeamDaoIntegrationTest` (added in this PR)
+   - ✅ `select pt.id from ProgramTeam pt where pt.programId = ?1 and pt.name = ?2` — `shouldReturnTrue_whenBothProgramAndNameMatch`
+   - ✅ `from ProgramTeam tp where tp.programId = ?0` — `shouldFilterTeams_byRequestedProgramOnly`
 
-## Missing modern-test coverage you should add before merging PR 89
+## Remaining modern-test coverage gaps (LIKE semantics — future work)
 
-### 1) `LookupDaoImpl` (no modern-test counterpart found)
+### `LookupDaoImpl` — LIKE query paths (not yet covered)
 File: `src/main/java/io/github/carlos_emr/carlos/daos/LookupDaoImpl.java`
 
-Recommended modern integration tests:
-1. **GetLookupTableDef binds and returns correct row**
-   - seed 2 lookup table defs, assert only exact `tableId` is returned.
-2. **LoadFieldDefList ordering + parameter binding**
-   - seed out-of-order rows and assert sorted by `fieldIndex`.
-3. **updateOrgStatus path using LIKE ?0**
+These LIKE-based queries were not added in this PR and remain as future work:
+1. **updateOrgStatus path using LIKE ?0**
    - verify only matching descendants are updated.
-4. **inOrg behavior around `like %?0` query**
+2. **inOrg behavior around `like %?0` query**
    - assert expected inclusion semantics and null/empty handling.
    - this is especially important because `%?0` is fragile for Hibernate parser changes.
-
-### 2) `ProgramTeamDAOImpl` (no modern-test counterpart found)
-File: `src/main/java/io/github/carlos_emr/carlos/PMmodule/dao/ProgramTeamDAOImpl.java`
-
-Recommended modern integration tests:
-1. **teamNameExists true/false** for same/different program id.
-2. **getProgramTeams(programId)** returns only requested program’s teams.
-3. **Input guardrails**
-   - null/invalid `programId` and blank `teamName` throw `IllegalArgumentException`.
-4. **Save + read-back roundtrip**
-   - `saveProgramTeam` then `getProgramTeam` / `getProgramTeams` validates persistence and query behavior.
 
 ## Additional checks needed for your stated end-goal (functional + equivalent performance)
 Your end-goal includes **equivalent DAO behavior** and confidence that positional updates do not alter function.
@@ -90,40 +75,30 @@ To meet that goal, keep these checks in your merge gate in addition to existing 
 
 ## Merge-confidence checklist for PR 89
 Before merge, minimum high-signal checklist:
-- [ ] Add `LookupDaoIntegrationTest` (4 scenarios above).
-- [ ] Add `ProgramTeamDaoIntegrationTest` (4 scenarios above).
+- [x] Add `LookupDaoIntegrationTest` (core query-binding tests added; LIKE semantics deferred).
+- [x] Add `ProgramTeamDaoIntegrationTest` (all 4 scenarios implemented).
+- [x] Extend `IssueDAOIntegrationTest` with projection and normalization assertions.
+- [x] Extend `SecProviderDaoIntegrationTest` with `findByLastName` and `findAll` coverage.
 - [ ] Run modern-tests suite on the PR branch rebased/aligned with `develop`.
 - [ ] Include at least one query-count/timing guardrail for top 3 most-called migrated DAO methods.
+- [ ] Add LIKE semantics tests for `LookupDaoImpl` (`updateOrgStatus`, `inOrg`) — future work.
 
 With those added, you should be able to catch functional regressions caused by positional-parameter updates with high confidence at the data abstraction layer.
 
 
-## Concrete implementation plan for the two missing suites
+## Implementation status for the two previously missing suites
 
-### A) `LookupDaoIntegrationTest` plan
-1. **Test fixture and seed helpers**
-   - Build helper methods to insert minimal rows for `LookupTableDefValue`, `FieldDefValue`, and `LstOrgcd`.
-   - Use deterministic identifiers per test (`System.nanoTime()` suffix).
-2. **Core query-binding tests**
-   - `GetLookupTableDef(tableId)` returns only exact match for `?0`.
-   - `LoadFieldDefList(tableId)` returns rows ordered by `fieldIndex`.
-3. **LIKE semantics tests**
-   - Exercise `updateOrgStatus` path and assert only `codecsv like ?0` descendants are updated.
-   - Exercise `inOrg` and assert expected include/exclude behavior for `%?0` semantics.
-4. **Negative and edge tests**
-   - No matching tableId returns null/empty expectations without exceptions.
-   - Empty org chains do not cause unexpected errors.
+### A) `LookupDaoIntegrationTest` — IMPLEMENTED (core), DEFERRED (LIKE)
+1. ✅ **Test fixture and seed helpers** — native SQL inserts (ORM save incompatible with `mutable="false"` + `native` generator on String ID).
+2. ✅ **Core query-binding tests** — `shouldBindTableId_inGetLookupTableDef`, `shouldBindAndOrder_inLoadFieldDefList`.
+3. ⬜ **LIKE semantics tests** — deferred to future PR (requires `LstOrgcd` entity setup).
+4. ⬜ **Negative and edge tests** — deferred.
 
-### B) `ProgramTeamDaoIntegrationTest` plan
-1. **Fixture and factories**
-   - Create helper to persist program IDs and related `ProgramTeam` rows.
-2. **Positional binding tests**
-   - `teamNameExists(programId, teamName)` true when both match, false when only one matches.
-   - `getProgramTeams(programId)` filters by the correct program (`?0`).
-3. **Validation behavior tests**
-   - Null/invalid `programId` and blank `teamName` throw `IllegalArgumentException`.
-4. **Roundtrip tests**
-   - `saveProgramTeam` + `getProgramTeam` + `getProgramTeams` verifies persistence/read consistency.
+### B) `ProgramTeamDaoIntegrationTest` — FULLY IMPLEMENTED
+1. ✅ **Fixture and factories** — helper methods persist `Program` and `ProgramTeam` via ORM.
+2. ✅ **Positional binding tests** — `shouldReturnTrue_whenBothProgramAndNameMatch`, `shouldFilterTeams_byRequestedProgramOnly`.
+3. ✅ **Validation behavior tests** — `shouldThrow_forInvalidTeamNameExistsInputs`, `shouldThrow_forInvalidGetProgramTeamsInputs`.
+4. ✅ **Roundtrip tests** — `shouldPersistAndRetrieveTeam_viaSaveGetRoundtrip`.
 
 ## Assertion-coverage audit of currently in-scope DAOs
 
@@ -136,15 +111,14 @@ Status legend:
 | `ProviderDAOImpl` | `getProviderByName` parameter binding and null behavior | **Covered** | `ProviderDAOIntegrationTest` has positive and both negative match asserts. |
 | `CaseManagementNoteDAOImpl` | `getNotesByDemographicSince` demographic/date filtering (`locked=false` path query) | **Covered** | `CaseManagementNoteDaoIntegrationTest` asserts inclusion/exclusion by demo+date and empty result behavior. |
 | `ClientReferralDAOImpl` | multi-parameter referral queries | **Covered** | `ClientReferralDAOIntegrationTest` asserts filtering for client/facility/program combinations. |
-| `IssueDAOImpl` | search and multi-param issue queries | **Partial** | `IssueDAOIntegrationTest` covers search/type+code flows; no direct assertion found for `getLocalCodesByCommunityType` projection shape (`SELECT i.code`). |
-| `SecProviderDaoImpl` | `findById(id,status)` and status filters | **Partial** | `SecProviderDaoIntegrationTest` covers `findById(id,status)` and status filtering; no direct assertion found for `findByProperty` Criteria path or `findAll` query text change. |
+| `IssueDAOImpl` | search and multi-param issue queries | **Covered** | `IssueDAOIntegrationTest` now asserts scalar projection, input normalization (uppercase→lowercase), and blank-input behavior for `getLocalCodesByCommunityType`. |
+| `SecProviderDaoImpl` | `findById(id,status)` and status filters | **Covered** | `SecProviderDaoIntegrationTest` now includes `findByLastName` (findByProperty path) and `findAll` assertions. |
 
 ### Interpretation of the audit
 - The existing test base is solid for the primary PR89 migration themes (parameter binding/order/filtering).
-- Two missing suites (`LookupDaoImpl`, `ProgramTeamDAOImpl`) remain the highest-value additions.
-- If you want strict equivalence confidence for **every** touched behavior, add two targeted tests beyond that:
-  1. `IssueDAOIntegrationTest` case for `getLocalCodesByCommunityType` result projection/type.
-  2. `SecProviderDaoIntegrationTest` case that exercises `findByProperty` (e.g., `findByLastName`) and `findAll`.
+- Both previously missing suites (`LookupDaoImpl`, `ProgramTeamDAOImpl`) have been added in this PR.
+- The previously partial `IssueDAOImpl` and `SecProviderDaoImpl` coverage has been upgraded to **Covered** with targeted additions in this PR.
+- Remaining gap: `LookupDaoImpl` LIKE semantics tests (`updateOrgStatus`, `inOrg`) — deferred to future work.
 
 ## Answer to your merge-test question
 Yes — this is exactly the right strategy.

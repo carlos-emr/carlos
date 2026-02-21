@@ -31,12 +31,9 @@
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Query;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
@@ -50,6 +47,7 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
 
     @Autowired
     public void setSessionFactoryOverride(SessionFactory sessionFactory) {
+        this.sessionFactory = sessionFactory;
         super.setSessionFactory(sessionFactory);
     }
 
@@ -80,19 +78,8 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
         if (teamName == null || teamName.length() <= 0) {
             throw new IllegalArgumentException();
         }
-        // Session session = getSession();
-        Session session = sessionFactory.getCurrentSession();
-        Query query = session.createQuery("select pt.id from ProgramTeam pt where pt.programId = ?1 and pt.name = ?2" );
-        query.setParameter(1, programId.longValue());
-        query.setParameter(2, teamName);
-
-        List teams = new ArrayList();
-        try {
-            teams = query.list();
-        } finally {
-            // this.releaseSession(session);
-            session.close();
-        }
+        String hql = "select pt.id from ProgramTeam pt where pt.programId = ?0 and pt.name = ?1";
+        List teams = getHibernateTemplate().find(hql, programId, teamName);
 
         if (log.isDebugEnabled()) {
             log.debug("teamNameExists: programId = " + programId + ", teamName = " + teamName + ", result = " + !teams.isEmpty());

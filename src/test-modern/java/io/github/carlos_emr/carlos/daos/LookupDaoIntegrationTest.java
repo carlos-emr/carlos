@@ -31,9 +31,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Integration tests for {@link LookupDao} positional-parameter HQL queries.
+ *
+ * <p>Note: {@code LookupTableDefValue} is mapped with {@code mutable="false"} and
+ * {@code generator class="native"} in its HBM, which conflicts with String-typed IDs.
+ * Test data is therefore seeded via native SQL instead of ORM saves.</p>
+ */
 @DisplayName("LookupDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
@@ -41,51 +49,69 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Transactional
 public class LookupDaoIntegrationTest extends OpenOTestBase {
 
+    private static final String INSERT_LOOKUP_TABLE =
+        "INSERT INTO app_lookuptable (tableId, table_name, description, activeyn, readonly, istree, treecode_length, moduleid) VALUES (:tid, :tname, :desc, :active, :ro, :tree, :tcl, :mid)";
+
+    private static final String INSERT_FIELD =
+        "INSERT INTO app_lookuptable_fields (tableid, fieldname, fielddesc, fieldtype, edityn, lookuptable, fieldsql, fieldindex, autoyn, uniqueyn, genericidx, fieldlength) VALUES (:tid, :fname, :fdesc, :ftype, :edit, :lt, :fsql, :fidx, :auto, :uniq, :gidx, :flen)";
+
     @Autowired
     private LookupDao lookupDao;
 
-    private LookupTableDefValue createLookupTableDef(String tableId, String tableName) {
-        LookupTableDefValue value = new LookupTableDefValue();
-        value.setTableId(tableId);
-        value.setTableName(tableName);
-        value.setDescription("Lookup " + tableId);
-        value.setModuleId("T");
-        value.setModuleName("TEST");
-        value.setActive(true);
-        value.setReadonly(false);
-        value.setTree(false);
-        value.setHasActive(false);
-        value.setHasDisplayOrder(false);
-        value.setTreeCodeLength(0);
-        hibernateTemplate.save(value);
-        return value;
+    private static final AtomicInteger SEQ = new AtomicInteger(0);
+
+    /**
+     * Generate a short unique tableId that fits within column width constraints.
+     * Format: prefix + 4-digit sequence (e.g. "LA0001"), max 6 chars.
+     */
+    private String nextTableId(String prefix) {
+        return prefix + String.format("%04d", SEQ.incrementAndGet());
     }
 
-    private FieldDefValue createField(String tableId, String name, int index, int genericIdx) {
-        FieldDefValue field = new FieldDefValue();
-        field.setTableId(tableId);
-        field.setFieldName(name);
-        field.setFieldDesc(name + " desc");
-        field.setFieldSQL(name);
-        field.setFieldType("S");
-        field.setLookupTable("");
-        field.setEditable(true);
-        field.setAuto(false);
-        field.setUnique(false);
-        field.setFieldIndex(index);
-        field.setGenericIdx(genericIdx);
-        field.setFieldLength(20);
-        hibernateTemplate.save(field);
-        return field;
+    private void insertLookupTableDef(String tableId, String tableName) {
+        hibernateTemplate.execute(session -> {
+            session.createNativeQuery(INSERT_LOOKUP_TABLE)
+                .setParameter("tid", tableId)
+                .setParameter("tname", tableName)
+                .setParameter("desc", "Lookup " + tableId)
+                .setParameter("active", true)
+                .setParameter("ro", false)
+                .setParameter("tree", false)
+                .setParameter("tcl", 0)
+                .setParameter("mid", "T")
+                .executeUpdate();
+            return null;
+        });
+    }
+
+    private void insertField(String tableId, String fieldName, int fieldIndex, int genericIdx) {
+        hibernateTemplate.execute(session -> {
+            session.createNativeQuery(INSERT_FIELD)
+                .setParameter("tid", tableId)
+                .setParameter("fname", fieldName)
+                .setParameter("fdesc", fieldName + " desc")
+                .setParameter("ftype", "S")
+                .setParameter("edit", true)
+                .setParameter("lt", "")
+                .setParameter("fsql", fieldName)
+                .setParameter("fidx", fieldIndex)
+                .setParameter("auto", false)
+                .setParameter("uniq", false)
+                .setParameter("gidx", genericIdx)
+                .setParameter("flen", 20)
+                .executeUpdate();
+            return null;
+        });
     }
 
     @Test
     @Tag("query")
     @DisplayName("should bind tableId in GetLookupTableDef")
-    void shouldBindTableIdInGetLookupTableDef() {
-        createLookupTableDef("LKP_A_" + java.util.UUID.randomUUID(), "lkp_a");
-        String wantedId = "LKP_B_" + java.util.UUID.randomUUID();
-        createLookupTableDef(wantedId, "lkp_b");
+    void shouldBindTableId_inGetLookupTableDef() {
+        String unwantedId = nextTableId("LA");
+        String wantedId = nextTableId("LB");
+        insertLookupTableDef(unwantedId, "lkp_a");
+        insertLookupTableDef(wantedId, "lkp_b");
         hibernateTemplate.flush();
 
         LookupTableDefValue result = lookupDao.GetLookupTableDef(wantedId);
@@ -99,20 +125,21 @@ public class LookupDaoIntegrationTest extends OpenOTestBase {
     @Tag("query")
     @Tag("filter")
     @DisplayName("should bind tableId and order results by fieldIndex in LoadFieldDefList")
-    void shouldBindAndOrderInLoadFieldDefList() {
-        String tableId = "FLD_" + System.nanoTime();
-        createLookupTableDef(tableId, "table_field_test");
+    void shouldBindAndOrder_inLoadFieldDefList() {
+        String tableId = nextTableId("FA");
+        insertLookupTableDef(tableId, "table_field_test");
 
-        createField(tableId, "field_three", 3, 3);
-        createField(tableId, "field_one", 1, 1);
-        createField(tableId, "field_two", 2, 2);
+        insertField(tableId, "field_three", 3, 3);
+        insertField(tableId, "field_one", 1, 1);
+        insertField(tableId, "field_two", 2, 2);
 
-        String otherTable = "FLD_OTHER_" + System.nanoTime();
-        createLookupTableDef(otherTable, "table_other");
-        createField(otherTable, "other_field", 1, 1);
+        String otherTable = nextTableId("FB");
+        insertLookupTableDef(otherTable, "table_other");
+        insertField(otherTable, "other_field", 1, 1);
 
         hibernateTemplate.flush();
 
+        @SuppressWarnings("unchecked")
         List<FieldDefValue> result = lookupDao.LoadFieldDefList(tableId);
 
         assertThat(result).hasSize(3);

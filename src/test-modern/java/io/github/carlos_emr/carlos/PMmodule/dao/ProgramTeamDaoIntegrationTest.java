@@ -19,10 +19,10 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.pmmodule.dao;
+package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.pmmodule.model.Program;
-import io.github.carlos_emr.carlos.pmmodule.model.ProgramTeam;
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -70,7 +70,7 @@ public class ProgramTeamDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return true only when both program and name match")
-        void shouldReturnTrueOnlyWhenBothMatch() {
+        void shouldReturnTrue_whenBothProgramAndNameMatch() {
             Program p1 = createProgram("PT-Program-1");
             Program p2 = createProgram("PT-Program-2");
             createTeam(p1.getId(), "Team For P1");
@@ -97,7 +97,7 @@ public class ProgramTeamDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("query")
         @DisplayName("should filter teams by requested program only")
-        void shouldFilterByProgramOnly() {
+        void shouldFilterTeams_byRequestedProgramOnly() {
             Program p1 = createProgram("PT-Program-3");
             Program p2 = createProgram("PT-Program-4");
             ProgramTeam t1 = createTeam(p1.getId(), "One");
@@ -124,7 +124,7 @@ public class ProgramTeamDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("read")
         @DisplayName("should throw for invalid teamNameExists inputs")
-        void shouldThrowForInvalidTeamNameExistsInputs() {
+        void shouldThrow_forInvalidTeamNameExistsInputs() {
             assertThatThrownBy(() -> programTeamDAO.teamNameExists(null, "Team"))
                 .isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> programTeamDAO.teamNameExists(0, "Team"))
@@ -136,7 +136,7 @@ public class ProgramTeamDaoIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("read")
         @DisplayName("should throw for invalid getProgramTeams inputs")
-        void shouldThrowForInvalidGetProgramTeamsInputs() {
+        void shouldThrow_forInvalidGetProgramTeamsInputs() {
             assertThatThrownBy(() -> programTeamDAO.getProgramTeams(null))
                 .isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> programTeamDAO.getProgramTeams(0))
@@ -148,7 +148,7 @@ public class ProgramTeamDaoIntegrationTest extends OpenOTestBase {
     @Tag("create")
     @Tag("read")
     @DisplayName("should persist and retrieve team via save/get roundtrip")
-    void shouldPersistAndRetrieveTeamRoundtrip() {
+    void shouldPersistAndRetrieveTeam_viaSaveGetRoundtrip() {
         Program program = createProgram("PT-Program-5");
 
         ProgramTeam newTeam = new ProgramTeam();

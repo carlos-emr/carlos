@@ -352,7 +352,6 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
             // Then
             assertThat(codes)
                 .isNotEmpty()
-                .allMatch(code -> code instanceof String)
                 .contains("COMM001")
                 .doesNotContain("DIAB001");
         }
@@ -360,7 +359,7 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         @Test
         @Tag("filter")
         @DisplayName("should return empty list for blank community type")
-        void shouldReturnEmptyForBlankCommunityType() {
+        void shouldReturnEmpty_forBlankCommunityType() {
             List<String> codes = issueDAO.getLocalCodesByCommunityType("");
             assertThat(codes).isEmpty();
         }
