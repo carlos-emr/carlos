@@ -69,7 +69,11 @@
     int queueId = 1;
     if (queueIdStr != null) {
         queueIdStr = queueIdStr.trim();
-        queueId = Integer.parseInt(queueIdStr);
+        try {
+            queueId = Integer.parseInt(queueIdStr);
+        } catch (NumberFormatException e) {
+            // fall back to default queueId = 1
+        }
     }
 
     String user_no = (String) session.getAttribute("user");
@@ -122,6 +126,29 @@
 
     <!-- The File Upload validation plugin -->
     <script src="${pageContext.request.contextPath}/share/documentUploader/jquery.fileupload-validate.js"></script>
+
+    <!-- Compatibility shim: define $.support.transition for jQuery 3.x (removed from core).
+         jquery.fileupload-ui.js uses $.support.transition for CSS fade animations. -->
+    <script>
+    (function ($) {
+        if (!$.support) $.support = {};
+        if (!$.support.transition) {
+            var style = document.createElement('span').style;
+            var transitions = {
+                'transition': 'transitionend',
+                'WebkitTransition': 'webkitTransitionEnd',
+                'MozTransition': 'transitionend',
+                'OTransition': 'oTransitionEnd'
+            };
+            for (var t in transitions) {
+                if (t in style) {
+                    $.support.transition = { end: transitions[t] };
+                    break;
+                }
+            }
+        }
+    }(jQuery));
+    </script>
 
     <!-- The File Upload user interface plugin modified from stock for OSCAR 19 -->
     <script src="${pageContext.request.contextPath}/share/documentUploader/jquery.fileupload-ui.js"></script>
@@ -250,7 +277,7 @@
 					for (int i = 0; i < providers.size(); i++) {
 	                	Provider h = providers.get(i);
 	                %>
-					<option value="<%= h.getProviderNo()%>" <%= (h.getProviderNo().equals(provider) ? " selected" : "")%>><%= Encode.forHtml(h.getLastName())%> <%= Encode.forHtml(h.getFirstName())%></option>
+					<option value="<%= Encode.forHtmlAttribute(h.getProviderNo())%>" <%= (h.getProviderNo().equals(provider) ? " selected" : "")%>><%= Encode.forHtml(h.getLastName())%> <%= Encode.forHtml(h.getFirstName())%></option>
 					<%
 					}
 					%>
@@ -388,7 +415,7 @@
                       {% } %}
                   </p>
                   {% if (file.error) { %}
-                      <div><span class="label label-danger">Error</span> {%=file.error%}</div>
+                      <div><span class="label label-danger"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.fileError" /></span> {%=file.error%}</div>
                   {% } %}
               </td>
               <td>
@@ -398,7 +425,7 @@
                   {% if (file.deleteUrl) { %}
                       <button class="btn btn-danger delete" data-type="{%=file.deleteType%}" data-url="{%=file.deleteUrl%}"{% if (file.deleteWithCredentials) { %} data-xhr-fields='{"withCredentials":true}'{% } %}>
                           <i class="glyphicon glyphicon-trash"></i>
-                          <span>Delete</span>
+                          <span><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnDelete" /></span>
                       </button>
                       <input type="checkbox" name="delete" value="1" class="toggle">
                   {% } else { %}
@@ -416,7 +443,19 @@
     jQuery(function () {
         'use strict';
         jQuery('#fileupload').fileupload({
-        	sequentialUploads: true
+            sequentialUploads: true,
+            // The server returns a flat JSON array [{name, size, error}].
+            // Override getFilesFromResponse (which defaults to expecting {files:[...]})
+            // so the download template is populated correctly after upload.
+            getFilesFromResponse: function (data) {
+                if (Array.isArray(data.result)) {
+                    return data.result;
+                }
+                if (data.result && Array.isArray(data.result.files)) {
+                    return data.result.files;
+                }
+                return [];
+            }
         });
         $('#fileupload').fileupload('option', {
           acceptFileTypes: /(\.|\/)(pdf)$/i
@@ -442,7 +481,7 @@
     // display errors and clear used tr
     jQuery('#fileupload')
         .on('fileuploadalways', function (e, data) {
-           if(data.result){
+           if(data.result && data.result.length > 0){
                 if(data.result[0].error){
                     data.files.error = true;
                     $('#msg').show();

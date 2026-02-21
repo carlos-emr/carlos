@@ -83,7 +83,7 @@
 
       // Callback to retrieve the list of files from the server response:
       getFilesFromResponse: function (data) {
-        if (data.result && $.isArray(data.result.files)) {
+        if (data.result && Array.isArray(data.result.files)) {
           return data.result.files;
         }
         return [];
@@ -160,7 +160,7 @@
           // the progress to 100%, showing the full animated bar:
           data.context
             .find('.progress')
-            .addClass(!$.support.transition && 'progress-animated')
+            .addClass(!($.support && $.support.transition) && 'progress-animated')
             .attr('aria-valuenow', 100)
             .children()
             .first()
@@ -604,14 +604,16 @@
     },
 
     _forceReflow: function (node) {
-      return $.support.transition && node.length && node[0].offsetWidth;
+      var supportTransition = $.support && $.support.transition;
+      return supportTransition && node.length && node[0].offsetWidth;
     },
 
     _transition: function (node) {
       // eslint-disable-next-line new-cap
       var dfd = $.Deferred();
+      var supportTransition = $.support && $.support.transition;
       if (
-        $.support.transition &&
+        supportTransition &&
         node.hasClass('fade') &&
         node.is(':visible')
       ) {
@@ -619,12 +621,12 @@
           // Make sure we don't respond to other transition events
           // in the container element, e.g. from button elements:
           if (e.target === node[0]) {
-            node.off($.support.transition.end, transitionEndHandler);
+            node.off(supportTransition.end, transitionEndHandler);
             dfd.resolveWith(node);
           }
         };
         node
-          .on($.support.transition.end, transitionEndHandler)
+          .on(supportTransition.end, transitionEndHandler)
           .toggleClass(this.options.showElementClass);
       } else {
         node.toggleClass(this.options.showElementClass);
@@ -675,7 +677,7 @@
           .find('.start, .cancel, .delete'),
         'click'
       );
-      this._off(this.element.find('.fileupload-buttonbar .toggle'), 'change.');
+      this._off(this.element.find('.fileupload-buttonbar .toggle'), 'change');
     },
 
     _initEventHandlers: function () {
