@@ -55,6 +55,32 @@ The DCO certifies that:
 If you are contributing on behalf of your employer, the sign-off certifies that you have
 authorization to submit the work.
 
+#### Fixing Missing Sign-Offs
+
+If the DCO check fails on your PR because commits are missing `Signed-off-by` lines, the
+**preferred** fix is to amend or rebase your commits:
+
+```bash
+# Fix the most recent commit:
+git commit --amend -s --no-edit
+git push --force-with-lease
+
+# Fix multiple commits (replace N with the number of commits):
+git rebase --signoff HEAD~N
+git push --force-with-lease
+```
+
+#### Manual DCO Confirmation (Alternate)
+
+If you cannot amend your commits (e.g., force-push is not possible), an authorized user
+can retroactively confirm DCO sign-off by posting a PR comment with the exact phrase:
+
+> Confirming DCO sign off for all commits
+
+This will re-trigger the DCO check and allow it to pass. Only users with an established
+repository relationship (OWNER, MEMBER, COLLABORATOR, or CONTRIBUTOR) can use this
+alternate confirmation. First-time contributors must use the commit sign-off method.
+
 ## Ways to Contribute
 
 Not all contributions require writing code. Here are some ways to get involved at any

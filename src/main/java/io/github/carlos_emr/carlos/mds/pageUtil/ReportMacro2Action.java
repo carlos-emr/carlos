@@ -54,7 +54,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
-import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 
 
 import com.opensymphony.xwork2.ActionSupport;
@@ -220,7 +219,7 @@ public class ReportMacro2Action extends ActionSupport {
 
                 TicklerLink tl = new TicklerLink();
                 tl.setTableId(Long.valueOf(segmentID));
-                tl.setTableName(LabResultData.HL7TEXT);
+                tl.setTableName(labType);
                 tl.setTicklerNo(t.getId());
                 ticklerLinkDao.persist(tl);
             } else {

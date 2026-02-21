@@ -62,12 +62,26 @@ public class EctFormData {
     public static final String DATE_FORMAT = "dd-MM-yyyy";
     public static final String DATETIME_FORMAT = "dd-MM-yyyy HH:mm:ss";
 
+    private static final List<String> REMOVED_CAISI_FORM_NAMES = Arrays.asList(
+            "Counsellor Assessment",
+            "Discharge Summary",
+            "Reception Assessment"
+    );
+
+    public static boolean isRemovedCaisiForm(String formName) {
+        return REMOVED_CAISI_FORM_NAMES.stream().anyMatch(removedName -> removedName.equalsIgnoreCase(formName));
+    }
+
     public static Form[] getForms() {
         List<EncounterForm> results = encounterFormDao.findAll();
         Collections.sort(results, EncounterForm.BC_FIRST_COMPARATOR);
 
         ArrayList<Form> forms = new ArrayList<Form>();
         for (EncounterForm encounterForm : results) {
+            if (isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             Form frm = new Form(encounterForm.getFormName(), encounterForm.getFormValue(), encounterForm.getFormTable(), encounterForm.isHidden());
             forms.add(frm);
         }
@@ -120,6 +134,10 @@ public class EctFormData {
         // grab patient forms for all the above form types grouped by date of edit
         ArrayList<PatientForm> allResults = new ArrayList<PatientForm>();
         for (EncounterForm encounterForm : encounterForms) {
+            if (isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             String table = StringUtils.trimToNull(encounterForm.getFormTable());
             if (table != null) {
                 allResults.addAll(getGroupedPatientFormsAsArrayList(demographicId.toString(), encounterForm.getFormName(), table, encounterForm.getFormValue()));
@@ -181,6 +199,10 @@ public class EctFormData {
         // grab all patient forms for all the above form types
         ArrayList<PatientForm> allResults = new ArrayList<PatientForm>();
         for (EncounterForm encounterForm : encounterForms) {
+            if (isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             String table = StringUtils.trimToNull(encounterForm.getFormTable());
             if (table != null) {
                 allResults.addAll(getPatientFormsAsArrayList(demographicId.toString(), encounterForm.getFormName(), table));

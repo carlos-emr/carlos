@@ -37,7 +37,6 @@ import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.lab.LabRequestReportLink;
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -99,16 +98,10 @@ public class EctDisplayForm2Action extends EctDisplayAction {
 
                 String BGCOLOUR = request.getParameter("hC");
                 for (EncounterForm encounterForm : encounterForms) {
-                    if (encounterForm.getFormName().equalsIgnoreCase("Discharge Summary")) {
-                        String caisiProperty = OscarProperties.getInstance().getProperty("caisi");
-                        if (caisiProperty != null && (caisiProperty.equalsIgnoreCase("yes")
-                                || caisiProperty.equalsIgnoreCase("true")
-                                || caisiProperty.equalsIgnoreCase("on"))) {
-
-                        } else {
-                            continue; //form out
-                        }
+                    if (EctFormData.isRemovedCaisiForm(encounterForm.getFormName())) {
+                        continue;
                     }
+
                     winName = encounterForm.getFormName() + bean.demographicNo;
 
                     String table = encounterForm.getFormTable();

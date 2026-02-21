@@ -407,19 +407,10 @@ src/main/java/io/github/carlos_emr/carlos/entities/Billingdetail.java
 src/main/java/io/github/carlos_emr/carlos/entities/Insclaim.java
 ```
 
-### 10. Integration (13 classes) - MEDIUM RISK
+### 10. Integration (6 classes) - MEDIUM RISK
 
-External system integration classes including DHIR, EBS, FHIR, OBEC, and dashboard.
-
-```
-src/main/java/io/github/carlos_emr/carlos/integration/dashboard/OutcomesDashboardMetricSenderJob.java
-src/main/java/io/github/carlos_emr/carlos/integration/dhir/DHIRUtils.java
-src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/RawXmlLoggingInInterceptor.java
-src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/WSS4JInNonValidatingActionInterceptor.java
-src/main/java/io/github/carlos_emr/carlos/integration/fhir/model/PatientContact.java
-src/main/java/io/github/carlos_emr/carlos/integration/fhir/model/RelatedPerson.java
-src/main/java/io/github/carlos_emr/carlos/integration/mchcv/OBECRunner.java
-```
+Dashboard model classes used only for JSON serialization to an external outcomes
+dashboard service. All 6 remaining classes live under `integration/dashboard/model/`.
 
 **Dashboard model classes** (only used by `OutcomesDashboardUtils` for JSON
 serialization to an external dashboard service - if that service is decommissioned,
