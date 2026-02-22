@@ -509,7 +509,7 @@
                                     <input class="span12" type="text" readonly
                                            value="<%=Encode.forHtmlAttribute(SRFaxProviderClient.DEFAULT_SRFAX_API_URL)%>"
                                            style="background: #f3f4f6; color: #6b7280; cursor: not-allowed;"/>
-                                    <small class="fax-muted"><i class="fas fa-lock"></i> Default endpoint &mdash; override via <code>srfax.api.url</code> in oscar_mcmaster.properties only</small>
+                                    <small class="fax-muted"><i class="fas fa-lock"></i> Default endpoint &mdash; override via <code>srfax.api.url</code> in carlos.properties only</small>
                                 </div>
                             </div>
                         </div>

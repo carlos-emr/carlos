@@ -228,7 +228,7 @@
                                 BillingFormData.BillingForm[] billformlist = billingFormData.getFormList();
                                 String currentSelection = OscarProperties.getInstance().getProperty("default_view");
                                 String currentUserSetting = dataBean.getProperty("default_billing_form");
-                                // current user setting overrides the oscar properties setting
+                                // current user setting overrides the carlos properties setting
                                 if (currentUserSetting != null && !currentUserSetting.isEmpty()) {
                                     currentSelection = currentUserSetting;
                                 }

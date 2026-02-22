@@ -311,7 +311,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
                     String dir = props.getProperty("DOCUMENT_DIR");
                     filename = dir.concat(d.getDocfilename());
                 } else {
-                    //If no logo file uploaded for this site, use the default one defined in oscar properties file.
+                    //If no logo file uploaded for this site, use the default one defined in carlos properties file.
                     filename = props.getProperty("faxLogoInConsultation");
                 }
             }

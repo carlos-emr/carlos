@@ -231,7 +231,7 @@
         bean.setBillForm(defaultBillingForm);
     }
 
-    // 1. global default billing visit location: oscar properties
+    // 1. global default billing visit location: carlos properties
     String defaultServiceLocation = OscarProperties.getInstance().getProperty("visittype");
 
     // 2. global billing settings

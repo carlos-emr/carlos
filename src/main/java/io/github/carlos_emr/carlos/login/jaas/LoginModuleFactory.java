@@ -62,7 +62,7 @@ public class LoginModuleFactory {
         if (initialized) return;
 
         boolean isLdapEnabled = OscarProperties.isLdapAuthenticationEnabled();
-        if (!isLdapEnabled) throw new IllegalStateException("LDAP is not enabled in oscar.properties");
+        if (!isLdapEnabled) throw new IllegalStateException("LDAP is not enabled in carlos.properties");
 
         OscarProperties props = OscarProperties.getInstance();
         String baseDn = props.getProperty(OPTION_BASE_DN);
@@ -72,7 +72,7 @@ public class LoginModuleFactory {
 
         String ldapUrl = props.getProperty(OPTION_LDAP_URL);
         if (ldapUrl == null || ldapUrl.isEmpty())
-            throw new IllegalStateException("LDAP URL is not specified in oscar.properties");
+            throw new IllegalStateException("LDAP URL is not specified in carlos.properties");
 
         MiscUtils.getLogger().info("Configuring LDAP settings with: \n" + "LDAP URL: " + ldapUrl + "\n" + "BASE  DN:" + baseDn);
 
