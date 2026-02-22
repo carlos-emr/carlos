@@ -363,7 +363,8 @@ function validateFields() {
 	}
 
 	// On page load: displays any server-side error, hides plain textarea,
-	// and syncs editor with initial message body content
+	// syncs editor with initial message body content, and pre-populates
+	// the selected demographic field if a patient is linked to this message.
 	document.addEventListener('DOMContentLoaded', function(){
 		<%
 			String createMsgError = (String) request.getAttribute("createMessageError");
@@ -379,6 +380,13 @@ function validateFields() {
         if (typeof editor !== 'undefined') {
             editor.setMarkdown("<br>" + document.getElementsByName("message")[0].value);
             editor.moveCursorToStart();
+        }
+
+        // Pre-populate the selected demographic display field if a patient is linked.
+        // Done here (after DOM is ready) so the selectedDemo input exists before access.
+        if ('<%=Encode.forJavaScript(demoName)%>' && '<%=Encode.forJavaScript(demoName)%>' !== 'null') {
+            document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
+            document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
         }
 
 	});
@@ -416,9 +424,9 @@ function validateFields() {
                             <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage.do">
 								<fmt:message key="messenger.CreateMessage.btnClear" />
 							</a>
-                            <a  class="nav-link" href="javascript:BackToCarlos()">
+                            <button type="button" class="btn btn-outline-secondary" onclick="BackToCarlos()">
                                 <fmt:message key="messenger.CreateMessage.btnExit" />
-                            </a>
+                            </button>
                             </div>
 						</td>
 
@@ -567,12 +575,6 @@ function validateFields() {
 				</tr>
 				<tr>
 					<td>
-								<script>
-			                          if ('<%=Encode.forJavaScript(demoName)%>' && '<%=Encode.forJavaScript(demoName)%>' !== 'null') {
-                                        document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
-                                        document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
-                                       }
-			                     </script>
                     </td>
 					<td>
 
