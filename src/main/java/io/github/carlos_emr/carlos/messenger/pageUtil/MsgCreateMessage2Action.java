@@ -31,16 +31,13 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
-import io.github.carlos_emr.carlos.managers.MessagingManagerImpl;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 
 import javax.servlet.ServletException;
@@ -48,7 +45,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -70,11 +66,10 @@ import org.apache.struts2.ServletActionContext;
  * </ul>
  * </p>
  * 
- * @version 2.0
- * @since 2002
+ * @version 2.0 Struts2 migration
+ * @since 2003-07-21
  * @see MsgSessionBean
  * @see MsgMessageData
- * @see MessagingManagerImpl
  */
 public class MsgCreateMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -82,11 +77,11 @@ public class MsgCreateMessage2Action extends ActionSupport {
 
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private static MessengerDemographicManager messengerDemographicManager = SpringUtils.getBean(MessengerDemographicManager.class);
+    private MessengerDemographicManager messengerDemographicManager = SpringUtils.getBean(MessengerDemographicManager.class);
 
     /**
      * Main execution method that processes and sends the message.
-     * 
+     *
      * <p>This method performs the following steps:
      * <ol>
      *   <li>Validates user has write permissions for messaging</li>
@@ -96,28 +91,41 @@ public class MsgCreateMessage2Action extends ActionSupport {
      *   <li>Saves user preferences for future messages</li>
      * </ol>
      * </p>
-     * 
-     * @return SUCCESS constant for Struts navigation
+     *
+     * @return String {@code SUCCESS} if message was sent, or {@code ERROR} if no valid recipients or message creation failed
      * @throws IOException if there's an I/O error during processing
      * @throws ServletException if there's a servlet processing error
      * @throws SecurityException if user lacks message write permissions
      */
-    
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
     public String execute()
             throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+
         // Validate security permissions
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        // Retrieve message session data
-        // TODO: Remove dependency on HTTP sessions
+        // Use the authenticated session for sender identity — never trust session bean for providerNo
+        String userNo = loggedInInfo.getLoggedInProviderNo();
+
+        // Retrieve message session data for non-security fields (attachments, display name).
+        // The session bean must have been initialized by MsgDisplayMessages2Action before this
+        // action is invoked.
         MsgSessionBean bean;
         bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
-        String userNo = bean.getProviderNo();
+        if (bean == null) {
+            throw new SecurityException("Message session not initialized");
+        }
+
+        // Defensive check: verify the session bean belongs to the logged-in user
+        if (!loggedInInfo.getLoggedInProviderNo().equals(bean.getProviderNo())) {
+            throw new SecurityException("Cannot access another provider's messages");
+        }
+
         String userName = bean.getUserName();
         String att = bean.getAttachment();
         String pdfAtt = bean.getPDFAttachment();
@@ -130,8 +138,8 @@ public class MsgCreateMessage2Action extends ActionSupport {
         bean.setSubject(null);
 
         MiscUtils.getLogger().debug("Providers: " + Arrays.toString(providers));
-        MiscUtils.getLogger().debug("Subject: " + subject);
-        MiscUtils.getLogger().debug("Message: " + message);
+        MiscUtils.getLogger().debug("Subject length: " + (subject != null ? subject.length() : 0));
+        MiscUtils.getLogger().debug("Message length: " + (message != null ? message.length() : 0));
 
         String sentToWho = null;
         String messageId = null;
@@ -143,79 +151,88 @@ public class MsgCreateMessage2Action extends ActionSupport {
         java.util.ArrayList<MsgProviderData> providerListing;
 
 
-        subject.trim();
-        if (subject.length() == 0) {
+        subject = (subject == null) ? "" : subject.trim();
+        if (subject.isEmpty()) {
             subject = "none";
         }
 
-        //FIXME remove these deprecated methods and use the Messenger Managers instead (the deprecated classes still use JDBC)
+        //FIXME remove MsgMessageData.getDups4/getProviderStructure/sendMessage2/createSentToString (JDBC-based) and migrate to MessagingManager/MessagingManagerImpl (Hibernate-based)
         MsgMessageData messageData = new MsgMessageData();
         providers = messageData.getDups4(providers);
         providerListing = messageData.getProviderStructure(loggedInInfo, providers);
 
-        //FIXME remove these deprecated methods and use the Messenger Managers instead
-        sentToWho = messageData.createSentToString(providerListing);
-        sentToWho = sentToWho.trim();
-        messageId = messageData.sendMessage2(message, subject, userName, sentToWho, userNo, providerListing, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
-
-        // link msg and demographic if both messageId and demographic_no are not null.
-        if (messageId != null && demographic_no != null) {
-            messengerDemographicManager.attachDemographicToMessage(loggedInInfo, Integer.parseInt(messageId), Integer.parseInt(demographic_no));
+        if (providerListing == null || providerListing.isEmpty()) {
+            MiscUtils.getLogger().warn("No valid recipients after deduplication; message not sent");
+            request.setAttribute("createMessageError", "No valid recipients selected. Please select at least one recipient.");
+            return ERROR;
         }
 
-        request.setAttribute("SentMessageProvs", sentToWho.toString());
+        sentToWho = messageData.createSentToString(providerListing);
+        if (sentToWho != null) {
+            sentToWho = sentToWho.trim();
+        }
+        messageId = messageData.sendMessage2(message, subject, userName, sentToWho, userNo, providerListing, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
+
+        if (messageId == null || messageId.isEmpty()) {
+            MiscUtils.getLogger().error("sendMessage2 returned null or empty messageId");
+            request.setAttribute("createMessageError", "Failed to send message. Please try again.");
+            return ERROR;
+        }
+
+        // Link message and demographic if both IDs are valid (> 0).
+        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
+        Integer parsedMessageId = ConversionUtils.fromIntString(messageId);
+        Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
+        if (parsedMessageId > 0 && parsedDemoNo > 0) {
+            messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageId, parsedDemoNo);
+        }
+
+        request.setAttribute("SentMessageProvs", sentToWho);
 
         return SUCCESS;
     }
 
-    private String error(String messageKey) {
-        String message = getText(messageKey);
-        request.setAttribute("createMessageError", message);
-        request.setAttribute("messageSubject", this.getSubject());
-        request.setAttribute("messageBody", this.getMessage());
-        request.setAttribute("demographic_no", this.getDemographic_no());
-        List<ContactIdentifier> replyList = MessagingManagerImpl.createContactIdentifierList(this.getProvider());
-        ArrayNode jsonArray = objectMapper.createArrayNode();
-        for (ContactIdentifier contact : replyList) {
-            jsonArray.add(objectMapper.valueToTree(contact));
-        }
-        request.setAttribute("replyList", jsonArray);
-        return "error";
-    }
-    
     private String[] provider = new String[0];
     private String message;
     private String subject;
     private String demographic_no;
 
+    /** @return String[] array of recipient provider numbers */
     public String[] getProvider() {
         return provider;
     }
 
+    /** @param provider String[] array of recipient provider numbers */
     public void setProvider(String[] provider) {
         this.provider = provider;
     }
 
+    /** @return String the message body content (may contain HTML/Markdown) */
     public String getMessage() {
         return message;
     }
 
+    /** @param message String the message body content */
     public void setMessage(String message) {
         this.message = message;
     }
 
+    /** @return String the message subject line */
     public String getSubject() {
         return subject;
     }
 
+    /** @param subject String the message subject line */
     public void setSubject(String subject) {
         this.subject = subject;
     }
 
+    /** @return String the demographic number to associate with this message, or null */
     public String getDemographic_no() {
         return demographic_no;
     }
 
+    /** @param demographic_no String the demographic number to associate with this message */
     public void setDemographic_no(String demographic_no) {
         this.demographic_no = demographic_no;
     }
