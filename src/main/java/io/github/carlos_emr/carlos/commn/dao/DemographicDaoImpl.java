@@ -1075,6 +1075,10 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
      * @param startIndex    index of the first result
      * @param itemsToReturn number of items to return
      * @param orderByName   order by last name and first name
+     * @return List&lt;Demographic&gt; matching records, paginated by {@code startIndex} and
+     *         {@code itemsToReturn}, ordered by last name and first name when
+     *         {@code orderByName} is {@code true}
+     * @throws IllegalArgumentException if all searchable parameters are {@code null}
      */
     @Override
     public List<Demographic> findByAttributes(
