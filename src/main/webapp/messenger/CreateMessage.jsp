@@ -63,7 +63,7 @@
     - Bootstrap 5.0.2 (responsive layout)
     - Font Awesome 6.x (icons)
     - Toast UI Editor 3.x (WYSIWYG/Markdown rich text editor with i18n)
-    - jQuery 1.12.3 (legacy, used for document.ready)
+    - No jQuery dependency (uses native DOMContentLoaded)
 
     Request Parameters:
     - subject: Initial message subject
@@ -206,8 +206,6 @@
                 font-weight: bold;
         }
     </style>
-
-    <script src="<%=request.getContextPath()%>/js/jquery-1.12.3.js"></script>
 
     <!-- js -->
     <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
@@ -366,7 +364,7 @@ function validateFields() {
 
 	// On page load: displays any server-side error, hides plain textarea,
 	// and syncs editor with initial message body content
-	$(document).ready(function(){
+	document.addEventListener('DOMContentLoaded', function(){
 		<%
 			String createMsgError = (String) request.getAttribute("createMessageError");
 			if (createMsgError == null) { createMsgError = ""; }
@@ -383,7 +381,7 @@ function validateFields() {
             editor.moveCursorToStart();
         }
 
-	})
+	});
 </script>
 <script src="${pageContext.request.contextPath}/csrfguard"></script>
 </head>
