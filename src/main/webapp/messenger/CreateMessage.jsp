@@ -465,17 +465,17 @@ function validateFields() {
 											<c:forEach items="${ groupManager }" var="group">
 											<details>
 												<summary>
-													<input type="checkbox" name="tableDFR" id="member_group_${ fn:escapeXml(group.key.id) }"
+													<input type="checkbox" name="tableDFR" id="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }"
 															value="${ fn:escapeXml(group.key.id) }" onclick="checkGroup(this)" >
-													<label for="member_group_${ fn:escapeXml(group.key.id) }" ><c:out value="${ group.key.groupDesc }" /></label>
+													<label for="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }" ><c:out value="${ group.key.groupDesc }" /></label>
 												</summary>
 
 												<c:forEach items="${ group.value }" var="member">
 													<div class="group_member_contact" style="white-space: nowrap;">
-														<input type="checkbox" name="provider" class="member_group_${ fn:escapeXml(group.key.id) }"
-															id="${ fn:escapeXml(group.key.id) }-${ fn:escapeXml(member.id.compositeId) }" value="${ fn:escapeXml(member.id.compositeId) }" >
+														<input type="checkbox" name="provider" class="member_group_${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }"
+															id="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" value="${ fn:escapeXml(member.id.compositeId) }" >
 
-														<label for="${ fn:escapeXml(group.key.id) }-${ fn:escapeXml(member.id.compositeId) }" >
+														<label for="${ fn:replace(fn:escapeXml(group.key.id), ' ', '_') }-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
 															<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
 														</label>
 													</div>
@@ -505,9 +505,9 @@ function validateFields() {
 												</c:forEach>
 
 												<div class="member_contact" style="white-space: nowrap;">
-													<input type="checkbox" name="provider" id="0-${ fn:escapeXml(member.id.compositeId) }"
+													<input type="checkbox" name="provider" id="0-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }"
 														value="${ fn:escapeXml(member.id.compositeId) }"  ${ providerChecked ? 'checked' : '' }/>
-													<label for="0-${ fn:escapeXml(member.id.compositeId) }" >
+													<label for="0-${ fn:replace(fn:escapeXml(member.id.compositeId), ' ', '_') }" >
 														<c:out value="${ member.lastName }" />, <c:out value="${ member.firstName }" />
 													</label>
 												</div>
