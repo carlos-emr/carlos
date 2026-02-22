@@ -40,6 +40,7 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -92,7 +93,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
@@ -169,11 +170,11 @@
         </div>
 
         <form action="${pageContext.request.contextPath}/oscarPrevention/PreventionReport.do" method="get">
-            <table class="table table-condensed" style="font-size:13px; margin-bottom:10px;">
+            <table class="table table-sm" style="font-size:13px; margin-bottom:10px;">
                 <tr>
                     <td style="width:180px;">Patient Demographic Query</td>
                     <td>
-                        <select name="patientSet" id="patientSet" class="form-control input-sm" style="width:auto;display:inline-block">
+                        <select name="patientSet" id="patientSet" class="form-select form-select-sm" style="width:auto;display:inline-block">
                             <option value="-1" <%=("-1".equals(patientSet) || patientSet == null) ? "selected" : ""%>>--Select Query--</option>
                             <%
                                 for (int i = 0; i < queryArray.size(); i++) {
@@ -190,7 +191,7 @@
                 <tr>
                     <td>Prevention</td>
                     <td>
-                        <select name="prevention" id="prevention" class="form-control input-sm" style="width:auto;display:inline-block">
+                        <select name="prevention" id="prevention" class="form-select form-select-sm" style="width:auto;display:inline-block">
                             <option value="-1" <%=("-1".equals(prevention) || prevention == null) ? "selected" : ""%>>--Select Prevention--</option>
                             <option value="Mammogram" <%="Mammogram".equals(prevention) ? "selected" : ""%>>Breast</option>
                             <option value="PAP" <%="PAP".equals(prevention) ? "selected" : ""%>>Cervical</option>
@@ -203,7 +204,7 @@
                 <tr>
                     <td>As of</td>
                     <td>
-                        <input type="text" name="asofDate" size="9" id="asofDate" class="form-control input-sm" style="width:auto;display:inline-block" value="<%=Encode.forHtmlAttribute(asofDate)%>"/>
+                        <input type="text" name="asofDate" size="9" id="asofDate" class="form-control form-control-sm" style="width:auto;display:inline-block" value="<%=Encode.forHtmlAttribute(asofDate)%>"/>
                         <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                     </td>
                 </tr>
@@ -237,12 +238,12 @@
 
             <div style="background:#f5f5f5; padding:8px 15px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px;">
                 <span style="margin-right:15px;">Total patients: <strong><%=list.size()%></strong></span>
-                <span style="margin-right:15px;">Ineligible: <strong><%=ineligible%></strong></span>
-                <span style="margin-right:15px;">Up to Date: <strong><%=done%> = <%=percentage%>%</strong></span>
+                <span style="margin-right:15px;">Ineligible: <strong><%=Encode.forHtml(StringUtils.defaultString(ineligible, "0"))%></strong></span>
+                <span style="margin-right:15px;">Up to Date: <strong><%=Encode.forHtml(StringUtils.defaultString(done, "0"))%> = <%=Encode.forHtml(StringUtils.defaultString(percentage, "0"))%>%</strong></span>
                 <span style="margin-right:15px;"><%=Encode.forHtml(String.valueOf(request.getAttribute("patientSet")))%></span>
             </div>
 
-            <table id="preventionTable" class="sortable table table-condensed table-bordered" style="font-size:12px;">
+            <table id="preventionTable" class="sortable table table-sm table-bordered" style="font-size:12px;">
                 <thead>
                 <tr>
                     <th class="unsortable">#</th>
@@ -278,6 +279,11 @@
                         Hashtable<String, String> h = new Hashtable<>(deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString()));
                         Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());
 
+                        if (demo == null) {
+                            MiscUtils.getLogger().warn("PreventionReporting: demographic not found for demographicNo=" + dis.demographicNo);
+                            continue;
+                        }
+
                         if (dis.state != null && dis.state.equals("Overdue")) {
                             overDueList.add(dis.demographicNo);
                         }
@@ -291,9 +297,9 @@
 
                     <%if (type == null) { %>
                     <td><%=demo.getAgeAsOf(asDate)%></td>
-                    <td><%=Encode.forHtmlContent(h.get("sex"))%></td>
-                    <td><%=Encode.forHtmlContent(h.get("lastName"))%></td>
-                    <td><%=Encode.forHtmlContent(h.get("firstName"))%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("sex", ""))%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("lastName", ""))%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("firstName", ""))%></td>
                     <td><%
                         String hExt = demo.getExtraValue(DemographicExt.DemographicProperty.hPhoneExt);
                         String wExt = demo.getExtraValue(DemographicExt.DemographicProperty.wPhoneExt);
@@ -304,28 +310,28 @@
                         if (!demo.getCellPhone().isEmpty()) { %><br/>C: <%=Encode.forHtmlContent(demo.getCellPhone())%><%
                         }
                     %></td>
-                    <td><%=Encode.forHtmlContent(demo.getEmail())%></td>
-                    <td><%=Encode.forHtmlContent(demo.getAddress())+" "+Encode.forHtmlContent(demo.getCity())+" "+Encode.forHtmlContent(demo.getProvince())+" "+Encode.forHtmlContent(demo.getPostal())%></td>
+                    <td><%=Encode.forHtmlContent(StringUtils.defaultString(demo.getEmail()))%></td>
+                    <td><%=Encode.forHtmlContent(StringUtils.defaultString(demo.getAddress()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getCity()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getProvince()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getPostal()))%></td>
                     <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
                     <td><%
 String labelClass;
-if ("green".equals(dis.color)) labelClass = "label-success";
-else if ("red".equals(dis.color)) labelClass = "label-danger";
-else if ("yellow".equals(dis.color)) labelClass = "label-warning";
-else if ("orange".equals(dis.color)) labelClass = "label-warning";
-else if ("pink".equals(dis.color)) labelClass = "label-info";
-else if ("Magenta".equals(dis.color)) labelClass = "label-info";
-else labelClass = "label-default";
-%><span class="label <%=labelClass%>"><%=Encode.forHtml(dis.state)%></span></td>
+if ("green".equals(dis.color)) labelClass = "bg-success";
+else if ("red".equals(dis.color)) labelClass = "bg-danger";
+else if ("yellow".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("pink".equals(dis.color)) labelClass = "bg-info";
+else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
+else labelClass = "bg-secondary";
+%><span class="badge <%=labelClass%>"><%=Encode.forHtml(StringUtils.defaultString(dis.state))%></span></td>
                     <td><%=Encode.forHtml(String.valueOf(dis.numMonths))%></td>
-                    <td><%=Encode.forHtml(dis.lastDate)%></td>
+                    <td><%=Encode.forHtml(StringUtils.defaultString(dis.lastDate))%></td>
 
                     <% } else {
                         Demographic demoSDM = demoData.getSubstituteDecisionMaker(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());%>
                     <td><%=demo.getAgeAsOf(asDate)%></td>
-                    <td><%=Encode.forHtmlContent(h.get("sex"))%></td>
-                    <td><%=Encode.forHtmlContent(h.get("lastName"))%></td>
-                    <td><%=Encode.forHtmlContent(h.get("firstName"))%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("sex", ""))%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("lastName", ""))%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("firstName", ""))%></td>
                     <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getLastName())%><%=demoSDM == null ? "" : ","%> <%= demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getFirstName()) %>&nbsp;</td>
                     <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getPhone())%>&nbsp;</td>
                     <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getEmail())%>&nbsp;</td>
@@ -333,21 +339,21 @@ else labelClass = "label-default";
                     <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
                     <td><%
 String labelClass;
-if ("green".equals(dis.color)) labelClass = "label-success";
-else if ("red".equals(dis.color)) labelClass = "label-danger";
-else if ("yellow".equals(dis.color)) labelClass = "label-warning";
-else if ("orange".equals(dis.color)) labelClass = "label-warning";
-else if ("pink".equals(dis.color)) labelClass = "label-info";
-else if ("Magenta".equals(dis.color)) labelClass = "label-info";
-else labelClass = "label-default";
-%><span class="label <%=labelClass%>"><%=Encode.forHtml(dis.state)%></span></td>
+if ("green".equals(dis.color)) labelClass = "bg-success";
+else if ("red".equals(dis.color)) labelClass = "bg-danger";
+else if ("yellow".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("pink".equals(dis.color)) labelClass = "bg-info";
+else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
+else labelClass = "bg-secondary";
+%><span class="badge <%=labelClass%>"><%=Encode.forHtml(StringUtils.defaultString(dis.state))%></span></td>
                     <td><%=Encode.forHtml(String.valueOf(dis.numShots))%></td>
                     <td><%=Encode.forHtml(String.valueOf(dis.numMonths))%></td>
-                    <td><%=Encode.forHtml(dis.lastDate)%></td>
+                    <td><%=Encode.forHtml(StringUtils.defaultString(dis.lastDate))%></td>
 
                     <%}%>
                     <%
-                        String providerName=providerBean.getProperty(demo.getProviderNo());
+                        String providerName=providerBean.getProperty(StringUtils.defaultString(demo.getProviderNo()), "");
                         providerName=StringUtils.trimToEmpty(providerName);
                     %>
                     <td><%=Encode.forHtml(providerName)%></td>

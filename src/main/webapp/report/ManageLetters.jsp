@@ -44,93 +44,18 @@
     }
 %>
 
-<%@page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,java.net.*,io.github.carlos_emr.carlos.eform.*,org.owasp.encoder.Encode" %>
+<%@ page import="java.util.*,org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.ManageLetters" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
-
-<%
-    String demographic_no = request.getParameter("demographic_no");
-    String[] demos = request.getParameterValues("demo");
-%>
 
 <html>
     <head>
         <title>Manage Letters</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
-
-        <script type="text/javascript">
-
-            function showHideItem(id) {
-                if (document.getElementById(id).style.display == 'none')
-                    document.getElementById(id).style.display = '';
-                else
-                    document.getElementById(id).style.display = 'none';
-            }
-
-            function showItem(id) {
-                document.getElementById(id).style.display = '';
-            }
-
-            function hideItem(id) {
-                document.getElementById(id).style.display = 'none';
-            }
-
-            function showHideNextDate(id, nextDate, neverWarn) {
-                if (document.getElementById(id).style.display == 'none') {
-                    showItem(id);
-                } else {
-                    hideItem(id);
-                    document.getElementById(nextDate).value = "";
-                    document.getElementById(neverWarn).checked = false;
-                }
-            }
-
-            function disableifchecked(ele, nextDate) {
-                if (ele.checked == true) {
-                    document.getElementById(nextDate).disabled = true;
-                } else {
-                    document.getElementById(nextDate).disabled = false;
-                }
-            }
-
-            function completedProcedure(idval, followUpType, procedure, demographic) {
-                var comment = prompt('Are you sure you want to added this to patients record \n\nAdd Comment Below ', '');
-                if (comment != null) {
-                    var params = "id=" + idval + "&followupType=" + followUpType + "&followupValue=" + procedure + "&demos=" + demographic + "&message=" + comment;
-                    var url = "<%=request.getContextPath()%>/oscarMeasurement/AddShortMeasurement.do";
-
-                    new Ajax.Request(url, {
-                        method: 'post',
-                        parameters: params,
-                        asynchronous: true,
-                        onComplete: followUp
-                    });
-                }
-                return false;
-            }
-
-            function followUp(origRequest) {
-                var hash = origRequest.responseText.parseQuery();
-                var lastFollowupTD = $(hash['id'] + 'lastFollowup');
-                var nextProcedureTD = $(hash['id'] + 'nextSuggestedProcedure');
-                nextProcedureTD.textContent = "----";
-                lastFollowupTD.textContent = hash['followupValue'] + " " + hash['Date'];
-            }
-
-        </script>
 
         <style type="text/css" media="print">
             .searchBox { display: none; }
@@ -152,8 +77,8 @@
 
         <form method="post" action="${pageContext.request.contextPath}/report/ManageLetters.do" enctype="multipart/form-data">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-            <input type="hidden" name="goto" value="<%=Encode.forHtmlAttribute(request.getParameter("goto"))%>"/>
-            <table class="table table-condensed" style="font-size:13px;">
+            <input type="hidden" name="goto" value="<%=Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("goto")))%>"/>
+            <table class="table table-sm" style="font-size:13px;">
                 <tr>
                     <td style="width:120px; font-weight:bold;">Select Letter:</td>
                     <td>
@@ -166,7 +91,7 @@
                 </tr>
                 <tr>
                     <td style="font-weight:bold;">Report Name:</td>
-                    <td><input type="text" name="reportName" class="form-control input-sm" style="width:auto; display:inline-block;"/></td>
+                    <td><input type="text" name="reportName" class="form-control form-control-sm" style="width:auto; display:inline-block;"/></td>
                 </tr>
             </table>
             <div style="padding:5px 0 15px 0;">
@@ -180,7 +105,7 @@
 
             if (list.size() > 0) {
         %>
-        <table class="table table-condensed table-striped" style="font-size:13px;">
+        <table class="table table-sm table-striped" style="font-size:13px;">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -205,7 +130,7 @@
                         <form method="POST" action="<%= request.getContextPath() %>/report/DeleteLetter.do" style="display:inline; margin:0;">
                             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
                             <input type="hidden" name="reportID" value="<%= Encode.forHtmlAttribute(String.valueOf(h.get("ID"))) %>"/>
-                            <button type="submit" class="btn btn-xs btn-danger">Delete</button>
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                         </form>
                     </td>
                 </tr>
@@ -218,18 +143,3 @@
     </div>
     </body>
 </html>
-
-<%!
-    String getUrlParamList(ArrayList list, String paramName) {
-        String queryStr = "";
-        for (int i = 0; i < list.size(); i++) {
-            String demo = (String) list.get(i);
-            if (i == 0) {
-                queryStr += paramName + "=" + demo;
-            } else {
-                queryStr += "&" + paramName + "=" + demo;
-            }
-        }
-        return queryStr;
-    }
-%>

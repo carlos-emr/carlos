@@ -59,7 +59,7 @@
         <title>Manage Saved Demographic Queries</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
     </head>
 
@@ -78,7 +78,7 @@
 
         <form action="${pageContext.request.contextPath}/report/DeleteDemographicReport.do" method="post">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-            <table class="table table-condensed table-striped" style="font-size:13px;">
+            <table class="table table-sm table-striped" style="font-size:13px;">
                 <%
                     for (int i = 0; i < queryArray.size(); i++) {
                         RptSearchData.SearchCriteria sc = (RptSearchData.SearchCriteria) queryArray.get(i);
@@ -93,7 +93,7 @@
             </table>
             <div style="padding:5px 0;">
                 <input type="submit" value="Delete Selected" class="btn btn-sm btn-danger"/>
-                <a href="<%= request.getContextPath() %>/oscarReport/ReportDemographicReport.jsp" class="btn btn-sm btn-default">Cancel</a>
+                <a href="<%= request.getContextPath() %>/oscarReport/ReportDemographicReport.jsp" class="btn btn-sm btn-secondary">Cancel</a>
             </div>
         </form>
 
