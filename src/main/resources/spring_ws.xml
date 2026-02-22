@@ -290,14 +290,5 @@
         <property name="mapper" ref="jacksonObjectMapper"/>
     </bean>
 
-    <!-- =========================================================
-         View resolver for OAuth authorize JSPs (Spring MVC)
-         Adjust prefix/suffix to match your project.
-         ========================================================= -->
-    <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
-        <property name="prefix" value="/WEB-INF/jsp/"/>
-        <property name="suffix" value=".jsp"/>
-        <property name="order"  value="2"/>
-    </bean>
 
 </beans>
