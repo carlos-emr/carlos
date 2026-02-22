@@ -57,7 +57,7 @@
 
   Frontend Dependencies:
   - Bootstrap 5.0.2 (responsive layout and button styles)
-  - Font Awesome 3.x (icons for reply, forward, delete, etc.)
+  - Font Awesome 6.x (icons for reply, forward, delete, etc.)
   - Toast UI Editor 3.x (viewer mode for markdown-formatted message bodies)
 
   Integration points:
@@ -114,23 +114,22 @@
     }
 %>
 <!DOCTYPE html>
-
 <html>
 <head>
-<script src="<%= request.getContextPath() %>/js/global.js"></script>
-<link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
-<link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
-<script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
-<script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
-
+    <title><fmt:message key="messenger.ViewMessage.title" /></title>
+    <!-- js -->
+    <script src="<%=request.getContextPath() %>/js/global.js"></script>
+    <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
+    <script src="<%=request.getContextPath() %>/messenger/messenger-common.js"></script>
+    <!-- css -->
+    <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
 <%
 String boxType = request.getParameter("boxType");
 %>
 
-<title><fmt:message key="messenger.ViewMessage.title" /></title>
-
-
-<script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
 <script>
 // Opens attachment in a popup window; routes to the encounter window if the URL contains IncomingEncounter
 function popupViewAttach(vheight,vwidth,varpage) {
@@ -280,12 +279,12 @@ function fmtOscarMsg() {
     .subheader {
 	    background-color:silver;
 	}
-blockquote p {
-font-size:14px;
-}
-p.toastui-editor-contents {
-font-size:17px;
-}
+    blockquote p {
+    font-size:14px;
+    }
+    p.toastui-editor-contents {
+    font-size:17px;
+    }
     .modal {
       font-size: 11px;
       display: none; /* Hidden by default */
@@ -299,46 +298,38 @@ font-size:17px;
       background-color: rgb(0,0,0); /* Fallback color */
       background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
     }
-#print_helper {
-  display: none;
-}
+    #print_helper {
+      display: none;
+    }
 </style>
 <style type="text/css" media="print">
-
- .DoNotPrint {
-	display: none;
-}
-#print_helper {
-    display: block;
-    overflow: visible;
-    font-family: Menlo, "Deja Vu Sans Mono", "Bitstream Vera Sans Mono", Monaco, monospace;
-    white-space: pre;
-    white-space: pre-wrap;
-}
+    .DoNotPrint {
+	    display: none;
+    }
+    #print_helper {
+        display: block;
+        overflow: visible;
+        font-family: Menlo, "Deja Vu Sans Mono", "Bitstream Vera Sans Mono", Monaco, monospace;
+        white-space: pre;
+        white-space: pre-wrap;
+    }
 </style>
-
 </head>
-
-<body class="BodyStyle">
+<body>
 <form action="<%=request.getContextPath()%>/messenger/HandleMessages.do" method="post">
   <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-
 	<table class="MainTable" id="scrollNumber1" style="width:95%">
 		<tr class="MainTableTopRow">
-			<td class="MainTableTopRowLeftColumn"><h4>&nbsp;<i class="icon-envelope" title='<fmt:message key="messenger.ViewMessage.msgMessenger" />'></i>&nbsp;</h4></td>
+			<td class="MainTableTopRowLeftColumn">
+                <h4>&nbsp;<i class="fa-regular fa-envelope" title="<fmt:message key="messenger.ViewMessage.msgMessenger"/>"></i>&nbsp;
+                    <fmt:message key="messenger.ViewMessage.msgViewMessage" />
+                </h4>
+            </td>
 			<td class="MainTableTopRowRightColumn">
-			<table class="TopStatusBar" style="width:100%">
-				<tr>
-					<td><h4><fmt:message key="messenger.ViewMessage.msgViewMessage" /></h4></td>
-            <td style="text-align: right;" class="DoNotPrint" >
-            <i class=" icon-question-sign"></i>
-            <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger view')"><fmt:message key="app.top1"/></a>
-            <i class=" icon-info-sign" style="margin-left:10px;"></i>
-            <a href="javascript:void(0)"  onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About CARLOS','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')" ><fmt:message key="global.about" /></a>
-        </td>
-		</tr>
-			</table>
 			</td>
+        </tr>
+    </table>
+    <table style="width:95%">
 		<tr style="width:100%;">
 			<td class="MainTableLeftColumn">&nbsp;</td>
 			<td class="MainTableRightColumn Printable" colspan="2">
@@ -347,6 +338,38 @@ font-size:17px;
 					<td>
 					<table>
 						<tr>
+							<!-- dont need this button from the encounter view -->
+							<c:if test="${ empty param.from or not param.from eq 'encounter' }">
+								<td>
+								<table class=messButtonsA >
+									<tr>
+										<td class="messengerButtonsA">
+									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
+									            class="btn btn-outline-primary">
+									            <fmt:message key="messenger.ViewMessage.btnInbox"/>
+									        </a>
+									    </td>
+									</tr>
+								</table>
+								</td>
+							</c:if>
+
+							<!-- prior page is the sent view -->
+							<% if( "1".equals(boxType) ) { %>
+							<td>
+							<table class=messButtonsA >
+								<tr>
+									<td class="messengerButtonsA">
+									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1"
+									        class="btn btn-outline-primary">
+									        <fmt:message key="messenger.ViewMessage.btnSent"/>
+									    </a>
+									</td>
+								</tr>
+							</table>
+							</td>
+							<%} %>
+
 							<!-- dont need this button from the encounter view -->
 							<c:if test="${ empty param.from or not param.from eq 'encounter' }">
 								<td>
@@ -373,37 +396,6 @@ font-size:17px;
 								</tr>
 							</table>
 							</td>
-
-							<!-- dont need this button from the encounter view -->
-							<c:if test="${ empty param.from or not param.from eq 'encounter' }">
-								<td>
-								<table class=messButtonsA >
-									<tr>
-										<td class="messengerButtonsA">
-									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
-									            class="btn btn-outline-secondary">
-									            <fmt:message key="messenger.ViewMessage.btnInbox"/>
-									        </a>
-									    </td>
-									</tr>
-								</table>
-								</td>
-							</c:if>
-
-							<% if( "1".equals(boxType) ) { %>
-							<td>
-							<table class=messButtonsA >
-								<tr>
-									<td class="messengerButtonsA">
-									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1"
-									        class="btn btn-outline-secondary">
-									        <fmt:message key="messenger.ViewMessage.btnSent"/>
-									    </a>
-									</td>
-								</tr>
-							</table>
-							</td>
-							<%} %>
 
 							<td>
 							<table class=messButtonsA >
@@ -439,7 +431,6 @@ font-size:17px;
 							<td colspan="2" id="msgSubject" class="Printable" ><c:out value="${ viewMessageSubject }" />
 							</td>
 						</tr>
-
 						<tr>
 							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgDate" />:</td>
 							<td colspan="2" id="sentDate" class="Printable" >
@@ -451,7 +442,7 @@ font-size:17px;
                                     String id = (String) session.getAttribute("viewMessageId");
                                     if ( attach != null && attach.equals("1") ){
                                     %>
-						<tr>
+						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
 								href="javascript:popupViewAttach(700,960,'ViewAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
@@ -464,7 +455,7 @@ font-size:17px;
                                     String pdfAttach = (String) session.getAttribute("viewMessagePDFAttach");
                                     if ( pdfAttach != null && pdfAttach.equals("1") ){
                                     %>
-						<tr>
+						<tr class="DoNotPrint">
 							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
 							<td colspan="2"><a
 								href="javascript:popupViewAttach(700,960,'ViewPDFAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
@@ -543,14 +534,15 @@ font-size:17px;
 						<tr class="DoNotPrint">
 							<td ></td>
 							<td  colspan="2">
-								<button type="submit" class="btn" name="reply"
-                                    title="<fmt:message key="messenger.ViewMessage.btnReply"/>"><i class="icon-reply"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnReply"/></button>
-                                <button type="submit" class="btn" name="replyAll"
-                                    title="<fmt:message key="messenger.ViewMessage.btnReplyAll"/>"><i class="icon-reply-all"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnReplyAll"/></button>
-                                <button type="submit" class="btn" name="forward"
-                                    title="<fmt:message key="messenger.ViewMessage.btnForward"/>"><i class="icon-share-alt"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnForward"/></button>
-                                <button type="submit" class="btn" name="delete"
-                                    title="<fmt:message key="messenger.ViewMessage.btnDelete"/>"><i class="icon-trash"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnDelete"/></button>
+								<button type="submit" class="btn btn-primary" name="reply"
+                                    title="<fmt:message key="messenger.ViewMessage.btnReply"/>"><i class="fa-solid fa-reply"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnReply"/></button>
+                                <button type="submit" class="btn btn-primary" name="replyAll"
+                                    title="<fmt:message key="messenger.ViewMessage.btnReplyAll"/>"><i class="fa-solid fa-reply-all"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnReplyAll"/></button>
+                                <button type="submit" class="btn btn-secondary" name="forward"
+                                    title="<fmt:message key="messenger.ViewMessage.btnForward"/>"><i class="fa-solid fa-share"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnForward"/></button>
+								<% String demoKeyJs = Encode.forJavaScript(String.valueOf(pageContext.getAttribute("demographicNumber"))); %>
+                                <button type="submit" class="btn btn-danger" name="delete"
+                                    title="<fmt:message key="messenger.ViewMessage.btnDelete"/>"><i class="fa-solid fa-trash"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnDelete"/></button>
                                 <input type="hidden" name="messageNo" id="messageNo" value="${ fn:escapeXml(viewMessageNo) }"/>
 							</td>
 						</tr>
@@ -569,11 +561,11 @@ font-size:17px;
 								size="30" />
 							</td>
 							<td>
-							<input type="hidden" class="btn"
-								name="demographic_no" /> <input type="button"
-								class="btn" name="searchDemo"
+							<input type="hidden" name="demographic_no">
+                            <input type="button"
+								class="btn btn-outline-secondary" name="searchDemo"
 								value="<fmt:message key="messenger.ViewMessage.searchDemo" />"
-								onclick="popupSearchDemo(document.forms[0].keyword.value)" />
+								onclick="popupSearchDemo(document.forms[0].keyword.value)" >
 							</td>
 
 						</tr>
@@ -593,41 +585,41 @@ font-size:17px;
                                                 String demographic_no = request.getParameter("demographic_no");
                                                 DemographicData demoData = new DemographicData();
                                                 Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographic_no);
+                                                Integer dI = 0;
                                                 String demoName = "";
                                                 String demoLastName = "";
                                                 String demoFirstName = "";
                                                 if (demo != null) {
+dI=demo.getDemographicNo();
                                                     demoName = demo.getLastName() + ", " + demo.getFirstName();
                                                     demoLastName = demo.getLastName();
                                                     demoFirstName = demo.getFirstName();
 
+
                                                 } %>
+ <script>console.log("Demo:<%=dI%> OR <%=demographic_no%>|<%=Encode.forJavaScript(demographic_no)%> for <%=Encode.forJavaScript(demoName)%>");</script>
 						<tr class="DoNotPrint">
 							<td></td>
 							<td><input type="text"
 								name="selectedDemo" size="30" readonly
-								style="border: none" value="none" /> <script>
-                                            if ( "<%=Encode.forJavaScript(demoName)%>" != "null" && "<%=Encode.forJavaScript(demoName)%>" != "") {
-                                                document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>"
-                                                document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>"
-                                            }
-                                        </script>
-                                </td>
-
-                                <td>
-                                        <input type="button"
-								class="btn" name="linkDemo"
-								value="<fmt:message key="messenger.ViewMessage.linkToDemo" />"
-								onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript(viewMsgId)%>','<%=Encode.forJavaScript(viewProvNo)%>','linkToDemographic')" />
-
-							<input type="button" class="btn"
-								name="clearDemographic" value="<fmt:message key="messenger.ViewMessage.clearDemo" />"
-								onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"' />
+								style="border: none" value="none">
+                                <script>
+                                if ( "<%=Encode.forJavaScript(demoName)%>" != "null" && "<%=Encode.forJavaScript(demoName)%>" != "") {
+                                    document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>"
+                                    document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>"
+                                }
+                                </script>
+                            </td>
+                            <td>
+                                <input type="button"
+								    class="btn btn-outline-secondary" name="linkDemo"
+								    value="<fmt:message key="messenger.ViewMessage.linkToDemo" />"
+								    onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript(viewMsgId)%>','<%=Encode.forJavaScript(viewProvNo)%>','linkToDemographic')">
+							    <input type="button" class="btn btn-outline-secondary"
+								    name="clearDemographic" value="<fmt:message key="messenger.ViewMessage.clearDemo" />"
+								    onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"' />
 							</td>
-
 						</tr>
-
-
 						<tr>
 							<td></td>
 							<td colspan="2">
@@ -641,79 +633,73 @@ font-size:17px;
                         <% int demoCount = 0; %>
                         <c:forEach items="${ attachedDemographics }" var="demographic">
              			<c:set var="demographicNumber" value="${ demographic.key }" />
-						<% String demoKeyJs = Encode.forJavaScript(String.valueOf(pageContext.getAttribute("demographicNumber"))); %>
 							<tr>
 								<td></td>
 								<td>
-								<input type="text" size="30" readonly
-									style=" border: none"
-									value="${ fn:escapeXml(demographic.value) }" />
-								</td>
-								<td class="DoNotPrint">
-								<a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=<%=demoKeyJs%>&displaymode=edit&dboperation=search_detail')"><fmt:message key="global.M" /></a>
-
+								<input type="text" readonly
+									style="border: none"
+									value="${ fn:escapeXml(demographic.value) }"
+									title="${ fn:escapeXml(demographic.key) }">
+                                <span class="DoNotPrint">
 								<%
 									CaseManagementNoteDAO caseManagementNoteDAO = SpringUtils.getBean(CaseManagementNoteDAO.class);
-	                                                            String params = "";
-	                                                            String msgType = (String)session.getAttribute("msgType");
+									String params = "";
+									String msgType = (String) session.getAttribute("msgType");
 
-	                                                            if( msgType != null ) {
-	                                                                    Integer msgTypeInt = ConversionUtils.fromIntString(msgType);
-	                                                                    if( msgTypeInt > 0 && msgTypeInt.equals(OscarMsgType.OSCAR_REVIEW_TYPE) ) {
-	                                                                        HashMap<String,List<String>> hashMap =  (HashMap<String,List<String>>)session.getAttribute("msgTypeLink");
-	                                                                        if( hashMap != null) {
-	                                                                            List<String> demoList = hashMap.get((String) pageContext.getAttribute("demographicNumber"));
+									if (msgType != null) {
+									    Integer msgTypeInt = ConversionUtils.fromIntString(msgType);
+									    if (msgTypeInt > 0 && msgTypeInt.equals(OscarMsgType.OSCAR_REVIEW_TYPE)) {
+									        HashMap < String, List < String >> hashMap = (HashMap < String, List < String >> ) session.getAttribute("msgTypeLink");
+									        if (hashMap != null) {
+									            List < String > demoList = hashMap.get((String) pageContext.getAttribute("demographicNumber"));
 
-	                                                                            if( demoList != null && demoCount < demoList.size() ) {
-	                                                                             String[] val = demoList.get(demoCount).split(":");
-	                                                                             if( val.length == 3 ) {
-	                                                                                 String note_id = "";
-	                                                                                 Long noteIdLong = ConversionUtils.fromLongString(val[2]);
-	                                                                                 CaseManagementNote note = noteIdLong > 0L ? caseManagementNoteDAO.getNote(noteIdLong) : null;
-	                                                                                 if( note != null ) {
-	                                                                                     String uuid = note.getUuid();
-	                                                                                     List<CaseManagementNote> noteList = caseManagementNoteDAO.getNotesByUUID(uuid);
-	                                                                                     if( noteList != null && !noteList.isEmpty() ) {
-	                                                                                         if( noteList.get(noteList.size()-1).getId().equals(note.getId()) ) {
-	                                                                                             note_id = String.valueOf(note.getId());
-	                                                                                         }
-	                                                                                         else {
-	                                                                                             note_id = String.valueOf(noteList.get(noteList.size()-1).getId());
-	                                                                                         }
-	                                                                                     }
-	                                                                                 }
+									            if (demoList != null && demoCount < demoList.size()) {
+									                String[] val = demoList.get(demoCount).split(":");
+									                if (val.length == 3) {
+									                    String note_id = "";
+									                    Long noteIdLong = ConversionUtils.fromLongString(val[2]);
+									                    CaseManagementNote note = noteIdLong > 0L ? caseManagementNoteDAO.getNote(noteIdLong) : null;
+									                    if (note != null) {
+									                        String uuid = note.getUuid();
+									                        List < CaseManagementNote > noteList = caseManagementNoteDAO.getNotesByUUID(uuid);
+									                        if (noteList != null && !noteList.isEmpty()) {
+									                            if (noteList.get(noteList.size() - 1).getId().equals(note.getId())) {
+									                                note_id = String.valueOf(note.getId());
+									                            } else {
+									                                note_id = String.valueOf(noteList.get(noteList.size() - 1).getId());
+									                            }
+									                        }
+									                    }
 
-	                                                                                params = "&appointmentNo=" + (val[0].equalsIgnoreCase("null") ? "" :  val[0]) +"&msgType=" + msgType + "&OscarMsgTypeLink="+val[1]+"&noteId="+note_id;
-	                                                                             }
-	                                                                             else {
-	                                                                                 params = "";
-	                                                                             }
-	                                                                            }
-	                                                                         }
-	                                                                    }
-	                                                                }
+									                    params = "&appointmentNo=" + (val[0].equalsIgnoreCase("null") ? "" : val[0]) + "&msgType=" + msgType + "&OscarMsgTypeLink=" + val[1] + "&noteId=" + note_id;
+									                } else {
+									                    params = "";
+									                }
+									            }
+									        }
+									    }
+									}
 
-
-
-	                                                        %>
-	                                                         <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:message key="global.E" /></a>
-
-								<a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=<%=demoKeyJs%>')">Rx</a>
-
-
-
-
-
-								<input type="button" class="btn DoNotPrint"
-									name="writeEncounter" value="<fmt:message key="messenger.ViewMessage.writeToE" />"
-									onclick="popup( '<%=demoKeyJs%>','<%=Encode.forJavaScript((String)session.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>','writeToEncounter')" />
+                                    %>
+                                    <a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=${ demographic.key }&displaymode=edit&dboperation=search_detail')"><fmt:message key="global.M" /></a>
+                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=${ demographic.key }&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:message key="global.E" /></a>
+                                    <a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=${ demographic.key }')">Rx</a>
+                                </span>
+								</td>
+								<td class="DoNotPrint">
+								<button class="btn btn-secondary"
+									name="writeEncounter"
+                                    onclick="popup( '${ demographic.key }','<%=Encode.forJavaScript((String)session.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>','writeToEncounter')" >
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                    <fmt:message key="messenger.ViewMessage.writeToE"/>
+								</button>
 								</td>
 							</tr>
 							<tr>
 								<td></td>
-								<td><a
-									href="javascript:popupStart(400,850,'../demographic/demographiccontrol.jsp?demographic_no=<%=demoKeyJs%>&last_name=<%=Encode.forUriComponent(demoLastName)%>&first_name=<%=Encode.forUriComponent(demoFirstName)%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
-									title="<fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:message key="caseload.msgNextAppt" />:    <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
+								<td><a class="DoNotPrint"
+									href="javascript:popupStart(400,850,'../demographic/demographiccontrol.jsp?demographic_no=${ demographic.key }&last_name=<%=Encode.forUriComponent(demoLastName)%>&first_name=<%=Encode.forUriComponent(demoFirstName)%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+									title="<fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:message key="oscarEncounter.oscarConsultationRequest.consultationFormPrint.msgappDate" />   <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
 								<td></td>
 							</tr>
 						<% ++demoCount; %>
