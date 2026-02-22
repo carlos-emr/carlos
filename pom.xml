@@ -327,11 +327,6 @@
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
-            <artifactId>commons-compress</artifactId>
-            <version>1.28.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>3.18.0</version>
         </dependency>
@@ -491,18 +486,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.integration</groupId>
-            <artifactId>spring-integration-sftp</artifactId>
-            <version>5.5.20</version>
-            <exclusions>
-                <exclusion>
-                    <!-- Exclude old jcraft JSch in favor of maintained mwiede fork -->
-                    <groupId>com.jcraft</groupId>
-                    <artifactId>jsch</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
         <!-- throws 10 compilation errors when removed/commented -->
         <dependency>
             <groupId>org.springframework</groupId>
@@ -524,12 +507,6 @@
                     <artifactId>cglib</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <!-- cglib-nodep to replace old cglib 2.2.2 and eliminate ASM conflicts -->
-        <dependency>
-            <groupId>cglib</groupId>
-            <artifactId>cglib-nodep</artifactId>
-            <version>3.3.0</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.springframework.security/spring-security-crypto -->
         <dependency>
@@ -705,12 +682,6 @@
             <version>2.19.2</version>
         </dependency>
 
-        <!-- Jackson Java 8 Date/Time support -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>2.19.2</version>
-        </dependency>
 
         <!-- Jackson JAXB annotations support - provides JaxbAnnotationIntrospector used in Spring configs -->
         <dependency>
@@ -864,14 +835,6 @@
             <version>1.17.2</version>
         </dependency>
 
-        <!-- janino - Updated to 3.x now that Drools has been upgraded to 7.x -->
-        <!-- Drools 7.x uses its own internal compiler (ecj), but janino may still be -->
-        <!-- used by other runtime components (e.g., JasperReports, Spring expression evaluation) -->
-        <dependency>
-            <groupId>org.codehaus.janino</groupId>
-            <artifactId>janino</artifactId>
-            <version>3.1.12</version>
-        </dependency>
 
 
         <dependency>
@@ -1112,12 +1075,7 @@
             <version>${cxf.version}</version>
         </dependency> -->
 
-        <!-- ScribeJava OAuth 1.0a dependencies. Added after apache cxf was bumped to version 3.5.10 and lost support. -->
-        <dependency>
-            <groupId>com.github.scribejava</groupId>
-            <artifactId>scribejava-apis</artifactId>
-            <version>8.3.3</version>
-        </dependency>
+        <!-- ScribeJava OAuth 1.0a core. Added after apache cxf was bumped to version 3.5.10 and lost support. -->
         <dependency>
             <groupId>com.github.scribejava</groupId>
             <artifactId>scribejava-core</artifactId>
@@ -1173,14 +1131,14 @@
                     <groupId>commons-lang</groupId>
                     <artifactId>commons-lang</artifactId>
                 </exclusion>
+                <!-- CVE-2025-46392: Only used by ESAPI AccessControlRule classes, not by ClickjackFilter -->
+                <exclusion>
+                    <groupId>commons-configuration</groupId>
+                    <artifactId>commons-configuration</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
-        <dependency>
-            <groupId>org.jasypt</groupId>
-            <artifactId>jasypt</artifactId>
-            <version>1.9.3</version>
-        </dependency>
         <!-- Apache Commons Exec - used by ExternalEDocConverter -->
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -1286,13 +1244,6 @@
             </exclusions>
         </dependency>
 
-        <!-- Playwright for UI/smoke testing -->
-        <dependency>
-            <groupId>com.microsoft.playwright</groupId>
-            <artifactId>playwright</artifactId>
-            <version>1.40.0</version>
-            <scope>test</scope>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -1308,14 +1259,6 @@
         </dependency>
 
 
-        <!-- This is a dependency for the Caisi Integrator Objects. Only required until
-        OpenJPA is no longer needed in Integrator. -->
-        <!-- Detected as "Unused dependency" but don't remove it, it's using actually -->
-        <dependency>
-            <groupId>org.apache.openjpa</groupId>
-            <artifactId>openjpa</artifactId>
-            <version>3.2.2</version>
-        </dependency>
 
         <!-- HAPI FHIR -->
         <!-- can be found in the local_repo folder -->
@@ -1333,11 +1276,6 @@
                     <artifactId>jcl-over-slf4j</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>ca.uhn.hapi.fhir</groupId>
-            <artifactId>hapi-fhir-structures-dstu2</artifactId>
-            <version>${hapifhir.version}</version>
         </dependency>
         <!-- Detected as "Unused dependency" but don't remove it, it's using actually -->
         <dependency>
