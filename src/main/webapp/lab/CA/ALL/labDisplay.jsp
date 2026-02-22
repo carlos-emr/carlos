@@ -57,7 +57,7 @@
         - Parses HL7 v2 segments: MSH, PID, OBR, OBX, NTE, etc.
         - Provides acknowledgment UI with optional macro quick-actions
         - Macro dropdown renders user-configured lab result templates
-        - Macro application via runMacro() JavaScript function (defined elsewhere)
+        - Macro application via runMacro() JavaScript function (defined in this file)
         - Result acknowledgment submitted to backend action for persistence
         - Audit logging for all result views and acknowledgments
 
@@ -74,7 +74,7 @@
         - All JSP outputs escaped with OWASP Encoder for XSS prevention
         - Macro names XSS-encoded: Encode.forJavaScript() in onClick, Encode.forHtml() in link text
         - Audit logging via LogAction for all sensitive operations
-        - HL7 message sanitization to prevent data leakage
+        - HL7 message output encoding (OWASP) to prevent XSS
 
     Known Issues & Limitations:
         - RTF conversion may fail silently on unsupported characters

@@ -76,9 +76,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *     - saveLabMacroPrefs(): Persist lab macro JSON to database with validation
  *
  * Security Model:
- *     - All methods check provider authorization via SecurityInfoManager
- *     - Uses role-based access control with security objects (e.g., "_lab")
- *     - Enforces READ/WRITE privilege levels based on operation
+ *     - All methods require a valid session (centralized null-session guard in execute())
+ *     - Lab-related methods enforce role-based access control via SecurityInfoManager with the "_lab" security object
+ *     - Enforces READ/WRITE privilege levels for lab macro and HL7 lab result methods
+ *     - Other preference methods rely on session authentication only (non-null LoggedInInfo)
+ *     - Throws SecurityException for null/invalid session checks
  *     - Throws RuntimeException on privilege violations
  *
  * Data Flow:
@@ -88,7 +90,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *     - JSP layer receives status attributes for user feedback
  *
  * Lab Macro Workflow:
- *     1. Provider navigates to setLabMacroPrefs.jsp via method=view
+ *     1. Provider navigates to setLabMacroPrefs.jsp via method=viewLabMacroPrefs
  *     2. JSP renders existing macros from database
  *     3. Provider fills form fields or edits raw JSON directly
  *     4. Form submission calls method=saveLabMacroPrefs
@@ -97,11 +99,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *
  * Exception Handling:
  *     - Invalid JSON triggers validation error (not exception throw)
+ *     - Null session checks throw SecurityException
  *     - Privilege violations throw RuntimeException (consistent with file pattern)
  *     - Database errors propagate to framework (transactional)
  *
  * Internationalization:
- *     - Status attributes reference i18n keys (e.g., msgSuccess)
+ *     - Status attributes use simple flag strings ("success", "error") that the JSP maps to localized messages
  *     - JSP layer uses JSTL fmt:message tags for localization
  *     - Currently supports English and Portuguese Brazilian
  *
@@ -123,21 +126,73 @@ public class ProviderProperty2Action extends ActionSupport {
 
     private UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
 
+    /**
+     * Dispatches to the appropriate preference method based on the "method" request parameter.
+     *
+     * <p>Routes to method implementations registered in {@link #init()}. Falls back to
+     * {@link #view()} when the method parameter is null or unrecognized.</p>
+     *
+     * <p>Validates the provider session before dispatching. All routed methods can safely
+     * assume a valid, non-null {@link LoggedInInfo} with a non-null provider number.</p>
+     *
+     * @return String the Struts2 result name from the dispatched method
+     * @throws SecurityException if no valid session or provider number is found
+     */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+
         String method = request.getParameter("method");
         return methodMap.getOrDefault(method, this::view).get();
     }
 
+    /**
+     * Updates the provider's message-received notification preference.
+     *
+     * <p>Saves the {@code value} request parameter as the provider's
+     * {@link UserProperty#OSCAR_MSG_RECVD} property. The provider identity is
+     * derived from the current session to prevent one provider from modifying
+     * another's preferences.</p>
+     *
+     * @return {@code null} (no Struts result navigation)
+     * @throws SecurityException if no valid session is found
+     */
     public String OscarMsgRecvd() {
-
-
-        userPropertyDAO.saveProp(request.getParameter("provider_no"), UserProperty.OSCAR_MSG_RECVD, request.getParameter("value"));
+        // Derive provider identity from session to prevent one provider from modifying another's preferences
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        String value = request.getParameter("value");
+        if (value != null) {
+            // OSCAR_MSG_RECVD expects "H:m" format (e.g., "9:0", "14:30")
+            if (value.matches("^\\d{1,2}:\\d{1,2}$")) {
+                userPropertyDAO.saveProp(providerNo, UserProperty.OSCAR_MSG_RECVD, value);
+            } else {
+                logger.warn("OscarMsgRecvd called with invalid value format: expected H:m");
+            }
+        } else {
+            logger.debug("OscarMsgRecvd called with null value parameter; no preference saved");
+        }
 
         return null;
     }
 
+    /**
+     * Removes the stale-note-date and stale-format user properties for the logged-in provider.
+     *
+     * @return {@link #SUCCESS} after deletion, with {@code status} request attribute set to {@code "success"}
+     * @throws SecurityException if no valid session is found
+     */
     public String remove() {
-        String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+        String provider = loggedInInfo.getLoggedInProviderNo();
 
         UserProperty prop = this.userPropertyDAO.getProp(provider, UserProperty.STALE_NOTEDATE);
         if (prop != null) {
@@ -153,8 +208,21 @@ public class ProviderProperty2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Displays the provider property configuration form with stale-note-date and stale-format options.
+     *
+     * <p>Loads the current property values from the database (or creates defaults)
+     * and populates dropdown option lists for the JSP view.</p>
+     *
+     * @return {@link #SUCCESS} to forward to the property configuration JSP
+     * @throws SecurityException if no valid session is found
+     */
     public String view() {
-        String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+        String provider = loggedInInfo.getLoggedInProviderNo();
         request.setAttribute("providerNo", provider);
 
         UserProperty prop = this.userPropertyDAO.getProp(provider, UserProperty.STALE_NOTEDATE);
@@ -173,7 +241,6 @@ public class ProviderProperty2Action extends ActionSupport {
         }
         this.setSingleViewProperty(prop2);
 
-        // dropdown menus
         List<LabelValueBean> staleOptions = new ArrayList<>();
         staleOptions.add(new LabelValueBean("All", "A"));
         for (int i = 0; i <= 36; i++) {
@@ -190,8 +257,18 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
+    /**
+     * Saves user stale note date and single view format preferences.
+     *
+     * @return SUCCESS constant for Struts navigation
+     * @throws SecurityException if no valid session is found
+     */
     public String save() {
-        String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+        String provider = loggedInInfo.getLoggedInProviderNo();
 
         String staleDateValue = request.getParameter("dateProperty.value");
         String singleViewValue = request.getParameter("singleViewProperty.value");
@@ -384,12 +461,12 @@ public class ProviderProperty2Action extends ActionSupport {
             prop = new UserProperty();
         }
 
-        request.setAttribute("providertitle", "provider.setRxPageSize.title"); //=Set Rx Script Page Size
-        request.setAttribute("providermsgPrefs", "provider.setRxPageSize.msgPrefs"); //=Preferences"); //
-        request.setAttribute("providermsgProvider", "provider.setRxPageSize.msgPageSize"); //=Rx Script Page Size
-        request.setAttribute("providermsgEdit", "provider.setRxPageSize.msgEdit"); //=Select your desired page size
-        request.setAttribute("providerbtnSubmit", "provider.setRxPageSize.btnSubmit"); //=Save
-        request.setAttribute("providermsgSuccess", "provider.setRxPageSize.msgSuccess"); //=Rx Script Page Size saved
+        request.setAttribute("providertitle", "provider.setRxPageSize.title");
+        request.setAttribute("providermsgPrefs", "provider.setRxPageSize.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setRxPageSize.msgPageSize");
+        request.setAttribute("providermsgEdit", "provider.setRxPageSize.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setRxPageSize.btnSubmit");
+        request.setAttribute("providermsgSuccess", "provider.setRxPageSize.msgSuccess");
         request.setAttribute("method", "saveRxPageSize");
 
         this.setRxPageSizeProperty(prop);
@@ -417,12 +494,12 @@ public class ProviderProperty2Action extends ActionSupport {
 
         request.setAttribute("status", "success");
         request.setAttribute("rxPageSizeProperty", prop);
-        request.setAttribute("providertitle", "provider.setRxPageSize.title"); //=Set Rx Script Page Size
-        request.setAttribute("providermsgPrefs", "provider.setRxPageSize.msgPrefs"); //=Preferences"); //
-        request.setAttribute("providermsgProvider", "provider.setRxPageSize.msgPageSize"); //=Rx Script Page Size
-        request.setAttribute("providermsgEdit", "provider.setRxPageSize.msgEdit"); //=Select your desired page size
-        request.setAttribute("providerbtnSubmit", "provider.setRxPageSize.btnSubmit"); //=Save
-        request.setAttribute("providermsgSuccess", "provider.setRxPageSize.msgSuccess"); //=Rx Script Page Size saved
+        request.setAttribute("providertitle", "provider.setRxPageSize.title");
+        request.setAttribute("providermsgPrefs", "provider.setRxPageSize.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setRxPageSize.msgPageSize");
+        request.setAttribute("providermsgEdit", "provider.setRxPageSize.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setRxPageSize.btnSubmit");
+        request.setAttribute("providermsgSuccess", "provider.setRxPageSize.msgSuccess");
         request.setAttribute("method", "saveRxPageSize");
         return "genRxPageSize";
     }
@@ -442,10 +519,10 @@ public class ProviderProperty2Action extends ActionSupport {
             defaultQ = existingQ.getValue();
         else {
             request.setAttribute("status", "success");
-            request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title"); //=Set Default Document Queue
-            request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs"); //=Preferences
-            request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView"); //=Default Document Queue
-            request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgNotSaved"); //=Default Document Queue has NOT been saved
+            request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");
+            request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs");
+            request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView");
+            request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgNotSaved");
             request.setAttribute("method", "saveDefaultDocQueue");
             return "genDefaultDocQueue";
         }
@@ -456,7 +533,6 @@ public class ProviderProperty2Action extends ActionSupport {
             prop.setProviderNo(providerNo);
         }
         if (mode.equals("new")) {
-            //save and get most recent id
             QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
             queueDao.addNewQueue(defaultQ);
             String lastId = queueDao.getLastId();
@@ -468,10 +544,10 @@ public class ProviderProperty2Action extends ActionSupport {
         }
         request.setAttribute("status", "success");
         request.setAttribute("defaultDocQueueProperty", prop);
-        request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title"); //=Set Default Document Queue
-        request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs"); //=Preferences
-        request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView"); //=Default Document Queue
-        request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgSuccess"); //=Default Document Queue saved
+        request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");
+        request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView");
+        request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgSuccess");
         request.setAttribute("method", "saveDefaultDocQueue");
         return "genDefaultDocQueue";
     }
@@ -498,13 +574,13 @@ public class ProviderProperty2Action extends ActionSupport {
             viewChoices.add(new LabelValueBean((String) ht.get("queue"), (String) ht.get("id")));
         }
         request.setAttribute("viewChoices", viewChoices);
-        request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title"); //=Set Default Document Queue
-        request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs"); //=Preferences
-        request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView"); //=Default Document Queue
-        request.setAttribute("providermsgEditFromExisting", "provider.setDefaultDocumentQueue.msgEditFromExisting"); //=Choose a default queue from existing queues
-        request.setAttribute("providermsgEditSaveNew", "provider.setDefaultDocumentQueue.msgEditSaveNew"); //=Save a new default queue
-        request.setAttribute("providerbtnSubmit", "provider.setDefaultDocumentQueue.btnSubmit"); //=Save
-        request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgSuccess"); //=Default Document Queue saved
+        request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");
+        request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView");
+        request.setAttribute("providermsgEditFromExisting", "provider.setDefaultDocumentQueue.msgEditFromExisting");
+        request.setAttribute("providermsgEditSaveNew", "provider.setDefaultDocumentQueue.msgEditSaveNew");
+        request.setAttribute("providerbtnSubmit", "provider.setDefaultDocumentQueue.btnSubmit");
+        request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgSuccess");
         request.setAttribute("method", "saveDefaultDocQueue");
         this.setExistingDefaultDocQueueProperty(prop);
         this.setNewDefaultDocQueueProperty(propNew);
@@ -543,12 +619,12 @@ public class ProviderProperty2Action extends ActionSupport {
         viewChoices.add(new LabelValueBean("Longterm/Acute", "longterm_acute"));
         viewChoices.add(new LabelValueBean("Longterm/Acute/Inactive/External", "longterm_acute_inactive_external"));
         request.setAttribute("viewChoices", viewChoices);
-        request.setAttribute("providertitle", "provider.setRxProfileView.title"); //=Set Rx Profile View
-        request.setAttribute("providermsgPrefs", "provider.setRxProfileView.msgPrefs"); //=Preferences
-        request.setAttribute("providermsgProvider", "provider.setRxProfileView.msgProfileView"); //=Rx Profile View
-        request.setAttribute("providermsgEdit", "provider.setRxProfileView.msgEdit"); //=Select your desired display
-        request.setAttribute("providerbtnSubmit", "provider.setRxProfileView.btnSubmit"); //=Save
-        request.setAttribute("providermsgSuccess", "provider.setRxProfileView.msgSuccess"); //=Rx Profile View saved
+        request.setAttribute("providertitle", "provider.setRxProfileView.title");
+        request.setAttribute("providermsgPrefs", "provider.setRxProfileView.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setRxProfileView.msgProfileView");
+        request.setAttribute("providermsgEdit", "provider.setRxProfileView.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setRxProfileView.btnSubmit");
+        request.setAttribute("providermsgSuccess", "provider.setRxProfileView.msgSuccess");
         request.setAttribute("method", "saveRxProfileView");
 
 
@@ -586,15 +662,16 @@ public class ProviderProperty2Action extends ActionSupport {
 
             request.setAttribute("status", "success");
             request.setAttribute("defaultDocQueueProperty", prop);
-            request.setAttribute("providertitle", "provider.setRxProfileView.title"); //=Set Rx Profile View
-            request.setAttribute("providermsgPrefs", "provider.setRxProfileView.msgPrefs"); //=Preferences
-            request.setAttribute("providermsgProvider", "provider.setRxProfileView.msgProfileView"); //=Rx Profile View
-            request.setAttribute("providermsgEdit", "provider.setRxProfileView.msgEdit"); //=Select your desired display
-            request.setAttribute("providerbtnSubmit", "provider.setRxProfileView.btnSubmit"); //=Save
-            request.setAttribute("providermsgSuccess", "provider.setRxProfileView.msgSuccess"); //=Rx Profile View saved
+            request.setAttribute("providertitle", "provider.setRxProfileView.title");
+            request.setAttribute("providermsgPrefs", "provider.setRxProfileView.msgPrefs");
+            request.setAttribute("providermsgProvider", "provider.setRxProfileView.msgProfileView");
+            request.setAttribute("providermsgEdit", "provider.setRxProfileView.msgEdit");
+            request.setAttribute("providerbtnSubmit", "provider.setRxProfileView.btnSubmit");
+            request.setAttribute("providermsgSuccess", "provider.setRxProfileView.msgSuccess");
             request.setAttribute("method", "saveRxProfileView");
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to save Rx profile view preference", e);
+            request.setAttribute("status", "error");
         }
 
         return "genRxProfileView";
@@ -624,12 +701,12 @@ public class ProviderProperty2Action extends ActionSupport {
 
         prop.setChecked(checked);
         request.setAttribute("rxShowPatientDOBProperty", prop);
-        request.setAttribute("providertitle", "provider.setShowPatientDOB.title"); //=Select if you want to use Rx3
-        request.setAttribute("providermsgPrefs", "provider.setShowPatientDOB.msgPrefs"); //=Preferences
-        request.setAttribute("providermsgProvider", "provider.setShowPatientDOB.msgProfileView"); //=Use Rx3
-        request.setAttribute("providermsgEdit", "provider.setShowPatientDOB.msgEdit"); //=Do you want to use Rx3?
-        request.setAttribute("providerbtnSubmit", "provider.setShowPatientDOB.btnSubmit"); //=Save
-        request.setAttribute("providermsgSuccess", "provider.setShowPatientDOB.msgSuccess"); //=Rx3 Selection saved
+        request.setAttribute("providertitle", "provider.setShowPatientDOB.title");
+        request.setAttribute("providermsgPrefs", "provider.setShowPatientDOB.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setShowPatientDOB.msgProfileView");
+        request.setAttribute("providermsgEdit", "provider.setShowPatientDOB.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setShowPatientDOB.btnSubmit");
+        request.setAttribute("providermsgSuccess", "provider.setShowPatientDOB.msgSuccess");
         request.setAttribute("method", "saveShowPatientDOB");
 
         this.setRxShowPatientDOBProperty(prop);
@@ -659,15 +736,15 @@ public class ProviderProperty2Action extends ActionSupport {
 
         request.setAttribute("status", "success");
         request.setAttribute("rxShowPatientDOBProperty", prop);
-        request.setAttribute("providertitle", "provider.setShowPatientDOB.title"); //=Select if you want to use Rx3
-        request.setAttribute("providermsgPrefs", "provider.setShowPatientDOB.msgPrefs"); //=Preferences
-        request.setAttribute("providermsgProvider", "provider.setShowPatientDOB.msgProfileView"); //=Use Rx3
-        request.setAttribute("providermsgEdit", "provider.setShowPatientDOB.msgEdit"); //=Do you want to use Rx3?
-        request.setAttribute("providerbtnSubmit", "provider.setShowPatientDOB.btnSubmit"); //=Save
+        request.setAttribute("providertitle", "provider.setShowPatientDOB.title");
+        request.setAttribute("providermsgPrefs", "provider.setShowPatientDOB.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setShowPatientDOB.msgProfileView");
+        request.setAttribute("providermsgEdit", "provider.setShowPatientDOB.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setShowPatientDOB.btnSubmit");
         if (checked)
-            request.setAttribute("providermsgSuccess", "provider.setShowPatientDOB.msgSuccess_selected"); //=Rx3 is selected
+            request.setAttribute("providermsgSuccess", "provider.setShowPatientDOB.msgSuccess_selected");
         else
-            request.setAttribute("providermsgSuccess", "provider.setShowPatientDOB.msgSuccess_unselected"); //=Rx3 is unselected
+            request.setAttribute("providermsgSuccess", "provider.setShowPatientDOB.msgSuccess_unselected");
         request.setAttribute("method", "saveShowPatientDOB");
         return "genShowPatientDOB";
     }
@@ -696,12 +773,12 @@ public class ProviderProperty2Action extends ActionSupport {
 
         prop.setChecked(checked);
         request.setAttribute("rxUseRx3Property", prop);
-        request.setAttribute("providertitle", "provider.setRxRxUseRx3.title"); //=Select if you want to use Rx3
-        request.setAttribute("providermsgPrefs", "provider.setRxRxUseRx3.msgPrefs"); //=Preferences
-        request.setAttribute("providermsgProvider", "provider.setRxRxUseRx3.msgProfileView"); //=Use Rx3
-        request.setAttribute("providermsgEdit", "provider.setRxUseRx3.msgEdit"); //=Do you want to use Rx3?
-        request.setAttribute("providerbtnSubmit", "provider.setRxUseRx3.btnSubmit"); //=Save
-        request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_selected"); //=Rx3 Selection saved
+        request.setAttribute("providertitle", "provider.setRxRxUseRx3.title");
+        request.setAttribute("providermsgPrefs", "provider.setRxRxUseRx3.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setRxRxUseRx3.msgProfileView");
+        request.setAttribute("providermsgEdit", "provider.setRxUseRx3.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setRxUseRx3.btnSubmit");
+        request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_selected");
         request.setAttribute("method", "saveUseRx3");
 
         this.setRxUseRx3Property(prop);
@@ -731,15 +808,15 @@ public class ProviderProperty2Action extends ActionSupport {
 
         request.setAttribute("status", "success");
         request.setAttribute("rxUseRx3Property", prop);
-        request.setAttribute("providertitle", "provider.setRxRxUseRx3.title"); //=Select if you want to use Rx3
-        request.setAttribute("providermsgPrefs", "provider.setRxRxUseRx3.msgPrefs"); //=Preferences
-        request.setAttribute("providermsgProvider", "provider.setRxRxUseRx3.msgProfileView"); //=Use Rx3
-        request.setAttribute("providermsgEdit", "provider.setRxUseRx3.msgEdit"); //=Check if you want to use Rx3
-        request.setAttribute("providerbtnSubmit", "provider.setRxUseRx3.btnSubmit"); //=Save
+        request.setAttribute("providertitle", "provider.setRxRxUseRx3.title");
+        request.setAttribute("providermsgPrefs", "provider.setRxRxUseRx3.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setRxRxUseRx3.msgProfileView");
+        request.setAttribute("providermsgEdit", "provider.setRxUseRx3.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setRxUseRx3.btnSubmit");
         if (checked)
-            request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_selected"); //=Rx3 is selected
+            request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_selected");
         else
-            request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_unselected"); //=Rx3 is unselected
+            request.setAttribute("providermsgSuccess", "provider.setRxUseRx3.msgSuccess_unselected");
         request.setAttribute("method", "saveUseRx3");
         return "genRxUseRx3";
     }
@@ -757,12 +834,12 @@ public class ProviderProperty2Action extends ActionSupport {
 
         //request.setAttribute("propert", propertyToSet);
         request.setAttribute("quantity", quantity);
-        request.setAttribute("providertitle", "provider.setRxDefaultQuantity.title"); //=Set Rx Default Quantity
-        request.setAttribute("providermsgPrefs", "provider.setRxDefaultQuantity.msgPrefs"); //=Preferences"); //
-        request.setAttribute("providermsgProvider", "provider.setRxDefaultQuantity.msgDefaultQuantity"); //=Rx Default Quantity
-        request.setAttribute("providermsgEdit", "provider.setRxDefaultQuantity.msgEdit"); //=Enter your desired quantity
-        request.setAttribute("providerbtnSubmit", "provider.setRxDefaultQuantity.btnSubmit"); //=Save
-        request.setAttribute("providermsgSuccess", "provider.setRxDefaultQuantity.msgSuccess"); //=Rx Default Quantity saved
+        request.setAttribute("providertitle", "provider.setRxDefaultQuantity.title");
+        request.setAttribute("providermsgPrefs", "provider.setRxDefaultQuantity.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setRxDefaultQuantity.msgDefaultQuantity");
+        request.setAttribute("providermsgEdit", "provider.setRxDefaultQuantity.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setRxDefaultQuantity.btnSubmit");
+        request.setAttribute("providermsgSuccess", "provider.setRxDefaultQuantity.msgSuccess");
         request.setAttribute("method", "saveDefaultQuantity");
 
         this.setRxDefaultQuantityProperty(quantity);
@@ -788,12 +865,12 @@ public class ProviderProperty2Action extends ActionSupport {
 
         request.setAttribute("status", "success");
         request.setAttribute("quantity", quantity);
-        request.setAttribute("providertitle", "provider.setRxDefaultQuantity.title"); //=Set Rx Default Quantity
-        request.setAttribute("providermsgPrefs", "provider.setRxDefaultQuantity.msgPrefs"); //=Preferences"); //
-        request.setAttribute("providermsgProvider", "provider.setRxDefaultQuantity.msgDefaultQuantity"); //=Rx Default Quantity
-        request.setAttribute("providermsgEdit", "provider.setRxDefaultQuantity.msgEdit"); //=Enter your desired quantity
-        request.setAttribute("providerbtnSubmit", "provider.setRxDefaultQuantity.btnSubmit"); //=Save
-        request.setAttribute("providermsgSuccess", "provider.setRxDefaultQuantity.msgSuccess"); //=Rx Default Quantity saved
+        request.setAttribute("providertitle", "provider.setRxDefaultQuantity.title");
+        request.setAttribute("providermsgPrefs", "provider.setRxDefaultQuantity.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setRxDefaultQuantity.msgDefaultQuantity");
+        request.setAttribute("providermsgEdit", "provider.setRxDefaultQuantity.msgEdit");
+        request.setAttribute("providerbtnSubmit", "provider.setRxDefaultQuantity.btnSubmit");
+        request.setAttribute("providermsgSuccess", "provider.setRxDefaultQuantity.msgSuccess");
         request.setAttribute("method", "saveDefaultQuantity");
         return "genRxDefaultQuantity";
     }
@@ -2524,11 +2601,15 @@ public class ProviderProperty2Action extends ActionSupport {
      *     3. Forward to setLabMacroPrefs.jsp (JSP loads macro data from database)
      *
      * @return "genLabMacroPrefs" - Struts2 result name mapping to setLabMacroPrefs.jsp
+     * @throws SecurityException if no valid session found
      * @throws RuntimeException if provider lacks _lab READ privilege
      * @since 2024-12-06 (Security check added 2026-02-17)
      */
     public String viewLabMacroPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("No valid session found");
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
             throw new RuntimeException("missing required security object _lab");
         }
@@ -2581,11 +2662,15 @@ public class ProviderProperty2Action extends ActionSupport {
      *     6. Return to setLabMacroPrefs.jsp with status message
      *
      * @return "genLabMacroPrefs" - Struts2 result name mapping to setLabMacroPrefs.jsp
+     * @throws SecurityException if no valid session found
      * @throws RuntimeException if provider lacks _lab WRITE privilege
      * @since 2024-12-06 (JSON validation added 2026-02-17)
      */
     public String saveLabMacroPrefs() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("No valid session found");
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("missing required security object _lab");
         }
@@ -2697,6 +2782,16 @@ public class ProviderProperty2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Serializes an object as JSON and writes it to the HTTP response.
+     *
+     * <p>On serialization failure, logs the error and sets HTTP 500 status
+     * (if the response has not already been committed) so the client can
+     * detect the failure rather than receiving an empty 200 response.</p>
+     *
+     * @param response HttpServletResponse the servlet response to write to
+     * @param json Object the object to serialize as JSON
+     */
     private void writeJsonResponse(HttpServletResponse response, Object json) {
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
@@ -2706,10 +2801,13 @@ public class ProviderProperty2Action extends ActionSupport {
           mapper.writeValue(response.getWriter(), json);
         } catch (Exception e) {
             logger.error("An error occurred while writing JSON response to the output stream", e);
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
     }
 
-    private static final Map<String, Supplier<String>> methodMap = new HashMap<>();
+    private final Map<String, Supplier<String>> methodMap = new HashMap<>();
 
     @PostConstruct
     public void init() {

@@ -29,49 +29,63 @@
 
 --%>
 <%--
-    DisplayMessages.jsp - Main message inbox/outbox display interface for the OpenO EMR messaging system
-    
+    DisplayMessages.jsp - Main message inbox/outbox display interface for the CARLOS EMR messaging system
+
     Purpose:
     This JSP page displays the list of messages for healthcare providers, supporting
     different views including inbox, sent messages, deleted messages, and demographic-specific
     messages. It provides sorting, pagination, and message management capabilities.
-    
+
     Key Features:
     - Multiple message box types (inbox, sent, deleted, demographic)
     - Column sorting with ascending/descending toggle
-    - Pagination support for large message lists
+    - Pagination support for large message lists (25 messages per page)
     - Patient demographic filtering
     - Security validation for read permissions
-    - Message status indicators (new, read, deleted)
-    - Quick actions (view, reply, forward, delete)
-    
+    - Message status indicators (new, read, unread) with bold styling for unread
+    - Quick actions (archive, unarchive, mark read, mark unread)
+    - Select-all checkbox with single-element handling for bulk operations
+
     Request Parameters:
     - boxType: Type of message box to display (0=inbox, 1=sent, 2=deleted, 3=demographic)
     - demographic_no: Filter messages for specific patient
-    - orderby: Column to sort by
+    - orderby: Column to sort by (toggles ascending/descending on repeat click)
     - page: Current page number for pagination
-    
+
     Session Requirements:
-    - msgSessionBean: Must be valid for page access
+    - msgSessionBean: Must be valid for page access (redirects to index.jsp if null)
     - userrole: User's role for security validation
-    - orderby: Stored sort preference
-    
-    @since 2002
+    - orderby: Stored sort preference (persisted across requests)
+
+    Frontend Dependencies:
+    - Bootstrap 5.0.2 (responsive layout, navigation tabs, table styling)
+    - Font Awesome 3.x (action icons: trash, folder, undo, search, caret)
+
+    Form Routing:
+    - Inbox/Sent/Demographic views POST to DisplayMessages.do (MsgDisplayMessages2Action)
+    - Deleted/Archived view POSTs to ReDisplayMessages.do (MsgReDisplayMessages2Action)
+
+    @since 2002-11-08
 --%>
-
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.util.ResourceBundle" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // Build security role string from session attributes
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    String userrole = (String) session.getAttribute("userrole");
+    String user = (String) session.getAttribute("user");
+    String roleName$ = (userrole != null ? userrole : "") + "," + (user != null ? user : "");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
@@ -127,7 +141,11 @@
     }
     String orderby = (String) session.getAttribute("orderby");
 
-    int pageNum = request.getParameter("page") == null ? 1 : Integer.parseInt(request.getParameter("page"));
+    int pageNum = 1;
+    String pageParam = request.getParameter("page");
+    if (pageParam != null) {
+        try { pageNum = Integer.parseInt(pageParam); } catch (NumberFormatException e) { pageNum = 1; }
+    }
 %>
 
 <c:if test="${empty msgSessionBean}">
@@ -140,268 +158,147 @@
 </c:if>
 <%
     MsgSessionBean bean = (MsgSessionBean) session.getAttribute("msgSessionBean");
+    if (bean == null) {
+        response.sendRedirect(request.getContextPath() + "/messenger/index.jsp");
+        return;
+    }
 %>
 <jsp:useBean id="DisplayMessagesBeanId" scope="session" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgDisplayMessagesBean"/>
 <% DisplayMessagesBeanId.setProviderNo(bean.getProviderNo());
     bean.nullAttachment();
 %>
 <jsp:setProperty name="DisplayMessagesBeanId" property="*"/>
-
+<!DOCTYPE html>
 <html>
     <head>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css" href="css/encounterStyles.css">
+
         <title>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.title"/>
+            <fmt:message key="messenger.DisplayMessages.title"/>
         </title>
 
-        <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-1.12.0.min.js"></script>
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
 
-        <style type="text/css">
-            td.messengerButtonsA {
-                /*background-color: #6666ff;*/
-                /*background-color: #6699cc;*/
-                background-color: #003399;
-            }
+        <style>
+        tr.newMessage td {
+             font-weight: bold;
+        }
 
-            td.messengerButtonsD {
-                /*background-color: #84c0f4;*/
-                background-color: #555599;
-            }
+        .TopStatusBar{
+        width:100% !important;
+        }
 
-            a.messengerButtons {
-                color: #ffffff;
-                font-size: 9pt;
-                text-decoration: none;
-            }
+        tr.integratedMessage td {
+	        background-color: #FFCCCC;
+	        color: black;
+        }
 
-
-            table.messButtonsA {
-                border-top: 2px solid #cfcfcf;
-                border-left: 2px solid #cfcfcf;
-                border-bottom: 2px solid #333333;
-                border-right: 2px solid #333333;
-            }
-
-            table.messButtonsD {
-                border-top: 2px solid #333333;
-                border-left: 2px solid #333333;
-                border-bottom: 2px solid #cfcfcf;
-                border-right: 2px solid #cfcfcf;
-            }
-
-            tr.newMessage {
-
-            }
-
-            tr.newMessage td {
-                font-weight: bold;
-            }
-
-            .TopStatusBar {
-                width: 100% !important;
-            }
-
-            .integratedMessage {
-                background-color: #FFCCCC;
-                color: black;
-            }
-
-            .normalMessage {
-                background-color: #EEEEFF;
-                color: black;
-            }
-
-            span.recipientList {
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                overflow: hidden;
-            }
-
-            span.recipientList:hover {
-                position: relative;
-                text-overflow: clip;
-                width: auto;
-                white-space: normal;
-            }
-
-
+        span.recipientList:hover{
+	        position: relative;
+            text-overflow:clip;
+            width:auto;
+            white-space: normal;
+        }
         </style>
 
+        <script src="${pageContext.request.contextPath}/csrfguard"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
         <script type="text/javascript">
-            function BackToOscar() {
-                if (opener.callRefreshTabAlerts) {
-                    opener.callRefreshTabAlerts("oscar_new_msg");
-                    setTimeout("window.close()", 100);
-                } else {
-                    window.close();
-                }
-            }
-
             function uload() {
-                if (opener.callRefreshTabAlerts) {
+                if (opener && opener.callRefreshTabAlerts) {
                     opener.callRefreshTabAlerts("oscar_new_msg");
-                    setTimeout("window.close()", 100);
+                    setTimeout(function() { window.close(); }, 100);
                     return false;
                 }
                 return true;
             }
 
+            // Toggles all message checkboxes in the form; handles both single-element and NodeList cases
             function checkAll(formId) {
                 var f = document.getElementById(formId);
                 var val = f.checkA.checked;
-                for (i = 0; i < f.messageNo.length; i++) {
-                    f.messageNo[i].checked = val;
+                var boxes = f.messageNo;
+                if (!boxes) return;
+                if (typeof boxes.length === 'undefined') {
+                    // Single checkbox (single message in list)
+                    boxes.checked = val;
+                } else {
+                    for (var i = 0; i < boxes.length; i++) {
+                        boxes[i].checked = val;
+                    }
                 }
             }
 
-            $(document).ready(function () {
+            // Truncate long recipient lists to 30 chars with ellipsis; full text shown on hover via title attribute
+            document.addEventListener("DOMContentLoaded", function () {
+                const lengthText = 30;
+                const recipientLists = document.querySelectorAll('.recipientList');
 
-                var lengthText = 30;
-                const recipientLists = $('.recipientList');
+                recipientLists.forEach(function (element) {
+                    // Use textContent instead of text()
+                    let text = element.textContent.trim();
 
-                $.each(recipientLists, function (key, value) {
-                    var text = $(value).text();
-                    var shortText = $.trim(text).substring(0, lengthText).split(" ").slice(0, -1).join(" ") + "...";
-                    $(value).text(shortText);
-                    $(value).attr("title", $.trim(text));
-                })
-            })
+                    if (text.length > lengthText) {
+                        // Trim to length, remove partial words
+                        let shortText = text.substring(0, lengthText).split(" ").slice(0, -1).join(" ") + "...";
+                        element.textContent = shortText;
+                    }
+
+                    // Set title attribute
+                    element.setAttribute("title", text);
+                });
+            });
 
         </script>
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF" onload="window.focus()" onunload="return uload()">
-    <div id="pop-up"><p></p></div>
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">
-                <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgMessenger"/></h2>
-            </td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td>
-                            <h2>
-                                <% String inbxStyle = "messengerButtonsA";
-                                    String sentStyle = "messengerButtonsA";
-                                    String delStyle = "messengerButtonsA";
-                                    switch (pageType) {
-                                        case 0: %>
-                                <div class="DivContentTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgInbox"/></div>
-                                <% inbxStyle = "messengerButtonsD";
-                                    break;
-                                    case 1: %>
-                                <div class="DivContentTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgSentTitle"/></div>
-                                <% sentStyle = "messengerButtonsD";
-                                    break;
-                                    case 2: %>
-                                <div class="DivContentTitle"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgArchived"/></div>
-                                <% delStyle = "messengerButtonsD";
-                                    break;
-                                    case 3: %>
-                                <div class="DivContentTitle">Messages related to <%=demographic_name%>
-                                </div>
-                                <% delStyle = "messengerButtonsD";
-                                    break;
-                                }%>
-                            </h2>
-                        </td>
-                        <td>
-                            <!-- edit 2006-0811-01 by wreby -->
+    <body class="BodyStyle" onload="window.focus()" onunload="return uload()">
+<table style="width: 100%;">
+  <tr>
+    <td style="vertical-align:top;">
+			<h4>&nbsp;<i class="icon-envelope" title="<fmt:message key="messenger.DisplayMessages.msgMessenger"/>"></i>&nbsp;
+                        <% switch(pageType){
+                            case 0: %>
+     		                    <fmt:message key="messenger.DisplayMessages.msgInbox"/>
+                        <%      break;
+                            case 1: %>
+                                <fmt:message key="messenger.DisplayMessages.msgSentTitle"/>
+                        <%      break;
+                            case 2: %>
+                                <fmt:message key="messenger.DisplayMessages.msgArchived"/>
+                        <%      break;
+                            case 3: %>
+                                Messages related to <%=Encode.forHtml(demographic_name)%>
+                        <%      break;
+                        }%>
+        </h4>
+    </td>
+<td style="width:60%; display:flex; align-items:center;">
+
                             <form action="${pageContext.request.contextPath}/messenger/DisplayMessages.do" method="post">
-                                <input name="boxType" type="hidden" value="<%=pageType%>">
-                                <input name="searchString" type="text" size="20"
-                                       value="<jsp:getProperty name="DisplayMessagesBeanId" property="filter"/>">
-                                <input name="btnSearch" type="submit"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnSearch"/>">
-                                <input name="btnClearSearch" type="submit"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnClearSearch"/>">
+<div class="input-group">
+                            <input name="boxType" type="hidden" value="<%=pageType%>">
+                            <input name="searchString" type="text" class="form-control h-50"  value="<%=Encode.forHtmlAttribute(DisplayMessagesBeanId.getFilter())%>">
+                            <button name="btnSearch" type="submit" class="btn"  title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"><i class="icon-search icon-large"></i></button>
+                            <button name="btnClearSearch" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.btnClearSearch"/>"><i class="icon-remove icon-large"></i></button>
+</div>
                             </form>
-                            <!-- end edit 2006-0811-01 by wreby -->
-                        </td>
-                        <td style="text-align:right">
 
-                            <a href="<%=request.getContextPath()%>/oscarEncounter/About.jsp" target="_new"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn">
-                &nbsp;
-            </td>
-            <td class="MainTableRightColumn">
-                <table width="100%">
-                    <tr>
-                        <td>
-                            <table cellspacing=3>
-                                <tr>
-                                    <td>
-                                        <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                            <tr>
-                                                <td class="messengerButtonsA">
-                                                    <a href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp"
-                                                               class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnCompose"/>
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                    <td>
-                                        <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                            <tr>
-                                                <td class="messengerButtonsA">
-                                                    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
-                                                               class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnRefresh"/>
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                    <td>
-                                        <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                            <tr>
-                                                <td class="messengerButtonsA">
-                                                    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1"
-                                                               class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnSent"/><!--sentMessage--link-->
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                    <td>
-                                        <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                            <tr>
-                                                <td class="messengerButtonsA">
-                                                    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=2"
-                                                               class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/><!--deletedMessage--link-->
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                    <td>
-                                        <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                            <tr>
-                                                <td class="messengerButtonsA">
-                                                    <a href="javascript:BackToOscar()"
-                                                       class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+</td>
+    <td style="text-align: right;" >
+		<i class=" icon-question-sign"></i>
+	                        <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger create')"><fmt:message key="app.top1"/></a>
+	                        <i class=" icon-info-sign" style="margin-left:10px;"></i>
+                            <a href="javascript:void(0)" onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a>
+    </td>
+</tr>
+</table>
 
-                        </td>
-                    </tr>
                     <%
+                        // Route form to different Struts actions based on view type:
+                        // - Inbox/Sent/Demographic → DisplayMessages.do (handles delete, read, unread)
+                        // - Deleted/Archived → ReDisplayMessages.do (handles unarchive, mark as read)
                         String contextPath = request.getContextPath();
                         String strutsAction = contextPath + "/messenger/DisplayMessages.do";
                         if (pageType == 2) {
@@ -410,228 +307,286 @@
                     %>
 
                     <form action="<%=strutsAction%>" method="post" id="msgList">
-                    <%
-                        java.util.Vector theMessages2 = new java.util.Vector();
-                        switch (pageType) {
-                            case 0:
-                                theMessages2 = DisplayMessagesBeanId.estInbox(orderby, pageNum);
-                                break;
-                            case 1:
-                                theMessages2 = DisplayMessagesBeanId.estSentItemsInbox(orderby, pageNum);
-                                break;
-                            case 2:
-                                theMessages2 = DisplayMessagesBeanId.estDeletedInbox(orderby, pageNum);
-                                break;
-                            case 3:
-                                theMessages2 = DisplayMessagesBeanId.estDemographicInbox(orderby, demographic_no);
-                                break;
-                        }   //messageid
-                    %>
+
+                    <c:if test="${not empty updateFailureCount}">
+                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                            <fmt:message key="messenger.DisplayMessages.updatePartialFailure"/>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    </c:if>
+
+       <table  class="MainTable" id="scrollNumber1" style="width: 100%;">
+        <tr>
+            <td class="MainTableRightColumn" >
+                <table style="width: 100%;">
 
                     <tr>
                         <td>
-                            <table border="0" width="90%" cellspacing="1">
+                            <ul class="nav nav-tabs">
+                                <li class="nav-item">
+                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp">
+                                         <fmt:message key="messenger.DisplayMessages.btnCompose"/></a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <% if (pageType == 0) { %>active<% } %>"
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp">
+                                         <fmt:message key="messenger.DisplayMessages.btnRefresh"/></a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <% if (pageType == 1) { %>active<% } %>"
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1">
+                                         <fmt:message key="messenger.DisplayMessages.btnSent"/></a><!-- sentMessage link-->
 
-                                <tr>
-                                    <td colspan="6">
-                                        <table style="width:100%;">
-                                            <tr>
-                                                <td>
-                                                    <%if (pageType == 0) {%>
-                                                    <input name="btnDelete" type="submit"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formArchive"/>">
-                                                    <%} else if (pageType == 2) {%>
-                                                    <input type="submit"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formUnarchive"/>">
-                                                    <%}%>
-                                                    &nbsp;
-                                                </td>
-                                                <td align="right">
-                                                    <%
-                                                        int recordsToDisplay = 25;
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link <% if (pageType == 2) { %>active<% } %>"
+                                          href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=2">
+                                         <fmt:message key="messenger.DisplayMessages.btnDeletedMessage"/></a><!--deletedMessage link-->
 
-                                                        String previous = "";
-                                                        String next = "";
-                                                        String path = request.getContextPath() + "/messenger/DisplayMessages.jsp?boxType=" + pageType + "&page=";
-                                                        Boolean search = false;
-                                                        if (request.getParameter("searchString") != null) {
-                                                            search = true;
-                                                        }
+                                    </li>
+                                    <li class="nav-item">
+                                        <a class="nav-link" href="javascript:BackToCarlos()"><fmt:message key="messenger.DisplayMessages.btnExit"/></a>
+                                    </li>
+                                    </ul>
+                        </td>
+                    </tr>
 
-                                                        if (pageType != 3) {
 
-                                                            int totalMsgs = DisplayMessagesBeanId.getTotalMessages(pageType);
 
-                                                            int totalPages = totalMsgs / recordsToDisplay + (totalMsgs % recordsToDisplay == 0 ? 0 : 1);
+                    <%
+                           java.util.Vector theMessages2 = new java.util.Vector() ;
+                        switch(pageType){
+                            case 0:
+                                theMessages2 = DisplayMessagesBeanId.estInbox(orderby,pageNum);
+                            break;
+                            case 1:
+                                theMessages2 = DisplayMessagesBeanId.estSentItemsInbox(orderby,pageNum);
+                            break;
+                            case 2:
+                                theMessages2 = DisplayMessagesBeanId.estDeletedInbox(orderby,pageNum);
+                            break;
+                            case 3:
+                                theMessages2 = DisplayMessagesBeanId.estDemographicInbox(orderby,demographic_no);
+                            break;
+                        }   //messageid
+%>
+                    <tr>
+                        <td style="padding: 10px;" ><span>
+                            <%if (pageType == 0){%>
+                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="icon-trash"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
+                                    <button name="btnRead" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="icon-folder-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
+                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="icon-folder-close"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
+                            <%}else if (pageType == 2){%>
+                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
+                            <%}%>
+                            &nbsp;</span>
+                        <span class="float-end">
+		                    <%
+		                    int recordsToDisplay = 25;
+		                    ResourceBundle msgBundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
-                                                            if (pageNum > 1) {
-                                                                previous = "<a href='" + path + (pageNum - 1) + "' title='previous page'><< Previous</a> ";
-                                                                out.print(previous);
-                                                            }
+		                    String previous = "";
+		                    String next = "";
+		                    String path = request.getContextPath()+"/messenger/DisplayMessages.jsp?boxType=" + pageType + "&page=";
+		                    if (pageType != 3){
 
-                                                            if (pageNum < totalPages) {
-                                                                next = "<a href='" + path + (pageNum + 1) + "' title='next page'>Next >></a>";
-                                                                out.print(next);
-                                                            }
-                                                        }%>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </td>
+		                    int totalMsgs = DisplayMessagesBeanId.getTotalMessages(pageType);
+
+		                    int totalPages = totalMsgs / recordsToDisplay + (totalMsgs % recordsToDisplay == 0 ? 0 : 1);
+
+		                    String prevLabel;
+		                    String nextLabel;
+		                    try {
+		                        prevLabel = Encode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnPrevious"));
+		                    } catch (java.util.MissingResourceException e) {
+		                        MiscUtils.getLogger().debug("Missing resource key: messenger.DisplayMessages.btnPrevious");
+		                        prevLabel = "&laquo; Previous";
+		                    }
+		                    try {
+		                        nextLabel = Encode.forHtml(msgBundle.getString("messenger.DisplayMessages.btnNext"));
+		                    } catch (java.util.MissingResourceException e) {
+		                        MiscUtils.getLogger().debug("Missing resource key: messenger.DisplayMessages.btnNext");
+		                        nextLabel = "Next &raquo;";
+		                    }
+
+		                    if(pageNum>1){
+		                    	previous = "<a href='" + path + (pageNum-1) + "' title='previous page'>" + prevLabel + "</a> ";
+		                    	out.print(previous);
+							}
+
+		                    if(pageNum<totalPages){
+		                    	next = "<a href='" + path + (pageNum+1) + "' title='next page'>" + nextLabel + "</a>";
+		                    	out.print(next);
+		                    }
+		                    }%></span>
+                        </td>
+                   </tr>
+                    <tr>
+                        <td>
+                            <table class="table table-sm table-striped table-hover">
+                                <thead><tr>
+                                    <th style="text-align: left;">
+                                    <%if( pageType!=1 ) {%>
+                                       <input type="checkbox" name="checkA" onclick="checkAll('msgList')" id="checkA" style="margin-bottom: 10px;" title="<fmt:message key="messenger.DisplayMessages.msgAllMessage"/>">
+                                    <%} %>
+                                    </th>
+                                    <th style="text-align: left; width:120px;">
+                                        <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=status"
+                                                   >
+                                            <fmt:message key="messenger.DisplayMessages.msgStatus"/>
+                                            <i class=" icon-caret-down" ></i>
+                                        </a>
+                                    </th>
+                                    <th style="text-align: left;">
+                                      <%if( pageType == 1 ) {%>
+                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=sentto"
+                                                    >
+                                                    <fmt:message key="messenger.DisplayMessages.msgTo"/>
+                                                    <i class=" icon-caret-down" ></i>
+                                                </a>
+                                       <%} else {%>
+                                                <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=from"
+                                                   >
+                                                    <fmt:message key="messenger.DisplayMessages.msgFrom"/>
+                                                    <i class=" icon-caret-down" ></i>
+                                                </a>
+                                       <% } %>
+                                    </th>
+                                    <th style="text-align: left;">
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=subject"
+                                                   >
+                                                <fmt:message key="messenger.DisplayMessages.msgSubject"/>
+                                                <i class=" icon-caret-down" ></i>
+                                            </a>
+                                    </th>
+                                    <th style="text-align: left;">
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=date"
+                                                   >
+                                                <fmt:message key="messenger.DisplayMessages.msgDate"/>
+                                                <i class=" icon-caret-down" ></i>
+                                            </a>
+                                    </th>
+                                    <th style="text-align: left;" >
+                                            <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=linked"
+                                                   >
+                                                <fmt:message key="messenger.DisplayMessages.msgLinked"/>
+                                                <i class=" icon-caret-down" ></i>
+                                            </a>
+                                    </th>
                                 </tr>
-
-                                <tr>
-                                    <th align="left" bgcolor="#DDDDFF" width="75">
-                                        <%if (pageType != 1) {%>
-                                        <input type="checkbox" name="checkAll2" onclick="checkAll('msgList')"
-                                               id="checkA"/>
-                                        <%} %>
-                                    </th>
-                                    <th align="left" bgcolor="#DDDDFF">
-                                        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=status"
-                                                   paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgStatus"/>
-                                        </a>
-                                    </th>
-                                    <th align="left" bgcolor="#DDDDFF">
-                                        <%if (pageType == 1) {%>
-                                        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=sentto"
-                                                   paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgTo"/>
-                                        </a>
-                                        <%} else {%>
-                                        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=from"
-                                                   paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgFrom"/>
-                                        </a>
-                                        <% } %>
-                                    </th>
-                                    <th align="left" bgcolor="#DDDDFF">
-                                        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=subject"
-                                                   paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgSubject"/>
-                                        </a>
-                                    </th>
-                                    <th align="left" bgcolor="#DDDDFF">
-                                        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=date"
-                                                   paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgDate"/>
-                                        </a>
-                                    </th>
-                                    <th align="left" bgcolor="#DDDDFF">
-                                        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=linked"
-                                                   paramId="boxType" paramName="pageType">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgLinked"/>
-                                        </a>
-                                    </th>
-                                </tr>
-
-
-                                <!--   for loop Control Initiliation variabe changed to nextMessage   -->
+                        </thead>
+                        <tbody>
                                 <%
+                                    // Render each message row; build i18n key from status (e.g., "new" → "msgStatusNew")
                                     for (int i = 0; i < theMessages2.size(); i++) {
                                         MsgDisplayMessage dm;
                                         dm = (MsgDisplayMessage) theMessages2.get(i);
-                                        String key = "messenger.DisplayMessages.msgStatus" + dm.getStatus().substring(0, 1).toUpperCase() + dm.getStatus().substring(1);
+                                        // Guard against null/empty status from data corruption or unarchive edge cases.
+                                        // Default to "new" so messages with missing status appear as unread (bold),
+                                        // prompting the user to review them rather than silently appearing as read.
+                                        String statusStr = dm.getStatus();
+                                        if (statusStr == null || statusStr.trim().isEmpty()) {
+                                            MiscUtils.getLogger().debug("Message " + dm.getMessageId() + " has null/empty status; defaulting to 'new'");
+                                            statusStr = "new";
+                                        }
+                                        // Build resource bundle key: e.g., "messenger.DisplayMessages.msgStatusNew"
+                                        String key = "messenger.DisplayMessages.msgStatus" + statusStr.substring(0, 1).toUpperCase() + statusStr.substring(1);
                                 %>
 
-                                <% if ("messenger.DisplayMessages.msgStatusNew".equals(key)) {%>
-                                <tr class="newMessage">
-                                            <%}else{%>
-                                <tr>
-                                    <%}%>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'
-                                        width="75">
-                                        <%if (pageType != 1) {%>
-                                        <input type="checkbox" name="messageNo" value="<%=dm.getMessageId() %>"/>
-                                        <% } %>
-                                        &nbsp;
-                                        <%
-                                            String atta = dm.getAttach();
-                                            String pdfAtta = dm.getPdfAttach();
-                                            if (atta.equals("1") || pdfAtta.equals("1")) { %>
-                                        <img src="messenger/img/clip4.jpg">
-                                        <% } %>
-
+                                <%-- Apply bold styling (newMessage class) for unread messages, and integratedMessage for type 3 --%>
+                                <%
+                                String rowClass = "";
+                                if ("messenger.DisplayMessages.msgStatusNew".equals(key) || "messenger.DisplayMessages.msgStatusUnread".equals(key)) {
+                                    rowClass = "newMessage";
+                                }
+                                if (dm.getType() == 3) {
+                                    rowClass += (rowClass.isEmpty() ? "" : " ") + "integratedMessage";
+                                }
+                                %>
+                                <tr class="<%=rowClass%>">
+                                    <td style="width:25px;">
+                                    <%if (pageType != 1){%>
+                                       <input type="checkbox" name="messageNo" value="<%=Encode.forHtmlAttribute(dm.getMessageId()) %>">
+                                     <% } %>
 
                                     </td>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
-                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="<%= key %>"/>
+                                    <td>
+                                     <fmt:message key="<%= key %>"/>
                                     </td>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
-                                        <span class="recipientList">
+                                    <td>
+
                                         <%
-                                            if (pageType == 1) {
-                                                out.print(dm.getSentto());
-                                            } else {
-                                                out.print(dm.getSentby());
+                                            if( pageType == 1 ) {
+%>
+<span class="recipientList">
+<%
+                                                out.print(Encode.forHtml(dm.getSentto()));
+%>
+</span>
+<%
+                                            }
+                                            else
+                                            {
+                                                out.print(Encode.forHtml(dm.getSentby()));
                                             }
                                         %>
-                                    	</span>
-                                    </td>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
-                                        <a href="<%=request.getContextPath()%>/messenger/ViewMessage.do?messageID=<%=dm.getMessageId()%>&boxType=<%=pageType%>">
-                                            <%=dm.getThesubject()%>
-                                        </a>
 
                                     </td>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
-                                        <%= dm.getThedate() %>
-                                        &nbsp;&nbsp;
-                                        <%= dm.getThetime() %>
+                                    <td>
+                                    <a href="<%=request.getContextPath()%>/messenger/ViewMessage.do?messageID=<%=Encode.forUriComponent(dm.getMessageId())%>&boxType=<%=pageType%>">
+                                        <%=Encode.forHtml(dm.getThesubject())%>
+                                    </a>
+                                    <%
+                                       String atta = dm.getAttach();
+                                       String pdfAtta = dm.getPdfAttach();
+                                       if ("1".equals(atta) || "1".equals(pdfAtta) ){ %>
+                                            &nbsp;<i class="icon-paper-clip" title="attachment"></i>
+                                    <% } %>
                                     </td>
-                                    <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
+                                    <td title="<%= Encode.forHtmlAttribute(dm.getThedate()) %>&nbsp;&nbsp;<%= Encode.forHtmlAttribute(dm.getThetime()) %>">
+                                    	<%=Encode.forHtml(dm.getThedate())%>
 
-                                        <%if (dm.getDemographic_no() != null && !dm.getDemographic_no().equalsIgnoreCase("null")) {%>
-                                        <oscar:nameage demographicNo="<%=dm.getDemographic_no()%>"></oscar:nameage>
-                                        <%} %>
+                                    </td>
+                                    <td>
+
+                                    <%if(dm.getDemographic_no() != null  && !dm.getDemographic_no().equalsIgnoreCase("null")) {%>
+                                        <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(dm.getDemographic_no())%>"></oscar:nameage>
+                                    <%} %>
 
                                     </td>
                                 </tr>
-                                <%}%>
+                            <%}%>
 
-                                <tr>
-                                    <td colspan="6">
-                                        <table width="100%">
-                                            <tr>
-                                                <td>
-                                                    <%if (pageType == 0) {%>
-                                                    <input name="btnDelete" type="submit"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formArchive"/>">
-                                                    <%} else if (pageType == 2) {%>
-                                                    <input type="submit"
-                                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.formUnarchive"/>">
-                                                    <%}%>
-                                                </td>
-
-                                                <td align="right">
-                                                    <%
-                                                        if (pageType != 3) {
-                                                            out.print(previous + next);
-                                                        }
-                                                    %>
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
+                            <tr><td colspan="6">
+                        <span>
+                            <%if (pageType == 0){%>
+                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="icon-trash"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
+                                    <button name="btnRead" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="icon-folder-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
+                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="icon-folder-close"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
+                            <%}else if (pageType == 2){%>
+                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
+                            <%}%>
+                            &nbsp;</span>
+                        <span class="float-end">
+                                    <%
+                                    if(pageType!=3){
+                                    	out.print(previous + next);
+                                    }
+                                    %>
+</span>
+                            </td></tr></tbody>
                             </table>
-
-
-                            </form>
                         </td>
-                    </tr>
+                    </tr></tbody>
                 </table>
+
             </td>
         </tr>
         <tr>
             <td class="MainTableBottomRowLeftColumn">
-
-            </td>
-            <td class="MainTableBottomRowRightColumn">
-
             </td>
         </tr>
     </table>
-    </body>
+</form>
+</body>
 </html>
