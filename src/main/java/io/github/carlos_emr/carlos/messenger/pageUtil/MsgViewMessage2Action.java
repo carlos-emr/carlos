@@ -254,7 +254,7 @@ public class MsgViewMessage2Action extends ActionSupport {
         if (linkMsgDemo != null && demographic_no != null) {
             if (linkMsgDemo.equalsIgnoreCase("true")) {
                 Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
-                if (parsedMessageNo > 0 && parsedDemoNo > 0) {
+                if (parsedDemoNo > 0) {
                     messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageNo, parsedDemoNo);
                 }
             }

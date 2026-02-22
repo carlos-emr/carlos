@@ -202,6 +202,7 @@
         }
         </style>
 
+        <script src="${pageContext.request.contextPath}/csrfguard"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
         <script type="text/javascript">
             function uload() {

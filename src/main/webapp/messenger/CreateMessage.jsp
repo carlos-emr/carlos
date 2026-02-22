@@ -348,12 +348,10 @@ function validateFields() {
 	function popupAttachDemo(demographic){
 	    var vheight = 700;
 	    var vwidth = 900;
-	    windowprops = "height="+vheight+",width="+vwidth+",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";
+	    var windowprops = "height="+vheight+",width="+vwidth+",location=0,scrollbars=1,menubar=0,toolbar=1,resizable=1,screenX=0,screenY=0,top=0,left=0";
 	    var page = 'attachmentFrameset.jsp?demographic_no=' +demographic;
-	    var demo_no  = demographic;
 
-
-	    if ( demographic == "" || !demographic || demographic == null || demographic == "null") {
+	    if ( demographic == "" || !demographic || demographic == "null") {
 	        alert("Please select a demographic.");
 	    }
 	    else {
