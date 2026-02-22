@@ -31,7 +31,6 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -239,18 +238,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
         }
 
-        ArrayList newDocArr = (ArrayList) request.getSession().getServletContext().getAttribute("newDocArr");
-        Boolean useNewEchart = (Boolean) request.getSession().getServletContext().getAttribute("useNewEchart");
-
-        String proNo = (String) request.getSession().getAttribute("user");
-        if (proNo != null && newDocArr != null && Collections.binarySearch(newDocArr, proNo) >= 0) {
-            return "success2";
-        } else if (useNewEchart != null && useNewEchart.equals(Boolean.TRUE)) {
-
-            return "success2";
-        } else {
-            return SUCCESS;
-        }
+        return "success2";
     }
 
     private Set<Long> getIssueIdSet(String providerNo, String wlProgramId) {

@@ -417,36 +417,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         /* set issue checked list */
 
         // get issues for current demographic, based on providers rights
-        Boolean useNewCaseMgmt = Boolean.valueOf((String) session.getAttribute("newCaseManagement"));
+        CaseManagementView2Action caseManagementViewAction = new CaseManagementView2Action();
+        ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
+        caseManagementViewAction.addLocalIssues(providerNo, checkBoxBeanList, demographicNo, false, programId);
 
-                List<CheckBoxBean> checkedList = null;
-        if (useNewCaseMgmt) {
+        caseManagementViewAction.sortIssuesByOrderId(checkBoxBeanList);
 
-            CaseManagementView2Action caseManagementViewAction = new CaseManagementView2Action();
-            ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
-            caseManagementViewAction.addLocalIssues(providerNo, checkBoxBeanList, demographicNo, false, programId);
-
-            caseManagementViewAction.sortIssuesByOrderId(checkBoxBeanList);
-
-                        checkedList = checkBoxBeanList;
-            Iterator itr = note.getIssues().iterator();
-            while (itr.hasNext()) {
-                int id = ((CaseManagementIssue) itr.next()).getId().intValue();
-                SetChecked(checkedList, id);
-            }
-
-        } else // old CME
-        {
-            CaseManagementView2Action caseManagementViewAction = new CaseManagementView2Action();
-            ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
-            caseManagementViewAction.addLocalIssues(providerNo, checkBoxBeanList, demographicNo, false, programId);
-            caseManagementViewAction.addGroupIssues(loggedInInfo, checkBoxBeanList, demographicNo, false);
-
-                        checkedList = checkBoxBeanList;
-
-            for (CaseManagementIssue cmi : note.getIssues()) {
-                setChecked_oldCme(checkedList, cmi);
-            }
+        List<CheckBoxBean> checkedList = checkBoxBeanList;
+        Iterator itr = note.getIssues().iterator();
+        while (itr.hasNext()) {
+            int id = ((CaseManagementIssue) itr.next()).getId().intValue();
+            SetChecked(checkedList, id);
         }
 
         current = System.currentTimeMillis();
@@ -639,15 +620,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         return null;
 
-    }
-
-    private void setChecked_oldCme(List<CheckBoxBean> checkedList, CaseManagementIssue cmi) {
-        for (CheckBoxBean cbb : checkedList) {
-            if (cbb.getIssueDisplay().code.equals(cmi.getIssue().getCode())) {
-                cbb.setChecked("on");
-                return;
-            }
-        }
     }
 
     public void resetTemp(String providerNo, String demoNo, String programId) {
@@ -1342,12 +1314,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
         note.setIssues(issueset);
-        Boolean useNewCaseMgmt = Boolean.valueOf((String) session.getAttribute("newCaseManagement"));
-        if (useNewCaseMgmt) {
-            ongoing = saveCheckedIssues_newCme(request, demo, note, issuelist, checkedlist, issueset, noteSet, ongoing);
-        } else {
-            ongoing = saveCheckedIssues_oldCme(request, demo, issuelist, checkedlist, issueset, noteSet, ongoing);
-        }
+        ongoing = saveCheckedIssues_newCme(request, demo, note, issuelist, checkedlist, issueset, noteSet, ongoing);
 
         sessionFrm.setIssueCheckList(checkedlist);
         note.setIssues(issueset);
@@ -1479,78 +1446,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         return note.getId();
-    }
-
-    private String saveCheckedIssues_oldCme(HttpServletRequest request, String demo, List<CaseManagementIssue> issuelist, List<CheckBoxBean> checkedlist, Set issueset, Set noteSet, String ongoing) {
-
-        int demographicNo = Integer.parseInt(demo);
-
-        for (int i = 0; i < checkedlist.size(); i++) {
-            CheckBoxBean checkBoxBean = checkedlist.get(i);
-            CaseManagementViewAction.IssueDisplay issueDisplay = checkBoxBean.getIssueDisplay();
-
-            if (issueDisplay.resolved != null && issueDisplay.resolved.equals("unresolved")) {
-                ongoing = ongoing + issueDisplay.getDescription() + "\n";
-            }
-
-            boolean isChecked = WebUtils.isChecked(request, "issueCheckList[" + i + "].checked");
-
-            CaseManagementIssue caseManagementIssue = null;
-            caseManagementIssue = caseManagementIssueDao.getIssuebyIssueCode(demo, issueDisplay.code);
-            if (caseManagementIssue == null && isChecked) {
-                Issue issue = issueDao.findIssueByCode(issueDisplay.code);
-                if (issue != null) {
-                    caseManagementIssue = new CaseManagementIssue();
-                    caseManagementIssue.setDemographic_no(demographicNo);
-                    caseManagementIssue.setIssue_id(issue.getId());
-                    caseManagementIssue.setType(issue.getRole());
-                    caseManagementIssue.setUpdate_date(new Date());
-
-                    // Should not save duplicated issue for one demographic
-                    if (caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId())) == null) {
-                        caseManagementIssueDao.saveIssue(caseManagementIssue);
-                    }
-                    // reload to materliase generated fields.
-                    caseManagementIssue = caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId()));
-                }
-            } else if (caseManagementIssue != null && isChecked) {
-                caseManagementIssue.setAcute("acute".equals(issueDisplay.acute));
-                caseManagementIssue.setCertain("certain".equals(issueDisplay.certain));
-                caseManagementIssue.setMajor("major".equals(issueDisplay.major));
-                caseManagementIssue.setResolved("resolved".equals(issueDisplay.resolved));
-                Issue issue = issueDao.findIssueByCode(issueDisplay.code);
-                if (issue != null) {
-                    caseManagementIssue.setUpdate_date(new Date());
-                    // Should not save duplicated issue for one demographic
-                    // But should be able to update existing issues.
-                    caseManagementIssueDao.saveIssue(caseManagementIssue);
-                    // reload to materliase generated fields.
-                    caseManagementIssue = caseManagementIssueDao.getIssuebyId(demo, String.valueOf(issue.getId()));
-                }
-            }
-
-            if (caseManagementIssue == null) continue;
-            else copyIssueDisplayToCaseManagementIssue(caseManagementIssue, issueDisplay);
-
-            if (isChecked) {
-                checkBoxBean.setChecked("on");
-                checkBoxBean.setUsed(true);
-                caseManagementIssue.setNotes(noteSet);
-
-                issueset.add(caseManagementIssue);
-            } else {
-                checkBoxBean.setChecked("off");
-                boolean isLocal = "local".equals(issueDisplay.location);
-                if (!isLocal) {
-                    checkBoxBean.setUsed(false);
-                } else {
-                    checkBoxBean.setUsed(caseManagementNoteDao.haveIssue(issueDisplay.code, demographicNo));
-                }
-            }
-
-            if (!containsIssue(issuelist, caseManagementIssue)) issuelist.add(caseManagementIssue);
-        }
-        return ongoing;
     }
 
     private boolean containsIssue(List<CaseManagementIssue> issuelist, CaseManagementIssue issue) {

@@ -34,7 +34,6 @@ import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.*;
 import com.opensymphony.xwork2.ActionSupport;
-import io.github.carlos_emr.carlos.model.security.LdapSecurity;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
@@ -64,7 +63,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.MessageDigest;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -616,13 +614,6 @@ public final class Login2Action extends ActionSupport {
                         String.valueOf(providerPreference.getDefaultDoNotDeleteBilling()));
 
                 default_pmm = providerPreference.getDefaultCaisiPmm();
-                @SuppressWarnings("unchecked")
-                ArrayList<String> newDocArr = (ArrayList<String>) request.getSession().getServletContext()
-                        .getAttribute("CaseMgmtUsers");
-                if ("enabled".equals(providerPreference.getDefaultNewOscarCme())) {
-                    newDocArr.add(providerNo);
-                    session.setAttribute("CaseMgmtUsers", newDocArr);
-                }
             }
             session.setAttribute("starthour", providerPreference.getStartHour().toString());
             session.setAttribute("endhour", providerPreference.getEndHour().toString());
@@ -641,9 +632,6 @@ public final class Login2Action extends ActionSupport {
             }
 
 
-            /*
-             * if (CarlosProperties.getInstance().isTorontoRFQ()) { where = "caisiPMM"; }
-             */
             // Lazy Loads AlertTimer instance only once, will run as daemon for duration of
             // server runtime
             if (pvar.getProperty("billregion").equals("BC")) {
@@ -960,16 +948,12 @@ public final class Login2Action extends ActionSupport {
      * configuration.
      *
      * <p>LDAP integration: If LDAP authentication is enabled via
-     * {@link CarlosProperties#isLdapAuthenticationEnabled()}, the returned Security
-     * object is wrapped in a {@link LdapSecurity} adapter that delegates password
-     * validation to the LDAP server while maintaining the local Security record
+     * The Security object provides password validation against the database
      * for session management.
      *
      * @param username String the username to look up (must match security.user_name column)
-     * @return Security the user's security record, wrapped in LdapSecurity if LDAP is enabled,
-     *         or null if no matching user found
+     * @return Security the user's security record, or null if no matching user found
      * @see SecurityDao#findByUserName for database lookup
-     * @see LdapSecurity for LDAP authentication adapter
      */
     private Security getSecurity(String username) {
 
@@ -980,10 +964,6 @@ public final class Login2Action extends ActionSupport {
 
         if (security == null) {
             return null;
-        }
-        // Wrap with LDAP authentication support if LDAP is enabled
-        else if (CarlosProperties.isLdapAuthenticationEnabled()) {
-            security = new LdapSecurity(security);
         }
 
         return security;

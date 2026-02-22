@@ -38,7 +38,6 @@ public class PatientDetailStatusTo1 implements Serializable {
     private static final long serialVersionUID = 1L;
 
     //from carlos.properties
-    private boolean conformanceFeaturesEnabled = false;
     private boolean workflowEnhance = false;
     private boolean showPrimaryCarePhysicianCheck = false;
     private boolean showEmploymentStatus = false;
@@ -46,14 +45,6 @@ public class PatientDetailStatusTo1 implements Serializable {
     private String defaultView;
     private String hospitalView;
 
-
-    public boolean isConformanceFeaturesEnabled() {
-        return conformanceFeaturesEnabled;
-    }
-
-    public void setConformanceFeaturesEnabled(boolean conformanceFeaturesEnabled) {
-        this.conformanceFeaturesEnabled = conformanceFeaturesEnabled;
-    }
 
     public boolean isWorkflowEnhance() {
         return workflowEnhance;

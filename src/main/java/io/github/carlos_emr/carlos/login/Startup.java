@@ -40,9 +40,6 @@ import javax.servlet.ServletContextListener;
 import java.io.File;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Objects;
 
 /**
@@ -109,33 +106,6 @@ public class Startup implements ServletContextListener {
                 }
             }
             try {
-                // Specify who will see new casemanagement screen
-                ArrayList<String> listUsers;
-                String casemgmtscreen = p.getProperty("CASEMANAGEMENT");
-                if (casemgmtscreen != null) {
-                    String[] arrUsers = casemgmtscreen.split(",");
-                    listUsers = new ArrayList<String>(Arrays.asList(arrUsers));
-                    Collections.sort(listUsers);
-                } else listUsers = new ArrayList<String>();
-
-                sc.getServletContext().setAttribute("CaseMgmtUsers", listUsers);
-
-                // Temporary Testing of new ECHART
-                // To be removed
-                String newDocs = p.getProperty("DOCS_NEW_ECHART");
-
-                if (newDocs != null) {
-                    String[] arrnewDocs = newDocs.split(",");
-                    ArrayList<String> newDocArr = new ArrayList<String>(Arrays.asList(arrnewDocs));
-                    Collections.sort(newDocArr);
-                    sc.getServletContext().setAttribute("newDocArr", newDocArr);
-                }
-
-                String echartSwitch = p.getProperty("USE_NEW_ECHART");
-                if (echartSwitch != null && echartSwitch.equalsIgnoreCase("yes")) {
-                    sc.getServletContext().setAttribute("useNewEchart", true);
-                }
-
                 logger.info("BILLING REGION : " + p.getProperty("billregion", "NOTSET"));
                 logger.info("DB PROPS: Username :" + p.getProperty("db_username", "NOTSET") + " db name: " + p.getProperty("db_name", "NOTSET"));
                 p.setProperty("OSCAR_START_TIME", "" + System.currentTimeMillis());

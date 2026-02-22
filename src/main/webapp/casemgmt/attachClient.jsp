@@ -142,7 +142,6 @@
                     <th>Date of Birth</th>
                     <td><input type="checkbox" name="criteria.dob" size="15" /><br/><font size="1">yyyy/mm/dd</font></td>
                 </tr>
-                <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                     <caisi:isModuleLoad moduleName="GET_OHIP_INFO" reverse="false">
                         <tr>
                             <th>Health Card Number</th>
@@ -181,7 +180,6 @@
                         <th>Admission Date To</th>
                         <td><input type="checkbox" name="criteria.dateTo" size="12" /><br/><font size="1">yyyy/mm/dd</font></td>
                     </tr>
-                </caisi:isModuleLoad>
                 <tr>
                     <th>Status</th>
                     <td><select name="active">

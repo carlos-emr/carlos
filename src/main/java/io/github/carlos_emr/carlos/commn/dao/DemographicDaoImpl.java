@@ -78,7 +78,6 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.event.DemographicCreateEvent;
 import io.github.carlos_emr.carlos.event.DemographicUpdateEvent;
-import io.github.carlos_emr.carlos.integration.hl7.generators.HL7A04Generator;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -1623,10 +1622,6 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
 
         this.getHibernateTemplate().saveOrUpdate(demographic);
 
-        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
-            (new HL7A04Generator()).generateHL7A04(demographic);
-        }
-
         // the new way
         if (objExists == false) {
             publisher.publishEvent(new DemographicCreateEvent(demographic, demographic.getDemographicNo()));
@@ -2154,9 +2149,6 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
 
         client.setLastUpdateDate(new Date());
         this.getHibernateTemplate().saveOrUpdate(client);
-
-        if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists)
-            (new HL7A04Generator()).generateHL7A04(client);
 
         // the new way
         if (objExists == false) {

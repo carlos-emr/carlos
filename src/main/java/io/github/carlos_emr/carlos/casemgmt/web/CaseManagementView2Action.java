@@ -46,7 +46,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
-import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
@@ -68,7 +67,6 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData.PatientForm;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.util.LabelValueBean;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 
 import javax.servlet.http.HttpServletRequest;
@@ -261,14 +259,6 @@ public class CaseManagementView2Action extends ActionSupport {
         long start = System.currentTimeMillis();
         long beginning = start;
         long current = 0;
-        boolean useNewCaseMgmt = false;
-        // First, try to get the newCaseManagement boolean from the session
-        String useNewCaseMgmtString = (String) request.getSession().getAttribute("newCaseManagement");
-        // If null, try to get the newCaseManagement boolean from the parameters
-        if (useNewCaseMgmtString == null) useNewCaseMgmtString = (String) request.getParameter("newCaseManagement");
-        // Set the correct boolean if default or fallback value is present
-        if (useNewCaseMgmtString != null) useNewCaseMgmt = Boolean.parseBoolean(useNewCaseMgmtString);
-
         logger.debug("Starting VIEW");
         String tab = request.getParameter("tab");
         if (tab == null) {
@@ -363,51 +353,6 @@ public class CaseManagementView2Action extends ActionSupport {
         }
         request.setAttribute("teamName", teamName);
 
-        if (CarlosProperties.getInstance().isCaisiLoaded() && !useNewCaseMgmt) {
-
-            logger.debug("Get program providers");
-            List<String> teamMembers = new ArrayList<String>();
-            List<ProgramProvider> ps = new ArrayList<ProgramProvider>();
-            
-            // Only get program providers if we have a valid programId
-            if (programId != null && !programId.equals("0") && !programId.isEmpty()) {
-                try {
-                    ps = programMgr.getProgramProviders(programId);
-                } catch (Exception e) {
-                    logger.debug("Unable to get program providers for programId: " + programId + " - " + e.getMessage());
-                }
-            }
-            current = System.currentTimeMillis();
-            logger.debug("Get program providers " + String.valueOf(current - start));
-            start = current;
-
-            for (Iterator<ProgramProvider> j = ps.iterator(); j.hasNext(); ) {
-                ProgramProvider pp = j.next();
-                logger.debug("Get program providers teams");
-                for (Iterator<ProgramTeam> k = pp.getTeams().iterator(); k.hasNext(); ) {
-                    ProgramTeam pt = k.next();
-                    if (pt.getName().equals(teamName)) {
-                        teamMembers.add(pp.getProvider().getFormattedName());
-                    }
-                }
-                current = System.currentTimeMillis();
-                logger.debug("Get program providers teams " + String.valueOf(current - start));
-                start = current;
-
-            }
-            request.setAttribute("teamMembers", teamMembers);
-
-            /* prepare new form list for patient */
-            EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
-            se.setAttribute("casemgmt_newFormBeans", encounterFormDao.findAll());
-
-            /* prepare messenger list */
-            se.setAttribute("casemgmt_msgBeans", this.caseManagementMgr.getMsgBeans(Integer.valueOf(demoNo)));
-
-            // readonly access to define creat a new note button in jsp.
-            se.setAttribute("readonly", Boolean.valueOf(this.caseManagementMgr.hasAccessRight("note-read-only", "access", loggedInInfo.getLoggedInProviderNo(), demoNo, (String) se.getAttribute("case_program_id"))));
-
-        }
         /* Dx */
         List<Dxresearch> dxList = this.caseManagementMgr.getDxByDemographicNo(demoNo);
         Map<String, Dxresearch> dxMap = new HashMap<String, Dxresearch>();
@@ -419,8 +364,7 @@ public class CaseManagementView2Action extends ActionSupport {
         // UCF
         /* ISSUES */
         if (tab.equals("Current Issues")) {
-            if (useNewCaseMgmt) viewCurrentIssuesTab_newCme(demoNo, programId);
-            else viewCurrentIssuesTab_oldCme(demoNo, programId);
+            viewCurrentIssuesTab_newCme(demoNo, programId);
         } // end Current Issues Tab
 
         logger.debug("Get CPP");
@@ -512,129 +456,13 @@ public class CaseManagementView2Action extends ActionSupport {
             request.setAttribute("patientCppPrintPreview", "false");
             return "clientHistoryPrintPreview";
         } else {
-            if (useNewCaseMgmt) {
-                String fwdName = request.getParameter("ajaxview");
-                if (fwdName == null || fwdName.equals("") || fwdName.equalsIgnoreCase("null")) {
-                    return "page.newcasemgmt.view";
-                } else {
-                    return fwdName;
-                }
-            } else return "page.casemgmt.view";
-        }
-    }
-
-    private void viewCurrentIssuesTab_oldCme(String demoNo, String programId) throws Exception {
-        long startTime = System.currentTimeMillis();
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        String providerNo = loggedInInfo.getLoggedInProviderNo();
-
-        int demographicNo = Integer.parseInt(demoNo);
-        boolean hideInactiveIssues = Boolean.parseBoolean(this.getHideActiveIssue());
-
-        ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
-        addLocalIssues(providerNo, checkBoxBeanList, demographicNo, hideInactiveIssues, Integer.valueOf(programId));
-        addGroupIssues(loggedInInfo, checkBoxBeanList, demographicNo, hideInactiveIssues);
-
-        sortIssues(checkBoxBeanList);
-        request.setAttribute("Issues", checkBoxBeanList);
-        logger.debug("Get issues time : " + (System.currentTimeMillis() - startTime));
-
-        logger.debug("Get stale note date");
-        startTime = System.currentTimeMillis();
-        // filter the notes by the checked issues and date if set
-        UserProperty userProp = caseManagementMgr.getUserProperty(providerNo, UserProperty.STALE_NOTEDATE);
-        request.setAttribute(UserProperty.STALE_NOTEDATE, userProp);
-        UserProperty userProp2 = caseManagementMgr.getUserProperty(providerNo, UserProperty.STALE_FORMAT);
-        request.setAttribute(UserProperty.STALE_FORMAT, userProp2);
-        logger.debug("Get stale note date " + (System.currentTimeMillis() - startTime));
-
-        /* PROGRESS NOTES */
-        startTime = System.currentTimeMillis();
-        String[] checkedIssues = request.getParameterValues("check_issue");
-
-        // extract just the codes for local usage
-        ArrayList<String> checkedCodeList = new ArrayList<String>();
-        if (checkedIssues != null) {
-            for (String s : checkedIssues) {
-                String[] temp = s.split("\\.");
-                if (temp.length == 2) checkedCodeList.add(temp[1]);
-                else logger.warn("Unexpected parameter, wrong format : " + s);
+            String fwdName = request.getParameter("ajaxview");
+            if (fwdName == null || fwdName.equals("") || fwdName.equalsIgnoreCase("null")) {
+                return "page.newcasemgmt.view";
+            } else {
+                return fwdName;
             }
         }
-
-        ArrayList<NoteDisplay> notesToDisplay = new ArrayList<NoteDisplay>();
-
-        // deal with local notes
-        startTime = System.currentTimeMillis();
-        Collection<CaseManagementNote> localNotes = caseManagementNoteDao.findNotesByDemographicAndIssueCode(demographicNo, checkedCodeList.toArray(new String[0]));
-        //show locked notes anyway: localNotes = manageLockedNotes(localNotes, true, this.getUnlockedNotesMap(request));
-        localNotes = manageLockedNotes(localNotes, false, this.getUnlockedNotesMap(request));
-        
-        // Only filter if we have a valid program ID
-        if (programId != null && !programId.equals("0") && !programId.isEmpty()) {
-            localNotes = caseManagementMgr.filterNotes(loggedInInfo, loggedInInfo.getLoggedInProviderNo(), localNotes, programId);
-        }
-
-        caseManagementMgr.getEditors(localNotes);
-
-        for (CaseManagementNote noteTemp : localNotes)
-            notesToDisplay.add(new NoteDisplayLocal(loggedInInfo, noteTemp));
-        logger.debug("FETCHED " + localNotes.size() + " NOTES in time : " + (System.currentTimeMillis() - startTime));
-
-        // deal with group notes
-        startTime = System.currentTimeMillis();
-        addGroupNotes(loggedInInfo, notesToDisplay, Integer.parseInt(demoNo), null);
-        logger.debug("Get group notes. time=" + (System.currentTimeMillis() - startTime));
-
-        // not sure what everything else is after this
-        String resetFilter = request.getParameter("resetFilter");
-        logger.debug("RESET FILTER " + resetFilter);
-        if (resetFilter != null && resetFilter.equals("true")) {
-            logger.debug("CASEMGMTVIEW RESET FILTER");
-            this.setFilter_providers(null);
-            this.setFilter_roles(null);
-            this.setNote_sort(null);
-        }
-
-        // apply if we are filtering on role
-        logger.debug("Filter on Role");
-        startTime = System.currentTimeMillis();
-        List<Secrole> roles = roleMgr.getRoles();
-        request.setAttribute("roles", roles);
-        String[] roleId = this.getFilter_roles();
-        notesToDisplay = applyRoleFilter(notesToDisplay, roleId);
-        logger.debug("Filter on Role " + (System.currentTimeMillis() - startTime));
-
-        // filter providers
-        notesToDisplay = applyProviderFilter(notesToDisplay, this.getFilter_providers());
-
-        // set providers to display
-        HashSet<LabelValueBean> providers = new HashSet<LabelValueBean>();
-        for (NoteDisplay tempNote : notesToDisplay) {
-            String tempProvider = tempNote.getProviderName();
-            providers.add(new LabelValueBean(tempProvider, tempProvider));
-        }
-        request.setAttribute("providers", providers);
-
-        /*
-         * people are changing the default sorting of notes so it's safer to explicity set it here, some one already changed it once and it reversed our sorting.
-         */
-        logger.debug("Apply sorting to notes");
-        startTime = System.currentTimeMillis();
-        String noteSort = this.getNote_sort();
-        if (noteSort != null && noteSort.length() > 0) {
-            notesToDisplay = sortNotes(notesToDisplay, noteSort);
-        } else {
-            CarlosProperties p = CarlosProperties.getInstance();
-            noteSort = p.getProperty("CMESort", "");
-            if (noteSort.trim().equalsIgnoreCase("UP"))
-                notesToDisplay = sortNotes(notesToDisplay, "observation_date_asc");
-            else notesToDisplay = sortNotes(notesToDisplay, "observation_date_desc");
-        }
-
-        request.setAttribute("Notes", notesToDisplay);
-        logger.debug("Apply sorting to notes " + (System.currentTimeMillis() - startTime));
     }
 
     private void sortIssues(ArrayList<CheckBoxBean> checkBoxBeanList) {

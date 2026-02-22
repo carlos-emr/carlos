@@ -302,7 +302,6 @@
                     %>
                 </td>
                 </tr>
-                <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                     <tr>
                         <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSpecialty"/>:
                         </td>
@@ -551,7 +550,6 @@
                     <input type="hidden" name="provider_activity" value="">
 
 
-                </caisi:isModuleLoad>
                 <tr>
                     <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSlpUsername"/>:
                     </td>

@@ -98,17 +98,7 @@
     ProgramProviderDAO programProviderDao = SpringUtils.getBean(ProgramProviderDAO.class);
 %>
 <%
-    //check to see if new case management is request
-    ArrayList<String> users = (ArrayList<String>) session.getServletContext().getAttribute("CaseMgmtUsers");
-    boolean newCaseManagement = false;
-
-    if (!IsPropertiesOn.isCaisiEnable()) {
-        //This should only temporarily apply to oscar, not caisi.
-        //You cannot assign providers to one program "OSCAR" here if you have caisi enabled.
-        //If there is no program called "OSCAR", it will only assign empty program to the providers which is not acceptable.
-        if ((users != null && users.size() > 0) || CarlosProperties.getInstance().getProperty("CASEMANAGEMENT", "").equalsIgnoreCase("all"))
-            newCaseManagement = true;
-    }
+    boolean newCaseManagement = !IsPropertiesOn.isCaisiEnable();
 
     String ip = request.getRemoteAddr();
     String msg = "";

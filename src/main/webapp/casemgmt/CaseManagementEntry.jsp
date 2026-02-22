@@ -440,7 +440,6 @@
                 <td class="fieldValue"><input type="checkbox" name="includeIssue" onchange="setChangeFlag(true);"/></td>
             </tr>
 
-            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <c:if test="${param.from=='casemgmt' || requestScope.from=='casemgmt'}">
                     <c:url value="${sessionScope.billing_url}" var="url"/>
                     <caisirole:SecurityAccess accessName="billing" accessType="access"
@@ -457,7 +456,6 @@
                         </tr>
                     </caisirole:SecurityAccess>
                 </c:if>
-            </caisi:isModuleLoad>
 
             <caisi:isModuleLoad moduleName="casemgmt.note.password.enabled">
                 <tr>

@@ -258,13 +258,7 @@
                 </div>
 
 
-                <oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="yes">
-                    <br/>
-                    <form action="<%=request.getContextPath() %>/demographic/AddRelation.do">
-                        <input type="hidden" name="origDemo" value="<%=creatorDemo%>"/>
-                        <input type="submit" name="pmmClient" value="Finished"/>
-                    </form>
-                </oscar:oscarPropertiesCheck></td>
+</td>
         </tr>
         <tr>
             <td class="MainTableBottomRowLeftColumn">&nbsp;</td>

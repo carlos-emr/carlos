@@ -176,7 +176,6 @@ public class PrintDemoChartLabel2Action extends ActionSupport {
         }
         Map<String, String> nameToFileMap = new HashMap<String, String>();
         nameToFileMap.put("ChartLabel", "Chartlabel.xml");
-        nameToFileMap.put("SexualHealthClinicLabel", "SexualHealthClinicLabel.xml");
 
         String labelFile = nameToFileMap.get("ChartLabel");
 

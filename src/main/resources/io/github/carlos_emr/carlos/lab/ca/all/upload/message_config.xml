@@ -21,7 +21,6 @@
 	<handler name="TDIS"    className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.TDISHandler" />
 	<handler name="MEDVUE"  className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MEDVUEHandler" />
 	<handler name="PFHT"	className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.PFHTHandler"/>
-	<handler name="Spire"	className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.SpireHandler"/>
 	<handler name="TRUENORTH"	className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.TRUENORTHHandler"/>
     <handler name="MEDITECH"   className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MEDITECHHandler" /> 
     <handler name="FHIR_COMMUNICATION_REQUEST" className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.FHIRCommunicationRequestHandler"/>

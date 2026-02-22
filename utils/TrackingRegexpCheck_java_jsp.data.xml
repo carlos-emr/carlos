@@ -556,7 +556,6 @@
         <ViolationValue>/src/main/webapp/lab/CumulativeLabValues3.jsp:LinkedHashMap IdMap = new LinkedHashMap();</ViolationValue>
         <ViolationValue>/src/main/webapp/lab/CumulativeLabValues3.jsp:LinkedHashMap nameMap = new LinkedHashMap();</ViolationValue>
         <ViolationValue>/src/main/webapp/lab/DisplayLabValue.jsp:Collections.sort(list,new SortHashtable());</ViolationValue>
-        <ViolationValue>/src/main/webapp/oscarEncounter/newEncounter.jsp:if( newDocArr == null ) newDocArr = new ArrayList();</ViolationValue>
         <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ConsultationFormFax.jsp:Vector vecFaxes  = new Vector();</ViolationValue>
         <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ConsultationFormFax.jsp:Vector vecPhones = new Vector();</ViolationValue>
         <ViolationValue>/src/main/webapp/oscarEncounter/oscarConsultationRequest/ViewConsultationRequests.jsp:ArrayList tickerList = new ArrayList();</ViolationValue>

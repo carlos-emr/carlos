@@ -39,7 +39,6 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.apache.logging.log4j.Logger" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
@@ -195,11 +194,6 @@
                         for (int x = 0; x < CaseManagementViewFormBean.tabs.length; x++) {
                     %>
                     <%
-                        if (CarlosProperties.getInstance().isTorontoRFQ()) {
-                            if (CaseManagementViewFormBean.tabs[x].equals("Prescriptions") || CaseManagementViewFormBean.tabs[x].equals("Allergies")) {
-                                continue;
-                            }
-                        }
                         String extra = "";
                         if ((allergies && CaseManagementViewFormBean.tabs[x].equals("Allergies"))
                                 || (reminders && CaseManagementViewFormBean.tabs[x].equals("Reminders"))) {
@@ -287,9 +281,6 @@
                                 <c:out value="${tm}"/>&nbsp;&nbsp;&nbsp;
                             </c:forEach></td>
                         </tr>
-                        <%
-                            if (!CarlosProperties.getInstance().isTorontoRFQ()) {
-                        %>
 
                         <tr>
                             <td align="right" valign="top" nowrap><b>Primary Health
@@ -297,7 +288,6 @@
                             <td><c:out value="${requestScope.cpp.primaryPhysician}"/></td>
                         </tr>
                         <%
-                            }
                         %>
                         <tr>
                             <td align="right" valign="top" nowrap><b>Primary

@@ -24,7 +24,6 @@ public enum LabType {
     PFHT,
     SIOUX,
     TDIS,
-    Spire,
     OUL_R21,
     ORU_R01,
     BIOTEST,

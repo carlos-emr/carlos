@@ -46,7 +46,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.*;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
@@ -151,17 +150,6 @@ public final class MessageUploader {
             }
         }
 
-        // get actual ohip numbers based on doctor first and last name for spire lab
-        if (h instanceof SpireHandler) {
-            List<String> docNames = ((SpireHandler) h).getDocNames();
-            //logger.debug("docNames:");
-            for (int i = 0; i < docNames.size(); i++) {
-                logger.debug(i + " " + docNames.get(i));
-            }
-            if (docNames != null) {
-                docNums = findProvidersForSpireLab(docNames);
-            }
-        }
         logger.debug("docNums:");
         for (int i = 0; i < docNums.size(); i++) {
             logger.debug(i + " " + docNums.get(i));
@@ -297,64 +285,6 @@ public final class MessageUploader {
 
         return (retVal);
 
-    }
-
-    /**
-     * Method findProvidersForSpireLab
-     * Finds the providers that are associated with a spire lab.  (need to do this using doctor names, as
-     * spire labs don't have a valid ohip number associated with them).
-     */
-    private static ArrayList<String> findProvidersForSpireLab(List<String> docNames) {
-        List<String> docNums = new ArrayList<String>();
-        ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-
-        for (int i = 0; i < docNames.size(); i++) {
-            String[] firstLastName = docNames.get(i).split("\\s");
-            if (firstLastName != null && firstLastName.length >= 2) {
-                //logger.debug("Searching for providers with first and last name: " + firstLastName[0] + " " + firstLastName[firstLastName.length-1]);
-                List<Provider> provList = providerDao.getProviderLikeFirstLastName("%" + firstLastName[0] + "%", firstLastName[firstLastName.length - 1]);
-                if (provList != null) {
-                    int provIndex = findProviderWithShortestFirstName(provList);
-                    if (provIndex != -1 && provList.size() >= 1 && !provList.get(provIndex).getProviderNo().equals("0")) {
-                        docNums.add(provList.get(provIndex).getProviderNo());
-                        //logger.debug("ADDED1: " + provList.get(provIndex).getProviderNo());
-                    } else {
-                        // prepend 'dr ' to first name and try again
-                        provList = providerDao.getProviderLikeFirstLastName("dr " + firstLastName[0], firstLastName[1]);
-                        if (provList != null) {
-                            provIndex = findProviderWithShortestFirstName(provList);
-                            if (provIndex != -1 && provList.size() == 1 && !provList.get(provIndex).getProviderNo().equals("0")) {
-                                //logger.debug("ADDED2: " + provList.get(provIndex).getProviderNo());
-                                docNums.add(provList.get(provIndex).getProviderNo());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return (ArrayList<String>) docNums;
-    }
-
-    /**
-     * Method findProviderWithShortestFirstName
-     * Finds the providers with the shortest first name in a list of providers.
-     */
-    private static int findProviderWithShortestFirstName(List<Provider> provList) {
-        if (provList == null || provList.isEmpty())
-            return -1;
-
-        int index = 0;
-        int shortestLength = provList.get(0).getFirstName().length();
-        for (int i = 1; i < provList.size(); i++) {
-            int curLength = provList.get(i).getFirstName().length();
-            if (curLength < shortestLength) {
-                index = i;
-                shortestLength = curLength;
-            }
-        }
-
-        return index;
     }
 
     /**

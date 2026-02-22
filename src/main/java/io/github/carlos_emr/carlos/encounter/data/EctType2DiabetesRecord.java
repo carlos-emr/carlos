@@ -37,7 +37,6 @@ import java.util.Date;
 import java.util.Properties;
 
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
@@ -87,17 +86,6 @@ public class EctType2DiabetesRecord {
 
     public int saveType2DiabetesRecord(Properties props) throws SQLException {
 
-        /* if database = postgres, make a properties with ignore case */
-        String db_type = CarlosProperties.getInstance().getProperty("db_type").trim();
-        if (db_type.equalsIgnoreCase("postgresql")) {
-            Properties temp = new Properties();
-            java.util.Enumeration varEnum = props.propertyNames();
-            while (varEnum.hasMoreElements()) {
-                String parameter = ((String) varEnum.nextElement());
-                temp.setProperty(parameter.toLowerCase(), props.getProperty(parameter));
-            }
-            props = temp;
-        }
         String demographic_no = props.getProperty("demographic_no");
 
         String sql = "SELECT * FROM formType2Diabetes WHERE demographic_no=" + demographic_no + " AND ID=0";
@@ -145,25 +133,15 @@ public class EctType2DiabetesRecord {
         }
 
 
-        int ret = 0;
-        /* another fix */
-        if (db_type.equalsIgnoreCase("postgresql")) {
-            ResultSet rs1 = DBHandler.GetSQL("select nextval('formtype2diabetes_numeric_se')");
-            rs1.next();
-            ret = rs1.getInt(1);
-            rs.updateInt("id", ret);
-            rs1.close();
-        }
         rs.insertRow();
         rs.close();
 
-        if (db_type.equalsIgnoreCase("mysql")) {
-            sql = "SELECT LAST_INSERT_ID()";
-            rs = DBHandler.GetSQL(sql);
-            if (rs.next())
-                ret = rs.getInt(1);
-            rs.close();
-        }
+        int ret = 0;
+        sql = "SELECT LAST_INSERT_ID()";
+        rs = DBHandler.GetSQL(sql);
+        if (rs.next())
+            ret = rs.getInt(1);
+        rs.close();
         return ret;
     }
 }

@@ -257,7 +257,6 @@
                     %>
                     </td>
                 </tr>
-                <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                     <tr>
                         <td align="right"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.provider.formSpecialty"/>:
                         </td>
@@ -463,7 +462,6 @@
                         </td>
                     </tr>
 
-                </caisi:isModuleLoad>
                 <tr>
                     <td colspan="2">
                         <div align="center">

@@ -1638,9 +1638,6 @@ function renderRxStage() {
                                             str=str.replace('<script type="text/javascript">','');
                                             str=str.replace(/<\/script>/,'');
                                             eval(str);
-<%--                                            <oscar:oscarPropertiesCheck property="MYDRUGREF_DS" value="yes">--%>
-<%--                                              callReplacementWebService("GetmyDrugrefInfo.do?method=view&rand="+  Math.floor(Math.random()*10001),'interactionsRxMyD');--%>
-<%--                                             </oscar:oscarPropertiesCheck>--%>
 							}
 						});
     }

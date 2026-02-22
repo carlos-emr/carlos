@@ -145,19 +145,7 @@ public class FrmRecordHelp {
         rs.close();
 
         int ret = 0;
-        /*
-         * if db_type = mysql return LAST_INSERT_ID() but if db_type = postgresql, return a prepared
-         * statement, since here we dont know which sequence will be used
-         */
-        String db_type = CarlosProperties.getInstance() != null ? CarlosProperties.getInstance().getProperty("db_type",
-                "") : "";
-        if (db_type.equals("") || db_type.equalsIgnoreCase("mysql")) {
-            sql = "SELECT LAST_INSERT_ID()";
-        } else if (db_type.equalsIgnoreCase("postgresql")) {
-            sql = "SELECT CURRVAL('?')";
-        } else {
-            throw new SQLException("ERROR: Database " + db_type + " unrecognized.");
-        }
+        sql = "SELECT LAST_INSERT_ID()";
         rs = DBHandler.GetSQL(sql);
         if (rs.next())
             ret = rs.getInt(1);

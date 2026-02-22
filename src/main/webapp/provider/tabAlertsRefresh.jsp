@@ -35,7 +35,6 @@
     String tab = request.getParameter("id");
 
     if (tab.equals("oscar_new_lab")) { %>
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
 <oscar:newLab providerNo="<%=curUser_no%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.lab"/></oscar:newLab>
 <% }
     if (tab.equals("oscar_new_msg")) { %>
@@ -48,7 +47,7 @@
 <oscar:agedConsult providerNo="<%=curUser_no%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.con"/></oscar:agedConsult>
 <%
     }
-    if (!CarlosProperties.getInstance().isTorontoRFQ() && tab.equals("oscar_scratch")) {
+    if (tab.equals("oscar_scratch")) {
 %>
 <img src='<oscar:filledScratch providerNo="<%=curUser_no%>"></oscar:filledScratch>' border='0' align="absbottom"
      title='Scratch Pad'>

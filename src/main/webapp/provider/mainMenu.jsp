@@ -105,7 +105,6 @@
                     <% } %>
                 </c:if>
 
-                <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
                         <li>
                             <a href="#" ONCLICK="popupPage2('<%=resourcebaseurl%>');return false;"
@@ -113,7 +112,6 @@
                                onmouseover="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.clinicalResources"/></a>
                         </li>
                     </security:oscarSec>
-                </caisi:isModuleLoad>
 
                 <%
                     if (isMobileOptimized) {
@@ -151,7 +149,6 @@
                             </li>
                         </security:oscarSec>
 
-                        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
                                 <li>
                                     <a HREF="#"
@@ -185,8 +182,6 @@
                                     </li>
                                 </security:oscarSec>
                             </oscar:oscarPropertiesCheck>
-                        </caisi:isModuleLoad>
-                        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r">
                                 <li>
                                     <a HREF="#"
@@ -195,8 +190,6 @@
                                         <span id="oscar_new_msg"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.msg"/></span></a>
                                 </li>
                             </security:oscarSec>
-                        </caisi:isModuleLoad>
-                        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
                                 <li id="con">
                                     <a HREF="#"
@@ -205,7 +198,6 @@
                                         <span id="oscar_aged_consults"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.con"/></span></a>
                                 </li>
                             </security:oscarSec>
-                        </caisi:isModuleLoad>
                         <%
                             boolean hide_eConsult = CarlosProperties.getInstance().isPropertyActive("hide_eConsult_link");
                             if ("on".equalsIgnoreCase(prov) && !hide_eConsult) {
@@ -216,7 +208,6 @@
                                 <span>eConsult</span></a>
                         </li>
                         <% } %>
-                        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
                                 <li>
                                     <a HREF="#"
@@ -224,7 +215,6 @@
                                        TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="global.edoc"/></a>
                                 </li>
                             </security:oscarSec>
-                        </caisi:isModuleLoad>
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
                             <li>
                                 <a HREF="#"
@@ -250,7 +240,6 @@
                         </oscar:oscarPropertiesCheck>
 
 
-                        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                             <security:oscarSec roleName="<%=roleName$%>"
                                                objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.fax,_admin.flowsheet"
                                                rights="r">
@@ -261,7 +250,6 @@
                                 </li>
 
                             </security:oscarSec>
-                        </caisi:isModuleLoad>
 
                         <security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardDisplay" rights="r">
                             <%

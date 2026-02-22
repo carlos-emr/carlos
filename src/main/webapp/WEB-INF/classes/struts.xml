@@ -1791,7 +1791,6 @@
             <result name="view">/casemgmt/CaseManagementView.jsp</result>
             <result name="ajaxView">/casemgmt/ChartNotes.jsp</result>
             <result name="ajaxDisplayNotes">/casemgmt/ChartNotesAjax.jsp</result>
-            <result name="page.casemgmt.view">/casemgmt/encounterLayout.jsp</result>
             <result name="page.newcasemgmt.view">/casemgmt/newEncounterLayout.jsp</result>
             <result name="domain-error">/casemgmt/domain-error.jsp</result>
             <result name="clientNeverInTheProgramError">/casemgmt/clientNeverInTheProgramError.jsp</result>

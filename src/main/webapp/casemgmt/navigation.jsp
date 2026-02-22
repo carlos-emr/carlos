@@ -202,7 +202,6 @@
                 <td>Clinical Modules</td>
             </tr>
 
-            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <!-- master -->
                 <caisirole:SecurityAccess accessName="master file" accessType="access" providerNo="<%=bean.providerNo%>"
                                           demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
@@ -320,8 +319,6 @@
                     </tr>
                 </caisirole:SecurityAccess>
 
-            </caisi:isModuleLoad>
-
             <!-- add tickler -->
             <caisirole:SecurityAccess accessName="Write Ticklers" accessType="Action" providerNo="<%=bean.providerNo%>"
                                       demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
@@ -388,7 +385,6 @@
                 </tr>
             </caisirole:SecurityAccess>
 
-            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <tr style="background-color:#BBBBBB;">
                     <td>messenger</td>
                 </tr>
@@ -422,13 +418,11 @@
                             Messages-</a>
                     </td>
                 </tr>
-            </caisi:isModuleLoad>
             <%
                 dxResearchBeanHandler dxRes;
                 ArrayList<String> flowsheets;
                 Vector dxCodes;
             %>
-            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <caisirole:SecurityAccess accessName="measurements" accessType="access"
                                           providerNo="<%=bean.providerNo%>" demoNo="<%=bean.demographicNo%>"
                                           programId="<%=pgId%>">
@@ -499,7 +493,6 @@
                         </td>
                     </tr>
                 </caisirole:SecurityAccess>
-            </caisi:isModuleLoad>
 
             <tr style="background-color:#BBBBBB;">
                 <td>Clinical Resources</td>
@@ -511,7 +504,6 @@
                 java.util.ArrayList labs = comLab.populateLabResultsData(LoggedInInfo.getLoggedInInfoFromSession(request), "", bean.demographicNo, "", "", "", "U");
                 session.setAttribute("casemgmt_labsbeans", labs);
             %>
-            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
@@ -519,7 +511,6 @@
                     </td>
                 </tr>
 
-            </caisi:isModuleLoad>
             <tr>
                 <td>
                     <a href="javascript:void(0)"
@@ -527,7 +518,6 @@
                 </td>
             </tr>
 
-            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <caisirole:SecurityAccess accessName="eform" accessType="access" providerNo="<%=bean.providerNo%>"
                                           demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
                     <!-- eform -->
@@ -538,7 +528,6 @@
                         </td>
                     </tr>
                 </caisirole:SecurityAccess>
-            </caisi:isModuleLoad>
 
             <caisirole:SecurityAccess accessName="read ticklers" accessType="access" providerNo="<%=bean.providerNo%>"
                                       demoNo="<%=bean.demographicNo%>" programId="<%=pgId%>">
@@ -551,7 +540,6 @@
                 </tr>
             </caisirole:SecurityAccess>
 
-            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <tr>
                     <td>
                         <a href="javascript:void(0)"
@@ -592,11 +580,9 @@
                         </td>
                     </tr>
                 </caisirole:SecurityAccess>
-            </caisi:isModuleLoad>
 
         </form>
 
-        <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
             <form name="ksearch" method="get">
                 <tr style="background-color:#BBBBBB;">
                     <td>Internet Resources</td>
@@ -629,6 +615,5 @@
                     </td>
                 </tr>
             </form>
-        </caisi:isModuleLoad>
     </table>
 </div>

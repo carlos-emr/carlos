@@ -1211,13 +1211,10 @@
 
 <%-- ═══════════════════════════════════════════════════════════════════════
      SECTION 9: BILLING (conditional)
-     Only rendered when:
-       1) TORONTO_RFQ property is "no" or unset (Toronto RFQ hides billing UI)
-       2) The logged-in user has read ("r") access to the "_billing" security object
+     Only rendered when the logged-in user has read ("r") access to the "_billing" security object.
      The billing form dropdown is populated from ctl_billingservice table.
      BC-specific billing preferences link is shown if billregion=BC.
      ═══════════════════════════════════════════════════════════════════════ --%>
-<oscar:oscarPropertiesCheck property="TORONTO_RFQ" value="no" defaultVal="true">
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
 <div class="accordion-item">
     <h2 class="accordion-header">
@@ -1258,7 +1255,6 @@
     </div>
 </div>
 </security:oscarSec>
-</oscar:oscarPropertiesCheck>
 
 <%-- ═══════════════════════════════════════════════════════════════════════
      SECTION 10: ACCOUNT & ADVANCED

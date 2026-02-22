@@ -264,16 +264,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.billing" rights="r"
                                    reverse="<%=false%>">
                     <%
-                        // Only show link to Clinicaid admin if Clinicaid Billing is enabled
-                        if (oscarVariables.getProperty("billregion", "").equals("CLINICAID")) {
-                    %>
-                    <li>
-                        <a href="<%= request.getContextPath() %>/billing.do?billRegion=CLINICAID&action=invoice_reports" target="_blank">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/>
-                        </a>
-                    </li>
-                    <%
-                    } else if (oscarVariables.getProperty("billregion", "").equals("BC")) {
+                        if (oscarVariables.getProperty("billregion", "").equals("BC")) {
                     %>
                     <li><a href="#"
                            onclick='popupPage(700,1000,"${pageContext.request.contextPath}/billing/manageBillingform.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManageBillFrm"/></a></li>
@@ -454,7 +445,6 @@
     <!--  #FORMS/EFORMS END-->
 
     <!-- #REPORTS-->
-    <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.reporting" rights="r"
                            reverse="<%=false%>">
             <div class="adminBox">
@@ -537,11 +527,9 @@
                 </ul>
             </div>
         </security:oscarSec>
-    </caisi:isModuleLoad>
     <!-- #REPORTS END -->
 
     <!-- #ECHART -->
-    <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.encounter" rights="r"
                            reverse="<%=false%>">
 
@@ -559,7 +547,6 @@
                 </ul>
             </div>
         </security:oscarSec>
-    </caisi:isModuleLoad>
     <!-- #ECHART END-->
 
 
@@ -619,7 +606,6 @@
         <%-- -add by caisi end--%>
 
 
-    <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 
         <!-- #Schedule Management -->
         <security:oscarSec roleName="<%=roleName$%>"
@@ -873,9 +859,6 @@
 
         </security:oscarSec>
         <!-- #Data Management END-->
-
-
-    </caisi:isModuleLoad>
 
 
     <hr style="color: black;"/>

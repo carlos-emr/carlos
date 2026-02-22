@@ -30,8 +30,7 @@
 --%>
 
 <%--
-    This is the new encounter page.
-    It is enabled via the 'useNewEchart' and 'newDocArr' settings.
+    This is the encounter page.
     The selection logic is in io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action.java
 --%>
 
@@ -129,12 +128,9 @@
     }
 %>
 
-<!-- check to see if new case management is request -->
 <%
-    ArrayList<String> users = (ArrayList<String>) session.getServletContext().getAttribute("CaseMgmtUsers");
     String userNo = (String) request.getSession().getAttribute("user");
-    Boolean useNewEchart = (Boolean) request.getSession().getServletContext().getAttribute("useNewEchart");
-    if (userNo != null && (useNewEchart != null && useNewEchart.equals(Boolean.TRUE))) {
+    if (userNo != null) {
         session.setAttribute("newCaseManagement", "true");
 %>
 <caisi:isModuleLoad moduleName="caisi" reverse="true">

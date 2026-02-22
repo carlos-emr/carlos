@@ -69,10 +69,6 @@
             <td><select name="searchType" id="searchType">
                 <option value="Any"/>
                 <option value="Service"/>
-                <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="false">
-                    <option value="External"/>
-                    <option value="community">Community</option>
-                </caisi:isModuleLoad>
             </select></td>
             <td><select property="searchFacilityId">
                 <option value="0">Any</option>

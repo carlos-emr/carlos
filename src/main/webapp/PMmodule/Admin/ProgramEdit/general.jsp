@@ -189,10 +189,6 @@
         <td width="20%">Type:</td>
         <td><select name="program.type" id="program.type">
             <option value="Service"/>
-            <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="false">
-                <option value="External"/>
-                <option value="community">Community</option>
-            </caisi:isModuleLoad>
         </select></td>
     </tr>
     <tr class="b">

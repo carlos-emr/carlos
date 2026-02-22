@@ -47,17 +47,14 @@
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <input type="hidden" name="reminders" id="reminders"/>
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
-    <%if (!CarlosProperties.getInstance().isTorontoRFQ()) { %>
     <tr>
         <td bgcolor="white">Primary Health Care Provider</td>
         <td bgcolor="white"><input type="text" name="cpp.primaryPhysician" id="cpp.primaryPhysician" /></td>
     </tr>
-    <%} %>
     <tr>
         <td bgcolor="white">Primary Counsellor/Caseworker</td>
         <td bgcolor="white"><input type="text" name="cpp.primaryCounsellor" id="cpp.primaryCounsellor" /></td>

@@ -1360,8 +1360,8 @@
                                             </td>
                                         </tr>
                                         <%
-                                            String printEnvelope, printLbl, printAddressLbl, printChartLbl, printSexHealthLbl, printHtmlLbl, printLabLbl;
-                                            printEnvelope = printLbl = printAddressLbl = printChartLbl = printSexHealthLbl = printHtmlLbl = printLabLbl = null;
+                                            String printEnvelope, printLbl, printAddressLbl, printChartLbl, printHtmlLbl, printLabLbl;
+                                            printEnvelope = printLbl = printAddressLbl = printChartLbl = printHtmlLbl = printLabLbl = null;
 
                                             String rootContextPath = request.getContextPath();
                                             String demoPath = rootContextPath + "/demographic/";
@@ -1371,7 +1371,6 @@
                                                 printLbl = demoPath + "printDemoLabel.jsp?demographic_no=";
                                                 printAddressLbl = demoPath + "printAddressLabel.jsp?demographic_no=";
                                                 printChartLbl = demoPath + "printDemoChartLabel.jsp?demographic_no=";
-                                                printSexHealthLbl = demoPath + "printDemoChartLabel.jsp?labelName=SexualHealthClinicLabel&demographic_no=";
                                                 printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
                                                 printLabLbl = demoPath + "printClientLabLabel.jsp?demographic_no=";
                                             } else {
@@ -1379,7 +1378,6 @@
                                                 printLbl = demoPath + "printDemoLabelAction.do?demographic_no=";
                                                 printAddressLbl = demoPath + "printDemoAddressLabelAction.do?demographic_no=";
                                                 printChartLbl = demoPath + "printDemoChartLabelAction.do?demographic_no=";
-                                                printSexHealthLbl = demoPath + "printDemoChartLabelAction.do?labelName=SexualHealthClinicLabel&demographic_no=";
                                                 printHtmlLbl = demoPath + "demographiclabelprintsetting.jsp?demographic_no=";
                                                 printLabLbl = demoPath + "printClientLabLabelAction.do?demographic_no=";
                                             }
@@ -1435,13 +1433,6 @@
                                                             <input type="button" size="110" name="Button"
                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/>"
                                                                    onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;">
-                                                            <%
-                                                                if (oscarProps.getProperty("showSexualHealthLabel", "false").equals("true")) {
-                                                            %>
-                                                            <input type="button" size="110" name="Button"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePublicHealthLabel"/>"
-                                                                   onclick="popupPage(400,700,'<%=printSexHealthLbl%><%=demographic.getDemographicNo()%>');return false;">
-                                                            <% } %>
                                                             <input type="button" name="Button" size="110"
                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnPrintLabel"/>"
                                                                    onclick="popupPage(600,800,'<%=printHtmlLbl%><%=demographic.getDemographicNo()%>');return false;">
@@ -4965,13 +4956,6 @@
                                                             <input type="button" size="110" name="Button"
                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePDFChartLabel"/>"
                                                                    onclick="popupPage(400,700,'<%=printChartLbl%><%=demographic.getDemographicNo()%>');return false;">
-                                                            <%
-                                                                if (oscarProps.getProperty("showSexualHealthLabel", "false").equals("true")) {
-                                                            %>
-                                                            <input type="button" size="110" name="Button"
-                                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnCreatePublicHealthLabel"/>"
-                                                                   onclick="popupPage(400,700,'<%=printSexHealthLbl%><%=demographic.getDemographicNo()%>');return false;">
-                                                            <% } %>
                                                             <input type="button" name="Button" size="110"
                                                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnPrintLabel"/>"
                                                                    onclick="popupPage(600,800,'<%=printHtmlLbl%><%=demographic.getDemographicNo()%>');return false;">

@@ -278,15 +278,6 @@ public class CarlosProperties extends Properties {
     }
 
     /**
-     * Checks if Toronto RFQ (Request for Quotation) mode is enabled.
-     *
-     * @return boolean true if TORONTO_RFQ property is active
-     */
-    public boolean isTorontoRFQ() {
-        return isPropertyActive("TORONTO_RFQ");
-    }
-
-    /**
      * Checks if automatic provider number generation is enabled.
      *
      * @return boolean true if AUTO_GENERATE_PROVIDER_NO is active
@@ -522,88 +513,6 @@ public class CarlosProperties extends Properties {
     }
 
     /**
-     * Checks if the Spire lab reporting client is enabled.
-     *
-     * @return boolean true if SPIRE_CLIENT_ENABLED is active
-     */
-    public boolean isSpireClientEnabled() {
-        return isPropertyActive("SPIRE_CLIENT_ENABLED");
-    }
-
-    /**
-     * Gets the Spire client polling frequency in seconds.
-     *
-     * @return int the run frequency in seconds
-     */
-    public int getSpireClientRunFrequency() {
-        String prop = getProperty("spire_client_run_frequency");
-        return Integer.parseInt(prop);
-    }
-
-    /**
-     * Gets the Spire server SSH/SFTP username.
-     *
-     * @return String the Spire server username
-     */
-    public String getSpireServerUser() {
-        return getProperty("spire_server_user");
-    }
-
-    /**
-     * Gets the Spire server SSH/SFTP password.
-     *
-     * @return String the Spire server password
-     */
-    public String getSpireServerPassword() {
-        return getProperty("spire_server_password");
-    }
-
-    /**
-     * Gets the Spire server hostname.
-     *
-     * @return String the Spire server hostname
-     */
-    public String getSpireServerHostname() {
-        return getProperty("spire_server_hostname");
-    }
-
-    /**
-     * Gets the local directory for Spire lab file downloads.
-     *
-     * @return String the Spire download directory path
-     */
-    public String getSpireDownloadDir() {
-        return getProperty("spire_download_dir");
-    }
-
-    /**
-     * Gets the directory where HL7 A04 messages are built/staged.
-     *
-     * @return String the HL7 A04 build directory path
-     */
-    public String getHL7A04BuildDirectory() {
-        return getProperty("hl7_a04_build_dir");
-    }
-
-    /**
-     * Gets the directory where successfully sent HL7 A04 messages are archived.
-     *
-     * @return String the HL7 A04 sent directory path
-     */
-    public String getHL7A04SentDirectory() {
-        return getProperty("hl7_a04_sent_dir");
-    }
-
-    /**
-     * Gets the directory where failed HL7 A04 messages are stored.
-     *
-     * @return String the HL7 A04 fail directory path
-     */
-    public String getHL7A04FailDirectory() {
-        return getProperty("hl7_a04_fail_dir");
-    }
-
-    /**
      * Gets the HL7 sending application identifier (MSH-3).
      *
      * @return String the HL7 sending application name
@@ -637,43 +546,6 @@ public class CarlosProperties extends Properties {
      */
     public String getHL7ReceivingFacility() {
         return getProperty("HL7_RECEIVING_FACILITY");
-    }
-
-    /**
-     * Checks if HL7 A04 (patient registration) message generation is enabled.
-     *
-     * @return boolean true if HL7_A04_GENERATION is active
-     */
-    public boolean isHL7A04GenerationEnabled() {
-        return isPropertyActive("HL7_A04_GENERATION");
-    }
-
-    /**
-     * Checks if Emerald HL7 A04 transport task is enabled.
-     *
-     * @return boolean true if EMERALD_HL7_A04_TRANSPORT_TASK is active
-     */
-    public boolean isEmeraldHL7A04TransportTaskEnabled() {
-        return isPropertyActive("EMERALD_HL7_A04_TRANSPORT_TASK");
-    }
-
-    /**
-     * Gets the Emerald HL7 A04 transport IP address.
-     *
-     * @return String the transport address
-     */
-    public String getEmeraldHL7A04TransportAddr() {
-        return getProperty("EMERALD_HL7_A04_TRANSPORT_ADDR");
-    }
-
-    /**
-     * Gets the Emerald HL7 A04 transport port number.
-     *
-     * @return int the transport port (defaults to 3987)
-     */
-    public int getEmeraldHL7A04TransportPort() {
-        String prop = getProperty("EMERALD_HL7_A04_TRANSPORT_PORT", "3987"); // default to port 3987
-        return Integer.parseInt(prop);
     }
 
     /**
@@ -727,15 +599,6 @@ public class CarlosProperties extends Properties {
      */
     public static String getIntakeProgramCashFId() {
         return carlosProperties.getProperty("form_intake_program_cash_fid");
-    }
-
-    /**
-     * Checks if LDAP authentication is enabled.
-     *
-     * @return boolean true if ldap.enabled property is "true"
-     */
-    public static boolean isLdapAuthenticationEnabled() {
-        return Boolean.parseBoolean(carlosProperties.getProperty("ldap.enabled"));
     }
 
     /**

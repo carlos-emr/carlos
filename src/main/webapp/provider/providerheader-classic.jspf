@@ -173,13 +173,11 @@ function popupPage2(varpage) {
 
 <!-- TODO:mobile version code excluded here re-visit -->
 
-<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
  <security:oscarSec roleName="<%=roleName$%>" objectName="_resource" rights="r">
  <li>
     <a href="#" ONCLICK ="popupPage2('<%=resourcebaseurl%>');return false;" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>" onmouseover="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewResources"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.clinicalResources"/></a>
  </li>
  </security:oscarSec>
-</caisi:isModuleLoad>
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_search" rights="r">
  <li id="search">
@@ -192,7 +190,6 @@ function popupPage2(varpage) {
 </li>
 </security:oscarSec>
 
-<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="r">
 <li>
     <a HREF="#" ONCLICK ="popupPage2('<%=request.getContextPath()%>/report/reportindex.jsp','reportPage');return false;"   TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>' OnMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genReport"/>' ; return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.report"/></a>
@@ -202,9 +199,9 @@ function popupPage2(varpage) {
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_billing" rights="r">
 <li>
-     
+
 	<a HREF="#" ONCLICK ="popupPage2('<%=request.getContextPath()%>/billing/CA/<%=prov%>/billingReportCenter.jsp?displaymode=billreport&providerview=<%=curUser_no%>');return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>' onMouseOver="window.status='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.genBillReport"/>';return true"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.billing"/></a>
-    
+
 </li>
 </security:oscarSec>
 
@@ -219,24 +216,19 @@ function popupPage2(varpage) {
    </li>
   </security:oscarSec>
 </oscar:oscarPropertiesCheck>
- </caisi:isModuleLoad>
  
- <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
  	<security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r">
      <li>
 	 <a HREF="#" ONCLICK ="popupPage2('<%=request.getContextPath()%>/messenger/DisplayMessages.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname)%>')" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.messenger"/>">
 	 <span id="oscar_new_msg"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.msg"/></span></a>
      </li>
    	</security:oscarSec>
- </caisi:isModuleLoad>
-<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 <security:oscarSec roleName="<%=roleName$%>" objectName="_con" rights="r">
 <li id="con">
  <a HREF="#" ONCLICK ="popupPage2('<%=request.getContextPath()%>/oscarEncounter/IncomingConsultation.do?providerNo=<%=curUser_no%>&userName=<%=URLEncoder.encode(userfirstname+" "+userlastname)%>')" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewConReq"/>">
  <span id="oscar_aged_consults"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.con"/></span></a>
 </li>
 </security:oscarSec>
-</caisi:isModuleLoad>
 
 <security:oscarSec roleName="<%=roleName$%>" objectName="_pref" rights="r">
 <li>  
@@ -244,13 +236,11 @@ function popupPage2(varpage) {
 </li>
 </security:oscarSec>
 
- <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 <security:oscarSec roleName="<%=roleName$%>" objectName="_edoc" rights="r">
 <li>
    <a HREF="#" onclick="popupPage2('<%=request.getContextPath()%>/documentManager/documentReport.jsp?function=providers&functionid=<%=curUser_no%>&curUser=<%=curUser_no%>', 'edocView');" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.viewEdoc"/>'><fmt:setBundle basename="oscarResources"/><fmt:message key="global.edoc"/></a>
 </li>
 </security:oscarSec>
- </caisi:isModuleLoad>
  <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
 <li>
     <a HREF="#" ONCLICK ="popupPage2('<%=request.getContextPath()%>/tickler/ticklerMain.jsp','<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>');return false;" TITLE='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.tickler"/>'>
@@ -263,21 +253,19 @@ function popupPage2(varpage) {
 </oscar:oscarPropertiesCheck>
 
 
-<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 	<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc" rights="r">
 	  <li id="admin">
 	     <a HREF="#" ONCLICK ="popupPage2('<%= request.getContextPath() %>/admin/admin.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.admin"/></a>
 	  </li>
-	
+
 	<% if (CarlosProperties.getInstance().getBooleanProperty("admin2.enabled", "true")) { %>
 	<li id="admin2">
 	 <a href="<%=request.getContextPath()%>/administration/" TITLE='Administration Panel'>New Administration</a>
 	<!--title new is temp for development-->
 	</li>
 	<% } %>
-	  
+
 	</security:oscarSec>
-</caisi:isModuleLoad>
 
 <%int menuTagNumber=0; %>
 <caisi:isModuleLoad moduleName="caisi">
@@ -292,9 +280,7 @@ function popupPage2(varpage) {
 <td align="right">
 	<a href="javascript: function myFunction() {return false; }" onClick="popupPage2('<%=request.getContextPath()%>/scratch/index.jsp','scratch')"><span id="oscar_scratch"></span></a>&nbsp;
 
-	<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 	<a href=# onClick ="popupPage2('<%=resourcebaseurl%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>
-	</caisi:isModuleLoad>
 
 	| <a href="<%=request.getContextPath()%>/logout.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogout"/>&nbsp;</a>
 </td>
