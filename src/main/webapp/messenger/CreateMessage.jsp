@@ -61,7 +61,7 @@
 
     Frontend Dependencies:
     - Bootstrap 5.0.2 (responsive layout)
-    - Font Awesome 3.x (icons)
+    - Font Awesome 6.x (icons)
     - Toast UI Editor 3.x (WYSIWYG/Markdown rich text editor with i18n)
     - jQuery 1.12.3 (legacy, used for document.ready)
 
@@ -188,51 +188,49 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title><fmt:message key="messenger.CreateMessage.title"/></title>
-        <style>
-
-            summary {
+    <title><fmt:message key="messenger.CreateMessage.title"/></title>
+    <style>
+        summary {
                 cursor: pointer;
-            }
+        }
 
-            .muted {
+        .muted {
                 color: silver;
-            }
+        }
 
-            .group_member_contact {
+        .group_member_contact {
                 margin-left: 15px;
-            }
+        }
 
-            summary label {
+        summary label {
                 font-weight: bold;
-            }
-        </style>
+        }
+    </style>
 
-        <script src="<%=request.getContextPath()%>/js/jquery-1.12.3.js"></script>
+    <script src="<%=request.getContextPath()%>/js/jquery-1.12.3.js"></script>
 
+    <!-- js -->
+    <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
+    <script src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
+    <c:set var="langCode"><fmt:message key="global.i18nLanguagecode"/></c:set>
+    <c:if test="${langCode != 'en-GB'}">
+    <script src="<%=request.getContextPath() %>/library/toastui/i18n/${fn:escapeXml(langCode)}.js"></script>
+    </c:if>
 
+    <!-- css -->
+    <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
 
-<link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <style>
+        .toastui-editor-contents{
+            font-size: 17px;
+        }
+    </style>
 
-
-<link rel="stylesheet" href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css">
-<script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
-<script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
-<c:set var="langCode"><fmt:message key="global.i18nLanguagecode"/></c:set>
-<c:if test="${langCode != 'en-GB'}">
-<script src="<%=request.getContextPath() %>/library/toastui/i18n/${fn:escapeXml(langCode)}.js"></script>
-</c:if>
-
-<link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
-
-<style>
-    .toastui-editor-contents{
-        font-size: 17px;
-    }
- </style>
-
-<script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
 <script>
+
 
 // Toggles all provider checkboxes within a group when the group header checkbox is clicked
 function checkGroup(group) {
@@ -389,21 +387,18 @@ function validateFields() {
 </script>
 <script src="${pageContext.request.contextPath}/csrfguard"></script>
 </head>
-<body class="BodyStyle" >
+<body>
 <table style="width:100%;">
     <tr>
         <td style="vertical-align:top">
-            <h4>&nbsp;<i class="icon-envelope" title='<fmt:message key="messenger.DisplayMessages.msgMessenger"/>'></i>&nbsp;
-<fmt:message key="messenger.CreateMessage.msgCreate"/>
+            <h4>&nbsp;<i class="fa-regular fa-envelope" title="<fmt:message key="messenger.ViewMessage.msgMessenger"/>"></i>&nbsp;
+                    <fmt:message key="messenger.CreateMessage.msgCreate"/>
             </h4>
         </td>
         <td>
         </td>
         <td style="text-align:right" >
-            <i class=" icon-question-sign"></i>
-            <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger create')"><fmt:message key="app.top1"/></a>
-            <i class=" icon-info-sign" style="margin-left:10px;"></i>
-            <a href="javascript:void(0)" onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a>
+            <!-- About and Help links removed to elsewhere in the EMR to ease maintenance -->
         </td>
     </tr>
 </table>
@@ -412,21 +407,21 @@ function validateFields() {
 
 	<tr>
 		<td class="MainTableRightColumn">
-		<table style="width:100%">
+		<table style="width:95%">
 
 			<tr>
 
-						<td>
-						    <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/DisplayMessages.jsp">
+						<td><div style="display:flex; padding-left:10px;">
+						    <a class="btn btn-outline-primary" href="<%=request.getContextPath()%>/messenger/DisplayMessages.jsp">
 								<fmt:message key="messenger.ViewMessage.btnInbox" />
 							</a>
                             <a class="btn btn-outline-secondary" href="<%=request.getContextPath()%>/messenger/ClearMessage.do">
 								<fmt:message key="messenger.CreateMessage.btnClear" />
 							</a>
-                            <a href="javascript:BackToCarlos()">
+                            <a  class="nav-link" href="javascript:BackToCarlos()">
                                 <fmt:message key="messenger.CreateMessage.btnExit" />
                             </a>
-                            <br>&nbsp;
+                            </div>
 						</td>
 
 
@@ -530,11 +525,11 @@ function validateFields() {
 					<textarea name="message" rows="15" style="min-width: 100%"><c:out value="${messageBody}"/></textarea>
 							<table>
 								<tr>
-									<td><input type="submit" class="btn btn-primary" onclick="writeToMessage();"
-										value="<fmt:message key="messenger.CreateMessage.btnSendMessage"/>">
+									<td><button type="submit" class="btn btn-primary" onclick="writeToMessage();"
+										title="<fmt:message key="messenger.CreateMessage.btnSendMessage"/>"><i class="fa-solid fa-share-from-square"></i>&nbsp;<fmt:message key="messenger.CreateMessage.btnSendMessage"/></button>
 									</td>
-									<td><input type="button" class="btn btn-secondary" id="sendArchive" onclick="writeToMessage(); XMLHttpRequestSendnArch();"
-										value="<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>" >
+									<td><button type="button" class="btn btn-secondary" id="sendArchive" onclick="writeToMessage(); XMLHttpRequestSendnArch();"
+										title="<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/>"><i class="fa-solid fa-envelope-circle-check"></i>&nbsp;<fmt:message key="messenger.CreateMessage.btnSendnArchiveMessage"/></button>
 									</td>
 								</tr>
 							</table>
@@ -561,11 +556,11 @@ function validateFields() {
 
 				<tr>
 					<td><br><br>&nbsp;</td>
-					<td>
-                      <input type="text" name="keyword" class="form-control"> <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>" >
+					<td style="width: 40%;">
+                      <input type="text" name="keyword" size="30" > <input type="hidden" name="demographic_no" value="<%=Encode.forHtmlAttribute(demographic_no)%>" >
                     </td>
 	                <td>
-                      <input type="button" class="btn btn-light" name="searchDemo" value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo(document.forms[0].keyword.value)" >
+                      <input type="button" class="btn btn-outline-secondary" name="searchDemo" value="<fmt:message key="messenger.CreateMessage.msgSearchDemographic" />" onclick="popupSearchDemo(document.forms[0].keyword.value)" >
                   	</td>
 				</tr>
 				<tr>
@@ -573,28 +568,31 @@ function validateFields() {
 					<td colspan="2" style="font-weight: bold"><fmt:message key="messenger.CreateMessage.msgSelectedDemographic" /></td>
 				</tr>
 				<tr>
-					<td></td>
-
 					<td>
-
-								<input type="text" name="selectedDemo" class="form-control" readonly style="border: none" value="none" />
 								<script>
 			                          if ('<%=Encode.forJavaScript(demoName)%>' && '<%=Encode.forJavaScript(demoName)%>' !== 'null') {
                                         document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>";
                                         document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>";
                                        }
 			                     </script>
+                    </td>
+					<td>
+
+								<input type="text" name="selectedDemo" readonly
+								style="border: none" value="none">
+
 
 	                </td>
 	                <td>
-                    <input type="button"
-						class="btn btn-light" name="clearDemographic"
-						value="<fmt:message key="messenger.CreateMessage.msgClearSelectedDemographic" />"
-						onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"' />
-					<input type="button" class="btn btn-light" name="attachDemo"
+					<input type="button" class="btn btn-outline-secondary" name="attachDemo"
 						value="<fmt:message key="messenger.CreateMessage.msgAttachDemographic" />"
 						onclick="popupAttachDemo(document.forms[0].demographic_no.value)"
 						>
+                    <input type="button"
+						class="btn btn-outline-secondary" name="clearDemographic"
+						value="<fmt:message key="messenger.CreateMessage.msgClearSelectedDemographic" />"
+						onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"'>
+
 					</td>
 
 				</tr>
