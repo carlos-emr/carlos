@@ -42,7 +42,8 @@ import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.report.data.RptResultStruct;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 
-import com.Ostermiller.util.CSVPrinter;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 
 
 /**
@@ -80,8 +81,12 @@ public class SQLReporter implements Reporter {
                 rsHtml = "The query returned no results.";
             } else {
                 rsHtml = RptResultStruct.getStructure2(rs);  //makes html from the result set
-                CSVPrinter csvp = new CSVPrinter(swr);
-                csvp.writeln(UtilMisc.getArrayFromResultSet(rs));
+                CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
+                String[][] data = UtilMisc.getArrayFromResultSet(rs);
+                for (String[] row : data) {
+                    csvp.printRecord((Object[]) row);
+                }
+                csvp.flush();
                 csv = swr.toString();
             }
         } catch (SQLException sqe) {
@@ -123,8 +128,12 @@ public class SQLReporter implements Reporter {
                     rsHtml = sql + "<br/>The query returned no results.";
                 } else {
                     rsHtml = RptResultStruct.getStructure2(rs);  //makes html from the result set
-                    CSVPrinter csvp = new CSVPrinter(swr);
-                    csvp.writeln(UtilMisc.getArrayFromResultSet(rs));
+                    CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
+                    String[][] data = UtilMisc.getArrayFromResultSet(rs);
+                    for (String[] row : data) {
+                        csvp.printRecord((Object[]) row);
+                    }
+                    csvp.flush();
                     csv = swr.toString();
                 }
             } catch (SQLException sqe) {

@@ -78,7 +78,7 @@
     <div class="navbar" id="demoHeader"><div class="navbar-inner">
         <a class="brand" href="javascript:void(0)">New Flowsheet</a>
     </div></div>
-<form action="FlowSheetCustomAction.do" onsubmit="return checkForm()">
+<form action="FlowSheetCustomAction.do" method="post" onsubmit="return checkForm()">
     <input type="hidden" name="method" value="createNewFlowSheet"/>
     <table border="0">
 <tr>

@@ -514,7 +514,7 @@ case $command in
 
     # It *should* be possible to deploy that `oscar-0.0.0-SNAPSHOT` directory to Tomcat using the `oscar-0.0.0-SNAPSHOT` name,
     # but unknown bugs prevent the app from starting up if that name is used. :man_shrugging:
-    # So, let's rename it to `oscar`. Then, our properties file in the home directory can also be called `oscar.properties`
+    # So, let's rename it to `carlos`. Then, our properties file in the home directory can also be called `carlos.properties`
     # (it's already been symlinked by the setup scripts).
     # We'll also create a symlink so that we can continue to compile into `oscar-0.0.0-SNAPSHOT`,
     # which is where Maven expects to deposit its artifacts.

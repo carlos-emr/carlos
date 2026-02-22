@@ -1,39 +1,68 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
+// ============================================================================
+// CARLOS EMR - Clinical Report Numerator: A1C Above 7.9% (Poorly Controlled)
+// ============================================================================
+//
+// Purpose:
+//   Population health reporting rule counting patients with A1C >7.9%
+//   (or >0.079 in fraction format), indicating poor glycemic control.
+//   Used to identify patients at higher risk for microvascular complications.
+//
+// Referenced By:
+//   - XML: ClinicalReports.xml, Numerator id="a1cgt0p079"
+//   - Java: DroolsNumerator compiles and fires for each denominator patient
+//   - Displayed in: Clinical Reports interface
+//
+// Fact: MeasurementDSHelper - setMeasurement("A1C") loads latest value,
+//   setInRange(true) counts the patient in the numerator.
+// ============================================================================
+package ReportA1CAbove7p9;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
-<rule-set name="ReportA1C"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+// A1C >7.9% in percentage format (values >7.9 are clearly percentages)
+// No recency window - counts any A1C on file regardless of recording date.
+rule "A1C_1"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("A1C") == true )
+        eval( m.getDataAsDouble() > 7.9 )
+    then
+        m.log("A1C RULES IS GETTING RUN");
+        m.setInRange(true);
+end
 
-    <rule name="A1C_1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &gt; 7.9</java:condition>       
-        <java:consequence>     
-              m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
-
-     <rule name="A1C_2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &lt;= 2.0</java:condition>       
-        <java:condition>m.getDataAsDouble() &gt; 0.079</java:condition>       
-        <java:consequence>     
-              m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
-
-</rule-set>
-
-
+// A1C >0.079 in fraction format (<=2.0 guard excludes percentage values)
+rule "A1C_2"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("A1C") == true )
+        eval( m.getDataAsDouble() <= 2.0 )
+        eval( m.getDataAsDouble() > 0.079 )
+    then
+        m.log("A1C RULES IS GETTING RUN");
+        m.setInRange(true);
+end

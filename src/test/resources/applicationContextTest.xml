@@ -14,15 +14,15 @@
 
 
 	<!--
-		load properties from additional property files; oscar.properties is
+		load properties from additional property files; carlos.properties is
 		already loaded
 	-->
 	<!-- <bean id="hibernateTemplateTest" class="io.github.carlos_emr.carlos.commn.dao.HibernateTemplateTest"> </bean> -->
-	
+
 	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">
 		<property name="locations">
 			<list>
-				<value>classpath:oscar_mcmaster.properties</value>
+				<value>classpath:carlos.properties</value>
 			</list>
 		</property>
 	</bean>

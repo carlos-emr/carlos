@@ -29,6 +29,7 @@
 
 --%>
 <%@page import="java.net.URLEncoder" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.OscarProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -45,7 +46,16 @@
 
             function deleteImg(image) {
                 if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.imgDelete"/>")) {
-                    document.location = "<%=request.getContextPath()%>/eform/deleteImage.do?filename=" + image;
+                    var form = document.createElement('form');
+                    form.method = 'post';
+                    form.action = '<%=request.getContextPath()%>/eform/deleteImage.do';
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'filename';
+                    input.value = image;
+                    form.appendChild(input);
+                    document.body.appendChild(form);
+                    form.submit();
                 }
             }
         </script>
@@ -90,7 +100,7 @@
             </td>
 
             <td>
-                <a href="<%= request.getContextPath() %>/eform/deleteImage.do?filename=<%=URLEncoder.encode(curimage, "UTF-8")%>"
+                <a href="javascript:void(0);" onclick="deleteImg('<%=Encode.forJavaScript(curimage)%>');"
                    class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadimages.btnDelete"/></a>
             </td>
         </tr>

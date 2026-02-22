@@ -203,7 +203,7 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
 
     /**
      * Retrieves a list of Issue codes that have a type matching what is configured
-     * in oscar_mcmaster.properties as COMMUNITY_ISSUE_CODETYPE,
+     * in carlos.properties as COMMUNITY_ISSUE_CODETYPE,
      * or an empty list if this property is not found.
      *
      * @param type

@@ -90,7 +90,7 @@
 
         <script>
             function deleteAccessToken(id) {
-                jQuery.getJSON("tokenManage.json",
+                jQuery.post("tokenManage.json",
                     {
                         method: "deleteAccessToken",
                         id: id
@@ -100,11 +100,11 @@
                             window.location = 'clients.jsp';
                         else
                             alert(xml.error);
-                    });
+                    }, "json");
             }
 
             function deleteRequestToken(id) {
-                jQuery.getJSON("tokenManage.json",
+                jQuery.post("tokenManage.json",
                     {
                         method: "deleteRequestToken",
                         id: id
@@ -114,7 +114,7 @@
                             window.location = 'clients.jsp';
                         else
                             alert(xml.error);
-                    });
+                    }, "json");
             }
 
         </script>

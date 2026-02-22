@@ -368,7 +368,7 @@
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0"
           onload="getMainAction()">
-    <form action="${pageContext.request.contextPath}/form/formname.do" onsubmit="return numvalidate()">
+    <form action="${pageContext.request.contextPath}/form/formname.do" method="post" onsubmit="return numvalidate()">
 
         <input type="hidden" name="demographic_no"
                value="<%= props.getProperty("demographic_no", "0") %>"/>

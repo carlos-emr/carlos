@@ -175,7 +175,7 @@
                         var ran_number = Math.round(Math.random() * 1000000);
                         var params = "&codeId=" + $('id' + id).value + "&id=" + id + "&val=" + $('ival' + id).value + "&billService=" + $('ibillservice' + id).value + "&termDate=" + $('itermdate' + id).value + "&rand=" + ran_number;
                         new Ajax.Request(url, {
-                            method: 'get', parameters: params, evalJSON: true, onSuccess: function (transport) {
+                            method: 'post', parameters: params, evalJSON: true, onSuccess: function (transport) {
                                 var data = transport.responseText.evalJSON();
                                 var id = data.id;
                                 $('val' + id).innerHTML = data.value;

@@ -162,7 +162,7 @@ done
 
 ### Configuration
 
-Password policies can be configured in `oscar.properties`:
+Password policies can be configured in `carlos.properties`:
 
 ```properties
 # Previous passwords to check (prevent reuse)

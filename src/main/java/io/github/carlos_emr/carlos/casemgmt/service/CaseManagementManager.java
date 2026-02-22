@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramAccess;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicNote;
 import io.github.carlos_emr.carlos.casemgmt.common.EChartNoteEntry;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
@@ -279,8 +278,6 @@ public interface CaseManagementManager {
                                                 Collection<CaseManagementNote> notes, String programId);
 
     public List<EChartNoteEntry> filterNotes1(String providerNo, Collection<EChartNoteEntry> notes, String programId);
-
-    public boolean hasRole(String providerNo, CachedDemographicNote cachedDemographicNote, String programId);
 
     public boolean isRoleIncludedInAccess(ProgramAccess pa, Secrole role);
 

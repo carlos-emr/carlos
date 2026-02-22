@@ -59,6 +59,10 @@
 <%
     String method = request.getParameter("method");
     if (method != null) {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return;
+        }
         if (method.equals("disable")) {
             String name = request.getParameter("name");
             MeasurementTemplateFlowSheetConfig.getInstance().disableFlowsheet(name);
@@ -93,6 +97,16 @@
 
         <script src="<%=request.getContextPath()%>/share/javascript/Oscar.js"></script>
 
+		<script>
+			/** Submits a flowsheet action via the hidden #flowsheetActionForm. */
+			function submitFlowsheetAction(method, name) {
+				var form = document.getElementById('flowsheetActionForm');
+				form.elements['method'].value = method;
+				form.elements['name'].value = name;
+				form.submit();
+			}
+		</script>
+
 	<style>
 		table {
 			table-layout: fixed;
@@ -113,6 +127,11 @@
     </head>
 
     <body>
+
+<form id="flowsheetActionForm" method="post" action="manageFlowsheets.jsp" style="display:none;">
+	<input type="hidden" name="method" value=""/>
+	<input type="hidden" name="name" value=""/>
+</form>
 
 <div class="container-fluid">
 <div class="navbar" id="demoHeader"><div class="navbar-inner">
@@ -160,9 +179,9 @@
 							<td>
 								<a href="<%=request.getContextPath()%>/oscarEncounter/oscarMeasurements/adminFlowsheet/EditFlowsheet.jsp?flowsheet=<%=flowSheet.getName()%>&displayName=<%=flowSheet.getDisplayName()%>">Edit</a>&nbsp;
 								<%if(enabled) { %>
-									<a href="manageFlowsheets.jsp?method=disable&name=<%=flowSheet.getName()%>">Disable</a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('disable','<%=Encode.forJavaScript(flowSheet.getName())%>');">Disable</a>
 								<% } else { %>
-									<a href="manageFlowsheets.jsp?method=enable&name=<%=flowSheet.getName()%>">Enable</a>
+									<a href="javascript:void(0);" onclick="submitFlowsheetAction('enable','<%=Encode.forJavaScript(flowSheet.getName())%>');">Enable</a>
 								<% } %>
 							</td>
 						</tr>

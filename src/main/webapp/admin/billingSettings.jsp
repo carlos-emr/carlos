@@ -78,7 +78,8 @@
      * Save on page reload.
      * TODO: not really the best method, but will work until there is time to refactor.
      */
-    if (request.getParameter("dboperation") != null && !request.getParameter("dboperation").isEmpty() && request.getParameter("dboperation").equals("Save")) {
+    if (request.getParameter("dboperation") != null && !request.getParameter("dboperation").isEmpty() && request.getParameter("dboperation").equals("Save")
+            && "POST".equalsIgnoreCase(request.getMethod())) {
 
         request.setAttribute("success", false);
 
@@ -227,7 +228,7 @@
                                 BillingFormData.BillingForm[] billformlist = billingFormData.getFormList();
                                 String currentSelection = OscarProperties.getInstance().getProperty("default_view");
                                 String currentUserSetting = dataBean.getProperty("default_billing_form");
-                                // current user setting overrides the oscar properties setting
+                                // current user setting overrides the carlos properties setting
                                 if (currentUserSetting != null && !currentUserSetting.isEmpty()) {
                                     currentSelection = currentUserSetting;
                                 }

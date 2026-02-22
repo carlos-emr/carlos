@@ -27,35 +27,41 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Date;
 
 import org.apache.logging.log4j.Logger;
-import org.joda.time.DateTime;
-import org.joda.time.Interval;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class Stay {
 
     private static final Logger logger = MiscUtils.getLogger();
 
-    private Interval interval;
+    private Duration duration;
 
     public Stay(Date admission, Date discharge, Date start, Date end) {
-        DateTime admissionDateTime = (admission != null && admission.after(start)) ? new DateTime(admission) : new DateTime(start);
-        DateTime dischargeDateTime = (discharge != null) ? new DateTime(discharge) : new DateTime(end);
+        Instant admissionInstant = (admission != null && admission.after(start)) ? admission.toInstant() : start.toInstant();
+        Instant dischargeInstant = (discharge != null) ? discharge.toInstant() : end.toInstant();
 
         try {
-            interval = new Interval(admissionDateTime, dischargeDateTime);
+            if (dischargeInstant.isBefore(admissionInstant)) {
+                throw new IllegalArgumentException("The end instant must be greater or equal to the start");
+            }
+            duration = Duration.between(admissionInstant, dischargeInstant);
         } catch (IllegalArgumentException e) {
             logger.error("admission: " + admission + " discharge: " + discharge, e);
-            logger.error("admission datetime: " + admissionDateTime + " discharge datetime: " + dischargeDateTime);
+            logger.error("admission instant: " + admissionInstant + " discharge instant: " + dischargeInstant);
 
             throw e;
         }
     }
 
-    public Interval getInterval() {
-        return interval;
+    /**
+     * Returns the duration.
+     */
+    public Duration getDuration() {
+        return duration;
     }
 
 }

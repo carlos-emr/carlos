@@ -1,151 +1,225 @@
-<?xml version="1.0"?>
+// Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Centre for Research on Inner City Health,
+// St. Michael's Hospital, Toronto.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
-<rule-set name="IdentificationFlowsheet"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+// ============================================================================
+// CARLOS EMR - Patient Identification Flowsheet Timeliness Rules
+// ============================================================================
+//
+// Purpose:
+//   These rules provide decision support for the Patient Identification
+//   flowsheet, part of the CAISI (Client Access to Integrated Services and
+//   Information) community health module. They monitor whether key
+//   identification and immigration-related documents have been verified
+//   within the past year.
+//
+// Clinical Context:
+//   For marginalized populations served by community health centres - including
+//   homeless individuals, refugees, and undocumented persons - maintaining
+//   current identification documents is critical for accessing healthcare,
+//   social assistance, housing, and employment. Many clients lack standard
+//   government ID, which creates barriers to care. This flowsheet tracks
+//   document status to support navigation and advocacy services.
+//
+//   Measurement Types Monitored:
+//     - OHIP: Ontario Health Insurance Plan card (provincial health coverage)
+//     - SIN:  Social Insurance Number (federal tax/benefits identification)
+//     - BCRT: Birth Certificate (foundational identity document)
+//     - LAND: Landed Immigrant / Permanent Resident status
+//     - Citz: Canadian Citizenship status
+//     - Othi: Other Identification documents (e.g., passport, photo ID)
+//     - Isup: Identification Support services (referral for ID procurement)
+//
+// Known Bug:
+//   Rules "Citz 1", "Othi 1", and "Isup 1" incorrectly pass "LAND" as the
+//   measurement type to addWarning() instead of their own codes. This means
+//   warnings for citizenship, other ID, and ID support overdue status will
+//   appear in the LAND row of the flowsheet rather than their correct rows.
+//   This is an inherited upstream bug from the original OSCAR CAISI rules.
+//
+// How It Works:
+//   Uses the simple 2-rule pattern per question (warning only, no recommendation):
+//     Rule "X 1" - WARNING: question not answered in 12+ months
+//     Rule "X 2" - WARNING: question has NEVER been answered (-1)
+//
+// Referenced By:
+//   - XML config: identificationFlowsheet.xml (ds_rules="identification.drl",
+//     is_universal="true", is_medical="false")
+//   - Java: MeasurementFlowSheet.loadRuleBase(String) compiles this DRL
+//   - Displayed in: E-Chart encounter view, CAISI community health programs
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created for CAISI community health module (McMaster)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
+// ============================================================================
+package IdentificationFlowsheet;
 
-    <rule name="OHIP 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("OHIP") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("OHIP","Question not answered in "+m.getLastDateRecordedInMonths("OHIP")+" months");
-        </java:consequence>
-    </rule>
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
-    <rule name="OHIP 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("OHIP") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("OHIP","Question not answered");
-        </java:consequence>
-    </rule>
+// ---------------------------------------------------------------------------
+// Ontario Health Insurance Plan (OHIP)
+// OHIP card provides access to publicly funded healthcare in Ontario.
+// Many marginalized clients lose or lack OHIP cards, creating barriers
+// to primary care, prescriptions, and specialist referrals. Annual
+// verification ensures the card is current and valid.
+// Warning at 12 months.
+// ---------------------------------------------------------------------------
+rule "OHIP 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("OHIP") >= 12 )
+    then
+        m.addWarning("OHIP","Question not answered in "+m.getLastDateRecordedInMonths("OHIP")+" months");
+end
 
-    <rule name="SIN 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("SIN") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("SIN","Question not answered in "+m.getLastDateRecordedInMonths("SIN")+" months");
-        </java:consequence>
-    </rule>
+rule "OHIP 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("OHIP") == -1 )
+    then
+        m.addWarning("OHIP","Question not answered");
+end
 
-    <rule name="SIN 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("SIN") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("SIN","Question not answered");
-        </java:consequence>
-    </rule>
+// Social Insurance Number (SIN)
+// Required for employment, tax filing, and accessing federal benefits
+// (EI, CPP, OAS, child benefits). Helps connect clients to income support.
+rule "SIN 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("SIN") >= 12 )
+    then
+        m.addWarning("SIN","Question not answered in "+m.getLastDateRecordedInMonths("SIN")+" months");
+end
 
-    <rule name="BCRT 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("BCRT") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("BCRT","Question not answered in "+m.getLastDateRecordedInMonths("BCRT")+" months");
-        </java:consequence>
-    </rule>
+rule "SIN 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("SIN") == -1 )
+    then
+        m.addWarning("SIN","Question not answered");
+end
 
-    <rule name="BCRT 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("BCRT") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("BCRT","Question not answered");
-        </java:consequence>
-    </rule>
+// Birth Certificate (BCRT)
+// Foundational identity document needed to obtain other government ID.
+// Many homeless and marginalized clients lack birth certificates, which
+// must be ordered from the province/territory of birth.
+rule "BCRT 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("BCRT") >= 12 )
+    then
+        m.addWarning("BCRT","Question not answered in "+m.getLastDateRecordedInMonths("BCRT")+" months");
+end
 
-    <rule name="LAND 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("LAND") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("LAND","Question not answered in "+m.getLastDateRecordedInMonths("LAND")+" months");
-        </java:consequence>
-    </rule>
+rule "BCRT 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("BCRT") == -1 )
+    then
+        m.addWarning("BCRT","Question not answered");
+end
 
-    <rule name="LAND 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("LAND") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("LAND","Question not answered");
-        </java:consequence>
-    </rule>
+// Landed Immigrant / Permanent Resident Status (LAND)
+// PR card status for non-citizens. Permanent residents have OHIP eligibility
+// after the 3-month waiting period. Tracking PR status helps with healthcare
+// coverage navigation and citizenship application timelines.
+rule "LAND 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("LAND") >= 12 )
+    then
+        m.addWarning("LAND","Question not answered in "+m.getLastDateRecordedInMonths("LAND")+" months");
+end
 
-    <rule name="Citz 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Citz") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("LAND","Question not answered in "+m.getLastDateRecordedInMonths("Citz")+" months");
-        </java:consequence>
-    </rule>
+rule "LAND 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("LAND") == -1 )
+    then
+        m.addWarning("LAND","Question not answered");
+end
 
-    <rule name="Citz 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Citz") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("Citz","Question not answered");
-        </java:consequence>
-    </rule>
+// Canadian Citizenship Status (Citz)
+// Tracks citizenship status or application progress. Citizenship provides
+// full access to Canadian services and the right to vote.
+// BUG: Rule "Citz 1" passes "LAND" instead of "Citz" to addWarning().
+rule "Citz 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Citz") >= 12 )
+    then
+        m.addWarning("LAND","Question not answered in "+m.getLastDateRecordedInMonths("Citz")+" months");
+end
 
-    <rule name="Othi 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Othi") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("LAND","Question not answered in "+m.getLastDateRecordedInMonths("Othi")+" months");
-        </java:consequence>
-    </rule>
+rule "Citz 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Citz") == -1 )
+    then
+        m.addWarning("Citz","Question not answered");
+end
 
-    <rule name="Othi 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Othi") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("Othi","Question not answered");
-        </java:consequence>
-    </rule>
+// Other Identification Documents (Othi)
+// Tracks other forms of ID such as passport, provincial photo ID card,
+// driver's licence, or refugee claimant document.
+// BUG: Rule "Othi 1" passes "LAND" instead of "Othi" to addWarning().
+rule "Othi 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Othi") >= 12 )
+    then
+        m.addWarning("LAND","Question not answered in "+m.getLastDateRecordedInMonths("Othi")+" months");
+end
 
-    <rule name="Isup 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Isup") &gt;= 12</java:condition>
-        <java:consequence>
-              m.addWarning("LAND","Question not answered in "+m.getLastDateRecordedInMonths("Isup")+" months");
-        </java:consequence>
-    </rule>
+rule "Othi 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Othi") == -1 )
+    then
+        m.addWarning("Othi","Question not answered");
+end
 
-    <rule name="Isup 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Isup") == -1</java:condition>
-        <java:consequence>
-              m.addWarning("Isup","Question not answered");
-        </java:consequence>
-    </rule>
-</rule-set>
+// Identification Support Services (Isup)
+// Whether the client has been connected with ID procurement services
+// (e.g., help obtaining birth certificates, OHIP applications, photo ID).
+// BUG: Rule "Isup 1" passes "LAND" instead of "Isup" to addWarning().
+rule "Isup 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Isup") >= 12 )
+    then
+        m.addWarning("LAND","Question not answered in "+m.getLastDateRecordedInMonths("Isup")+" months");
+end
 
-
+rule "Isup 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Isup") == -1 )
+    then
+        m.addWarning("Isup","Question not answered");
+end

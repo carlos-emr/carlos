@@ -212,10 +212,6 @@ public class NoteDisplayNonNote implements NoteDisplay {
         else return ("");
     }
 
-    public Integer getRemoteFacilityId() {
-        return null;
-    }
-
     public String getRevision() {
         return null;
     }

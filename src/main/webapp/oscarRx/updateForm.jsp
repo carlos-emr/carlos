@@ -90,7 +90,7 @@
     </head>
     <body>
 
-    <form action="">
+    <form action="" method="post">
 
         <h3>Current form is: <b><%=drugForm%>
         </b></h3>

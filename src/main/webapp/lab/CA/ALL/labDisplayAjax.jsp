@@ -373,7 +373,7 @@
 </script>
 <div id="labdoc_<%=segmentID%>">
     <!-- form forwarding of the lab -->
-    <form name="reassignForm_<%=segmentID%>">
+    <form name="reassignForm_<%=segmentID%>" method="post">
         <input type="hidden" name="flaggedLabs" value="<%= segmentID %>"/>
         <input type="hidden" name="selectedProviders" value=""/>
         <input type="hidden" name="labType" value="HL7"/>

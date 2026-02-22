@@ -40,13 +40,13 @@ Tests
 If you run the unit tests, maven needs a live MySQL database to load the schema, and test data into, as well as to perform the checks.
 The defaults are a database named 'oscar_test', and full credentials to it for user 'oscar' and password 'oscar'. You can override
 these properties if they don't suit you. The properties are available in src/test/resources/over_ride_config.properties. You can make your
-own file and run maven with -Doscar_override_properties=/<full_path>/myoverrides.properties and those values will take prescendence.
+own file and run maven with -Dcarlos_override_properties=/<full_path>/myoverrides.properties and those values will take precedence.
 
 -------------
 NetBeans Note
 -------------
 If you are running the unit tests, and using your own override properties file in Netbeans, use 
--DargLine="-Doscar_override_properties=/<full_path>/myoverrides.properties"
+-DargLine="-Dcarlos_override_properties=/<full_path>/myoverrides.properties"
 
 
 Add this to a netbeans build.xml file for it to build and run.

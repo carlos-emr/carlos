@@ -35,7 +35,6 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdDemographicIssueCompositePk;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
@@ -64,7 +63,4 @@ public interface CaseManagementIssueDAO {
     public List<Integer> getIssuesByProgramsSince(Date date, List<Program> programs);
 
     public List<CaseManagementIssue> getIssuesByDemographicSince(String demographic_no, Date date);
-
-    public List<FacilityIdDemographicIssueCompositePk> getIssueIdsForIntegrator(Integer facilityId,
-                                                                                Integer demographicNo);
 }

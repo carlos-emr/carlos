@@ -39,8 +39,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@page import="java.util.Enumeration" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
-<%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 
 
 <%
@@ -89,34 +87,11 @@
 
     String annotation_display = CaseManagementNoteLink.DISP_PRESCRIP;
 
-    //This checks if the providers has the ExternalPresriber feature enabled, if so then a link appear for the providers to access the ExternalPrescriber
-    ProviderPreference providerPreference = ProviderPreferencesUIBean.getProviderPreference(loggedInInfo.getLoggedInProviderNo());
-
-    boolean eRxEnabled = false;
-    String eRx_SSO_URL = null;
-    String eRxUsername = null;
-    String eRxPassword = null;
-    String eRxFacility = null;
-    String eRxTrainingMode = "0"; //not in training mode
-
-    if (providerPreference != null) {
-        eRxEnabled = providerPreference.isERxEnabled();
-        eRx_SSO_URL = providerPreference.getERx_SSO_URL();
-        eRxUsername = providerPreference.getERxUsername();
-        eRxPassword = providerPreference.getERxPassword();
-        eRxFacility = providerPreference.getERxFacility();
-
-        boolean eRxTrainingModeTemp = providerPreference.isERxTrainingMode();
-        if (eRxTrainingModeTemp) eRxTrainingMode = "1";
-    }
-
 %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.PrescriptDrug" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
@@ -371,15 +346,6 @@
                                                     <th align="center" width="100px"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribe"/></b></th>
                                                     <th align="center" width="100px"><b><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgDelete"/></b></th>
                                                     <th align="center" width="20px">&nbsp;</th>
-                                                    <%
-                                                        boolean integratorEnabled = loggedInInfo.getCurrentFacility().isIntegratorEnabled();
-
-                                                        if (integratorEnabled) {
-                                                    %>
-                                                    <td align="center"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgLocationPrescribed"/></td>
-                                                    <%
-                                                        }
-                                                    %>
                                                 </tr>
 
                                                 <%
@@ -419,58 +385,17 @@
                                                             href="<%= request.getContextPath() %>/oscarRx/StaticScript.jsp?regionalIdentifier=<%=Encode.forUriComponent(prescriptDrug.getRegionalIdentifier())%>&cn=<%=Encode.forUriComponent(prescriptDrug.getCustomName())%>&bn=<%=Encode.forUriComponent(prescriptDrug.getBrandName())%>"><%=RxPrescriptionData.getFullOutLine(prescriptDrug.getSpecial()).replaceAll(";", " ")%>
                                                     </a></td>
                                                     <td width="100px" align="center">
-                                                        <%
-                                                            if (prescriptDrug.getRemoteFacilityName() == null) {
-                                                        %>
                                                         <input type="checkbox" name="chkRePrescribe" align="center"
                                                                drugId="<%=prescriptDrug.getId()%>"/>
-                                                        <%
-                                                        } else {
-                                                        %>
-                                                        <form action="<%=request.getContextPath()%>/oscarRx/searchDrug.do"
-                                                              method="post">
-                                                            <input type="hidden" name="demographicNo"
-                                                                   value="<%=patient.getDemographicNo()%>"/>
-                                                            <%
-                                                                String searchString = prescriptDrug.getBrandName();
-                                                                if (searchString == null)
-                                                                    searchString = prescriptDrug.getCustomName();
-                                                                if (searchString == null)
-                                                                    searchString = prescriptDrug.getRegionalIdentifier();
-                                                                if (searchString == null)
-                                                                    searchString = prescriptDrug.getSpecial();
-                                                            %>
-                                                            <input type="hidden" name="searchString"
-                                                                   value="<%=searchString%>"/>
-                                                            <input type="submit" class="ControlPushButton"
-                                                                   value="Search to Re-prescribe"/>
-                                                        </form>
-                                                        <%
-                                                            }
-                                                        %>
                                                     </td>
                                                     <td width="100px" align="center">
-                                                        <%
-                                                            if (prescriptDrug.getRemoteFacilityName() == null) {
-                                                        %>
                                                         <input type="checkbox" name="chkDelete" align="center"
                                                                drugId="<%=prescriptDrug.getId()%>"/>
-                                                        <%
-                                                            }
-                                                        %>
                                                     </td>
                                                     <td width="20px" align="center"><a href="#" title="Annotation"
                                                                                        onclick="window.open('<%= request.getContextPath() %>/annotation/annotation.jsp?display=<%=annotation_display%>&table_id=<%=prescriptDrug.getId()%>&demo=<%=bean.getDemographicNo()%>','anwin','width=400,height=500');">
                                                         <img src="<%= request.getContextPath() %>/images/notes.gif" border="0"></a>
                                                     </td>
-                                                    <%
-                                                        if (integratorEnabled) {
-                                                    %>
-                                                    <td align="center"><%=prescriptDrug.getRemoteFacilityName() == null ? "local" : prescriptDrug.getRemoteFacilityName()%>
-                                                    </td>
-                                                    <%
-                                                        }
-                                                    %>
                                                 </tr>
                                                 <%
                                                     }
@@ -499,7 +424,7 @@
                                                                        <input type="button" name="cmdAllergies"
                                                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgViewEditAllergies"/>"
                                                                               class="ControlPushButton"
-                                                                              onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies.jsp?demographicNo=<%=request.getParameter("demographicNo")%>';"
+                                                                              onclick="javascript:window.location.href='<%= request.getContextPath() %>/oscarRx/ShowAllergies.jsp?demographicNo=<%=Encode.forUriComponent(request.getParameter("demographicNo"))%>';"
                                                                               style="width: 100px"/>
 								       <input type="button" name="cmdRePrescribe"
                                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgReprescribe"/>"
@@ -602,9 +527,6 @@
                                     %> <a href="javascript:goOMD();"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.msgOMDLookup"/></a> <%
                                         }
                                     %>
-                                        <%if (eRxEnabled) {%>
-                                        <a href="<%=eRx_SSO_URL%>User=<%=eRxUsername%>&Password=<%=eRxPassword%>&Clinic=<%=eRxFacility%>&PatientIdPMIS=<%=patient.getDemographicNo()%>&IsTraining=<%=eRxTrainingMode%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SearchDrug.eRx.msgExternalPrescriber"/></a>
-                                        <%}%>
 
                                     </td>
                                     <td><oscar:oscarPropertiesCheck property="drugref_route_search" value="on">

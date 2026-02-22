@@ -176,7 +176,7 @@
                 </tr>
             </table>
             <table width="100%" border="0" bgcolor="#EEEEFF">
-                <form action="createBillingReportAction.do">
+                <form action="createBillingReportAction.do" method="post">
                     <tr>
                         <td width="34%"><font
                                 face="Verdana, Arial, Helvetica, sans-serif" size="2"

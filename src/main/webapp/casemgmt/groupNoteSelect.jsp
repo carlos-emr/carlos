@@ -114,7 +114,7 @@
 }%>
 
 <h5>Select clients for group note</h5>
-<form action="groupNoteSelectAction.jsp">
+<form action="groupNoteSelectAction.jsp" method="post">
     <input type="hidden" name="demographicNo" value="<%=demographicNo%>"/>
     <table>
 

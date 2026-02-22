@@ -52,12 +52,10 @@
         String[] formPath = (new FrmData()).getShortcutFormValue(request.getParameter("demographic_no"), strFrm);
         formPath[0] = formPath[0].trim();
 
-        String remoteFacilityIdString = request.getParameter("remoteFacilityId");
         String appointmentNo = request.getParameter("appointmentNo");
 
         String nextPage = formPath[0] +
                 request.getParameter("demographic_no") +
-                ((remoteFacilityIdString != null) ? "&remoteFacilityId=" + remoteFacilityIdString : "") +
                 ((appointmentNo != null) ? "&appointmentNo=" + appointmentNo : "") +
                 ((request.getParameter("formId") != null) ? "&formId=" + request.getParameter("formId") : "&formId=" + formPath[1]);
         MiscUtils.getLogger().info("Forwarding to page : " + nextPage);

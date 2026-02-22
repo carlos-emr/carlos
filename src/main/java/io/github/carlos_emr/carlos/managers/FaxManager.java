@@ -56,9 +56,9 @@ public interface FaxManager {
     Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo);
 
     /**
-     * @return
-     * @Deprecated Move these rendering methods into a more generic class like the DocumentManager
+     * @deprecated Move these rendering methods into a more generic class like the DocumentManager
      */
+    @Deprecated
     Path renderFaxDocument(LoggedInInfo loggedInInfo, TransactionType transactionType, int transactionId, int demographicNo, FormTransportContainer formTransportContainer);
 
     Path renderConsultationRequest(LoggedInInfo loggedInInfo, int requestId, int demographicNo);
@@ -82,10 +82,10 @@ public interface FaxManager {
      * recipient
      * recipientFaxNumber
      * comments (for cover page)
-     * isCoverpage
+     * coverpage
      * senderFaxNumber
      * demographicNo
-     * copytoRecipients (as String[])
+     * copyToRecipients (as String[])
      * <p>
      * The FaxJob list that is returned contains persisted FaxJob Objects
      */
@@ -98,10 +98,10 @@ public interface FaxManager {
      * recipient
      * recipientFaxNumber
      * comments (for cover page)
-     * isCoverpage
+     * coverpage
      * senderFaxNumber
      * demographicNo
-     * copytoRecipients (as String[])
+     * copyToRecipients (as String[])
      * The FaxJob returned is NEW UN-PERSISTED FaxJob Object with a single recipient
      */
     FaxJob createFaxJob(LoggedInInfo loggedInInfo, Map<String, Object> faxJobMap);
@@ -114,8 +114,7 @@ public interface FaxManager {
     List<FaxJob> addRecipients(LoggedInInfo loggedInInfo, FaxJob faxJob, String[] faxRecipients);
 
     /**
-     * Create 1 faxJob for each fax recipient. Sets each faxJob to the
-     * default status of WAITNG.
+     * Create 1 faxJob copy for each fax recipient. Status is inherited from the original faxJob.
      */
     List<FaxJob> addRecipients(LoggedInInfo loggedInInfo, FaxJob faxJob, List<FaxRecipient> faxRecipients);
 
@@ -190,10 +189,6 @@ public interface FaxManager {
      */
     boolean flush(LoggedInInfo loggedInInfo, String filePath);
 
-    /**
-     * Check if fax services are enabled.
-     */
-
     FaxJob getFaxJob(LoggedInInfo loggedInInfo, int jobId);
 
     /**
@@ -211,6 +206,8 @@ public interface FaxManager {
     boolean resendFax(LoggedInInfo loggedInInfo, String jobId, String destination);
 
     public void restartFaxScheduler(LoggedInInfo loggedInInfo);
+
+    void startFaxSchedulerIfNotRunning(LoggedInInfo loggedInInfo);
 
     public ObjectNode getFaxSchedularStatus(LoggedInInfo loggedInInfo);
 

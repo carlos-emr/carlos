@@ -47,7 +47,6 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager" %>
 <%@ page
         import="io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.OscarProperties, java.util.Date, io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
@@ -78,25 +77,16 @@
         int demoNo = Integer.parseInt(request.getParameter("demographic_no"));
         int formId = Integer.parseInt(request.getParameter("formId"));
         String provNo = (String) session.getAttribute("user");
-        String remoteFacilityIdString = request.getParameter("remoteFacilityId");
         String fromSession = request.getParameter("fromSession");
         java.util.Properties props = null;
 
-        // means it's local
-        if (remoteFacilityIdString == null) {
-            FrmRecord rec = (new FrmRecordFactory()).factory(formClass);
-            if (fromSession != null && fromSession.equals("true")) {
-                props = (java.util.Properties) request.getSession().getAttribute("labReq07" + demoNo);
-            }
-            if (props == null) {
-                props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
-                props = ((FrmLabReq07Record) rec).getFormCustRecord(loggedInInfo, loggedInInfo.getCurrentFacility(), props, provNo);
-            }
-        } else // it's remote
-        {
-            MiscUtils.getLogger().debug("Getting remote form : " + remoteFacilityIdString + ":" + formId);
-            props = FrmLabReq07Record.getRemoteRecordProperties(loggedInInfo, Integer.parseInt(remoteFacilityIdString), formId, demoNo);
-            FrmRecordHelp.convertBooleanToChecked(props);
+        FrmRecord rec = (new FrmRecordFactory()).factory(formClass);
+        if (fromSession != null && fromSession.equals("true")) {
+            props = (java.util.Properties) request.getSession().getAttribute("labReq07" + demoNo);
+        }
+        if (props == null) {
+            props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
+            props = ((FrmLabReq07Record) rec).getFormCustRecord(loggedInInfo, loggedInInfo.getCurrentFacility(), props, provNo);
         }
 
         MiscUtils.getLogger().debug("properties : " + props);

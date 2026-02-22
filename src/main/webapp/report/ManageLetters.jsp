@@ -113,7 +113,7 @@
                     var url = "<%=request.getContextPath()%>/oscarMeasurement/AddShortMeasurement.do";
 
                     new Ajax.Request(url, {
-                        method: 'get',
+                        method: 'post',
                         parameters: params,
                         asynchronous: true,
                         onComplete: followUp

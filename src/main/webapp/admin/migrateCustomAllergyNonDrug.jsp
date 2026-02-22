@@ -141,7 +141,7 @@
 
     <%if (request.getParameter("action") == null) { %>
 
-    <form action="migrateCustomAllergyNonDrug.jsp">
+    <form action="migrateCustomAllergyNonDrug.jsp" method="post">
 
         <table cellspacing="0" style="margin: 0px;width:50%" border="1">
             <thead>
