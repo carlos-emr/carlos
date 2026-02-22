@@ -540,7 +540,6 @@ function fmtOscarMsg() {
                                     title="<fmt:message key="messenger.ViewMessage.btnReplyAll"/>"><i class="fa-solid fa-reply-all"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnReplyAll"/></button>
                                 <button type="submit" class="btn btn-secondary" name="forward"
                                     title="<fmt:message key="messenger.ViewMessage.btnForward"/>"><i class="fa-solid fa-share"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnForward"/></button>
-								<% String demoKeyJs = Encode.forJavaScript(String.valueOf(pageContext.getAttribute("demographicNumber"))); %>
                                 <button type="submit" class="btn btn-danger" name="delete"
                                     title="<fmt:message key="messenger.ViewMessage.btnDelete"/>"><i class="fa-solid fa-trash"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnDelete"/></button>
                                 <input type="hidden" name="messageNo" id="messageNo" value="${ fn:escapeXml(viewMessageNo) }"/>
@@ -585,19 +584,14 @@ function fmtOscarMsg() {
                                                 String demographic_no = request.getParameter("demographic_no");
                                                 DemographicData demoData = new DemographicData();
                                                 Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographic_no);
-                                                Integer dI = 0;
                                                 String demoName = "";
                                                 String demoLastName = "";
                                                 String demoFirstName = "";
                                                 if (demo != null) {
-dI=demo.getDemographicNo();
                                                     demoName = demo.getLastName() + ", " + demo.getFirstName();
                                                     demoLastName = demo.getLastName();
                                                     demoFirstName = demo.getFirstName();
-
-
                                                 } %>
- <script>console.log("Demo:<%=dI%> OR <%=demographic_no%>|<%=Encode.forJavaScript(demographic_no)%> for <%=Encode.forJavaScript(demoName)%>");</script>
 						<tr class="DoNotPrint">
 							<td></td>
 							<td><input type="text"

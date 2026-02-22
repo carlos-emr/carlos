@@ -62,14 +62,7 @@ import java.util.GregorianCalendar;
  * the message ID. The encounter module can then retrieve and display the message
  * content for incorporation into the clinical note.</p>
  * 
- * <p>Known issues:</p>
- * <ul>
- *   <li>URL parameters are not properly encoded (missing ? and &amp; separators)</li>
- *   <li>No URL encoding for special characters in parameters</li>
- *   <li>No security validation before redirecting</li>
- *   <li>encType parameter append is missing = sign</li>
- * </ul>
- * 
+ *
  * @version 2.0
  * @since 2003
  */
@@ -108,9 +101,6 @@ public class MsgWriteToEncounter2Action extends ActionSupport {
      *   <li>encType - Optional encounter type parameter</li>
      * </ul>
      * 
-     * <p>BUG: The URL construction is flawed - parameters are concatenated without
-     * proper separators (? and &amp;), making the resulting URL invalid. The code should
-     * use proper URL building with encoded parameters.</p>
      * 
      * @return NONE as the method performs a redirect instead of forwarding
      * @throws IOException if there's an error with the redirect
@@ -129,27 +119,25 @@ public class MsgWriteToEncounter2Action extends ActionSupport {
 
 
         // Build redirect URL to encounter module
-        // BUG: Missing ? after .do and & between parameters
-        // This creates an invalid URL that won't work properly
-        StringBuilder forward = new StringBuilder("/oscarEncounter/IncomingEncounter.do");
-        forward.append("providerNo=").append(provider);
-        forward.append("appointmentNo=").append("");
-        forward.append("demographicNo=").append(request.getParameter("demographic_no"));
-        forward.append("curProviderNo=").append(provider);
-        forward.append("reason=").append("messenger");
-        forward.append("userName=").append(request.getSession().getAttribute("userfirstname") + " " + request.getSession().getAttribute("userlastname"));
-        forward.append("curDate=").append(dateString);
-        forward.append("appointmentDate=").append("");
-        forward.append("startTime=").append("");
-        forward.append("status=").append("");
-        forward.append("msgId=").append(request.getParameter("msgId"));
-        
+        StringBuilder forward = new StringBuilder(request.getContextPath());
+        forward.append("/oscarEncounter/IncomingEncounter.do");
+        forward.append("?providerNo=").append(provider);
+        forward.append("&appointmentNo=");
+        forward.append("&demographicNo=").append(request.getParameter("demographic_no"));
+        forward.append("&curProviderNo=").append(provider);
+        forward.append("&reason=messenger");
+        forward.append("&userName=").append(request.getSession().getAttribute("userfirstname")).append(" ").append(request.getSession().getAttribute("userlastname"));
+        forward.append("&curDate=").append(dateString);
+        forward.append("&appointmentDate=");
+        forward.append("&startTime=");
+        forward.append("&status=");
+        forward.append("&msgId=").append(request.getParameter("msgId"));
+
         // Add optional encounter type
         String encType = request.getParameter("encType");
         if (encType != null)
-            // BUG: Missing = sign between parameter name and value
-            forward.append("encType").append(encType);
-            
+            forward.append("&encType=").append(encType);
+
         // Redirect to encounter module
         response.sendRedirect(forward.toString());
         return NONE;
