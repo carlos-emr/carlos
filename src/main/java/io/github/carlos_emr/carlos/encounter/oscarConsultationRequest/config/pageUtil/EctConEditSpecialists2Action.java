@@ -71,10 +71,14 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         if (delete.equals(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"))) {
             if (specialists.length > 0) {
                 for (int i = 0; i < specialists.length; i++) {
-                    ProfessionalSpecialist specialist = professionalSpecialistDao.find(Integer.parseInt(specialists[i]));
-                    if (specialist != null) {
-                        specialist.setDeleted(true);
-                        professionalSpecialistDao.merge(specialist);
+                    try {
+                        ProfessionalSpecialist specialist = professionalSpecialistDao.find(Integer.parseInt(specialists[i]));
+                        if (specialist != null) {
+                            specialist.setDeleted(true);
+                            professionalSpecialistDao.merge(specialist);
+                        }
+                    } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Invalid specialist ID: " + specialists[i], e);
                     }
                 }
             }
