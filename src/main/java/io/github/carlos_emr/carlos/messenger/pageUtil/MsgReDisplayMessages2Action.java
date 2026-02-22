@@ -36,41 +36,38 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * Struts2 action for marking multiple messages as read and redisplaying the message list.
- * 
- * <p>This action handles the bulk operation of marking selected messages as "read" status.
- * It's typically invoked when users want to mark multiple unread messages as read without
- * opening each one individually. The action updates the status in the database and then
- * redisplays the message list to reflect the changes.</p>
- * 
+ * Struts2 action for bulk message operations on the deleted/archived message view.
+ *
+ * <p>This action restores selected archived messages to the inbox by setting their
+ * status to {@link MessageList#STATUS_READ "read"}.</p>
+ *
  * <p>Key functionality:</p>
  * <ul>
- *   <li>Validates read permissions for messaging operations</li>
- *   <li>Processes an array of message IDs to mark as read</li>
- *   <li>Updates the status field in the messagelisttbl for each message</li>
+ *   <li>Validates write permissions for messaging operations</li>
+ *   <li>Processes an array of message IDs for the restore operation</li>
+ *   <li>Updates message status to "read" in the database for each selected message</li>
  *   <li>Returns to the message display page with updated statuses</li>
  * </ul>
- * 
+ *
  * <p>Important notes:</p>
  * <ul>
- *   <li>Despite the misleading comment in the code, messages are marked as "read" not "del" (deleted)</li>
  *   <li>The action requires an active session with a MsgSessionBean</li>
  *   <li>Each message is individually updated in the database (not batch processed)</li>
  * </ul>
- * 
- * @version 2.0
- * @since 2003
- * @see MessageListDao
+ *
+ * @version 2.0 Struts2 migration
+ * @since 2003-07-21
+ * @see MsgBulkOperationHelper
  * @see MsgSessionBean
  * @see MsgDisplayMessages2Action
  */
@@ -81,89 +78,84 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     
     /**
-     * HTTP response object, maintained for consistency but not actively used.
+     * HTTP response object used for redirect on session timeout.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 
     /**
-     * Data access object for message list operations.
-     */
-    private MessageListDao dao = SpringUtils.getBean(MessageListDao.class);
-    
-    /**
-     * Security manager for enforcing read permissions on messaging operations.
+     * Security manager for enforcing write permissions on messaging operations.
      */
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Executes the mark-as-read operation for selected messages.
-     * 
+     * Executes the bulk message operation for selected messages.
+     *
      * <p>This method performs the following operations:</p>
      * <ol>
-     *   <li>Validates that the user has read permissions for messaging</li>
+     *   <li>Validates that the user has write permissions for messaging</li>
      *   <li>Retrieves the message session bean from the HTTP session</li>
-     *   <li>Iterates through the provided message IDs</li>
-     *   <li>Updates each message's status to "read" in the database</li>
+     *   <li>Restores selected messages from the archive by setting their status to read</li>
      *   <li>Returns success to redisplay the updated message list</li>
      * </ol>
      * 
-     * <p>The method handles multiple messages efficiently by processing them
-     * in a loop, though each update is a separate database operation rather
-     * than a batch update.</p>
-     * 
-     * @return SUCCESS constant to redisplay the message list
-     * @throws IOException if there's an I/O error
+     * @return String SUCCESS constant to redisplay the message list, or {@code null}
+     *         if the response was redirected (e.g., session timeout redirect to index.jsp)
+     * @throws IOException if there's an I/O error during redirect
      * @throws ServletException if there's a servlet processing error
-     * @throws SecurityException if user lacks read permissions for messaging
+     * @throws SecurityException if user lacks "_msg" write permissions, or if the session
+     *         bean's provider does not match the logged-in user (defensive check)
      */
     public String execute() throws IOException, ServletException {
 
-        // Verify user has read permission for messages
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_msg", "r", null)) {
+        // Validate session and permissions
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
         // Retrieve session bean for provider context
-        MsgSessionBean bean = null;
-        bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
+        MsgSessionBean bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
 
         if (bean == null) {
-            // No active session - should redirect to login or error page
-            return SUCCESS;
+            MiscUtils.getLogger().warn("MsgSessionBean is null in MsgReDisplayMessages2Action; redirecting to login.");
+            response.sendRedirect(request.getContextPath() + "/index.jsp");
+            return null;
+        }
+
+        // Defensive check: verify the session bean's provider matches the logged-in user.
+        // MsgDisplayMessages2Action always creates the bean from session, so this guard
+        // should never trigger under normal operation. Retained as defense-in-depth to
+        // ensure fail-closed behavior if session state is corrupted.
+        if (!loggedInInfo.getLoggedInProviderNo().equals(bean.getProviderNo())) {
+            throw new SecurityException("Cannot access another provider's messages");
         }
 
         String providerNo = bean.getProviderNo();
-        
+
         // Check if there are messages to process
-        // NOTE: The original comment is incorrect - messages are marked as "read" not deleted
         if (messageNo == null || messageNo.length == 0) {
             return SUCCESS;
         }
 
-        // Mark each selected message as read
-        for (int i = 0; i < messageNo.length; i++) {
-            // Find all instances of this message for the provider
-            for (MessageList ml : dao.findByProviderNoAndMessageNo(providerNo, Long.valueOf(messageNo[i]))) {
-                // Update status to "read"
-                ml.setStatus("read");
-                // Persist the change to database
-                dao.merge(ml);
-            }
-        }
+        // Delegate to shared helper which validates IDs and logs failures per-message
+        MsgBulkOperationHelper.updateSelectedMessages(
+                request, providerNo, messageNo,
+                msg -> msg.setStatus(MessageList.STATUS_READ));
 
         return SUCCESS;
     }
 
     /**
-     * Array of message IDs to be marked as read.
+     * Array of message IDs selected for the unarchive (restore) operation.
      */
     String[] messageNo;
 
     /**
-     * Gets the array of message IDs to be marked as read.
-     * 
-     * <p>Note: The original comment incorrectly states these will be deleted,
-     * but the implementation actually marks them as read.</p>
+     * Gets the array of message IDs selected for processing.
      *
      * @return String[] array of message IDs, never null
      */
@@ -175,12 +167,9 @@ public class MsgReDisplayMessages2Action extends ActionSupport {
     }
 
     /**
-     * Sets the array of message IDs to be marked as read.
-     * 
-     * <p>Note: The original comment incorrectly states these will be deleted,
-     * but the implementation actually marks them as read.</p>
+     * Sets the array of message IDs for bulk operations.
      *
-     * @param mess String[] array of message IDs to mark as read
+     * @param mess String[] array of message IDs selected for processing
      */
     public void setMessageNo(String[] mess) {
         this.messageNo = mess;

@@ -1681,6 +1681,8 @@
                                 <include>**/test/**/*Test.java</include>
                                 <include>**/test/**/*Tests.java</include>
                                 <include>**/tickler/**/*Test.java</include>
+                                <include>**/messenger/**/*Test.java</include>
+                                <include>**/provider/**/*Test.java</include>
                                 <include>**/managers/**/*Test.java</include>
                                 <include>**/*IntegrationTest.java</include>
                                 <include>**/*UnitTest.java</include>
