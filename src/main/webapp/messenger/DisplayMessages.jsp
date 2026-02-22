@@ -208,7 +208,7 @@
             function uload() {
                 if (opener && opener.callRefreshTabAlerts) {
                     opener.callRefreshTabAlerts("oscar_new_msg");
-                    setTimeout("window.close()", 100);
+                    setTimeout(function() { window.close(); }, 100);
                     return false;
                 }
                 return true;
