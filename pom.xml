@@ -177,6 +177,26 @@
                 <artifactId>xstream</artifactId>
                 <version>1.4.21</version>
             </dependency>
+            <!-- Override transitive Xalan from javax.servlet.jsp.jstl to fix CVE-2022-34169
+                 (integer truncation in XSLTC compiler allows arbitrary bytecode execution) -->
+            <dependency>
+                <groupId>xalan</groupId>
+                <artifactId>xalan</artifactId>
+                <version>2.7.3</version>
+            </dependency>
+            <!-- Override transitive org.hl7.fhir.core from hapi-fhir-structures-dstu3 to fix:
+                 - CVE-2024-45294 (XXE in XSLT transforms)
+                 - CVE-2024-51132 (XXE via crafted XML entities) -->
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.utilities</artifactId>
+                <version>6.4.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu3</artifactId>
+                <version>6.4.0</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -450,9 +470,12 @@
             <artifactId>spring-orm</artifactId>
             <version>5.3.39</version>
         </dependency>
+        <!-- spring-webmvc removed: no DispatcherServlet, no @Controller annotations, no Spring MVC.
+             Replaced with spring-web which provides WebApplicationContext used by CXF and Struts.
+             Eliminates CVE alerts on spring-webmvc (path traversal, DoS). -->
         <dependency>
             <groupId>org.springframework</groupId>
-            <artifactId>spring-webmvc</artifactId>
+            <artifactId>spring-web</artifactId>
             <version>5.3.39</version>
         </dependency>
         <!-- throws an compilation error when removed/commented -->
@@ -1235,7 +1258,7 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.27.6</version>
+            <version>3.27.7</version>
             <scope>test</scope>
         </dependency>
 
