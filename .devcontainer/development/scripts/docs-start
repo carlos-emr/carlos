@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# OpenO EMR - Start Docusaurus Documentation Server
-# This script starts the Docusaurus development server for OpenO EMR documentation
+# CARLOS EMR - Start Docusaurus Documentation Server
+# This script starts the Docusaurus development server for CARLOS EMR documentation
 
 set -e
 
-WEBSITE_DIR="/workspace/website"
+WEBSITE_DIR="/workspace"
 DOCS_PORT=3000
 PID_FILE="/tmp/docusaurus.pid"
 
-echo "🚀 Starting OpenO EMR Documentation Server..."
+echo "🚀 Starting CARLOS EMR Documentation Server..."
 
 # Check if website directory exists
 if [ ! -d "$WEBSITE_DIR" ]; then
