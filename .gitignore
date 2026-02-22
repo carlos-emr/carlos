@@ -41,7 +41,6 @@ __pycache__/
 .claude/settings.local.json
 
 # Docusaurus
-/website/node_modules/
 /node_modules/
-/website/build/
-/website/.docusaurus/
+/build/
+/.docusaurus/
