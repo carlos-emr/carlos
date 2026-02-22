@@ -913,7 +913,7 @@ input[id^='acklabel_']{
           action="<%=request.getContextPath()%>/lab/CA/ALL/createLabelTDIS.do">
         <input type="hidden" name="${empty _csrf.parameterName ? 'none' : _csrf.parameterName}" value="${_csrf.token}">
         <input type="hidden" id="labellabNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=lab_no%>">
-        <input type="hidden" id="label_<%= Encode.forHtmlAttribute(segmentID) %>" name="label" value="<%=label%>">
+        <input type="hidden" id="label_<%= Encode.forHtmlAttribute(segmentID) %>" name="label" value="<%= Encode.forHtmlAttribute(label) %>">
     </form>
 
     <form name="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>"
@@ -1787,7 +1787,7 @@ input[id^='acklabel_']{
                             %>
                                 <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" >
                                     <td style="vertical-align:top;  text-align:left;"><span style="font-size:16px;font-weight: bold;"><%=Encode.forHtml(handler.getOBRName(j))%></span></td>
-                                    <td colspan="1"><%=orderRequestStatus%></td>
+                                    <td colspan="1"><%=Encode.forHtml(orderRequestStatus)%></td>
                                 </tr>
                             <%
                         }
