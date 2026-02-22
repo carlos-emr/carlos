@@ -393,7 +393,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         }
 
         Session session = currentSession();
-        Query q = session.createQuery(hql);
+        var q = session.createQuery(hql, Demographic.class);
         q.setParameter("ln", parts[0].trim() + "%");
         if (hasFirstName) {
             q.setParameter("fn", parts[1].trim() + "%");
@@ -401,7 +401,6 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         return q.list();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> searchDemographicByNameString(String searchString, int startIndex, int itemsToReturn) {
         String sqlCommand = "select x from Demographic x";
@@ -433,14 +432,14 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
                 if (where.length() > 0)
                     sqlCommand = sqlCommand + " where " + where;
             }
-            Query q = session.createQuery(sqlCommand);
+            var q = session.createQuery(sqlCommand, Demographic.class);
             if (ln.length() > 0)
                 q.setParameter("ln", ln + "%");
             if (fn.length() > 0)
                 q.setParameter("fn", fn + "%");
             q.setFirstResult(startIndex);
             q.setMaxResults(itemsToReturn);
-            return (q.list());
+            return q.list();
         } finally {
             // this.releaseSession(session);
             //session.close();
@@ -497,7 +496,6 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
             ignoreStatuses, true);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> searchDemographicByNameAndStatus(String searchStr, List<String> statuses, int limit,
                                                               int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses,
@@ -525,7 +523,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         // Session session = this.getSession();
         Session session = currentSession();
         try {
-            Query q = session.createQuery(queryString);
+            var q = session.createQuery(queryString, Demographic.class);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
@@ -550,7 +548,6 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         return list;
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> searchMergedDemographicByName(String searchStr, int limit, int offset, String providerNo,
                                                            boolean outOfDomain) {
@@ -565,7 +562,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         // Session session = this.getSession();
         Session session = currentSession();
         try {
-            Query q = session.createQuery(queryString);
+            var q = session.createQuery(queryString, Demographic.class);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
