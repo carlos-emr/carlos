@@ -1721,7 +1721,6 @@
                             </classpathDependencyExcludes>
                             <excludes>
                                 <exclude>**/*EDTTest.java</exclude>
-                                <exclude>**/HinValidatorTest.java</exclude>
                                 <exclude>**/AR2005*.java</exclude>
                                 <exclude>**/OntarioMDSpec4DataTest.java</exclude>
                                 <exclude>**/ONAREnhancedBornConnectorTest.java</exclude>
