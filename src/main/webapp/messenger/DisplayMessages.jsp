@@ -59,7 +59,7 @@
 
     Frontend Dependencies:
     - Bootstrap 5.0.2 (responsive layout, navigation tabs, table styling)
-    - Font Awesome 3.x (action icons: trash, folder, undo, search, caret)
+    - Font Awesome 6 (action icons: trash, folder, undo, search, caret)
 
     Form Routing:
     - Inbox/Sent/Demographic views POST to DisplayMessages.do (MsgDisplayMessages2Action)
@@ -178,7 +178,7 @@
         </title>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
         <style>
         tr.newMessage td {
@@ -257,7 +257,7 @@
 <table style="width: 100%;">
   <tr>
     <td style="vertical-align:top;">
-			<h4>&nbsp;<i class="icon-envelope" title="<fmt:message key="messenger.DisplayMessages.msgMessenger"/>"></i>&nbsp;
+			<h4>&nbsp;<i class="fa-regular fa-envelope" title="<fmt:message key="messenger.DisplayMessages.msgMessenger"/>"></i>&nbsp;
                         <% switch(pageType){
                             case 0: %>
      		                    <fmt:message key="messenger.DisplayMessages.msgInbox"/>
@@ -277,20 +277,18 @@
 <td style="width:60%; display:flex; align-items:center;">
 
                             <form action="${pageContext.request.contextPath}/messenger/DisplayMessages.do" method="post">
-<div class="input-group">
+<div class="input-group mb-3">
                             <input name="boxType" type="hidden" value="<%=pageType%>">
+                            <button name="btnSearch" type="submit" class="btn btn-outline-secondary"  title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"><i class="fa-solid fa-magnifying-glass fa-lg"></i></button>
                             <input name="searchString" type="text" class="form-control h-50"  value="<%=Encode.forHtmlAttribute(DisplayMessagesBeanId.getFilter())%>">
-                            <button name="btnSearch" type="submit" class="btn"  title="<fmt:message key="messenger.DisplayMessages.btnSearch"/>"><i class="icon-search icon-large"></i></button>
-                            <button name="btnClearSearch" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.btnClearSearch"/>"><i class="icon-remove icon-large"></i></button>
+
+                            <button name="btnClearSearch" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.btnClearSearch"/>"><i class="fa-solid fa-xmark fa-lg"></i></button>
 </div>
                             </form>
 
 </td>
     <td style="text-align: right;" >
-		<i class=" icon-question-sign"></i>
-	                        <a href="javascript:void(0)" onClick ="popupPage(700,960,''+'Messenger create')"><fmt:message key="app.top1"/></a>
-	                        <i class=" icon-info-sign" style="margin-left:10px;"></i>
-                            <a href="javascript:void(0)" onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:message key="global.about"/></a>
+
     </td>
 </tr>
 </table>
@@ -373,11 +371,11 @@
                     <tr>
                         <td style="padding: 10px;" ><span>
                             <%if (pageType == 0){%>
-                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="icon-trash"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
-                                    <button name="btnRead" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="icon-folder-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
-                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="icon-folder-close"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
+                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="fa-solid fa-box-archive"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
+                                    <button name="btnRead" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="fa-solid fa-envelope-open-text"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
+                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="fa-solid fa-envelope"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
                             <%}else if (pageType == 2){%>
-                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
+                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="fa-solid fa-box-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
                             <%}%>
                             &nbsp;</span>
                         <span class="float-end">
@@ -434,7 +432,7 @@
                                         <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=status"
                                                    >
                                             <fmt:message key="messenger.DisplayMessages.msgStatus"/>
-                                            <i class=" icon-caret-down" ></i>
+                                            <i class="fa-solid fa-caret-down"></i>
                                         </a>
                                     </th>
                                     <th style="text-align: left;">
@@ -442,13 +440,13 @@
                                                  <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=sentto"
                                                     >
                                                     <fmt:message key="messenger.DisplayMessages.msgTo"/>
-                                                    <i class=" icon-caret-down" ></i>
+                                                    <i class="fa-solid fa-caret-down"></i>
                                                 </a>
                                        <%} else {%>
                                                 <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=from"
                                                    >
                                                     <fmt:message key="messenger.DisplayMessages.msgFrom"/>
-                                                    <i class=" icon-caret-down" ></i>
+                                                    <i class="fa-solid fa-caret-down"></i>
                                                 </a>
                                        <% } %>
                                     </th>
@@ -456,21 +454,21 @@
                                             <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=subject"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgSubject"/>
-                                                <i class=" icon-caret-down" ></i>
+                                                <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;">
                                             <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=date"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgDate"/>
-                                                <i class=" icon-caret-down" ></i>
+                                                <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                     <th style="text-align: left;" >
                                             <a class="nav-link" href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?orderby=linked"
                                                    >
                                                 <fmt:message key="messenger.DisplayMessages.msgLinked"/>
-                                                <i class=" icon-caret-down" ></i>
+                                                <i class="fa-solid fa-caret-down"></i>
                                             </a>
                                     </th>
                                 </tr>
@@ -540,7 +538,7 @@
                                        String atta = dm.getAttach();
                                        String pdfAtta = dm.getPdfAttach();
                                        if ("1".equals(atta) || "1".equals(pdfAtta) ){ %>
-                                            &nbsp;<i class="icon-paper-clip" title="attachment"></i>
+                                            &nbsp;<i class="fa-solid fa-paperclip" title="attachment"></i>
                                     <% } %>
                                     </td>
                                     <td title="<%= Encode.forHtmlAttribute(dm.getThedate()) %>&nbsp;&nbsp;<%= Encode.forHtmlAttribute(dm.getThetime()) %>">
@@ -560,11 +558,11 @@
                             <tr><td colspan="6">
                         <span>
                             <%if (pageType == 0){%>
-                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="icon-trash"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
-                                    <button name="btnRead" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="icon-folder-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
-                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="icon-folder-close"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
+                                    <button name="btnDelete" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formArchive"/>"><i class="fa-solid fa-box-archive"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formArchive"/></button>
+                                    <button name="btnRead" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markRead"/>"><i class="fa-solid fa-envelope-open-text"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markRead"/></button>
+                                    <button name="btnUnread" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.markUnRead"/>"><i class="fa-solid fa-envelope"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.markUnRead"/></button>
                             <%}else if (pageType == 2){%>
-                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="icon-undo"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
+                                    <button name="btnUnarchive" type="submit" class="btn" title="<fmt:message key="messenger.DisplayMessages.formUnarchive"/>"><i class="fa-solid fa-box-open"></i>&nbsp;<fmt:message key="messenger.DisplayMessages.formUnarchive"/></button>
                             <%}%>
                             &nbsp;</span>
                         <span class="float-end">
