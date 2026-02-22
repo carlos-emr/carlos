@@ -202,8 +202,10 @@
     if (getRecallDelegate != null) {
         recall = true;
         recallDelegate = getRecallDelegate.getValue();
-        recallTicklerPriority = getRecallTicklerPriority.getValue();
-        if (getRecallTicklerAssignee.getValue().equals("yes")) {
+        if (getRecallTicklerPriority != null) {
+            recallTicklerPriority = getRecallTicklerPriority.getValue();
+        }
+        if (getRecallTicklerAssignee != null && "yes".equals(getRecallTicklerAssignee.getValue())) {
             ticklerAssignee = "&taskTo=" + recallDelegate;
         }
     }
@@ -370,21 +372,9 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
     <title><%=Encode.forHtml(handler.getPatientName()) + " Lab Results"%>
     </title>
 
-    <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css"/>
-    <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
-    <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"/>
     <script type="text/javascript"
             src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
     <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/share/javascript/jquery/jquery.form.js"></script>
 
     <script>
         var contextpath = "${pageContext.servletContext.contextPath}";
@@ -829,23 +819,29 @@ input[id^='acklabel_']{
 %>
 <script type="text/javascript">
 
-    jQuery(function () {
-        jQuery("#createLabel_<%=Encode.forJavaScript(segmentID)%>").click(function () {
-            jQuery.ajax({
-                type: "POST",
-                url: '<%=request.getContextPath()%>' + "/lab/CA/ALL/createLabelTDIS.do",
-                dataType: "json",
-                data: {
-                    lab_no: jQuery("#labNum_<%=Encode.forJavaScript(segmentID)%>").val(),
-                    accessionNum: jQuery("#accNum").val(),
-                    label: jQuery("#label_<%=Encode.forJavaScript(segmentID)%>").val(),
-                    ajaxcall: true
-                }
-            })
-            jQuery("#labelspan_<%=Encode.forJavaScript(segmentID)%> i").text(jQuery("#label_<%=Encode.forJavaScript(segmentID)%>").val());
-            var ackForm = document.forms['acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>'];
-            if (ackForm && ackForm.label) ackForm.label.value = "";
-        });
+    document.addEventListener('DOMContentLoaded', function () {
+        var btn = document.getElementById('createLabel_<%=Encode.forJavaScript(segmentID)%>');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                var labNo = document.getElementById('labNum_<%=Encode.forJavaScript(segmentID)%>');
+                var accNum = document.getElementById('accNum');
+                var labelInput = document.getElementById('label_<%=Encode.forJavaScript(segmentID)%>');
+                var params = new URLSearchParams();
+                if (labNo) params.append('lab_no', labNo.value);
+                if (accNum) params.append('accessionNum', accNum.value);
+                if (labelInput) params.append('label', labelInput.value);
+                params.append('ajaxcall', 'true');
+                fetch('<%=request.getContextPath()%>/lab/CA/ALL/createLabelTDIS.do', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: params.toString()
+                });
+                var spanI = document.querySelector('#labelspan_<%=Encode.forJavaScript(segmentID)%> i');
+                if (spanI && labelInput) spanI.textContent = labelInput.value;
+                var ackForm = document.forms['acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>'];
+                if (ackForm && ackForm.label) ackForm.label.value = '';
+            });
+        }
     });
 
     var _in_window = <%= request.getParameter("inWindow") == null || "true".equals(request.getParameter("inWindow")) %>;
@@ -1023,7 +1019,7 @@ input[id^='acklabel_']{
                                        onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLabRecall');">
                                 <%}%>
                                 <%
-                                    if (remoteLabKey == null || "".equals(remoteLabKey.length())) {
+                                    if (remoteLabKey == null || remoteLabKey.isEmpty()) {
                                 %>
 
 
@@ -1281,7 +1277,7 @@ input[id^='acklabel_']{
                                             </td>
                                             <td>
                                                 <div class="FieldData">
-                                                    <%= ((ExcellerisOntarioHandler) handler).getReportStatusChangeDate() %>
+                                                    <%=Encode.forHtml(((ExcellerisOntarioHandler) handler).getReportStatusChangeDate())%>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1361,7 +1357,7 @@ input[id^='acklabel_']{
                                         </td>
                                         <td>
                                             <div class="FieldData">
-                                                <%= ((ExcellerisOntarioHandler) handler).getAlternativePatientIdentifier()%>
+                                                <%=Encode.forHtml(((ExcellerisOntarioHandler) handler).getAlternativePatientIdentifier())%>
                                             </div>
                                         </td>
                                     </tr>
@@ -1575,7 +1571,7 @@ input[id^='acklabel_']{
                                                 <%= report.getTimestamp() %>,
                                                 <% } %>
                                                 <span id="<%=report.getOscarProviderNo() + "_" + segmentID%>commentLabel"><%=report.getComment() == null || report.getComment().equals("") ? "no comment" : "comment : "%></span><span
-                                                    id="<%=report.getOscarProviderNo() + "_" + segmentID%>commentText"><%=report.getComment() == null ? "" : report.getComment()%></span>
+                                                    id="<%=report.getOscarProviderNo() + "_" + segmentID%>commentText"><%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
                                                 <br>
                                                 <% }
                                                     if (ackList.size() == 0) {
@@ -1617,7 +1613,7 @@ input[id^='acklabel_']{
                         <tr>
                             <td style="background-color:#FFCC00; width:300px; vertical-align:bottom">
                                 <div class="Title2">
-                                    <%=headers.get(0)%>
+                                    <%=Encode.forHtml(headers.get(0))%>
                                 </div>
                             </td>
                             <%--<td style="text-align:right" style="background-color:#FFCC00; width:100">&nbsp;</td>--%>
@@ -1639,13 +1635,13 @@ input[id^='acklabel_']{
                         </tr>
                         <tr class="TDISRes">
                             <td style="vertical-align:top;  text-align:left;"> colspan="9">
-                                <pre style="margin:0px 0px 0px 100px;"><b>Radiologist: </b><b><%=Encode.forJavaScriptBlock(handler.getRadiologistInfo())%></b></pre>
+                                <pre style="margin:0px 0px 0px 100px;"><b>Radiologist: </b><b><%=Encode.forHtml(handler.getRadiologistInfo())%></b></pre>
                             </td>
                 </td>
             </tr>
             <tr class="TDISRes">
                 <td style="vertical-align:top;  text-align:left;"> colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><b><%=Encode.forJavaScriptBlock(handler.getOBXComment(1, 1, 1))%></b></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><b><%=Encode.forHtml(handler.getOBXComment(1, 1, 1))%></b></pre>
                 </td>
                 </td>
                 <td style="text-align:center; vertical-align:top; ">
@@ -1690,7 +1686,7 @@ input[id^='acklabel_']{
             <tr>
                 <td style="background-color:#FFCC00; width:300px; vertical-align: bottom">
                     <div class="Title2">
-                        <%=headers.get(i)%>
+                        <%=Encode.forHtml(headers.get(i))%>
                     </div>
                 </td>
                 <%--<td style="text-align:right" style="background-color:#FFCC00; width:100px">&nbsp;</td>--%>
@@ -1737,7 +1733,7 @@ input[id^='acklabel_']{
                                     SOURCE:
                                 </td>
                                 <td style="font-weight:bold;vertical-align:top;text-align:left;"
-                                    colspan="7"><%= ((MEDITECHHandler) handler).getSpecimenSource(i) %>
+                                    colspan="7"><%=Encode.forHtml(((MEDITECHHandler) handler).getSpecimenSource(i))%>
                                 </td>
                             </tr>
                             <tr>
@@ -1745,7 +1741,7 @@ input[id^='acklabel_']{
                                     DESCRIPTION:
                                 </td>
                                 <td style="font-weight:bold;vertical-align:top;text-align:left;"
-                                    colspan="7"><%= ((MEDITECHHandler) handler).getSpecimenDescription(i) %>
+                                    colspan="7"><%=Encode.forHtml(((MEDITECHHandler) handler).getSpecimenDescription(i))%>
                                 </td>
                             </tr>
                             <tr>
@@ -1846,7 +1842,7 @@ input[id^='acklabel_']{
                             if (b1 && b2 && b3 && !handler.getMsgType().equals("ExcellerisON")) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
-                <td style="vertical-align:top;  text-align:left;"><span style="font-size:16px;font-weight: bold;"><%=obrName%></span></td>
+                <td style="vertical-align:top;  text-align:left;"><span style="font-size:16px;font-weight: bold;"><%=Encode.forHtml(obrName)%></span></td>
                 <td colspan="6">&nbsp;</td>
             </tr>
             <%
@@ -1971,7 +1967,7 @@ input[id^='acklabel_']{
             <%} else { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forJavaScriptBlock(handler.getOBXResult(j, k))%><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXResult(j, k))%><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
 
             </tr>
@@ -2220,7 +2216,7 @@ input[id^='acklabel_']{
             %>
             <td style="text-align:<%=align%>">
                 <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
-                <em><%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %></em>
+                <em><%=Encode.forHtml(((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue(j, k))%></em>
                 <% } else { %>
                 <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
                 <% } %>
@@ -2269,7 +2265,7 @@ input[id^='acklabel_']{
                     allLicenseNames.add(licenseName);
                 }
             %>
-            <td><%= !currentLicenseNo.equals(lastLicenseNo) ? currentLicenseNo : ""%>
+            <td><%=!currentLicenseNo.equals(lastLicenseNo) ? Encode.forHtml(currentLicenseNo) : ""%>
             </td>
             <% } %>
             </tr>
@@ -2386,15 +2382,15 @@ input[id^='acklabel_']{
                 for (int m = 0; m < numZDS; m++) {
             %>
             <tr style="background-color:<%=(lineNumber % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
-                <td style="vertical-align:top;  text-align:left;"><%=((SpireHandler) handler).getZDSName(m)%>
+                <td style="vertical-align:top;  text-align:left;"><%=Encode.forHtml(((SpireHandler) handler).getZDSName(m))%>
                 </td>
-                <td style="text-align:right"><%= ((SpireHandler) handler).getZDSResult(m) %>
+                <td style="text-align:right"><%=Encode.forHtml(((SpireHandler) handler).getZDSResult(m))%>
                 </td>
-                <td style="text-align:center"><%= ((SpireHandler) handler).getZDSProvider(m) %>
+                <td style="text-align:center"><%=Encode.forHtml(((SpireHandler) handler).getZDSProvider(m))%>
                 </td>
-                <td style="text-align:center"><%= ((SpireHandler) handler).getZDSTimeStamp(m) %>
+                <td style="text-align:center"><%=Encode.forHtml(((SpireHandler) handler).getZDSTimeStamp(m))%>
                 </td>
-                <td style="text-align:center"><%= ((SpireHandler) handler).getZDSResultStatus(m) %>
+                <td style="text-align:center"><%=Encode.forHtml(((SpireHandler) handler).getZDSResultStatus(m))%>
                 </td>
             </tr>
             <%
@@ -2466,7 +2462,7 @@ input[id^='acklabel_']{
                 for (String lName : allLicenseNames) {
             %>
             <tr>
-                <td><%=lName %>
+                <td><%=Encode.forHtml(lName)%>
                 </td>
             </tr>
 
@@ -2480,7 +2476,7 @@ input[id^='acklabel_']{
 
     <%String s = "" + System.currentTimeMillis();%>
     <a style="color:lightgrey;" href="javascript: void(0);" onclick="showHideItem('rawhl7<%=s%>');">show</a>
-    <pre id="rawhl7<%=s%>" style="display:none;"><%=hl7%></pre>
+    <pre id="rawhl7<%=s%>" style="display:none;"><%=Encode.forHtml(hl7)%></pre>
 </div>
 <%} %>
 
