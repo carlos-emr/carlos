@@ -1,0 +1,45 @@
+<%-- Row One: Social History, Family History, Medical History --%>
+<div class="encounter-card card mb-1" id="rowOne">
+    <div class="card-header d-flex align-items-center">
+        <div class="flex-grow-1 d-flex gap-3">
+            <span><fmt:message key="oscarEncounter.Index.socialFamHist"/>:</span>
+            <input type="hidden" name="shInput"/>
+            <span>
+                <c:choose>
+                    <c:when test="${fn:length(otherMedLabel) > 1}"><c:out value="${otherMedLabel}"/>:</c:when>
+                    <c:otherwise><fmt:message key="oscarEncounter.Index.otherMed"/>:</c:otherwise>
+                </c:choose>
+            </span>
+            <span>
+                <c:choose>
+                    <c:when test="${fn:length(medHistLabel) > 1}"><c:out value="${medHistLabel}"/>:</c:when>
+                    <c:otherwise><fmt:message key="oscarEncounter.Index.medHist"/>:</c:otherwise>
+                </c:choose>
+            </span>
+        </div>
+        <div class="resize-controls">
+            <a href="javascript:rowOneX();" title="<fmt:message key="oscarEncounter.Index.tooltipClose"/>"><fmt:message key="oscarEncounter.Index.x"/></a> |
+            <a href="javascript:rowOneSmall();" title="<fmt:message key="oscarEncounter.Index.tooltipSmall"/>"><fmt:message key="oscarEncounter.Index.s"/></a> |
+            <a href="javascript:rowOneNormal();" title="<fmt:message key="oscarEncounter.Index.tooltipNormal"/>"><fmt:message key="oscarEncounter.Index.n"/></a> |
+            <a href="javascript:rowOneLarge();" title="<fmt:message key="oscarEncounter.Index.tooltipLarge"/>"><fmt:message key="oscarEncounter.Index.l"/></a> |
+            <a href="javascript:rowOneFull();" title="<fmt:message key="oscarEncounter.Index.tooltipFull"/>"><fmt:message key="oscarEncounter.Index.f"/></a> |
+            <a href="javascript:reset();" title="<fmt:message key="oscarEncounter.Index.tooltipReset"/>"><fmt:message key="oscarEncounter.Index.r"/></a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row g-0">
+            <div class="col-4">
+                <textarea name="shTextarea" tabindex="1" wrap="hard" cols="28"
+                          style="height:${rowOneSize};overflow:auto"><c:out value="${bean.socialHistory}"/></textarea>
+            </div>
+            <div class="col-4">
+                <textarea name="fhTextarea" tabindex="2" wrap="hard" cols="28"
+                          style="height:${rowOneSize};overflow:auto"><c:out value="${bean.familyHistory}"/></textarea>
+            </div>
+            <div class="col-4">
+                <textarea name="mhTextarea" tabindex="3" wrap="hard" cols="28"
+                          style="height:${rowOneSize};overflow:auto"><c:out value="${bean.medicalHistory}"/></textarea>
+            </div>
+        </div>
+    </div>
+</div>

@@ -71,6 +71,15 @@ public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientIma
     }
 
     @Override
+    public void deleteClientImage(Integer clientId) {
+        ClientImage clientImage = getClientImage(clientId);
+        if (clientImage != null) {
+            getHibernateTemplate().delete(clientImage);
+            dataCache.remove(clientId);
+        }
+    }
+
+    @Override
     public ClientImage getClientImage(Integer clientId) {
 
         // check cache

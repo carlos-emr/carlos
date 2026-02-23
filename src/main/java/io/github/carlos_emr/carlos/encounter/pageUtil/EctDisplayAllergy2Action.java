@@ -41,7 +41,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.util.DateUtils;
-import io.github.carlos_emr.carlos.util.StringUtils;
 
 /**
  * retrieves info to display Disease entries for demographic
@@ -101,8 +100,6 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
 
     private static NavBarDisplayDAO.Item makeItem(Date entryDate, String description, String severity, Locale locale, CppPreferencesUIBean prefsBean, Date startDate, String severityDescription) {
         NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-
-        item.setDate(entryDate);
         if (severity != null && severity.equals("3")) {
             item.setColour("red");
         } else if (severity != null && severity.equals("2")) {
@@ -116,8 +113,8 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
         if (prefsBean != null && "on".equals(prefsBean.getAllergySeverity())) {
             customDescription = customDescription + " Severity:" + severityDescription;
         }
-        item.setTitle(StringUtils.maxLenString(customDescription, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES));
-        item.setLinkTitle(customDescription + " Entry Date:" + DateUtils.formatDate(entryDate, locale));
+        item.setTitle(customDescription);
+        item.setLinkTitle(customDescription);
         item.setURL("return false;");
 
         return (item);

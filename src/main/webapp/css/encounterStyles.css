@@ -127,7 +127,7 @@ div#userSettings ul#userSettingsMenu li .glyphicon {
 #header-top-row {
     width: 100%;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
 }
 
 #header-top-row #left-column #branding-logo {
@@ -161,7 +161,7 @@ fieldset legend {
 
 div#patient-label {
     display: flex;
-    align-content: stretch;
+    align-items: baseline;
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: flex-start;
@@ -181,31 +181,39 @@ textarea.txtArea {
     width: 100%;
     font-size: inherit;
     padding: 2px 5px;
+    overflow: hidden;
 }
 
 textarea.unsigned-textarea, textarea.edit-textarea {
     border-radius: unset;
 }
 
-div#patient-label div {
-    margin: auto 5px;
-    font-size: small;
+div#patient-label > div {
+    margin: 2px 0;
+    padding: 0 6px;
+    font-size: 11px;
+    border-right: 1px solid #ccc;
+    white-space: nowrap;
+}
+
+div#patient-label > div:last-child {
+    border-right: none;
+}
+
+div#patient-label > div#patient-mrp {
+    margin-left: auto;
 }
 
 div#patient-label div#patient-full-name, div#patient-label div#patient-full-name h1, div#patient-label div#patient-full-name h1 a {
-    margin: unset;
-    margin-bottom: auto;
+    margin: 0;
+    font-size: 12px;
+    font-weight: bold;
+    display: inline;
 }
 
 div#patient-full-name a {
     text-decoration: none;
     color: blue;
-    display: block;
-    font-size: larger;
-}
-
-div#patient-label div#patient-full-name h1 a {
-    font-size: larger;
 }
 
 div#patient-label div#header-top-row {
@@ -215,12 +223,22 @@ div#patient-label div#header-top-row {
 div#patient-label .label {
     margin: 0;
     font-weight: normal !important;
-    font-size: smaller;
+    font-size: 10px;
     text-decoration: none;
+    display: inline;
+    color: #666;
 }
 
-div#patient-label div#patient-phone:hover, div#patient-label div#patient-cell-phone:hover {
+div#patient-label .label::after {
+    content: ':\00a0';
+}
+
+div#patient-label div.copyable {
     cursor: pointer;
+}
+
+div#patient-label .copyable:hover {
+    text-decoration: underline;
 }
 
 
@@ -1423,6 +1441,22 @@ div#control-panel div#form-control-panel {
     gap: 3px;
 }
 
+div#control-panel div#save-sign-bill-buttons {
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+div#save-sign-bill-buttons button {
+    height: 24px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    vertical-align: middle;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
 
 div#control-panel div.row,
 div#control-panel div#form-control-panel {
@@ -1435,14 +1469,9 @@ div#control-panel div#form-control-panel div:first-of-type {
     margin-right: 0;
 }
 
-div#control-panel div#form-control-panel div:last-of-type,
-div#control-panel div#assignIssueSection {
-    margin-left: 0;
-    margin-right: auto;
-}
-
 div#control-panel div.row:last-of-type {
-    align-content: center
+    align-content: center;
+    justify-content: flex-end;
 }
 
 div#control-panel div.row:last-of-type button {

@@ -1,6 +1,5 @@
 <%--
 
-
     Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
@@ -28,6 +27,12 @@
 
 --%>
 
+<%--
+    Client Image Manager - Upload patient photo.
+    Allows uploading GIF/JPG images for patient identification.
+
+    @since 2005 (original), modernized 2026-02-22
+--%>
 
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%
@@ -44,7 +49,6 @@
     }
 %>
 
-
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 
@@ -54,12 +58,11 @@
         application.setAttribute("javax.servlet.context.tempdir", new java.io.File(tmpDir));
     }
 %>
+<html>
 <head>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/js/global.js"></script>
+    <%@ include file="/includes/global-head.jspf" %>
     <title>Client Image Manager</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/web.css"/>
     <script>
-        // If page is successful, reload the client E-Chart and close the profile picture upload page
         function init_page() {
             <%
                 if(request.getAttribute("success") != null)
@@ -68,11 +71,10 @@
             opener.location.reload();
             self.close();
             <%
-        }
-    %>
+                }
+            %>
         }
 
-        // Makes sure that a picture has been uploaded to the submission box
         function onPicUpload() {
             var file = document.getElementById("clientImage").files[0];
             if (!file) {
@@ -83,45 +85,45 @@
         }
     </script>
 </head>
-<body bgcolor="#C4D9E7" bgproperties="fixed"
-      onLoad="self.focus();init_page();" topmargin="0" leftmargin="0"
-      rightmargin="0">
-<table border="0" cellspacing="0" cellpadding="0" width="100%">
-    <tr bgcolor="#486ebd">
-        <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF">Client
-            Image Manager</font></th>
-    </tr>
-</table>
-<table BORDER="0" CELLPADDING="1" CELLSPACING="0" WIDTH="100%"
-       BGCOLOR="#C4D9E7">
+<body onload="self.focus();init_page();">
 
+<div class="page-header-bar">
+    <h4 class="page-header-title">
+        <i class="fas fa-camera page-header-icon"></i> Client Image Manager
+    </h4>
+</div>
+
+<div class="container-fluid mt-3">
     <form action="${pageContext.request.contextPath}/ClientImage.do" enctype="multipart/form-data"
-               method="post" onsubmit="return onPicUpload();">
+          method="post" onsubmit="return onPicUpload();">
         <input type="hidden" name="method" value="saveImage"/>
         <%
             request.getSession().setAttribute("clientId", request.getParameter("demographicNo"));
         %>
-        <tr valign="top">
-            <td rowspan="2" ALIGN="right" valign="middle"><font
-                    face="Verdana" color="#0000FF"><b><i>Add Image </i></b></font></td>
-
-
-            <td valign="middle" rowspan="2" ALIGN="left">
-                <input type="file" name="clientImage" id="clientImage" size="30" accept="*.gif,*.jpg"/><br>
-                <input type="submit" value="Upload" /></td>
-        </tr>
+        <div class="row align-items-center mb-3">
+            <div class="col-auto">
+                <input type="file" name="clientImage" id="clientImage" class="form-control form-control-sm"
+                       accept=".gif,.jpg,.jpeg"/>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary btn-sm">Upload</button>
+            </div>
+        </div>
     </form>
-</table>
-<br>
-Attention:
-<br>
-Only gif and jpg image type are allowed for the client photo uploading.
-<br>
-<br>
 
+    <div class="alert alert-info py-2" role="alert">
+        <small>Only GIF and JPG image types are allowed for the client photo.</small>
+    </div>
 
-<form><input type="button" name="Button" value="cancel"
-             onclick="self.close();"/></form>
-
+    <div class="d-flex gap-2">
+        <form action="${pageContext.request.contextPath}/ClientImage.do" method="post"
+              onsubmit="return confirm('Are you sure you want to remove the client photo?');">
+            <input type="hidden" name="method" value="deleteImage"/>
+            <button type="submit" class="btn btn-danger btn-sm">Clear Photo</button>
+        </form>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="self.close();">Cancel</button>
+    </div>
+</div>
 
 </body>
+</html>

@@ -473,4 +473,104 @@ public class EctSessionBean implements java.io.Serializable {
         return patientAge;
     }
 
+    public String getProviderNo() {
+        return providerNo;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public String getAppointmentNo() {
+        return appointmentNo;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public String getReasonCode() {
+        return reasonCode;
+    }
+
+    public String getAppointmentDate() {
+        return appointmentDate;
+    }
+
+    public String getStartTime() {
+        return startTime;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public String getFamilyDoctorNo() {
+        return familyDoctorNo;
+    }
+
+    public String getYearOfBirth() {
+        return yearOfBirth;
+    }
+
+    public String getMonthOfBirth() {
+        return monthOfBirth;
+    }
+
+    public String getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public String getSocialHistory() {
+        return socialHistory;
+    }
+
+    public String getFamilyHistory() {
+        return familyHistory;
+    }
+
+    public String getMedicalHistory() {
+        return medicalHistory;
+    }
+
+    public String getOngoingConcerns() {
+        return ongoingConcerns;
+    }
+
+    public String getReminders() {
+        return reminders;
+    }
+
+    public String getEncounter() {
+        return encounter;
+    }
+
+    public String getSubject() {
+        return subject;
+    }
+
+    public String getOscarMsg() {
+        return oscarMsg;
+    }
+
+    public List<String> getTemplateNames() {
+        return templateNames;
+    }
+
+    public Date getCurrentDate() {
+        return currentDate;
+    }
+
+    public Date getEChartTimeStamp() {
+        return eChartTimeStamp;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public String getEChartId() {
+        return eChartId;
+    }
+
 }

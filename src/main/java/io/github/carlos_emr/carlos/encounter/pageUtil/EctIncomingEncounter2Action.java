@@ -71,6 +71,16 @@ import io.github.carlos_emr.carlos.model.security.Secrole;
 
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
+import io.github.carlos_emr.carlos.encounter.data.EctSplitChart;
+import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
+import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
+import org.owasp.encoder.Encode;
+
+import java.util.Properties;
+import java.util.Vector;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -244,13 +254,141 @@ public class EctIncomingEncounter2Action extends ActionSupport {
 
         String proNo = (String) request.getSession().getAttribute("user");
         if (proNo != null && newDocArr != null && Collections.binarySearch(newDocArr, proNo) >= 0) {
+            setEncounterAttributes(request, bean, loggedInInfo);
             return "success2";
         } else if (useNewEchart != null && useNewEchart.equals(Boolean.TRUE)) {
-
+            setEncounterAttributes(request, bean, loggedInInfo);
             return "success2";
         } else {
             return SUCCESS;
         }
+    }
+
+    /**
+     * Sets request attributes needed by Index2.jsp and its includes.
+     * Moves data-fetching logic from JSP scriptlets into the Action layer.
+     */
+    private void setEncounterAttributes(HttpServletRequest request, EctSessionBean bean, LoggedInInfo loggedInInfo) {
+        OscarProperties oscarProps = OscarProperties.getInstance();
+
+        // Patient age as integer string
+        String pAge = Integer.toString(new UtilDateUtilities().calcAge(
+                bean.yearOfBirth, bean.monthOfBirth, bean.dateOfBirth));
+        request.setAttribute("pAge", pAge);
+
+        // Family doctor info
+        if (bean.familyDoctorNo != null && !bean.familyDoctorNo.isEmpty()) {
+            EctProviderData.Provider prov = new EctProviderData().getProvider(bean.familyDoctorNo);
+            request.setAttribute("famDocName", prov.getFirstName());
+            request.setAttribute("famDocSurname", prov.getSurname());
+        } else {
+            request.setAttribute("famDocName", "");
+            request.setAttribute("famDocSurname", "");
+        }
+
+        // Window sizes (individual values for EL access)
+        Properties windowSizes = EctWindowSizes.getWindowSizes(bean.providerNo);
+        request.setAttribute("rowOneSize", windowSizes.getProperty("rowOneSize"));
+        request.setAttribute("rowTwoSize", windowSizes.getProperty("rowTwoSize"));
+        request.setAttribute("rowThreeSize", windowSizes.getProperty("rowThreeSize"));
+        request.setAttribute("presBoxSize", windowSizes.getProperty("presBoxSize"));
+
+        // Province
+        request.setAttribute("province", oscarProps.getProperty("billregion", "").trim().toUpperCase());
+
+        // Split chart data
+        Vector splitChart = new EctSplitChart().getSplitCharts(bean.demographicNo);
+        request.setAttribute("splitChart", splitChart);
+        request.setAttribute("hasSplitChart", splitChart != null && !splitChart.isEmpty());
+
+        // Allergies
+        Allergy[] allergies = RxPatientData.getPatient(loggedInInfo,
+                Integer.parseInt(bean.demographicNo)).getAllergies(loggedInInfo);
+        request.setAttribute("allergies", allergies);
+
+        // Prescriptions
+        RxPrescriptionData prescriptData = new RxPrescriptionData();
+        RxPrescriptionData.Prescription[] prescriptions = prescriptData
+                .getUniquePrescriptionsByPatient(Integer.parseInt(bean.demographicNo));
+        request.setAttribute("prescriptions", prescriptions);
+
+        // Encounter text and consumption
+        boolean bSplit = request.getParameter("splitchart") != null;
+        int nEctLen = bean.encounter != null ? bean.encounter.length() : 0;
+        boolean bTruncate = bSplit && nEctLen > 5120;
+        int consumption = (int) ((bTruncate ? 5120 : nEctLen) / (10.24 * 32));
+        consumption = consumption == 0 ? 1 : consumption;
+        String ccolor = consumption >= 70 ? "red" : (consumption >= 50 ? "orange" : "green");
+        request.setAttribute("consumption", consumption);
+        request.setAttribute("consumptionColor", ccolor);
+        request.setAttribute("bSplit", bSplit);
+
+        // Build encounter text
+        String encounterText = buildEncounterText(bean, bSplit, bTruncate, nEctLen);
+        request.setAttribute("encounterText", encounterText);
+
+        // OscarProperties labels
+        request.setAttribute("otherMedLabel", oscarProps.getProperty("otherMedications", ""));
+        request.setAttribute("medHistLabel", oscarProps.getProperty("medicalHistory", ""));
+        request.setAttribute("ongoingConcernsLabel", oscarProps.getProperty("ongoingConcerns", ""));
+
+        // Popup URL
+        request.setAttribute("popUrl", request.getParameter("popupUrl"));
+
+        // Template names (escaped for JS)
+        int maxLen = 25;
+        int truncLen = 22;
+        String ellipses = "...";
+        List<String> escapedTemplates = new ArrayList<>();
+        if (bean.templateNames != null) {
+            for (String tmpl : bean.templateNames) {
+                String truncated = StringUtils.maxLenString(tmpl, maxLen, truncLen, ellipses);
+                escapedTemplates.add(Encode.forJavaScript(truncated));
+            }
+        }
+        request.setAttribute("templateNames", escapedTemplates);
+    }
+
+    /**
+     * Assembles the encounter text from the session bean, handling split chart
+     * truncation and date stamp insertion.
+     */
+    private String buildEncounterText(EctSessionBean bean, boolean bSplit, boolean bTruncate, int nEctLen) {
+        StringBuilder sb = new StringBuilder();
+        try {
+            if (!bSplit) {
+                sb.append(bean.encounter != null ? bean.encounter : "");
+            } else if (bTruncate) {
+                sb.append(bean.encounter.substring(nEctLen - 5120));
+                sb.append("\n--------------------------------------------------\n$$SPLIT CHART$$\n");
+            } else {
+                sb.append(bean.encounter != null ? bean.encounter : "");
+                sb.append("\n--------------------------------------------------\n$$SPLIT CHART$$\n");
+            }
+
+            UtilDateUtilities dateConvert = new UtilDateUtilities();
+            if (bean.eChartTimeStamp == null) {
+                sb.append("\n[").append(dateConvert.DateToString(bean.currentDate))
+                        .append(" .: ").append(bean.reason != null ? bean.reason : "").append("] \n");
+            } else if (bean.currentDate.compareTo(bean.eChartTimeStamp) > 0) {
+                String apptDate = (bean.appointmentDate == null || bean.appointmentDate.isEmpty())
+                        ? UtilDateUtilities.getToday("yyyy-MM-dd") : bean.appointmentDate;
+                sb.append("\n__________________________________________________\n[")
+                        .append(apptDate).append(" .: ").append(bean.reason != null ? bean.reason : "").append("]\n");
+            } else if ((bean.currentDate.compareTo(bean.eChartTimeStamp) == 0)
+                    && (bean.reason != null || bean.subject != null)
+                    && !java.util.Objects.equals(bean.reason, bean.subject)) {
+                sb.append("\n__________________________________________________\n[")
+                        .append(bean.appointmentDate != null ? bean.appointmentDate : "")
+                        .append(" .: ").append(bean.reason != null ? bean.reason : "").append("]\n");
+            }
+            if (bean.oscarMsg != null && !bean.oscarMsg.isEmpty()) {
+                sb.append("\n\n").append(bean.oscarMsg);
+            }
+        } catch (Exception e) {
+            log.error("Error building encounter text", e);
+        }
+        return sb.toString();
     }
 
     private Set<Long> getIssueIdSet(String providerNo, String wlProgramId) {

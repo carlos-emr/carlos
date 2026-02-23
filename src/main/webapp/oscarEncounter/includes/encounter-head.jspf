@@ -1,0 +1,83 @@
+    <head>
+        <%@ include file="/includes/global-head.jspf" %>
+        <script>var $j = jQuery.noConflict();</script>
+
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.title"/> - <oscar:nameage
+                demographicNo="${bean.demographicNo}"/></title>
+        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+
+        <script type="text/javascript"
+                src="${ctx}/share/javascript/Oscar.js"></script>
+
+        <link rel="stylesheet" type="text/css" media="all" href="${ctx}/share/css/extractedFromPages.css"/>
+        <link rel="stylesheet" type="text/css" href="${ctx}/oscarEncounter/encounterStyles.css">
+        <link rel="stylesheet" type="text/css" href="${ctx}/oscarEncounter/css/encounter-page.css">
+
+        <%-- Prototype.js must load AFTER jQuery.noConflict() so $ remains Prototype's --%>
+        <script src="${ctx}/share/javascript/prototype.js" type="text/javascript"></script>
+        <script src="${ctx}/share/javascript/scriptaculous.js" type="text/javascript"></script>
+
+        <%-- Popup menu scripts --%>
+        <script src="${ctx}/share/javascript/popupmenu.js" type="text/javascript"></script>
+        <script src="${ctx}/share/javascript/menutility.js" type="text/javascript"></script>
+
+        <%-- Server-side configuration for encounter.js --%>
+        <script type="text/javascript">
+            var encounterConfig = {
+                ctx: "<c:out value='${ctx}'/>",
+                patientSex: "<e:forJavaScript value='${bean.patientSex}'/>",
+                pAge: "<e:forJavaScript value='${pAge}'/>",
+                popUrl: <c:choose><c:when test="${not empty popUrl}">"<e:forJavaScript value='${popUrl}'/>"</c:when><c:otherwise>null</c:otherwise></c:choose>,
+                i18n: {
+                    title: "<fmt:setBundle basename='oscarResources'/><fmt:message key='oscarEncounter.Index.title'/>",
+                    closeEncounterConfirm: "<fmt:message key='oscarEncounter.Index.closeEncounterWindowConfirm'/>",
+                    confirmSplit: "<fmt:message key='oscarEncounter.Index.confirmSplit'/>",
+                    popupPageAlert: "<fmt:message key='oscarEncounter.Index.popupPageAlert'/>",
+                    onUnbilledConfirm: "<fmt:message key='oscarEncounter.Index.onUnbilledConfirm'/>",
+                    popupSearchPageWindow: "<fmt:message key='oscarEncounter.Index.popupSearchPageWindow'/>"
+                },
+                images: {
+                    expand: "<c:out value='${ctx}'/>/oscarEncounter/graphics/expand.gif",
+                    collapse: "<c:out value='${ctx}'/>/messenger/img/collapse.gif",
+                    transparent: "<c:out value='${ctx}'/>/images/clear.gif"
+                },
+                urls: {
+                    navSections: {
+                        preventions: "<c:out value='${ctx}'/>/oscarEncounter/displayPrevention.do?hC=009999",
+                        tickler: "<c:out value='${ctx}'/>/oscarEncounter/displayTickler.do?hC=FF6600",
+                        Dx: "<c:out value='${ctx}'/>/oscarEncounter/displayDisease.do?hC=5A5A5A",
+                        forms: "<c:out value='${ctx}'/>/oscarEncounter/displayForms.do?hC=917611",
+                        eforms: "<c:out value='${ctx}'/>/oscarEncounter/displayEForms.do?hC=11CC00",
+                        docs: "<c:out value='${ctx}'/>/oscarEncounter/displayDocuments.do?hC=476BB3",
+                        labs: "<c:out value='${ctx}'/>/oscarEncounter/displayLabs.do?hC=A0509C",
+                        msgs: "<c:out value='${ctx}'/>/oscarEncounter/displayMessages.do?hC=DDDD00",
+                        measurements: "<c:out value='${ctx}'/>/oscarEncounter/displayMeasurements.do?hC=344887",
+                        consultation: "<c:out value='${ctx}'/>/oscarEncounter/displayConsultation.do"
+                    },
+                    leftNavbar: {
+                        preventions: "<c:out value='${ctx}'/>/oscarEncounter/displayPrevention.do?hC=009999",
+                        tickler: "<c:out value='${ctx}'/>/oscarEncounter/displayTickler.do?hC=FF6600",
+                        Dx: "<c:out value='${ctx}'/>/oscarEncounter/displayDisease.do?hC=5A5A5A",
+                        forms: "<c:out value='${ctx}'/>/oscarEncounter/displayForms.do?hC=917611",
+                        eforms: "<c:out value='${ctx}'/>/oscarEncounter/displayEForms.do?hC=11CC00",
+                        docs: "<c:out value='${ctx}'/>/oscarEncounter/displayDocuments.do?hC=476BB3",
+                        labs: "<c:out value='${ctx}'/>/oscarEncounter/displayLabs.do?hC=A0509C",
+                        msgs: "<c:out value='${ctx}'/>/oscarEncounter/displayMessages.do?hC=DDDD00",
+                        measurements: "<c:out value='${ctx}'/>/oscarEncounter/displayMeasurements.do?hC=344887",
+                        consultation: "<c:out value='${ctx}'/>/oscarEncounter/displayConsultation.do?hC=",
+                        eConsult: "<c:out value='${ctx}'/>/oscarEncounter/displayEconsultation.do"
+                    }
+                },
+                calculators: [
+                    { name: "<fmt:message key='oscarEncounter.Index.bodyMass'/>", action: "popupPage(650,775,'BodyMassIndex','http://www.intmed.mcw.edu/clincalc/body.html')" },
+                    { name: "<fmt:message key='oscarEncounter.Index.coronary'/>", action: "popupPage(525,775,'CoronaryArteryDiseaseRisk','calculators/CoronaryArteryDiseaseRiskPrediction.jsp?sex=<e:forJavaScript value='${bean.patientSex}'/>&age=<e:forJavaScript value='${pAge}'/>')" },
+                    { name: "<fmt:message key='oscarEncounter.Index.msgOsteoporotic'/>", action: "popupPage(525,775,'OsteoporoticFracture','calculators/OsteoporoticFracture.jsp?sex=<e:forJavaScript value='${bean.patientSex}'/>&age=<e:forJavaScript value='${pAge}'/>')" },
+                    { name: "<fmt:message key='oscarEncounter.Index.pregnancy'/>", action: "popupPage(650,775,'PregancyCalculator','http://www.intmed.mcw.edu/clincalc/pregnancy.html')" },
+                    { name: "<fmt:message key='oscarEncounter.Index.simpleCalculator'/>", action: "popupPage(400,500,'SimpleCalc','calculators/SimpleCalculator.jsp')" },
+                    { name: "<fmt:message key='oscarEncounter.Index.generalConversions'/>", action: "popupPage(650,775,'GeneralConversions','calculators/GeneralCalculators.jsp')" }
+                ],
+                templates: [<c:forEach var="tmpl" items="${templateNames}" varStatus="s">"${tmpl}"<c:if test="${!s.last}">,</c:if></c:forEach>]
+            };
+        </script>
+        <script type="text/javascript" src="${ctx}/oscarEncounter/js/encounter.js"></script>
+    </head>
