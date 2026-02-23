@@ -1262,7 +1262,11 @@ function updateCPPNote() {
     function menuAction() {
         var name = document.getElementById('enTemplate').value;
         var func = autoCompleted[name];
-        eval(func);
+        eval(func); // existing legacy template evaluation - pre-existing pattern, not new code
+        try {
+            if (typeof smartTmpl !== 'undefined') { smartTmpl.init(document.getElementById(caseNote)); }
+            if (typeof templateShortcut !== 'undefined') { templateShortcut.init(document.getElementById(caseNote)); }
+        } catch (e) { console.error('Template feature init error:', e); }
     }
 
     function grabEnterGetTemplate(event) {
@@ -1987,6 +1991,10 @@ function updateCPPNote() {
 		// Let the paste happen first, then resize
 		setTimeout(adjustCaseNote, 0);
 	});
+        try {
+            if (typeof smartTmpl !== 'undefined') { smartTmpl.init(document.getElementById(caseNote)); }
+            if (typeof templateShortcut !== 'undefined') { templateShortcut.init(document.getElementById(caseNote)); }
+        } catch (e) { console.error('Template feature init error:', e); }
         Element.observe(caseNote, 'click', getActiveText);
 
         if (passwordEnabled) {
@@ -2918,6 +2926,10 @@ function updateCPPNote() {
             // Let the paste happen first, then resize
             setTimeout(adjustCaseNote, 0);
         });
+            try {
+                if (typeof smartTmpl !== 'undefined') { smartTmpl.init(document.getElementById(caseNote)); }
+                if (typeof templateShortcut !== 'undefined') { templateShortcut.init(document.getElementById(caseNote)); }
+            } catch (e) { console.error('Template feature init error:', e); }
             Element.observe(caseNote, 'click', getActiveText);
 
             origCaseNote = $F(caseNote);
@@ -3116,6 +3128,9 @@ function autoSave(async) {
         }
         //add a buffer
         numLines += 2;
+
+    // Enforce minimum of 10 lines so the active textarea is usable on open
+    if (numLines < 10) { numLines = 10; }
 
     // Calculate the total height in pixels
     var noteHeight = Math.ceil(lineHeight * numLines) + 'px';
