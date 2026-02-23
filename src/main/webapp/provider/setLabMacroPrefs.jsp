@@ -44,7 +44,7 @@
         - Support for time-based follow-up intervals (days, weeks, months, years)
         - Raw JSON editor toggle for advanced users who need direct data access
         - Full internationalization support (English, Portuguese Brazilian)
-        - CSRF token field included via ${_csrf} EL expression (renders empty unless Spring Security CSRF is active)
+        - CSRF protection provided by OWASP CSRFGuard (automatic token injection)
         - OWASP XSS encoding for all user-controlled data
         - Server-side JSON validation to prevent malformed data persistence
 
@@ -323,7 +323,6 @@ function toggleMe(el){
 </div>
 
 <form name="labMacroPrefsForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate.do" onsubmit="return assembleJSON();">
-<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 <input type="hidden" name="method" value="saveLabMacroPrefs">
 <div class="container mt-3">
 

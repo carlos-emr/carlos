@@ -206,8 +206,7 @@
 					context + "/Scratch.do",
 					{
 						method: "delete",
-						id: id,
-						_csrf: document.querySelector('input[name="_csrf"]')?.value || ""
+						id: id
 					},
 					function (response) {
 

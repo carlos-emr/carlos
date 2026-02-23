@@ -18,7 +18,7 @@ Before refactoring, understand these non-negotiable constraints:
 1. **Preserve ALL field names** - Form field `name` attributes must remain identical
 2. **Preserve form action URLs** - Do not change where forms submit to
 3. **Preserve hidden fields** - Many forms have hidden state fields that must be maintained
-4. **Preserve CSRF tokens** - The project uses OWASP CSRF Guard; forms need the token
+4. **CSRF tokens are auto-injected** - CSRFGuard 4.5 auto-injects tokens via JavaScript (no manual handling needed)
 5. **Preserve window relationships** - Many pages are popups; don't break `window.opener`
 6. **Preserve copyright headers** - Keep the GPL license header at the top of each file
 7. **Test after EACH phase** - Make incremental changes, commit after each working phase
@@ -544,19 +544,19 @@ Note: Use dynamic locale from request, not hardcoded "en".
 
 ### Step 3.5: Form Structure with CSRF Protection
 
-CARLOS EMR uses OWASP CSRF Guard (configured in `web.xml` and `Owasp.CsrfGuard.properties`). **All POST forms MUST include the CSRF token** to prevent Cross-Site Request Forgery attacks.
+CARLOS EMR uses OWASP CSRFGuard 4.5 (configured in `web.xml` and `Owasp.CsrfGuard.properties`). CSRF tokens are **automatically injected** into all POST forms by the client-side JavaScript — no manual token tags required.
 
-**CSRF Token Implementation:**
-The project uses `CSRFPreservingFilter` and `CsrfJavaScriptInjectionFilter` for automatic token handling.
+**CSRF Protection Architecture:**
+- `CarlosCsrfGuardFilter` — validates CSRF tokens on incoming requests
+- `CsrfGuardScriptInjectionFilter` — auto-injects `<script src="contextPath/csrfguard">` into HTML responses
+- The injected `csrfguard.js` handles form injection, XHR interception, and dynamic DOM node token injection
 
 ```jsp
-<%@ taglib uri="http://www.owasp.org/index.php/OWASP_CSRFGuard" prefix="csrf" %>
 <form id="appointmentForm" action="${ctx}/appointment/addappointment.do" method="post">
-    <%-- CSRF Token - REQUIRED for all POST forms
-         The <csrf:token/> tag automatically uses the configured token name
-         from Owasp.CsrfGuard.properties (typically OWASP_CSRFTOKEN)
-         Token is also available as ${sessionScope['OWASP_CSRFTOKEN']} --%>
-    <csrf:token/>
+    <%-- CSRF Token - AUTOMATICALLY INJECTED by csrfguard.js
+         No taglib or manual hidden input required. The CsrfGuardScriptInjectionFilter
+         injects the csrfguard script, which auto-adds the CSRF-TOKEN hidden field
+         to all forms and intercepts XHR requests. See docs/csrf-protection-architecture.md --%>
 
     <%-- Preserve all existing hidden fields --%>
     <input type="hidden" name="displaymode" value="">
@@ -584,11 +584,9 @@ The project uses `CSRFPreservingFilter` and `CsrfJavaScriptInjectionFilter` for 
 </form>
 ```
 
-**Alternative: Manual Token Inclusion**
-If you need to manually include the token (rare cases):
-```jsp
-<input type="hidden" name="OWASP_CSRFTOKEN" value="${sessionScope['OWASP_CSRFTOKEN']}">
-```
+**Manual token inclusion is NOT needed** — `csrfguard.js` automatically injects the
+`CSRF-TOKEN` hidden field into all `<form>` elements and intercepts `XMLHttpRequest` calls.
+See `docs/csrf-protection-architecture.md` for full architecture details.
 
 **For AJAX requests**, see Phase 5, Step 5.3 for CSRF token handling in fetch() calls.
 
@@ -735,10 +733,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 ### Step 5.3: AJAX Modernization with CSRF Token
 
-**IMPORTANT**: All AJAX POST requests must include the CSRF token.
+CSRFGuard 4.5 **automatically intercepts `XMLHttpRequest`** calls via `csrfguard.js`
+(configured with `injectIntoXhr=true`). The script patches `XMLHttpRequest.prototype.open`
+and `send` to add the CSRF token as a custom header on every request.
 
-**Before (jQuery AJAX):**
+**This means**: If your AJAX code uses `XMLHttpRequest` (directly or via jQuery's `$.ajax`),
+the CSRF token is injected automatically. No manual token handling is needed.
+
+**Important**: CSRFGuard 4.5 does **NOT** auto-intercept the `fetch()` API. If you use
+`fetch()` for POST requests, you must include the token manually (see below).
+
+See `docs/csrf-protection-architecture.md` for full architecture details.
+
+**Before (jQuery AJAX — token auto-injected by csrfguard.js):**
 ```javascript
+// csrfguard.js patches XMLHttpRequest — no manual CSRF handling needed
 $.ajax({
     type: "POST",
     url: contextPath + "/someAction.do",
@@ -753,11 +762,12 @@ $.ajax({
 });
 ```
 
-**After (Fetch API with CSRF):**
+**After (Fetch API — requires manual CSRF token):**
 ```javascript
-// Get CSRF token from the page (set this in a data attribute or hidden field)
+// fetch() is NOT intercepted by csrfguard.js — must include token manually.
+// The token name (CSRF-TOKEN) and value are configured in Owasp.CsrfGuard.properties.
 function getCsrfToken() {
-    const tokenElement = document.querySelector('input[name="OWASP_CSRFTOKEN"]');
+    const tokenElement = document.querySelector('input[name="CSRF-TOKEN"]');
     return tokenElement ? tokenElement.value : '';
 }
 
@@ -765,7 +775,7 @@ async function submitData() {
     try {
         const params = new URLSearchParams({
             param1: value1,
-            'OWASP_CSRFTOKEN': getCsrfToken()  // Include CSRF token
+            'CSRF-TOKEN': getCsrfToken()
         });
 
         const response = await fetch(contextPath + '/someAction.do', {
@@ -792,8 +802,8 @@ async function submitData() {
 **Alternative: Use FormData for complex forms:**
 ```javascript
 async function submitForm(formElement) {
+    // csrfguard.js already injected CSRF-TOKEN as a hidden field in the form
     const formData = new FormData(formElement);
-    // CSRF token should already be in the form as a hidden field
 
     const response = await fetch(formElement.action, {
         method: 'POST',

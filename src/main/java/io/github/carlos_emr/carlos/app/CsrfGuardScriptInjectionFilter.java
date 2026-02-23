@@ -43,10 +43,10 @@ import java.util.Locale;
 /**
  * Servlet filter that auto-injects the CSRFGuard JavaScript tag into HTML responses.
  *
- * <p>CSRFGuard 4.x requires a {@code <script src="contextPath/csrfguard"></script>} tag
- * on every HTML page for its client-side token injection ({@code injectIntoForms},
- * {@code injectIntoXhr}) to work. Rather than manually adding the tag to 1,200+ JSPs,
- * this filter captures HTML responses and injects the script tag automatically.</p>
+ * <p>CSRFGuard 4.5 requires a {@code <script src="contextPath/csrfguard"></script>} tag
+ * on every HTML page for its client-side token injection features (form injection, XHR
+ * interception, dynamic node handling) to work. Rather than manually adding the tag to
+ * 1,200+ JSPs, this filter captures HTML responses and injects the script tag automatically.</p>
  *
  * <p>The filter uses a {@link CharArrayWriter}-based {@link HttpServletResponseWrapper}
  * to capture {@link PrintWriter} output, then inserts the script tag before {@code </head>}.
@@ -60,6 +60,8 @@ import java.util.Locale;
  *   <li>CSRFGuard is disabled</li>
  *   <li>The response already contains a {@code /csrfguard} script reference (idempotency)</li>
  *   <li>The response used {@code getOutputStream()} instead of {@code getWriter()}</li>
+ *   <li>The response was committed by {@code sendRedirect()} or {@code sendError()} during
+ *       downstream processing</li>
  * </ul>
  * </p>
  *
@@ -77,6 +79,19 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         // No initialization required
     }
 
+    /**
+     * Captures the HTML response, injects the CSRFGuard script tag before {@code </head>},
+     * and writes the modified content to the client.
+     *
+     * <p>Non-HTML responses, AJAX requests, and binary content (via {@code getOutputStream()})
+     * pass through without modification. See the class-level JavaDoc for all skip conditions.</p>
+     *
+     * @param request  the servlet request
+     * @param response the servlet response
+     * @param chain    the filter chain
+     * @throws IOException      if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
+     */
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
@@ -101,7 +116,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         try {
             csrfGuard = CsrfGuard.getInstance();
         } catch (Exception e) {
-            LOGGER.debug("CsrfGuard not yet initialized, passing through");
+            LOGGER.error("CsrfGuard.getInstance() failed — page will be served without CSRF "
+                    + "script tag: {} {}", httpRequest.getMethod(), httpRequest.getRequestURI(), e);
             chain.doFilter(request, response);
             return;
         }
@@ -114,8 +130,15 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         CaptureResponseWrapper wrapper = new CaptureResponseWrapper(httpResponse);
         chain.doFilter(request, wrapper);
 
-        // If the downstream code used getOutputStream(), content went directly to the
-        // real response — nothing was captured, nothing to inject
+        // If the response was committed by sendRedirect() or sendError(), the status and
+        // headers have already been sent to the client — no post-processing is possible
+        if (wrapper.isResponseCommitted()) {
+            return;
+        }
+
+        // If the downstream code used getOutputStream(), content was written directly to the
+        // client via the real response's output stream — no capture occurred and no injection
+        // is possible
         if (wrapper.isUsingOutputStream()) {
             return;
         }
@@ -168,20 +191,25 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     }
 
     /**
-     * Case-insensitive indexOf for finding HTML closing tags.
+     * Case-insensitive indexOf using {@link String#regionMatches(boolean, int, String, int, int)}
+     * to avoid allocating a lowercase copy of the entire HTML body.
      */
     private int indexOfIgnoreCase(String source, String target) {
-        String lowerSource = source.toLowerCase(Locale.ROOT);
-        String lowerTarget = target.toLowerCase(Locale.ROOT);
-        return lowerSource.indexOf(lowerTarget);
+        int targetLength = target.length();
+        int searchLength = source.length() - targetLength;
+        for (int i = 0; i <= searchLength; i++) {
+            if (source.regionMatches(true, i, target, 0, targetLength)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**
      * Writes the final content to the real response, updating Content-Length.
      */
     private void writeToResponse(HttpServletResponse response, String content) throws IOException {
-        byte[] bytes = content.getBytes(response.getCharacterEncoding() != null
-                ? response.getCharacterEncoding() : "UTF-8");
+        byte[] bytes = content.getBytes(response.getCharacterEncoding());
         response.setContentLength(bytes.length);
         response.getOutputStream().write(bytes);
     }
@@ -204,10 +232,18 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private PrintWriter writer;
         private boolean usingOutputStream;
         private boolean usingWriter;
+        private boolean committed;
 
         public CaptureResponseWrapper(HttpServletResponse response) {
             super(response);
-            response.setBufferSize(1024 * 1024); // 1 MB buffer
+            // Increase underlying response buffer to 1 MB to prevent premature flushing
+            // before our wrapper can capture the complete HTML content for script injection
+            try {
+                response.setBufferSize(1024 * 1024);
+            } catch (IllegalStateException e) {
+                LOGGER.warn("Could not increase response buffer to 1 MB (response may already "
+                        + "be committed). Script injection may fail for large pages.");
+            }
         }
 
         @Override
@@ -233,8 +269,45 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         @Override
+        public void setContentLength(int len) {
+            // Suppress — final Content-Length is set after script injection in writeToResponse()
+        }
+
+        @Override
+        public void setContentLengthLong(long len) {
+            // Suppress — final Content-Length is set after script injection in writeToResponse()
+        }
+
+        @Override
+        public void sendRedirect(String location) throws IOException {
+            committed = true;
+            super.sendRedirect(location);
+        }
+
+        @Override
+        public void sendError(int sc) throws IOException {
+            committed = true;
+            super.sendError(sc);
+        }
+
+        @Override
+        public void sendError(int sc, String msg) throws IOException {
+            committed = true;
+            super.sendError(sc, msg);
+        }
+
+        @Override
         public void flushBuffer() throws IOException {
-            // Suppress flushing to allow content capture
+            // Suppress flushing to prevent captured content from being committed to the client
+            // before script injection. For getOutputStream() responses (binary passthrough) this
+            // is harmless since the output stream can be flushed independently via stream.flush().
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("flushBuffer() suppressed during CSRF script injection capture");
+            }
+        }
+
+        public boolean isResponseCommitted() {
+            return committed || super.isCommitted();
         }
 
         public boolean isUsingOutputStream() {

@@ -899,7 +899,6 @@ input[id^='acklabel_']{
 
 
     <form name="reassignForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" action="<%= request.getContextPath() %>/lab/CA/ALL/Forward.do">
-        <input type="hidden" name="${empty _csrf.parameterName ? 'none' : _csrf.parameterName}" value="${_csrf.token}">
         <input type="hidden" name="flaggedLabs" value="<%= Encode.forHtmlAttribute(segmentID) %>">
         <input type="hidden" name="selectedProviders" value="">
         <input type="hidden" name="favorites" value="">
@@ -911,7 +910,6 @@ input[id^='acklabel_']{
 
     <form name="TDISLabelForm_<%= Encode.forHtmlAttribute(segmentID) %>" method='POST'
           action="<%=request.getContextPath()%>/lab/CA/ALL/createLabelTDIS.do">
-        <input type="hidden" name="${empty _csrf.parameterName ? 'none' : _csrf.parameterName}" value="${_csrf.token}">
         <input type="hidden" id="labellabNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=lab_no%>">
         <input type="hidden" id="label_<%= Encode.forHtmlAttribute(segmentID) %>" name="label" value="<%= Encode.forHtmlAttribute(label) %>">
     </form>
@@ -919,7 +917,6 @@ input[id^='acklabel_']{
     <form name="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>"
           id="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" onsubmit="javascript:void(0);"
           action="javascript:void(0);">
-        <input type="hidden" name="${empty _csrf.parameterName ? 'none' : _csrf.parameterName}" value="${_csrf.token}">
 
         <table style="width:100%;">
             <tr>

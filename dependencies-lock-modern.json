@@ -1929,6 +1929,14 @@
     "optional" : false,
     "integrity" : "sha512:ZKB3at/QsIL4Dkn0r7iZjBXTDFFaNEGgdDZNN0eaL8BZvddGlMP2CbH64dLsoMuINH4a/Yh3SsaYpCuHRL8lnw=="
   }, {
+    "groupId" : "org.apache.logging.log4j",
+    "artifactId" : "log4j-slf4j2-impl",
+    "version" : "2.25.3",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:sQ5aBIXic8k85U3243No40hsEJA7TulIoRbrSKO/IBUh4Ku3lRMONJEdnhFd37VJDtX3YbbiFJush+qZMhYkRw=="
+  }, {
     "groupId" : "org.apache.neethi",
     "artifactId" : "neethi",
     "version" : "3.2.1",

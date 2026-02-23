@@ -331,11 +331,7 @@ function validateFields() {
 			alert(msgArchiveTimeout);
 			document.forms[0].submit();
 		};
-		var csrfToken = '';
-		var csrfMeta = document.querySelector('meta[name="CSRF-TOKEN"]');
-		if (csrfMeta) { csrfToken = '&CSRF-TOKEN=' + encodeURIComponent(csrfMeta.getAttribute('content')); }
-		else if (typeof OWASPCSRFGuard !== 'undefined') { csrfToken = '&CSRF-TOKEN=' + encodeURIComponent(OWASPCSRFGuard.getToken()); }
-		oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo) + csrfToken);
+		oRequest.send('btnDelete=archive&messageNo=' + encodeURIComponent(messageNo));
 	}
 
 	// Opens demographic attachment popup for attaching documents from a patient record

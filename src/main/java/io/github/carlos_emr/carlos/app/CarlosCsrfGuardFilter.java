@@ -47,7 +47,11 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
- * CARLOS CSRF Guard filter for CSRFGuard 4.x.
+ * CARLOS CSRF Guard filter for CSRFGuard 4.5.
+ *
+ * <p>A custom filter is necessary because the stock {@code org.owasp.csrfguard.CsrfGuardFilter}
+ * does not wrap multipart/form-data requests, causing CSRF token extraction to consume the input
+ * stream and break downstream file upload processing.</p>
  *
  * <p>Operates in <strong>blocking mode</strong>: validates CSRF tokens and rejects requests
  * that fail validation. The configured CSRFGuard actions (Log, Redirect) handle the response
@@ -57,7 +61,8 @@ import java.io.IOException;
  * so that the request body input stream can be read multiple times — once by {@link CsrfValidator}
  * for CSRF token extraction, and again by downstream servlets for normal request processing.</p>
  *
- * <p>Replaces the legacy {@code OscarCsrfGuardFilter} which used CSRFGuard 3.x APIs.</p>
+ * <p>Replaces the legacy {@code OscarCsrfGuardFilter} (deleted in the CSRFGuard 4.5 migration)
+ * which used CSRFGuard 3.1.0 APIs.</p>
  *
  * @since 2026-02-22
  */
@@ -67,66 +72,101 @@ public class CarlosCsrfGuardFilter implements Filter {
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
-        // No initialization required — configuration is read from CsrfGuard.getInstance()
+        // CsrfGuard manages its own configuration lifecycle via CsrfGuard.getInstance()
     }
 
+    /**
+     * Validates the CSRF token on each request.
+     *
+     * <p>Flow: wraps multipart requests with {@link MultiReadHttpServletRequest} for dual-read
+     * support, delegates token validation to {@link CsrfValidator#isValid}, generates tokens
+     * if absent for the current session via {@code TokenService}, then continues the filter
+     * chain on success.</p>
+     *
+     * @param request      the servlet request
+     * @param response     the servlet response
+     * @param filterChain  the filter chain
+     * @throws IOException      if an I/O error occurs
+     * @throws ServletException if a servlet error occurs
+     */
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain filterChain) throws IOException, ServletException {
-        CsrfGuard csrfGuard = CsrfGuard.getInstance();
+        if (!(request instanceof HttpServletRequest) || !(response instanceof HttpServletResponse)) {
+            LOGGER.warn("CSRF filter received non-HTTP request type: {}", request.getClass().getName());
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        HttpServletRequest httpRequest = (HttpServletRequest) request;
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+        CsrfGuard csrfGuard;
+        try {
+            csrfGuard = CsrfGuard.getInstance();
+        } catch (Exception e) {
+            LOGGER.error("CsrfGuard is not initialized — cannot validate CSRF tokens. "
+                    + "Rejecting request to {} {}",
+                    httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+            httpResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return;
+        }
 
         if (!csrfGuard.isEnabled()) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        if (request instanceof HttpServletRequest && response instanceof HttpServletResponse) {
-            HttpServletRequest httpRequest = (HttpServletRequest) request;
-            HttpServletResponse httpResponse = (HttpServletResponse) response;
-
-            // Wrap multipart requests so the input stream can be read by both CsrfValidator and downstream servlets
-            if (ServletFileUpload.isMultipartContent(httpRequest)) {
-                try {
-                    httpRequest = new MultiReadHttpServletRequest(httpRequest);
-                } catch (Exception e) {
-                    LOGGER.error("Failed to wrap multipart request for {} {} — rejecting with 400",
-                            httpRequest.getMethod(), httpRequest.getRequestURI(), e);
-                    httpResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
-                    return;
-                }
-            }
-
-            InterceptRedirectResponse interceptResponse = new InterceptRedirectResponse(httpResponse, httpRequest, csrfGuard);
-
-            // Validate the request (CsrfValidator logs violations and invokes configured actions)
-            boolean valid;
+        // Wrap multipart requests so the input stream can be read by both CsrfValidator and downstream servlets
+        if (ServletFileUpload.isMultipartContent(httpRequest)) {
             try {
-                valid = new CsrfValidator().isValid(httpRequest, interceptResponse);
+                httpRequest = new MultiReadHttpServletRequest(httpRequest);
             } catch (Exception e) {
-                LOGGER.error("Unexpected error during CSRF validation for {} {} — rejecting with 403",
+                LOGGER.error("Failed to wrap multipart request for {} {} — rejecting with 400",
                         httpRequest.getMethod(), httpRequest.getRequestURI(), e);
-                httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+                httpResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return;
             }
-            if (!valid) {
-                LOGGER.warn("CSRF validation failed for {} {} — request blocked",
-                        httpRequest.getMethod(), httpRequest.getRequestURI());
-                // Actions (Log, Redirect) have already been executed by CsrfValidator
-                return;
-            }
+        }
 
-            // Generate session/page tokens if not yet created for this request
+        InterceptRedirectResponse interceptResponse = new InterceptRedirectResponse(httpResponse, httpRequest, csrfGuard);
+
+        // Validate the request (CsrfValidator logs violations and invokes configured actions)
+        boolean valid;
+        try {
+            valid = new CsrfValidator().isValid(httpRequest, interceptResponse);
+        } catch (Exception e) {
+            LOGGER.error("Unexpected error during CSRF validation for {} {} — rejecting with 403",
+                    httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+            httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+        if (!valid) {
+            LOGGER.warn("CSRF validation failed for {} {} — request blocked",
+                    httpRequest.getMethod(), httpRequest.getRequestURI());
+            // Actions (Log, Redirect) have already been executed by CsrfValidator.
+            // Defensive fallback: if the configured actions did not commit the response
+            // (e.g., Redirect action is misconfigured or absent), send 403 explicitly.
+            if (!httpResponse.isCommitted()) {
+                httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            }
+            return;
+        }
+
+        // Generate session/page tokens if not yet created for this request
+        try {
             LogicalSession logicalSession = csrfGuard.getLogicalSessionExtractor().extract(httpRequest);
             if (logicalSession != null) {
                 csrfGuard.getTokenService().generateTokensIfAbsent(
                         logicalSession.getKey(), httpRequest.getMethod(), httpRequest.getRequestURI());
             }
-
-            // Validation passed — continue the filter chain
-            filterChain.doFilter(httpRequest, interceptResponse);
-        } else {
-            LOGGER.warn("CSRF filter received non-HTTP request type: {}", request.getClass().getName());
-            filterChain.doFilter(request, response);
+        } catch (Exception e) {
+            LOGGER.error("Failed to generate CSRF tokens for validated request {} {} — "
+                    + "continuing without token generation (next POST from this page WILL fail validation)",
+                    httpRequest.getMethod(), httpRequest.getRequestURI(), e);
         }
+
+        // Validation passed — continue the filter chain
+        filterChain.doFilter(httpRequest, interceptResponse);
     }
 
     @Override

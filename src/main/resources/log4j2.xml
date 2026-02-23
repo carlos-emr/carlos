@@ -16,9 +16,16 @@
 <!--                <SizeBasedTriggeringPolicy size="10KB" />-->
 <!--            </Policies>-->
 <!--        </RollingFile>-->
-        <File name="CsrfFile" fileName="${sys:catalina.base}/logs/csrf.log" append="true">
+        <RollingFile name="CsrfFile" fileName="${sys:catalina.base}/logs/csrf.log"
+                     filePattern="${sys:catalina.base}/logs/csrf-%d{yyyy-MM-dd}-%i.log.gz"
+                     append="true">
             <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5p %m%n"/>
-        </File>
+            <Policies>
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <DefaultRolloverStrategy max="7"/>
+        </RollingFile>
     </Appenders>
     <Loggers>
         <Logger name="org.owasp.csrfguard" level="warn" additivity="false">

@@ -284,6 +284,13 @@
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
+        <!-- SLF4J 2.x to Log4j2 bridge: routes SLF4J calls (used by CSRFGuard 4.x,
+             HAPI FHIR, and other libraries) to the Log4j2 backend -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
+            <version>${log4j2.version}</version>
+        </dependency>
 
         <!-- commons -->
         <!-- https://mvnrepository.com/artifact/commons-validator/commons-validator -->

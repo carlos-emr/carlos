@@ -166,10 +166,6 @@
     </style>
 
     <script type="text/javascript">
-        // CSRF token for AJAX requests
-        var csrfParameterName = '${_csrf.parameterName}';
-        var csrfToken = '${_csrf.token}';
-
         // Warn user if they try to leave with unsaved changes
         window.addEventListener('beforeunload', function (e) {
             if (!$("#submit").prop("disabled")) {
@@ -277,7 +273,7 @@
             $.ajax({
                 url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do",
                 method: 'POST',
-                data: 'method=getFaxSchedularStatus&' + csrfParameterName + '=' + csrfToken,
+                data: 'method=getFaxSchedularStatus',
                 success: function (data) {
                     $('#restartFaxSchedulerBtn').prop('disabled', data.isRunning);
                     $("#faxStatusDetails").text(data.faxSchedularStatus).css("color", data.isRunning ? "black" : "red");
@@ -301,7 +297,7 @@
             $.ajax({
                 url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do",
                 method: 'POST',
-                data: 'method=restartFaxScheduler&' + csrfParameterName + '=' + csrfToken,
+                data: 'method=restartFaxScheduler',
                 success: function (data) {
                     console.log("Fax scheduler restarted successfully");
                     ShowSpin(true);
@@ -317,7 +313,7 @@
             $.ajax({
                 url: "<%=Encode.forJavaScript(request.getContextPath()) %>/admin/ManageFax.do",
                 method: 'POST',
-                data: 'method=getPendingIncomingFaxes&' + csrfParameterName + '=' + csrfToken,
+                data: 'method=getPendingIncomingFaxes',
                 success: function (data) {
                     if (!data.success) {
                         $("#pendingFaxesSection").hide();
