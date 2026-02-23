@@ -176,14 +176,28 @@ Licensed "GNU General Public License version 2 only" with **Classpath Exception*
 
 These are auto-generated JDK javadoc tooling files. The Classpath Exception makes them effectively more permissive than standard GPL 2.0. **No action required** — standard JDK output files.
 
-#### Dual-Licensed Third-Party Libraries
+#### Dual-Licensed Third-Party Libraries (GPL v2 / MIT or BSD)
 
 | File | License | Alternative |
 |------|---------|------------|
 | `library/bootstrap/3.0.0/assets/js/respond.min.js` | MIT / GPLv2 | **Use under MIT** |
 | `js/jquery.dataTables.js` | GPLv2 / BSD | **Use under BSD** |
+| `js/jquery-1.4.2.js` | MIT / GPL v2 | **Use under MIT** |
+| `js/jquery-ui-1.8.18.custom.min.js` | MIT / GPL v2 | **Use under MIT** |
+| `js/jquery.are-you-sure.js` | MIT / GPL v2 | **Use under MIT** |
+| `css/cupertino/jquery-ui-1.8.18.custom.css` | MIT / GPL v2 | **Use under MIT** |
+| `css/jquery.ui.autocomplete.css` | MIT / GPL v2 | **Use under MIT** |
 
 These are not concerns since the non-GPL alternative license applies.
+
+#### Dual-Copyright Files (Indivica + Magenta Health)
+
+10 Java files have legitimate secondary Magenta Health (2024) copyrights added while preserving the original Indivica GPL 2.0 strict header. This is proper GPL practice for tracking modifications. All 10 remain GPL 2.0 strict:
+- `ClinicNbrDao.java`, `ClinicNbrDaoImpl.java`
+- `HL7HandlerMSHMappingDao.java`, `HL7HandlerMSHMappingDaoImpl.java`
+- `InboxResultsDao.java`, `InboxResultsDaoImpl.java`
+- `InboxResultsRepository.java`, `InboxResultsRepositoryImpl.java`
+- `ProviderLabRoutingDao.java`, `ProviderLabRoutingDaoImpl.java`
 
 #### Unlicensed Indivica File
 
@@ -287,34 +301,45 @@ These files have bounded logic that could be reimplemented:
 - `EReferAttachmentDataDaoImpl.java` (48 lines, single query)
 - Various low-complexity 2Actions (AddDocumentType, ChangeDocStatus, HRMDisplayReport, HRMStatementModify, RTLSettings)
 
+### Tier 4.5: Medium Effort — Consolidation Candidates
+
+**Lab Upload Handlers + Utilities (7 files, ~470 logic lines)** — Near-duplicate code:
+- `lab/ca/all/upload/handlers/{ICL,MEDVUE,PFHT,TDIS}Handler.java` (4 files)
+- `lab/ca/all/util/{ICL,MEDVUE,PFHT}Utilities.java` (3 files)
+- These share significant structural patterns. A single parameterized handler and utility class could replace all 7. Note: PFHTHandler upload handler has a bug (double `iter.next()` call).
+
 ### Tier 5: High Effort — Core System Files
 
-These would require significant effort to rewrite and are deeply integrated:
+These would require significant effort to rewrite and are deeply integrated. Estimated hundreds of developer-hours for the critical clusters.
 
-**Lab Parsers (4 files, 3,258 lines total)**:
+**Lab Parsers (4 files, ~2,250 logic lines) — CRITICAL**:
 - `ICLHandler.java`, `MEDVUEHandler.java`, `PFHTHandler.java`, `TDISHandler.java`
-- These implement specific lab result format parsing. Each handles a unique Ontario lab data format.
+- Full HL7 v2.3/v2.5 message parsers tailored to specific Ontario lab system variations. Share structural patterns but differ in field mappings. A parameterized parser framework could consolidate, but domain logic must be preserved.
 
-**Hospital Report Manager (3 files, 1,473 lines total)**:
-- `HRMReport.java`, `HRMReportParser.java`, `HRMUtil.java`
-- Core HRM functionality for Ontario hospital report integration.
+**Hospital Report Manager (6 files, ~1,500+ logic lines) — CRITICAL**:
+- `HRMReport.java`, `HRMReportParser.java`, `HRMUtil.java`, `HRMModifyDocument2Action.java`, `HRMResultsData.java`, `HRMDisplayReport2Action.java`
+- Forms the backbone of HRM. Parser contains 3-tier MD5 duplicate detection, XSD-validated JAXB XML parsing, provider forwarding via IncomingLabRules, demographic matching by HIN+DOB, and threshold-scored similar-report detection.
 
-**Inbox/Lab Routing (3 files, 1,558 lines total)**:
+**Inbox/Lab Routing (3 files, ~1,000 logic lines)**:
 - `InboxResultsDaoImpl.java`, `InboxResultsRepositoryImpl.java`, `ProviderLabRoutingDaoImpl.java`
-- Core inbox and lab routing queries.
+- Core inbox and lab routing queries. `ProviderLabRoutingDaoImpl` has 19+ consumers including FaxImporter, DocumentManager, lab processing, and REST services.
 
-**Consultation/PDF (3 files, 1,451 lines total)**:
-- `ConsultationPDFCreator.java`, `EctConsultationFormFax2Action.java`, `EctConsultationFormRequestPrintAction22Action.java`
+**Consultation/PDF (4 files, ~830 logic lines) — CRITICAL**:
+- `ConsultationPDFCreator.java` (810 lines) — most layout-intensive file; detailed iTextPDF table construction
+- `EctConsultationFormFax2Action.java` — fax workflow
+- `EctConsultationFormRequestPrintAction22Action.java` — combined PDF printing with attachment assembly
+- `ImagePDFCreator.java` — image-to-PDF including multi-page TIFF
 
-**Document Management (2 files, 890 lines total)**:
-- `DocumentUpload2Action.java`, `SplitDocument2Action.java`
+**Document Management (2 files, ~320 logic lines)**:
+- `DocumentUpload2Action.java` — secure file upload with PathValidationUtils
+- `SplitDocument2Action.java` — PDF splitting/rotation via PDFBox
 
 **Other complex files**:
-- `NotePermissions2Action.java` (465 lines) — CAISI program-based access control
-- `OscarStatus2Action.java` (312 lines) — System status and restart
-- `FormUpdate2Action.java` (364 lines) — Flowsheet measurement updates
+- `NotePermissions2Action.java` (465 lines) — CAISI program-based access control, 8 methods with complex authorization
+- `OscarStatus2Action.java` (312 lines) — System status/restart, ~200 lines of logic
+- `FormUpdate2Action.java` (364 lines) — Measurement validation with range/regex/BP/date rules and CaseManagementNote creation
 - `HRMModifyDocument2Action.java` (447 lines) — HRM document modification
-- `DemographicExtKey.java` (177 lines) — 88 healthcare domain constants
+- `DemographicExtKey.java` (177 lines) — 88 healthcare domain constants with rich metadata
 
 ### Tier 6: Investigate Further
 
