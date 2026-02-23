@@ -23,10 +23,22 @@
  */
 
 function popup(height, width, url, windowName) {
+    if (typeof openEncounterInTab !== 'undefined' && openEncounterInTab) {
+        return popupTab(url);
+    }
     return popup2(height, width, 0, 0, url, windowName);
 }
 
+function popupTab(url) {
+    var win = window.open(url, '_blank');
+    if (win) win.focus();
+    return win;
+}
+
 function newWindow(url, windowName) {
+    if (typeof openEncounterInTab !== 'undefined' && openEncounterInTab) {
+        return popupTab(url);
+    }
     //this way the w&d works with older browsers as well
     var w = document.getElementsByTagName('body')[0].clientWidth;//window.innerWidth;
     var h = document.getElementsByTagName('body')[0].clientHeight;//window.innerHeight;
