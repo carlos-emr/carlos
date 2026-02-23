@@ -54,7 +54,8 @@ import java.io.IOException;
  * for invalid requests.</p>
  *
  * <p>Additionally wraps multipart/form-data requests with {@link MultiReadHttpServletRequest}
- * so that {@code request.getParameter()} works for CSRF token extraction from file uploads.</p>
+ * so that the request body input stream can be read multiple times — once by {@link CsrfValidator}
+ * for CSRF token extraction, and again by downstream servlets for normal request processing.</p>
  *
  * <p>Replaces the legacy {@code OscarCsrfGuardFilter} which used CSRFGuard 3.x APIs.</p>
  *
@@ -82,15 +83,30 @@ public class CarlosCsrfGuardFilter implements Filter {
             HttpServletRequest httpRequest = (HttpServletRequest) request;
             HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-            // Wrap multipart requests so getParameter() can extract CSRF tokens from form data
+            // Wrap multipart requests so the input stream can be read by both CsrfValidator and downstream servlets
             if (ServletFileUpload.isMultipartContent(httpRequest)) {
-                httpRequest = new MultiReadHttpServletRequest(httpRequest);
+                try {
+                    httpRequest = new MultiReadHttpServletRequest(httpRequest);
+                } catch (Exception e) {
+                    LOGGER.error("Failed to wrap multipart request for {} {} — rejecting with 400",
+                            httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+                    httpResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return;
+                }
             }
 
             InterceptRedirectResponse interceptResponse = new InterceptRedirectResponse(httpResponse, httpRequest, csrfGuard);
 
             // Validate the request (CsrfValidator logs violations and invokes configured actions)
-            boolean valid = new CsrfValidator().isValid(httpRequest, interceptResponse);
+            boolean valid;
+            try {
+                valid = new CsrfValidator().isValid(httpRequest, interceptResponse);
+            } catch (Exception e) {
+                LOGGER.error("Unexpected error during CSRF validation for {} {} — rejecting with 403",
+                        httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+                httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
             if (!valid) {
                 LOGGER.warn("CSRF validation failed for {} {} — request blocked",
                         httpRequest.getMethod(), httpRequest.getRequestURI());
@@ -98,7 +114,7 @@ public class CarlosCsrfGuardFilter implements Filter {
                 return;
             }
 
-            // Generate/update tokens for the session if present
+            // Generate session/page tokens if not yet created for this request
             LogicalSession logicalSession = csrfGuard.getLogicalSessionExtractor().extract(httpRequest);
             if (logicalSession != null) {
                 csrfGuard.getTokenService().generateTokensIfAbsent(
@@ -108,6 +124,7 @@ public class CarlosCsrfGuardFilter implements Filter {
             // Validation passed — continue the filter chain
             filterChain.doFilter(httpRequest, interceptResponse);
         } else {
+            LOGGER.warn("CSRF filter received non-HTTP request type: {}", request.getClass().getName());
             filterChain.doFilter(request, response);
         }
     }

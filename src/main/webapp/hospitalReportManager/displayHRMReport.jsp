@@ -51,8 +51,6 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="org.owasp.csrfguard.CsrfGuard" %>
-<%@ page import="org.owasp.csrfguard.session.LogicalSession" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action" %>
@@ -199,18 +197,12 @@
             }
         }
     }
-    CsrfGuard csrfGuardInstance = CsrfGuard.getInstance();
-    LogicalSession csrfSession = csrfGuardInstance.getLogicalSessionExtractor().extract(request);
-    String csrfTokenValue = (csrfSession != null) ? csrfGuardInstance.getTokenService().getTokenValue(csrfSession.getKey(), request.getRequestURI()) : "";
-    String csrfTokenJs = "{'" + csrfGuardInstance.getTokenName() + "': '" + csrfTokenValue + "'}";
-
 %>
 
 
 <html>
 <head>
     <title>HRM Report</title>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
 
     <script type="text/javascript"
             src="${pageContext.request.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
@@ -633,7 +625,7 @@
                         <div id="demostatus<%=hrmReportId %>">
                             <% if (demographicLink != null) { %>
                             <oscar:nameage demographicNo="<%=demographicLink.getDemographicNo().toString()%>"/> <br/>
-                            <a href="#" onclick="removeDemoFromHrm('<%=hrmReportId %>', <%=csrfTokenJs%>)">(remove)</a>
+                            <a href="#" onclick="removeDemoFromHrm('<%=hrmReportId %>')">(remove)</a>
                             <% } else { %>
                             <i>Not currently linked</i>
                             <% } %>
@@ -642,7 +634,7 @@
                         <input type="hidden" id="demofind<%=hrmReportId %>hrm" value=""/>
                         <input type="hidden" id="routetodemo<%=hrmReportId %>hrm" value=""/>
                         <input type="checkbox" id="activeOnly<%=hrmReportId%>hrm" name="activeOnly" checked="checked"
-                               value="true" onclick="setupHrmDemoAutoCompletion('<%=hrmReportId%>', <%=csrfTokenJs%>)">Active
+                               value="true" onclick="setupHrmDemoAutoCompletion('<%=hrmReportId%>')">Active
                         Only<br>
                         <input type="text" id="autocompletedemo<%=hrmReportId %>hrm"
                                onchange="checkSave('<%=hrmReportId%>hrm')" name="demographicKeyword"
@@ -916,7 +908,7 @@
 
 
     <script type="text/javascript">
-        jQuery(setupHrmDemoAutoCompletion(<%=hrmReportId%>, <%=csrfTokenJs%>));
+        jQuery(setupHrmDemoAutoCompletion(<%=hrmReportId%>));
 
         YAHOO.example.BasicRemote = function () {
             var url = "<%= request.getContextPath() %>/provider/SearchProvider.do";

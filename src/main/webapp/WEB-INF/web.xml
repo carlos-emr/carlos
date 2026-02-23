@@ -95,6 +95,15 @@
 		<url-pattern>*.htm</url-pattern>
 	</filter-mapping>
 
+	<filter>
+		<filter-name>CsrfGuardScriptInjectionFilter</filter-name>
+		<filter-class>io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter</filter-class>
+	</filter>
+	<filter-mapping>
+		<filter-name>CsrfGuardScriptInjectionFilter</filter-name>
+		<url-pattern>/*</url-pattern>
+	</filter-mapping>
+
     <filter>
         <filter-name>UserActivityFilter</filter-name>
         <filter-class>io.github.carlos_emr.carlos.utility.UserActivityFilter</filter-class>

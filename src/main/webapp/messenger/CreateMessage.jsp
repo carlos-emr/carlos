@@ -244,8 +244,6 @@ function checkGroup(group) {
     });
 }
 
-
-
 function validateFields() {
     // Sync editor content to hidden textarea before validation
     if (typeof editor !== 'undefined') {
@@ -391,7 +389,6 @@ function validateFields() {
 
 	});
 </script>
-<script src="${pageContext.request.contextPath}/csrfguard"></script>
 </head>
 <body>
 <table style="width:100%;">

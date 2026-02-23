@@ -41,7 +41,6 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
 <%
     String roleName$ = (String)session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed=true;
@@ -254,7 +253,6 @@
         method="POST"
         enctype="multipart/form-data"
       >
-            <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
             <input type="hidden" id="destination" name="destination" value="<%= Encode.forHtmlAttribute(destination) %>"/>
             <input type="hidden" id="destFolder" name="destFolder" value="<%= Encode.forHtmlAttribute(destFolder) %>"/>
 			<input type="hidden" id="provider" name="provider" value="<%= Encode.forHtmlAttribute(provider) %>" />

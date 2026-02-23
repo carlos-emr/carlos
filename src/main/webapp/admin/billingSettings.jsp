@@ -146,7 +146,6 @@
 <html>
     <head>
         <title>Billing Settings</title>
-        <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
         <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
 
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
