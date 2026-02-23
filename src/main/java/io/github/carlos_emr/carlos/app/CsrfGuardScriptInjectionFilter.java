@@ -209,7 +209,17 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      * Writes the final content to the real response, updating Content-Length.
      */
     private void writeToResponse(HttpServletResponse response, String content) throws IOException {
-        byte[] bytes = content.getBytes(response.getCharacterEncoding());
+        String encoding = response.getCharacterEncoding();
+        if (encoding == null) {
+            encoding = "UTF-8";
+        }
+        byte[] bytes;
+        try {
+            bytes = content.getBytes(encoding);
+        } catch (java.io.UnsupportedEncodingException e) {
+            LOGGER.warn("Response has unsupported encoding '{}' — falling back to UTF-8", encoding, e);
+            bytes = content.getBytes("UTF-8");
+        }
         response.setContentLength(bytes.length);
         response.getOutputStream().write(bytes);
     }

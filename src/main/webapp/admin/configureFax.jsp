@@ -363,7 +363,6 @@
 <div class="container-fluid fax-page">
     <form id="configFrm" method="post">
         <input type="hidden" name="method" value="configure"/>
-        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 
         <!-- Scheduler Health Status - Top of Page -->
         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax.restart" rights="r" reverse="<%=false%>">

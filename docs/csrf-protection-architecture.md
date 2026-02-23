@@ -17,7 +17,7 @@ Developers do **not** need to manually add CSRF tokens to JSPs or AJAX calls.
 
 ## Filter Chain Architecture
 
-Three custom filters work together, registered in `web.xml` in this order:
+Four components work together (two custom filters and one servlet registered in `web.xml`, plus one request wrapper instantiated internally by the filter):
 
 ### 1. `CsrfGuardScriptInjectionFilter` (mapped to `/*`)
 
@@ -230,7 +230,7 @@ enabled without significant engineering work.
    Tab B's JavaScript. EMR users routinely have 5-10 tabs open (patient charts, scheduling,
    billing). The next action in Tab B fails with a CSRF violation.
 
-2. **AJAX race conditions**: With `injectIntoXhr=true`, concurrent AJAX requests (auto-save,
+2. **AJAX race conditions**: With `org.owasp.csrfguard.Ajax=true`, concurrent AJAX requests (auto-save,
    lab polling, messaging) race to use the pre-rotation token. Only the first succeeds.
 
 3. **Clinical data loss**: A CSRF validation failure during prescription save or clinical
@@ -307,7 +307,7 @@ The login flow creates the session and generates tokens on the first GET to a pr
 ### AJAX requests failing with CSRF violation
 
 **Check**:
-1. Confirm `injectIntoXhr=true` in `Owasp.CsrfGuard.properties`
+1. Confirm `org.owasp.csrfguard.Ajax=true` in `Owasp.CsrfGuard.properties`
 2. Confirm the AJAX request is using `XMLHttpRequest` (not `fetch` without interception)
 3. CSRFGuard's `csrfguard.js` patches `XMLHttpRequest.prototype.open` and `send` — if a
    library replaces these after the script loads, injection breaks
@@ -348,8 +348,7 @@ increase the buffer size in `CsrfGuardScriptInjectionFilter.CaptureResponseWrapp
 
 - **February 2026**: Migrated from CSRFGuard 3.1.0 to 4.5.0
   - Replaced `OscarCsrfGuardFilter` (CSRFGuard 3.x API) with `CarlosCsrfGuardFilter`
-  - Replaced `CsrfJavaScriptInjectionFilter` with `CsrfGuardScriptInjectionFilter`
-  - Deleted `CSRFPreservingFilter` (no longer needed — CSRFGuard 4.x handles token preservation)
+  - Added `CsrfGuardScriptInjectionFilter` for automatic `<script>` tag injection (new — eliminates manual script tags in JSPs)
   - Removed manual `<script src="csrfguard">` tags from ~51 JSPs (now auto-injected)
   - Removed dead `${_csrf.parameterName}`/`${_csrf.token}` Spring Security EL expressions from ~12 JSPs
   - Added `log4j-slf4j2-impl` bridge for SLF4J 2.x logging
@@ -362,4 +361,4 @@ increase the buffer size in `CsrfGuardScriptInjectionFilter.CaptureResponseWrapp
     - `unprotectedExtensions` → `UnprotectedExtensions` (static asset list was silently empty)
     - `JavascriptServlet.forceSynchronousAjax` → `forceSynchronousAjax` (wrong prefix, moot with TokenPerPage=false)
   - Added defensive 403 fallback in `CarlosCsrfGuardFilter` for uncommitted invalid responses
-  - Changed csrf.log from `File` to `RollingFile` appender (10 MB size limit, 7-day retention)
+  - Added `RollingFile` appender for CSRF logging (10 MB size limit, 7-day retention) with dedicated `org.owasp.csrfguard` logger

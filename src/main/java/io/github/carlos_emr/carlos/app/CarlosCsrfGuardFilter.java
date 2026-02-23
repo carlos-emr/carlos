@@ -118,6 +118,16 @@ public class CarlosCsrfGuardFilter implements Filter {
 
         // Wrap multipart requests so the input stream can be read by both CsrfValidator and downstream servlets
         if (ServletFileUpload.isMultipartContent(httpRequest)) {
+            // Reject oversized requests before buffering the entire body into memory.
+            // When Content-Length is absent (-1), this check is bypassed; cacheInputStream()
+            // enforces the limit during streaming as a second line of defense.
+            long contentLength = httpRequest.getContentLengthLong();
+            if (contentLength > MultiReadHttpServletRequest.MAX_BODY_SIZE) {
+                LOGGER.warn("Rejecting oversized multipart request ({} bytes) for {} {}",
+                        contentLength, httpRequest.getMethod(), httpRequest.getRequestURI());
+                httpResponse.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
+                return;
+            }
             try {
                 httpRequest = new MultiReadHttpServletRequest(httpRequest);
             } catch (Exception e) {

@@ -734,7 +734,7 @@ document.addEventListener('DOMContentLoaded', function() {
 ### Step 5.3: AJAX Modernization with CSRF Token
 
 CSRFGuard 4.5 **automatically intercepts `XMLHttpRequest`** calls via `csrfguard.js`
-(configured with `injectIntoXhr=true`). The script patches `XMLHttpRequest.prototype.open`
+(configured with `org.owasp.csrfguard.Ajax=true`). The script patches `XMLHttpRequest.prototype.open`
 and `send` to add the CSRF token as a custom header on every request.
 
 **This means**: If your AJAX code uses `XMLHttpRequest` (directly or via jQuery's `$.ajax`),
