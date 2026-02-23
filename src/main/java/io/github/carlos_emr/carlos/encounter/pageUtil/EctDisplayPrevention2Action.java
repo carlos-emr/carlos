@@ -44,6 +44,14 @@ import java.util.*;
 public class EctDisplayPrevention2Action extends EctDisplayAction {
     private static final String cmd = "preventions";
 
+    // Unicode status prefix characters for the prevention sidebar
+    private static final String PREFIX_CHECK = "\u2713 ";      // ✓ up-to-date / completed externally
+    private static final String PREFIX_X = "\u2717 ";           // ✗ declined
+    private static final String PREFIX_DASH = "\u2013 ";        // – ineligible
+    private static final String PREFIX_HOURGLASS = "\u23F3 ";   // ⏳ pending
+    private static final String PREFIX_CIRCLE = "\u25CB ";      // ○ not documented
+    private static final String PREFIX_WARNING = "\u26A0 ";     // ⚠ due/overdue
+
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -81,6 +89,8 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             String highliteColour = "#FF0000";
             String inelligibleColour = "#FF6600";
             String pendingColour = "#FF00FF";
+            String upToDateColour = "#009900";
+            String notDocumentedColour = "#999999";
             Date date = null;
 
             url += "; return false;";
@@ -96,10 +106,14 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
 
                 boolean show = pdc.display(loggedInInfo, h, bean.demographicNo, alist.size());
                 if (show) {
+                    String prefix;
+                    String colour;
+
                     if (alist.size() > 0) {
                         Map<String, Object> hdata = alist.get(alist.size() - 1);
                         Map<String, String> hExt = PreventionData.getPreventionKeyValues((String) hdata.get("id"));
                         result = hExt.get("result");
+                        String refused = (String) hdata.get("refused");
 
                         Object dateObj = hdata.get("prevention_date_asDate");
                         if (dateObj instanceof Date) {
@@ -111,24 +125,43 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
 
                         item.setDate(date);
 
-                        if (hdata.get("refused") != null && hdata.get("refused").equals("2")) {
-                            item.setColour(inelligibleColour);
+                        // Default for items with records: up-to-date
+                        prefix = PREFIX_CHECK;
+                        colour = upToDateColour;
+
+                        if ("1".equals(refused)) {
+                            prefix = PREFIX_X;
+                            colour = inelligibleColour;
+                        } else if ("2".equals(refused)) {
+                            prefix = PREFIX_DASH;
+                            colour = inelligibleColour;
+                        } else if ("3".equals(refused)) {
+                            prefix = PREFIX_CHECK;
+                            colour = upToDateColour;
                         } else if (result != null && result.equalsIgnoreCase("pending")) {
-                            item.setColour(pendingColour);
+                            prefix = PREFIX_HOURGLASS;
+                            colour = pendingColour;
                         }
 
                     } else {
                         item.setDate(null);
+                        prefix = PREFIX_CIRCLE;
+                        colour = notDocumentedColour;
+                    }
+
+                    boolean isWarning = warningTable.containsKey(prevName);
+                    if (isWarning) {
+                        prefix = PREFIX_WARNING;
+                        colour = highliteColour;
                     }
 
                     String title = StringUtils.maxLenString(h.get("name"), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-                    item.setTitle(title);
+                    item.setTitle(prefix + title);
+                    item.setColour(colour);
                     item.setLinkTitle(h.get("desc"));
                     item.setURL(url);
 
-                    //if there's a warning associated with this prevention set item apart
-                    if (warningTable.containsKey(prevName)) {
-                        item.setColour(highliteColour);
+                    if (isWarning) {
                         warnings.add(item);
                     } else {
                         items.add(item);
