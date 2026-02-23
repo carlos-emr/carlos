@@ -49,9 +49,9 @@ import java.io.IOException;
 /**
  * CARLOS CSRF Guard filter for CSRFGuard 4.x.
  *
- * <p>Operates in <strong>permissive mode</strong>: validates CSRF tokens and logs violations
- * but always allows requests through the filter chain. This matches the existing production
- * behavior where {@code csrf_do_redirect} defaults to {@code false}.</p>
+ * <p>Operates in <strong>blocking mode</strong>: validates CSRF tokens and rejects requests
+ * that fail validation. The configured CSRFGuard actions (Log, Redirect) handle the response
+ * for invalid requests.</p>
  *
  * <p>Additionally wraps multipart/form-data requests with {@link MultiReadHttpServletRequest}
  * so that {@code request.getParameter()} works for CSRF token extraction from file uploads.</p>
@@ -92,8 +92,10 @@ public class CarlosCsrfGuardFilter implements Filter {
             // Validate the request (CsrfValidator logs violations and invokes configured actions)
             boolean valid = new CsrfValidator().isValid(httpRequest, interceptResponse);
             if (!valid) {
-                LOGGER.debug("CSRF validation failed for {} {} — permissive mode, passing through",
+                LOGGER.warn("CSRF validation failed for {} {} — request blocked",
                         httpRequest.getMethod(), httpRequest.getRequestURI());
+                // Actions (Log, Redirect) have already been executed by CsrfValidator
+                return;
             }
 
             // Generate/update tokens for the session if present
@@ -103,7 +105,7 @@ public class CarlosCsrfGuardFilter implements Filter {
                         logicalSession.getKey(), httpRequest.getMethod(), httpRequest.getRequestURI());
             }
 
-            // Permissive mode: always pass through regardless of validation result
+            // Validation passed — continue the filter chain
             filterChain.doFilter(httpRequest, interceptResponse);
         } else {
             filterChain.doFilter(request, response);
