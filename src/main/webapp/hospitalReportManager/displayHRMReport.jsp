@@ -52,6 +52,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
+<%@ page import="org.owasp.csrfguard.session.LogicalSession" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action" %>
@@ -198,7 +199,10 @@
             }
         }
     }
-    String csrfTokenJs = "{'" + CsrfGuard.getInstance().getTokenName() + "': '" + CsrfGuard.getInstance().getTokenValue(request) + "'}";
+    CsrfGuard csrfGuardInstance = CsrfGuard.getInstance();
+    LogicalSession csrfSession = csrfGuardInstance.getLogicalSessionExtractor().extract(request);
+    String csrfTokenValue = (csrfSession != null) ? csrfGuardInstance.getTokenService().getTokenValue(csrfSession.getKey(), request.getRequestURI()) : "";
+    String csrfTokenJs = "{'" + csrfGuardInstance.getTokenName() + "': '" + csrfTokenValue + "'}";
 
 %>
 

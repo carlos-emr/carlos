@@ -184,7 +184,7 @@
     </context-param>
     <filter>
         <filter-name>CSRFGuard</filter-name>
-        <filter-class>io.github.carlos_emr.carlos.app.OscarCsrfGuardFilter</filter-class>
+        <filter-class>io.github.carlos_emr.carlos.app.CarlosCsrfGuardFilter</filter-class>
     </filter>
     <filter-mapping>
         <filter-name>CSRFGuard</filter-name>
@@ -193,26 +193,6 @@
     <servlet>
         <servlet-name>CsrfServlet</servlet-name>
         <servlet-class>org.owasp.csrfguard.servlet.JavaScriptServlet</servlet-class>
-        <init-param>
-            <param-name>source-file</param-name>
-            <param-value>WEB-INF/csrfguard.js</param-value>
-        </init-param>
-        <init-param>
-            <param-name>inject-into-forms</param-name>
-            <param-value>true</param-value>
-        </init-param>
-        <init-param>
-            <param-name>inject-into-attributes</param-name>
-            <param-value>true</param-value>
-        </init-param>
-        <init-param>
-            <param-name>domain-strict</param-name>
-            <param-value>false</param-value>
-        </init-param>
-        <init-param>
-            <param-name>referer-pattern</param-name>
-            <param-value>.*</param-value>
-        </init-param>
     </servlet>
     <servlet-mapping>
         <servlet-name>CsrfServlet</servlet-name>

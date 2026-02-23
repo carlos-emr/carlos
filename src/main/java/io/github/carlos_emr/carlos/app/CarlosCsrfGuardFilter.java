@@ -1,0 +1,117 @@
+/**
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
+
+ * <p>
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.app;
+
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.owasp.csrfguard.CsrfGuard;
+import org.owasp.csrfguard.CsrfValidator;
+import org.owasp.csrfguard.http.InterceptRedirectResponse;
+import org.owasp.csrfguard.session.LogicalSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+/**
+ * CARLOS CSRF Guard filter for CSRFGuard 4.x.
+ *
+ * <p>Operates in <strong>permissive mode</strong>: validates CSRF tokens and logs violations
+ * but always allows requests through the filter chain. This matches the existing production
+ * behavior where {@code csrf_do_redirect} defaults to {@code false}.</p>
+ *
+ * <p>Additionally wraps multipart/form-data requests with {@link MultiReadHttpServletRequest}
+ * so that {@code request.getParameter()} works for CSRF token extraction from file uploads.</p>
+ *
+ * <p>Replaces the legacy {@code OscarCsrfGuardFilter} which used CSRFGuard 3.x APIs.</p>
+ *
+ * @since 2026-02-22
+ */
+public class CarlosCsrfGuardFilter implements Filter {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CarlosCsrfGuardFilter.class);
+
+    @Override
+    public void init(FilterConfig filterConfig) throws ServletException {
+        // No initialization required — configuration is read from CsrfGuard.getInstance()
+    }
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain filterChain) throws IOException, ServletException {
+        CsrfGuard csrfGuard = CsrfGuard.getInstance();
+
+        if (!csrfGuard.isEnabled()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        if (request instanceof HttpServletRequest && response instanceof HttpServletResponse) {
+            HttpServletRequest httpRequest = (HttpServletRequest) request;
+            HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+            // Wrap multipart requests so getParameter() can extract CSRF tokens from form data
+            if (ServletFileUpload.isMultipartContent(httpRequest)) {
+                httpRequest = new MultiReadHttpServletRequest(httpRequest);
+            }
+
+            InterceptRedirectResponse interceptResponse = new InterceptRedirectResponse(httpResponse, httpRequest, csrfGuard);
+
+            // Validate the request (CsrfValidator logs violations and invokes configured actions)
+            boolean valid = new CsrfValidator().isValid(httpRequest, interceptResponse);
+            if (!valid) {
+                LOGGER.debug("CSRF validation failed for {} {} — permissive mode, passing through",
+                        httpRequest.getMethod(), httpRequest.getRequestURI());
+            }
+
+            // Generate/update tokens for the session if present
+            LogicalSession logicalSession = csrfGuard.getLogicalSessionExtractor().extract(httpRequest);
+            if (logicalSession != null) {
+                csrfGuard.getTokenService().generateTokensIfAbsent(
+                        logicalSession.getKey(), httpRequest.getMethod(), httpRequest.getRequestURI());
+            }
+
+            // Permissive mode: always pass through regardless of validation result
+            filterChain.doFilter(httpRequest, interceptResponse);
+        } else {
+            filterChain.doFilter(request, response);
+        }
+    }
+
+    @Override
+    public void destroy() {
+        // No cleanup required
+    }
+}

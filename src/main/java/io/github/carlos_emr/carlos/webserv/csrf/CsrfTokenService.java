@@ -33,8 +33,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.webserv.oauth.AbstractServiceImpl;
 import org.owasp.csrfguard.CsrfGuard;
+import org.owasp.csrfguard.session.LogicalSession;
 import org.springframework.stereotype.Component;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -53,9 +55,14 @@ public class CsrfTokenService extends AbstractServiceImpl {
     @Produces("application/json")
     public String getToken() {
         CsrfGuard csrfGuard = CsrfGuard.getInstance();
+        HttpServletRequest request = getHttpServletRequest();
+        LogicalSession session = csrfGuard.getLogicalSessionExtractor().extract(request);
+        String tokenValue = (session != null)
+                ? csrfGuard.getTokenService().getTokenValue(session.getKey(), request.getRequestURI())
+                : null;
         ObjectNode token = objectMapper.createObjectNode();
         token.put("name", csrfGuard.getTokenName());
-        token.put("value", csrfGuard.getTokenValue(getHttpServletRequest()));
+        token.put("value", tokenValue);
         return token.toString();
     }
 }

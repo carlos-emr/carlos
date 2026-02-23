@@ -3034,12 +3034,28 @@
     "integrity" : "sha512:IYmTKMz5p1XaIXl93wsDz9mUBGrxXIn1SSGjnXkoNxBpBTOi2uyxh25ZzOsfmbSUmwzsW3S16w6jD4ucatJLbg=="
   }, {
     "groupId" : "org.owasp",
-    "artifactId" : "csrfguard",
-    "version" : "3.1.0",
+    "artifactId" : "csrfguard-extension-session",
+    "version" : "4.5.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:+lPetjA0P0/rxcEpuo29HslUIpw/y5Db64t+m/ph18qenU5HpOpSNMC+nv5ZgC/yhYL1V8VZDzFMvuXgbnrgYg=="
+    "integrity" : "sha512:Ot/AIHpnP3VNnKR1vlgIeW+i44vBpsLbq2Zf0/4kcX8tuvAF6IoCiMMLlN65QS3hGSUqR9tBZBJyPqFB8ZnTGA=="
+  }, {
+    "groupId" : "org.owasp",
+    "artifactId" : "csrfguard-jsp-tags",
+    "version" : "4.5.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:M5r2C1iccYpFKyj7ZT+bUt7S9k01wMgdtPB0sPbzci+smguxG0ZwyGeiw81J0xcVw/pm5WmvmdtuCWZk6TunpQ=="
+  }, {
+    "groupId" : "org.owasp",
+    "artifactId" : "csrfguard",
+    "version" : "4.5.0",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:0HK+uuyW/6mlFHPMkX4Z5d1GLN67bfsRxhC4hZj4qcNdnVn6G6dXoXyFdtMSjS0MDKbgihJJ3VzGWusaJhwgQQ=="
   }, {
     "groupId" : "org.reactivestreams",
     "artifactId" : "reactive-streams",
@@ -3360,6 +3376,14 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:N3k2Pv5LfPI7/Gg4jzxrUQXe25GSCA8URTT8rMincBT58+s64ZJzRKJnNkwk3u3r8l4wb4DfwpOFGXNoXMWMUg=="
+  }, {
+    "groupId" : "xalan",
+    "artifactId" : "serializer",
+    "version" : "2.7.3",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:VID3izwPdi3AJZRFfUUUA4Z4Hxs9UzhFdAT4WKgK4gmI2/xDafGoN/ZohCStX488kQ/6sE/b9wuY46WOH/tzLg=="
   }, {
     "groupId" : "xalan",
     "artifactId" : "xalan",

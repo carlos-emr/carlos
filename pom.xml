@@ -184,6 +184,13 @@
                 <artifactId>xalan</artifactId>
                 <version>2.7.3</version>
             </dependency>
+            <!-- Xalan 2.7.3 requires its companion serializer artifact (provides
+                 org.apache.xml.serializer.OutputPropertiesFactory used by Struts 6.x) -->
+            <dependency>
+                <groupId>xalan</groupId>
+                <artifactId>serializer</artifactId>
+                <version>2.7.3</version>
+            </dependency>
             <!-- Override transitive org.hl7.fhir.core from hapi-fhir-structures-dstu3 to fix:
                  - CVE-2024-45294 (XXE in XSLT transforms)
                  - CVE-2024-51132 (XXE via crafted XML entities) -->
@@ -536,6 +543,12 @@
             <groupId>org.glassfish.web</groupId>
             <artifactId>javax.servlet.jsp.jstl</artifactId>
             <version>1.2.5</version>
+        </dependency>
+        <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
+             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts 6.x. -->
+        <dependency>
+            <groupId>xalan</groupId>
+            <artifactId>serializer</artifactId>
         </dependency>
 
         <!-- XMLBeans for AR2005 and CKD - using existing 3.1.0 version below -->
@@ -1086,7 +1099,17 @@
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard</artifactId>
-            <version>3.1.0</version>
+            <version>4.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard-extension-session</artifactId>
+            <version>4.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard-jsp-tags</artifactId>
+            <version>4.5.0</version>
         </dependency>
         
         <!-- OWASP ESAPI for ClickjackFilter -->
