@@ -887,6 +887,7 @@
     <input type="hidden" value="${ hideReason }" id="hideReason"/>
     <input type="hidden" value="${pageContext.servletContext.contextPath}" id="contextPath" />
 
+    <div id="fixedHeaderWrapper">
     <table id="firstTable" class="noprint">
         <tr>
 
@@ -1161,20 +1162,6 @@
 
         </tr>
     </table>
-
-    <script>
-        jQuery(document).ready(function () {
-            jQuery.get("<%=request.getContextPath()%>/SystemMessage.do?method=view", "html", function (data, textStatus) {
-                jQuery("#system_message").html(data);
-            });
-            jQuery.get("<%=request.getContextPath()%>/FacilityMessage.do?method=view", "html", function (data, textStatus) {
-                jQuery("#facility_message").html(data);
-            });
-        });
-    </script>
-
-    <div id="system_message"></div>
-    <div id="facility_message"></div>
 
     <table id="scheduleNavigation">
         <tr id="ivoryBar">
@@ -1493,6 +1480,22 @@
             </td>
         </tr>
     </table>
+    </div><!-- end fixedHeaderWrapper -->
+
+    <script>
+        jQuery(document).ready(function () {
+            jQuery.get("<%=request.getContextPath()%>/SystemMessage.do?method=view", "html", function (data, textStatus) {
+                jQuery("#system_message").html(data);
+            });
+            jQuery.get("<%=request.getContextPath()%>/FacilityMessage.do?method=view", "html", function (data, textStatus) {
+                jQuery("#facility_message").html(data);
+            });
+        });
+    </script>
+
+    <div id="system_message"></div>
+    <div id="facility_message"></div>
+
     <table id="scheduleTable" BGCOLOR="#C0C0C0">
 
         <tr>
