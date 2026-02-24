@@ -136,10 +136,15 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                 h.put("providerName", p.getSurname() + ", " + p.getFirstName());
             }
 
+            // Always load DemographicCust so alert is available in every autocomplete result
+            DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
+            DemographicCust demographicCust = demographicCustDao.find(demo.getDemographicNo());
+
+            String alertText = (demographicCust != null && demographicCust.getAlert() != null) ? demographicCust.getAlert() : "";
+            h.put("alert", StringEscapeUtils.escapeJava(alertText.replaceAll("\"", "\\\"")));
+
             if (OscarProperties.getInstance().isPropertyActive("workflow_enhance")) {
                 h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
-                DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
-                DemographicCust demographicCust = demographicCustDao.find(demo.getDemographicNo());
 
                 if (demographicCust != null) {
                     String cust1 = StringUtils.trimToNull(demographicCust.getNurse());
@@ -190,7 +195,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             record = info.get(idx);
             json.append("{\"label\":\"" + record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")\",\"value\":\"" + record.get("demographicNo") + "\"");
             json.append(",\"providerNo\":\"" + record.get("providerNo") + "\",\"provider\":\"" + record.get("providerName") + "\",\"nextAppt\":\"" + record.get("nextAppointment") + "\",");
-            json.append("\"formattedName\":\"" + record.get("formattedName") + "\"}");
+            json.append("\"formattedName\":\"" + record.get("formattedName") + "\",\"alert\":\"" + (record.get("alert") != null ? record.get("alert") : "") + "\"}");
 
             if (idx < size - 1) {
                 json.append(",");

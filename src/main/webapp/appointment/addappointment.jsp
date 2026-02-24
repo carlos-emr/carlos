@@ -579,6 +579,14 @@ Ontario, Canada
                         $("#demographic_no").val(ui.item.value);
                         $("#mrp").val(ui.item.provider);
                         $("#keyword").val(ui.item.formattedName);
+                        // Show patient alert banner if the selected patient has an alert
+                        var patientAlert = ui.item.alert || "";
+                        if (patientAlert) {
+                            // Use .text() to safely set content and prevent XSS
+                            $("#patientAlertBanner").text(patientAlert).show();
+                        } else {
+                            $("#patientAlertBanner").hide();
+                        }
                         return false;
                     }
                 })
@@ -1047,12 +1055,11 @@ Ontario, Canada
 
                 }
             }
-            if (alert != null && !alert.isEmpty()) {
-        %>
-        <div class="alert alert-warning"><%=Encode.forHtmlContent(alert)%></div>
-        <%
-            }
         }
+        %>
+        <%-- Patient alert banner: always rendered so JavaScript can show/hide it when patient is selected via autocomplete --%>
+        <div id="patientAlertBanner" class="alert alert-warning"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %>><%=Encode.forHtmlContent(alert != null ? alert : "")%></div>
+        <%
 
 
             if (apptnum != 0) {
