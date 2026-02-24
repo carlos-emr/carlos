@@ -876,9 +876,10 @@
 		doctorNo = "";
     }
     %>
-
-
-
+   <% if (alert != null && !alert.equals("")) { %>
+     <div class="alert alert-warning"><%=Encode.forHtmlContent(alert)%>
+     </div>
+   <% } %>
 
     <div class="well">
         <div class="form-wrapper">
