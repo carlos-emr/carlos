@@ -166,6 +166,7 @@
     String encWinWidth = props.getOrDefault("encounterWindowWidth", "");
     String encWinHeight = props.getOrDefault("encounterWindowHeight", "");
     boolean encWinMax = "yes".equalsIgnoreCase(props.getOrDefault("encounterWindowMaximize", "no"));
+    boolean encOpenInTab = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.ENCOUNTER_OPEN_IN_TAB, "no"));
     String quickChartSize = props.getOrDefault("quickChartSize", "");
 
     // Contact info (used on prescriptions and consult letters)
@@ -1013,6 +1014,13 @@
                 <div class="pref-value">
                     <input type="checkbox" class="form-check-input" role="switch"
                            name="encounterWindowMaximize" value="yes" <%=encWinMax ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
+                <div class="pref-label">Open in Tabs</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="encounter_open_in_tab" value="yes" <%=encOpenInTab ? "checked" : ""%>>
                 </div>
             </div>
             <div class="pref-row">
