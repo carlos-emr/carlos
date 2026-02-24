@@ -39,6 +39,7 @@ import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 /**
  * Servlet filter that auto-injects the CSRFGuard JavaScript tag into HTML responses.
@@ -73,6 +74,15 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
     private static final String AJAX_HEADER_NAME = "X-Requested-With";
     private static final String AJAX_HEADER_VALUE = "XMLHttpRequest";
+
+    /**
+     * Matches a {@code <script src="...csrfguard...">} tag (case-insensitive).
+     * Used for the idempotency check to avoid double-injection. A simple
+     * {@code contains("/csrfguard")} would produce false positives on pages where
+     * the literal string appears in JavaScript code, comments, or user-generated content.
+     */
+    private static final Pattern CSRFGUARD_SCRIPT_PATTERN =
+            Pattern.compile("<script[^>]*src=[\"'][^\"']*\\/csrfguard[\"']", Pattern.CASE_INSENSITIVE);
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
@@ -157,8 +167,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         String captured = wrapper.getCapturedContent();
 
-        // Idempotency: skip if the page already includes the csrfguard script
-        if (captured.contains("/csrfguard\"") || captured.contains("/csrfguard'")) {
+        // Idempotency: skip if the page already contains a <script src="...csrfguard..."> tag.
+        // Regex is used rather than contains() to avoid false positives when the literal
+        // string "/csrfguard" appears in JavaScript code, comments, or user-generated content.
+        if (CSRFGUARD_SCRIPT_PATTERN.matcher(captured).find()) {
             writeToResponse(httpResponse, captured);
             return;
         }
@@ -248,6 +260,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private boolean usingOutputStream;
         private boolean usingWriter;
         private boolean committed;
+        private Integer deferredContentLength;
+        private Long deferredContentLengthLong;
 
         public CaptureResponseWrapper(HttpServletResponse response) {
             super(response);
@@ -267,6 +281,16 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 throw new IllegalStateException("getWriter() has already been called on this response");
             }
             usingOutputStream = true;
+            // Apply any Content-Length that was set before we knew the response mode.
+            // For output-stream passthrough, the header must reach the underlying response.
+            if (deferredContentLength != null) {
+                super.setContentLength(deferredContentLength);
+                deferredContentLength = null;
+            }
+            if (deferredContentLengthLong != null) {
+                super.setContentLengthLong(deferredContentLengthLong);
+                deferredContentLengthLong = null;
+            }
             return super.getOutputStream();
         }
 
@@ -285,12 +309,32 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void setContentLength(int len) {
-            // Suppress — final Content-Length is set after script injection in writeToResponse()
+            if (usingOutputStream) {
+                // Output-stream passthrough: the real response owns the content, so pass through
+                super.setContentLength(len);
+                return;
+            }
+            if (usingWriter) {
+                // Writer-capture path: suppress — final length is recomputed in writeToResponse()
+                return;
+            }
+            // Mode not yet determined — defer until getOutputStream() or getWriter() is called
+            deferredContentLength = len;
         }
 
         @Override
         public void setContentLengthLong(long len) {
-            // Suppress — final Content-Length is set after script injection in writeToResponse()
+            if (usingOutputStream) {
+                // Output-stream passthrough: the real response owns the content, so pass through
+                super.setContentLengthLong(len);
+                return;
+            }
+            if (usingWriter) {
+                // Writer-capture path: suppress — final length is recomputed in writeToResponse()
+                return;
+            }
+            // Mode not yet determined — defer until getOutputStream() or getWriter() is called
+            deferredContentLengthLong = len;
         }
 
         @Override
