@@ -1022,7 +1022,7 @@ Ontario, Canada
                     hin = hin + " " + ver;
 
                     DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(request.getParameter("demographic_no")));
-                    alert = demographicCust.getAlert();
+                    if (demographicCust != null) alert = demographicCust.getAlert();
 
                     if (patientStatus == null || patientStatus.equalsIgnoreCase("AC")) {
                         patientStatus = "";
@@ -1039,11 +1039,6 @@ Ontario, Canada
                         String exp = " null-undefined\n IN-inactive ID-deceased OP-out patient\n NR-not signed\n FS-fee for service\n TE-terminated\n SP-self pay\n TP-third party";
 
         %>
-        <%
-        if (alert != null && !alert.equals("")) { %>
-            <div class="alert alert-warning"><%=Encode.forHtmlContent(alert)%>
-            </div>
-        <% } %>
         <div class="alert alert-info" title='<%=exp%>'>
             <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgPatientStatus"/>:</h4>
             <%=patientStatus%>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>:&nbsp;<%=rosterStatus%>
@@ -1052,20 +1047,10 @@ Ontario, Canada
 
                 }
             }
-            if (request.getParameter("demographic_no") != null && !"".equals(request.getParameter("demographic_no"))) {
-                DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(request.getParameter("demographic_no")));
-
-                if (demographicCust != null && demographicCust.getAlert() != null && !demographicCust.getAlert().equals("")) {
-
+            if (alert != null && !alert.isEmpty()) {
         %>
-        <div class="alert alert-error">
-            <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formAlert"/>:</h4> <%=demographicCust.getAlert()%>
-        </div>
-
+        <div class="alert alert-warning"><%=Encode.forHtmlContent(alert)%></div>
         <%
-
-                    }
-                }
             }
 
 

@@ -1371,10 +1371,6 @@
                     <br>
                     <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>:</label> <%=Encode.forHtmlContent(StringUtils.trimToEmpty(rosterstatus))%>
                 </td>
-                <% if (alert != null && !alert.equals("")) { %>
-                <td class="alert alert-error"><%=Encode.forHtmlContent(alert)%>
-                </td>
-                <% } %>
             </tr>
         </table>
 
