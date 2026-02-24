@@ -42,22 +42,27 @@ function popup(height, width, url, windowName) {
 /**
  * Opens a URL in a new browser tab with opener isolation.
  *
- * <p>Uses {@code noopener,noreferrer} window features to prevent the opened tab
- * from accessing {@code window.opener}, mitigating reverse-tabnabbing attacks.
+ * <p>Opens the tab without windowFeatures (so the browser returns a real Window reference),
+ * then immediately severs the opener relationship by setting {@code win.opener = null}.
+ * This achieves the same tabnabbing protection as passing {@code noopener} in windowFeatures,
+ * without the side-effect of {@code window.open()} returning {@code null}.
  *
- * <p><strong>Note (HTML spec behaviour):</strong> Passing {@code noopener} or {@code noreferrer}
- * in the {@code windowFeatures} string causes {@code window.open()} to return {@code null}
- * by specification, regardless of whether the tab opened successfully. This means
- * {@code win} below will always be {@code null}: the {@code else} alert branch fires
- * only when the browser's popup blocker prevents the tab from opening at all.
+ * <p><strong>Why not pass {@code noopener} as a window feature?</strong> Per the HTML spec,
+ * passing {@code noopener} or {@code noreferrer} in the third argument to {@code window.open()}
+ * causes all modern browsers to return {@code null}, making it impossible to detect
+ * whether the browser's popup blocker prevented the tab from opening, or to call {@code focus()}.
  * See: https://html.spec.whatwg.org/multipage/nav-history-apis.html (window.open, noopener token)
  *
  * @param {string} url - URL to open in a new tab
- * @returns {null} Always null (spec: window.open with noopener returns null)
+ * @returns {Window|null} The opened Window object, or null if the browser blocked the tab
  */
 function popupTab(url) {
-    var win = window.open(url, '_blank', 'noopener,noreferrer');
+    var win = window.open(url, '_blank');
     if (win) {
+        // Manually sever the opener relationship to prevent reverse-tabnabbing.
+        // All URLs opened via this helper are same-origin CARLOS pages, so the
+        // brief window between open() and this assignment is not exploitable.
+        win.opener = null;
         win.focus();
     } else {
         alert('Your browser blocked the new tab. Please allow popups for this site, or disable "Open in Tabs" in your preferences.');
