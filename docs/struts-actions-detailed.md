@@ -38,7 +38,6 @@ Administrative functions for system configuration, user management, and maintena
 | admin/ManageSites | io.github.carlos_emr.carlos.commn.web.SitesManage2Action | Manages multi-site configurations |
 | admin/MergeRecords | io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action | Merges duplicate demographic records |
 | admin/oncallClinic | io.github.carlos_emr.carlos.admin.reports.SaveOnCallClinic2Action | Manages on-call clinic schedules |
-| admin/oscarStatus | io.github.carlos_emr.carlos.util.OscarStatus2Action | Displays system status and health information |
 | admin/uploadEntryText | io.github.carlos_emr.carlos.login.UploadLoginText2Action | Uploads custom login page text |
 
 ## Appointment Module

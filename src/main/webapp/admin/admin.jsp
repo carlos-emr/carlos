@@ -843,8 +843,6 @@
                     <% if (OscarProperties.getInstance().isFaxEnabled()) { %>
                     <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/faxStatus.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
                     <% } %>
-                    <li><a href="#" onclick='popupPage(800, 800, "${pageContext.request.contextPath}/admin/oscarStatus.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.oscarStatus.oscarStatus"/></a></li>
-
                 </ul>
             </div>
         </security:oscarSec>
