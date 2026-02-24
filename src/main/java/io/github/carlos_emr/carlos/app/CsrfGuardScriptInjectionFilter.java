@@ -308,9 +308,16 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void flushBuffer() throws IOException {
+            // For output-stream passthrough responses, delegate flushing so streaming downloads
+            // and progressive chunk delivery work correctly. The suppression is only needed for
+            // the writer-capture path (text/html), where we must prevent the response from being
+            // committed before script injection has run.
+            if (usingOutputStream) {
+                super.flushBuffer();
+                return;
+            }
             // Suppress flushing to prevent captured content from being committed to the client
-            // before script injection. For getOutputStream() responses (binary passthrough) this
-            // is harmless since the output stream can be flushed independently via stream.flush().
+            // before script injection.
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("flushBuffer() suppressed during CSRF script injection capture");
             }
