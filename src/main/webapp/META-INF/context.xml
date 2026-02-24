@@ -1,0 +1,71 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<!--
+    Tomcat-specific application context configuration for CARLOS EMR.
+
+    This file controls how Tomcat hosts the application (caching, cookies,
+    session persistence, class scanning). It is NOT the same as web.xml,
+    which defines servlets, filters, and Servlet-spec configuration.
+-->
+<Context>
+
+    <!--
+        Static resource cache.
+        Defaults: cacheMaxSize=10240 KB (10 MB), cacheObjectMaxSize=512 KB, cacheTtl=5000 ms.
+
+        CARLOS has ~8,300 files totaling 727 MB. Worst-case cache need is ~128.5 MB
+        (5.7 MB metadata for 9,044 entries + 20.6 MB class files + 102.2 MB static
+        resources under 2 MB). JARs and large PDFs store only metadata (~500 bytes
+        each), not content.
+
+        cacheMaxSize=204800 (200 MB): Headroom above ~128.5 MB worst case.
+        cacheObjectMaxSize=2048 (2 MB): Caches JS/CSS/fonts/small images; excludes
+            large PDFs served efficiently via OS page cache.
+            Constraint: must be <= cacheMaxSize/20 (200MB/20 = 10MB > 2MB).
+        cacheTtl=60000 (60s): Static resources don't change outside deployments.
+            Reduces unnecessary filesystem stat calls across ~8,300 files.
+    -->
+    <Resources cacheMaxSize="204800" cacheObjectMaxSize="2048" cacheTtl="60000" />
+
+    <!--
+        SameSite=Lax: Blocks cross-site POST requests (CSRF defense-in-depth
+        alongside CSRFGuard tokens) while allowing session cookies on top-level
+        GET navigations from external sites. "strict" breaks SAML SSO and OAuth
+        1.0a redirect-back flows (browser won't send JSESSIONID after IdP redirect).
+    -->
+    <CookieProcessor sameSiteCookies="lax" />
+
+    <!--
+        Disable session persistence across Tomcat restarts.
+        Default: pathname="SESSIONS.ser" (serializes sessions to disk on shutdown).
+        Security risks for a healthcare EMR:
+          - Serialized sessions may contain PHI or auth tokens written to disk
+          - Session deserialization is a known attack vector (CVE-2020-9484 class)
+          - Restarts should require re-authentication
+    -->
+    <Manager pathname="" />
+
+    <!--
+        Skip JAR manifest Class-Path scanning during startup.
+        CARLOS does not use JAR manifest classpath entries; all dependencies
+        are managed by Maven and placed directly in WEB-INF/lib.
+        Default: scanManifest="true".
+    -->
+    <JarScanner scanManifest="false" />
+
+</Context>
