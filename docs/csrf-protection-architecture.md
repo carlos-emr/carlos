@@ -330,6 +330,99 @@ increase the buffer size in `CsrfGuardScriptInjectionFilter.CaptureResponseWrapp
 
 ---
 
+## Configuration Source of Truth
+
+### Single Source of Truth: `Owasp.CsrfGuard.properties`
+
+**All functional CSRFGuard configuration must live in `Owasp.CsrfGuard.properties`.** This is the
+CSRFGuard 4.x design intent — the properties file is authoritative for every setting that controls
+CSRF behaviour.
+
+`web.xml` is intentionally minimal. It contains **only the bootstrap wiring** that the servlet
+container requires:
+
+| What | Why it must be in web.xml |
+|------|--------------------------|
+| `Owasp.CsrfGuard.Config` context-param | Tells the `CsrfGuardServletContextListener` where to find the properties file |
+| `CsrfGuardServletContextListener` | Loads CSRFGuard at application startup |
+| `CsrfGuardHttpSessionListener` | Cleans up tokens when sessions are destroyed |
+| `CarlosCsrfGuardFilter` + mapping | Registers the custom validation filter |
+| `CsrfServlet` + mapping (`/csrfguard`) | Registers the servlet that serves `csrfguard.js` |
+
+Nothing else should be in `web.xml` for CSRFGuard. Adding functional configuration there creates
+a dual-source-of-truth problem: a developer reading only the properties file would not see the
+override, and removing the `web.xml` override (thinking the properties file is authoritative)
+silently changes behavior.
+
+### Environment-Specific Overrides: The Overlay File
+
+For settings that legitimately differ between environments (development vs production), use the
+**CSRFGuard overlay file** rather than `web.xml` context-params.
+
+The overlay file is picked up automatically because `Owasp.CsrfGuard.properties` configures
+`ConfigurationAutodetectProviderFactory` with this hierarchy:
+
+```properties
+org.owasp.csrfguard.configOverlay.hierarchy = \
+    classpath:Owasp.CsrfGuard.properties, \
+    classpath:Owasp.CsrfGuard.overlay.properties
+```
+
+Files on the right override files on the left. `Owasp.CsrfGuard.overlay.properties` is resolved
+from the runtime classpath, which in Tomcat includes `WEB-INF/classes/`. If the file does not
+exist, the factory silently falls back to the base properties with no error.
+
+#### Creating a Development Overlay
+
+Create `src/main/resources/Owasp.CsrfGuard.overlay.properties` (this ends up in
+`WEB-INF/classes/` in the WAR):
+
+```properties
+# Owasp.CsrfGuard.overlay.properties — DEVELOPMENT OVERRIDES ONLY
+# Do NOT commit this file to production deployments.
+# This file is automatically applied on top of Owasp.CsrfGuard.properties
+# by ConfigurationAutodetectProviderFactory.
+
+# Enable config dump at startup (useful for debugging token/property issues)
+org.owasp.csrfguard.Config.Print = true
+
+# Drop to debug logging (also requires log4j2.xml change: set org.owasp.csrfguard to debug)
+# org.owasp.csrfguard.Enabled = true
+```
+
+**Important**: Add `Owasp.CsrfGuard.overlay.properties` to `.gitignore` or production deployment
+manifests. It should never be committed for production — its absence is the production state.
+
+#### Why Not Use `web.xml` Context-Params for Overrides?
+
+The `web.xml` context-param mechanism (`<context-param>Owasp.CsrfGuard.Config.Print</context-param>`)
+is supported by CSRFGuard as a deployment-time escape hatch. It has two problems as a regular
+configuration mechanism:
+
+1. **Hidden override**: The properties file appears to be the authoritative source, but the
+   `web.xml` param silently wins. Developers reading the properties file see misleading values.
+2. **Not scalable**: Each environment-specific value requires a separate `web.xml` edit, which is
+   part of the WAR and affects all environments. The overlay file approach is WAR-independent.
+
+The overlay file approach matches how other CARLOS subsystems handle environment variation
+(Spring's `over_ride_config.properties` pattern).
+
+### CSRFGuard Configuration Quick Reference
+
+| Setting | Where it lives | Notes |
+|---------|---------------|-------|
+| Token name, length, PRNG | `Owasp.CsrfGuard.properties` | Always in properties |
+| Protected HTTP methods | `Owasp.CsrfGuard.properties` | Always in properties |
+| Unprotected pages/URLs | `Owasp.CsrfGuard.properties` | Always in properties |
+| JavaScript injection settings | `Owasp.CsrfGuard.properties` | Always in properties |
+| Config.Print (production) | `Owasp.CsrfGuard.properties` → `false` | Must be `false` in properties |
+| Config.Print (development) | `Owasp.CsrfGuard.overlay.properties` → `true` | Override in overlay only |
+| Config file path pointer | `web.xml` | Must stay in web.xml |
+| Listeners | `web.xml` | Must stay in web.xml |
+| Filter + Servlet registration | `web.xml` | Must stay in web.xml |
+
+---
+
 ## File Reference
 
 | File | Purpose |
