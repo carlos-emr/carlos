@@ -1283,7 +1283,7 @@ Ontario, Canada
                                     %>
                                 </select>
                                 <% } else { %>
-	            <input type="TEXT" name="location" tabindex="4" tabindex="4" value="<%=Encode.forHtmlAttribute(loc != null ? loc : "")%>" class="form-control">
+	            <input type="TEXT" name="location" tabindex="4" value="<%=Encode.forHtmlAttribute(loc != null ? loc : "")%>" class="form-control">
                                 <% } %>
                                 <% } %>
                             </td>
@@ -1305,7 +1305,7 @@ Ontario, Canada
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formMC"/>:
                             </td>
                             <td>
-                                <input type="text" name="appt_mc_number" tabindex="4"/>
+                                <input type="text" name="appt_mc_number" tabindex="5"/>
                             </td>
                         </tr>
 
@@ -1390,7 +1390,7 @@ Ontario, Canada
                             </td>
                             <td>
 	                <input type="text" name="resources" class="form-control"
-                                       tabindex="5"
+                                       tabindex="6"
                                        value='<%=bFirstDisp?"":request.getParameter("resources").equals("")?"": Encode.forHtmlAttribute(request.getParameter("resources"))%>'
                                 >
                             </td>
@@ -1496,7 +1496,7 @@ Ontario, Canada
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <input type="submit" id="addButton" class="btn btn-primary"
                            onclick="document.forms['ADDAPPT'].displaymode.value='Add Appointment'"
-                           tabindex="6"
+                           tabindex="7"
                            value="<% if (isMobileOptimized) { %><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnAddAppointmentMobile"/>
                    <% } else { %><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnAddAppointment"/><% } %>"
                             <%=disabled%>>
