@@ -247,11 +247,6 @@ Ontario, Canada
 		width: 100%;
 	}
 
-	.alert {
-		padding: 6px 10px !important;
-		margin-bottom: 4px !important;
-	}
-
             body, html {
                 --color: #945;
                 --size: 2rem;
@@ -437,18 +432,18 @@ Ontario, Canada
                     return false;
                 }
 
-                if (eval(duration) == 0) {
+                if (parseInt(duration, 10) == 0) {
                     duration = 1;
                 }
-                if (eval(duration) < 0) {
-                    duration = Math.abs(duration);
+                if (parseInt(duration, 10) < 0) {
+                    duration = Math.abs(parseInt(duration, 10));
                 }
 
-                var lmin = eval(smin) + eval(duration) - 1;
+                var lmin = parseInt(smin, 10) + parseInt(duration, 10) - 1;
                 var lhour = parseInt(lmin / 60);
 
                 if ((lmin) > 59) {
-                    shour = eval(shour) + eval(lhour);
+                    shour = parseInt(shour, 10) + lhour;
                     shour = shour < 10 ? ("0" + shour) : shour;
                     smin = lmin - 60 * lhour;
                 } else {
@@ -621,9 +616,9 @@ Ontario, Canada
                     }
                 })
                     .autocomplete("instance")._renderItem = function (ul, item) {
-                    return $("<li>")
-                        .append("<div><b>" + item.label + "</b>" + "<br>" + item.provider + "</div>")
-                        .appendTo(ul);
+                    var $b = $("<b>").text(item.label || "");
+                    var $div = $("<div>").append($b).append("<br>").append(document.createTextNode(item.provider || ""));
+                    return $("<li>").append($div).appendTo(ul);
                 };
 
 
@@ -1118,7 +1113,7 @@ Ontario, Canada
         <table width="100%" class="alert alert-info">
             <% for (String recommendation : billingRecommendations) { %>
             <tr>
-                <td><%=recommendation%>
+                <td><%=Encode.forHtmlContent(recommendation)%>
                 </td>
             </tr>
             <% } %>
@@ -1288,7 +1283,7 @@ Ontario, Canada
                                     %>
                                 </select>
                                 <% } else { %>
-	            <input type="TEXT" name="location" tabindex="4" tabindex="4" value="<%=loc%>" class="form-control">
+	            <input type="TEXT" name="location" tabindex="4" tabindex="4" value="<%=Encode.forHtmlAttribute(loc != null ? loc : "")%>" class="form-control">
                                 <% } %>
                                 <% } %>
                             </td>

@@ -289,11 +289,6 @@
         width: 100%;
     }
 
-    .alert {
-        padding: 6px 10px !important;
-        margin-bottom: 4px !important;
-    }
-
             body, html {
                 --color: #945;
                 --size: 2rem;
@@ -468,18 +463,18 @@
                     return false;
                 }
 
-                if (eval(duration) === 0) {
+                if (parseInt(duration, 10) === 0) {
                     duration = 1;
                 }
-                if (eval(duration) < 0) {
-                    duration = Math.abs(duration);
+                if (parseInt(duration, 10) < 0) {
+                    duration = Math.abs(parseInt(duration, 10));
                 }
 
-                var lmin = eval(smin) + eval(duration) - 1;
+                var lmin = parseInt(smin, 10) + parseInt(duration, 10) - 1;
                 var lhour = parseInt(lmin / 60);
 
                 if ((lmin) > 59) {
-                    shour = eval(shour) + eval(lhour);
+                    shour = parseInt(shour, 10) + lhour;
                     shour = shour < 10 ? ("0" + shour) : shour;
                     smin = lmin - 60 * lhour;
                 } else {
@@ -858,10 +853,6 @@
                 displayStyle = "display:block";
             }
     %>
-    <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
-        <span id="jsAlertText"></span>
-        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
-    </div>
     <div id="tooManySameDayGroupApptWarning" style="<%=displayStyle%>">
         <div class="alert alert-danger alert-dismissible" role="alert">
             <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.titleMultipleGroupDayBooking'/></h4>
@@ -891,6 +882,11 @@
 		doctorNo = "";
     }
     %>
+    <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
+    <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+    </div>
    <% if (alert != null && !alert.equals("")) { %>
      <div id="patientAlertBanner" class="alert alert-warning alert-dismissible" role="alert">
          <span id="patientAlertText"><%=Encode.forHtmlContent(alert)%></span>

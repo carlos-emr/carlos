@@ -119,6 +119,9 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         }
 
 
+        // Hoist DAO lookup outside loop to avoid N+1 bean resolution on every iteration
+        DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
+
         List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
@@ -137,8 +140,6 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                 h.put("providerName", p.getSurname() + ", " + p.getFirstName());
             }
 
-            // Always load DemographicCust so alert is available in every autocomplete result
-            DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
             DemographicCust demographicCust = demographicCustDao.find(demo.getDemographicNo());
 
             String alertText = (demographicCust != null && demographicCust.getAlert() != null) ? demographicCust.getAlert() : "";
@@ -196,7 +197,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             record = info.get(idx);
             json.append("{\"label\":\"" + record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")\",\"value\":\"" + record.get("demographicNo") + "\"");
             json.append(",\"providerNo\":\"" + record.get("providerNo") + "\",\"provider\":\"" + record.get("providerName") + "\",\"nextAppt\":\"" + record.get("nextAppointment") + "\",");
-            json.append("\"formattedName\":\"" + record.get("formattedName") + "\",\"alert\":\"" + (record.get("alert") != null ? record.get("alert") : "") + "\",\"rosterStatus\":\"" + (record.get("rosterStatus") != null ? record.get("rosterStatus") : "") + "\"}");
+            json.append("\"formattedName\":\"" + record.get("formattedName") + "\",\"status\":\"" + (record.get("status") != null ? record.get("status") : "") + "\",\"alert\":\"" + (record.get("alert") != null ? record.get("alert") : "") + "\",\"rosterStatus\":\"" + (record.get("rosterStatus") != null ? record.get("rosterStatus") : "") + "\"}");
 
             if (idx < size - 1) {
                 json.append(",");
