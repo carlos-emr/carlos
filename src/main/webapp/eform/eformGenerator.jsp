@@ -90,7 +90,6 @@ and other liscences (MIT, LGPL etc) as indicated
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="eFormGenerator.title"/></title>
-    <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
     <style type="text/css" media="print">
         /*CSS Script that removes the whole division when printing*/

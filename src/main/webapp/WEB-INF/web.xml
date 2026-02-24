@@ -96,6 +96,15 @@
 	</filter-mapping>
 
 	<filter>
+		<filter-name>CsrfGuardScriptInjectionFilter</filter-name>
+		<filter-class>io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter</filter-class>
+	</filter>
+	<filter-mapping>
+		<filter-name>CsrfGuardScriptInjectionFilter</filter-name>
+		<url-pattern>/*</url-pattern>
+	</filter-mapping>
+
+	<filter>
 		<filter-name>LogoutBroadcastFilter</filter-name>
 		<filter-class>io.github.carlos_emr.carlos.app.LogoutBroadcastFilter</filter-class>
 		<init-param>
@@ -186,7 +195,24 @@
 		<listener-class>io.github.carlos_emr.carlos.web.OscarSessionListener</listener-class>
 	</listener>
 
-    <!--  Cross Site Request Forgery Configuration  -->
+    <!--  Cross Site Request Forgery (CSRFGuard 4.5) — Bootstrap Only
+         web.xml contains ONLY the infrastructure wiring for CSRFGuard:
+           - Config pointer (Owasp.CsrfGuard.Config): tells CSRFGuard where to find its properties file
+           - Listeners: required for session-lifecycle token management
+           - Filter registration: our custom validation filter
+           - CsrfServlet: serves the dynamic csrfguard.js to clients
+
+         All functional CSRFGuard configuration (token settings, protected methods, unprotected URLs,
+         JavaScript injection behaviour, etc.) belongs EXCLUSIVELY in:
+           src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties
+
+         For environment-specific overrides (e.g. enabling Config.Print in development), create:
+           src/main/resources/Owasp.CsrfGuard.overlay.properties
+         That file is picked up automatically by ConfigurationAutodetectProviderFactory and
+         should NOT be committed for production deployments.
+
+         See docs/csrf-protection-architecture.md for the full configuration architecture.
+    -->
     <context-param>
         <param-name>Owasp.CsrfGuard.Config</param-name>
         <param-value>WEB-INF/Owasp.CsrfGuard.properties</param-value>
@@ -197,13 +223,9 @@
     <listener>
         <listener-class>org.owasp.csrfguard.CsrfGuardHttpSessionListener</listener-class>
     </listener>
-    <context-param>
-        <param-name>Owasp.CsrfGuard.Config.Print</param-name>
-        <param-value>false</param-value>
-    </context-param>
     <filter>
         <filter-name>CSRFGuard</filter-name>
-        <filter-class>io.github.carlos_emr.carlos.app.OscarCsrfGuardFilter</filter-class>
+        <filter-class>io.github.carlos_emr.carlos.app.CarlosCsrfGuardFilter</filter-class>
     </filter>
     <filter-mapping>
         <filter-name>CSRFGuard</filter-name>
@@ -212,26 +234,6 @@
     <servlet>
         <servlet-name>CsrfServlet</servlet-name>
         <servlet-class>org.owasp.csrfguard.servlet.JavaScriptServlet</servlet-class>
-        <init-param>
-            <param-name>source-file</param-name>
-            <param-value>WEB-INF/csrfguard.js</param-value>
-        </init-param>
-        <init-param>
-            <param-name>inject-into-forms</param-name>
-            <param-value>true</param-value>
-        </init-param>
-        <init-param>
-            <param-name>inject-into-attributes</param-name>
-            <param-value>true</param-value>
-        </init-param>
-        <init-param>
-            <param-name>domain-strict</param-name>
-            <param-value>false</param-value>
-        </init-param>
-        <init-param>
-            <param-name>referer-pattern</param-name>
-            <param-value>.*</param-value>
-        </init-param>
     </servlet>
     <servlet-mapping>
         <servlet-name>CsrfServlet</servlet-name>

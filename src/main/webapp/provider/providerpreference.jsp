@@ -234,7 +234,6 @@
 
     <!-- CARLOS global scripts -->
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
     <!-- Bootstrap 5 (local bundle) + FontAwesome (local bundle) -->
     <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet">
