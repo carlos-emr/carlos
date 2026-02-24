@@ -20,11 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
  * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.app;
 
