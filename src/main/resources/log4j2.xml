@@ -19,7 +19,7 @@
         <RollingFile name="CsrfFile" fileName="${sys:catalina.base}/logs/csrf.log"
                      filePattern="${sys:catalina.base}/logs/csrf-%d{yyyy-MM-dd}-%i.log.gz"
                      append="true">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5p %m%n"/>
+            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5p %replace{%m}{[\r\n\t]}{_}%n"/>
             <Policies>
                 <SizeBasedTriggeringPolicy size="10 MB"/>
                 <TimeBasedTriggeringPolicy interval="1" modulate="true"/>

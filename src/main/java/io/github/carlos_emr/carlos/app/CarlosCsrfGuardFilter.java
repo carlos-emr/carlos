@@ -1,30 +1,23 @@
 /**
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
-
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ *
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.app;
 
@@ -105,8 +98,8 @@ public class CarlosCsrfGuardFilter implements Filter {
             csrfGuard = CsrfGuard.getInstance();
         } catch (Exception e) {
             LOGGER.error("CsrfGuard is not initialized — cannot validate CSRF tokens. "
-                    + "Rejecting request to {} {}",
-                    httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+                    + "Rejecting {} request",
+                    httpRequest.getMethod(), e);
             httpResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return;
         }
@@ -123,16 +116,16 @@ public class CarlosCsrfGuardFilter implements Filter {
             // enforces the limit during streaming as a second line of defense.
             long contentLength = httpRequest.getContentLengthLong();
             if (contentLength > MultiReadHttpServletRequest.MAX_BODY_SIZE) {
-                LOGGER.warn("Rejecting oversized multipart request ({} bytes) for {} {}",
-                        contentLength, httpRequest.getMethod(), httpRequest.getRequestURI());
+                LOGGER.warn("Rejecting oversized multipart request ({} bytes) for {} method",
+                        contentLength, httpRequest.getMethod());
                 httpResponse.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
                 return;
             }
             try {
                 httpRequest = new MultiReadHttpServletRequest(httpRequest);
             } catch (Exception e) {
-                LOGGER.error("Failed to wrap multipart request for {} {} — rejecting with 400",
-                        httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+                LOGGER.error("Failed to wrap multipart request for {} method — rejecting with 400",
+                        httpRequest.getMethod(), e);
                 httpResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return;
             }
@@ -145,14 +138,14 @@ public class CarlosCsrfGuardFilter implements Filter {
         try {
             valid = new CsrfValidator().isValid(httpRequest, interceptResponse);
         } catch (Exception e) {
-            LOGGER.error("Unexpected error during CSRF validation for {} {} — rejecting with 403",
-                    httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+            LOGGER.error("Unexpected error during CSRF validation for {} method — rejecting with 403",
+                    httpRequest.getMethod(), e);
             httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
         if (!valid) {
-            LOGGER.warn("CSRF validation failed for {} {} — request blocked",
-                    httpRequest.getMethod(), httpRequest.getRequestURI());
+            LOGGER.warn("CSRF validation failed for {} method — request blocked",
+                    httpRequest.getMethod());
             // Actions (Log, Redirect) have already been executed by CsrfValidator.
             // Defensive fallback: if the configured actions did not commit the response
             // (e.g., Redirect action is misconfigured or absent), send 403 explicitly.
@@ -170,9 +163,9 @@ public class CarlosCsrfGuardFilter implements Filter {
                         logicalSession.getKey(), httpRequest.getMethod(), httpRequest.getRequestURI());
             }
         } catch (Exception e) {
-            LOGGER.error("Failed to generate CSRF tokens for validated request {} {} — "
+            LOGGER.error("Failed to generate CSRF tokens for validated {} request — "
                     + "continuing without token generation (next POST from this page WILL fail validation)",
-                    httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+                    httpRequest.getMethod(), e);
         }
 
         // Validation passed — continue the filter chain

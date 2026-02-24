@@ -117,7 +117,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             csrfGuard = CsrfGuard.getInstance();
         } catch (Exception e) {
             LOGGER.error("CsrfGuard.getInstance() failed — page will be served without CSRF "
-                    + "script tag: {} {}", httpRequest.getMethod(), httpRequest.getRequestURI(), e);
+                    + "script tag (method={})", httpRequest.getMethod(), e);
             chain.doFilter(request, response);
             return;
         }
