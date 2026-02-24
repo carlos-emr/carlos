@@ -170,8 +170,12 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
     }
 
     /**
-     * Injects the script tag into the HTML content.
-     * Tries {@code </head>} first, then {@code </body>}, then appends at end.
+     * Injects the script tag into the HTML content before {@code </head>} or {@code </body>}.
+     * If neither closing tag is present the response is treated as an HTML fragment
+     * (e.g., a partial loaded via {@code fetch()} or an AJAX call that does not include
+     * the full page structure). Fragments do not need the injection because the parent
+     * page already has CSRFGuard loaded; returning them unchanged avoids inserting
+     * semantically incorrect markup into table rows, list items, or similar partials.
      */
     private String injectScript(String html, String scriptTag) {
         // Try </head> (case-insensitive)
@@ -186,8 +190,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return html.substring(0, bodyIdx) + scriptTag + "\n" + html.substring(bodyIdx);
         }
 
-        // Last resort: append at end
-        return html + scriptTag + "\n";
+        // No </head> or </body> — treat as an HTML fragment, not a full page.
+        // The parent page already has CSRFGuard loaded; do not inject into partials.
+        return html;
     }
 
     /**
