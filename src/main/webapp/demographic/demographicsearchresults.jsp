@@ -208,7 +208,7 @@
 
             function popup(vheight, vwidth, varpage) {
                 var page = varpage;
-                if (openEncounterInTab) { var w = window.open(page, '_blank'); if (w) w.focus(); return; }
+                if (openEncounterInTab) { return popupTab(page); }
                 windowprops = "height="
                     + vheight
                     + ",width="
@@ -225,11 +225,7 @@
 
             function popupEChart(vheight, vwidth, varpage) { //open a new popup window
                 var page = "" + varpage;
-                if (openEncounterInTab) {
-                    var w = window.open(page, '_blank');
-                    if (w) w.focus();
-                    return;
-                }
+                if (openEncounterInTab) { return popupTab(page); }
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var popup = window.open(page, "encounter", windowprops);
                 if (popup != null) {

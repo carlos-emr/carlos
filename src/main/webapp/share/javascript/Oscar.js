@@ -31,7 +31,11 @@ function popup(height, width, url, windowName) {
 
 function popupTab(url) {
     var win = window.open(url, '_blank');
-    if (win) win.focus();
+    if (win) {
+        win.focus();
+    } else {
+        alert('Your browser blocked the new tab. Please allow popups for this site, or disable "Open in Tabs" in your preferences.');
+    }
     return win;
 }
 
