@@ -43,11 +43,8 @@ import org.hibernate.SessionFactory;
 public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTeamDAO {
 
     private Logger log = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
-
     @Autowired
     public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        this.sessionFactory = sessionFactory;
         super.setSessionFactory(sessionFactory);
     }
 
@@ -78,6 +75,8 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
         if (teamName == null || teamName.length() <= 0) {
             throw new IllegalArgumentException();
         }
+        // programId is passed as Integer, matching the HBM type="integer" mapping.
+        // Prior code incorrectly widened to Long via programId.longValue().
         String hql = "select pt.id from ProgramTeam pt where pt.programId = ?0 and pt.name = ?1";
         List teams = getHibernateTemplate().find(hql, programId, teamName);
 

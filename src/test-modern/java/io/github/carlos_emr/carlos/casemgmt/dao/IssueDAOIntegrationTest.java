@@ -340,8 +340,8 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("filter")
-        @DisplayName("should retrieve community-specific codes as scalar code projection")
-        void shouldRetrieveCommunitySpecificCodes() {
+        @DisplayName("should retrieve community-specific codes by type")
+        void shouldRetrieveCodes_forCommunityType() {
             // Given
             createIssue("COMM001", "Community Issue", "doctor", "community");
             hibernateTemplate.flush();
@@ -361,6 +361,14 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         @DisplayName("should return empty list for blank community type")
         void shouldReturnEmpty_forBlankCommunityType() {
             List<String> codes = issueDAO.getLocalCodesByCommunityType("");
+            assertThat(codes).isEmpty();
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should return empty list for null community type")
+        void shouldReturnEmpty_forNullCommunityType() {
+            List<String> codes = issueDAO.getLocalCodesByCommunityType(null);
             assertThat(codes).isEmpty();
         }
     }

@@ -41,6 +41,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Note: {@code LookupTableDefValue} is mapped with {@code mutable="false"} and
  * {@code generator class="native"} in its HBM, which conflicts with String-typed IDs.
  * Test data is therefore seeded via native SQL instead of ORM saves.</p>
+ *
+ * @since 2026-02-12
+ * @see LookupDao
  */
 @DisplayName("LookupDao Integration Tests")
 @Tag("integration")
@@ -149,5 +152,14 @@ public class LookupDaoIntegrationTest extends OpenOTestBase {
         assertThat(result)
             .extracting(FieldDefValue::getFieldIndex)
             .containsExactly(1, 2, 3);
+    }
+
+    @Test
+    @Tag("query")
+    @DisplayName("should return null when tableId does not exist")
+    void shouldReturnNull_whenTableIdDoesNotExist() {
+        LookupTableDefValue result = lookupDao.GetLookupTableDef("NONEXISTENT");
+
+        assertThat(result).isNull();
     }
 }

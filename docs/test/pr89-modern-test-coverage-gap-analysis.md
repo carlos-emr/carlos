@@ -16,7 +16,7 @@ If you add those two suites, your positional-parameter coverage for the currentl
 
 ## Current state
 - The repository already contains broad modern integration coverage for many positional-parameter DAO paths (security, PMmodule, casemgmt, provider, demographic, etc.).
-- A static scan found **319** production Java files with at least one positional placeholder (`?N`).
+- A static scan found approximately **304** production Java files with at least one positional placeholder (`?N`) (count may drift as code evolves).
 - Of those, **27** still use legacy zero-based `?0` placeholders (highest migration risk).
 - Only **2** of those `?0` files do not appear to have a corresponding modern-test class today.
 
@@ -38,7 +38,7 @@ These already have modern integration tests and are good signals for positional 
    - ⬜ `From LstOrgcd a where  a.fullcode like %?0` — not yet covered (fragile LIKE semantics, future work)
 
 2. **`ProgramTeamDAOImpl`** → `ProgramTeamDaoIntegrationTest` (added in this PR)
-   - ✅ `select pt.id from ProgramTeam pt where pt.programId = ?1 and pt.name = ?2` — `shouldReturnTrue_whenBothProgramAndNameMatch`
+   - ✅ `select pt.id from ProgramTeam pt where pt.programId = ?0 and pt.name = ?1` — `shouldReturnTrue_whenBothProgramAndNameMatch`
    - ✅ `from ProgramTeam tp where tp.programId = ?0` — `shouldFilterTeams_byRequestedProgramOnly`
 
 ## Remaining modern-test coverage gaps (LIKE semantics — future work)
@@ -76,7 +76,7 @@ To meet that goal, keep these checks in your merge gate in addition to existing 
 ## Merge-confidence checklist for PR 89
 Before merge, minimum high-signal checklist:
 - [x] Add `LookupDaoIntegrationTest` (core query-binding tests added; LIKE semantics deferred).
-- [x] Add `ProgramTeamDaoIntegrationTest` (all 4 scenarios implemented).
+- [x] Add `ProgramTeamDaoIntegrationTest` (all 5 test methods across 4 categories implemented).
 - [x] Extend `IssueDAOIntegrationTest` with projection and normalization assertions.
 - [x] Extend `SecProviderDaoIntegrationTest` with `findByLastName` and `findAll` coverage.
 - [ ] Run modern-tests suite on the PR branch rebased/aligned with `develop`.

@@ -36,6 +36,16 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Integration tests for {@link ProgramTeamDAO} positional-parameter HQL queries.
+ *
+ * <p>Validates {@code teamNameExists} (two-parameter binding: programId + teamName)
+ * and {@code getProgramTeams} (single-parameter binding: programId), plus input
+ * validation guardrails and save/get roundtrip persistence.</p>
+ *
+ * @since 2026-02-12
+ * @see ProgramTeamDAO
+ */
 @DisplayName("ProgramTeamDAO Integration Tests")
 @Tag("integration")
 @Tag("dao")
@@ -122,19 +132,19 @@ public class ProgramTeamDaoIntegrationTest extends OpenOTestBase {
     class ValidationGuardrails {
 
         @Test
-        @Tag("read")
         @DisplayName("should throw for invalid teamNameExists inputs")
         void shouldThrow_forInvalidTeamNameExistsInputs() {
             assertThatThrownBy(() -> programTeamDAO.teamNameExists(null, "Team"))
                 .isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> programTeamDAO.teamNameExists(0, "Team"))
                 .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> programTeamDAO.teamNameExists(1, null))
+                .isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> programTeamDAO.teamNameExists(1, ""))
                 .isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
-        @Tag("read")
         @DisplayName("should throw for invalid getProgramTeams inputs")
         void shouldThrow_forInvalidGetProgramTeamsInputs() {
             assertThatThrownBy(() -> programTeamDAO.getProgramTeams(null))
