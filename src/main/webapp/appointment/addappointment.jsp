@@ -247,6 +247,11 @@ Ontario, Canada
 		width: 100%;
 	}
 
+	.alert {
+		padding: 6px 10px !important;
+		margin-bottom: 4px !important;
+	}
+
             body, html {
                 --color: #945;
                 --size: 2rem;
@@ -336,11 +341,17 @@ Ontario, Canada
                 ctrl.value = ctrl.value.toUpperCase();
             }
 
+            function showJSAlert(msg) {
+                var el = document.getElementById('jsAlertBanner');
+                el.querySelector('#jsAlertText').textContent = msg;
+                el.style.display = '';
+            }
+
             function onBlockFieldFocus(obj) {
                 obj.blur();
                 document.ADDAPPT.keyword.focus();
                 document.ADDAPPT.keyword.select();
-                window.alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillNameField"/>");
+                showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillNameField"/>");
             }
 
             function checkTypeNum(typeIn) {
@@ -370,11 +381,11 @@ Ontario, Canada
             function checkTimeTypeIn(obj) {
                 var colonIdx;
                 if (!checkTypeNum(obj.value)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
                 } else {
                     colonIdx = obj.value.indexOf(':');
                     if (colonIdx == -1) {
-                        if (obj.value.length < 3) alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillValidTimeField"/>");
+                        if (obj.value.length < 3) showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillValidTimeField"/>");
                         obj.value = obj.value.substring(0, obj.value.length - 2) + ":" + obj.value.substring(obj.value.length - 2);
                     }
                 }
@@ -405,7 +416,7 @@ Ontario, Canada
 
             function checkDateTypeIn(obj) {
                 if (obj.value == '') {
-                    alert("Date cannot be empty");
+                    showJSAlert("Date cannot be empty");
                     return false;
                 } else {
                     obj.value = obj.value.replace(/\//g, "-");
@@ -422,7 +433,7 @@ Ontario, Canada
                 var duration = document.ADDAPPT.duration.value;
 
                 if (isNaN(duration)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
                     return false;
                 }
 
@@ -448,7 +459,7 @@ Ontario, Canada
                 document.ADDAPPT.end_time.value = shour + ":" + smin;
 
                 if (shour > 23) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgCheckDuration"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgCheckDuration"/>");
                     return false;
                 }
 
@@ -581,11 +592,13 @@ Ontario, Canada
                         $("#keyword").val(ui.item.formattedName);
                         // Show patient alert banner if the selected patient has an alert
                         var patientAlert = ui.item.alert || "";
+                        var banner = document.getElementById('patientAlertBanner');
                         if (patientAlert) {
-                            // Use .text() to safely set content and prevent XSS
-                            $("#patientAlertBanner").text(patientAlert).show();
+                            // Use textContent to safely set content and prevent XSS
+                            document.getElementById('patientAlertText').textContent = patientAlert;
+                            banner.style.display = '';
                         } else {
-                            $("#patientAlertBanner").hide();
+                            banner.style.display = 'none';
                         }
                         return false;
                     }
@@ -1002,10 +1015,15 @@ Ontario, Canada
                 }
             }
         %>
+        <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
+            <span id="jsAlertText"></span>
+            <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+        </div>
         <div id="tooManySameDayGroupApptWarning" style="<%=displayStyle%>">
-            <div class="alert alert-danger">
+            <div class="alert alert-danger alert-dismissible" role="alert">
                 <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.titleMultipleGroupDayBooking'/></h4>
                 <fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.MultipleGroupDayBooking'/>
+                <button type="button" class="btn-close" onclick="document.getElementById('tooManySameDayGroupApptWarning').style.display='none'" aria-label="Close"></button>
             </div>
         </div>
         <%
@@ -1047,9 +1065,10 @@ Ontario, Canada
                         String exp = " null-undefined\n IN-inactive ID-deceased OP-out patient\n NR-not signed\n FS-fee for service\n TE-terminated\n SP-self pay\n TP-third party";
 
         %>
-        <div class="alert alert-info" title='<%=exp%>'>
+        <div class="alert alert-info alert-dismissible" title='<%=exp%>' role="alert">
             <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgPatientStatus"/>:</h4>
             <%=patientStatus%>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>:&nbsp;<%=rosterStatus%>
+            <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
         </div>
         <%
 
@@ -1058,18 +1077,22 @@ Ontario, Canada
         }
         %>
         <%-- Patient alert banner: always rendered so JavaScript can show/hide it when patient is selected via autocomplete --%>
-        <div id="patientAlertBanner" class="alert alert-warning"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %>><%=Encode.forHtmlContent(alert != null ? alert : "")%></div>
+        <div id="patientAlertBanner" class="alert alert-warning alert-dismissible"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %> role="alert">
+            <span id="patientAlertText"><%=Encode.forHtmlContent(alert != null ? alert : "")%></span>
+            <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+        </div>
         <%
 
 
             if (apptnum != 0) {
 
         %>
-        <div class="alert alert-danger">
+        <div class="alert alert-danger alert-dismissible" role="alert">
             <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.msgDoubleBooking'/></h4>
             <%
                 if (bDnb) out.println("<br/>You CANNOT book an appointment on this time slot.");
             %>
+            <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
         </div>
 
 

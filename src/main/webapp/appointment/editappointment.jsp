@@ -290,6 +290,11 @@
         width: 100%;
     }
 
+    .alert {
+        padding: 6px 10px !important;
+        margin-bottom: 4px !important;
+    }
+
             body, html {
                 --color: #945;
                 --size: 2rem;
@@ -382,11 +387,17 @@
                 document.EDITAPPT.keyword.select();
             }
 
+            function showJSAlert(msg) {
+                var el = document.getElementById('jsAlertBanner');
+                el.querySelector('#jsAlertText').textContent = msg;
+                el.style.display = '';
+            }
+
             function onBlockFieldFocus(obj) {
                 obj.blur();
                 document.EDITAPPT.keyword.focus();
                 document.EDITAPPT.keyword.select();
-                window.alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillNameField"/>");
+                showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillNameField"/>");
             }
 
             function labelprint(vheight, vwidth, varpage) {
@@ -445,7 +456,7 @@
                 }
 
                 if (stime.length != 5) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgInvalidDateFormat"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgInvalidDateFormat"/>");
                     return false;
                 }
 
@@ -454,7 +465,7 @@
                 var duration = document.EDITAPPT.duration.value;
 
                 if (isNaN(duration)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
                     return false;
                 }
 
@@ -478,7 +489,7 @@
                 smin = smin < 10 ? ("0" + smin) : smin;
                 document.EDITAPPT.end_time.value = shour + ":" + smin;
                 if (shour > 23) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgCheckDuration"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgCheckDuration"/>");
                     return false;
                 }
                 return true;
@@ -511,11 +522,11 @@
             function checkTimeTypeIn(obj) {
                 var colonIdx;
                 if (!checkTypeNum(obj.value)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
                 } else {
                     colonIdx = obj.value.indexOf(':');
                     if (colonIdx === -1) {
-                        if (obj.value.length < 3) alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillValidTimeField"/>");
+                        if (obj.value.length < 3) showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillValidTimeField"/>");
                         obj.value = obj.value.substring(0, obj.value.length - 2) + ":" + obj.value.substring(obj.value.length - 2);
                     }
                 }
@@ -848,10 +859,15 @@
                 displayStyle = "display:block";
             }
     %>
+    <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+    </div>
     <div id="tooManySameDayGroupApptWarning" style="<%=displayStyle%>">
-        <div class="alert alert-danger">
+        <div class="alert alert-danger alert-dismissible" role="alert">
             <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.titleMultipleGroupDayBooking'/></h4>
             <fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.MultipleGroupDayBooking'/>
+            <button type="button" class="btn-close" onclick="document.getElementById('tooManySameDayGroupApptWarning').style.display='none'" aria-label="Close"></button>
         </div>
     </div>
     <%
@@ -877,7 +893,9 @@
     }
     %>
    <% if (alert != null && !alert.equals("")) { %>
-     <div class="alert alert-warning"><%=Encode.forHtmlContent(alert)%>
+     <div id="patientAlertBanner" class="alert alert-warning alert-dismissible" role="alert">
+         <span id="patientAlertText"><%=Encode.forHtmlContent(alert)%></span>
+         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
      </div>
    <% } %>
 
@@ -996,7 +1014,7 @@
                 </tr>
                 <tr>
             <td></td><td>
-				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="8" oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"' onfocus='this.style.height = "";this.style.height = this.scrollHeight + "px"'><%=Encode.forHtmlContent(bFirstDisp?appt.getReason():request.getParameter("reason"))%></textarea>
+				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="2" style="resize:none;"><%=Encode.forHtmlContent(bFirstDisp?appt.getReason():request.getParameter("reason"))%></textarea>
 
                     </td>
                 </tr>
@@ -1210,7 +1228,7 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
-				<textarea name="notes" class="form-control" maxlength="255" rows="9" oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"' onfocus='this.style.height = "";this.style.height = this.scrollHeight + "px"'><%=Encode.forHtmlContent(bFirstDisp?appt.getNotes():request.getParameter("notes"))%></textarea>
+				<textarea name="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><%=Encode.forHtmlContent(bFirstDisp?appt.getNotes():request.getParameter("notes"))%></textarea>
                     </td>
                 </tr>
                 <tr>
