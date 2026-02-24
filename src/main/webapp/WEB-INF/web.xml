@@ -95,6 +95,25 @@
 		<url-pattern>*.htm</url-pattern>
 	</filter-mapping>
 
+	<filter>
+		<filter-name>LogoutBroadcastFilter</filter-name>
+		<filter-class>io.github.carlos_emr.carlos.app.LogoutBroadcastFilter</filter-class>
+		<init-param>
+			<param-name>exclusions</param-name>
+			<param-value>/logout.jsp,/status/sessionheartbeat.jsp</param-value>
+		</init-param>
+	</filter>
+
+	<filter-mapping>
+		<filter-name>LogoutBroadcastFilter</filter-name>
+		<url-pattern>*.jsp</url-pattern>
+	</filter-mapping>
+
+	<filter-mapping>
+		<filter-name>LogoutBroadcastFilter</filter-name>
+		<url-pattern>*.do</url-pattern>
+	</filter-mapping>
+
     <filter>
         <filter-name>UserActivityFilter</filter-name>
         <filter-class>io.github.carlos_emr.carlos.utility.UserActivityFilter</filter-class>
