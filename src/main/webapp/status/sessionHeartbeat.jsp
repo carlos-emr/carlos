@@ -40,6 +40,9 @@
 --%>
 <%@ page contentType="application/json;charset=UTF-8" session="false" %>
 <%
+    response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    response.setHeader("Pragma", "no-cache");
+    response.setDateHeader("Expires", 0);
     boolean valid = false;
     HttpSession sess = request.getSession(false);
     if (sess != null && sess.getAttribute("user") != null) {

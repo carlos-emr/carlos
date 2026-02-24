@@ -30,7 +30,7 @@ function popup(height, width, url, windowName) {
 }
 
 function popupTab(url) {
-    var win = window.open(url, '_blank');
+    var win = window.open(url, '_blank', 'noopener,noreferrer');
     if (win) {
         win.focus();
     } else {
