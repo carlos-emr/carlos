@@ -257,6 +257,14 @@
         line-height: 1 !important;
     }
 
+    /* Restore FontAwesome 6 font-family overridden by global reset above */
+    .fas, .far, .fa, .fa-solid, .fa-regular, .fa-classic {
+        font-family: "Font Awesome 6 Free" !important;
+    }
+    .fab, .fa-brands {
+        font-family: "Font Awesome 6 Brands" !important;
+    }
+
     .form-wrapper {
         display:flex;
     }
