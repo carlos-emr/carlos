@@ -104,7 +104,6 @@
             </div>
 
         <form name="form1" action="dbManageProvider.jsp" method="post">
-            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <table class="table table-hover table-condensed table-striped">
                 <thead>
                 <tr>

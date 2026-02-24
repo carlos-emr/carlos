@@ -182,7 +182,6 @@
                 document.forms[0].submit();
             }
         </script>
-        <script src="${pageContext.request.contextPath}/csrfguard"></script>
     </head>
 
     <body class="BodyStyle" vlink="#0000FF" onload="window.focus()">

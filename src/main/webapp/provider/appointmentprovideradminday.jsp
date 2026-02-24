@@ -664,7 +664,6 @@
             }
         %>
 
-        <script src="${pageContext.request.contextPath}/csrfguard"></script>
     </head>
     <%
         if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isCaisiEnable()) {

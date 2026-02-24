@@ -188,7 +188,6 @@
         </h4>
     </div>
     <form name='report'>
-        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
         <table class="table table-sm table-striped" id="reportsTbl" style="width:100%">
             <%int j = 1; %>
             <tr>

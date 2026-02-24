@@ -618,7 +618,6 @@
                             - pin: "one-time-code" \u2014 signal browsers this is a session code, not a saveable credential
                         --%>
                         <form action="login.do" method="POST" name="loginForm">
-<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 
                             <div class="form-group ${ login_error }">
                                 <input type="text" name="username" id="username" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Logon.userName"/>"
@@ -744,5 +743,4 @@
     </footer>
 
     </body>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/csrfguard"></script>
 </html>

@@ -184,6 +184,13 @@
                 <artifactId>xalan</artifactId>
                 <version>2.7.3</version>
             </dependency>
+            <!-- Xalan 2.7.3 requires its companion serializer artifact (provides
+                 org.apache.xml.serializer.OutputPropertiesFactory used by Struts 6.x) -->
+            <dependency>
+                <groupId>xalan</groupId>
+                <artifactId>serializer</artifactId>
+                <version>2.7.3</version>
+            </dependency>
             <!-- Override transitive org.hl7.fhir.core from hapi-fhir-structures-dstu3 to fix:
                  - CVE-2024-45294 (XXE in XSLT transforms)
                  - CVE-2024-51132 (XXE via crafted XML entities) -->
@@ -276,6 +283,13 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
+        </dependency>
+        <!-- SLF4J 2.x to Log4j2 bridge: routes SLF4J calls (used by CSRFGuard 4.x,
+             HAPI FHIR, and other libraries) to the Log4j2 backend -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
+            <version>${log4j2.version}</version>
         </dependency>
 
         <!-- commons -->
@@ -536,6 +550,12 @@
             <groupId>org.glassfish.web</groupId>
             <artifactId>javax.servlet.jsp.jstl</artifactId>
             <version>1.2.5</version>
+        </dependency>
+        <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
+             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts 6.x. -->
+        <dependency>
+            <groupId>xalan</groupId>
+            <artifactId>serializer</artifactId>
         </dependency>
 
         <!-- XMLBeans for AR2005 and CKD - using existing 3.1.0 version below -->
@@ -1086,7 +1106,17 @@
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard</artifactId>
-            <version>3.1.0</version>
+            <version>4.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard-extension-session</artifactId>
+            <version>4.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard-jsp-tags</artifactId>
+            <version>4.5.0</version>
         </dependency>
         
         <!-- OWASP ESAPI for ClickjackFilter -->
