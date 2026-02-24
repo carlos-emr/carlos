@@ -1052,6 +1052,7 @@ Ontario, Canada
         <div class="alert alert-warning"><%=Encode.forHtmlContent(alert)%></div>
         <%
             }
+        }
 
 
             if (apptnum != 0) {
