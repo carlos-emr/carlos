@@ -81,7 +81,6 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <style type="text/css">
             /* Style for providers with sec records */

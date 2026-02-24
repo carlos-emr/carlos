@@ -101,7 +101,6 @@
 <%@ page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
 
 

@@ -63,7 +63,6 @@
 
 %>
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <!--I18n-->
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DemoImport"/></title>

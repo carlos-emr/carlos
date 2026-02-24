@@ -66,7 +66,6 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageFeeSplit"/></title>
-    <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>

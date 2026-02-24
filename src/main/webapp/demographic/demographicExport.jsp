@@ -88,7 +88,6 @@
 %>
 
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.title"/></title>
 

@@ -28,8 +28,37 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Demographic Edit JavaScript Helpers
+    ====================================
+    Client-side JavaScript utilities for the demographic edit (eChart) page.
+    Provides popup/tab helpers for opening clinical module pages (encounters,
+    prescriptions, etc.) from demographic edit navigation.
+
+    Tab preference: If the provider has set ENCOUNTER_OPEN_IN_TAB to "yes",
+    popup helper functions delegate to popupTab() (defined in Oscar.js)
+    instead of opening a named popup window.
+
+    Served as application/javascript (not HTML) to allow direct script inclusion.
+
+    @since 2026-02-24
+--%>
 <%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page import="io.github.carlos_emr.OscarProperties" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%
+    String curProvNo = (String) session.getAttribute("user");
+    boolean openEncounterInTab = false;
+    if (curProvNo != null) {
+        UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
+        UserProperty tabProp = upDao.getProp(curProvNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
+        openEncounterInTab = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue());
+    }
+%>
+var openEncounterInTab = <%=openEncounterInTab%>;
+
 function rs(n,u,w,h,x) {
 args="width="+w+",height="+h+",resizable=yes,scrollbars=yes,status=0,top=360,left=30";
 remote=window.open(u,n,args);
@@ -56,6 +85,7 @@ ctrl.value = ctrl.value.toUpperCase();
 }
 function popupPage(vheight,vwidth,varpage) { //open a new popup window
 var page = "" + varpage;
+if (openEncounterInTab) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
 var popup=window.open(page, "demodetail", windowprops);
 if (popup != null) {
@@ -69,6 +99,7 @@ popup.focus();
 
 function popupEChart(vheight,vwidth,varpage) { //open a new popup window
 var page = "" + varpage;
+if (openEncounterInTab) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
 var popup=window.open(page, "encounter", windowprops);
 if (popup != null) {
@@ -80,6 +111,7 @@ popup.focus();
 }
 function popupOscarRx(vheight,vwidth,varpage) { //open a new popup window
 var page = varpage;
+if (openEncounterInTab) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
 var popup=window.open(varpage, "oscarRx", windowprops);
 if (popup != null) {

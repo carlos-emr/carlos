@@ -164,13 +164,14 @@ public class Example2Action extends ActionSupport {
 }
 ```
 
-### CSRF Protection
-```java
-// CSRF tokens are automatically handled by OWASP CSRF Guard
-// Ensure forms include the token:
+### CSRF Protection (CSRFGuard 4.5)
+CSRF tokens are **automatically injected** by `csrfguard.js` — no manual token handling needed.
+The `CsrfGuardScriptInjectionFilter` auto-injects the script tag into all HTML responses.
+See `docs/csrf-protection-architecture.md` for full architecture details.
+```jsp
+<%-- CSRF token is auto-injected by csrfguard.js — no hidden input required --%>
 <form action="action.do" method="post">
-    <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
-    <!-- form fields -->
+    <!-- form fields — CSRF-TOKEN hidden input added automatically by JavaScript -->
 </form>
 ```
 
@@ -490,7 +491,7 @@ Before submitting ANY code:
 - [ ] Security privilege checks are present and correct
 - [ ] PHI access is logged for audit trail
 - [ ] No sensitive data in logs or error messages
-- [ ] CSRF tokens included in forms
+- [ ] CSRF tokens auto-injected (CSRFGuard 4.5 handles this — verify script tag present in page source)
 - [ ] Session validation performed
 - [ ] Unit tests include security test cases
 - [ ] CodeQL security scan passes
@@ -532,7 +533,7 @@ String password = "admin123";  // WRONG!
 - **OWASP Java Encoder**: https://github.com/OWASP/owasp-java-encoder
 - **Apache Commons IO**: For file operations and path validation
 - **Apache Commons Validator**: For input validation patterns
-- **OWASP CSRF Guard**: Automatic CSRF protection (already integrated)
+- **OWASP CSRFGuard 4.5**: Automatic CSRF protection with auto-injected tokens (`docs/csrf-protection-architecture.md`)
 - **BCrypt**: For password hashing (already integrated)
 - **CodeQL**: GitHub security scanning (must pass before merge)
 
@@ -606,15 +607,15 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **MariaDB/MySQL**: Database with custom connection tracking (`OscarTrackingBasicDataSource`)
 
 ### Web Technologies  
-- **Struts 2.5.33**: Modern actions (2Action pattern) coexisting with legacy Struts 1.x
-- **Apache CXF 3.5.10**: Web services framework for healthcare integrations
+- **Struts 6.8.0**: Modern actions (2Action pattern) coexisting with legacy Struts 1.x
+- **Apache CXF 3.6.9**: Web services framework for healthcare integrations
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
 - **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
 - **Vanilla JavaScript**: Progressively replacing jQuery dependencies where possible
 
 ### Security Libraries
-- **OWASP CSRF Guard**: CSRF protection with healthcare exclusions
+- **OWASP CSRFGuard 4.5**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
 - **OWASP Encoder**: Output encoding for XSS prevention
 - **BCrypt**: Password hashing for provider authentication
 - **Bouncy Castle**: Cryptographic functions for PHI protection
@@ -865,7 +866,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
   - Connection tracking: `OscarTrackingBasicDataSource`
   - Legacy MySQL compatibility settings
 - **Security Configuration**:
-  - `web.xml` - Complex filter chain with OWASP CSRF protection
+  - `web.xml` - Filter chain with CSRFGuard 4.5 CSRF protection (see `docs/csrf-protection-architecture.md`)
   - Privacy statement filters and audit logging
   - Multi-factor authentication and SAML 2.0 support
 - `pom.xml` - Maven with 200+ healthcare-specific dependencies
@@ -1056,11 +1057,11 @@ src/main/webapp/WEB-INF/classes/oscar/oscarSecurity/                # Security f
 src/main/webapp/*/*.jsp                            # Look for Encode.forHtml() usage patterns
 src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # Security check implementations
 
-# CSRF Protection Implementation
-src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties # CSRF Guard configuration
-src/main/webapp/WEB-INF/csrfguard.js               # Client-side token injection
-src/main/java/io/github/carlos_emr/carlos/app/CSRFPreservingFilter.java    # Custom CSRF filter
-src/main/java/io/github/carlos_emr/carlos/app/CsrfJavaScriptInjectionFilter.java # JS injection
+# CSRF Protection (CSRFGuard 4.5) — see docs/csrf-protection-architecture.md
+src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties # CSRFGuard configuration
+src/main/java/io/github/carlos_emr/carlos/app/CarlosCsrfGuardFilter.java          # CSRF token validation filter
+src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java # Auto-injects csrfguard script tag
+src/main/java/io/github/carlos_emr/carlos/app/MultiReadHttpServletRequest.java     # Multipart request dual-read wrapper
 
 ```
 
