@@ -590,16 +590,33 @@ Ontario, Canada
                         $("#demographic_no").val(ui.item.value);
                         $("#mrp").val(ui.item.provider);
                         $("#keyword").val(ui.item.formattedName);
+
                         // Show patient alert banner if the selected patient has an alert
                         var patientAlert = ui.item.alert || "";
-                        var banner = document.getElementById('patientAlertBanner');
+                        var alertBanner = document.getElementById('patientAlertBanner');
                         if (patientAlert) {
                             // Use textContent to safely set content and prevent XSS
                             document.getElementById('patientAlertText').textContent = patientAlert;
-                            banner.style.display = '';
+                            alertBanner.style.display = '';
                         } else {
-                            banner.style.display = 'none';
+                            alertBanner.style.display = 'none';
                         }
+
+                        // Show patient status banner if the selected patient has a non-default status
+                        var rawStatus = ui.item.status || "";
+                        var rawRoster = ui.item.rosterStatus || "";
+                        // Normalize: AC (active) and RO (rostered) are the expected defaults — hide banner for these
+                        var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
+                        var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
+                        var statusBanner = document.getElementById('patientStatusBanner');
+                        if (displayStatus || displayRoster) {
+                            document.getElementById('patientStatusText').textContent =
+                                displayStatus + "\u00a0Roster Status:\u00a0" + displayRoster;
+                            statusBanner.style.display = '';
+                        } else {
+                            statusBanner.style.display = 'none';
+                        }
+
                         return false;
                     }
                 })
@@ -978,6 +995,7 @@ Ontario, Canada
         <% } %>
         <%
             String patientStatus = "";
+            String rosterStatus = "";
             String disabled = "";
             String address = "";
             String province = "";
@@ -1056,26 +1074,26 @@ Ontario, Canada
                         disabled = "disabled";
                     }
 
-                    String rosterStatus = d.getRosterStatus();
+                    rosterStatus = d.getRosterStatus();
                     if (rosterStatus == null || rosterStatus.equalsIgnoreCase("RO")) {
                         rosterStatus = "";
                     }
-
-                    if (!patientStatus.equals("") || !rosterStatus.equals("")) {
-                        String exp = " null-undefined\n IN-inactive ID-deceased OP-out patient\n NR-not signed\n FS-fee for service\n TE-terminated\n SP-self pay\n TP-third party";
-
-        %>
-        <div class="alert alert-info alert-dismissible" title='<%=exp%>' role="alert">
-            <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgPatientStatus"/>:</h4>
-            <%=patientStatus%>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>:&nbsp;<%=rosterStatus%>
-            <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
-        </div>
-        <%
-
                 }
             }
         }
         %>
+        <%-- Patient status banner: always rendered so JavaScript can show/hide when patient is selected via autocomplete --%>
+        <%
+            String statusExp = " null-undefined\n IN-inactive ID-deceased OP-out patient\n NR-not signed\n FS-fee for service\n TE-terminated\n SP-self pay\n TP-third party";
+            boolean showStatusBanner = !patientStatus.equals("") || !rosterStatus.equals("");
+        %>
+        <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
+             title='<%=Encode.forHtmlAttribute(statusExp)%>'
+             style="<%= showStatusBanner ? "" : "display:none" %>" role="alert">
+            <fmt:setBundle basename="oscarResources"/>
+            <span id="patientStatusText"><%=Encode.forHtmlContent(patientStatus)%>&nbsp;<fmt:message key="Appointment.msgRosterStatus"/>:&nbsp;<%=Encode.forHtmlContent(rosterStatus)%></span>
+            <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+        </div>
         <%-- Patient alert banner: always rendered so JavaScript can show/hide it when patient is selected via autocomplete --%>
         <div id="patientAlertBanner" class="alert alert-warning alert-dismissible"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %> role="alert">
             <span id="patientAlertText"><%=Encode.forHtmlContent(alert != null ? alert : "")%></span>
@@ -1171,19 +1189,19 @@ Ontario, Canada
                                 </label>
                             </td>
                             <td>
-		                        <div class="input-group">
+	                                <div class="input-group">
                                 <%
                                     String name = "";
                                     name = String.valueOf((bFirstDisp && !bFromWL) ? "" : request.getParameter("name") == null ? session.getAttribute("appointmentname") == null ? "" : session.getAttribute("appointmentname") : request.getParameter("name"));
                                 %>
-                                        <input type="text" name="demographic_no" id="demographic_no" class="form-control" onfocus="onBlockFieldFocus(this)"
-                                               value='<%=(bFirstDisp && !bFromWL)?"":request.getParameter("demographic_no").equals("")?"":request.getParameter("demographic_no")%>' readonly="readonly">
+                                    <input type="hidden" name="demographic_no" id="demographic_no"
+                                           value='<%=(bFirstDisp && !bFromWL)?"":request.getParameter("demographic_no").equals("")?"":request.getParameter("demographic_no")%>'>
                                     <input type="text" name="keyword" id="keyword" class="form-control"
                                         value="<%=Encode.forHtmlAttribute(name)%>"
-                                    placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNamePlaceholder"/>">
-                                    <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary"
+                                        placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNamePlaceholder"/>">
+                                    <button type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary"
                                            onclick="parseSearch(); document.forms['ADDAPPT'].displaymode.value='Search ';"
-                                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnSearch"/>">
+                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnSearch"/>"><i class="fa-solid fa-magnifying-glass"></i></button>
                                 </div>
                             </td>
                         </tr>

@@ -125,7 +125,8 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             h.put("fomattedDob", demo.getFormattedDob());
             h.put("formattedName", StringEscapeUtils.escapeJava(demo.getFormattedName().replaceAll("\"", "\\\"")));
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
-            h.put("status", demo.getPatientStatus());
+            h.put("status", demo.getPatientStatus() != null ? demo.getPatientStatus() : "");
+            h.put("rosterStatus", demo.getRosterStatus() != null ? demo.getRosterStatus() : "");
 
 
             Provider p = rx.getProvider(demo.getProviderNo());
@@ -195,7 +196,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             record = info.get(idx);
             json.append("{\"label\":\"" + record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")\",\"value\":\"" + record.get("demographicNo") + "\"");
             json.append(",\"providerNo\":\"" + record.get("providerNo") + "\",\"provider\":\"" + record.get("providerName") + "\",\"nextAppt\":\"" + record.get("nextAppointment") + "\",");
-            json.append("\"formattedName\":\"" + record.get("formattedName") + "\",\"alert\":\"" + (record.get("alert") != null ? record.get("alert") : "") + "\"}");
+            json.append("\"formattedName\":\"" + record.get("formattedName") + "\",\"alert\":\"" + (record.get("alert") != null ? record.get("alert") : "") + "\",\"rosterStatus\":\"" + (record.get("rosterStatus") != null ? record.get("rosterStatus") : "") + "\"}");
 
             if (idx < size - 1) {
                 json.append(",");
