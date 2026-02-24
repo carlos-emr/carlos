@@ -1188,7 +1188,7 @@ Ontario, Canada
                                     name = String.valueOf((bFirstDisp && !bFromWL) ? "" : request.getParameter("name") == null ? session.getAttribute("appointmentname") == null ? "" : session.getAttribute("appointmentname") : request.getParameter("name"));
                                 %>
                                     <input type="hidden" name="demographic_no" id="demographic_no"
-                                           value='<%=(bFirstDisp && !bFromWL)?"":request.getParameter("demographic_no").equals("")?"":request.getParameter("demographic_no")%>'>
+                                           value='<%=(bFirstDisp && !bFromWL) ? "" : Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>
                                     <input type="text" name="keyword" id="keyword" class="form-control"
                                         value="<%=Encode.forHtmlAttribute(name)%>"
                                         placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNamePlaceholder"/>">
@@ -1381,7 +1381,7 @@ Ontario, Canada
                             <td>
                                 <textarea class="form-control" name="notes" tabindex="3" rows="2" style="resize:none;"
                                           placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>" cols="18"
-                                          maxlength="255"><%=bFirstDisp ? "" : "".equals(request.getParameter("notes")) ? "" : request.getParameter("notes")%></textarea>
+                                          maxlength="255"><%=bFirstDisp ? "" : Encode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
                             </td>
                         </tr>
                         <tr>
@@ -1591,27 +1591,27 @@ Ontario, Canada
                             <tr style="background-color:#fdfdfd">
                                 <th style="padding-right: 20px; text-align: left"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgHin"/>:
                                 </th>
-                                <td><%=hin.replace("null", "")%>
+                                <td><%=Encode.forHtmlContent(hin.replace("null", ""))%>
                                 </td>
                             </tr>
                             <tr style="background-color:#f3f6f9">
                                 <th style="padding-right: 20px; text-align: left"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgAddress"/>:
                                 </th>
-                                <td><%=StringUtils.trimToEmpty(address)%>, <%=StringUtils.trimToEmpty(city)%>
-                                    , <%=StringUtils.trimToEmpty(province)%>, <%=StringUtils.trimToEmpty(postal)%>
+                                <td><%=Encode.forHtmlContent(StringUtils.trimToEmpty(address))%>, <%=Encode.forHtmlContent(StringUtils.trimToEmpty(city))%>
+                                    , <%=Encode.forHtmlContent(StringUtils.trimToEmpty(province))%>, <%=Encode.forHtmlContent(StringUtils.trimToEmpty(postal))%>
                                 </td>
                             </tr>
                             <tr style="background-color:#fdfdfd">
                                 <th style="padding-right: 20px; text-align: left"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgPhone"/>:
                                 </th>
-                                <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgH"/></b>:<%=StringUtils.trimToEmpty(phone)%>
-                                    <b><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgW"/></b>:<%=StringUtils.trimToEmpty(phone2)%>
+                                <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgH"/></b>:<%=Encode.forHtmlContent(StringUtils.trimToEmpty(phone))%>
+                                    <b><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgW"/></b>:<%=Encode.forHtmlContent(StringUtils.trimToEmpty(phone2))%>
                                 </td>
                             </tr>
                             <tr style="background-color:#f3f6f9; text-align:left">
                                 <th style="padding-right: 20px"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgEmail"/>:
                                 </th>
-                                <td><%=StringUtils.trimToEmpty(email)%>
+                                <td><%=Encode.forHtmlContent(StringUtils.trimToEmpty(email))%>
                                 </td>
                             </tr>
 

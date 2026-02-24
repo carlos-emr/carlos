@@ -714,9 +714,9 @@
                     }
                 })
                     .autocomplete("instance")._renderItem = function (ul, item) {
-                    return jQuery("<li>")
-                        .append("<div><b>" + item.label + "</b>" + "<br>" + item.provider + "</div>")
-                        .appendTo(ul);
+                    var $b = jQuery("<b>").text(item.label || "");
+                    var $div = jQuery("<div>").append($b).append("<br>").append(document.createTextNode(item.provider || ""));
+                    return jQuery("<li>").append($div).appendTo(ul);
                 };
 
 
@@ -805,7 +805,7 @@
                                     String providerName = prov.getLastName() + ", " + prov.getFirstName();
                     %>
 
-                    <%=providerName == "" ? "" : "(" + providerName + ")"%>
+                    <%="".equals(providerName) ? "" : "(" + Encode.forHtmlContent(providerName) + ")"%>
 
                     <% }
                     }

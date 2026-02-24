@@ -40,9 +40,9 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
@@ -65,11 +65,16 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final ObjectMapper objectMapper = new ObjectMapper();
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
 
 
     public String execute() throws Exception {
-        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         boolean outOfDomain = false;
         if (request.getParameter("outofdomain") != null && request.getParameter("outofdomain").equals("true")) {
@@ -126,7 +131,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
             h.put("fomattedDob", demo.getFormattedDob());
-            h.put("formattedName", StringEscapeUtils.escapeJava(demo.getFormattedName().replaceAll("\"", "\\\"")));
+            h.put("formattedName", demo.getFormattedName());
             h.put("demographicNo", String.valueOf(demo.getDemographicNo()));
             h.put("status", demo.getPatientStatus() != null ? demo.getPatientStatus() : "");
             h.put("rosterStatus", demo.getRosterStatus() != null ? demo.getRosterStatus() : "");
@@ -143,7 +148,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             DemographicCust demographicCust = demographicCustDao.find(demo.getDemographicNo());
 
             String alertText = (demographicCust != null && demographicCust.getAlert() != null) ? demographicCust.getAlert() : "";
-            h.put("alert", StringEscapeUtils.escapeJava(alertText.replaceAll("\"", "\\\"")));
+            h.put("alert", alertText);
 
             if (OscarProperties.getInstance().isPropertyActive("workflow_enhance")) {
                 h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
@@ -171,6 +176,13 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             }
 
 
+            // Derived fields required by jQuery autocomplete widget (label/value are the standard autocomplete contract)
+            String statusLabel = h.getOrDefault("status", "");
+            h.put("label", h.getOrDefault("formattedName", "") + " " + h.getOrDefault("fomattedDob", "") + " (" + statusLabel + ")");
+            h.put("value", h.getOrDefault("demographicNo", ""));
+            // Alias fields to match the field names accessed by the JS select handler
+            h.put("provider", h.getOrDefault("providerName", ""));
+            h.put("nextAppt", h.getOrDefault("nextAppointment", ""));
             secondList.add(h);
         }
 
@@ -189,23 +201,13 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
     }
 
     private String formatJSON(List<HashMap<String, String>> info) {
-        StringBuilder json = new StringBuilder("[");
-
-        HashMap<String, String> record;
-        int size = info.size();
-        for (int idx = 0; idx < size; ++idx) {
-            record = info.get(idx);
-            json.append("{\"label\":\"" + record.get("formattedName") + " " + record.get("fomattedDob") + " (" + record.get("status") + ")\",\"value\":\"" + record.get("demographicNo") + "\"");
-            json.append(",\"providerNo\":\"" + record.get("providerNo") + "\",\"provider\":\"" + record.get("providerName") + "\",\"nextAppt\":\"" + record.get("nextAppointment") + "\",");
-            json.append("\"formattedName\":\"" + record.get("formattedName") + "\",\"status\":\"" + (record.get("status") != null ? record.get("status") : "") + "\",\"alert\":\"" + (record.get("alert") != null ? record.get("alert") : "") + "\",\"rosterStatus\":\"" + (record.get("rosterStatus") != null ? record.get("rosterStatus") : "") + "\"}");
-
-            if (idx < size - 1) {
-                json.append(",");
-            }
+        try {
+            // Use ObjectMapper for proper JSON escaping and null handling
+            return objectMapper.writeValueAsString(info);
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Error serializing autocomplete JSON", e);
+            return "[]";
         }
-        json.append("]");
-
-        return json.toString();
     }
 
 }
