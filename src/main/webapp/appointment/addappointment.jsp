@@ -968,6 +968,7 @@ Ontario, Canada
             String hin = "";
             String dob = "";
             String sex = "";
+            String alert = "";
 
             //to show Alert msg
 
@@ -994,7 +995,7 @@ Ontario, Canada
             }
         %>
         <div id="tooManySameDayGroupApptWarning" style="<%=displayStyle%>">
-            <div class="alert alert-error">
+            <div class="alert alert-danger">
                 <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.titleMultipleGroupDayBooking'/></h4>
                 <fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.MultipleGroupDayBooking'/>
             </div>
@@ -1020,6 +1021,9 @@ Ontario, Canada
                     String ver = d.getVer();
                     hin = hin + " " + ver;
 
+                    DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(request.getParameter("demographic_no")));
+                    alert = demographicCust.getAlert();
+
                     if (patientStatus == null || patientStatus.equalsIgnoreCase("AC")) {
                         patientStatus = "";
                     } else if (patientStatus.equalsIgnoreCase("FI") || patientStatus.equalsIgnoreCase("DE") || patientStatus.equalsIgnoreCase("IN")) {
@@ -1035,6 +1039,11 @@ Ontario, Canada
                         String exp = " null-undefined\n IN-inactive ID-deceased OP-out patient\n NR-not signed\n FS-fee for service\n TE-terminated\n SP-self pay\n TP-third party";
 
         %>
+        <%
+        if (alert != null && !alert.equals("")) { %>
+            <div class="alert alert-warning"><%=Encode.forHtmlContent(alert)%>
+            </div>
+        <% } %>
         <div class="alert alert-info" title='<%=exp%>'>
             <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgPatientStatus"/>:</h4>
             <%=patientStatus%>&nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>:&nbsp;<%=rosterStatus%>
