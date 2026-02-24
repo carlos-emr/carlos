@@ -195,11 +195,11 @@ Ontario, Canada
 
 
 
-<link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+<link href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
 <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet">
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
-<script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js" ></script>
+<script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js" ></script>
 
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
         <script src="<%= request.getContextPath() %>/js/checkDate.js"></script>
@@ -207,7 +207,7 @@ Ontario, Canada
 
         <style>
 
-	:root *:not(h2):not(h4):not(.input-group-btn .btn) {
+	:root *:not(h2):not(h4):not(.input-group > .btn) {
 		font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
 		font-size: 12px;
 		overscroll-behavior: none;
@@ -223,10 +223,10 @@ Ontario, Canada
 	* table tr td, * table {
                 border: none !important;
             }
-	.panel {
+	.card {
 		margin: 0 !important;
 	}
-	.panel-body {
+	.card-body {
 		padding: 10px !important;
 	}
 
@@ -1065,7 +1065,7 @@ Ontario, Canada
             if (apptnum != 0) {
 
         %>
-        <div class="alert alert-error">
+        <div class="alert alert-danger">
             <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.msgDoubleBooking'/></h4>
             <%
                 if (bDnb) out.println("<br/>You CANNOT book an appointment on this time slot.");
@@ -1086,7 +1086,7 @@ Ontario, Canada
         </table>
         <% } %>
 
-        <form name="ADDAPPT" id="addappt" class="form-inline" method="post"
+        <form name="ADDAPPT" id="addappt" method="post"
               action="<%=request.getContextPath()%>/appointment/appointmentcontrol.jsp"
               onsubmit="return(onAdd())">
             <input type="hidden" name="displaymode" value="">
@@ -1103,7 +1103,7 @@ Ontario, Canada
                 <% out.println("(" + pFirstname + " " + pLastname + ")"); %>
                 <% } %></h4>
             </div>
-            <div class="well table-responsive">
+            <div class="bg-light border rounded p-2 table-responsive">
                 <div class="form-wrapper">
                     <table class="table table-condensed table-responsive">
                         <tr>
@@ -1153,18 +1153,14 @@ Ontario, Canada
                                     String name = "";
                                     name = String.valueOf((bFirstDisp && !bFromWL) ? "" : request.getParameter("name") == null ? session.getAttribute("appointmentname") == null ? "" : session.getAttribute("appointmentname") : request.getParameter("name"));
                                 %>
-			                        <span class="input-group-btn" id="demoNumber">
-                                        <input type="text"  name="demographic_no" id="demographic_no" class="form-control" onfocus="onBlockFieldFocus(this)"
+                                        <input type="text" name="demographic_no" id="demographic_no" class="form-control" onfocus="onBlockFieldFocus(this)"
                                                value='<%=(bFirstDisp && !bFromWL)?"":request.getParameter("demographic_no").equals("")?"":request.getParameter("demographic_no")%>' readonly="readonly">
-						           </span>
                                     <input type="text" name="keyword" id="keyword" class="form-control"
                                         value="<%=Encode.forHtmlAttribute(name)%>"
                                     placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNamePlaceholder"/>">
-                                 <span class="input-group-btn">
-                                    <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-default"
+                                    <input type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary"
                                            onclick="parseSearch(); document.forms['ADDAPPT'].displaymode.value='Search ';"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnSearch"/>">
-                                 </span>
                                 </div>
                             </td>
                         </tr>
@@ -1370,8 +1366,8 @@ Ontario, Canada
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDateTime"/>:
                             </td>
                             <td>
-		            <div class="panel panel-default">
-			            <div class="panel-body">
+		            <div class="card">
+			            <div class="card-body">
                                 <%
                                     GregorianCalendar now = new GregorianCalendar();
                                     GregorianCalendar cal = (GregorianCalendar) now.clone();

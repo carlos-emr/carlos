@@ -235,12 +235,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
     <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet">
         <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js" ></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js" ></script>
 
     <script src="<%= request.getContextPath() %>/js/global.js"></script>
     <script src="<%= request.getContextPath() %>/js/checkDate.js"></script>
@@ -248,7 +248,7 @@
 
         <style>
 
-    :root *:not(h2):not(h4):not(.input-group-btn .btn) {
+    :root *:not(h2):not(h4):not(.input-group > .btn) {
         font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
         font-size: 12px;
         overscroll-behavior: none;
@@ -265,11 +265,11 @@
         border:none !important;
     }
 
-    .panel {
+    .card {
        margin: 0 !important;
     }
 
-    .panel-body {
+    .card-body {
         padding: 10px !important;
     }
 
@@ -782,7 +782,7 @@
 
 <div id="editAppointment" >
     <div class="container" >
-<form name="EDITAPPT" METHOD="post" class="form-inline" ACTION="appointmentcontrol.jsp" onSubmit="return(onSub())">
+<form name="EDITAPPT" METHOD="post" ACTION="appointmentcontrol.jsp" onSubmit="return(onSub())">
     <input type="hidden" name="displaymode" value="">
     <input type="hidden" name="buttoncancel" value="">
             <div class="header deep">
@@ -849,7 +849,7 @@
             }
     %>
     <div id="tooManySameDayGroupApptWarning" style="<%=displayStyle%>">
-        <div class="alert alert-error">
+        <div class="alert alert-danger">
             <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.titleMultipleGroupDayBooking'/></h4>
             <fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.MultipleGroupDayBooking'/>
         </div>
@@ -881,7 +881,7 @@
      </div>
    <% } %>
 
-    <div class="well">
+    <div class="bg-light border rounded p-2">
         <div class="form-wrapper">
     <table class="table table-condensed table-responsive">
                 <tr>
@@ -1097,8 +1097,8 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.CreateDate"/>:</label>
                     </td>
                     <td>
-                <div class="panel panel-default">
-                    <div class="panel-body">
+                <div class="card">
+                    <div class="card-body">
                         <input type="hidden" class="form-control" name="createDate" value="<%=origDate%>">
                         <%=dateString1%>
                     </div>
@@ -1247,8 +1247,8 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLastTime"/>:</label>
                     </td>
                     <td>
-                <div class="panel panel-default">
-                    <div class="panel-body">
+                <div class="card">
+                    <div class="card-body">
                         <input type="hidden" name="lastcreatedatetime"
                                value="<%=Encode.forHtmlContent(bFirstDisp?lastDateTime:request.getParameter("lastcreatedatetime"))%>"
                         > <%=Encode.forHtmlContent(dateString2)%>
@@ -1323,7 +1323,7 @@
                     <input type="submit" class="btn btn-danger" id="deleteButton"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Delete Appt'; onButDelete();"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnDeleteAppointment"/>">
-                    <input type="button" id="cancelButton" class="btn btn-inverse"
+                    <input type="button" id="cancelButton" class="btn btn-dark"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnCancelAppointment"/>"
                            onClick="onButCancel();">
                     <input type="button"
