@@ -82,7 +82,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *     &lt;filter-class&gt;io.github.carlos_emr.carlos.app.LogoutBroadcastFilter&lt;/filter-class&gt;
  *     &lt;init-param&gt;
  *         &lt;param-name&gt;exclusions&lt;/param-name&gt;
- *         &lt;param-value&gt;/logout.jsp,/provider/sessionheartbeat.jsp&lt;/param-value&gt;
+ *         &lt;param-value&gt;/logout.jsp,/status/sessionHeartbeat.jsp&lt;/param-value&gt;
  *     &lt;/init-param&gt;
  * &lt;/filter&gt;
  * </pre>
@@ -315,6 +315,14 @@ public class LogoutBroadcastFilter implements Filter {
                 "</script>";
     }
 
+    /**
+     * Called by the web container when the filter is taken out of service.
+     *
+     * <p>No cleanup is required: this filter holds no threads, connections,
+     * or other external resources that need explicit release.
+     *
+     * @since 2026-02-24
+     */
     @Override
     public void destroy() {
     }
@@ -325,15 +333,34 @@ public class LogoutBroadcastFilter implements Filter {
      */
     private static class DelegatingWriter extends PrintWriter {
 
+        /**
+         * Creates a DelegatingWriter wrapping the given writer.
+         *
+         * @param out Writer the underlying writer to delegate output to
+         */
         public DelegatingWriter(Writer out) {
             super(out);
         }
 
+        /**
+         * Suppresses flush to prevent premature buffer flushing while the filter chain executes.
+         *
+         * <p>The actual flush is deferred until after the logout broadcast script has been
+         * appended to the response by {@link LogoutBroadcastFilter#appendScript}.
+         */
         @Override
         public void flush() {
             // prevent premature flush
         }
 
+        /**
+         * Suppresses close to prevent the underlying writer from being closed before
+         * the filter can append the logout broadcast script.
+         *
+         * <p>The JSP container calls {@code close()} at the end of JSP execution.
+         * Without this guard, the underlying writer would be closed before
+         * {@link LogoutBroadcastFilter#appendScript} could write to it.
+         */
         @Override
         public void close() {
             // prevent premature close
@@ -353,23 +380,63 @@ public class LogoutBroadcastFilter implements Filter {
         private boolean responseOutputStreamObtained;
         private DelegatingWriter writer;
 
+        /**
+         * Creates a DelegatingServletResponse wrapping the given HTTP response.
+         *
+         * <p>Allocates a 1 MB server-side buffer to ensure the response body is held in
+         * memory until the filter can append the logout broadcast script after the chain.
+         *
+         * @param response HttpServletResponse the HTTP response to wrap
+         */
         public DelegatingServletResponse(HttpServletResponse response) {
             super(response);
             response.setBufferSize(1024 * 1024);
         }
 
+        /**
+         * Returns the underlying response and marks the writer path as obtained.
+         *
+         * <p>Called by Servlet/JSP infrastructure when downstream code needs the raw response
+         * object. Marks {@code responseWriterObtained} so the script appender knows which
+         * output channel was used.
+         *
+         * @return ServletResponse the underlying HTTP response
+         */
         @Override
         public ServletResponse getResponse() {
             responseWriterObtained = true;
             return super.getResponse();
         }
 
+        /**
+         * Returns the raw servlet output stream and marks the stream path as obtained.
+         *
+         * <p>Unlike {@link #getWriter()}, the returned stream is <em>not</em> wrapped
+         * with a delegating proxy. This is intentional: HTML JSP responses always use the
+         * Writer path ({@code getWriter()} and {@code getOutputStream()} are mutually
+         * exclusive per the Servlet spec). The OutputStream path is tracked for the rare
+         * case of non-JSP HTML generators; Tomcat's response lifecycle prevents premature
+         * stream closure during filter chain execution in practice.
+         *
+         * @return ServletOutputStream the raw servlet output stream
+         * @throws IOException if the output stream cannot be obtained from the underlying response
+         */
         @Override
         public ServletOutputStream getOutputStream() throws IOException {
             responseOutputStreamObtained = true;
             return super.getOutputStream();
         }
 
+        /**
+         * Returns a {@link DelegatingWriter} wrapping the underlying response writer.
+         *
+         * <p>The delegating writer suppresses {@code close()} and {@code flush()} calls
+         * made by the JSP container during JSP execution, ensuring the filter can still
+         * append the logout broadcast script after the chain completes.
+         *
+         * @return PrintWriter a delegating writer that suppresses premature close and flush
+         * @throws IOException if the underlying writer cannot be obtained
+         */
         @Override
         public PrintWriter getWriter() throws IOException {
             responseWriterObtained = true;
@@ -379,14 +446,39 @@ public class LogoutBroadcastFilter implements Filter {
             return writer;
         }
 
+        /**
+         * Returns whether downstream code obtained the response writer during chain execution.
+         *
+         * <p>Used by {@link LogoutBroadcastFilter#appendScript} to determine which output
+         * channel to use when writing the injected script.
+         *
+         * @return boolean true if {@link #getWriter()} or {@link #getResponse()} was called
+         */
         public boolean isResponseWriterObtained() {
             return responseWriterObtained;
         }
 
+        /**
+         * Returns whether downstream code obtained the servlet output stream during chain execution.
+         *
+         * <p>Used by {@link LogoutBroadcastFilter#appendScript} to determine which output
+         * channel to use when writing the injected script.
+         *
+         * @return boolean true if {@link #getOutputStream()} was called
+         */
         public boolean isResponseOutputStreamObtained() {
             return responseOutputStreamObtained;
         }
 
+        /**
+         * Suppresses buffer flushing until after the filter appends the logout broadcast script.
+         *
+         * <p>Without this guard, the JSP container may flush and commit the response to the
+         * client before {@link LogoutBroadcastFilter#appendScript} can write the script block,
+         * resulting in incomplete or missing injection.
+         *
+         * @throws IOException never thrown by this implementation
+         */
         @Override
         public void flushBuffer() throws IOException {
             // defer flushing until after script is appended

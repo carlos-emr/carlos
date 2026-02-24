@@ -109,6 +109,7 @@ public class UserProperty extends AbstractModel<Integer> implements Serializable
     public static final String PENDINGDOCS = "pendingDocs";
     public static final String UPLOAD_INCOMING_DOCUMENT_FOLDER = "upload_incoming_document_folder";
     public static final String HIDE_OLD_ECHART_LINK_IN_APPT = "hide_old_echart_link_in_appointment";
+    /** Provider preference key: when set to {@code "yes"}, encounters open in a browser tab instead of a popup window. */
     public static final String ENCOUNTER_OPEN_IN_TAB = "encounter_open_in_tab";
 
 

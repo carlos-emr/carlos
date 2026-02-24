@@ -22,6 +22,16 @@
  * Ontario, Canada
  */
 
+/**
+ * Opens a URL in a named popup window, or delegates to popupTab() when the
+ * provider preference "Open Encounters in Tab" is enabled on the current page.
+ *
+ * @param {number} height - Popup window height in pixels
+ * @param {number} width - Popup window width in pixels
+ * @param {string} url - URL to open
+ * @param {string} windowName - Named window target; reused across calls with the same name
+ * @returns {Window|null} The opened Window object, or null if tab mode is active
+ */
 function popup(height, width, url, windowName) {
     if (typeof openEncounterInTab !== 'undefined' && openEncounterInTab) {
         return popupTab(url);
@@ -29,6 +39,22 @@ function popup(height, width, url, windowName) {
     return popup2(height, width, 0, 0, url, windowName);
 }
 
+/**
+ * Opens a URL in a new browser tab with opener isolation.
+ *
+ * <p>Uses {@code noopener,noreferrer} window features to prevent the opened tab
+ * from accessing {@code window.opener}, mitigating reverse-tabnabbing attacks.
+ *
+ * <p><strong>Note (HTML spec behaviour):</strong> Passing {@code noopener} or {@code noreferrer}
+ * in the {@code windowFeatures} string causes {@code window.open()} to return {@code null}
+ * by specification, regardless of whether the tab opened successfully. This means
+ * {@code win} below will always be {@code null}: the {@code else} alert branch fires
+ * only when the browser's popup blocker prevents the tab from opening at all.
+ * See: https://html.spec.whatwg.org/multipage/nav-history-apis.html (window.open, noopener token)
+ *
+ * @param {string} url - URL to open in a new tab
+ * @returns {null} Always null (spec: window.open with noopener returns null)
+ */
 function popupTab(url) {
     var win = window.open(url, '_blank', 'noopener,noreferrer');
     if (win) {
@@ -39,6 +65,14 @@ function popupTab(url) {
     return win;
 }
 
+/**
+ * Opens a URL in a full-viewport popup window sized to the current window, or
+ * delegates to popupTab() when the provider preference "Open Encounters in Tab" is enabled.
+ *
+ * @param {string} url - URL to open
+ * @param {string} windowName - Named window target; reused across calls with the same name
+ * @returns {Window|null} The opened Window object, or null if tab mode is active
+ */
 function newWindow(url, windowName) {
     if (typeof openEncounterInTab !== 'undefined' && openEncounterInTab) {
         return popupTab(url);

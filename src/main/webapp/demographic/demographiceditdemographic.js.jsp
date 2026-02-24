@@ -28,6 +28,21 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Demographic Edit JavaScript Helpers
+    ====================================
+    Client-side JavaScript utilities for the demographic edit (eChart) page.
+    Provides popup/tab helpers for opening clinical module pages (encounters,
+    prescriptions, etc.) from demographic edit navigation.
+
+    Tab preference: If the provider has set ENCOUNTER_OPEN_IN_TAB to "yes",
+    popup helper functions delegate to popupTab() (defined in Oscar.js)
+    instead of opening a named popup window.
+
+    Served as application/javascript (not HTML) to allow direct script inclusion.
+
+    @since 2026-02-24
+--%>
 <%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page import="io.github.carlos_emr.OscarProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
