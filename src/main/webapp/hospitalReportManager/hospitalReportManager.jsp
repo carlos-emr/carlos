@@ -90,7 +90,6 @@
             String statement = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
         %>
         <form action="<%=request.getContextPath() %>/hospitalReportManager/Statement.do" method="post">
-            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <div class="control-group">
                 <label class="control-label">Provider Confidentiality Statement</label>
                 <div class="controls">

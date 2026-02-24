@@ -38,7 +38,6 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ContactSpecialty" %>
 
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Add/Edit Professional Contact</title>

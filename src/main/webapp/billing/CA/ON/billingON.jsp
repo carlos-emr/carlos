@@ -340,7 +340,7 @@
                                         }
 
                                         if (ctlBillForm == null || ctlBillForm.isEmpty()) {
-                                            // check oscar.properties to show a default bill form
+                                            // check carlos.properties to show a default bill form
                                             String dv = OscarProperties.getInstance().getProperty("default_view");
                                             if (dv!=null) ctlBillForm = dv;
                                         }
@@ -368,7 +368,7 @@
         clinicview = clinicview == null ? "" : clinicview;
     }
 
-    //Read default clinic_view from oscar.properties file
+    //Read default clinic_view from carlos.properties file
     String cv = OscarProperties.getInstance().getProperty("clinic_view");
     if (cv != null) clinicview = cv;
 

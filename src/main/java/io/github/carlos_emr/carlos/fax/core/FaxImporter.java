@@ -88,7 +88,7 @@ import org.springframework.stereotype.Service;
  *
  * <p><strong>Configuration Properties:</strong></p>
  * <pre>
- * # oscar_mcmaster.properties
+ * # carlos.properties
  * FAX_INCOMING_DIR=/path/to/fax/incoming  # Optional; defaults resolved by OscarProperties:
  *                                         #   1. ${catalina.base}/fax-incoming (Tomcat)
  *                                         #   2. ${java.io.tmpdir}/carlos-fax-incoming (non-Tomcat)
@@ -145,14 +145,14 @@ public class FaxImporter {
         if (DOCUMENT_DIR == null || DOCUMENT_DIR.trim().isEmpty()) {
             throw new IllegalStateException(
                     "DOCUMENT_DIR is not configured and cannot be derived from BASE_DOCUMENT_DIR. "
-                    + "Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in oscar_mcmaster.properties.");
+                    + "Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in carlos.properties.");
         }
 
         String incomingDirPath = OscarProperties.getInstance().getFaxIncomingDirectory();
         if (incomingDirPath == null || incomingDirPath.trim().isEmpty()) {
             throw new IllegalStateException(
                     "FAX_INCOMING_DIR cannot be resolved. "
-                    + "Configure FAX_INCOMING_DIR in oscar_mcmaster.properties.");
+                    + "Configure FAX_INCOMING_DIR in carlos.properties.");
         }
 
         faxIncomingDir = Paths.get(incomingDirPath.trim());

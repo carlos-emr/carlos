@@ -177,6 +177,33 @@
                 <artifactId>xstream</artifactId>
                 <version>1.4.21</version>
             </dependency>
+            <!-- Override transitive Xalan from javax.servlet.jsp.jstl to fix CVE-2022-34169
+                 (integer truncation in XSLTC compiler allows arbitrary bytecode execution) -->
+            <dependency>
+                <groupId>xalan</groupId>
+                <artifactId>xalan</artifactId>
+                <version>2.7.3</version>
+            </dependency>
+            <!-- Xalan 2.7.3 requires its companion serializer artifact (provides
+                 org.apache.xml.serializer.OutputPropertiesFactory used by Struts 6.x) -->
+            <dependency>
+                <groupId>xalan</groupId>
+                <artifactId>serializer</artifactId>
+                <version>2.7.3</version>
+            </dependency>
+            <!-- Override transitive org.hl7.fhir.core from hapi-fhir-structures-dstu3 to fix:
+                 - CVE-2024-45294 (XXE in XSLT transforms)
+                 - CVE-2024-51132 (XXE via crafted XML entities) -->
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.utilities</artifactId>
+                <version>6.4.0</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu3</artifactId>
+                <version>6.4.0</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -257,6 +284,13 @@
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
+        <!-- SLF4J 2.x to Log4j2 bridge: routes SLF4J calls (used by CSRFGuard 4.x,
+             HAPI FHIR, and other libraries) to the Log4j2 backend -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
+            <version>${log4j2.version}</version>
+        </dependency>
 
         <!-- commons -->
         <!-- https://mvnrepository.com/artifact/commons-validator/commons-validator -->
@@ -307,11 +341,6 @@
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
-            <artifactId>commons-compress</artifactId>
-            <version>1.28.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>3.18.0</version>
         </dependency>
@@ -321,14 +350,7 @@
             <version>1.12.0</version>
         </dependency>
         <!-- commons-beanutils removed: migrated to Spring BeanUtils (Phase 1 of issue #2202) -->
-        <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
-        <!-- https://mvnrepository.com/artifact/commons-net/commons-net -->
-        <dependency>
-            <groupId>commons-net</groupId>
-            <artifactId>commons-net</artifactId>
-            <version>3.12.0</version>
-        </dependency>
-        
+
         <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
         <!-- https://mvnrepository.com/artifact/org.apache.httpcomponents/httpclient -->
         <dependency>
@@ -402,22 +424,12 @@
         </dependency>
         <dependency>
             <groupId>ca.uhn.hapi</groupId>
-            <artifactId>hapi-structures-v21</artifactId>
-            <version>1.0.1</version>
-        </dependency>
-        <dependency>
-            <groupId>ca.uhn.hapi</groupId>
             <artifactId>hapi-structures-v22</artifactId>
             <version>1.0.1</version>
         </dependency>
         <dependency>
             <groupId>ca.uhn.hapi</groupId>
             <artifactId>hapi-structures-v23</artifactId>
-            <version>1.0.1</version>
-        </dependency>
-        <dependency>
-            <groupId>ca.uhn.hapi</groupId>
-            <artifactId>hapi-structures-v24</artifactId>
             <version>1.0.1</version>
         </dependency>
         <dependency>
@@ -450,35 +462,13 @@
             <artifactId>spring-orm</artifactId>
             <version>5.3.39</version>
         </dependency>
+        <!-- spring-webmvc removed: no DispatcherServlet, no @Controller annotations, no Spring MVC.
+             Replaced with spring-web which provides WebApplicationContext used by CXF and Struts.
+             Eliminates CVE alerts on spring-webmvc (path traversal, DoS). -->
         <dependency>
             <groupId>org.springframework</groupId>
-            <artifactId>spring-webmvc</artifactId>
+            <artifactId>spring-web</artifactId>
             <version>5.3.39</version>
-        </dependency>
-        <!-- throws an compilation error when removed/commented -->
-        <dependency>
-            <groupId>org.springframework.integration</groupId>
-            <artifactId>spring-integration-ftp</artifactId>
-            <version>5.5.20</version>
-            <exclusions>
-                <!-- Excluded this low version to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>commons-net</groupId>
-                    <artifactId>commons-net</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.integration</groupId>
-            <artifactId>spring-integration-sftp</artifactId>
-            <version>5.5.20</version>
-            <exclusions>
-                <exclusion>
-                    <!-- Exclude old jcraft JSch in favor of maintained mwiede fork -->
-                    <groupId>com.jcraft</groupId>
-                    <artifactId>jsch</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <!-- throws 10 compilation errors when removed/commented -->
         <dependency>
@@ -501,12 +491,6 @@
                     <artifactId>cglib</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <!-- cglib-nodep to replace old cglib 2.2.2 and eliminate ASM conflicts -->
-        <dependency>
-            <groupId>cglib</groupId>
-            <artifactId>cglib-nodep</artifactId>
-            <version>3.3.0</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/org.springframework.security/spring-security-crypto -->
         <dependency>
@@ -566,6 +550,12 @@
             <groupId>org.glassfish.web</groupId>
             <artifactId>javax.servlet.jsp.jstl</artifactId>
             <version>1.2.5</version>
+        </dependency>
+        <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
+             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts 6.x. -->
+        <dependency>
+            <groupId>xalan</groupId>
+            <artifactId>serializer</artifactId>
         </dependency>
 
         <!-- XMLBeans for AR2005 and CKD - using existing 3.1.0 version below -->
@@ -682,12 +672,6 @@
             <version>2.19.2</version>
         </dependency>
 
-        <!-- Jackson Java 8 Date/Time support -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>2.19.2</version>
-        </dependency>
 
         <!-- Jackson JAXB annotations support - provides JaxbAnnotationIntrospector used in Spring configs -->
         <dependency>
@@ -841,14 +825,6 @@
             <version>1.17.2</version>
         </dependency>
 
-        <!-- janino - Updated to 3.x now that Drools has been upgraded to 7.x -->
-        <!-- Drools 7.x uses its own internal compiler (ecj), but janino may still be -->
-        <!-- used by other runtime components (e.g., JasperReports, Spring expression evaluation) -->
-        <dependency>
-            <groupId>org.codehaus.janino</groupId>
-            <artifactId>janino</artifactId>
-            <version>3.1.12</version>
-        </dependency>
 
 
         <dependency>
@@ -1089,12 +1065,7 @@
             <version>${cxf.version}</version>
         </dependency> -->
 
-        <!-- ScribeJava OAuth 1.0a dependencies. Added after apache cxf was bumped to version 3.5.10 and lost support. -->
-        <dependency>
-            <groupId>com.github.scribejava</groupId>
-            <artifactId>scribejava-apis</artifactId>
-            <version>8.3.3</version>
-        </dependency>
+        <!-- ScribeJava OAuth 1.0a core. Added after apache cxf was bumped to version 3.5.10 and lost support. -->
         <dependency>
             <groupId>com.github.scribejava</groupId>
             <artifactId>scribejava-core</artifactId>
@@ -1135,7 +1106,17 @@
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard</artifactId>
-            <version>3.1.0</version>
+            <version>4.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard-extension-session</artifactId>
+            <version>4.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard-jsp-tags</artifactId>
+            <version>4.5.0</version>
         </dependency>
         
         <!-- OWASP ESAPI for ClickjackFilter -->
@@ -1150,14 +1131,14 @@
                     <groupId>commons-lang</groupId>
                     <artifactId>commons-lang</artifactId>
                 </exclusion>
+                <!-- CVE-2025-46392: Only used by ESAPI AccessControlRule classes, not by ClickjackFilter -->
+                <exclusion>
+                    <groupId>commons-configuration</groupId>
+                    <artifactId>commons-configuration</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
-        <dependency>
-            <groupId>org.jasypt</groupId>
-            <artifactId>jasypt</artifactId>
-            <version>1.9.3</version>
-        </dependency>
         <!-- Apache Commons Exec - used by ExternalEDocConverter -->
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -1235,7 +1216,7 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <version>3.27.6</version>
+            <version>3.27.7</version>
             <scope>test</scope>
         </dependency>
 
@@ -1263,13 +1244,6 @@
             </exclusions>
         </dependency>
 
-        <!-- Playwright for UI/smoke testing -->
-        <dependency>
-            <groupId>com.microsoft.playwright</groupId>
-            <artifactId>playwright</artifactId>
-            <version>1.40.0</version>
-            <scope>test</scope>
-        </dependency>
         <!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
         <dependency>
             <groupId>com.google.guava</groupId>
@@ -1285,14 +1259,6 @@
         </dependency>
 
 
-        <!-- This is a dependency for the Caisi Integrator Objects. Only required until
-        OpenJPA is no longer needed in Integrator. -->
-        <!-- Detected as "Unused dependency" but don't remove it, it's using actually -->
-        <dependency>
-            <groupId>org.apache.openjpa</groupId>
-            <artifactId>openjpa</artifactId>
-            <version>3.2.2</version>
-        </dependency>
 
         <!-- HAPI FHIR -->
         <!-- can be found in the local_repo folder -->
@@ -1310,11 +1276,6 @@
                     <artifactId>jcl-over-slf4j</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>ca.uhn.hapi.fhir</groupId>
-            <artifactId>hapi-fhir-structures-dstu2</artifactId>
-            <version>${hapifhir.version}</version>
         </dependency>
         <!-- Detected as "Unused dependency" but don't remove it, it's using actually -->
         <dependency>
@@ -1515,11 +1476,11 @@
                                     <format property="build.dateTime.value" pattern="yyyy-MM-dd hh:mm aa"/>
                                 </tstamp>
                                 <echo level="info" message="build time : ${build.dateTime.value}"/>
-                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
+                                <replace file="target/classes/carlos.properties" token="${build.dateTime}" value="${build.dateTime.value}"/>
                                 <property environment="env"/>
                                 <echo level="info" message="JOB_NAME - BUILD_NUMBER : ${env.JOB_NAME}-${env.BUILD_NUMBER}"/>
-                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
-                                <replace file="target/classes/oscar_mcmaster.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
+                                <replace file="target/classes/carlos.properties" token="${build.JOB_NAME}" value="${env.JOB_NAME}"/>
+                                <replace file="target/classes/carlos.properties" token="${build.BUILD_NUMBER}" value="${env.BUILD_NUMBER}"/>
                             </target>
                         </configuration>
                     </execution>
@@ -1681,6 +1642,8 @@
                                 <include>**/test/**/*Test.java</include>
                                 <include>**/test/**/*Tests.java</include>
                                 <include>**/tickler/**/*Test.java</include>
+                                <include>**/messenger/**/*Test.java</include>
+                                <include>**/provider/**/*Test.java</include>
                                 <include>**/managers/**/*Test.java</include>
                                 <include>**/*IntegrationTest.java</include>
                                 <include>**/*UnitTest.java</include>
@@ -1719,7 +1682,6 @@
                             </classpathDependencyExcludes>
                             <excludes>
                                 <exclude>**/*EDTTest.java</exclude>
-                                <exclude>**/HinValidatorTest.java</exclude>
                                 <exclude>**/AR2005*.java</exclude>
                                 <exclude>**/OntarioMDSpec4DataTest.java</exclude>
                                 <exclude>**/ONAREnhancedBornConnectorTest.java</exclude>

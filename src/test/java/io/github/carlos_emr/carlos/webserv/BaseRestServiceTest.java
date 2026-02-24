@@ -67,7 +67,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.Sex1;
  * <p>
  * <p/>
  * <p>
- * This test expects the following properties provided in oscar.properties file
+ * This test expects the following properties provided in carlos.properties file
  *
  * <pre>
  * test.webserv.rest.enabled=true

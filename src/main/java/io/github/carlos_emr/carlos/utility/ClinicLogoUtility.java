@@ -63,7 +63,7 @@ public final class ClinicLogoUtility {
 
     /**
      * Create a PDF TABLE that contains the predetermined logo image set
-     * in the oscar properties file as "clinicLetterheadLogo".  This logo image
+     * in the carlos properties file as "clinicLetterheadLogo".  This logo image
      * is normally located in OscarDocuments
      *
      * @return IText PDF TABLE element for insert into a PDF
@@ -84,7 +84,7 @@ public final class ClinicLogoUtility {
                     String dir = props.getProperty("DOCUMENT_DIR");
                     filename = dir.concat(d.getDocfilename());
                 } else {
-                    //If no logo file uploaded for this site, use the default one defined in oscar properties file.
+                    //If no logo file uploaded for this site, use the default one defined in carlos properties file.
                     filename = props.getProperty("clinicLetterheadLogo");
                     if (filename == null) {
                         filename = props.getProperty("faxLogoInConsultation");

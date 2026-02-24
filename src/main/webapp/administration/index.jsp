@@ -42,8 +42,6 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
-<%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
-
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
@@ -480,20 +478,11 @@
             }
             // gather the form data
             let data = $(this).serialize();
-            // get csrf token and place it in the header for a ajax request
-            let headerToken = null;
-
-            thisForm.serializeArray().forEach(function (field) {
-                if (field.name === '<csrf:tokenname/>' && headerToken === null) {
-                    headerToken = {'<csrf:tokenname/>': field.value};
-                }
-            });
-            // post data
+            // post data (CSRFGuard 4.5 auto-injects CSRF token into XHR headers)
             $.ajax({
                 url: thisForm.attr('action'),
                 type: thisForm.attr('method'),
                 data: data,
-                headers: headerToken,
                 success: function (returnData) {
                     // insert returned html
                     $('#' + divId).html(returnData)

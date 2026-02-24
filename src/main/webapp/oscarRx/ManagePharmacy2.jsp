@@ -170,7 +170,6 @@
 
         </script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="ManagePharmacy.title"/></title>
-        <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
         <c:if test="${empty RxSessionBean}">

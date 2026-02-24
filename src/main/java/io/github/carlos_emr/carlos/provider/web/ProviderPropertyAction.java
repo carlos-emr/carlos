@@ -132,6 +132,7 @@ public class ProviderPropertyAction {
         saveIfPresent(request, propertyDAO, providerNo, "encounterWindowWidth", "encounterWindowWidth");
         saveIfPresent(request, propertyDAO, providerNo, "encounterWindowHeight", "encounterWindowHeight");
         saveCheckbox(request, propertyDAO, providerNo, "encounterWindowMaximize", "encounterWindowMaximize");
+        saveCheckbox(request, propertyDAO, providerNo, UserProperty.ENCOUNTER_OPEN_IN_TAB, "encounter_open_in_tab");
         saveIfPresent(request, propertyDAO, providerNo, "quickChartSize", "quickChartSize");
 
         // Contact info (use saveAllowEmpty so users can clear previously set values)

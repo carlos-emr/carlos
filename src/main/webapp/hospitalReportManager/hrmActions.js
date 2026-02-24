@@ -71,17 +71,12 @@ function makeIndependent(reportId) {
     });
 }
 
-function addDemoToHrm(reportId, csrfToken) {
-    let headers = {};
-    if (typeof csrfToken !== 'undefined' && csrfToken !== null) {
-        headers = csrfToken;
-    }
+function addDemoToHrm(reportId) {
     var demographicNo = $("demofind" + reportId + "hrm").value;
     jQuery.ajax({
         type: "POST",
         url: contextpath + "/hospitalReportManager/Modify.do",
         data: "method=assignDemographic&reportId=" + reportId + "&demographicNo=" + demographicNo,
-        headers: headers,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
                 $("demostatus" + reportId).innerHTML = data + "<br/>" +
@@ -103,16 +98,11 @@ function toggleButtonBar(show, reportId) {
 
 }
 
-function removeDemoFromHrm(reportId, csrfToken) {
-    let headers = {};
-    if (typeof csrfToken !== 'undefined' && csrfToken !== null) {
-        headers = csrfToken;
-    }
+function removeDemoFromHrm(reportId) {
     jQuery.ajax({
         type: "POST",
         url: contextpath + "/hospitalReportManager/Modify.do",
         data: "method=removeDemographic&reportId=" + reportId,
-        headers: headers,
         success: function (data) {
             if (data != null && data.indexOf('Success') !== -1) {
                 $("demostatus" + reportId).innerHTML = data + "<br/>" +
@@ -220,7 +210,7 @@ function updateCategory(reportId) {
 
 }
 
-function setupHrmDemoAutoCompletion(docId, csrfToken) {
+function setupHrmDemoAutoCompletion(docId) {
     if (jQuery("#autocompletedemo" + docId + "hrm")) {
 
         let url = window.contextpath + "/demographic/SearchDemographic.do?jqueryJSON=true";
@@ -240,7 +230,7 @@ function setupHrmDemoAutoCompletion(docId, csrfToken) {
                 jQuery("#demofind" + docId + "hrm").val(ui.item.value);
                 jQuery("routetodemo" + docId + "hrm").value = ui.item.value;
 
-                addDemoToHrm(docId, csrfToken);
+                addDemoToHrm(docId);
                 return false;
             }
         });
