@@ -33,7 +33,25 @@
 			<dispatcher>REQUEST</dispatcher>
 			<dispatcher>ASYNC</dispatcher>
         </filter-mapping>
-        
+
+    <!-- RxSessionFilter: Enables multi-patient tab support for prescriptions.
+         Ported from openo-beta/open-o PR #2261 by LiamStanziani. -->
+    <filter>
+        <filter-name>RxSessionFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>RxSessionFilter</filter-name>
+        <url-pattern>/oscarRx/*</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>RxSessionFilter</filter-name>
+        <url-pattern>/CaseManagementView.do</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>RxSessionFilter</filter-name>
+        <url-pattern>/messenger/generatePreviewPDF.jsp</url-pattern>
+    </filter-mapping>
 
 	<filter>
 		<filter-name>struts2</filter-name>

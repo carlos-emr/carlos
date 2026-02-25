@@ -38,11 +38,97 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.OscarProperties;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+/**
+ * Session bean for prescription (Rx) module state management.
+ * <p>
+ * Supports per-patient session isolation to prevent data cross-contamination
+ * when multiple patient medication tabs are open simultaneously.
+ * Each patient's bean is stored under {@code "RxSessionBean_<demographicNo>"},
+ * while a legacy {@code "RxSessionBean"} key is maintained for backward compatibility.
+ * <p>
+ * Originally ported from openo-beta/open-o PR #2261 by LiamStanziani.
+ *
+ * @since 2006-04-20
+ */
 public class RxSessionBean implements java.io.Serializable {
     private static final Logger logger = MiscUtils.getLogger();
+
+    private static final String SESSION_KEY_PREFIX = "RxSessionBean_";
+    private static final String LEGACY_SESSION_KEY = "RxSessionBean";
+
+    /**
+     * Generates the per-patient session attribute key.
+     *
+     * @param demographicNo int the patient's demographic number
+     * @return String the session key in the form {@code "RxSessionBean_<demographicNo>"}
+     */
+    public static String getSessionKey(int demographicNo) {
+        return SESSION_KEY_PREFIX + demographicNo;
+    }
+
+    /**
+     * Retrieves the {@link RxSessionBean} for a specific patient from the session.
+     * <p>
+     * Checks the per-patient key first, then falls back to the legacy key if
+     * it holds a bean matching the requested demographic. On legacy fallback,
+     * the bean is promoted to the per-patient key for future lookups.
+     *
+     * @param session HttpSession the current HTTP session
+     * @param demographicNo int the patient's demographic number
+     * @return RxSessionBean the matching bean, or {@code null} if none is found
+     */
+    public static RxSessionBean getFromSession(HttpSession session, int demographicNo) {
+        RxSessionBean bean = (RxSessionBean) session.getAttribute(getSessionKey(demographicNo));
+        if (bean != null) {
+            return bean;
+        }
+        // Fall back to legacy key if it matches the requested demographic
+        bean = (RxSessionBean) session.getAttribute(LEGACY_SESSION_KEY);
+        if (bean != null && bean.getDemographicNo() == demographicNo) {
+            session.setAttribute(getSessionKey(demographicNo), bean);
+            return bean;
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves the {@link RxSessionBean} for a specific patient from the request's session.
+     *
+     * @param request HttpServletRequest the current HTTP request
+     * @param demographicNo int the patient's demographic number
+     * @return RxSessionBean the matching bean, or {@code null} if none is found
+     */
+    public static RxSessionBean getFromSession(HttpServletRequest request, int demographicNo) {
+        return getFromSession(request.getSession(), demographicNo);
+    }
+
+    /**
+     * Saves the {@link RxSessionBean} to the session under both the per-patient key
+     * and the legacy key, ensuring backward compatibility with code that still
+     * reads {@code session.getAttribute("RxSessionBean")}.
+     *
+     * @param session HttpSession the current HTTP session
+     * @param bean RxSessionBean the bean to store
+     */
+    public static void saveToSession(HttpSession session, RxSessionBean bean) {
+        session.setAttribute(getSessionKey(bean.getDemographicNo()), bean);
+        session.setAttribute(LEGACY_SESSION_KEY, bean);
+    }
+
+    /**
+     * Saves the {@link RxSessionBean} to the request's session.
+     *
+     * @param request HttpServletRequest the current HTTP request
+     * @param bean RxSessionBean the bean to store
+     */
+    public static void saveToSession(HttpServletRequest request, RxSessionBean bean) {
+        saveToSession(request.getSession(), bean);
+    }
 
     private String providerNo = null;
     private int demographicNo = 0;
