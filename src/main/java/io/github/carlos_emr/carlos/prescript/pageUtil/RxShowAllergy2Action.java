@@ -178,28 +178,20 @@ public final class RxShowAllergy2Action extends ActionSupport {
         if (!demo_no.matches("\\d{1,9}")) {
             return "failure";
         }
-        // Setup bean
-        RxSessionBean bean;
+        int demographicNoInt = Integer.parseInt(demo_no);
+        RxSessionBean bean = RxSessionBean.getFromSession(request.getSession(), demographicNoInt);
 
-        if (request.getSession().getAttribute("RxSessionBean") != null) {
-            bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-            if ((bean.getProviderNo() != user_no) || (bean.getDemographicNo() != Integer.parseInt(demo_no))) {
-                bean = new RxSessionBean();
-            }
-
-        } else {
+        if (bean == null) {
             bean = new RxSessionBean();
+            bean.setDemographicNo(demographicNoInt);
         }
 
-
         bean.setProviderNo(user_no);
-        bean.setDemographicNo(Integer.parseInt(demo_no));
         if (view != null) {
             bean.setView(view);
         }
 
-        // demographicNo validated via Integer.parseInt(); bean setters use validated values
-        request.getSession().setAttribute("RxSessionBean", bean); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        RxSessionBean.saveToSession(request.getSession(), bean);
 
         RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, bean.getDemographicNo());
 

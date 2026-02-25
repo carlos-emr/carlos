@@ -171,21 +171,19 @@
     }
 
     // Setup prescription session bean and patient data for drug profile generation
-    RxSessionBean Rxbean;
-    if (request.getSession().getAttribute("RxSessionBean") != null) {
-        Rxbean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-    } else {
+    RxSessionBean Rxbean = RxSessionBean.getFromSession(request.getSession(), demographicNoInt);
+    if (Rxbean == null) {
         Rxbean = new RxSessionBean();
     }
-    request.getSession().setAttribute("RxSessionBean", Rxbean);
+
+    Rxbean.setProviderNo((String) request.getSession().getAttribute("user"));
+    Rxbean.setDemographicNo(demographicNoInt);
+    RxSessionBean.saveToSession(request.getSession(), Rxbean);
 
     RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demographic_no);
     if (patient != null) {
         request.getSession().setAttribute("Patient", patient);
     }
-    Rxbean.setProviderNo((String) request.getSession().getAttribute("user"));
-    Rxbean.setDemographicNo(demographicNoInt);
-
     String rxUri = request.getContextPath() + "/rx/ViewPrintDrugProfile2?demographic_no=" + encDemoNo;
     pageContext.setAttribute("rxUri", rxUri);
 
