@@ -52,6 +52,13 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
     private static final String PREFIX_CIRCLE = "\u25CB ";      // ○ not documented
     private static final String PREFIX_WARNING = "\u26A0 ";     // ⚠ due/overdue
 
+    // Colour constants for prevention status indicators
+    private static final String COLOUR_HIGHLIGHT = "#FF0000";
+    private static final String COLOUR_INELIGIBLE = "#FF6600";
+    private static final String COLOUR_PENDING = "#FF00FF";
+    private static final String COLOUR_UP_TO_DATE = "#009900";
+    private static final String COLOUR_NOT_DOCUMENTED = "#999999";
+
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -86,11 +93,6 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             ArrayList<HashMap<String, String>> prevList = pdc.getPreventions();
             Map warningTable = p.getWarningMsgs();
 
-            String highliteColour = "#FF0000";
-            String inelligibleColour = "#FF6600";
-            String pendingColour = "#FF00FF";
-            String upToDateColour = "#009900";
-            String notDocumentedColour = "#999999";
             Date date = null;
 
             url += "; return false;";
@@ -127,32 +129,29 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
 
                         // Default for items with records: up-to-date
                         prefix = PREFIX_CHECK;
-                        colour = upToDateColour;
+                        colour = COLOUR_UP_TO_DATE;
 
                         if ("1".equals(refused)) {
                             prefix = PREFIX_X;
-                            colour = inelligibleColour;
+                            colour = COLOUR_INELIGIBLE;
                         } else if ("2".equals(refused)) {
                             prefix = PREFIX_DASH;
-                            colour = inelligibleColour;
-                        } else if ("3".equals(refused)) {
-                            prefix = PREFIX_CHECK;
-                            colour = upToDateColour;
+                            colour = COLOUR_INELIGIBLE;
                         } else if (result != null && result.equalsIgnoreCase("pending")) {
                             prefix = PREFIX_HOURGLASS;
-                            colour = pendingColour;
+                            colour = COLOUR_PENDING;
                         }
 
                     } else {
                         item.setDate(null);
                         prefix = PREFIX_CIRCLE;
-                        colour = notDocumentedColour;
+                        colour = COLOUR_NOT_DOCUMENTED;
                     }
 
                     boolean isWarning = warningTable.containsKey(prevName);
                     if (isWarning) {
                         prefix = PREFIX_WARNING;
-                        colour = highliteColour;
+                        colour = COLOUR_HIGHLIGHT;
                     }
 
                     String title = StringUtils.maxLenString(h.get("name"), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
