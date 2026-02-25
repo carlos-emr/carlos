@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.tickler.dao.archive;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
@@ -62,7 +62,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * All tests run within a transaction that is rolled back after completion,
  * ensuring no test data persists and tests remain isolated.
  *
- * @author OpenO Development Team
  * @since 2025-09-17
  * @see TicklerDao
  * @see Tickler
@@ -72,7 +71,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("integration")
 @Tag("dao")
 @Transactional
-class TicklerDaoMethodTest extends OpenOTestBase {
+class TicklerDaoMethodTest extends CarlosTestBase {
 
     @Autowired
     private TicklerDao ticklerDao;

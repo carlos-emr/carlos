@@ -3313,6 +3313,14 @@
     "optional" : false,
     "integrity" : "sha512:vowFRRgmOo6zoaEpT13mi6GAWMYADi0yvogsXp2919yO4v8fKdfLuSy3WZ+noey+VC/aNXTA0Efe1dTHAhBCCg=="
   }, {
+    "groupId" : "org.springframework",
+    "artifactId" : "spring-webmvc",
+    "version" : "5.3.39",
+    "scope" : "test",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:rA94Jqmh3Upf+6QZyBkU8WOm1jj3PBvyNt3oIIo0N4x8wtgke4xD3b0txAorBh3G9if2S6hs/qLUJef7nzvSUg=="
+  }, {
     "groupId" : "org.swinglabs",
     "artifactId" : "pdf-renderer",
     "version" : "1.0.5",

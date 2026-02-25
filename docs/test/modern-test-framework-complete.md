@@ -47,11 +47,11 @@ workspace/
 │       │   └── io/github/carlos_emr/carlos/
 │       │       ├── test/
 │       │       │   ├── base/        # Base test classes
-│       │       │   │   ├── OpenOTestBase.java
-│       │       │   │   ├── OpenODaoTestBase.java
-│       │       │   │   └── OpenOWebTestBase.java
+│       │       │   │   ├── CarlosTestBase.java
+│       │       │   │   ├── CarlosDaoTestBase.java
+│       │       │   │   └── CarlosWebTestBase.java
 │       │       │   ├── unit/        # Unit test base classes
-│       │       │   │   └── OpenOUnitTestBase.java
+│       │       │   │   └── CarlosUnitTestBase.java
 │       │       │   ├── examples/    # Example tests
 │       │       │   ├── mocks/       # Mock implementations
 │       │       │   │   └── MockSecurityInfoManager.java
@@ -138,9 +138,9 @@ The framework is integrated into the default build process:
 
 ## Core Components
 
-### 1. OpenOTestBase - Foundation Class
+### 1. CarlosTestBase - Foundation Class
 
-**Location**: `src/test-modern/java/io/github/carlos_emr/carlos/test/base/OpenOTestBase.java`
+**Location**: `src/test-modern/java/io/github/carlos_emr/carlos/test/base/CarlosTestBase.java`
 
 **Purpose**: Base class for all modern tests, handles Spring context and SpringUtils anti-pattern
 
@@ -149,7 +149,7 @@ The framework is integrated into the default build process:
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = {"classpath:test-context-full.xml"})
 @TestPropertySource(locations = "classpath:test.properties")
-public abstract class OpenOTestBase {
+public abstract class CarlosTestBase {
 
     @BeforeEach
     void setUpSpringUtils() throws Exception {
@@ -241,7 +241,7 @@ public class MockSecurityInfoManager implements SecurityInfoManager {
 ```java
 package io.github.carlos_emr.carlos.tickler.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
@@ -249,7 +249,7 @@ import static org.assertj.core.api.Assertions.*;
 
 @DisplayName("Descriptive Test Suite Name")
 @Transactional
-class ExampleDaoTest extends OpenOTestBase {
+class ExampleDaoTest extends CarlosTestBase {
 
     @Autowired
     private TicklerDao ticklerDao;
@@ -477,7 +477,7 @@ public class MockSecurityInfoManager implements SecurityInfoManager {
 
 #### Issue: SpringUtils not initialized
 **Solution**:
-- Ensure test extends `OpenOTestBase`
+- Ensure test extends `CarlosTestBase`
 - Check that field name is `beanFactory` not `applicationContext`
 
 #### Issue: "Unknown entity" errors

@@ -8,7 +8,7 @@ The OpenO codebase has several legacy patterns that require specific handling in
 
 ### SpringUtils Anti-Pattern Resolution
 
-The codebase uses static `SpringUtils.getBean()` throughout. Modern tests handle this via reflection in `OpenOTestBase`:
+The codebase uses static `SpringUtils.getBean()` throughout. Modern tests handle this via reflection in `CarlosTestBase`:
 
 ```java
 @BeforeEach
@@ -185,15 +185,15 @@ void shouldPerformExpectedBehavior_whenConditionIsMet() {  // camelCase with ONE
 
 ## Test Base Classes
 
-### Integration Tests - OpenOTestBase
+### Integration Tests - CarlosTestBase
 
-All modern integration tests should extend `OpenOTestBase`:
+All modern integration tests should extend `CarlosTestBase`:
 
 ```java
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = {"classpath:applicationContext-test.xml"})
 @Transactional
-public abstract class OpenOTestBase {
+public abstract class CarlosTestBase {
 
     @Autowired
     protected ApplicationContext applicationContext;
@@ -210,21 +210,21 @@ public abstract class OpenOTestBase {
 }
 ```
 
-### Why Extend OpenOTestBase?
+### Why Extend CarlosTestBase?
 
 1. **SpringUtils handling**: Automatically sets up the static SpringUtils field
 2. **Spring context**: Provides autowired ApplicationContext
 3. **EntityManager**: Provides properly configured EntityManager
 4. **Transaction support**: Tests are transactional and roll back automatically
 
-### Unit Tests - OpenOUnitTestBase
+### Unit Tests - CarlosUnitTestBase
 
-For unit tests (no database, all mocks), extend `OpenOUnitTestBase`:
+For unit tests (no database, all mocks), extend `CarlosUnitTestBase`:
 
 ```java
 @Tag("unit")
 @Tag("fast")
-public abstract class OpenOUnitTestBase {
+public abstract class CarlosUnitTestBase {
 
     protected MockedStatic<SpringUtils> springUtilsMock;
     protected Map<Class<?>, Object> mockedBeans = new HashMap<>();
@@ -256,7 +256,7 @@ For complex domains (like Demographic), create a domain-specific base class:
 @Tag("unit")
 @Tag("fast")
 @Tag("demographic")
-public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
+public abstract class DemographicUnitTestBase extends CarlosUnitTestBase {
 
     protected SecurityInfoManager mockSecurityInfoManager;
     protected LoggedInInfo mockLoggedInInfo;
@@ -306,7 +306,7 @@ Every test class should have at minimum:
 @Tag("integration")
 @Tag("dao")
 @Tag("tickler")
-class TicklerDaoFindIntegrationTest extends OpenOTestBase {
+class TicklerDaoFindIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private TicklerDao ticklerDao;
@@ -387,15 +387,15 @@ When `mockStatic(LogAction.class)` is called, Java loads and initializes the `Lo
 
 ### "SpringUtils returned null" Errors
 
-**Cause**: Test not extending OpenOTestBase, or @BeforeEach not running.
+**Cause**: Test not extending CarlosTestBase, or @BeforeEach not running.
 
-**Solution**: Ensure your test class extends OpenOTestBase.
+**Solution**: Ensure your test class extends CarlosTestBase.
 
 ### Tests Pass Individually but Fail Together
 
 **Cause**: Shared state between tests, often from SpringUtils static field.
 
-**Solution**: Ensure OpenOTestBase's @BeforeEach runs for every test. Consider test isolation.
+**Solution**: Ensure CarlosTestBase's @BeforeEach runs for every test. Consider test isolation.
 
 ---
 
@@ -419,7 +419,7 @@ hibernateTemplate.flush();       // Flushes Hibernate Session to DB
 entityManager.find(Entity.class, id);  // Now finds the entity via shared JDBC connection
 ```
 
-**Rule of thumb**: Always use `hibernateTemplate.flush()` (available from `OpenOTestBase`) when testing DAOs that extend `HibernateDaoSupport`.
+**Rule of thumb**: Always use `hibernateTemplate.flush()` (available from `CarlosTestBase`) when testing DAOs that extend `HibernateDaoSupport`.
 
 ### DAO Methods That Override Test Data
 
@@ -513,7 +513,7 @@ assertThat(springUtilsDao).isInstanceOf(autowiredDao.getClass());
 ## File Locations
 
 - **Modern tests**: `src/test-modern/java/io/github/carlos_emr/carlos/`
-- **Unit test base**: `src/test-modern/java/io/github/carlos_emr/carlos/test/unit/OpenOUnitTestBase.java`
+- **Unit test base**: `src/test-modern/java/io/github/carlos_emr/carlos/test/unit/CarlosUnitTestBase.java`
 - **Manager tests**: `src/test-modern/java/io/github/carlos_emr/carlos/managers/`
 - **Domain bases**: `src/test-modern/java/io/github/carlos_emr/carlos/managers/DemographicUnitTestBase.java`
 - **Test resources**: `src/test-modern/resources/`

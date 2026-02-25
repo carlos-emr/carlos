@@ -29,7 +29,7 @@ import java.lang.reflect.Method;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -58,7 +58,7 @@ import org.junit.jupiter.api.Test;
 @Tag("fax")
 @Tag("srfax")
 @DisplayName("SRFaxProviderClient ensureSuccess() parsing edge cases")
-class SRFaxProviderClientEnsureSuccessTest extends OpenOUnitTestBase {
+class SRFaxProviderClientEnsureSuccessTest extends CarlosUnitTestBase {
 
     private SRFaxProviderClient client;
     private Method ensureSuccess;

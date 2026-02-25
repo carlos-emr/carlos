@@ -22,7 +22,7 @@
  */
 package io.github.carlos_emr.carlos.test.examples;
 
-import io.github.carlos_emr.carlos.test.base.OpenODaoTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosDaoTestBase;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -44,14 +44,14 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * Example test demonstrating modern JUnit 5 features with the OpenO test framework.
+ * Example test demonstrating modern JUnit 5 features with the CARLOS EMR test framework.
  * This shows how to test DAOs while handling the SpringUtils anti-pattern.
  */
 @DisplayName("Demographic DAO Modern Test")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Transactional
 @Rollback
-class DemographicDaoModernTest extends OpenODaoTestBase {
+class DemographicDaoModernTest extends CarlosDaoTestBase {
 
     @Autowired
     private DemographicDao demographicDao;
