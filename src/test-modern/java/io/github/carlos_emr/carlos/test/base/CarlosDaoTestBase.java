@@ -35,8 +35,6 @@ import org.springframework.test.annotation.Rollback;
 import javax.sql.DataSource;
 import java.lang.reflect.Method;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Arrays;
@@ -47,7 +45,6 @@ import org.dbunit.dataset.IDataSet;
 import org.dbunit.dataset.xml.FlatXmlDataSetBuilder;
 import org.dbunit.operation.DatabaseOperation;
 
-import io.github.carlos_emr.carlos.commn.dao.utils.SchemaUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -101,9 +98,15 @@ public abstract class CarlosDaoTestBase extends CarlosTestBase {
         this.jdbcTemplate = new JdbcTemplate(dataSource);
         this.transactionTemplate = new TransactionTemplate(transactionManager);
 
-        // Set up DBUnit connection
+        // Set up DBUnit connection — release the raw connection if the
+        // DatabaseConnection constructor throws so it is not leaked.
         Connection connection = dataSource.getConnection();
-        this.dbUnitConnection = new DatabaseConnection(connection);
+        try {
+            this.dbUnitConnection = new DatabaseConnection(connection);
+        } catch (Exception e) {
+            connection.close();
+            throw e;
+        }
 
         // Initialize database schema if needed
         initializeSchema();
@@ -117,13 +120,15 @@ public abstract class CarlosDaoTestBase extends CarlosTestBase {
 
     @AfterEach
     public void tearDownDatabase() throws Exception {
-        // Clean up after test if not using @Rollback
-        if (!isTransactionRollback()) {
-            cleanTables();
-        }
-
-        if (dbUnitConnection != null) {
-            dbUnitConnection.close();
+        // Always close the DBUnit connection, even if cleanTables() throws.
+        try {
+            if (!isTransactionRollback()) {
+                cleanTables();
+            }
+        } finally {
+            if (dbUnitConnection != null) {
+                dbUnitConnection.close();
+            }
         }
     }
 
@@ -158,9 +163,21 @@ public abstract class CarlosDaoTestBase extends CarlosTestBase {
     }
 
     /**
-     * Invoke legacy SchemaUtils for backward compatibility
+     * Invoke legacy SchemaUtils for backward compatibility.
+     *
+     * <p>{@code ClassNotFoundException} and {@code NoSuchMethodException} mean
+     * the class or method does not exist — safe to fall back to the no-op schema
+     * setup.  {@code IllegalAccessException} means the class was found but is
+     * inaccessible from this call site, which is a configuration problem and is
+     * rethrown as {@link IllegalStateException} so the test fails with a clear
+     * diagnostic rather than silently using the no-op fallback.</p>
+     *
+     * <p>If {@code restoreTable} itself throws, {@code Method.invoke()} wraps
+     * the cause in {@code InvocationTargetException}, which propagates through
+     * {@code throws Exception} to {@link #initializeSchema()} and then to
+     * {@link #setUpDatabase()}, causing the test to fail visibly.</p>
      */
-    private void invokeLegacySchemaUtils() {
+    private void invokeLegacySchemaUtils() throws Exception {
         try {
             // Use reflection to avoid compile-time dependency
             Class<?> schemaUtilsClass = Class.forName("io.github.carlos_emr.carlos.commn.dao.utils.SchemaUtils");
@@ -170,53 +187,58 @@ public abstract class CarlosDaoTestBase extends CarlosTestBase {
             if (tables.length > 0) {
                 restoreMethod.invoke(null, (Object) tables);
             }
-        } catch (Exception e) {
-            logger.warn("Could not use legacy SchemaUtils, falling back to modern approach", e);
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            logger.warn("Legacy SchemaUtils not available (class or method not found), " +
+                        "falling back to modern approach", e);
             createModernSchema();
+        } catch (IllegalAccessException e) {
+            // SchemaUtils exists but is inaccessible — configuration problem, not "not available".
+            throw new IllegalStateException(
+                "Legacy SchemaUtils found but not accessible via reflection — " +
+                "check module/access configuration", e);
         }
     }
 
     /**
-     * Modern schema creation approach
+     * No-op fallback invoked when legacy SchemaUtils is unavailable.
+     * The test persistence unit uses {@code hbm2ddl.auto=create}, so Hibernate
+     * already creates the schema before any test runs.
      */
     private void createModernSchema() {
-        // This would execute schema creation scripts
-        // You can customize this based on your needs
-        logger.info("Creating schema using modern approach");
+        // Schema is managed by hbm2ddl.auto=create in the test persistence unit.
+        // No additional action is required here.
     }
 
     /**
-     * Clean specified tables
+     * Deletes all rows from the tables returned by {@link #cleanableTables()},
+     * minus those in {@link #preservedTables()}.
+     * {@code DataAccessException} is rethrown so a cleanup failure causes the
+     * test to fail with a clear error rather than silently leaving dirty state.
      */
     protected void cleanTables() {
         List<String> tablesToClean = new ArrayList<>(Arrays.asList(cleanableTables()));
         tablesToClean.removeAll(Arrays.asList(preservedTables()));
 
         for (String table : tablesToClean) {
-            try {
-                if (tableExists(table)) {
-                    JdbcTestUtils.deleteFromTables(jdbcTemplate, table);
-                    logger.debug("Cleaned table: {}", table);
-                }
-            } catch (Exception e) {
-                logger.warn("Could not clean table: {}", table, e);
+            if (tableExists(table)) {
+                JdbcTestUtils.deleteFromTables(jdbcTemplate, table);
+                logger.debug("Cleaned table: {}", table);
             }
         }
     }
 
     /**
-     * Check if a table exists in the database
+     * Returns {@code true} if {@code tableName} exists in the test database.
+     * Uses a count query so the result is unambiguous (0 = absent, &gt;0 = present).
+     * {@code DataAccessException} is rethrown — a connectivity or SQL failure
+     * must not silently masquerade as "table not found".
      */
     protected boolean tableExists(String tableName) {
-        try {
-            jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
-                Integer.class, tableName
-            );
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
+            Integer.class, tableName
+        );
+        return count != null && count > 0;
     }
 
     /**

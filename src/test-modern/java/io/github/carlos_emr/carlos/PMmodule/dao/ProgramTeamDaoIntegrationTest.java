@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -79,7 +80,7 @@ public class ProgramTeamDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should return true only when both program and name match")
+        @DisplayName("should return true only when both program and name match, and false for wrong program, wrong name, or missing team")
         void shouldReturnTrue_whenBothProgramAndNameMatch() {
             Program p1 = createProgram("PT-Program-1");
             Program p2 = createProgram("PT-Program-2");
@@ -132,7 +133,7 @@ public class ProgramTeamDaoIntegrationTest extends CarlosTestBase {
     class ValidationGuardrails {
 
         @Test
-        @Tag("query")
+        @Tag("read")
         @DisplayName("should throw for invalid teamNameExists inputs")
         void shouldThrow_forInvalidTeamNameExistsInputs() {
             assertThatThrownBy(() -> programTeamDAO.teamNameExists(null, "Team"))
@@ -146,13 +147,102 @@ public class ProgramTeamDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
-        @Tag("query")
+        @Tag("read")
         @DisplayName("should throw for invalid getProgramTeams inputs")
         void shouldThrow_forInvalidGetProgramTeamsInputs() {
             assertThatThrownBy(() -> programTeamDAO.getProgramTeams(null))
                 .isInstanceOf(IllegalArgumentException.class);
             assertThatThrownBy(() -> programTeamDAO.getProgramTeams(0))
                 .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("teamExists (id)")
+    class TeamExists {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return true when team exists")
+        void shouldReturnTrue_whenTeamExists() {
+            Program program = createProgram("TE-Program-1");
+            ProgramTeam team = createTeam(program.getId(), "Existing Team");
+            hibernateTemplate.flush();
+
+            assertThat(programTeamDAO.teamExists(team.getId())).isTrue();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return false when team does not exist")
+        void shouldReturnFalse_whenTeamDoesNotExist() {
+            assertThat(programTeamDAO.teamExists(Integer.MAX_VALUE)).isFalse();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return false for null id")
+        void shouldReturnFalse_forNullId() {
+            assertThat(programTeamDAO.teamExists(null)).isFalse();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return false after team is removed from session")
+        void shouldReturnFalse_afterTeamRemovedFromSession() {
+            Program program = createProgram("TE-Program-2");
+            ProgramTeam team = createTeam(program.getId(), "Transient Team");
+            hibernateTemplate.flush();
+            Integer savedId = team.getId();
+
+            hibernateTemplate.delete(team);
+            hibernateTemplate.flush();
+
+            assertThat(programTeamDAO.teamExists(savedId)).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteProgramTeam (id)")
+    class DeleteProgramTeam {
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should remove team so it no longer exists")
+        void shouldRemoveTeam_soItNoLongerExists() {
+            Program program = createProgram("DPT-Program-1");
+            ProgramTeam team = createTeam(program.getId(), "To Be Removed");
+            hibernateTemplate.flush();
+            Integer teamId = team.getId();
+
+            programTeamDAO.deleteProgramTeam(teamId);
+            hibernateTemplate.flush();
+
+            assertThat(programTeamDAO.teamExists(teamId)).isFalse();
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should throw IllegalArgumentException for null id")
+        void shouldThrowIllegalArgumentException_forNullId() {
+            assertThatThrownBy(() -> programTeamDAO.deleteProgramTeam(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should throw IllegalArgumentException for zero id")
+        void shouldThrowIllegalArgumentException_forZeroId() {
+            assertThatThrownBy(() -> programTeamDAO.deleteProgramTeam(0))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should throw EmptyResultDataAccessException when team does not exist")
+        void shouldThrowEmptyResultDataAccessException_whenTeamDoesNotExist() {
+            assertThatThrownBy(() -> programTeamDAO.deleteProgramTeam(Integer.MAX_VALUE))
+                .isInstanceOf(EmptyResultDataAccessException.class);
         }
     }
 

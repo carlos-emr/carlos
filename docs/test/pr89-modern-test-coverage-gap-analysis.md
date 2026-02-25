@@ -90,7 +90,7 @@ The following previously untested `?0` methods now have modern integration tests
 ### Depth gaps in `CaseManagementIssueDAOImpl` — NOW COVERED (round 2)
 **CaseManagementIssueDAOImpl** (4 methods added):
 - `getIssueByCmnId(Integer)` — navigates CMI → Issue many-to-one (2 tests)
-- `getIssuesByNote(Integer, Boolean)` — collection dereference bug `cmi.notes.id` (2 tests documenting QueryException)
+- `getIssuesByNote(Integer, Boolean)` — collection dereference bug `cmi.notes.id` (2 tests documenting IllegalArgumentException)
 
 ## Additional checks needed for your stated end-goal (functional + equivalent performance)
 Your end-goal includes **equivalent DAO behavior** and confidence that positional updates do not alter function.
@@ -114,13 +114,16 @@ To meet that goal, keep these checks in your merge gate in addition to existing 
 
 ## Merge-confidence checklist for PR 89
 Before merge, minimum high-signal checklist:
-- [x] Add `LookupDaoIntegrationTest` (core query-binding tests added; LIKE semantics deferred).
+- [x] Add `LookupDaoIntegrationTest` (core query-binding tests added; LIKE semantics test also added).
 - [x] Add `ProgramTeamDaoIntegrationTest` (all 5 test methods across 4 categories implemented).
 - [x] Extend `IssueDAOIntegrationTest` with projection and normalization assertions.
 - [x] Extend `SecProviderDaoIntegrationTest` with `findByLastName` and `findAll` coverage (already on `develop`).
 - [x] Add LIKE semantics test for `LookupDaoImpl.inOrg` (documents fragile `%?0` pattern).
 - [x] Deepen `CaseManagementNoteDaoIntegrationTest` with 6 additional `?0` method tests (editors, history, projections).
 - [x] Deepen `DemographicDaoIntegrationTest` with 6 additional `?0` method tests (chartNo, yearOfBirth, healthNum, exact name, date filters).
+- [x] Fix `ProgramTeamDAOImpl.teamExists(null)` — add null guard returning false (prevents `IllegalArgumentException` from `HibernateTemplate.get()`).
+- [x] Fix `ProgramTeamDAOImpl.deleteProgramTeam()` not-found exception — `EmptyResultDataAccessException` instead of `IllegalArgumentException` (Spring DAO convention).
+- [x] Clean test infrastructure — remove unused imports, fix misleading JavaDoc in `CarlosTestBase` and `CarlosDaoTestBase`, add `IllegalAccessException` to `invokeLegacySchemaUtils` catch clause.
 - [ ] Run modern-tests suite on the PR branch rebased/aligned with `develop`.
 - [ ] Include at least one query-count/timing guardrail for top 3 most-called migrated DAO methods.
 
@@ -133,7 +136,7 @@ With those added, you should be able to catch functional regressions caused by p
 1. ✅ **Test fixture and seed helpers** — native SQL inserts (ORM save incompatible with `mutable="false"` + `native` generator on String ID).
 2. ✅ **Core query-binding tests** — `shouldBindTableId_inGetLookupTableDef`, `shouldBindAndOrder_inLoadFieldDefList`.
 3. ✅ **LIKE semantics test** — `shouldExerciseInOrg_withLikeParameterBinding` documents fragile `%?0` HQL pattern via try/catch (infrastructure: `LstOrgcd.hbm.xml` registered in persistence.xml, `lst_orgcd` table in `test-lookup-tables.sql`).
-4. ⬜ **Negative and edge tests** — deferred.
+4. ✅ **Negative test** — `shouldReturnNull_whenTableIdDoesNotExist` covers the absent-row path for `getLookupTableDef`.
 
 ### B) `ProgramTeamDaoIntegrationTest` — FULLY IMPLEMENTED
 1. ✅ **Fixture and factories** — helper methods persist `Program` and `ProgramTeam` via ORM.
@@ -150,7 +153,7 @@ Status legend:
 | DAO | In-scope changed behavior | Status | Evidence |
 |---|---|---|---|
 | `ProviderDAOImpl` | `getProviderByName` parameter binding and null behavior | **Covered** | `ProviderDAOIntegrationTest` has positive and both negative match asserts. |
-| `CaseManagementNoteDAOImpl` | `getNotesByDemographicSince` + 6 additional `?0` methods (editors, history, projections, most-recent) | **Covered** | `CaseManagementNoteDaoIntegrationTest` — 27 tests covering CRUD, search, date filtering, cross-join editor queries, history, raw/map projections, and most-recent-per-UUID. |
+| `CaseManagementNoteDAOImpl` | `getNotesByDemographicSince` + 6 additional `?0` methods (editors, history, projections, most-recent) | **Covered** | `CaseManagementNoteDaoIntegrationTest` — 39 tests covering CRUD, search, date filtering, cross-join editor queries, history, raw/map projections, and most-recent-per-UUID. |
 | `ClientReferralDAOImpl` | multi-parameter referral queries | **Covered** | `ClientReferralDAOIntegrationTest` asserts filtering for client/facility/program combinations. |
 | `IssueDAOImpl` | search and multi-param issue queries | **Covered** | `IssueDAOIntegrationTest` now asserts scalar projection, input normalization (uppercase→lowercase), and blank-input behavior for `getLocalCodesByCommunityType`. |
 | `SecProviderDaoImpl` | `findById(id,status)` and status filters | **Covered** | `SecProviderDaoIntegrationTest` includes `findByLastName` (findByProperty path) and `findAll` assertions (already on `develop`). |

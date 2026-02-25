@@ -37,14 +37,12 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.TestPropertySource;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.mockito.MockitoAnnotations;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
 /**
  * Base test class for CARLOS EMR that handles the SpringUtils anti-pattern
@@ -71,8 +69,7 @@ import java.lang.reflect.Method;
  *
  * @see SpringUtils
  * @see SpringExtension
- * @author yingbull
- * @since 2025-09-15
+ * @since 2025-09-19
  */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = {
@@ -94,11 +91,12 @@ public abstract class CarlosTestBase {
     /**
      * HibernateTemplate for flushing the standalone Hibernate Session.
      *
-     * <p>During the Hibernate→JPA migration, legacy HibernateDaoSupport DAOs write
-     * through the standalone Hibernate Session while modern DAOs use the JPA
-     * EntityManager. These are separate persistence contexts sharing the same JDBC
-     * Connection. Calling {@code entityManager.flush()} does NOT flush the Hibernate
-     * Session. Tests that persist data through HibernateDaoSupport DAOs must call
+     * <p>CARLOS EMR uses a permanent mixed-persistence architecture: legacy
+     * {@code HibernateDaoSupport} DAOs write through the standalone Hibernate
+     * Session while modern DAOs use the JPA {@code EntityManager}. These are
+     * separate persistence contexts sharing the same JDBC Connection.
+     * Calling {@code entityManager.flush()} does NOT flush the Hibernate Session.
+     * Tests that persist data through {@code HibernateDaoSupport} DAOs must call
      * {@code hibernateTemplate.flush()} to push those writes to the database before
      * verification queries.</p>
      */
@@ -147,13 +145,17 @@ public abstract class CarlosTestBase {
     }
 
     /**
-     * Capture the application context for static initialization.
+     * Captures the application context injected by Spring's {@code @Autowired}
+     * setter injection and initialises the static {@code SpringUtils} bean factory.
      *
-     * <p>This method is called by Spring during context initialization.
-     * We store the context statically to enable SpringUtils initialization
-     * for all test instances.
+     * <p>Called by Spring's dependency-injection mechanism during test context
+     * initialization. The {@code @BeforeAll} guard in {@link #initializeSpringUtils()}
+     * is a safety net: if {@code setApplicationContext} has already fired on a prior
+     * test-class instance in the same JVM run, {@code staticContext} will already be
+     * non-null and {@code @BeforeAll} can complete initialization without waiting for
+     * setter injection on the new instance.</p>
      *
-     * @param context the Spring application context
+     * @param context the Spring application context injected by Spring
      */
     @Autowired
     public void setApplicationContext(ApplicationContext context) {
@@ -171,7 +173,6 @@ public abstract class CarlosTestBase {
      * <ul>
      *   <li>Stores test metadata for logging</li>
      *   <li>Initializes Mockito annotations</li>
-     *   <li>Sets up LoggedInInfo for security context</li>
      * </ul>
      *
      * @param testInfo JUnit 5 test information
@@ -190,19 +191,12 @@ public abstract class CarlosTestBase {
     }
 
     /**
-     * Create a mock LoggedInInfo for testing.
-     *
-     * <p>LoggedInInfo represents the security context containing the
-     * currently logged-in user's information. Override this method
-     * to customize the security context for specific test scenarios.
-     *
-     * <p><b>Implementation Note:</b>
-     * The actual implementation depends on how LoggedInInfo is stored
-     * (session, ThreadLocal, etc.) in your application.
+     * No-op hook for subclasses that need a test {@code LoggedInInfo} in the
+     * security context. Override this method when the code under test calls
+     * {@code LoggedInInfo.getLoggedInInfoFromSession(request)}.
      */
     protected void setUpLoggedInInfo() {
-        // This would typically set up a test LoggedInInfo in session or ThreadLocal
-        // Based on how your LoggedInInfo.getLoggedInInfoFromSession() works
+        // No-op by default — override in subclasses that require a security context.
     }
 
     /**

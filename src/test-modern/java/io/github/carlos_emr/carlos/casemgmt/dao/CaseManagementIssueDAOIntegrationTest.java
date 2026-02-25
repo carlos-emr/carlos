@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.orm.hibernate5.HibernateQueryException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
@@ -310,7 +311,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should filter by both demographic and date")
-        void shouldFilterByBothDemoAndDate() {
+        void shouldFilter_byBothDemoAndDate() {
             // Given
             Date cutoff = daysFromNow(-5);
             CaseManagementIssue recent = createCaseManagementIssue("50111", testIssue1, daysFromNow(-2));
@@ -504,8 +505,8 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should throw QueryException due to illegal collection dereference")
-        void shouldThrowQueryException_whenDereferencingCollectionProperty() {
+        @DisplayName("should throw HibernateQueryException due to illegal collection dereference")
+        void shouldThrowHibernateQueryException_whenDereferencingCollectionProperty() {
             // Given — create a note linked to testIssue1 via CMI
             CaseManagementIssue cmi = createCaseManagementIssue("20200", testIssue1);
             hibernateTemplate.flush();
@@ -514,15 +515,16 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             // When/Then — the HQL "cmi.notes.id" illegally dereferences a collection
             // property. Hibernate cannot navigate through a Set to access element
             // properties without an explicit join. This documents the pre-change bug.
+            // Spring wraps Hibernate's QueryException as HibernateQueryException.
             assertThatThrownBy(() ->
                 caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null)
-            ).isInstanceOf(IllegalArgumentException.class);
+            ).isInstanceOf(HibernateQueryException.class);
         }
 
         @Test
         @Tag("filter")
-        @DisplayName("should throw QueryException with resolved filter due to same collection bug")
-        void shouldThrowQueryException_whenFilteringByResolved() {
+        @DisplayName("should throw HibernateQueryException with resolved filter due to same collection bug")
+        void shouldThrowHibernateQueryException_whenFilteringByResolved() {
             // Given — create resolved + unresolved CMIs linked to same note
             CaseManagementIssue unresolvedCmi = createCaseManagementIssue("20300", testIssue1);
             CaseManagementIssue resolvedCmi = createResolvedIssue("20300", testIssue2);
@@ -530,9 +532,10 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             CaseManagementNote note = createAndLinkNote("20300", unresolvedCmi, resolvedCmi);
 
             // When/Then — same collection dereference bug regardless of resolved filter
+            // Spring wraps Hibernate's QueryException as HibernateQueryException.
             assertThatThrownBy(() ->
                 caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false)
-            ).isInstanceOf(IllegalArgumentException.class);
+            ).isInstanceOf(HibernateQueryException.class);
         }
     }
 }

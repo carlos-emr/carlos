@@ -75,7 +75,7 @@ import static org.mockito.Mockito.mockStatic;
  *   <li>Proper cleanup to prevent test pollution</li>
  * </ul>
  *
- * @since 2025-01-17
+ * @since 2025-09-19
  * @see SpringUtils
  */
 @Tag("unit")
@@ -124,7 +124,7 @@ public abstract class CarlosUnitTestBase {
                 return mock;
             });
 
-        // Note: SpringUtils only has getBean(Class) method, not getBean(String, Class)
+        // Note: SpringUtils has getBean(Class) and getBean(String) overloads; only Class-based lookup is mocked here
 
         // Pre-register OscarLogDao mock - required because LogAction's static field
         // initializer calls SpringUtils.getBean(OscarLogDao.class) when the class is loaded

@@ -36,6 +36,7 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
@@ -55,6 +56,10 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
      */
     @Override
     public boolean teamExists(Integer teamId) {
+        if (teamId == null) {
+            log.debug("teamExists: called with null teamId, returning false");
+            return false;
+        }
         boolean exists = getHibernateTemplate().get(ProgramTeam.class, teamId) != null;
         log.debug("teamExists: " + exists);
 
@@ -75,8 +80,11 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
         if (teamName == null || teamName.length() <= 0) {
             throw new IllegalArgumentException();
         }
-        // programId is passed as Integer, matching the HBM type="integer" mapping.
-        // Prior code incorrectly widened to Long via programId.longValue().
+        // Current state of this query:
+        // 1. programId is passed as Integer, matching HBM type="integer".
+        // 2. Parameter placeholders use 0-based positional syntax (?0, ?1) per Hibernate 5.
+        //    (Changed from 1-based in October 2024; unrelated to CARLOS namespace work.)
+        // 3. Session lifecycle is managed by HibernateTemplate — no manual session.close().
         String hql = "select pt.id from ProgramTeam pt where pt.programId = ?0 and pt.name = ?1";
         List teams = getHibernateTemplate().find(hql, programId, teamName);
 
@@ -157,7 +165,12 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().delete(getProgramTeam(id));
+        ProgramTeam team = getProgramTeam(id);
+        if (team == null) {
+            throw new EmptyResultDataAccessException("No ProgramTeam found with id=" + id, 1);
+        }
+
+        this.getHibernateTemplate().delete(team);
 
         if (log.isDebugEnabled()) {
             log.debug("deleteProgramTeam: id=" + id);

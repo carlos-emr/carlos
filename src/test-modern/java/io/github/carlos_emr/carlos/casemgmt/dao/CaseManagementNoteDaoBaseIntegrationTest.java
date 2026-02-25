@@ -47,7 +47,6 @@ import java.util.UUID;
  * @see CaseManagementNote
  */
 @Tag("integration")
-@Tag("database")
 @Tag("dao")
 @Tag("casemgmt")
 @Transactional

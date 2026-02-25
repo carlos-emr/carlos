@@ -62,7 +62,6 @@ import static org.junit.jupiter.api.Assertions.*;
  * All tests run within a transaction that is rolled back after completion,
  * ensuring no test data persists and tests remain isolated.
  *
- * @author CARLOS Development Team
  * @since 2025-09-17
  * @see TicklerDao
  * @see Tickler

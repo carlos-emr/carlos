@@ -463,7 +463,7 @@
             <version>5.3.39</version>
         </dependency>
         <!-- spring-webmvc not used in production (no DispatcherServlet, no @Controller annotations).
-             Kept at test scope only for MockMvcBuilders in OpenOWebTestBase.
+             Kept at test scope only for MockMvcBuilders in CarlosWebTestBase.
              Production code uses spring-web which provides WebApplicationContext for CXF and Struts. -->
         <dependency>
             <groupId>org.springframework</groupId>
