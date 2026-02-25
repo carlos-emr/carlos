@@ -475,7 +475,7 @@
 
                     </table>
 
-                    <form id="forms_<%=docId%>" onsubmit="return updateDocument('forms_<%=docId%>');">
+                    <form id="forms_<%=docId%>" method="post" onsubmit="return updateDocument('forms_<%=docId%>');">
                         <input type="hidden" name="method" value="documentUpdateAjax"/>
                         <input type="hidden" name="documentId" value="<%=docId%>"/>
                         <input type="hidden" name="providerNo" value="<%= providerNo%>"/>
@@ -716,7 +716,7 @@
                             }
                         }
                     %>
-                    <form name="reassignForm_<%=docId%>" id="reassignForm_<%=docId%>">
+                    <form name="reassignForm_<%=docId%>" id="reassignForm_<%=docId%>" method="post">
                         <input type="hidden" name="flaggedLabs" value="<%= docId%>"/>
                         <input type="hidden" name="selectedProviders" value=""/>
                         <input type="hidden" name="labType" value="DOC"/>

@@ -47,8 +47,6 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 
-<%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
-
 <%@ page import="io.github.carlos_emr.carlos.form.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.owasp.encoder.Encode" %>
@@ -129,7 +127,6 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/txtCounter/ylib.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/txtCounter/y_TextCounter.js"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/txtCounter/y_util.js"></script>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <%
         String project_home = request.getContextPath().substring(1);
     %>
@@ -743,9 +740,8 @@
 <form id="frmPopUp" method="get" action=""></form>
 <form id="graph" method="post" action=""></form>
 <script type="text/javascript">
-    let csrfToken = {name: '<csrf:tokenname/>', value: '<csrf:tokenvalue/>'};
     let validationFailedMessage = 'Unable to autosave: Measurements must be numeric and observation dates for each measurement are required.';
-    let formsTimedAutosaver = new FormsTimedAutosave('frmP1', 10000, '<%=request.getContextPath()%>/form/formname.do', csrfToken, checkMeasures, validationFailedMessage, 'saveMessageDiv', true);
+    let formsTimedAutosaver = new FormsTimedAutosave('frmP1', 10000, '<%=request.getContextPath()%>/form/formname.do', checkMeasures, validationFailedMessage, 'saveMessageDiv', true);
 
     function onSave() {
         if (checkMeasures()) {

@@ -741,7 +741,7 @@ String curProvider_no = (String)session.getAttribute("user");
 				<div id="collapseFifteen" class="accordion-body collapse">
 					<div class="accordion-inner">
 						<ul>
-							<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">
+							<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="w" reverse="<%=false%>">
 								<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/configureFax.jsp">Configure Fax</a></li>
 							</security:oscarSec>
 							<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/manageFaxes.jsp">Manage Faxes</a></li>

@@ -40,6 +40,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -320,10 +321,11 @@ public class ConsultationWebService extends AbstractServiceImpl {
         return response;
     }
 
-    @GET
+    @POST
     @Path("/eSendRequest")
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.APPLICATION_JSON)
-    public GenericRESTResponse eSendRequest(@QueryParam("requestId") Integer requestId) {
+    public GenericRESTResponse eSendRequest(@FormParam("requestId") Integer requestId) {
         GenericRESTResponse rp = new GenericRESTResponse();
         try {
             consultationManager.doHl7Send(getLoggedInInfo(), requestId);

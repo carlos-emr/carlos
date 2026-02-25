@@ -60,7 +60,7 @@
   - Initial display: 20 messages
   - Expandable to show all messages
   
-  @since 2003
+  @since 2002-11-08
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -73,10 +73,13 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     // Build role string for security check
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    String userrole = (String) session.getAttribute("userrole");
+    String user = (String) session.getAttribute("user");
+    String roleName$ = (userrole != null ? userrole : "") + "," + (user != null ? user : "");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="r" reverse="<%=true%>">
@@ -135,7 +138,9 @@
     if (demographic_no != null) {
         DemographicData demographic_data = new DemographicData();
         Demographic demographic = demographic_data.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographic_no);
-        demographic_name = demographic.getLastName() + ", " + demographic.getFirstName();
+        if (demographic != null) {
+            demographic_name = demographic.getLastName() + ", " + demographic.getFirstName();
+        }
     }
 
 %>
@@ -171,16 +176,8 @@
             }
         </style>
 
+        <script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
         <script type="text/javascript">
-            function BackToOscar() {
-                if (opener.callRefreshTabAlerts) {
-                    opener.callRefreshTabAlerts("oscar_new_msg");
-                    setTimeout("window.close()", 100);
-                } else {
-                    window.close();
-                }
-            }
-
             function unlink() {
                 document.forms[0].submit();
             }
@@ -188,7 +185,6 @@
     </head>
 
     <body class="BodyStyle" vlink="#0000FF" onload="window.focus()">
-    <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.msgMessenger"/></td>
@@ -196,7 +192,7 @@
                 <table class="TopStatusBar">
                     <tr>
                         <td>
-                            <div class="DivContentTitle"><h2>Messages related to <%=demographic_name%>
+                            <div class="DivContentTitle"><h2>Messages related to <%=Encode.forHtml(demographic_name)%>
                             </h2></div>
                         </td>
                         <td></td>
@@ -221,7 +217,7 @@
                                         <table class=messButtonsA cellspacing=0 cellpadding=3>
                                             <tr>
                                                 <td class="messengerButtonsA"><a
-                                                        href="javascript:BackToOscar()"
+                                                        href="javascript:BackToCarlos()"
                                                         class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.DisplayMessages.btnExit"/></a></td>
                                             </tr>
                                         </table>
@@ -236,7 +232,7 @@
                         <td>
                             <%
                                 String contextPath = request.getContextPath();
-                                String strutsAction = contextPath + "/messenger/DisplayDemographicMessages.do?demographic_no=" + demographic_no; 
+                                String strutsAction = contextPath + "/messenger/DisplayDemographicMessages.do?demographic_no=" + Encode.forUriComponent(demographic_no);
                             %>
 
                             <form action="<%=strutsAction%>" method="post">
@@ -299,7 +295,7 @@
                                     %>
                                     <tr>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'
-                                            width="75"><input type="checkbox" name="messageNo" value="<%=dm.getMessageId() %>"/> <%
+                                            width="75"><input type="checkbox" name="messageNo" value="<%=Encode.forHtmlAttribute(dm.getMessageId())%>"/> <%
                                             String atta = dm.getAttach();
                                             if (atta.equals("1")) {
                                         %><img src="img/clip4.jpg">
@@ -308,16 +304,16 @@
                                             %> &nbsp;
                                         </td>
 
-                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><%= dm.getSentby()  %>
+                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><%= Encode.forHtml(dm.getSentby())  %>
                                         </td>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><a
-                                                href="<%=request.getContextPath()%>/messenger/ViewMessage.do?from=encounter&demographic_no=<%=demographic_no%>&msgCount=<%=msgCount%>&orderBy=<%=orderby%>&messageID=<%=dm.getMessageId()%>&messagePosition=<%=dm.getMessagePosition()%>">
-                                            <%=dm.getThesubject()%>
+                                                href="<%=request.getContextPath()%>/messenger/ViewMessage.do?from=encounter&demographic_no=<%=Encode.forUriComponent(demographic_no)%>&msgCount=<%=Encode.forUriComponent(msgCount)%>&orderBy=<%=Encode.forUriComponent(orderby)%>&messageID=<%=Encode.forUriComponent(dm.getMessageId())%>&messagePosition=<%=Encode.forUriComponent(dm.getMessagePosition())%>">
+                                            <%=Encode.forHtml(dm.getThesubject())%>
                                         </a></td>
-                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><%= dm.getThedate()  %>
+                                        <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'><%= Encode.forHtml(dm.getThedate())  %>
                                         </td>
                                         <td class='<%= dm.getType() == 3 ? "integratedMessage" : "normalMessage" %>'>
-                                            <oscar:nameage demographicNo="<%=dm.getDemographic_no()%>"></oscar:nameage>
+                                            <oscar:nameage demographicNo="<%=Encode.forHtmlAttribute(dm.getDemographic_no())%>"></oscar:nameage>
                                         </td>
                                     </tr>
                                     <%}%>

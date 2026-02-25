@@ -53,7 +53,7 @@
  * - keyword: Search term for patient lookup
  * - demographic_no: Selected patient ID (returned from search results)
  * - firstSearch: Boolean flag to auto-submit search on page load
- * - search_mode: Search type (name, phone, etc.) from oscar.properties
+ * - search_mode: Search type (name, phone, etc.) from carlos.properties
  *
  * Session Dependencies:
  * - Standard user session with role information

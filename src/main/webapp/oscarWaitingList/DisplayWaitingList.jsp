@@ -42,7 +42,6 @@
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
 <%
     String wlid = (String) request.getAttribute("WLId");
     if (wlid == null) {
@@ -308,9 +307,22 @@
         function removePatient(demographicNo, waitingList) {
             var agree = confirm("Are you sure you want to remove this patient from the waiting list?");
             if (agree) {
-                var windowprops = "height=50,width=50,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
-                var page = "RemoveFromWaitingList.jsp?listId=" + waitingList + "&demographicNo=" + demographicNo + "&remove=Y";
-                var popup = window.open(page, "removeWaitingList", windowprops);
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = 'RemoveFromWaitingList.jsp';
+                form.target = 'removeWaitingList';
+                var fields = {listId: waitingList, demographicNo: demographicNo, remove: 'Y'};
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                window.open('', 'removeWaitingList', 'height=50,width=50,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0');
+                form.submit();
+                document.body.removeChild(form);
             } else {
                 return false;
             }

@@ -54,7 +54,6 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.providers.data.ProviderData, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer" %>
@@ -241,7 +240,6 @@
     <font class="warning">Error: <fmt:setBundle basename="oscarResources"/><fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></font><br/>
     <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument.do" method="POST"
                        enctype="multipart/form-data" onsubmit="return submitUpload(this);">
-    <input type="hidden" name="<csrf:tokenname />" value="<csrf:tokenvalue />"/>
     <input type="hidden" name="function"
            value="<%=formdata.getFunction()%>" size="20"/>
     <input type="hidden" name="functionId"

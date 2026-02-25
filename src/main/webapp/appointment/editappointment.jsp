@@ -218,7 +218,7 @@
 
         DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demono));
         if (demographicCust != null) {
-            alert = demographicCust.getAlert();
+            alert = StringUtils.defaultString(demographicCust.getAlert());
         }
 
     }
@@ -235,12 +235,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
     <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet">
         <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
         <script src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js" ></script>
+    <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js" ></script>
 
     <script src="<%= request.getContextPath() %>/js/global.js"></script>
     <script src="<%= request.getContextPath() %>/js/checkDate.js"></script>
@@ -248,8 +248,7 @@
 
         <style>
 
-    :root *:not(h2):not(h4):not(.input-group-btn .btn) {
-        font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
+    :root *:not(h2):not(h4):not(.input-group > .btn) {
         font-size: 12px;
         overscroll-behavior: none;
         -webkit-font-smoothing: antialiased;
@@ -265,11 +264,11 @@
         border:none !important;
     }
 
-    .panel {
+    .card {
        margin: 0 !important;
     }
 
-    .panel-body {
+    .card-body {
         padding: 10px !important;
     }
 
@@ -382,11 +381,17 @@
                 document.EDITAPPT.keyword.select();
             }
 
+            function showJSAlert(msg) {
+                var el = document.getElementById('jsAlertBanner');
+                el.querySelector('#jsAlertText').textContent = msg;
+                el.style.display = '';
+            }
+
             function onBlockFieldFocus(obj) {
                 obj.blur();
                 document.EDITAPPT.keyword.focus();
                 document.EDITAPPT.keyword.select();
-                window.alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillNameField"/>");
+                showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillNameField"/>");
             }
 
             function labelprint(vheight, vwidth, varpage) {
@@ -407,12 +412,13 @@
                 var aptStat = document.EDITAPPT.status.value;
                 if (aptStat.indexOf('B') === 0) {
                     var agree = confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.msgCanceledBilledConfirmation"/>");
-                    if (agree) {
-                        window.location = 'appointmentcontrol.jsp?buttoncancel=Cancel Appt&displaymode=Update Appt&appointment_no=<%=appointment_no%>';
+                    if (!agree) {
+                        return;
                     }
-                } else {
-                    window.location = 'appointmentcontrol.jsp?buttoncancel=Cancel Appt&displaymode=Update Appt&appointment_no=<%=appointment_no%>';
                 }
+                document.EDITAPPT.displaymode.value = 'Update Appt';
+                document.EDITAPPT.buttoncancel.value = 'Cancel Appt';
+                document.EDITAPPT.submit();
             }
 
             function upCaseCtrl(ctrl) {
@@ -444,7 +450,7 @@
                 }
 
                 if (stime.length != 5) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgInvalidDateFormat"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgInvalidDateFormat"/>");
                     return false;
                 }
 
@@ -453,22 +459,22 @@
                 var duration = document.EDITAPPT.duration.value;
 
                 if (isNaN(duration)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
                     return false;
                 }
 
-                if (eval(duration) === 0) {
+                if (parseInt(duration, 10) === 0) {
                     duration = 1;
                 }
-                if (eval(duration) < 0) {
-                    duration = Math.abs(duration);
+                if (parseInt(duration, 10) < 0) {
+                    duration = Math.abs(parseInt(duration, 10));
                 }
 
-                var lmin = eval(smin) + eval(duration) - 1;
+                var lmin = parseInt(smin, 10) + parseInt(duration, 10) - 1;
                 var lhour = parseInt(lmin / 60);
 
                 if ((lmin) > 59) {
-                    shour = eval(shour) + eval(lhour);
+                    shour = parseInt(shour, 10) + lhour;
                     shour = shour < 10 ? ("0" + shour) : shour;
                     smin = lmin - 60 * lhour;
                 } else {
@@ -477,7 +483,7 @@
                 smin = smin < 10 ? ("0" + smin) : smin;
                 document.EDITAPPT.end_time.value = shour + ":" + smin;
                 if (shour > 23) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgCheckDuration"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgCheckDuration"/>");
                     return false;
                 }
                 return true;
@@ -510,11 +516,11 @@
             function checkTimeTypeIn(obj) {
                 var colonIdx;
                 if (!checkTypeNum(obj.value)) {
-                    alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
+                    showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillTimeField"/>");
                 } else {
                     colonIdx = obj.value.indexOf(':');
                     if (colonIdx === -1) {
-                        if (obj.value.length < 3) alert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillValidTimeField"/>");
+                        if (obj.value.length < 3) showJSAlert("<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgFillValidTimeField"/>");
                         obj.value = obj.value.substring(0, obj.value.length - 2) + ":" + obj.value.substring(obj.value.length - 2);
                     }
                 }
@@ -704,13 +710,42 @@
                         jQuery("#demographic_no").val(ui.item.value);
                         jQuery("#mrp").val(ui.item.provider);
                         jQuery("#keyword").val(ui.item.formattedName);
+
+                        // Update patient alert banner
+                        var patientAlert = ui.item.alert || "";
+                        var alertBanner = document.getElementById('patientAlertBanner');
+                        if (alertBanner) {
+                            document.getElementById('patientAlertText').textContent = patientAlert;
+                            alertBanner.style.display = patientAlert ? '' : 'none';
+                        }
+
+                        // Update patient status banner
+                        var rawStatus = ui.item.status || "";
+                        var rawRoster = ui.item.rosterStatus || "";
+                        var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
+                        var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
+                        var statusBanner = document.getElementById('patientStatusBanner');
+                        if (statusBanner) {
+                            var statusTextEl = document.getElementById('patientStatusText');
+                            if (displayStatus || displayRoster) {
+                                var rosterLabel = statusBanner.getAttribute('data-roster-label') || 'Roster Status';
+                                var parts = [];
+                                if (displayStatus) parts.push(displayStatus);
+                                if (displayRoster) parts.push(rosterLabel + ":\u00a0" + displayRoster);
+                                statusTextEl.textContent = parts.join("\u00a0");
+                                statusBanner.style.display = '';
+                            } else {
+                                statusBanner.style.display = 'none';
+                            }
+                        }
+
                         return false;
                     }
                 })
                     .autocomplete("instance")._renderItem = function (ul, item) {
-                    return jQuery("<li>")
-                        .append("<div><b>" + item.label + "</b>" + "<br>" + item.provider + "</div>")
-                        .appendTo(ul);
+                    var $b = jQuery("<b>").text(item.label || "");
+                    var $div = jQuery("<div>").append($b).append("<br>").append(document.createTextNode(item.provider || ""));
+                    return jQuery("<li>").append($div).appendTo(ul);
                 };
 
 
@@ -720,32 +755,47 @@
                      * @see {@link https://api.jqueryui.com/selectmenu/#method-_renderItem}
                      */
                     _renderItem: function (ul, item) {
-                        var string = "<div><b>" + item.label + "</b> "
-                        if (item.element.attr("data-dur") && item.element.attr("data-dur").length > 0) {
-                            string = string + item.element.attr("data-dur") + "&nbsp;<fmt:setBundle basename='oscarResources'/><fmt:message key='provider.preference.min'/>";
+                        var $div = jQuery("<div>");
+                        var $header = jQuery("<b>").text(item.label || "");
+                        $div.append($header);
+                        var dur = item.element.attr("data-dur");
+                        if (dur && dur.length > 0) {
+                            $div.append(document.createTextNode("\u00a0" + dur + "\u00a0"));
+                            $div.append(jQuery("<span>").html("<fmt:setBundle basename='oscarResources'/><fmt:message key='provider.preference.min'/>"));
                         }
-                        if (item.element.attr("data-notes") && item.element.attr("data-notes").length > 0) {
-                            string = string + "&nbsp;&nbsp;" + "<span style='color:gray'> <i class='fa-solid fa-pencil' title='" + "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:&nbsp;" +
-                                item.element.attr("data-notes") + "'></i></span>";
+                        var notesVal = item.element.attr("data-notes");
+                        if (notesVal && notesVal.length > 0) {
+                            $div.append(jQuery("<span>").html("&nbsp;&nbsp;"));
+                            var $notesIcon = jQuery("<span>").css("color", "gray").append(
+                                jQuery("<i>").addClass("fa-solid fa-pencil").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:\u00a0" + notesVal)
+                            );
+                            $div.append($notesIcon);
                         }
-                        string = string + "<br>";
-                        if (item.element.attr("data-reason") && item.element.attr("data-reason").length > 0) {
-                            string = string + "<span style='color:gray'><i class='fa-solid fa-tags' title='" + "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>" + "'></i></span>&nbsp;&nbsp;" +
-                                item.element.attr("data-reason");
+                        $div.append(jQuery("<br>"));
+                        var reasonVal = item.element.attr("data-reason");
+                        if (reasonVal && reasonVal.length > 0) {
+                            var $reasonIcon = jQuery("<span>").css("color", "gray").append(
+                                jQuery("<i>").addClass("fa-solid fa-tags").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>")
+                            );
+                            $div.append($reasonIcon).append(jQuery("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(reasonVal));
                         }
-                        if (item.element.attr("data-resources") && item.element.attr("data-resources").length > 0) {
-                            string = string + "<br>" + "<span style='color:gray'><i class='fa-solid fa-gear' title='" + "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formResources"/>" + "'></i></span>&nbsp;&nbsp;" +
-                                item.element.attr("data-resources");
+                        var resourcesVal = item.element.attr("data-resources");
+                        if (resourcesVal && resourcesVal.length > 0) {
+                            $div.append(jQuery("<br>"));
+                            var $resourcesIcon = jQuery("<span>").css("color", "gray").append(
+                                jQuery("<i>").addClass("fa-solid fa-gear").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formResources"/>")
+                            );
+                            $div.append($resourcesIcon).append(jQuery("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(resourcesVal));
                         }
-                        if (item.element.attr("data-loc") && item.element.attr("data-loc").length > 1) {
-                            string = string + "<br>" + "<span style='color:gray'><i class='fa-solid fa-house' title='" + "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>" + "'></i></span>&nbsp;&nbsp;" +
-                                item.element.attr("data-loc");
+                        var locVal = item.element.attr("data-loc");
+                        if (locVal && locVal.length > 1) {
+                            $div.append(jQuery("<br>"));
+                            var $locIcon = jQuery("<span>").css("color", "gray").append(
+                                jQuery("<i>").addClass("fa-solid fa-house").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>")
+                            );
+                            $div.append($locIcon).append(jQuery("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(locVal));
                         }
-                        string = string + "</div>";
-                        return jQuery("<li>")
-                            .append(string)
-                            .appendTo(ul);
-
+                        return jQuery("<li>").append($div).appendTo(ul);
                     }
                 });
 
@@ -781,8 +831,9 @@
 
 <div id="editAppointment" >
     <div class="container" >
-<form name="EDITAPPT" METHOD="post" class="form-inline" ACTION="appointmentcontrol.jsp" onSubmit="return(onSub())">
+<form name="EDITAPPT" METHOD="post" ACTION="appointmentcontrol.jsp" onSubmit="return(onSub())">
     <input type="hidden" name="displaymode" value="">
+    <input type="hidden" name="buttoncancel" value="">
             <div class="header deep">
         <div class="time" id="header"><h4>
                     <!-- We display a shortened title for the mobile version -->
@@ -798,7 +849,7 @@
                                     String providerName = prov.getLastName() + ", " + prov.getFirstName();
                     %>
 
-                    <%=providerName == "" ? "" : "(" + providerName + ")"%>
+                    <%="".equals(providerName) ? "" : "(" + Encode.forHtmlContent(providerName) + ")"%>
 
                     <% }
                     }
@@ -847,9 +898,10 @@
             }
     %>
     <div id="tooManySameDayGroupApptWarning" style="<%=displayStyle%>">
-        <div class="alert alert-error">
+        <div class="alert alert-danger alert-dismissible" role="alert">
             <h4><fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.titleMultipleGroupDayBooking'/></h4>
             <fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.MultipleGroupDayBooking'/>
+            <button type="button" class="btn-close" onclick="document.getElementById('tooManySameDayGroupApptWarning').style.display='none'" aria-label="Close"></button>
         </div>
     </div>
     <%
@@ -874,11 +926,29 @@
 		doctorNo = "";
     }
     %>
+    <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
+    <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+    </div>
+   <%-- patientStatusBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
+   <%
+       String editRosterStatus = StringUtils.defaultString(rosterstatus);
+       boolean editShowStatus = !editRosterStatus.isEmpty() && !editRosterStatus.equalsIgnoreCase("RO");
+   %>
+   <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
+        data-roster-label="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>"
+        style="<%= editShowStatus ? "" : "display:none" %>" role="alert">
+       <span id="patientStatusText"><%=editShowStatus ? Encode.forHtmlContent(editRosterStatus) : ""%></span>
+       <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+   </div>
+   <%-- patientAlertBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
+   <div id="patientAlertBanner" class="alert alert-warning alert-dismissible"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %> role="alert">
+       <span id="patientAlertText"><%=Encode.forHtmlContent(alert != null ? alert : "")%></span>
+       <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+   </div>
 
-
-
-
-    <div class="well">
+    <div class="bg-light border rounded p-2">
         <div class="form-wrapper">
     <table class="table table-condensed table-responsive">
                 <tr>
@@ -993,7 +1063,7 @@
                 </tr>
                 <tr>
             <td></td><td>
-				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="8" oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"' onfocus='this.style.height = "";this.style.height = this.scrollHeight + "px"'><%=Encode.forHtmlContent(bFirstDisp?appt.getReason():request.getParameter("reason"))%></textarea>
+				<textarea id="reason" class="form-control" name="reason" maxlength="80" rows="2" style="resize:none;"><%=Encode.forHtmlContent(StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")))%></textarea>
 
                     </td>
                 </tr>
@@ -1094,8 +1164,8 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.CreateDate"/>:</label>
                     </td>
                     <td>
-                <div class="panel panel-default">
-                    <div class="panel-body">
+                <div class="card">
+                    <div class="card-body">
                         <input type="hidden" class="form-control" name="createDate" value="<%=origDate%>">
                         <%=dateString1%>
                     </div>
@@ -1157,6 +1227,7 @@
 
         <% AppointmentTypeDao appDao = SpringUtils.getBean(AppointmentTypeDao.class);
                                 List<AppointmentType> types = appDao.listAll();
+                                String currentType = (bFirstDisp && appt != null) ? appt.getType() : StringUtils.trimToEmpty(request.getParameter("type"));
                 for(AppointmentType type : types) {
                             %>
                     <option data-dur="<%= type.getDuration() %>"
@@ -1164,7 +1235,7 @@
                             data-loc="<%= Encode.forHtmlAttribute(type.getLocation()) %>"
                             data-notes="<%= Encode.forHtmlAttribute(type.getNotes()) %>"
                             data-resources="<%= Encode.forHtmlAttribute(type.getResources()) %>"
-                            <%= type.getName().equalsIgnoreCase(appt.getType()) ? "selected" : ""%>>
+                            <%= type.getName().equalsIgnoreCase(currentType) ? "selected" : ""%>>
                         <%=Encode.forHtml(type.getName())%>
                             </option>
                             <% } %>
@@ -1207,7 +1278,7 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
-				<textarea name="notes" class="form-control" maxlength="255" rows="9" oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"' onfocus='this.style.height = "";this.style.height = this.scrollHeight + "px"'><%=Encode.forHtmlContent(bFirstDisp?appt.getNotes():request.getParameter("notes"))%></textarea>
+				<textarea name="notes" class="form-control" maxlength="255" rows="2" style="resize:none;"><%=Encode.forHtmlContent(StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")))%></textarea>
                     </td>
                 </tr>
                 <tr>
@@ -1244,8 +1315,8 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLastTime"/>:</label>
                     </td>
                     <td>
-                <div class="panel panel-default">
-                    <div class="panel-body">
+                <div class="card">
+                    <div class="card-body">
                         <input type="hidden" name="lastcreatedatetime"
                                value="<%=Encode.forHtmlContent(bFirstDisp?lastDateTime:request.getParameter("lastcreatedatetime"))%>"
                         > <%=Encode.forHtmlContent(dateString2)%>
@@ -1320,13 +1391,13 @@
                     <input type="submit" class="btn btn-danger" id="deleteButton"
                            onclick="document.forms['EDITAPPT'].displaymode.value='Delete Appt'; onButDelete();"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnDeleteAppointment"/>">
-                    <input type="button" name="buttoncancel" id="cancelButton" class="btn btn-inverse"
+                    <input type="button" id="cancelButton" class="btn btn-dark"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnCancelAppointment"/>"
                            onClick="onButCancel();">
                     <input type="button"
-                           name="buttoncancel" id="noShowButton" class="btn"
+                           name="noShowButton" id="noShowButton" class="btn"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.btnNoShow"/>"
-                           onClick="window.location='appointmentcontrol.jsp?buttoncancel=No Show&displaymode=Update Appt&appointment_no=<%=appointment_no%>'">
+                           onClick="document.EDITAPPT.displaymode.value='Update Appt';document.EDITAPPT.buttoncancel.value='No Show';document.EDITAPPT.submit();">
                     <br>
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=appointment_no%>&amp;demo='+document.EDITAPPT.demographic_no.value,'anwin','width=400,height=500');">
@@ -1368,10 +1439,6 @@
                     <br>
                     <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>:</label> <%=Encode.forHtmlContent(StringUtils.trimToEmpty(rosterstatus))%>
                 </td>
-                <% if (alert != null && !alert.equals("")) { %>
-                <td class="alert alert-error"><%=Encode.forHtmlContent(alert)%>
-                </td>
-                <% } %>
             </tr>
         </table>
 

@@ -50,25 +50,25 @@
 
             function removeCode() {
                 toggleButtons(true);
-                jQuery.getJSON("clinicNbrManage.json",
+                jQuery.post("clinicNbrManage.json",
                     {
                         method: "remove",
                         nbr: jQuery("#xml_p_nbr").val()
                     },
-                    handleJSON);
+                    handleJSON, "json");
                 return false;
 
             }
 
             function addCode() {
                 toggleButtons(true);
-                jQuery.getJSON("clinicNbrManage.json",
+                jQuery.post("clinicNbrManage.json",
                     {
                         method: "add",
                         nbr: jQuery("#nbr_value").val(),
                         nbrDesc: jQuery("#nbr_string").val()
                     },
-                    handleJSON);
+                    handleJSON, "json");
                 return false;
             }
 

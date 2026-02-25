@@ -102,7 +102,6 @@
 %>
 
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     </head>
@@ -397,7 +396,7 @@
 
         %>
 
-        <form name="add2WLFrm" action="<%= request.getContextPath() %>/oscarWaitingList/Add2WaitingList.jsp">
+        <form name="add2WLFrm" action="<%= request.getContextPath() %>/oscarWaitingList/Add2WaitingList.jsp" method="post">
             <input type="hidden" name="listId" value="<%=request.getParameter("list_id")%>"/>
             <input type="hidden" name="demographicNo" value="<%=request.getParameter("demographic_no")%>"/>
             <input type="hidden" name="demographic_no" value="<%=request.getParameter("demographic_no")%>"/>

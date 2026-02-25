@@ -35,6 +35,7 @@
 <%-- Updated by Eugene Petruhin on 09 jan 2009 while fixing #2482832 & #2494061 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ include file="/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
@@ -231,7 +232,7 @@
         String pId = (String) session.getAttribute("case_program_id");
         if (pId == null) pId = "";
     %>
-    <form action="<%=request.getContextPath() %>/CaseManagementEntry.do">
+    <form action="<%=request.getContextPath() %>/CaseManagementEntry.do" method="post">
         <input type="hidden" name="chain" id="chain"/>
         <input type="hidden" name="demographicNo" id="demographicNo"/>
         <c:if test="${param.providerNo==null}">
@@ -378,7 +379,7 @@
         } else {
         %>
         <input id="showResolved" type="button" value="Show Resolved Issues"
-               onclick="document.location='CaseManagementEntry.do?method=edit&note_edit=new&from=casemgmt&demographicNo=<%=request.getParameter("demographicNo")%>&providerNo=<%=request.getParameter("providerNo")%>&showResolved=true'"/>
+               onclick="document.location='CaseManagementEntry.do?method=edit&note_edit=new&from=casemgmt&demographicNo=<%=Encode.forUriComponent(request.getParameter("demographicNo"))%>&providerNo=<%=Encode.forUriComponent(request.getParameter("providerNo"))%>&showResolved=true'"/>
         <%
             }
         %>

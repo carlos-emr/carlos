@@ -728,7 +728,22 @@
 
             function addToPatientSet(demoNo, patientSet) {
                 if (patientSet == "-") return;
-                window.open("addDemoToPatientSet.jsp?demoNo=" + demoNo + "&patientSet=" + patientSet, "addpsetwin", "width=50,height=50");
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = 'addDemoToPatientSet.jsp';
+                form.target = 'addpsetwin';
+                var fields = {demoNo: demoNo, patientSet: patientSet};
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                window.open('', 'addpsetwin', 'width=50,height=50');
+                form.submit();
+                document.body.removeChild(form);
             }
 
             </security:oscarSec>

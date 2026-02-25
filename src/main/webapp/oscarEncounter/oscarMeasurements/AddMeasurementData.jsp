@@ -49,8 +49,6 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
-
 <%
     if (session.getValue("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
     String demographic_no = request.getParameter("demographic_no");
@@ -414,9 +412,7 @@
                 %>
                 <!-- END of Master Calendar Input -->
 
-                <form action="${pageContext.request.contextPath}/<%=saveAction%>" id="measurementForm">
-                    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
-
+                <form action="${pageContext.request.contextPath}/<%=saveAction%>" id="measurementForm" method="post">
                     <input type="hidden" name="numType" value="<%=measurements.length%>"/>
                     <input type="hidden" name="groupName" value=""/>
                     <input type="hidden" name="css" value=""/>
@@ -555,7 +551,6 @@
     <script type="text/javascript">
         <% if ( id != null ) { %>
         Form.disable('measurementForm');
-        document.getElementsByName('<csrf:tokenname/>')[0].disabled = false;
         document.getElementById('deleteButton').disabled = false;
         document.getElementById('deleteCheck').disabled = false;
 

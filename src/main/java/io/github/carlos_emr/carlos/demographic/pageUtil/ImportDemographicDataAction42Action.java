@@ -663,7 +663,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         String docDir = oscarProperties.getProperty("DOCUMENT_DIR");
         docDir = Util.fixDirName(docDir);
         if (!Util.checkDir(docDir)) {
-            logger.debug("Error! Cannot write to DOCUMENT_DIR - Check oscar.properties or dir permissions.");
+            logger.debug("Error! Cannot write to DOCUMENT_DIR - Check carlos.properties or dir permissions.");
         }
 
         File xmlF = new File(xmlFile);
@@ -869,7 +869,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         String docDir = oscarProperties.getProperty("DOCUMENT_DIR");
         docDir = Util.fixDirName(docDir);
         if (!Util.checkDir(docDir)) {
-            logger.debug("Error! Cannot write to DOCUMENT_DIR - Check oscar.properties or dir permissions.");
+            logger.debug("Error! Cannot write to DOCUMENT_DIR - Check carlos.properties or dir permissions.");
         }
 
         File xmlF = new File(xmlFile);

@@ -32,12 +32,13 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.Calendar;
 import java.util.Date;
 
 import org.apache.logging.log4j.Logger;
-import org.joda.time.Days;
-import org.joda.time.LocalDate;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -89,7 +90,9 @@ public class AuditLogManager {
 
         logger.info("Purge will be for all data BEFORE and INCLUDING " + endDateToPurge);
 
-        int numDays = Days.daysBetween(new LocalDate(endDateToPurge.getTime()), new LocalDate(new Date().getTime())).getDays();
+        int numDays = (int) ChronoUnit.DAYS.between(
+                endDateToPurge.toInstant().atZone(ZoneId.systemDefault()).toLocalDate(),
+                LocalDate.now());
         if (numDays < iMinDays) {
             logger.warn("purge aborted because specified date is within " + numDays);
             throw new Exception("purge aborted because specified date is within " + numDays);

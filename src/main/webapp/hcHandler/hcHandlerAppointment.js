@@ -127,7 +127,19 @@ var _hc_apptScreenHandler = function (args) {
 
                         (function (appointmentNo) {
                             jQuery(win).find("#_hc_action_present").click(function () {
-                                document.location.href = "providercontrol.jsp?appointment_no=" + appointmentNo + "&year=" + getURLParameter("year") + "&month=" + getURLParameter("month") + "&day=" + getURLParameter("day") + "&status=&statusch=H&displaymode=addstatus&dboperation=updateapptstatus";
+                                var form = document.createElement('form');
+                                form.method = 'post';
+                                form.action = 'providercontrol.jsp';
+                                var fields = {appointment_no: appointmentNo, year: getURLParameter("year"), month: getURLParameter("month"), day: getURLParameter("day"), status: '', statusch: 'H', displaymode: 'addstatus', dboperation: 'updateapptstatus'};
+                                for (var key in fields) {
+                                    var input = document.createElement('input');
+                                    input.type = 'hidden';
+                                    input.name = key;
+                                    input.value = fields[key];
+                                    form.appendChild(input);
+                                }
+                                document.body.appendChild(form);
+                                form.submit();
                                 jQuery(win).hide();
                             });
                         })(jQuery(".apptLink[demographic_no=" + data.demoNo + "]").first().attr("appointment_no"));

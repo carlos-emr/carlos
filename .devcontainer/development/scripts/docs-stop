@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# OpenO EMR - Stop Docusaurus Documentation Server
+# CARLOS EMR - Stop Docusaurus Documentation Server
 # This script stops the Docusaurus development server
 
 set -e
@@ -8,7 +8,7 @@ set -e
 PID_FILE="/tmp/docusaurus.pid"
 LOG_FILE="/tmp/docusaurus.log"
 
-echo "🛑 Stopping OpenO EMR Documentation Server..."
+echo "🛑 Stopping CARLOS EMR Documentation Server..."
 
 # Check if PID file exists
 if [ ! -f "$PID_FILE" ]; then
@@ -39,7 +39,7 @@ if kill $DOCS_PID 2>/dev/null; then
         sleep 1
         echo "   Waiting for graceful shutdown... ($i/10)"
     done
-    
+
     # Force kill if still running
     echo "⚠️  Forcing shutdown..."
     if kill -9 $DOCS_PID 2>/dev/null; then

@@ -490,7 +490,7 @@ function getTickler(contextPath) {
 }
 
 function createTickler(contextPath) {
-    return $.get(contextPath + "/formeCARES.do?method=createTickler")
+    return $.post(contextPath + "/formeCARES.do", { method: "createTickler" })
 }
 
 function saveTickler($form) {
