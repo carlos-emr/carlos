@@ -74,6 +74,7 @@
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.Issue" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPharmacyData" %>
 <%
@@ -255,6 +256,12 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.saveWarning"               var="msg_saveWarning"/>
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
         <fmt:message key="oscarRx.Preview.EditRx"                  var="msg_editRx"/>
+
+        <%-- RxSessionInterceptor: Enables multi-patient tab support by adding demographicNo to AJAX calls --%>
+        <script type="text/javascript">
+            var currentDemographicNo = '<%= Encode.forJavaScript(Integer.toString(rxSessionBean.getDemographicNo())) %>';
+        </script>
+        <script type="text/javascript" src="${ctx}/oscarRx/js/rxSessionInterceptor.js"></script>
 
         <script type="text/javascript">
             let selectedReRxIDs = [];
@@ -842,7 +849,7 @@ function renderRxStage() {
                             <td>
 							<%if(securityManager.hasWriteAccess("_rx",roleName2$,true)) {%>
                                 <form action="${pageContext.request.contextPath}/rx/searchDrug"  onsubmit="return checkEnterSendRx();" style="display: inline; margin-bottom:0;" id="drugForm" name="drugForm" method="post">
-                                    <input type="hidden" property="demographicNo" value="<%=Integer.toString(patient.getDemographicNo())%>" />
+                                    <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(Integer.toString(demoNo))%>" />
                                     <table>
                                         <tr id="prescriptionStageRow">
                                             <td colspan="2">
@@ -855,7 +862,7 @@ function renderRxStage() {
                                                         <%-- Prescriptions are staged here via the prescribe.jsp widget --%>
 
                                                     <input type="hidden" id="deleteOnCloseRxBox" value="false"/>
-                                                    <input type="hidden" property="demographicNo" value="<%=patient.getDemographicNo()%>"/>
+                                                    <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(Integer.toString(demoNo))%>"/>
 
                                                 </div>
                                                 <input type="hidden" id="rxPharmacyId" name="rxPharmacyId" value="" />
@@ -1706,7 +1713,7 @@ function renderRxStage() {
 
     function Discontinue2(id,reason,comment,drugSpecial){
         var url=ctx + "/rx/deleteRx?parameterValue=Discontinue"  ;
-        var demoNo='<%=patient.getDemographicNo()%>';
+        var demoNo='<%=demoNo%>';
         var data="drugId="+encodeURIComponent(id)+"&reason="+encodeURIComponent(reason)+"&comment="+encodeURIComponent(comment)+"&demoNo="+demoNo+"&drugSpecial="+encodeURIComponent(drugSpecial)+"&rand="+ Math.floor(Math.random()*10001);
             CarlosAjax.request(url,{method: 'post',postBody:data,onSuccess:function(transport){
                   var json = null;
@@ -1724,7 +1731,7 @@ function renderRxStage() {
 
 //represcribe long term meds
     function RePrescribeLongTerm(){
-       var demoNo='<%=patient.getDemographicNo()%>';
+       var demoNo='<%=demoNo%>';
         var data="demoNo="+demoNo+"&showall=<%=showall%>&rand=" +  Math.floor(Math.random()*10001);
         var url= ctx + "/rx/rePrescribe2";
         data += "&method=repcbAllLongTerm";
@@ -1785,15 +1792,30 @@ function saveCustomName(element){
 function updateDeleteOnCloseRxBox(){
     document.getElementById('deleteOnCloseRxBox').value='true';
 }
+
+// Flag to track if stash should be cleared when lightwindow closes (set by Save & Print)
+var clearStashOnLightwindowClose = false;
+
+function handleLightwindowClose() {
+    updateDeleteOnCloseRxBox();
+    if (clearStashOnLightwindowClose) {
+        clearStashOnLightwindowClose = false;
+        resetStash();
+    }
+}
+
 function popForm2(scriptId){
         try{
-            var url = ctx + "/rx/viewScript?scriptId="+scriptId;
+            var demoNo = (typeof currentDemographicNo !== 'undefined') ? currentDemographicNo : '';
+            var url = ctx + "/rx/viewScript?scriptId="+scriptId+"&demographicNo="+encodeURIComponent(demoNo);
             var calcs = jQuery("#Calcs").val();
             if( calcs != null && calcs != "" ) {
                 try {
                     var pharmacy = JSON.parse(calcs);
                     if( pharmacy != null && pharmacy.id != null ) {
-                        url= ctx + "/rx/viewScript?scriptId="+scriptId+"&pharmacyId="+encodeURIComponent(pharmacy.id);
+                        url= ctx + "/rx/viewScript?scriptId="+scriptId+
+                            "&pharmacyId="+encodeURIComponent(pharmacy.id)+
+                            "&demographicNo="+encodeURIComponent(demoNo);
                     }
                 } catch (e) {
                     oscarLog(e);
@@ -1810,7 +1832,7 @@ function popForm2(scriptId){
             var editRxMsg = '${carlos:forJavaScript(msg_editRx)}';
             var closeBtn = document.getElementById('carlosModalCloseBtn');
             closeBtn.textContent = editRxMsg;
-            closeBtn.onclick = updateDeleteOnCloseRxBox;
+            closeBtn.onclick = handleLightwindowClose;
             var modalEl = document.getElementById('carlosModal');
             var existingModal = bootstrap.Modal.getInstance(modalEl);
             if (existingModal) existingModal.dispose();
@@ -2668,6 +2690,8 @@ function updateQty(element){
                 callReplacementWebService("/rx/ViewListDrugs",'drugProfile');
                 const hasDrugs = jQuery("[id^='drugName_']").length > 0;
                 if (hasDrugs) {
+                    // Set flag to clear stash when lightwindow closes
+                    clearStashOnLightwindowClose = true;
                     popForm2(null);
                 } else {
                     alert(jsMsg.pleaseAddDrugFirst);

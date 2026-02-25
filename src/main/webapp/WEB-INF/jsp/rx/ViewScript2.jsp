@@ -278,10 +278,16 @@
 
         <%-- Pre-declare i18n messages used in JavaScript so they can be safely embedded
              in JavaScript string literals using OWASP forJavaScript() encoding --%>
-                <fmt:message key="ViewScript.js.msieNotPermitted"  var="msg_msieNotPermitted"/>
+        <fmt:message key="ViewScript.js.msieNotPermitted"  var="msg_msieNotPermitted"/>
         <fmt:message key="ViewScript.js.signatureSent"     var="msg_signatureSent"/>
         <fmt:message key="ViewScript.js.signatureDirty"    var="msg_signatureDirty"/>
         <fmt:message key="ViewScript.msgRemovePharmacyInfo" var="msg_removePharmacyInfo"/>
+
+        <%-- RxSessionInterceptor: Enables multi-patient tab support by adding demographicNo to AJAX calls --%>
+        <script type="text/javascript">
+            var currentDemographicNo = '<%= Encode.forJavaScript(Integer.toString(bean.getDemographicNo())) %>';
+        </script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/oscarRx/js/rxSessionInterceptor.js"></script>
 
         <script type="text/javascript">
             /*
@@ -301,8 +307,10 @@
             }
 
             function resetStash() {
-                var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearStash";
-                fetch(url, {
+                var url = "${carlos:forJavaScript(ctx)}" +
+                    "/rx/deleteRx?parameterValue=clearStash&demographicNo=" +
+                    encodeURIComponent(currentDemographicNo);
+                return fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
@@ -314,8 +322,10 @@
             }
 
             function resetReRxDrugList() {
-                var url = "${carlos:forJavaScript(ctx)}" + "/rx/deleteRx?parameterValue=clearReRxDrugList";
-                fetch(url, {
+                var url = "${carlos:forJavaScript(ctx)}" +
+                    "/rx/deleteRx?parameterValue=clearReRxDrugList&demographicNo=" +
+                    encodeURIComponent(currentDemographicNo);
+                return fetch(url, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                     credentials: 'same-origin',
@@ -323,6 +333,31 @@
                 });
             }
 
+            function resetStashAndClose() {
+                function closeViewScript() {
+                    clearPending('close');
+                    try {
+                        var modalElement = parent.document.getElementById('carlosModal');
+                        if (modalElement && parent.bootstrap) {
+                            var modal = parent.bootstrap.Modal.getInstance(modalElement);
+                            if (modal) {
+                                modal.hide();
+                                return;
+                            }
+                        }
+                    } catch (error) {
+                        console.warn('Unable to close the parent Rx modal', error);
+                    }
+                    parent.window.close();
+                }
+
+                Promise.all([resetStash(), resetReRxDrugList()])
+                    .then(closeViewScript)
+                    .catch(function(error) {
+                        console.error('Unable to reset Rx session state', error);
+                        closeViewScript();
+                    });
+            }
 
             function onPrint2(method, scriptId) {
                 var useSC = false;
@@ -726,13 +761,14 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
                                         <iframe id='preview' name='preview' width=420px height=890px
-							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>"
+								src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%=bean.getStashItem(0).getScript_no()%>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/>&demographicNo=<%=Encode.forUriComponent(Integer.toString(bean.getDemographicNo()))%>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>
                                 </td>
 
                                 <td valign=top><form name="RxClearPendingForm" action="${pageContext.request.contextPath}/rx/clearPending" method="post">
                                     <input type="hidden" name="action" id="action" value=""/>
+                                    <input type="hidden" name="demographicNo" value="<%=Encode.forHtmlAttribute(Integer.toString(bean.getDemographicNo()))%>"/>
                                     <div class="warning-note" id="faxWarningNote">
                                         <strong><fmt:message key="ViewScript.msgWarning"/></strong> <fmt:message key="ViewScript.msgFaxWarning"/><br/><br/><fmt:message key="ViewScript.msgFaxWarningHelp"/>
                                     </div>
@@ -914,7 +950,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                             <td><span><input type=button
                                                              value="<fmt:message key="ViewScript.msgBackToOscar"/>"
                                                              class="btn btn-outline-secondary" style="width: 210px"
-                                                             onClick="javascript:clearPending('close');parent.window.close();"/></span>
+                                                             onClick="resetStashAndClose();"/></span>
                                             </td>
                                         </tr>
                                         <%
