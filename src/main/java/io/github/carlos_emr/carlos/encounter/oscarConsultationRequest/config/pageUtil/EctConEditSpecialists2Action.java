@@ -39,6 +39,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -76,9 +78,11 @@ public class EctConEditSpecialists2Action extends ActionSupport {
                         if (specialist != null) {
                             specialist.setDeleted(true);
                             professionalSpecialistDao.merge(specialist);
+                            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request),
+                                    LogConst.DELETE, "specialist", String.valueOf(specialist.getId()), null, null);
                         }
                     } catch (NumberFormatException e) {
-                        MiscUtils.getLogger().warn("Invalid specialist ID: " + specialists[i], e);
+                        MiscUtils.getLogger().warn("Invalid specialist ID: {}", specialists[i], e);
                     }
                 }
             }
@@ -88,7 +92,17 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         }
 
         // not delete request, just update one entry
-        ProfessionalSpecialist professionalSpecialist = professionalSpecialistDao.find(Integer.parseInt(specId));
+        ProfessionalSpecialist professionalSpecialist;
+        try {
+            professionalSpecialist = professionalSpecialistDao.find(Integer.parseInt(specId));
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid specialist ID for update: {}", specId, e);
+            return ERROR;
+        }
+        if (professionalSpecialist == null) {
+            MiscUtils.getLogger().warn("Specialist not found for ID: {}", specId);
+            return ERROR;
+        }
 
         int updater = 0;
         request.setAttribute("fName", professionalSpecialist.getFirstName());

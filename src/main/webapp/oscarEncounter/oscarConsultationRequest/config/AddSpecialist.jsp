@@ -73,6 +73,7 @@
     pageContext.setAttribute("eforms", eforms);
 
     String referralNoMsg = OscarProperties.getInstance().getProperty("referral_no.msg", "Must be an integer");
+    pageContext.setAttribute("referralNoMsg", referralNoMsg);
 
     ConsultationServiceDao specialtyDao = SpringUtils.getBean(ConsultationServiceDao.class);
     List<ConsultationServices> specialties = specialtyDao.findActive();
@@ -130,14 +131,6 @@
                 $('#institution').change(function () {
                     changeInstitution();
                 });
-                // Pre-load departments when editing an existing specialist
-                var selectedInst = $('#institution').val();
-                if (selectedInst && selectedInst !== '0') {
-                    updateDepartments(selectedInst);
-                    <% if (request.getAttribute("department") != null) { %>
-                    $('#department').val('<%= request.getAttribute("department") %>');
-                    <% } %>
-                }
             });
 
             function changeInstitution() {
@@ -235,7 +228,7 @@
                     </script>
                     <% } %>
 
-                    <input type="hidden" name="specId" id="specId" value="<%=specId%>"/>
+                    <input type="hidden" name="specId" id="specId" value="<%= specId != null ? specId : "" %>"/>
 
                     <div class="row mb-2">
                         <div class="col-md-4">

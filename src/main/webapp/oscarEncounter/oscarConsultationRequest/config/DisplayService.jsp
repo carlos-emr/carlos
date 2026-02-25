@@ -58,6 +58,7 @@
         displayServiceUtil.estSpecialistVector();
         String serviceId = (String) request.getAttribute("serviceId");
         String serviceDesc = displayServiceUtil.getServiceDesc(serviceId);
+        pageContext.setAttribute("serviceDesc", serviceDesc);
     %>
     <head>
         <%@ include file="/includes/global-head.jspf" %>

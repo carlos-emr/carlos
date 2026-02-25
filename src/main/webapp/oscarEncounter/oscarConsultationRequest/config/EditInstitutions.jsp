@@ -98,7 +98,7 @@
 
                 <form action="${pageContext.request.contextPath}/oscarEncounter/EditInstitutions.do" method="post">
                     <input type="submit" class="btn btn-danger mb-3" name="delete"
-                           value="<fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"/>"
+                           value="<fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditInstitutions.btnDeleteInstitution"/>"
                            onclick="return confirm('Are you sure you want to delete the selected institutions?');"/>
                     <table class="table table-sm table-hover table-bordered">
                         <thead>
@@ -116,7 +116,7 @@
                                     String url = contextPath + "/oscarEncounter/EditInstitutions.do?id=" + i.getId();
                             %>
                             <tr>
-                                <td><input type="checkbox" name="specialists" value="<%=i.getId()%>"></td>
+                                <td><input type="checkbox" name="institutions" value="<%=i.getId()%>"></td>
                                 <td><a href="<%= url %>"><%= Encode.forHtml(i.getName()) %></a></td>
                                 <td><%= Encode.forHtml(i.getPhone()) %></td>
                                 <td><%= Encode.forHtml(i.getFax()) %></td>

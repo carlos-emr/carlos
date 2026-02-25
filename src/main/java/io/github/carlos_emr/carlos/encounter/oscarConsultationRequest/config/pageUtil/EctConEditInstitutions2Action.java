@@ -62,14 +62,14 @@ public class EctConEditInstitutions2Action extends ActionSupport {
 
         String id = this.getId();
         String delete = this.getDelete();
-        String specialists[] = this.getSpecialists();
+        String institutions[] = this.getInstitutions();
 
         ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
-        if (delete.equals(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"))) {
-            if (specialists.length > 0) {
-                for (int i = 0; i < specialists.length; i++) {
-                    institutionDao.remove(Integer.parseInt(specialists[i]));
+        if (delete.equals(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.EditInstitutions.btnDeleteInstitution"))) {
+            if (institutions.length > 0) {
+                for (int i = 0; i < institutions.length; i++) {
+                    institutionDao.remove(Integer.parseInt(institutions[i]));
                 }
             }
             EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
@@ -125,19 +125,19 @@ public class EctConEditInstitutions2Action extends ActionSupport {
         delete = str;
     }
 
-    public String[] getSpecialists() {
-        MiscUtils.getLogger().debug("getter specialists");
-        if (specialists == null)
-            specialists = new String[0];
-        return specialists;
+    public String[] getInstitutions() {
+        MiscUtils.getLogger().debug("getter institutions");
+        if (institutions == null)
+            institutions = new String[0];
+        return institutions;
     }
 
-    public void setSpecialists(String str[]) {
-        MiscUtils.getLogger().debug("setter specialists");
-        specialists = str;
+    public void setInstitutions(String str[]) {
+        MiscUtils.getLogger().debug("setter institutions");
+        institutions = str;
     }
 
     String id;
     String delete;
-    String specialists[];
+    String institutions[];
 }

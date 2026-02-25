@@ -110,7 +110,7 @@
                 <% } %>
 
                 <form action="${pageContext.request.contextPath}/oscarEncounter/AddDepartment.do" method="post">
-                    <input type="hidden" name="id" id="id" value="<%=id%>"/>
+                    <input type="hidden" name="id" id="id" value="<%= id != null ? id : "" %>"/>
                     <div class="row mb-3">
                         <div class="col-md-5">
                             <label for="name" class="form-label">Name</label>

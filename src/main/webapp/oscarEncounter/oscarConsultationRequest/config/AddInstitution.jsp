@@ -111,7 +111,7 @@
                 <% } %>
 
                 <form action="${pageContext.request.contextPath}/oscarEncounter/AddInstitution.do" method="post">
-                    <input type="hidden" name="id" id="id" value="<%=id%>"/>
+                    <input type="hidden" name="id" id="id" value="<%= id != null ? id : "" %>"/>
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label for="inst-name" class="form-label">Name</label>

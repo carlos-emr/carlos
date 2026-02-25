@@ -36,6 +36,8 @@ import java.util.ResourceBundle;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.owasp.encoder.Encode;
+
 public class EctConTitlebar {
 
     public EctConTitlebar() {
@@ -91,12 +93,12 @@ public class EctConTitlebar {
             String activeClass = isActive ? " active" : "";
             strBuf.append("  <a href=\"").append(contextPath).append("/").append(jspPath)
                   .append("\" class=\"nav-link").append(activeClass).append("\">")
-                  .append(displayNameVect.get(i)).append("</a>\n");
+                  .append(Encode.forHtml(displayNameVect.get(i))).append("</a>\n");
         }
         strBuf.append("</nav>\n");
         return strBuf.toString();
     }
 
-    List<String> jspVect;
-    List<String> displayNameVect;
+    private List<String> jspVect;
+    private List<String> displayNameVect;
 }

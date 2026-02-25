@@ -100,7 +100,7 @@
                     if (added != null) {
                 %>
                 <div class="alert alert-success">
-                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddDepartment.msgDepartmentAdded">
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.msgServiceAdded">
                         <fmt:param value="<%=added%>" />
                     </fmt:message>
                 </div>
