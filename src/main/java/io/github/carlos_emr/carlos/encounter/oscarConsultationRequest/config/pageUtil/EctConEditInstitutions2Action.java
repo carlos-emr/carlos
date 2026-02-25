@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
 
 public class EctConEditInstitutions2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -77,7 +78,7 @@ public class EctConEditInstitutions2Action extends ActionSupport {
                         LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request),
                                 LogConst.DELETE, "institution", String.valueOf(instId), null, null);
                     } catch (NumberFormatException e) {
-                        MiscUtils.getLogger().warn("Invalid institution ID: {}", institutions[i], e);
+                        MiscUtils.getLogger().warn("Invalid institution ID: {}", Encode.forJava(institutions[i]), e);
                     }
                 }
             }
@@ -91,11 +92,11 @@ public class EctConEditInstitutions2Action extends ActionSupport {
         try {
             institution = institutionDao.find(Integer.parseInt(id));
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn("Invalid institution ID for update: {}", id, e);
+            MiscUtils.getLogger().warn("Invalid institution ID for update: {}", Encode.forJava(id), e);
             return ERROR;
         }
         if (institution == null) {
-            MiscUtils.getLogger().warn("Institution not found for ID: {}", id);
+            MiscUtils.getLogger().warn("Institution not found for ID: {}", Encode.forJava(id));
             return ERROR;
         }
 

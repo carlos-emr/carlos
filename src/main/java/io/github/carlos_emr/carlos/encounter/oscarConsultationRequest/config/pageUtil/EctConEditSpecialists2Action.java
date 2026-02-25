@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.owasp.encoder.Encode;
 
 public class EctConEditSpecialists2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -82,7 +83,7 @@ public class EctConEditSpecialists2Action extends ActionSupport {
                                     LogConst.DELETE, "specialist", String.valueOf(specialist.getId()), null, null);
                         }
                     } catch (NumberFormatException e) {
-                        MiscUtils.getLogger().warn("Invalid specialist ID: {}", specialists[i], e);
+                        MiscUtils.getLogger().warn("Invalid specialist ID: {}", Encode.forJava(specialists[i]), e);
                     }
                 }
             }
@@ -96,11 +97,11 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         try {
             professionalSpecialist = professionalSpecialistDao.find(Integer.parseInt(specId));
         } catch (NumberFormatException e) {
-            MiscUtils.getLogger().warn("Invalid specialist ID for update: {}", specId, e);
+            MiscUtils.getLogger().warn("Invalid specialist ID for update: {}", Encode.forJava(specId), e);
             return ERROR;
         }
         if (professionalSpecialist == null) {
-            MiscUtils.getLogger().warn("Specialist not found for ID: {}", specId);
+            MiscUtils.getLogger().warn("Specialist not found for ID: {}", Encode.forJava(specId));
             return ERROR;
         }
 

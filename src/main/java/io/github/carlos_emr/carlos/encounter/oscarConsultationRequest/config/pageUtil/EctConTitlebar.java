@@ -38,13 +38,31 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.owasp.encoder.Encode;
 
+/**
+ * Renders the Bootstrap 5 navigation sidebar for the Consultation Request
+ * configuration pages. Highlights the currently active page link based on the
+ * incoming request URI.
+ *
+ * @since 2026-02-11
+ */
 public class EctConTitlebar {
 
+    /**
+     * Constructs an EctConTitlebar using the JVM default locale for resource
+     * bundle resolution. Suitable for contexts where no HTTP request is available.
+     */
     public EctConTitlebar() {
         ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources");
         init(oscarR);
     }
 
+    /**
+     * Constructs an EctConTitlebar using the locale derived from the given
+     * HTTP servlet request, ensuring navigation labels are rendered in the
+     * user's preferred language.
+     *
+     * @param request the current HTTP servlet request; must not be {@code null}
+     */
     public EctConTitlebar(HttpServletRequest request) {
         ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
         init(oscarR);
@@ -76,10 +94,22 @@ public class EctConTitlebar {
     }
 
 
+    /**
+     * Builds and returns the HTML {@code <nav>} element string for the
+     * consultation configuration sidebar. The link matching the current
+     * request URI is marked as active with the Bootstrap {@code active} class
+     * and {@code aria-current="page"} for screen-reader accessibility.
+     *
+     * @param request the current HTTP servlet request used to derive the
+     *                context path and determine the active page; must not be
+     *                {@code null}
+     * @return an HTML string containing the Bootstrap {@code <nav>} element
+     *         with navigation links for all configuration pages
+     */
     public String estBar(HttpServletRequest request) {
         StringBuilder strBuf = new StringBuilder();
         strBuf.append("<nav class=\"nav nav-pills flex-column\">\n");
-        String contextPath = request.getContextPath();
+        String contextPath = Encode.forHtmlAttribute(request.getContextPath());
         String uri = request.getRequestURI();
         int ind = uri.lastIndexOf("/");
         String filename = uri.substring(ind + 1);
