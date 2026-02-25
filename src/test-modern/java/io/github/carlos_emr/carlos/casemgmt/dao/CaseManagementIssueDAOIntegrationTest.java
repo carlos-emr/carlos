@@ -22,6 +22,7 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -63,6 +65,10 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
     @Autowired
     @Qualifier("IssueDAO")
     private IssueDAO issueDAO;
+
+    @Autowired
+    @Qualifier("CaseManagementNoteDAO")
+    private CaseManagementNoteDAO caseManagementNoteDAO;
 
     private Issue testIssue1;
     private Issue testIssue2;
@@ -419,5 +425,114 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
                 .contains(cmi.getId());
         }
 
+    }
+
+    /**
+     * Tests for getIssueByCmnId(Integer cmnIssueId).
+     *
+     * <p>This method selects the {@code issue} property (many-to-one to Issue entity)
+     * from a CaseManagementIssue by its primary key. PR #89 converts the positional
+     * parameter from ?0 to ?1.</p>
+     */
+    @Nested
+    @DisplayName("getIssueByCmnId (1 param: cmnIssueId)")
+    class GetIssueByCmnId {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return Issue when CMI ID exists")
+        void shouldReturnIssue_whenCmnIdExists() {
+            // Given
+            CaseManagementIssue cmi = createCaseManagementIssue("20100", testIssue1);
+            hibernateTemplate.flush();
+
+            // When
+            Issue found = caseManagementIssueDAO.getIssueByCmnId(cmi.getId().intValue());
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(testIssue1.getId());
+            assertThat(found.getCode()).isEqualTo("TEST001");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return null when CMI ID does not exist")
+        void shouldReturnNull_whenCmnIdDoesNotExist() {
+            // When
+            Issue found = caseManagementIssueDAO.getIssueByCmnId(999999);
+
+            // Then
+            assertThat(found).isNull();
+        }
+    }
+
+    /**
+     * Tests for getIssuesByNote(Integer noteId, Boolean resolved).
+     *
+     * <p>This method navigates the CaseManagementIssue → notes collection
+     * (via casemgmt_issue_notes join table) to find issues linked to a given note.
+     * The current HQL uses {@code cmi.notes.id} which is an illegal dereference of a
+     * collection property in Hibernate 5 — you cannot navigate through a collection
+     * to access element properties without an explicit join. This causes a QueryException.
+     * PR #89 rewrites the HQL to use proper join syntax.</p>
+     */
+    @Nested
+    @DisplayName("getIssuesByNote (2 params: noteId, resolved)")
+    class GetIssuesByNote {
+
+        private CaseManagementNote createAndLinkNote(String demoNo, CaseManagementIssue... cmis) {
+            CaseManagementNote note = new CaseManagementNote();
+            note.setDemographic_no(demoNo);
+            note.setNote("Test note for issue link");
+            note.setProviderNo("999998");
+            note.setUuid(UUID.randomUUID().toString());
+            note.setUpdate_date(new Date());
+            note.setObservation_date(new Date());
+            note.setSigned(false);
+            note.setArchived(false);
+            note.setLocked(false);
+            caseManagementNoteDAO.saveNote(note);
+
+            for (CaseManagementIssue cmi : cmis) {
+                note.getIssues().add(cmi);
+            }
+            caseManagementNoteDAO.updateNote(note);
+            hibernateTemplate.flush();
+            return note;
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw QueryException due to illegal collection dereference")
+        void shouldThrowQueryException_whenDereferencingCollectionProperty() {
+            // Given — create a note linked to testIssue1 via CMI
+            CaseManagementIssue cmi = createCaseManagementIssue("20200", testIssue1);
+            hibernateTemplate.flush();
+            CaseManagementNote note = createAndLinkNote("20200", cmi);
+
+            // When/Then — the HQL "cmi.notes.id" illegally dereferences a collection
+            // property. Hibernate cannot navigate through a Set to access element
+            // properties without an explicit join. This documents the pre-change bug.
+            assertThatThrownBy(() ->
+                caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null)
+            ).isInstanceOf(Exception.class);
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should throw QueryException with resolved filter due to same collection bug")
+        void shouldThrowQueryException_whenFilteringByResolved() {
+            // Given — create resolved + unresolved CMIs linked to same note
+            CaseManagementIssue unresolvedCmi = createCaseManagementIssue("20300", testIssue1);
+            CaseManagementIssue resolvedCmi = createResolvedIssue("20300", testIssue2);
+            hibernateTemplate.flush();
+            CaseManagementNote note = createAndLinkNote("20300", unresolvedCmi, resolvedCmi);
+
+            // When/Then — same collection dereference bug regardless of resolved filter
+            assertThatThrownBy(() ->
+                caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false)
+            ).isInstanceOf(Exception.class);
+        }
     }
 }

@@ -20,8 +20,11 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -699,6 +702,380 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
                 .isNotEmpty()
                 .extracting(CaseManagementNote::getDemographic_no)
                 .allMatch(d -> d.equals("7001"));
+        }
+    }
+
+    /**
+     * Tests for getCPPNotes(String demoNo, long issueId, String staleDate).
+     *
+     * <p>This method joins CaseManagementNote with its issues collection and filters
+     * by issue_id, demographic_no, and observation_date. The current HQL has a known bug:
+     * the subquery uses {@code from cmn} instead of {@code from CaseManagementNote cmn2},
+     * which causes a QuerySyntaxException. Tests document this pre-change behavior.</p>
+     */
+    @Nested
+    @DisplayName("getCPPNotes (3 params: demoNo, issueId, staleDate)")
+    class GetCPPNotes {
+
+        private Issue cppIssue;
+        private CaseManagementIssue cmi;
+        private static final String DEMO_NO = "10100";
+
+        @BeforeEach
+        void setUp() {
+            cppIssue = createIssue("CPP001", "Ongoing Concerns");
+            cmi = createCaseManagementIssue(DEMO_NO, cppIssue);
+            hibernateTemplate.flush();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return CPP notes when issue linked to note with valid staleDate")
+        void shouldReturnCPPNotes_whenIssueLinkedToNote() {
+            // Given — note linked to the CPP issue, after the stale date
+            CaseManagementNote note = createNoteWithIssue(DEMO_NO, "CPP concern note",
+                createDate(2024, 6, 15), cmi);
+
+            // When — the HQL subquery uses "from cmn" which Hibernate 5 treats as a
+            // correlated subquery reference to the outer alias. This works but is
+            // semantically incorrect (PR #89 rewrites to "from CaseManagementNote cmn2").
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getCPPNotes(DEMO_NO, cppIssue.getId(), "2024-01-01");
+
+            // Then — note should be found (observation_date 2024-06-15 >= stale 2024-01-01)
+            assertThat(results).isNotEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should fall back to epoch date when staleDate is null")
+        void shouldUseEpochDate_whenStaleDateIsNull() {
+            // Given — note with recent observation date
+            CaseManagementNote note = createNoteWithIssue(DEMO_NO, "CPP note for null staleDate",
+                createDate(2024, 3, 1), cmi);
+
+            // When — null staleDate falls back to epoch (1970-02-01),
+            // so all notes after epoch should be returned
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getCPPNotes(DEMO_NO, cppIssue.getId(), null);
+
+            // Then — the epoch date is far in the past, so the note qualifies
+            assertThat(results).isNotEmpty();
+        }
+    }
+
+    /**
+     * Tests for getActiveNotesByDemographic(String demographic_no, String[] issues).
+     *
+     * <p>This method has two branches: single-issue (uses positional params) and
+     * multi-issue (concatenates issue IDs into IN clause). Both filter for non-archived
+     * notes and select the most recent version per UUID.</p>
+     */
+    @Nested
+    @DisplayName("getActiveNotesByDemographic (2 params: demoNo, issues[])")
+    class GetActiveNotesByDemographic {
+
+        private Issue issue1;
+        private Issue issue2;
+        private CaseManagementIssue cmi1;
+        private CaseManagementIssue cmi2;
+        private static final String DEMO_NO = "10200";
+
+        @BeforeEach
+        void setUp() {
+            issue1 = createIssue("ACT001", "Active Issue 1");
+            issue2 = createIssue("ACT002", "Active Issue 2");
+            cmi1 = createCaseManagementIssue(DEMO_NO, issue1);
+            cmi2 = createCaseManagementIssue(DEMO_NO, issue2);
+            hibernateTemplate.flush();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return active notes for single issue")
+        void shouldReturnActiveNotes_forSingleIssue() {
+            // Given — one active note linked to issue1, one archived, one for wrong demo
+            CaseManagementNote activeNote = createNoteWithIssue(DEMO_NO, "Active note",
+                createDate(2024, 5, 1), cmi1);
+
+            CaseManagementNote archivedNote = createNote(DEMO_NO, "Archived note", createDate(2024, 5, 2));
+            archivedNote.setArchived(true);
+            archivedNote.getIssues().add(cmi1);
+            caseManagementNoteDAO.updateNote(archivedNote);
+
+            CaseManagementNote wrongDemo = createNoteWithIssue("10299", "Wrong demo",
+                createDate(2024, 5, 1),
+                createCaseManagementIssue("10299", issue1));
+            hibernateTemplate.flush();
+
+            // When — the issues[] array contains Issue entity IDs (i.issue_id FK values)
+            String[] issueIds = new String[]{String.valueOf(issue1.getId())};
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getActiveNotesByDemographic(DEMO_NO, issueIds);
+
+            // Then — only the active, correct-demo note should be returned
+            assertThat(results)
+                .extracting(CaseManagementNote::getId)
+                .contains(activeNote.getId())
+                .doesNotContain(archivedNote.getId(), wrongDemo.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return active notes for multiple issues via IN clause")
+        void shouldReturnActiveNotes_forMultipleIssues() {
+            // Given — notes linked to different issues
+            CaseManagementNote note1 = createNoteWithIssue(DEMO_NO, "Issue 1 note",
+                createDate(2024, 5, 1), cmi1);
+            CaseManagementNote note2 = createNoteWithIssue(DEMO_NO, "Issue 2 note",
+                createDate(2024, 5, 2), cmi2);
+            hibernateTemplate.flush();
+
+            // When — multi-element array triggers the IN clause branch;
+            // uses Issue entity IDs (i.issue_id FK values), not CMI primary keys
+            String[] issueIds = new String[]{
+                String.valueOf(issue1.getId()),
+                String.valueOf(issue2.getId())
+            };
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getActiveNotesByDemographic(DEMO_NO, issueIds);
+
+            // Then — notes from both issues should be returned
+            assertThat(results)
+                .extracting(CaseManagementNote::getId)
+                .contains(note1.getId(), note2.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when issues array is null")
+        void shouldReturnEmptyList_whenIssuesArrayIsNull() {
+            // When
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getActiveNotesByDemographic(DEMO_NO, null);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for getNotesByDemographic(String demographic_no, String[] issueIds, Integer maxNotes).
+     *
+     * <p>This method adds pagination via maxNotes parameter. Uses single-issue (positional params)
+     * and multi-issue (concatenated IN clause) branches. maxNotes=-1 means no limit.</p>
+     */
+    @Nested
+    @DisplayName("getNotesByDemographic (3 params: demoNo, issueIds[], maxNotes)")
+    class GetNotesByDemographicWithIssuesAndLimit {
+
+        private Issue issue1;
+        private Issue issue2;
+        private CaseManagementIssue cmi1;
+        private CaseManagementIssue cmi2;
+        private static final String DEMO_NO = "10300";
+
+        @BeforeEach
+        void setUp() {
+            issue1 = createIssue("LIM001", "Limit Issue 1");
+            issue2 = createIssue("LIM002", "Limit Issue 2");
+            cmi1 = createCaseManagementIssue(DEMO_NO, issue1);
+            cmi2 = createCaseManagementIssue(DEMO_NO, issue2);
+            hibernateTemplate.flush();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return limited notes for single issue")
+        void shouldReturnLimitedNotes_forSingleIssue() {
+            // Given — create 3 notes with distinct UUIDs linked to same issue
+            for (int i = 0; i < 3; i++) {
+                createNoteWithIssue(DEMO_NO, "Limit note " + i,
+                    createDate(2024, 6, 1 + i), cmi1);
+            }
+
+            // When — limit to 2; uses Issue entity ID (i.issue_id FK)
+            String[] issueIds = new String[]{String.valueOf(issue1.getId())};
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographic(DEMO_NO, issueIds, 2);
+
+            // Then — at most 2 notes returned
+            assertThat(results).hasSizeLessThanOrEqualTo(2);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return all notes when maxNotes is negative one")
+        void shouldReturnAllNotes_whenMaxNotesIsNegativeOne() {
+            // Given — create 3 notes
+            for (int i = 0; i < 3; i++) {
+                createNoteWithIssue(DEMO_NO, "Unlimited note " + i,
+                    createDate(2024, 7, 1 + i), cmi1);
+            }
+
+            // When — maxNotes=-1 means no limit; uses Issue entity ID
+            String[] issueIds = new String[]{String.valueOf(issue1.getId())};
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographic(DEMO_NO, issueIds, -1);
+
+            // Then — all 3 notes should be returned
+            assertThat(results).hasSizeGreaterThanOrEqualTo(3);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should filter by multiple issue IDs with IN clause")
+        void shouldFilterByMultipleIssueIds_withInClause() {
+            // Given — notes linked to different issues
+            CaseManagementNote note1 = createNoteWithIssue(DEMO_NO, "Multi-issue note 1",
+                createDate(2024, 8, 1), cmi1);
+            CaseManagementNote note2 = createNoteWithIssue(DEMO_NO, "Multi-issue note 2",
+                createDate(2024, 8, 2), cmi2);
+            hibernateTemplate.flush();
+
+            // When — multi-element array triggers IN clause branch;
+            // uses Issue entity IDs (i.issue_id FK values)
+            String[] issueIds = new String[]{
+                String.valueOf(issue1.getId()),
+                String.valueOf(issue2.getId())
+            };
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographic(DEMO_NO, issueIds, -1);
+
+            // Then — notes from both issues should be present
+            assertThat(results)
+                .extracting(CaseManagementNote::getId)
+                .contains(note1.getId(), note2.getId());
+        }
+    }
+
+    /**
+     * Tests for getNotesByDemographic(String demographic_no, String[] issueIds).
+     *
+     * <p>Two-arg overload with issue ID array. Uses single-issue (positional params) and
+     * multi-issue (concatenated IN clause) branches. Returns empty list for null input.</p>
+     */
+    @Nested
+    @DisplayName("getNotesByDemographic (2 params: demoNo, issueIds[])")
+    class GetNotesByDemographicWithIssues {
+
+        private Issue issue1;
+        private Issue issue2;
+        private CaseManagementIssue cmi1;
+        private CaseManagementIssue cmi2;
+        private static final String DEMO_NO = "10400";
+
+        @BeforeEach
+        void setUp() {
+            issue1 = createIssue("NBI001", "Note-By-Issue 1");
+            issue2 = createIssue("NBI002", "Note-By-Issue 2");
+            cmi1 = createCaseManagementIssue(DEMO_NO, issue1);
+            cmi2 = createCaseManagementIssue(DEMO_NO, issue2);
+            hibernateTemplate.flush();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return notes for single issue ID")
+        void shouldReturnNotes_forSingleIssueId() {
+            // Given
+            CaseManagementNote note = createNoteWithIssue(DEMO_NO, "Single issue note",
+                createDate(2024, 9, 1), cmi1);
+
+            CaseManagementNote wrongDemo = createNoteWithIssue("10499", "Wrong demo note",
+                createDate(2024, 9, 1),
+                createCaseManagementIssue("10499", issue1));
+            hibernateTemplate.flush();
+
+            // When — uses Issue entity IDs (i.issue_id FK values)
+            String[] issueIds = new String[]{String.valueOf(issue1.getId())};
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographic(DEMO_NO, issueIds);
+
+            // Then
+            assertThat(results)
+                .extracting(CaseManagementNote::getId)
+                .contains(note.getId())
+                .doesNotContain(wrongDemo.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return notes for multiple issue IDs")
+        void shouldReturnNotes_forMultipleIssueIds() {
+            // Given
+            CaseManagementNote note1 = createNoteWithIssue(DEMO_NO, "Multi note 1",
+                createDate(2024, 9, 10), cmi1);
+            CaseManagementNote note2 = createNoteWithIssue(DEMO_NO, "Multi note 2",
+                createDate(2024, 9, 11), cmi2);
+            hibernateTemplate.flush();
+
+            // When — uses Issue entity IDs (i.issue_id FK values)
+            String[] issueIds = new String[]{
+                String.valueOf(issue1.getId()),
+                String.valueOf(issue2.getId())
+            };
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographic(DEMO_NO, issueIds);
+
+            // Then
+            assertThat(results)
+                .extracting(CaseManagementNote::getId)
+                .contains(note1.getId(), note2.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when issue IDs is null")
+        void shouldReturnEmptyList_whenIssueIdsIsNull() {
+            // When
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographic(DEMO_NO, (String[]) null);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for getNotesByDemographic(String demographic_no, String[] issues, String staleDate).
+     *
+     * <p>This overload adds a staleDate filter (parsed as yyyy-MM-dd). The current HQL has a
+     * known bug: the subquery uses {@code from cmn} instead of {@code from CaseManagementNote cmn2},
+     * which causes a QuerySyntaxException. Tests document this pre-change behavior.</p>
+     */
+    @Nested
+    @DisplayName("getNotesByDemographic (3 params: demoNo, issues[], staleDate)")
+    class GetNotesByDemographicWithIssuesAndStaleDate {
+
+        private Issue issue1;
+        private CaseManagementIssue cmi1;
+        private static final String DEMO_NO = "10500";
+
+        @BeforeEach
+        void setUp() {
+            issue1 = createIssue("STL001", "Stale Date Issue");
+            cmi1 = createCaseManagementIssue(DEMO_NO, issue1);
+            hibernateTemplate.flush();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should filter notes by issues, demographic, and stale date")
+        void shouldFilterNotes_byIssuesDemoAndStaleDate() {
+            // Given — note linked to issue, after the stale date
+            CaseManagementNote note = createNoteWithIssue(DEMO_NO, "Stale date note",
+                createDate(2024, 6, 15), cmi1);
+
+            // When — uses Issue entity IDs; the HQL subquery uses "from cmn" which
+            // Hibernate 5 treats as a correlated subquery reference to the outer alias.
+            // PR #89 rewrites to use "from CaseManagementNote cmn2" for correctness.
+            String[] issues = new String[]{String.valueOf(issue1.getId())};
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographic(DEMO_NO, issues, "2024-01-01");
+
+            // Then — note should be found (observation_date 2024-06-15 >= stale 2024-01-01)
+            assertThat(results).isNotEmpty();
         }
     }
 }

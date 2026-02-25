@@ -58,13 +58,20 @@ current behavior via a try/catch pattern — it will detect if the query starts 
 ### Depth gaps in `CaseManagementNoteDAOImpl` and `DemographicDaoImpl` — NOW COVERED
 The following previously untested `?0` methods now have modern integration tests:
 
-**CaseManagementNoteDAOImpl** (6 methods added):
+**CaseManagementNoteDAOImpl** (6 methods added in round 1):
 - `getEditors(CaseManagementNote)` — cross-join with Provider by UUID
 - `getAllEditors(String)` — cross-join with Provider by demographicNo
 - `getHistory(CaseManagementNote)` — note history ordered by update_date
 - `getRawNoteInfoByDemographic(String)` — Object[] projection
 - `getRawNoteInfoMapByDemographic(String)` — Map projection
 - `getMostRecentNotes(Integer)` — most recent note per UUID by demographicNo
+
+**CaseManagementNoteDAOImpl** (12 methods added in round 2 — issue-linked queries):
+- `getCPPNotes(String, long, String)` — issue join + correlated subquery + staleDate (2 tests)
+- `getActiveNotesByDemographic(String, String[])` — single/multi issue IN clause, archived filter (3 tests)
+- `getNotesByDemographic(String, String[], Integer)` — issue-filtered with maxNotes limit (3 tests)
+- `getNotesByDemographic(String, String[])` — issue-filtered without limit (3 tests)
+- `getNotesByDemographic(String, String[], String)` — issue-filtered with staleDate (1 test)
 
 **DemographicDaoImpl** (6 methods added):
 - `getClientsByChartNo(String)` — single-param chart number lookup
@@ -73,6 +80,17 @@ The following previously untested `?0` methods now have modern integration tests
 - `getDemographicWithLastFirstDOBExact(String, String, ...)` — 2+ params with dynamic binding
 - `getDemographicIdsAddedSince(Date)` — date-based ID filter
 - `getActiveDemographicAfter(Date)` — active status + date filter
+
+### Depth gaps in PMmodule `ProviderDaoImpl` — NOW COVERED (round 2)
+**ProviderDaoImpl** (6 methods added):
+- `getCurrentTeamProviders(String)` — SQL-injection-prone team query (2 tests documenting concat behavior)
+- `getProviderByPractitionerNo(String[], String)` — `IN (?0)` with array param (2 tests documenting ClassCastException bug)
+- `getActiveProviders(String, String)` — ProgramProvider subquery + null/null branch (2 tests)
+
+### Depth gaps in `CaseManagementIssueDAOImpl` — NOW COVERED (round 2)
+**CaseManagementIssueDAOImpl** (4 methods added):
+- `getIssueByCmnId(Integer)` — navigates CMI → Issue many-to-one (2 tests)
+- `getIssuesByNote(Integer, Boolean)` — collection dereference bug `cmi.notes.id` (2 tests documenting QueryException)
 
 ## Additional checks needed for your stated end-goal (functional + equivalent performance)
 Your end-goal includes **equivalent DAO behavior** and confidence that positional updates do not alter function.
