@@ -47,6 +47,11 @@
 <%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets,java.util.ArrayList" %>
 
 <%
+    if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(405, "POST method required");
+        return;
+    }
+
     String demoNo = request.getParameter("demoNo");
     String patientSet = request.getParameter("patientSet");
 

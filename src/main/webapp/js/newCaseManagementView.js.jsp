@@ -3864,12 +3864,13 @@ function autoSave(async) {
         if (checked) {
             var forSure = window.confirm("Confirm that student participation consent has been granted.");
             if (forSure) {
-                jQuery.getJSON(ctx + "/DemographicExtService.do?method=saveNewValue&demographicNo=" + demographicNo + "&key=informedConsent&value=yes",
+                jQuery.post(ctx + "/DemographicExtService.do",
+                    {method: "saveNewValue", demographicNo: demographicNo, key: "informedConsent", value: "yes"},
                     function (data, textStatus) {
                         if (data != undefined && parseInt(data.value) > 0) {
                             jQuery("#informedConsentDiv").remove();
                         }
-                    });
+                    }, 'json');
 
             } else {
                 jQuery("#studentParticipationConsentCheck").attr("checked", false);
@@ -3883,12 +3884,13 @@ function autoSave(async) {
         if (checked) {
             var forSure = window.confirm("Are you sure you would like to indicate that Informed Consent has been collected?");
             if (forSure) {
-                jQuery.getJSON(ctx + "/DemographicExtService.do?method=saveNewValue&demographicNo=" + demographicNo + "&key=informedConsent&value=yes",
+                jQuery.post(ctx + "/DemographicExtService.do",
+                    {method: "saveNewValue", demographicNo: demographicNo, key: "informedConsent", value: "yes"},
                     function (data, textStatus) {
                         if (data != undefined && parseInt(data.value) > 0) {
                             jQuery("#informedConsentDiv").remove();
                         }
-                    });
+                    }, 'json');
 
             } else {
                 jQuery("#informedConsentCheck").attr("checked", false);

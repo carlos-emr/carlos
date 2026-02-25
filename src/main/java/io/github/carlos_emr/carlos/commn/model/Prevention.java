@@ -50,8 +50,8 @@ import javax.persistence.TemporalType;
 import javax.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
-import org.joda.time.DateTime;
-import org.joda.time.Days;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.integration.fhir.interfaces.ImmunizationInterface;
 
@@ -507,9 +507,9 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
 
     @Override
     public boolean isHistorical(int days) {
-        DateTime immunizationDate = new DateTime(getImmunizationDate());
-        DateTime submissionDate = new DateTime(System.currentTimeMillis());
-        int daysBetween = Days.daysBetween(immunizationDate, submissionDate).getDays();
+        Instant immunizationDate = getImmunizationDate().toInstant();
+        Instant now = Instant.now();
+        long daysBetween = ChronoUnit.DAYS.between(immunizationDate, now);
         return (daysBetween > days);
     }
 

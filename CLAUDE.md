@@ -39,6 +39,15 @@
 **Stack**: Java 21, Spring 5.3.39, Struts 6.8.0, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
+
+## Fax Provider Feature Context (AI + Dev)
+
+- Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE` or `SRFAX`).
+- Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+- Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
+- SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
+- See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
+
 ## Essential Commands
 
 ```bash
@@ -383,6 +392,22 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Mental Health Assessments**: Standardized clinical assessment forms
 - **Laboratory Requisitions**: Province-specific lab ordering forms
 
+## Drools Decision Support System
+
+**Version**: Drools 7.74.1.Final (KIE API), migrated from Drools 2.0 in PR #423
+**MVEL**: `mvel2:2.5.2.Final` (overridden from 2.4.x for Java 21 compatibility; 2.4.x references `java.lang.Compiler` removed in JDK 16)
+**Documentation**: Full architecture, DRL file reference, and known bugs in `docs/drools-decision-support-system.md`
+
+**Key Classes**:
+- `DroolsHelper` — compiles DRL to `KieBase` via `KieHelper` (standalone, no global KIE repository pollution)
+- `RuleBaseFactory` — thread-safe `QueueCache` of compiled `KieBase` objects (24h TTL, SHA-256 keyed)
+- `DroolsCompilationException` — checked exception for DRL compilation failures
+- `RuleBaseCreator` — generates DRL from `DSCondition` objects, compiles and caches
+- `TargetColour` / `Recommendation` — generate DRL from flowsheet XML for color indicators and clinical reminders
+- `WorkFlowDS` — wraps `KieBase` for workflow rule execution (e.g., Rh pregnancy management)
+
+**Test Coverage**: Tests in `src/test-modern/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
+
 ## Technology Stack Details
 
 ### Core Technologies
@@ -406,7 +431,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Vanilla JavaScript**: Progressively replacing jQuery dependencies where possible
 
 ### Security Libraries
-- **OWASP CSRF Guard**: CSRF protection with healthcare exclusions
+- **OWASP CSRFGuard 4.5**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
 - **OWASP Encoder**: Output encoding for XSS prevention
 - **BCrypt**: Password hashing for provider authentication
 - **Bouncy Castle**: Cryptographic functions for PHI protection
@@ -620,7 +645,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
   - Connection tracking: `OscarTrackingBasicDataSource`
   - Legacy MySQL compatibility settings
 - **Security Configuration**:
-  - `web.xml` - Complex filter chain with OWASP CSRF protection
+  - `web.xml` - Filter chain with CSRFGuard 4.5 CSRF protection (see `docs/csrf-protection-architecture.md`)
   - Privacy statement filters and audit logging
   - Multi-factor authentication and SAML 2.0 support
 - `pom.xml` - Maven with 200+ healthcare-specific dependencies
@@ -944,11 +969,11 @@ src/main/webapp/WEB-INF/classes/oscar/oscarSecurity/                # Security f
 src/main/webapp/*/*.jsp                            # Look for Encode.forHtml() usage patterns
 src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # Security check implementations
 
-# CSRF Protection Implementation
-src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties # CSRF Guard configuration
-src/main/webapp/WEB-INF/csrfguard.js               # Client-side token injection
-src/main/java/io/github/carlos_emr/carlos/app/CSRFPreservingFilter.java    # Custom CSRF filter
-src/main/java/io/github/carlos_emr/carlos/app/CsrfJavaScriptInjectionFilter.java # JS injection
+# CSRF Protection (CSRFGuard 4.5) — see docs/csrf-protection-architecture.md
+src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties # CSRFGuard configuration
+src/main/java/io/github/carlos_emr/carlos/app/CarlosCsrfGuardFilter.java          # CSRF token validation filter
+src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java # Auto-injects csrfguard script tag
+src/main/java/io/github/carlos_emr/carlos/app/MultiReadHttpServletRequest.java     # Multipart request dual-read wrapper
 
 ```
 

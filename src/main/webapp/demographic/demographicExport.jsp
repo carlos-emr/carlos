@@ -88,7 +88,6 @@
 %>
 
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.title"/></title>
 
@@ -419,7 +418,7 @@
                 <button type="button" class="btn" onclick="retryExport()"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.retry"/></button>
             </div>
 
-            <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="get" target="exportDownloadFrame" onsubmit="return handleExportSubmit();">
+            <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport.do" method="post" target="exportDownloadFrame" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
                 <input type="hidden" name="demographicNo" id="demographicNo" value="<%=demographicNo%>"/>

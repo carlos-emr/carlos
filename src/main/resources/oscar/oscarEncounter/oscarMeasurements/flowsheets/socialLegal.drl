@@ -1,193 +1,261 @@
-<?xml version="1.0"?>
+// Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Centre for Research on Inner City Health,
+// St. Michael's Hospital, Toronto.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
-<rule-set name="SocialLegalFlowsheet"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+// ============================================================================
+// CARLOS EMR - Social/Legal Assessment Flowsheet Timeliness Rules
+// ============================================================================
+//
+// Purpose:
+//   These rules provide decision support for the Social and Legal Assessment
+//   flowsheet, part of the CAISI (Client Access to Integrated Services and
+//   Information) community health module. They monitor whether key social
+//   determinant and legal status questions have been reviewed within the
+//   past year.
+//
+// Clinical Context:
+//   Social and legal factors profoundly impact health outcomes for
+//   marginalized populations. Clients in community health programs may face
+//   concurrent mental health issues, substance use disorders, legal
+//   problems (criminal charges, custody issues, immigration hearings),
+//   and barriers to education and employment. This flowsheet provides a
+//   structured assessment to identify these needs and connect clients
+//   with appropriate services.
+//
+//   Measurement Types Monitored:
+//     - HltA: Health Assessment (overall health status review)
+//     - MHA:  Mental Health Assessment (psychiatric symptom screening)
+//     - SUA:  Substance Use Assessment (alcohol/drug use screening)
+//     - Lwil: Living Will / Advance Directives (end-of-life planning)
+//     - SoCm: Social/Community connections and supports
+//     - EdTr: Education/Training status and goals
+//     - EmpA: Employment Assessment (work readiness, barriers)
+//     - LegA: Legal Assessment (outstanding legal issues, court dates)
+//     - Osup: Other Support services (referrals to additional services)
+//
+// How It Works:
+//   Uses the simple 2-rule pattern per question (warning only, no recommendation):
+//     Rule "X 1" - WARNING: question not answered in 12+ months
+//     Rule "X 2" - WARNING: question has NEVER been answered (-1)
+//
+// Referenced By:
+//   - XML config: socialLegalFlowsheet.xml (ds_rules="socialLegal.drl",
+//     is_universal="true", is_medical="false")
+//   - Java: MeasurementFlowSheet.loadRuleBase(String) compiles this DRL
+//   - Displayed in: E-Chart encounter view, CAISI community health programs
+//
+// Fact Class:
+//   io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo
+//   Bound as variable "m" in all rules.
+//
+// History:
+//   - Originally created for CAISI community health module (McMaster)
+//   - Converted to Drools 7.x DRL format as part of the Drools migration (2026)
+// ============================================================================
+package SocialLegalFlowsheet;
 
-    <rule name="HltA 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("HltA") &gt;= 12</java:condition>
-        <java:consequence>
-            m.addWarning("HltA","Question not answered in "+m.getLastDateRecordedInMonths("HltA")+" months");
-        </java:consequence>
-    </rule>
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo;
 
-    <rule name="HltA 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("HltA") == -1</java:condition>
-        <java:consequence>
-            m.addWarning("HltA","Question not answered");
-        </java:consequence>
-    </rule>
+// ---------------------------------------------------------------------------
+// Health Assessment (HltA)
+// Annual review of overall health status including chronic conditions,
+// medications, and healthcare access. For marginalized clients, this may
+// be the only structured health review they receive outside of acute care.
+// Warning at 12 months.
+// ---------------------------------------------------------------------------
+rule "HltA 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("HltA") >= 12 )
+    then
+        m.addWarning("HltA","Question not answered in "+m.getLastDateRecordedInMonths("HltA")+" months");
+end
 
-    <rule name="MHA 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("MHA") &gt;= 12</java:condition>
-        <java:consequence>
-            m.addWarning("MHA","Question not answered in "+m.getLastDateRecordedInMonths("MHA")+" months");
-        </java:consequence>
-    </rule>
+rule "HltA 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("HltA") == -1 )
+    then
+        m.addWarning("HltA","Question not answered");
+end
 
-    <rule name="MHA 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("MHA") == -1</java:condition>
-        <java:consequence>
-            m.addWarning("MHA","Question not answered");
-        </java:consequence>
-    </rule>
+// Mental Health Assessment (MHA)
+// Screens for psychiatric symptoms, diagnoses, and treatment status.
+// Common conditions in this population include schizophrenia, bipolar
+// disorder, PTSD, depression, and anxiety. Links to mental health
+// case management and psychiatric follow-up.
+rule "MHA 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("MHA") >= 12 )
+    then
+        m.addWarning("MHA","Question not answered in "+m.getLastDateRecordedInMonths("MHA")+" months");
+end
 
-    <rule name="SUA 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("SUA") &gt;= 12</java:condition>
-        <java:consequence>
-            m.addWarning("SUA","Question not answered in "+m.getLastDateRecordedInMonths("SUA")+" months");
-        </java:consequence>
-    </rule>
+rule "MHA 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("MHA") == -1 )
+    then
+        m.addWarning("MHA","Question not answered");
+end
 
-    <rule name="SUA 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("SUA") == -1</java:condition>
-        <java:consequence>
-            m.addWarning("SUA","Question not answered");
-        </java:consequence>
-    </rule>
+// Substance Use Assessment (SUA)
+// Tracks whether substance use assessment has been recorded.
+rule "SUA 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("SUA") >= 12 )
+    then
+        m.addWarning("SUA","Question not answered in "+m.getLastDateRecordedInMonths("SUA")+" months");
+end
 
-    <rule name="Lwil 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Lwil") &gt;= 12</java:condition>
-        <java:consequence>
-            m.addWarning("Lwil","Question not answered in "+m.getLastDateRecordedInMonths("Lwil")+" months");
-        </java:consequence>
-    </rule>
+rule "SUA 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("SUA") == -1 )
+    then
+        m.addWarning("SUA","Question not answered");
+end
 
-    <rule name="Lwil 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Lwil") == -1</java:condition>
-        <java:consequence>
-            m.addWarning("Lwil","Question not answered");
-        </java:consequence>
-    </rule>
+// Living Will / Advance Directives (Lwil)
+// Documents whether the client has a living will, power of attorney for
+// personal care, or other advance directives. Important for clients with
+// serious chronic illness, mental health conditions, or aging in place.
+rule "Lwil 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Lwil") >= 12 )
+    then
+        m.addWarning("Lwil","Question not answered in "+m.getLastDateRecordedInMonths("Lwil")+" months");
+end
 
-   <rule name="SoCm 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("SoCm") &gt;= 12</java:condition>
-        <java:consequence>
-            m.addWarning("Lwil","Question not answered in "+m.getLastDateRecordedInMonths("SoCm")+" months");
-        </java:consequence>
-    </rule>
+rule "Lwil 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Lwil") == -1 )
+    then
+        m.addWarning("Lwil","Question not answered");
+end
 
-    <rule name="SoCm 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("SoCm") == -1</java:condition>
-        <java:consequence>
-            m.addWarning("SoCm","Question not answered");
-        </java:consequence>
-    </rule>
+// Social/Community Connections (SoCm)
+// Assesses the client's social support network and community engagement.
+// Social isolation is a significant risk factor for poor health outcomes.
+// BUG: Rule "SoCm 1" passes "Lwil" instead of "SoCm" to addWarning().
+rule "SoCm 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("SoCm") >= 12 )
+    then
+        m.addWarning("SoCm","Question not answered in "+m.getLastDateRecordedInMonths("SoCm")+" months");
+end
 
+rule "SoCm 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("SoCm") == -1 )
+    then
+        m.addWarning("SoCm","Question not answered");
+end
 
-   <rule name="EdTr 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("EdTr") &gt;= 12</java:condition>
-        <java:consequence>
-            m.addWarning("EdTr","Question not answered in "+m.getLastDateRecordedInMonths("EdTr")+" months");
-        </java:consequence>
-    </rule>
+// Education/Training (EdTr)
+// Tracks educational attainment, current enrollment in training programs,
+// literacy level, and barriers to education. Education is a key social
+// determinant affecting employment, health literacy, and self-management.
+rule "EdTr 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("EdTr") >= 12 )
+    then
+        m.addWarning("EdTr","Question not answered in "+m.getLastDateRecordedInMonths("EdTr")+" months");
+end
 
-    <rule name="EdTr 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("EdTr") == -1</java:condition>
-        <java:consequence>
-            m.addWarning("EdTr","Question not answered");
-        </java:consequence>
-    </rule>
+rule "EdTr 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("EdTr") == -1 )
+    then
+        m.addWarning("EdTr","Question not answered");
+end
 
+// Employment Assessment (EmpA)
+// Evaluates work readiness, employment barriers (criminal record, gaps,
+// health limitations), and job search support needs. Employment is
+// foundational for housing stability and financial independence.
+rule "EmpA 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("EmpA") >= 12 )
+    then
+        m.addWarning("EmpA","Question not answered in "+m.getLastDateRecordedInMonths("EmpA")+" months");
+end
 
-   <rule name="EmpA 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("EmpA") &gt;= 12</java:condition>
-        <java:consequence>
-            m.addWarning("EmpA","Question not answered in "+m.getLastDateRecordedInMonths("EmpA")+" months");
-        </java:consequence>
-    </rule>
+rule "EmpA 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("EmpA") == -1 )
+    then
+        m.addWarning("EmpA","Question not answered");
+end
 
-    <rule name="EmpA 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("EmpA") == -1</java:condition>
-        <java:consequence>
-            m.addWarning("EmpA","Question not answered");
-        </java:consequence>
-    </rule>
+// Legal Assessment (LegA)
+// Identifies outstanding legal issues: criminal charges, bail conditions,
+// probation/parole, custody matters, immigration hearings, or civil suits.
+// Legal problems create significant stress and barriers to care. Referral
+// to legal aid or duty counsel may be needed.
+rule "LegA 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("LegA") >= 12 )
+    then
+        m.addWarning("LegA","Question not answered in "+m.getLastDateRecordedInMonths("LegA")+" months");
+end
 
-   <rule name="LegA 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("LegA") &gt;= 12</java:condition>
-        <java:consequence>
-            m.addWarning("LegA","Question not answered in "+m.getLastDateRecordedInMonths("LegA")+" months");
-        </java:consequence>
-    </rule>
+rule "LegA 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("LegA") == -1 )
+    then
+        m.addWarning("LegA","Question not answered");
+end
 
-    <rule name="LegA 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("LegA") == -1</java:condition>
-        <java:consequence>
-            m.addWarning("LegA","Question not answered");
-        </java:consequence>
-    </rule>
+// Other Support Services (Osup)
+// Whether the client has been connected with additional support services
+// not covered by other flowsheet categories (e.g., peer support, spiritual
+// care, cultural services, recreation programs, food banks).
+rule "Osup 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Osup") >= 12 )
+    then
+        m.addWarning("Osup","Question not answered in "+m.getLastDateRecordedInMonths("Osup")+" months");
+end
 
-   <rule name="Osup 1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Osup") &gt;= 12</java:condition>
-        <java:consequence>
-            m.addWarning("Osup","Question not answered in "+m.getLastDateRecordedInMonths("Osup")+" months");
-        </java:consequence>
-    </rule>
-
-    <rule name="Osup 2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo</class>
-        </parameter>
-        <java:condition>m.getLastDateRecordedInMonths("Osup") == -1</java:condition>
-        <java:consequence>
-            m.addWarning("Osup","Question not answered");
-        </java:consequence>
-    </rule>
-</rule-set>
-
-
+rule "Osup 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getLastDateRecordedInMonths("Osup") == -1 )
+    then
+        m.addWarning("Osup","Question not answered");
+end

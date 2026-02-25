@@ -53,7 +53,7 @@
  *   - Other: Successful attachment (new attachment created)
  *
  * JavaScript Functions:
- * - BackToOscar(): Handles window closure and parent refresh
+ * - BackToCarlos(): Handles window closure and parent refresh
  *   - Calls parent window's refresh function for message notifications
  *   - Closes current window after brief delay
  *   - Fallback to simple window close if parent function not available
@@ -68,7 +68,7 @@
  * - Called after PostItems.jsp processing completes
  * - Part of complete document transfer workflow
  *
- * @since 2003
+ * @since 2003-07-21
  */
 --%>
 
@@ -77,7 +77,9 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
+    String userrole = (String) session.getAttribute("userrole");
+    String user = (String) session.getAttribute("user");
+    String roleName$ = (userrole != null ? userrole : "") + "," + (user != null ? user : "");
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_msg" rights="w" reverse="<%=true%>">
@@ -96,28 +98,13 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Search Complete</title>
 
-    <script language="JavaScript">
-        /**
-         * Returns to main OSCAR application and refreshes message alerts
-         */
-        function BackToOscar() {
-            if (opener.callRefreshTabAlerts) {
-                // Refresh message tab alerts in parent window
-                opener.callRefreshTabAlerts("oscar_new_msg");
-                setTimeout("window.close()", 100);
-            } else {
-                // Fallback to simple window close
-                window.close();
-            }
-        }
-    </script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/messenger/messenger-common.js"></script>
 </head>
 
 <body class="BodyStyle" vlink="#0000FF">
-<!--  -->
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
     <tr class="MainTableTopRow">
-        <td class="MainTableTopRowLeftColumn">oscarComm</td>
+        <td class="MainTableTopRowLeftColumn">CARLOS EMR</td>
         <td class="MainTableTopRowRightColumn">
             <table class="TopStatusBar">
                 <tr>
@@ -136,14 +123,14 @@
             <%
                 // Display appropriate completion message based on result
                 String conf = (String) request.getAttribute("confMessage");
-                if (conf.equals("1")) { 
+                if ("1".equals(conf)) {
             %> 
                 This attachment has already been attached to this demographic 
             <% } else { %> 
                 Attachment has been attached to this demographic 
             <% } %> 
             <br>
-            <a href="javascript:BackToOscar();">Click here</a> to close this
+            <a href="javascript:BackToCarlos();">Click here</a> to close this
             window.
         </td>
     </tr>

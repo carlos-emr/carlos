@@ -81,7 +81,6 @@
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     <link rel="stylesheet" href="<%= request.getContextPath() %>/billing/billing.css">
     <title>Billing Reconcilliation</title>
-    <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
     <script language="JavaScript">
         var remote = null;
@@ -111,7 +110,22 @@
 
         function checkReconcile(url) {
             if (confirm("You are about to reconcile the file, are you sure?")) {
-                location.href = url;
+                var parts = url.split('?');
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = parts[0];
+                if (parts[1]) {
+                    parts[1].split('&').forEach(function(pair) {
+                        var kv = pair.split('=');
+                        var input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = decodeURIComponent(kv[0]);
+                        input.value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
+                        form.appendChild(input);
+                    });
+                }
+                document.body.appendChild(form);
+                form.submit();
             } else {
                 alert("You have cancel the action!");
             }

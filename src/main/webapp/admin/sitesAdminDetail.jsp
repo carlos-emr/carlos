@@ -61,7 +61,7 @@
     </head>
 
     <body vlink="#0000FF" class="BodyStyle" onload="document.getElementById('colorField').style.backgroundColor = document.getElementById('colorField').value;">
-    <form action="<%= request.getContextPath() %>/admin/ManageSites.do">
+    <form action="<%= request.getContextPath() %>/admin/ManageSites.do" method="post">
         <table class="MainTable">
             <tr class="MainTableTopRow">
                 <td class="MainTableTopRowLeftColumn">admin</td>

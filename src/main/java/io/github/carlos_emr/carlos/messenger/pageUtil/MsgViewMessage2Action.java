@@ -39,7 +39,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage;
+import org.owasp.encoder.Encode;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -73,8 +75,8 @@ import java.util.Map;
  * including message body, subject, sender, recipients, date/time, and attachment
  * information. It then redirects to the ViewMessage.jsp page for rendering.</p>
  * 
- * @version 2.0
- * @since 2003
+ * @version 2.0 Struts2 migration
+ * @since 2003-07-21
  * @see MessagingManager
  * @see MessengerDemographicManager
  * @see MsgDisplayMessage
@@ -139,20 +141,17 @@ public class MsgViewMessage2Action extends ActionSupport {
      */
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+
         // Verify user has read permission for messages
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        // Get provider number from session bean or logged-in info
-        MsgSessionBean bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
-        String providerNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
-        if (bean != null) {
-            providerNo = bean.getProviderNo();
-        } else {
-            MiscUtils.getLogger().debug("MsgSessionBean is null");
-        }
+        // Always use the logged-in provider's identity — never override from session bean
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         // Extract request parameters
         String messageNo = request.getParameter("messageID");
@@ -163,77 +162,101 @@ public class MsgViewMessage2Action extends ActionSupport {
         String from = request.getParameter("from") == null ? "messenger" : request.getParameter("from");
         String boxType = request.getParameter("boxType") == null ? "" : request.getParameter("boxType");
 
+        // Validate messageNo before use.
+        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
+        Integer parsedMessageNo = ConversionUtils.fromIntString(messageNo);
+        if (parsedMessageNo <= 0) {
+            MiscUtils.getLogger().warn("Invalid or missing messageID parameter");
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.jsp");
+            return NONE;
+        }
+
         // Retrieve the message and process its content
-        MsgDisplayMessage msgDisplayMessage = messagingManager.getInboxMessage(loggedInInfo, Integer.parseInt(messageNo));
+        MsgDisplayMessage msgDisplayMessage = messagingManager.getInboxMessage(loggedInInfo, parsedMessageNo);
 
-        if (msgDisplayMessage != null) {
-            int messageType = msgDisplayMessage.getType();
-            String msgType_link = msgDisplayMessage.getTypeLink();
-            
-            // Get demographics already attached to this message
-            Map<Integer, String> attachedDemographics = messengerDemographicManager.getAttachedDemographicNameMap(loggedInInfo, Integer.parseInt(msgDisplayMessage.getMessageId()));
+        // Early return if message not found
+        if (msgDisplayMessage == null) {
+            MiscUtils.getLogger().warn("Message not found: ID=" + parsedMessageNo);
+            response.sendRedirect(request.getContextPath() + "/messenger/DisplayMessages.jsp");
+            return NONE;
+        }
 
-            // Store all message data in session for display
-            request.getSession().setAttribute("attachedDemographics", attachedDemographics);
-            request.getSession().setAttribute("viewMessageMessage", msgDisplayMessage.getMessageBody());
-            request.getSession().setAttribute("viewMessageSubject", msgDisplayMessage.getThesubject());
-            request.getSession().setAttribute("viewMessageSentby", msgDisplayMessage.getSentby());
-            request.getSession().setAttribute("viewMessageSentto", msgDisplayMessage.getSentto());
-            request.getSession().setAttribute("viewMessageTime", msgDisplayMessage.getThetime());
-            request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate());
-            request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach());
-            request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach());
-            request.getSession().setAttribute("viewMessageId", messageNo);
-            request.getSession().setAttribute("viewMessageNo", messageNo);
-            request.getSession().setAttribute("viewMessagePosition", messagePosition);
-            request.getSession().setAttribute("from", from);
-            request.getSession().setAttribute("providerNo", providerNo);
-            
-            if (orderBy != null) {
-                request.getSession().setAttribute("orderBy", orderBy);
-            }
+        int messageType = msgDisplayMessage.getType();
+        String msgType_link = msgDisplayMessage.getTypeLink();
 
-            // Store message type if present
-            if (messageType > 0) {
-                request.getSession().setAttribute("msgType", messageType + "");
-            }
+        // Get demographics already attached to this message
+        Integer msgId = ConversionUtils.fromIntString(msgDisplayMessage.getMessageId());
+        Map<Integer, String> attachedDemographics = (msgId > 0)
+                ? messengerDemographicManager.getAttachedDemographicNameMap(loggedInInfo, msgId)
+                : new HashMap<>();
 
-            // Process OSCAR review type messages with special link handling
-            if (messageType == OscarMsgType.OSCAR_REVIEW_TYPE && msgType_link != null) {
-                // Parse the type link into a structured format
-                HashMap<String, List<String>> hashMap = new HashMap<String, List<String>>();
-                String[] keyValues = msgType_link.split(",");
+        // Store all message data in session for display
+        request.getSession().setAttribute("attachedDemographics", attachedDemographics);
+        request.getSession().setAttribute("viewMessageMessage", msgDisplayMessage.getMessageBody());
+        request.getSession().setAttribute("viewMessageSubject", msgDisplayMessage.getThesubject());
+        request.getSession().setAttribute("viewMessageSentby", msgDisplayMessage.getSentby());
+        request.getSession().setAttribute("viewMessageSentto", msgDisplayMessage.getSentto());
+        request.getSession().setAttribute("viewMessageTime", msgDisplayMessage.getThetime());
+        request.getSession().setAttribute("viewMessageDate", msgDisplayMessage.getThedate());
+        request.getSession().setAttribute("viewMessageAttach", msgDisplayMessage.getAttach());
+        request.getSession().setAttribute("viewMessagePDFAttach", msgDisplayMessage.getPdfAttach());
+        request.getSession().setAttribute("viewMessageId", messageNo);
+        request.getSession().setAttribute("viewMessageNo", messageNo);
+        request.getSession().setAttribute("viewMessagePosition", messagePosition);
+        request.getSession().setAttribute("from", from);
+        request.getSession().setAttribute("providerNo", providerNo);
 
-                for (String s : keyValues) {
-                    String[] keyValue = s.split(":");
-                    if (keyValue.length == 4) {
-                        // Group related links by their primary key
-                        if (hashMap.containsKey(keyValue[0])) {
-                            hashMap.get(keyValue[0]).add(keyValue[1] + ":" + keyValue[2] + ":" + keyValue[3]);
-                        } else {
-                            List<String> list = new ArrayList<String>();
-                            list.add(keyValue[1] + ":" + keyValue[2] + ":" + keyValue[3]);
-                            hashMap.put(keyValue[0], list);
-                        }
+        if (orderBy != null) {
+            request.getSession().setAttribute("orderBy", orderBy);
+        }
+
+        // Store message type if present
+        if (messageType > 0) {
+            request.getSession().setAttribute("msgType", messageType + "");
+        }
+
+        // Process OSCAR review type messages with special link handling
+        if (messageType == OscarMsgType.OSCAR_REVIEW_TYPE && msgType_link != null) {
+            // Parse the type link into a structured format
+            HashMap<String, List<String>> hashMap = new HashMap<String, List<String>>();
+            String[] keyValues = msgType_link.split(",");
+
+            for (String s : keyValues) {
+                String[] keyValue = s.split(":");
+                if (keyValue.length == 4) {
+                    // Group related links by their primary key
+                    if (hashMap.containsKey(keyValue[0])) {
+                        hashMap.get(keyValue[0]).add(keyValue[1] + ":" + keyValue[2] + ":" + keyValue[3]);
+                    } else {
+                        List<String> list = new ArrayList<String>();
+                        list.add(keyValue[1] + ":" + keyValue[2] + ":" + keyValue[3]);
+                        hashMap.put(keyValue[0], list);
                     }
+                } else {
+                    MiscUtils.getLogger().debug("Skipping malformed msgType_link segment (expected 4 colon-separated parts): " + s);
                 }
-
-                request.getSession().setAttribute("msgTypeLink", hashMap);
             }
 
-            MiscUtils.getLogger().debug("viewMessagePosition: " + messagePosition + "IsLastMsg: " + request.getAttribute("viewMessageIsLastMsg"));
+            request.getSession().setAttribute("msgTypeLink", hashMap);
+        }
 
-            // Mark message as read unless viewing sent items (boxType 1)
-            if (!"1".equals(boxType)) {
-                messagingManager.setMessageRead(loggedInInfo, Long.parseLong(msgDisplayMessage.getMessageId()), providerNo);
+        MiscUtils.getLogger().debug("viewMessagePosition: " + messagePosition + "IsLastMsg: " + request.getAttribute("viewMessageIsLastMsg"));
+
+        // Mark message as read unless viewing sent items (boxType 1)
+        if (!"1".equals(boxType)) {
+            Long msgIdLong = ConversionUtils.fromLongString(msgDisplayMessage.getMessageId());
+            if (msgIdLong > 0L) {
+                messagingManager.setMessageRead(loggedInInfo, msgIdLong, providerNo);
             }
         }
 
         // Handle demographic linking if requested
         if (linkMsgDemo != null && demographic_no != null) {
             if (linkMsgDemo.equalsIgnoreCase("true")) {
-                // Create association between message and demographic
-                messengerDemographicManager.attachDemographicToMessage(loggedInInfo, Integer.parseInt(messageNo), Integer.parseInt(demographic_no));
+                Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
+                if (parsedDemoNo > 0) {
+                    messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageNo, parsedDemoNo);
+                }
             }
         }
 
@@ -241,10 +264,16 @@ public class MsgViewMessage2Action extends ActionSupport {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd-MMM-yyyy");
         request.getSession().setAttribute("today", simpleDateFormat.format(new Date(System.currentTimeMillis())));
 
-        // Redirect to the message viewing page
-        String actionforward = request.getContextPath() + "/messenger/ViewMessage.jsp?boxType=" + boxType + "&linkMsgDemo=" + linkMsgDemo;
+        // Validate boxType against allowlist before using in redirect URL
+        if (!boxType.matches("[0-3]?")) {
+            boxType = "";
+        }
+
+        // Redirect to the message viewing page with encoded parameters
+        String actionforward = request.getContextPath() + "/messenger/ViewMessage.jsp?boxType="
+                + Encode.forUriComponent(boxType) + "&linkMsgDemo=" + Encode.forUriComponent(linkMsgDemo != null ? linkMsgDemo : "");
         response.sendRedirect(actionforward);
-        
+
         // Return NONE since we're redirecting rather than forwarding
         return NONE;
     }

@@ -352,6 +352,7 @@ $(document).ready(function () {
         var data = "patientIds=" + patientIds;
 
         $.ajax({
+            type: 'POST',
             url: url,
             data: data,
             success: function (data) {
@@ -384,6 +385,7 @@ $(document).ready(function () {
         var data = "patientIds=" + patientIds;
 
         $.ajax({
+            type: 'POST',
             url: url,
             data: data,
             success: function (data) {
@@ -417,6 +419,7 @@ $(document).ready(function () {
         var data = "patientIds=" + patientIds;
 
         $.ajax({
+            type: 'POST',
             url: url,
             data: data,
             success: function (data) {

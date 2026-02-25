@@ -502,13 +502,13 @@ annotations).
 - `oscarResources_fr.properties` — same
 - `oscarResources_pl.properties` — same
 - `oscarResources_pt_BR.properties` — same
-- `oscar_mcmaster.properties` — remove `INTEGRATOR_*` keys
+- `carlos.properties` — remove `INTEGRATOR_*` keys
 
 **DO NOT remove** `caisi_issues_dx.properties` (CAISI, not integrator).
 
 ### Configuration Files
 
-- `.devcontainer/development/config/shared/volumes/oscar.properties` — remove
+- `.devcontainer/development/config/shared/volumes/carlos.properties` — remove
   integrator configuration entries only
 
 ### Verification

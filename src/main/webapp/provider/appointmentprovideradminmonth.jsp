@@ -362,6 +362,34 @@
                 document.jumptodate.year.select();
             }
 
+            /**
+             * Converts a URL with query parameters into a POST form submission in a popup window.
+             * Opens an 'oscar_appt' popup and submits the parsed query string as POST form fields.
+             * Unlike postViaForm in schedulePage.js.jsp, does not track scroll position.
+             * @param {string} url - Full URL with optional query string (e.g., "page.jsp?key=val")
+             */
+            function postViaFormPopup(url) {
+                var parts = url.split('?');
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = "providercontrol.jsp?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference<%=eformIds.toString()%><%=ectFormNames.toString()%>";
+                form.target = 'oscar_appt';
+                if (parts.length > 1) {
+                    var pairs = parts[1].split('&');
+                    for (var i = 0; i < pairs.length; i++) {
+                        var kv = pairs[i].split('=');
+                        var input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = decodeURIComponent(kv[0]);
+                        input.value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
+                        form.appendChild(input);
+                    }
+                }
+                document.body.appendChild(form);
+                window.open('', 'oscar_appt', 'height=10,width=10,location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0');
+                form.submit();
+                document.body.removeChild(form);
+            }
 
             //<!--messenger code block-->
             function popupOscarRx(vheight, vwidth, varpage) { //open a new popup window
@@ -381,7 +409,7 @@
             function selectprovider(s) {
                 if (s.options[s.selectedIndex].value.indexOf("_grp_") != -1) {
                     var newGroupNo = s.options[s.selectedIndex].value.substring(5);
-                    popupOscarRx(10, 10, "providercontrol.jsp?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "<%=eformIds.toString()%><%=ectFormNames.toString()%>");
+                    postViaFormPopup("providercontrol.jsp?provider_no=<%=curUser_no%>&start_hour=<%=startHour%>&end_hour=<%=endHour%>&every_min=<%=everyMin%>&color_template=deepblue&dboperation=updatepreference&displaymode=updatepreference&mygroup_no=" + newGroupNo + "<%=eformIds.toString()%><%=ectFormNames.toString()%>");
                 } else {
                     if (self.location.href.lastIndexOf("&providerview=") > 0)
                         a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
@@ -428,6 +456,7 @@
         </SCRIPT>
     </head>
     <!-- menu goes here -->
+    <div id="fixedHeaderWrapper">
     <jsp:include page="mainMenu.jsp"/>
 
     <div id="jumpmenu"
@@ -590,8 +619,9 @@
             </td>
         </tr>
     </table>
+    </div><!-- end fixedHeaderWrapper -->
 
-    <table style="margin-top: 69px;" BGCOLOR="#C0C0C0">
+    <table id="monthScheduleTable" BGCOLOR="#C0C0C0">
         <tr>
             <td>
                 <table>

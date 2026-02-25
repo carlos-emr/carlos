@@ -38,6 +38,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.QueryParam;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -280,9 +281,14 @@ public class PersonaService extends AbstractServiceImpl {
         return result;
     }
 
-    @GET
+    @POST
     @Path("/setDefaultProgramInDomain")
-    public GenericRESTResponse setDefaultProgram(@QueryParam("programId") Integer programId) {
+    @Consumes("application/x-www-form-urlencoded")
+    @Produces(MediaType.APPLICATION_JSON)
+    /**
+     * Sets the default program for the logged-in provider.
+     */
+    public GenericRESTResponse setDefaultProgram(@FormParam("programId") Integer programId) {
         programManager2.setCurrentProgramInDomain(getLoggedInInfo().getLoggedInProviderNo(), programId);
         return new GenericRESTResponse();
     }

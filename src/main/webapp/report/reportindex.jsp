@@ -188,7 +188,6 @@
         </h4>
     </div>
     <form name='report'>
-        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
         <table class="table table-sm table-striped" id="reportsTbl" style="width:100%">
             <%int j = 1; %>
             <tr>
@@ -280,38 +279,6 @@
                 <td width="300"><a
                         href="<%= request.getContextPath() %>/oscarPrevention/PreventionReporting.jsp" target="_blank"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnReport18n"/></a></td>
                 <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-            </tr>
-
-            <tr>
-                <td width="2"><%=j%>
-                    <%j++;%>
-                </td>
-                <td width="1"></td>
-                <td width="300"><a
-                        href="<%= request.getContextPath() %>/oscarReport/oscarMeasurements/SetupSelectCDMReport.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.chronicDiseaseManagement"/></a></td>
-                <td></td>
-                <td></td>
-                <td></td>
-            </tr>
-            <tr>
-                <td width="2"><%=j%>
-                    <%j++;%>
-                </td>
-                <td width="1"></td>
-                <td width="300"><a
-                        href="<%= request.getContextPath() %>/oscarWaitingList/SetupDisplayWaitingList.do?waitingListId="><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnWaiting"/></a></td>
-                <td></td>
-                <td></td>
-                <td></td>
-            </tr>
-
-            <tr>
-                <td width="2"><%=j%><%j++;%></td>
-                <td width="1"></td>
-                <td width="300"><a href="ClinicalReports.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnClinicalReport"/> </a></td>
                 <td></td>
                 <td></td>
                 <td></td>

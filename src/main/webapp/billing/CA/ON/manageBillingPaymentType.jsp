@@ -115,8 +115,8 @@
         jQuery("tr td:nth-child(4)").on("click", "a", function (event) {
             jQuery.ajax({
                 url: "<%=request.getContextPath()%>/billing/CA/ON/managePaymentType.do",
-                type: "get",
-                async: "false",
+                type: "post",
+                async: false,
                 timeout: 30000,
                 dataType: "json",
                 data: {method: "removeType", paymentTypeId: event.target.getAttribute("data-paymentTypeId")},

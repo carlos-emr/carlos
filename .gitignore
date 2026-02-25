@@ -9,6 +9,7 @@
 /deploy.sh
 /foo.sh
 /bin
+/carlos.properties
 /oscar.properties
 /myoscar_client_override.xml
 /velocity.log
@@ -40,7 +41,6 @@ __pycache__/
 .claude/settings.local.json
 
 # Docusaurus
-/website/node_modules/
 /node_modules/
-/website/build/
-/website/.docusaurus/
+/build/
+/.docusaurus/

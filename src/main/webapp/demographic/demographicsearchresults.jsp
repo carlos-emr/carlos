@@ -69,7 +69,13 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
     String curProvider_no = (String) session.getAttribute("user");
 
-
+    // Load "Open Encounter in Tab" preference
+    boolean openEncounterInTab = false;
+    if (curProvider_no != null) {
+        UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
+        UserProperty tabProp = upDao.getProp(curProvider_no, UserProperty.ENCOUNTER_OPEN_IN_TAB);
+        openEncounterInTab = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue());
+    }
 %>
 
 
@@ -83,6 +89,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
 <%
@@ -120,7 +128,6 @@
 
 %>
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
@@ -153,6 +160,8 @@
         } </style>
 
         <script type="text/javascript">
+
+            var openEncounterInTab = <%=openEncounterInTab%>;
 
             function showHideItem(id) {
                 if (document.getElementById(id).style.display == 'inline')
@@ -198,6 +207,7 @@
 
             function popup(vheight, vwidth, varpage) {
                 var page = varpage;
+                if (openEncounterInTab) { return popupTab(page); }
                 windowprops = "height="
                     + vheight
                     + ",width="
@@ -214,6 +224,7 @@
 
             function popupEChart(vheight, vwidth, varpage) { //open a new popup window
                 var page = "" + varpage;
+                if (openEncounterInTab) { return popupTab(page); }
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=20,left=20";
                 var popup = window.open(page, "encounter", windowprops);
                 if (popup != null) {

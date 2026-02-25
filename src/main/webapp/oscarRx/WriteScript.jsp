@@ -832,6 +832,10 @@
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF"
           onload="javascript:pageLoad();">
+    <form id="addFavoriteWriteScriptForm" method="post" action="<%= request.getContextPath() %>/oscarRx/addFavoriteWriteScript.do" style="display:none">
+        <input type="hidden" name="stashId" value=""/>
+        <input type="hidden" name="favoriteName" value=""/>
+    </form>
 
     <form action="${pageContext.request.contextPath}/oscarRx/writeScript.do" method="post" id="frm" name="frm">
 
@@ -1508,8 +1512,10 @@ Outside ProOhip: <%= thisForm.getOutsideProviderOhip() %><br>
                                         brandName);
 
                                     if (favoriteName !== null && favoriteName.length > 0) {
-                                        window.location.href = '<%= request.getContextPath() %>/oscarRx/addFavoriteWriteScript.do?stashId='
-                                            + encodeURIComponent(stashId) + '&favoriteName=' + encodeURIComponent(favoriteName);
+                                        var form = document.getElementById('addFavoriteWriteScriptForm');
+                                        form.elements['stashId'].value = stashId;
+                                        form.elements['favoriteName'].value = favoriteName;
+                                        form.submit();
                                     }
                                 }
                             </script>

@@ -89,17 +89,19 @@
             function checkUncheck(referralId) {
                 var checked = $("input[name^='checked_" + referralId + "']").prop("checked");
 
-                $.getJSON("<%= request.getContextPath() %>/admin/ManageBillingReferral.do?method=modifyBatch&id=" + referralId + "&checked=" + checked,
+                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral.do",
+                    { method: "modifyBatch", id: referralId, checked: checked },
                     function (data, textStatus) {
                         updateCheckedList(data);
-                    });
+                    }, "json");
             }
 
             function clearCheckedLabels(referralId) {
-                $.getJSON("<%= request.getContextPath() %>/admin/ManageBillingReferral.do?method=modifyBatch&clear=true",
+                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral.do",
+                    { method: "modifyBatch", clear: true },
                     function (data, textStatus) {
                         updateCheckedList(data);
-                    });
+                    }, "json");
             }
 
             function printAllCheckedLabels() {

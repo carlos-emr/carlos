@@ -56,8 +56,8 @@ import java.util.*;
  * <p><strong>Important:</strong> This is a singleton class. Do not instantiate directly.
  * Use {@link #getInstance()} to obtain the instance.</p>
  * 
- * <p><strong>Configuration File:</strong> Properties are loaded from the OpenO properties
- * file. Any changes to the properties file require a Tomcat restart to take effect.</p>
+ * <p><strong>Configuration File:</strong> Properties are loaded from the CARLOS properties
+ * file (carlos.properties). Any changes to the properties file require a Tomcat restart to take effect.</p>
  * 
  * <p><strong>Namespace Migration:</strong> This class includes validation to detect and
  * ignore deprecated namespace values (org.oscarehr.*, oscar.*) that should be migrated
@@ -182,12 +182,12 @@ public class OscarProperties extends Properties {
 
     /* Do not use this constructor. Use getInstance instead */
     private OscarProperties() {
-        MiscUtils.getLogger().debug("OSCAR PROPS CONSTRUCTOR");
+        MiscUtils.getLogger().debug("CARLOS PROPS CONSTRUCTOR");
 
         try {
-            readFromFile("/oscar_mcmaster.properties");
+            readFromFile("/carlos.properties");
 
-            String overrideProperties = System.getProperty("oscar_override_properties");
+            String overrideProperties = System.getProperty("carlos_override_properties");
             if (overrideProperties != null) {
                 MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
                 readFromFile(overrideProperties);
@@ -503,6 +503,27 @@ public class OscarProperties extends Properties {
             eform_images = Paths.get(oscarProperties.getProperty("BASE_DOCUMENT_DIR"), "eform", "images").toString();
         }
         return eform_images;
+    }
+
+    /**
+     * Returns the directory for inbound fax files.
+     */
+    public String getFaxIncomingDirectory() {
+        String faxIncoming = oscarProperties.getProperty("FAX_INCOMING_DIR");
+
+        if (faxIncoming == null) {
+            // Default to a path OUTSIDE the webroot for PHI protection.
+            // catalina.base is the Tomcat instance root (e.g., /usr/local/tomcat/)
+            // which is NOT under webapps/ and therefore not web-accessible.
+            String catalinaBase = System.getProperty("catalina.base");
+            if (catalinaBase != null && !catalinaBase.isEmpty()) {
+                faxIncoming = Paths.get(catalinaBase, "fax-incoming").toString();
+            } else {
+                // Non-Tomcat environment (tests, standalone): use system temp
+                faxIncoming = Paths.get(System.getProperty("java.io.tmpdir"), "carlos-fax-incoming").toString();
+            }
+        }
+        return faxIncoming;
     }
 
 	/**

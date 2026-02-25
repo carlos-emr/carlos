@@ -920,7 +920,7 @@ and the struts.xml result paths updated.
 
 ### IntegratorLocalStoreUpdateJob
 
-- **Trigger**: Configured via `oscar_mcmaster.properties` / runtime config
+- **Trigger**: Configured via `carlos.properties` / runtime config
 - **Purpose**: Periodically pulls data from integrator server
 - **Delegates to**: `CaisiIntegratorUpdateTask`
 
@@ -1083,7 +1083,7 @@ In `IntegratorLocalStoreUpdateJob.java`:
 
 ## Appendix B: Properties Keys
 
-### oscar_mcmaster.properties / oscar.properties
+### carlos.properties
 
 ```properties
 # Integrator configuration

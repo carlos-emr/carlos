@@ -575,13 +575,20 @@ div.recommendations ul{
             %>
             <li>
                     <% if (pDx == null){ %>
-                     <a href="FlowSheetDrugAction.do?method=dxSave&flowsheet=<%=temp%>&demographic=<%=demographic_no%>&dxCode=<%=code.getDxSearchCode()%>&dxCodeType=<%=code.getType()%>">
+                     <form method="post" action="FlowSheetDrugAction.do" style="display:inline;">
+                         <input type="hidden" name="method" value="dxSave"/>
+                         <input type="hidden" name="flowsheet" value="<%=temp%>"/>
+                         <input type="hidden" name="demographic" value="<%=demographic_no%>"/>
+                         <input type="hidden" name="dxCode" value="<%=code.getDxSearchCode()%>"/>
+                         <input type="hidden" name="dxCodeType" value="<%=code.getType()%>"/>
+                         <a href="javascript:void(0);" onclick="this.closest('form').submit();">
                     <%}else{%>
                      <span title="<%=code.getDescription()%>"  style="background-color: yellow;">
                     <%}%>
                 - <%=desc%>
                     <% if (pDx == null){ %>
-                     </a>
+                         </a>
+                     </form>
                     <%}else{%>
                      </span>
                     <%}%>
@@ -611,9 +618,15 @@ div.recommendations ul{
                         if(arr[i].isCurrent()){
                     %>
                     <li title="<%=rxD%> - <%=rxP%>">
-                            <a href="FlowSheetDrugAction.do?method=save&flowsheet=<%=temp%>&demographic=<%=demographic_no%>&atcCode=<%=arr[i].getAtcCode()%>">
-                            - <%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12)%>
-                            </a>
+                            <form method="post" action="FlowSheetDrugAction.do" style="display:inline;">
+                                <input type="hidden" name="method" value="save"/>
+                                <input type="hidden" name="flowsheet" value="<%=temp%>"/>
+                                <input type="hidden" name="demographic" value="<%=demographic_no%>"/>
+                                <input type="hidden" name="atcCode" value="<%=arr[i].getAtcCode()%>"/>
+                                <a href="javascript:void(0);" onclick="this.closest('form').submit();">
+                                - <%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12)%>
+                                </a>
+                            </form>
                     </li>
                     <%  }
                     }%>

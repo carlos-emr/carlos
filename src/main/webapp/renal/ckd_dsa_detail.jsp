@@ -96,7 +96,9 @@
         function generateLabReq(demographicNo) {
             var url = '<%=request.getContextPath()%>/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographicNo + '&formId=0&provNo=<%=session.getAttribute("user")%>&fromSession=true';
             jQuery.ajax({
-                url: '<%=request.getContextPath()%>/renal/Renal.do?method=createLabReq&demographicNo=' + demographicNo,
+                type: 'POST',
+                url: '<%=request.getContextPath()%>/renal/Renal.do',
+                data: {method: 'createLabReq', demographicNo: demographicNo},
                 async: false,
                 success: function (data) {
                     popupPage(900, 850, url);
