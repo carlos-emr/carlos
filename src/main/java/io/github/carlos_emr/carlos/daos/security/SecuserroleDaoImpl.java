@@ -30,11 +30,12 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.LockMode;
-import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.criterion.Example;
@@ -45,6 +46,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
  * A data access object (DAO) providing persistence and search support for
@@ -145,7 +147,7 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("deleting Secuserrole by orgcd");
         try {
 
-            return getHibernateTemplate().bulkUpdate("delete Secuserrole as model where model.orgcd =?0", orgcd);
+            return HqlQueryHelper.bulkUpdate(currentSession(), "delete Secuserrole as model where model.orgcd =?1", orgcd);
 
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -158,7 +160,7 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("deleting Secuserrole by providerNo");
         try {
 
-            return getHibernateTemplate().bulkUpdate("delete Secuserrole as model where model.providerNo =?0",
+            return HqlQueryHelper.bulkUpdate(currentSession(), "delete Secuserrole as model where model.providerNo =?1",
                     providerNo);
 
         } catch (RuntimeException re) {
@@ -172,7 +174,7 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("deleting Secuserrole by ID");
         try {
 
-            return getHibernateTemplate().bulkUpdate("delete Secuserrole as model where model.id =?0", id);
+            return HqlQueryHelper.bulkUpdate(currentSession(), "delete Secuserrole as model where model.id =?1", id);
 
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -183,18 +185,12 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
     @Override
     public int update(Secuserrole instance) {
         logger.debug("Update Secuserrole instance");
-        // Session session = getSession();
-        Session session = currentSession();
         try {
-            String queryString = "update Secuserrole as model set model.activeyn ='" + instance.getActiveyn()
-                    + "', lastUpdateDate=now() "
-                    + " where model.providerNo ='" + instance.getProviderNo() + "'"
-                    + " and model.roleName ='" + instance.getRoleName() + "'"
-                    + " and model.orgcd ='" + instance.getOrgcd() + "'";
+            String queryString = "update Secuserrole as model set model.activeyn = ?1, lastUpdateDate=now() where model.providerNo = ?2 and model.roleName = ?3 and model.orgcd = ?4";
 
-            Query queryObject = session.createQuery(queryString);
-
-            return queryObject.executeUpdate();
+            return HqlQueryHelper.bulkUpdate(currentSession(), queryString,
+                    instance.getActiveyn(), instance.getProviderNo(),
+                    instance.getRoleName(), instance.getOrgcd());
 
         } catch (RuntimeException re) {
             logger.error("Update failed", re);
@@ -246,21 +242,14 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
     public List findByProperty(String propertyName, Object value) {
         logger.debug("finding Secuserrole instance with property: " + propertyName
                 + ", value: " + value);
-        // Session session = getSession();
-        Session session = currentSession();
         try {
             String queryString = "from Secuserrole as model where model."
                     + propertyName + "= ?1";
-            Query queryObject = session.createQuery(queryString);
-            queryObject.setParameter(1, value);
-            return queryObject.list();
+            return HqlQueryHelper.find(currentSession(), queryString, value);
         } catch (RuntimeException re) {
             logger.error("find by property name failed", re);
             throw re;
         }
-        // finally {
-        // this.releaseSession(session);
-        // }
     }
 
     @Override
@@ -287,16 +276,14 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("Find staff instance .");
         try {
 
-            String queryString = "select a from Secuserrole a, LstOrgcd b, SecProvider p"
-                    + " where a.providerNo=p.providerNo and b.code ='" + orgcd + "'";
-            if (activeOnly)
-                queryString += " and p.status='1'";
+            String queryString;
+            if (activeOnly) {
+                queryString = "select a from Secuserrole a, LstOrgcd b, SecProvider p where a.providerNo=p.providerNo and b.code =?1 and p.status='1' and b.codecsv like '%' || a.orgcd || ',%' and not (a.orgcd like 'R%' or a.orgcd like 'O%')";
+            } else {
+                queryString = "select a from Secuserrole a, LstOrgcd b, SecProvider p where a.providerNo=p.providerNo and b.code =?1 and b.codecsv like '%' || a.orgcd || ',%' and not (a.orgcd like 'R%' or a.orgcd like 'O%')";
+            }
 
-            queryString = queryString
-                    + " and b.codecsv like '%' || a.orgcd || ',%'"
-                    + " and not (a.orgcd like 'R%' or a.orgcd like 'O%')";
-
-            return this.getHibernateTemplate().find(queryString);
+            return HqlQueryHelper.find(currentSession(), queryString, orgcd);
 
         } catch (RuntimeException re) {
             logger.error("Find staff failed", re);
@@ -311,29 +298,23 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
         logger.debug("Search staff instance .");
         try {
 
-            String AND = " and ";
-            // String OR = " or ";
-
             String orgcd = staffForm.getOrgcd();
-
-            String queryString = "select a from Secuserrole a, LstOrgcd b"
-                    + " where b.code ='" + orgcd + "'"
-                    + " and b.codecsv like '%' || a.orgcd || ',%'"
-                    + " and not (a.orgcd like 'R%' or a.orgcd like 'O%')";
-
             String fname = staffForm.getFirstName();
             String lname = staffForm.getLastName();
+            boolean hasFname = fname != null && fname.length() > 0;
+            boolean hasLname = lname != null && lname.length() > 0;
 
-            if (fname != null && fname.length() > 0) {
-                fname = fname.toLowerCase();
-                queryString = queryString + AND + "lower(a.providerFName) like '%" + fname + "%'";
-            }
-            if (lname != null && lname.length() > 0) {
-                lname = lname.toLowerCase();
-                queryString = queryString + AND + "lower(a.providerLName) like '%" + lname + "%'";
-            }
+            String baseHql = "select a from Secuserrole a, LstOrgcd b where b.code = :orgcd and b.codecsv like '%' || a.orgcd || ',%' and not (a.orgcd like 'R%' or a.orgcd like 'O%')";
+            String hql = baseHql;
+            if (hasFname) hql = hql.concat(" and lower(a.providerFName) like :fname");
+            if (hasLname) hql = hql.concat(" and lower(a.providerLName) like :lname");
 
-            return this.getHibernateTemplate().find(queryString);
+            Map<String, Object> params = new HashMap<>();
+            params.put("orgcd", orgcd);
+            if (hasFname) params.put("fname", "%" + fname.toLowerCase() + "%");
+            if (hasLname) params.put("lname", "%" + lname.toLowerCase() + "%");
+
+            return HqlQueryHelper.find(currentSession(), hql, params);
 
         } catch (RuntimeException re) {
             logger.error("Search staff failed", re);
@@ -348,20 +329,13 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
 
     @Override
     public List findAll() {
-        // Session session = getSession();
-        Session session = currentSession();
         logger.debug("finding all Secuserrole instances");
         try {
-            String queryString = "from Secuserrole";
-            Query queryObject = session.createQuery(queryString);
-            return queryObject.list();
+            return HqlQueryHelper.find(currentSession(), "from Secuserrole");
         } catch (RuntimeException re) {
             logger.error("find all failed", re);
             throw re;
         }
-        // finally {
-        // this.releaseSession(session);
-        // }
     }
 
     @Override

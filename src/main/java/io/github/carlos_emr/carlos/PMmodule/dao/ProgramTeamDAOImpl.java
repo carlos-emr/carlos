@@ -31,17 +31,15 @@
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Query;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTeamDAO {
 
@@ -80,19 +78,9 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
         if (teamName == null || teamName.length() <= 0) {
             throw new IllegalArgumentException();
         }
-        // Session session = getSession();
-        Session session = sessionFactory.getCurrentSession();
-        Query query = session.createQuery("select pt.id from ProgramTeam pt where pt.programId = ?1 and pt.name = ?2" );
-        query.setParameter(1, programId.longValue());
-        query.setParameter(2, teamName);
-
-        List teams = new ArrayList();
-        try {
-            teams = query.list();
-        } finally {
-            // this.releaseSession(session);
-            session.close();
-        }
+        List teams = HqlQueryHelper.find(currentSession(),
+                "select pt.id from ProgramTeam pt where pt.programId = ?1 and pt.name = ?2",
+                programId.longValue(), teamName);
 
         if (log.isDebugEnabled()) {
             log.debug("teamNameExists: programId = " + programId + ", teamName = " + teamName + ", result = " + !teams.isEmpty());
@@ -132,8 +120,8 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from ProgramTeam tp where tp.programId = ?0";
-        List<ProgramTeam> results = (List<ProgramTeam>) this.getHibernateTemplate().find(sSQL, programId);
+        String sSQL = "from ProgramTeam tp where tp.programId = ?1";
+        List<ProgramTeam> results = (List<ProgramTeam>) HqlQueryHelper.find(currentSession(), sSQL, programId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramTeams: programId=" + programId + ",# of results=" + results.size());
