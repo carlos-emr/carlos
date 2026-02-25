@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("demographic")
 @Transactional
-public class DemographicDaoIntegrationTest extends OpenOTestBase {
+public class DemographicDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private DemographicDao demographicDao;

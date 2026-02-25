@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
@@ -56,7 +56,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("casemgmt")
 @Transactional
-public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
+public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     @Qualifier("CaseManagementIssueDAO")
@@ -516,7 +516,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             // properties without an explicit join. This documents the pre-change bug.
             assertThatThrownBy(() ->
                 caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null)
-            ).isInstanceOf(Exception.class);
+            ).isInstanceOf(IllegalArgumentException.class);
         }
 
         @Test
@@ -532,7 +532,7 @@ public class CaseManagementIssueDAOIntegrationTest extends OpenOTestBase {
             // When/Then — same collection dereference bug regardless of resolved filter
             assertThatThrownBy(() ->
                 caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false)
-            ).isInstanceOf(Exception.class);
+            ).isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

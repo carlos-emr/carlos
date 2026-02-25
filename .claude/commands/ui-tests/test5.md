@@ -74,13 +74,13 @@ Follow the 12-step workflow defined in `docs/ui-tests/test-5/test-5-EXECUTION.md
 
 ### Phase 1: Authentication & Tickler Access (Steps 1-3)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Tickler Dashboard** - Click Tickler menu, screenshot
 
 ### Phase 2: Create Tickler (Steps 4-7)
 4. **New Tickler Form** - Click Create New, screenshot empty form
 5. **Patient Linked** - Search "FAKE-J" and link patient, screenshot
-6. **Tickler Details** - Set message, date (+7 days), assign to openodoc, screenshot
+6. **Tickler Details** - Set message, date (+7 days), assign to carlosdoc, screenshot
 7. **Tickler Saved** - Save tickler, screenshot confirmation
 
 ### Phase 3: Tickler Management (Steps 8-9)
@@ -136,7 +136,7 @@ Tickler actions may trigger **confirmation dialogs**:
 ```
 Message: UI Test 5 - Follow up call needed
 Service Date: (today + 7 days)
-Assigned To: openodoc
+Assigned To: carlosdoc
 Priority: Normal
 Patient: FAKE-Jacky FAKE-Jones (ID: 1)
 ```

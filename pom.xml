@@ -462,9 +462,15 @@
             <artifactId>spring-orm</artifactId>
             <version>5.3.39</version>
         </dependency>
-        <!-- spring-webmvc removed: no DispatcherServlet, no @Controller annotations, no Spring MVC.
-             Replaced with spring-web which provides WebApplicationContext used by CXF and Struts.
-             Eliminates CVE alerts on spring-webmvc (path traversal, DoS). -->
+        <!-- spring-webmvc not used in production (no DispatcherServlet, no @Controller annotations).
+             Kept at test scope only for MockMvcBuilders in OpenOWebTestBase.
+             Production code uses spring-web which provides WebApplicationContext for CXF and Struts. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+            <version>5.3.39</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>

@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.daos.security;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("security")
 @Transactional
-public class SecProviderDaoIntegrationTest extends OpenOTestBase {
+public class SecProviderDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private SecProviderDao secProviderDao;

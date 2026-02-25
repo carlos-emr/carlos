@@ -83,7 +83,7 @@ This procedure applies to all UI tests (smoke tests, comprehensive tests, regres
 2. **Confirm Database State**:
    ```bash
    mysql -h db -uroot -ppassword oscar -e \
-     "SELECT user_name, pin FROM security WHERE user_name='openodoc';"
+     "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
    ```
 
 3. **Create Unique Test Run Directory**:
@@ -267,7 +267,7 @@ Validate the most common provider workflow: logging in as a healthcare provider 
 ### Prerequisites
 
 - **Application**: Running on http://localhost:8080/oscar
-- **Database**: Contains test data (openodoc user, patient IDs 1 and 182)
+- **Database**: Contains test data (carlosdoc user, patient IDs 1 and 182)
 - **Playwright MCP**: Configured with headless Chromium
 
 ### Test Steps
@@ -300,9 +300,9 @@ Navigate to: http://localhost:8080/oscar/index.jsp
 
 **Action**:
 ```
-Fill username: openodoc
-Fill password: openo2025
-Fill PIN: 2025
+Fill username: carlosdoc
+Fill password: carlos2026
+Fill PIN: 2026
 Press Enter
 ```
 
@@ -310,7 +310,7 @@ Press Enter
 - Redirect to `/provider/providercontrol.jsp`
 - Dashboard loads with navigation menu
 - Appointment schedule visible
-- User name displayed: "doctor openodoc"
+- User name displayed: "doctor carlosdoc"
 - **NO 404 errors** (verified)
 
 **Screenshot**: `ui-test-runs/$TIMESTAMP/test-1/screenshots/test-1-02-provider-dashboard.png`
@@ -609,12 +609,12 @@ Implement automated screenshot comparison:
 
 **Solution**:
 ```bash
-# Reset openodoc password
+# Reset carlosdoc password
 mysql -h db -uroot -ppassword oscar -e \
   "UPDATE security SET
-   password='{bcrypt}\$2b\$12\$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96',
+   password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO',
    forcePasswordReset=0
-   WHERE user_name='openodoc';"
+   WHERE user_name='carlosdoc';"
 ```
 
 ---

@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class ProgramTeamDaoIntegrationTest extends OpenOTestBase {
+public class ProgramTeamDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProgramTeamDAO programTeamDAO;
@@ -132,6 +132,7 @@ public class ProgramTeamDaoIntegrationTest extends OpenOTestBase {
     class ValidationGuardrails {
 
         @Test
+        @Tag("query")
         @DisplayName("should throw for invalid teamNameExists inputs")
         void shouldThrow_forInvalidTeamNameExistsInputs() {
             assertThatThrownBy(() -> programTeamDAO.teamNameExists(null, "Team"))
@@ -145,6 +146,7 @@ public class ProgramTeamDaoIntegrationTest extends OpenOTestBase {
         }
 
         @Test
+        @Tag("query")
         @DisplayName("should throw for invalid getProgramTeams inputs")
         void shouldThrow_forInvalidGetProgramTeamsInputs() {
             assertThatThrownBy(() -> programTeamDAO.getProgramTeams(null))

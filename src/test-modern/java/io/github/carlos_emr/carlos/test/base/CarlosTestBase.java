@@ -1,13 +1,24 @@
 /**
  * Copyright (c) 2025. Magenta Health. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
  *
- * OpenO Test Framework Base Class
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
- * Foundation class for all OpenO EMR test suites providing common
- * test infrastructure and utilities.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * @author yingbull
- * @since 2025-09-15
+ * Now maintained by the CARLOS EMR Project.
+ * https://github.com/carlos-emr/carlos
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.test.base;
 
@@ -36,7 +47,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
- * Base test class for OpenO EMR that handles the SpringUtils anti-pattern
+ * Base test class for CARLOS EMR that handles the SpringUtils anti-pattern
  * and provides modern JUnit 5 testing capabilities while maintaining
  * compatibility with legacy code patterns.
  *
@@ -71,10 +82,10 @@ import java.lang.reflect.Method;
 @Transactional
 @Rollback
 @TestPropertySource(locations = "classpath:test.properties")
-public abstract class OpenOTestBase {
+public abstract class CarlosTestBase {
 
     /** Logger instance for test debugging and information */
-    protected static final Logger logger = LogManager.getLogger(OpenOTestBase.class);
+    protected static final Logger logger = LogManager.getLogger(CarlosTestBase.class);
 
     /** Spring application context for the test */
     @Autowired

@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
@@ -39,7 +39,7 @@ import java.util.UUID;
  * Base test class for CaseManagementNoteDAO integration tests.
  *
  * <p>Provides shared setup, utilities, and test data creation methods for all
- * CaseManagementNoteDAO test classes. Extends OpenOTestBase to inherit Spring context
+ * CaseManagementNoteDAO test classes. Extends CarlosTestBase to inherit Spring context
  * configuration and SpringUtils anti-pattern handling.</p>
  *
  * @since 2026-02-03
@@ -51,7 +51,7 @@ import java.util.UUID;
 @Tag("dao")
 @Tag("casemgmt")
 @Transactional
-public abstract class CaseManagementNoteDaoBaseIntegrationTest extends OpenOTestBase {
+public abstract class CaseManagementNoteDaoBaseIntegrationTest extends CarlosTestBase {
 
     @Autowired
     @Qualifier("CaseManagementNoteDAO")

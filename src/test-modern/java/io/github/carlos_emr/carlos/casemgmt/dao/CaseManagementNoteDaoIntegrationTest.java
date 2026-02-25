@@ -489,7 +489,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             List<CaseManagementNote> history = caseManagementNoteDAO.getNotesByUUID(sharedUuid);
 
             // Then
-            assertThat(history).hasSizeGreaterThanOrEqualTo(2);
+            assertThat(history).hasSize(2);
             assertThat(history)
                 .extracting(CaseManagementNote::getUuid)
                 .allMatch(u -> u.equals(sharedUuid));
@@ -534,9 +534,9 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         }
     }
 
-    /** Tests for editor cross-join queries (Provider join CaseManagementNote). */
+    /** Tests for editor theta-join queries (Provider join CaseManagementNote via implicit inner join). */
     @Nested
-    @DisplayName("Editor queries (Provider cross-join)")
+    @DisplayName("Editor queries (Provider theta-join)")
     class EditorQueries {
 
         private Provider ensureProvider(String providerNo, String firstName, String lastName) {
@@ -635,7 +635,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
             // Then
             assertThat(history)
-                .hasSizeGreaterThanOrEqualTo(3)
+                .hasSize(3)
                 .extracting(CaseManagementNote::getUuid)
                 .allMatch(u -> u.equals(sharedUuid));
         }
@@ -659,7 +659,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
                 .hasSize(2);
             // Each Object[] should contain: id, observation_date, providerNo, program_no, reporter_caisi_role, uuid
             Object[] first = results.get(0);
-            assertThat(first).hasSizeGreaterThanOrEqualTo(6);
+            assertThat(first).hasSize(6);
         }
 
         @Test
@@ -743,7 +743,9 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
                 .getCPPNotes(DEMO_NO, cppIssue.getId(), "2024-01-01");
 
             // Then — note should be found (observation_date 2024-06-15 >= stale 2024-01-01)
-            assertThat(results).isNotEmpty();
+            assertThat(results)
+                .extracting(CaseManagementNote::getId)
+                .contains(note.getId());
         }
 
         @Test
@@ -919,7 +921,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
                 .getNotesByDemographic(DEMO_NO, issueIds, -1);
 
             // Then — all 3 notes should be returned
-            assertThat(results).hasSizeGreaterThanOrEqualTo(3);
+            assertThat(results).hasSize(3);
         }
 
         @Test
@@ -1040,9 +1042,10 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
     /**
      * Tests for getNotesByDemographic(String demographic_no, String[] issues, String staleDate).
      *
-     * <p>This overload adds a staleDate filter (parsed as yyyy-MM-dd). The current HQL has a
-     * known bug: the subquery uses {@code from cmn} instead of {@code from CaseManagementNote cmn2},
-     * which causes a QuerySyntaxException. Tests document this pre-change behavior.</p>
+     * <p>This overload adds a staleDate filter (parsed as yyyy-MM-dd). The current HQL subquery
+     * uses {@code from cmn} instead of {@code from CaseManagementNote cmn2}, which Hibernate 5
+     * treats as a correlated subquery reference to the outer alias. This works but is
+     * semantically incorrect — PR #89 rewrites to use a distinct alias for correctness.</p>
      */
     @Nested
     @DisplayName("getNotesByDemographic (3 params: demoNo, issues[], staleDate)")
@@ -1075,7 +1078,9 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
                 .getNotesByDemographic(DEMO_NO, issues, "2024-01-01");
 
             // Then — note should be found (observation_date 2024-06-15 >= stale 2024-01-01)
-            assertThat(results).isNotEmpty();
+            assertThat(results)
+                .extracting(CaseManagementNote::getId)
+                .contains(note.getId());
         }
     }
 }

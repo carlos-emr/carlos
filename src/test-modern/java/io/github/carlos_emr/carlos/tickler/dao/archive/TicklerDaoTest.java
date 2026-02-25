@@ -29,7 +29,7 @@
  */
 package io.github.carlos_emr.carlos.tickler.dao.archive;
 
-import io.github.carlos_emr.carlos.test.base.OpenODaoTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosDaoTestBase;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
@@ -100,14 +100,14 @@ import java.time.ZoneId;
  * </ul>
  *
  * @see TicklerDao
- * @see OpenODaoTestBase
+ * @see CarlosDaoTestBase
  * @see Tickler
  * @author yingbull
  * @since 2025-09-15
  */
 @DisplayName("TicklerDao Integration Tests")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class TicklerDaoTest extends OpenODaoTestBase {
+class TicklerDaoTest extends CarlosDaoTestBase {
 
     /** DAO instance under test */
     @Autowired

@@ -22,7 +22,7 @@
  */
 package io.github.carlos_emr.carlos.test.examples;
 
-import io.github.carlos_emr.carlos.test.base.OpenOWebTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.tickler.pageUtil.AddTickler2Action;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -47,7 +47,7 @@ import java.util.Map;
  * ServletActionContext and SpringUtils.getBean() patterns.
  */
 @DisplayName("Struts2 2Action Modern Test")
-class Struts2ActionModernTest extends OpenOWebTestBase {
+class Struts2ActionModernTest extends CarlosWebTestBase {
 
     @Mock
     private TicklerManager mockTicklerManager;

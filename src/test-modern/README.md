@@ -24,9 +24,9 @@ src/test-modern/
 ├── java/
 │   └── io/github/carlos_emr/carlos/
 │       ├── test/base/          # Base test classes
-│       │   ├── OpenOTestBase.java
-│       │   ├── OpenODaoTestBase.java
-│       │   └── OpenOWebTestBase.java
+│       │   ├── CarlosTestBase.java
+│       │   ├── CarlosDaoTestBase.java
+│       │   └── CarlosWebTestBase.java
 │       └── tickler/             # Tickler module tests
 │           ├── dao/             # DAO layer tests
 │           ├── manager/         # Service layer tests
@@ -41,9 +41,9 @@ src/test-modern/
 ### Test Layers
 
 #### 1. **Base Test Classes**
-- **OpenOTestBase**: Foundation for all tests, handles SpringUtils anti-pattern
-- **OpenODaoTestBase**: Database-specific testing with transaction management
-- **OpenOWebTestBase**: Web layer testing with Struts2 ActionContext support
+- **CarlosTestBase**: Foundation for all tests, handles SpringUtils anti-pattern
+- **CarlosDaoTestBase**: Database-specific testing with transaction management
+- **CarlosWebTestBase**: Web layer testing with Struts2 ActionContext support
 
 #### 2. **Test Categories**
 - **DAO Tests**: Database operations, queries, and persistence
@@ -161,7 +161,7 @@ mvn test -Pmodern-tests -Dtest.db.url=jdbc:mariadb://localhost:3306/testdb
  * @since 2025-09-15
  */
 @DisplayName("YourDao Integration Tests")
-class YourDaoTest extends OpenODaoTestBase {
+class YourDaoTest extends CarlosDaoTestBase {
 
     private YourDao dao;
 
@@ -196,7 +196,7 @@ class YourDaoTest extends OpenODaoTestBase {
  * @since 2025-09-15
  */
 @DisplayName("YourManager Unit Tests")
-class YourManagerTest extends OpenOTestBase {
+class YourManagerTest extends CarlosTestBase {
 
     @Mock
     private YourDao mockDao;
@@ -228,7 +228,7 @@ class YourManagerTest extends OpenOTestBase {
  * @since 2025-09-15
  */
 @DisplayName("Your2Action Web Tests")
-class Your2ActionTest extends OpenOWebTestBase {
+class Your2ActionTest extends CarlosWebTestBase {
 
     private Your2Action action;
 
@@ -345,9 +345,9 @@ When migrating a legacy test:
    - Are there hidden dependencies?
 
 2. **Choose appropriate base class**
-   - OpenOTestBase for general tests
-   - OpenODaoTestBase for database tests
-   - OpenOWebTestBase for web layer tests
+   - CarlosTestBase for general tests
+   - CarlosDaoTestBase for database tests
+   - CarlosWebTestBase for web layer tests
 
 3. **Update imports**
    ```java
@@ -409,7 +409,7 @@ replaceSpringUtilsBean(YourManager.class, mockManager);
 
 #### Struts2 Action Context Missing
 **Problem**: ServletActionContext returns null
-**Solution**: Extend OpenOWebTestBase and use `executeAction()`
+**Solution**: Extend CarlosWebTestBase and use `executeAction()`
 
 ## Support
 

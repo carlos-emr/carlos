@@ -35,7 +35,7 @@ These slash commands automate UI test execution using Playwright MCP for browser
 Validates basic login, search, and patient demographic viewing.
 - **Documentation**: `docs/ui-tests/test-1/`
 - **Steps**: 7 (login, dashboard, search, 2 patient records)
-- **Test Data**: openodoc user, patients 1 and 182
+- **Test Data**: carlosdoc user, patients 1 and 182
 
 ### `/test2` - Comprehensive Demographics
 Tests patient creation, editing, search methods, and filters.
@@ -113,7 +113,7 @@ curl -sI http://localhost:8080/oscar/index.jsp | head -1
 mysql -h db -uroot -ppassword oscar -e "SELECT 1;"
 
 # Test user exists
-mysql -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='openodoc';"
+mysql -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='carlosdoc';"
 ```
 
 ## Quick Troubleshooting
@@ -127,7 +127,7 @@ curl -I http://localhost:8080/oscar/index.jsp  # Should return 200
 **Test user missing**:
 ```bash
 db-connect
-SELECT user_name, pin FROM security WHERE user_name='openodoc';
+SELECT user_name, pin FROM security WHERE user_name='carlosdoc';
 # Reset password if needed (see docs/ui-tests/test-1/test-1-EXECUTION.md)
 ```
 

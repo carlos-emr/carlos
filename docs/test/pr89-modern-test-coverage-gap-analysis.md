@@ -59,14 +59,14 @@ current behavior via a try/catch pattern — it will detect if the query starts 
 The following previously untested `?0` methods now have modern integration tests:
 
 **CaseManagementNoteDAOImpl** (6 methods added in round 1):
-- `getEditors(CaseManagementNote)` — cross-join with Provider by UUID
-- `getAllEditors(String)` — cross-join with Provider by demographicNo
+- `getEditors(CaseManagementNote)` — theta-join with Provider by UUID
+- `getAllEditors(String)` — theta-join with Provider by demographicNo
 - `getHistory(CaseManagementNote)` — note history ordered by update_date
 - `getRawNoteInfoByDemographic(String)` — Object[] projection
 - `getRawNoteInfoMapByDemographic(String)` — Map projection
 - `getMostRecentNotes(Integer)` — most recent note per UUID by demographicNo
 
-**CaseManagementNoteDAOImpl** (12 methods added in round 2 — issue-linked queries):
+**CaseManagementNoteDAOImpl** (12 tests covering 5 methods added in round 2 — issue-linked queries):
 - `getCPPNotes(String, long, String)` — issue join + correlated subquery + staleDate (2 tests)
 - `getActiveNotesByDemographic(String, String[])` — single/multi issue IN clause, archived filter (3 tests)
 - `getNotesByDemographic(String, String[], Integer)` — issue-filtered with maxNotes limit (3 tests)
@@ -117,7 +117,7 @@ Before merge, minimum high-signal checklist:
 - [x] Add `LookupDaoIntegrationTest` (core query-binding tests added; LIKE semantics deferred).
 - [x] Add `ProgramTeamDaoIntegrationTest` (all 5 test methods across 4 categories implemented).
 - [x] Extend `IssueDAOIntegrationTest` with projection and normalization assertions.
-- [x] Extend `SecProviderDaoIntegrationTest` with `findByLastName` and `findAll` coverage.
+- [x] Extend `SecProviderDaoIntegrationTest` with `findByLastName` and `findAll` coverage (already on `develop`).
 - [x] Add LIKE semantics test for `LookupDaoImpl.inOrg` (documents fragile `%?0` pattern).
 - [x] Deepen `CaseManagementNoteDaoIntegrationTest` with 6 additional `?0` method tests (editors, history, projections).
 - [x] Deepen `DemographicDaoIntegrationTest` with 6 additional `?0` method tests (chartNo, yearOfBirth, healthNum, exact name, date filters).
@@ -153,12 +153,12 @@ Status legend:
 | `CaseManagementNoteDAOImpl` | `getNotesByDemographicSince` + 6 additional `?0` methods (editors, history, projections, most-recent) | **Covered** | `CaseManagementNoteDaoIntegrationTest` — 27 tests covering CRUD, search, date filtering, cross-join editor queries, history, raw/map projections, and most-recent-per-UUID. |
 | `ClientReferralDAOImpl` | multi-parameter referral queries | **Covered** | `ClientReferralDAOIntegrationTest` asserts filtering for client/facility/program combinations. |
 | `IssueDAOImpl` | search and multi-param issue queries | **Covered** | `IssueDAOIntegrationTest` now asserts scalar projection, input normalization (uppercase→lowercase), and blank-input behavior for `getLocalCodesByCommunityType`. |
-| `SecProviderDaoImpl` | `findById(id,status)` and status filters | **Covered** | `SecProviderDaoIntegrationTest` now includes `findByLastName` (findByProperty path) and `findAll` assertions. |
+| `SecProviderDaoImpl` | `findById(id,status)` and status filters | **Covered** | `SecProviderDaoIntegrationTest` includes `findByLastName` (findByProperty path) and `findAll` assertions (already on `develop`). |
 
 ### Interpretation of the audit
 - The existing test base is solid for the primary PR89 migration themes (parameter binding/order/filtering).
 - Both previously missing suites (`LookupDaoImpl`, `ProgramTeamDAOImpl`) have been added in this PR.
-- The previously partial `IssueDAOImpl` and `SecProviderDaoImpl` coverage has been upgraded to **Covered** with targeted additions in this PR.
+- The previously partial `IssueDAOImpl` coverage has been upgraded to **Covered** with targeted additions in this PR. `SecProviderDaoImpl` coverage was already upgraded on `develop`.
 - `CaseManagementNoteDAOImpl` depth expanded: 6 additional `?0` methods now tested (editors, history, projections, most-recent).
 - `DemographicDaoImpl` depth expanded: 6 additional `?0` methods now tested (chartNo, yearOfBirth, healthNum, exact name, date filters).
 - `LookupDaoImpl` LIKE semantics: `inOrg` now has a behavioral test documenting the fragile `%?0` pattern. `updateOrgStatus` remains untestable (private method).

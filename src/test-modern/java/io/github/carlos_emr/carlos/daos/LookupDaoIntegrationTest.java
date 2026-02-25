@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.daos;
 
 import io.github.carlos_emr.carlos.model.FieldDefValue;
 import io.github.carlos_emr.carlos.model.LookupTableDefValue;
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -52,7 +52,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("dao")
 @Tag("lookup")
 @Transactional
-public class LookupDaoIntegrationTest extends OpenOTestBase {
+public class LookupDaoIntegrationTest extends CarlosTestBase {
 
     private static final String INSERT_LOOKUP_TABLE =
         "INSERT INTO app_lookuptable (tableId, table_name, description, activeyn, readonly, istree, treecode_length, moduleid) VALUES (:tid, :tname, :desc, :active, :ro, :tree, :tcl, :mid)";
@@ -208,16 +208,9 @@ public class LookupDaoIntegrationTest extends OpenOTestBase {
 
             // When/Then — The production HQL `like %?0` has a syntax issue:
             // the % wildcard is outside the parameter value, which is non-standard.
-            // This test documents whether it throws or executes.
-            try {
-                boolean result = lookupDao.inOrg("PARENT", "CHILD");
-                // If it executes, verify it returns a boolean without error
-                assertThat(result).isInstanceOf(Boolean.class);
-            } catch (Exception e) {
-                // Expected: `like %?0` is invalid HQL — the % should be inside the param value.
-                // This documents a pre-existing production bug that must be fixed before Hibernate 6.
-                assertThat(e).isNotNull();
-            }
+            // Hibernate's HQL parser rejects the bare `%` token before the parameter.
+            assertThatThrownBy(() -> lookupDao.inOrg("PARENT", "CHILD"))
+                .isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

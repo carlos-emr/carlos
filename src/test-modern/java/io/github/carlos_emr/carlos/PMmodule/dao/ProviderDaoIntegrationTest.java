@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class ProviderDaoIntegrationTest extends OpenOTestBase {
+public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProviderDao providerDao;
@@ -469,7 +469,7 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
             assertThat(results)
                 .extracting(Provider::getProviderNo)
                 .contains("TM001", "TM002")
-                .doesNotContain("TM004");
+                .doesNotContain("TM003", "TM004");
         }
 
         @Test
@@ -521,7 +521,7 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
             // This documents the pre-change bug that PR #89 fixes.
             assertThatThrownBy(() ->
                 providerDao.getProviderByPractitionerNo(new String[]{"MSP"}, "PRAC12345")
-            ).isInstanceOf(Exception.class);
+            ).isInstanceOf(ClassCastException.class);
         }
 
         @Test

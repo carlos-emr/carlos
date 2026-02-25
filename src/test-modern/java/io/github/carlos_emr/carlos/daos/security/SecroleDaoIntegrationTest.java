@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.daos.security;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.*;
  * because it queries the {@code userDefined} property, which is not present in the
  * HBM mapping. Calling it would result in a Hibernate mapping exception.</p>
  *
- * <p>This test class extends {@link OpenOTestBase}, which provides the full Spring
+ * <p>This test class extends {@link CarlosTestBase}, which provides the full Spring
  * application context, an H2 in-memory database, and SpringUtils initialization
  * required by the CARLOS EMR DAO layer. All tests run within a {@link Transactional}
  * boundary that is rolled back after each test method, ensuring test isolation.</p>
@@ -64,14 +64,14 @@ import static org.assertj.core.api.Assertions.*;
  * @see SecroleDao
  * @see SecroleDaoImpl
  * @see Secrole
- * @see OpenOTestBase
+ * @see CarlosTestBase
  */
 @DisplayName("SecroleDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("security")
 @Transactional
-public class SecroleDaoIntegrationTest extends OpenOTestBase {
+public class SecroleDaoIntegrationTest extends CarlosTestBase {
 
     /**
      * The {@link SecroleDao} instance under test, injected by the Spring context.

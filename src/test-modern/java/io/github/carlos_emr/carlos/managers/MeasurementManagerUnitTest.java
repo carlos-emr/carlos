@@ -105,7 +105,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
      * </ol>
      *
      * <p><b>Note:</b> SecurityInfoManager is already registered by MeasurementUnitTestBase.
-     * LogAction and SpringUtils mocking is handled by OpenOUnitTestBase.</p>
+     * LogAction and SpringUtils mocking is handled by CarlosUnitTestBase.</p>
      */
     @BeforeEach
     void setUp() {
