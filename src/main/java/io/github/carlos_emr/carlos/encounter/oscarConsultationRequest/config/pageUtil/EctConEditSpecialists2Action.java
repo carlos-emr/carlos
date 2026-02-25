@@ -78,7 +78,7 @@ public class EctConEditSpecialists2Action extends ActionSupport {
                         if (specialist != null) {
                             specialist.setDeleted(true);
                             professionalSpecialistDao.merge(specialist);
-                            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request),
+                            LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request),
                                     LogConst.DELETE, "specialist", String.valueOf(specialist.getId()), null, null);
                         }
                     } catch (NumberFormatException e) {
@@ -123,8 +123,10 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         request.setAttribute("eDataServiceName", professionalSpecialist.geteDataServiceName());
         request.setAttribute("annotation", professionalSpecialist.getAnnotation());
         request.setAttribute("referralNo", professionalSpecialist.getReferralNo());
-        request.setAttribute("institution", professionalSpecialist.getInstitutionId().toString());
-        request.setAttribute("department", professionalSpecialist.getDepartmentId().toString());
+        request.setAttribute("institution", professionalSpecialist.getInstitutionId() != null
+                ? professionalSpecialist.getInstitutionId().toString() : "");
+        request.setAttribute("department", professionalSpecialist.getDepartmentId() != null
+                ? professionalSpecialist.getDepartmentId().toString() : "");
         request.setAttribute("privatePhoneNumber", professionalSpecialist.getPrivatePhoneNumber());
         request.setAttribute("cellPhoneNumber", professionalSpecialist.getCellPhoneNumber());
         request.setAttribute("pagerNumber", professionalSpecialist.getPagerNumber());

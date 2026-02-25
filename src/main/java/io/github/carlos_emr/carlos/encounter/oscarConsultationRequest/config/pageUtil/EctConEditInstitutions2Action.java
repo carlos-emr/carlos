@@ -37,6 +37,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.InstitutionDao;
 import io.github.carlos_emr.carlos.commn.model.Institution;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -69,7 +71,14 @@ public class EctConEditInstitutions2Action extends ActionSupport {
         if (delete.equals(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.EditInstitutions.btnDeleteInstitution"))) {
             if (institutions.length > 0) {
                 for (int i = 0; i < institutions.length; i++) {
-                    institutionDao.remove(Integer.parseInt(institutions[i]));
+                    try {
+                        int instId = Integer.parseInt(institutions[i]);
+                        institutionDao.remove(instId);
+                        LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request),
+                                LogConst.DELETE, "institution", String.valueOf(instId), null, null);
+                    } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Invalid institution ID: {}", institutions[i], e);
+                    }
                 }
             }
             EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
@@ -78,7 +87,17 @@ public class EctConEditInstitutions2Action extends ActionSupport {
         }
 
         // not delete request, just update one entry
-        Institution institution = institutionDao.find(Integer.parseInt(id));
+        Institution institution;
+        try {
+            institution = institutionDao.find(Integer.parseInt(id));
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid institution ID for update: {}", id, e);
+            return ERROR;
+        }
+        if (institution == null) {
+            MiscUtils.getLogger().warn("Institution not found for ID: {}", id);
+            return ERROR;
+        }
 
         int updater = 0;
         request.setAttribute("name", institution.getName());

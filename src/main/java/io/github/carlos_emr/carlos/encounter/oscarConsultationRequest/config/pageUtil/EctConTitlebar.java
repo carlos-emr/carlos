@@ -51,8 +51,6 @@ public class EctConTitlebar {
     }
 
     private void init(ResourceBundle oscarR) {
-        jspVect = new ArrayList<String>();
-        displayNameVect = new ArrayList<String>();
         jspVect.add("oscarEncounter/oscarConsultationRequest/config/EnableRequestResponse.jsp");
         displayNameVect.add(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.btnEnableRequestResponse"));
         jspVect.add("oscarEncounter/oscarConsultationRequest/config/AddSpecialist.jsp");
@@ -91,14 +89,16 @@ public class EctConTitlebar {
             String jspFilename = jspPath.substring(jspPath.lastIndexOf("/") + 1);
             boolean isActive = jspFilename.equals(filename) && request.getAttribute("upd") == null;
             String activeClass = isActive ? " active" : "";
+            String ariaCurrent = isActive ? " aria-current=\"page\"" : "";
             strBuf.append("  <a href=\"").append(contextPath).append("/").append(jspPath)
-                  .append("\" class=\"nav-link").append(activeClass).append("\">")
+                  .append("\" class=\"nav-link").append(activeClass).append("\"")
+                  .append(ariaCurrent).append(">")
                   .append(Encode.forHtml(displayNameVect.get(i))).append("</a>\n");
         }
         strBuf.append("</nav>\n");
         return strBuf.toString();
     }
 
-    private List<String> jspVect;
-    private List<String> displayNameVect;
+    private final List<String> jspVect = new ArrayList<String>();
+    private final List<String> displayNameVect = new ArrayList<String>();
 }
