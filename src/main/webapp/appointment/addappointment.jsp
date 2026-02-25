@@ -604,9 +604,13 @@ Ontario, Canada
                         var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
                         var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
                         var statusBanner = document.getElementById('patientStatusBanner');
+                        var statusTextEl = document.getElementById('patientStatusText');
                         if (displayStatus || displayRoster) {
-                            document.getElementById('patientStatusText').textContent =
-                                displayStatus + "\u00a0Roster Status:\u00a0" + displayRoster;
+                            var rosterLabel = statusBanner ? (statusBanner.getAttribute('data-roster-label') || '') : '';
+                            var parts = [];
+                            if (displayStatus) parts.push(displayStatus);
+                            if (displayRoster) parts.push(rosterLabel + ":\u00a0" + displayRoster);
+                            statusTextEl.textContent = parts.join("\u00a0");
                             statusBanner.style.display = '';
                         } else {
                             statusBanner.style.display = 'none';
@@ -628,32 +632,47 @@ Ontario, Canada
                      * @see {@link https://api.jqueryui.com/selectmenu/#method-_renderItem}
                      */
                     _renderItem: function (ul, item) {
-                        var string = "<div><b>" + item.label + "</b> "
-                        if (item.element.attr("data-dur") && item.element.attr("data-dur").length > 0) {
-                            string = string + item.element.attr("data-dur") + "&nbsp;<fmt:setBundle basename='oscarResources'/><fmt:message key='provider.preference.min'/>";
+                        var $div = $("<div>");
+                        var $header = $("<b>").text(item.label || "");
+                        $div.append($header);
+                        var dur = item.element.attr("data-dur");
+                        if (dur && dur.length > 0) {
+                            $div.append(document.createTextNode("\u00a0" + dur + "\u00a0"));
+                            $div.append($("<span>").html("<fmt:setBundle basename='oscarResources'/><fmt:message key='provider.preference.min'/>"));
                         }
-                        if (item.element.attr("data-notes") && item.element.attr("data-notes").length > 0) {
-                            string = string + "&nbsp;&nbsp;" + "<span style='color:gray'> <i class='fa-solid fa-pencil' title='" + "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:&nbsp;" +
-                                item.element.attr("data-notes") + "'></i></span>";
+                        var notesVal = item.element.attr("data-notes");
+                        if (notesVal && notesVal.length > 0) {
+                            $div.append($("<span>").html("&nbsp;&nbsp;"));
+                            var $notesIcon = $("<span>").css("color", "gray").append(
+                                $("<i>").addClass("fa-solid fa-pencil").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:\u00a0" + notesVal)
+                            );
+                            $div.append($notesIcon);
                         }
-                        string = string + "<br>";
-                        if (item.element.attr("data-reason") && item.element.attr("data-reason").length > 0) {
-                            string = string + "<span style='color:gray'><i class='fa-solid fa-tags' title='" + "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>" + "'></i></span>&nbsp;&nbsp;" +
-                                item.element.attr("data-reason");
+                        $div.append($("<br>"));
+                        var reasonVal = item.element.attr("data-reason");
+                        if (reasonVal && reasonVal.length > 0) {
+                            var $reasonIcon = $("<span>").css("color", "gray").append(
+                                $("<i>").addClass("fa-solid fa-tags").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>")
+                            );
+                            $div.append($reasonIcon).append($("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(reasonVal));
                         }
-                        if (item.element.attr("data-resources") && item.element.attr("data-resources").length > 0) {
-                            string = string + "<br>" + "<span style='color:gray'><i class='fa-solid fa-gear' title='" + "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formResources"/>" + "'></i></span>&nbsp;&nbsp;" +
-                                item.element.attr("data-resources");
+                        var resourcesVal = item.element.attr("data-resources");
+                        if (resourcesVal && resourcesVal.length > 0) {
+                            $div.append($("<br>"));
+                            var $resourcesIcon = $("<span>").css("color", "gray").append(
+                                $("<i>").addClass("fa-solid fa-gear").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formResources"/>")
+                            );
+                            $div.append($resourcesIcon).append($("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(resourcesVal));
                         }
-                        if (item.element.attr("data-loc") && item.element.attr("data-loc").length > 1) {
-                            string = string + "<br>" + "<span style='color:gray'><i class='fa-solid fa-house' title='" + "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>" + "'></i></span>&nbsp;&nbsp;" +
-                                item.element.attr("data-loc");
+                        var locVal = item.element.attr("data-loc");
+                        if (locVal && locVal.length > 1) {
+                            $div.append($("<br>"));
+                            var $locIcon = $("<span>").css("color", "gray").append(
+                                $("<i>").addClass("fa-solid fa-house").attr("title", "<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>")
+                            );
+                            $div.append($locIcon).append($("<span>").html("&nbsp;&nbsp;")).append(document.createTextNode(locVal));
                         }
-                        string = string + "</div>";
-                        return $("<li>")
-                            .append(string)
-                            .appendTo(ul);
-
+                        return $("<li>").append($div).appendTo(ul);
                     }
                 });
 
@@ -1080,10 +1099,11 @@ Ontario, Canada
             String statusExp = " null-undefined\n IN-inactive ID-deceased OP-out patient\n NR-not signed\n FS-fee for service\n TE-terminated\n SP-self pay\n TP-third party";
             boolean showStatusBanner = !patientStatus.equals("") || !rosterStatus.equals("");
         %>
+        <fmt:setBundle basename="oscarResources"/>
         <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
              title='<%=Encode.forHtmlAttribute(statusExp)%>'
+             data-roster-label="<fmt:message key="Appointment.msgRosterStatus"/>"
              style="<%= showStatusBanner ? "" : "display:none" %>" role="alert">
-            <fmt:setBundle basename="oscarResources"/>
             <span id="patientStatusText"><%=Encode.forHtmlContent(patientStatus)%>&nbsp;<fmt:message key="Appointment.msgRosterStatus"/>:&nbsp;<%=Encode.forHtmlContent(rosterStatus)%></span>
             <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
         </div>
@@ -1391,7 +1411,7 @@ Ontario, Canada
                             <td>
 	                <input type="text" name="resources" class="form-control"
                                        tabindex="6"
-                                       value='<%=bFirstDisp?"":request.getParameter("resources").equals("")?"": Encode.forHtmlAttribute(request.getParameter("resources"))%>'
+                                       value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'
                                 >
                             </td>
                         </tr>

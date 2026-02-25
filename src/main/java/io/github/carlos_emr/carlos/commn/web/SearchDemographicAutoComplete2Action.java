@@ -56,7 +56,10 @@ import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
 /**
- * @author jaygallagher
+ * Struts 2 action providing JSON autocomplete results for demographic (patient) searches.
+ * Used by appointment booking and other patient-lookup flows.
+ *
+ * @since 2026-02-20
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
