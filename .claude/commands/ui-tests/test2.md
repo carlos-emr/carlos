@@ -63,8 +63,8 @@ Before starting, verify application and database are ready:
 1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
    - Expected: `HTTP/1.1 200`
 
-2. **Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='openodoc' LIMIT 1;"`
-   - Expected: Shows `openodoc` user exists
+2. **Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='carlosdoc' LIMIT 1;"`
+   - Expected: Shows `carlosdoc` user exists
 
 3. **Pre-Test Cleanup** (REQUIRED for re-runs):
    ```bash
@@ -98,7 +98,7 @@ Follow the 30-step workflow defined in `docs/ui-tests/test-2/test-2-EXECUTION.md
 
 ### Phase 1: Authentication & Navigation (Steps 1-3)
 1. **Login Page** - Navigate to http://localhost:8080/oscar and screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), log console messages, screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), log console messages, screenshot
 3. **Search Page** - Click Search menu, switch to new tab, screenshot
 
 ### Phase 2: Create New Patient (Steps 4-8)
@@ -111,7 +111,7 @@ Follow the 30-step workflow defined in `docs/ui-tests/test-2/test-2-EXECUTION.md
 6. **Fill Contact** - Fill: Phone=416-555-0199, Email=test.uitest2@example.com
    - **IMPORTANT**: Leave HIN field EMPTY (strict validation rejects invalid formats)
    - Screenshot
-7. **Set Provider** - Set Doctor (MRP) to "openodoc, doctor", screenshot
+7. **Set Provider** - Set Doctor (MRP) to "carlosdoc, doctor", screenshot
 8. **Save Patient** - Click "Add Record" button, **wait 5 seconds** using `browser_wait_for`, log console messages, screenshot success
 
 ### Phase 3: Verify New Patient (Steps 9-12)

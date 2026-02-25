@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.base.OpenOWebTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -48,7 +48,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("MsgReDisplayMessages2Action Tests")
 @Tag("integration")
 @Tag("messenger")
-class MsgReDisplayMessages2ActionTest extends OpenOWebTestBase {
+class MsgReDisplayMessages2ActionTest extends CarlosWebTestBase {
 
     @Mock
     private MessageListDao mockMessageListDao;

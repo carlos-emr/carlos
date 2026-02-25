@@ -44,112 +44,63 @@
     }
 %>
 
-<%@ page import="java.util.ResourceBundle" %>
-
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
-
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.InstitutionDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Institution" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);
 %>
+<!DOCTYPE html>
 <html>
-
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <title>Show All Institutions</title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
-    <body class="BodyStyle" vlink="#0000FF">
-    <% 
+    <body>
+    <div class="container-fluid">
+        <div class="page-header-bar">
+            <h5 class="page-header-title">Select Institution</h5>
+        </div>
+
+<%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
+        <div class="action-errors">
+            <ul>
+                <% for (String error : actionErrors) { %>
+                    <li><%= Encode.forHtml(error) %></li>
+                <% } %>
+            </ul>
+        </div>
 <% } %>
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Consultation</td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td class="Header">Select Institution</td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr style="vertical-align: top">
-            <td class="MainTableLeftColumn">
+
+        <div class="row">
+            <div class="col-md-3 consult-sidebar">
                 <%
                     EctConTitlebar titlebar = new EctConTitlebar(request);
                     out.print(titlebar.estBar(request));
                 %>
-            </td>
-            <td class="MainTableRightColumn">
-                <table cellpadding="0" cellspacing="2"
-                       style="border-collapse: collapse" bordercolor="#111111" width="100%"
-                       height="100%">
+            </div>
 
-                    <!----Start new rows here-->
-                    <tr>
-                        <td>
+            <div class="col-md-9">
+                <h6 class="mb-3">Institutions</h6>
 
-                            <table>
-                                <form action="${pageContext.request.contextPath}/oscarEncounter/AddService.do" method="post">
-                                    <tr>
-                                        <td>Institutions</td>
-                                    </tr>
-                                    <tr>
-                                        <td>
-
-                                            <table>
-                                                <%
-                                                    for (Institution i : institutionDao.findAll()) {
-                                                %>
-                                                <tr>
-                                                    <td>
-                                                        <%
-                                                            String contextPath = request.getContextPath();
-                                                            String url = contextPath + "/oscarEncounter/ShowAllInstitutions.do?id=" + i.getId() + "&name=" + i.getName();
-                                                            out.print("<a href=\"" + url + "\">");
-                                                            out.print(i.getName());
-                                                            out.print("</a>");
-                                                        %>
-                                                    </td>
-                                                </tr>
-                                                <%}%>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                </form>
-                            </table>
-                        </td>
-                    </tr>
-                    <!----End new rows here-->
-
-                    <tr height="100%">
-                        <td></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+                <div class="list-group">
+                    <%
+                        String contextPath = request.getContextPath();
+                        for (Institution i : institutionDao.findAll()) {
+                            String url = contextPath + "/oscarEncounter/ShowAllInstitutions.do?id=" + i.getId()
+                                + "&name=" + Encode.forUriComponent(i.getName());
+                    %>
+                    <a href="<%= url %>" class="list-group-item list-group-item-action"><%= Encode.forHtml(i.getName()) %></a>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
     </body>
 </html>

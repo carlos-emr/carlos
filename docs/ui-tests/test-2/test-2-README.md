@@ -34,9 +34,9 @@ Test 2 is a **comprehensive end-to-end UI test** for the Demographic module in C
 #### Provider Credentials
 | Field | Value |
 |-------|-------|
-| Username | openodoc |
-| Password | openo2025 |
-| PIN | 2025 |
+| Username | carlosdoc |
+| Password | carlos2026 |
+| PIN | 2026 |
 | Provider No | 999998 |
 
 #### Existing Test Patients (Must Exist)
@@ -146,7 +146,7 @@ Sex: M (Male)
 HIN: (leave empty - strict validation)
 Phone: 416-555-0199
 Email: test.uitest2@example.com
-Doctor (MRP): openodoc, doctor
+Doctor (MRP): carlosdoc, doctor
 ```
 
 > **NOTE**: HIN is intentionally left empty because the field has strict validation

@@ -46,7 +46,7 @@ src/test-modern/
 ├── java/io/github/carlos_emr/carlos/
 │   ├── test/
 │   │   ├── base/              # Base test classes
-│   │   ├── unit/              # Unit test infrastructure (OpenOUnitTestBase)
+│   │   ├── unit/              # Unit test infrastructure (CarlosUnitTestBase)
 │   │   └── mocks/             # Mock implementations
 │   ├── managers/              # Manager layer unit tests
 │   │   ├── DemographicUnitTestBase.java      # Base class with test data builders
@@ -134,7 +134,7 @@ Tests are organized by operation type for scalability:
 ```java
 @DisplayName("My Component Integration Tests")
 @Tag("integration")
-public class MyComponentIntegrationTest extends OpenOTestBase {
+public class MyComponentIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should perform expected action when condition is met")
@@ -160,7 +160,7 @@ public class MyComponentIntegrationTest extends OpenOTestBase {
 @Tag("unit")
 @Tag("fast")
 @Tag("manager")
-public class MyManagerUnitTest extends OpenOUnitTestBase {
+public class MyManagerUnitTest extends CarlosUnitTestBase {
 
     @Mock private SomeDao mockDao;
     @Mock private AnotherDao mockAnotherDao;
@@ -204,7 +204,7 @@ public class MyManagerUnitTest extends OpenOUnitTestBase {
 ## Common Issues and Solutions
 
 ### Issue: SpringUtils.getBean() returns null
-**Solution**: Ensure test extends `OpenOTestBase` and Spring context is configured
+**Solution**: Ensure test extends `CarlosTestBase` and Spring context is configured
 
 ### Issue: ByteBuddy Java 21 compatibility error
 **Solution**: Verify `-Dnet.bytebuddy.experimental=true` is in Maven configuration
