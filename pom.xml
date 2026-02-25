@@ -1445,6 +1445,10 @@
                 <configuration>
                     <source>21</source>
                     <target>21</target>
+                    <!-- Suppress Struts 6.x com.opensymphony.xwork2.* deprecation warnings.
+                         These are expected and harmless (see WW-5494); packages remain
+                         fully functional until Struts 7.x / Jakarta EE migration. -->
+                    <showDeprecation>false</showDeprecation>
                 </configuration>
             </plugin>
 
@@ -1635,6 +1639,11 @@
                         </goals>
                         <configuration>
                             <skip>${skipModernTests}</skip>
+                            <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
+                                 so forks are completely isolated and safe to run in parallel.
+                                 Legacy tests use a real MariaDB and must remain sequential. -->
+                            <forkCount>2</forkCount>
+                            <reuseForks>true</reuseForks>
                             <testSourceDirectory>src/test-modern/java</testSourceDirectory>
                             <reportsDirectory>${project.build.directory}/surefire-reports-modern</reportsDirectory>
                             <testClassesDirectory>${project.build.directory}/test-classes</testClassesDirectory>
