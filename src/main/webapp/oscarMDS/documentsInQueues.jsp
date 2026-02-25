@@ -892,7 +892,7 @@
 
         function showDocLab(childId, docNo, providerNo, searchProviderNo, status, demoName, inQueue) {//showhide is 0 = document currently hidden, 1=currently shown
             //create child element in docViews
-            docNo = docNo.replace(' ', '');//trim
+            docNo = docNo.replace(/ /g, '');//trim
             var type = checkType(docNo);
             //oscarLog('type'+type);
             //var div=childId;
