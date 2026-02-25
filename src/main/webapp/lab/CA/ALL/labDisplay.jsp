@@ -121,6 +121,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.ProviderManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
@@ -559,6 +560,65 @@ input[id^='acklabel_']{
 #labVersionInfoModal .status {
     font-weight: bold;
 }
+
+/* File-for-others dialog styles */
+#fileDialog, #combinedAckFileDialog {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    z-index: 10000;
+    padding: 20px;
+    min-width: 420px;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+#fileDialog .dialog-overlay, #combinedAckFileDialog .dialog-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 9999;
+}
+
+#fileDialog h5, #combinedAckFileDialog h5 {
+    margin-bottom: 15px;
+}
+
+.provider-checkbox-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 10px;
+}
+
+.provider-checkbox-list .form-check {
+    padding: 4px 0 4px 24px;
+}
+
+.provider-checkbox-list .form-check-label {
+    font-size: 0.9rem;
+}
+
+.dialog-btn-group {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 15px;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #e7f1ff;
+    color: #0c63e4;
+}
     </style>
 
     <script>
@@ -648,6 +708,13 @@ input[id^='acklabel_']{
                                 document.getElementById("labStatus_" + labid).value = "A";
                                 updateStatus(formid, labid);
                             }
+                        } else if (action === 'ackLabAndFileForOther') {
+                            console.log("Acknowledging lab and filing for others. Labid: " + labid);
+                            if (confirmAck()) {
+                                document.getElementById("labStatus_" + labid).value = "A";
+                                acknowledgeWithComment(formid, labid);
+                                fileOnBehalfOfMultipleProviders(labid);
+                            }
                         } else if (action === 'msgLab') {
                             console.log("Sending message about lab. Demoid: " + demoid);
                             demoid = json.demoId;
@@ -706,6 +773,205 @@ input[id^='acklabel_']{
 
         function confirmAckUnmatched() {
             return confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.msgConfirmAcknowledgeUnmatched"/>');
+        }
+
+        /**
+         * Entry point for both the "Acknowledge" button (isFileOnly=false) and
+         * the "File for..." button (isFileOnly=true). Routes to the correct dialog.
+         *
+         * isFileOnly=true  -- "File for..." button: opens the file-only dialog.
+         * isFileOnly=false -- "Acknowledge" button: if skipComment, acknowledges directly;
+         *   otherwise opens the combined modal.
+         */
+        function openFileDialog(isFileOnly, segmentId, labType) {
+            if (isFileOnly) {
+                openFileOnlyDialog(segmentId, labType);
+                return;
+            }
+            var skipEl = document.getElementById('skipAckComment');
+            if (skipEl && skipEl.value === 'true') {
+                var tempBtn = document.getElementById('tempAckBtn');
+                if (tempBtn) tempBtn.click();
+                return;
+            }
+            openCombinedAckFileDialog(false, segmentId, labType);
+        }
+
+        /**
+         * Opens the "File Document" dialog for the "File for..." button flow.
+         * Reached only when the logged-in provider has already acknowledged the lab.
+         */
+        function openFileOnlyDialog(segmentId, labType) {
+            var dialog = document.getElementById('fileDialog');
+            var overlay = document.getElementById('fileDialogOverlay');
+            if (dialog) {
+                dialog.style.display = 'block';
+                if (overlay) overlay.style.display = 'block';
+                dialog.setAttribute('data-segment-id', segmentId);
+                dialog.setAttribute('data-lab-type', labType);
+            }
+        }
+
+        /**
+         * Opens the combined Acknowledge + File dialog.
+         */
+        function openCombinedAckFileDialog(isFileOnly, segmentId, labType) {
+            var dialog = document.getElementById('combinedAckFileDialog');
+            var overlay = document.getElementById('combinedDialogOverlay');
+            if (dialog) {
+                dialog.style.display = 'block';
+                if (overlay) overlay.style.display = 'block';
+                dialog.setAttribute('data-segment-id', segmentId);
+                dialog.setAttribute('data-lab-type', labType);
+                dialog.setAttribute('data-file-only', isFileOnly);
+
+                // Pre-populate comment from existing text
+                var textEl = document.getElementById(providerNo + '_' + segmentId + 'commentText');
+                var commentInput = document.getElementById('combinedAckComment');
+                if (commentInput) {
+                    commentInput.value = textEl ? textEl.innerHTML : '';
+                    commentInput.focus();
+                }
+            }
+        }
+
+        function closeFileDialog() {
+            var dialog = document.getElementById('fileDialog');
+            var overlay = document.getElementById('fileDialogOverlay');
+            if (dialog) dialog.style.display = 'none';
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        function closeCombinedDialog() {
+            var dialog = document.getElementById('combinedAckFileDialog');
+            var overlay = document.getElementById('combinedDialogOverlay');
+            if (dialog) dialog.style.display = 'none';
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        /**
+         * Submit handler for the file-only dialog.
+         */
+        function submitFileDialog() {
+            var dialog = document.getElementById('fileDialog');
+            var segmentId = dialog.getAttribute('data-segment-id');
+            var labType = dialog.getAttribute('data-lab-type');
+            var checkboxes = document.querySelectorAll('.ackProviderCheckbox:checked');
+            var selectedProviders = [];
+            checkboxes.forEach(function(cb) { selectedProviders.push(cb.value); });
+            closeFileDialog();
+            if (selectedProviders.length > 0) {
+                fileOnBehalfOfMultipleProviders(selectedProviders, segmentId, labType).then(function() {
+                    location.reload();
+                });
+            }
+        }
+
+        /**
+         * Submit handler for the combined Acknowledge/File dialog.
+         */
+        function submitCombinedDialog() {
+            var dialog = document.getElementById('combinedAckFileDialog');
+            var segmentId = dialog.getAttribute('data-segment-id');
+            var labType = dialog.getAttribute('data-lab-type');
+            var isFileOnly = dialog.getAttribute('data-file-only') === 'true';
+            var comment = document.getElementById('combinedAckComment').value;
+
+            var checkboxes = document.querySelectorAll('.combinedAckProviderCheckbox:checked');
+            var selectedProviders = [];
+            checkboxes.forEach(function(cb) { selectedProviders.push(cb.value); });
+
+            closeCombinedDialog();
+
+            if (selectedProviders.length > 0) {
+                fileOnBehalfOfMultipleProviders(selectedProviders, segmentId, labType).then(function() {
+                    if (!isFileOnly) {
+                        acknowledgeWithComment(comment, segmentId);
+                    } else {
+                        location.reload();
+                    }
+                });
+            } else if (!isFileOnly) {
+                acknowledgeWithComment(comment, segmentId);
+            }
+        }
+
+        /**
+         * Writes the comment into the form and triggers the acknowledge action.
+         */
+        function acknowledgeWithComment(comment, segmentId) {
+            var ackForm = document.forms['acknowledgeForm_' + segmentId];
+            if (ackForm && ackForm.comment) {
+                ackForm.comment.value = comment;
+            }
+            handleLab('acknowledgeForm_' + segmentId, segmentId, 'ackLab');
+        }
+
+        /**
+         * Files the lab result on behalf of each provider in selectedProviders.
+         * All requests run in parallel via Promise.allSettled.
+         */
+        function fileOnBehalfOfMultipleProviders(selectedProviders, segmentId, labType) {
+            if (!selectedProviders || selectedProviders.length === 0) {
+                return Promise.reject(new Error("No providers selected"));
+            }
+
+            var loggedInProviderName = document.getElementById('loggedInProviderName') ?
+                document.getElementById('loggedInProviderName').value : providerNo;
+            var contextPath = '<%= request.getContextPath() %>';
+
+            var ajaxCalls = selectedProviders.map(function(provNo) {
+                var nameEl = document.querySelector('.combinedAckProviderName[data-provider-no="' + provNo + '"], .ackProviderName[data-provider-no="' + provNo + '"]');
+                var providerName = nameEl ? nameEl.value : provNo;
+                var comment = createFilingComment(providerName, loggedInProviderName);
+
+                return fetch(contextPath + '/oscarMDS/FileLabs.do', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'method=fileOnBehalfOfMultipleProviders'
+                        + '&providerNo=' + encodeURIComponent(provNo)
+                        + '&flaggedLabId=' + encodeURIComponent(segmentId)
+                        + '&labType=' + encodeURIComponent(labType)
+                        + '&comment=' + encodeURIComponent(comment)
+                        + '&fileUpToLabNo=true'
+                        + '&onBehalfOfOtherProvider=true'
+                }).then(function(response) {
+                    console.log("Filed lab for provider: " + provNo);
+                }).catch(function(err) {
+                    console.error("Failed filing for provider: " + provNo, err);
+                });
+            });
+
+            return Promise.allSettled(ajaxCalls).then(function(results) {
+                var failed = results.filter(function(r) { return r.status === 'rejected'; });
+                if (failed.length > 0) {
+                    console.error("Some filing calls failed:", failed);
+                }
+            });
+        }
+
+        /**
+         * Generates the auto-filing comment.
+         */
+        function createFilingComment(providerName, loggedInProviderName) {
+            var now = new Date();
+            var yyyy = now.getFullYear();
+            var mm = String(now.getMonth() + 1).padStart(2, '0');
+            var dd = String(now.getDate()).padStart(2, '0');
+            var hours = now.getHours();
+            var minutes = String(now.getMinutes()).padStart(2, '0');
+            var ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            var formattedDate = yyyy + '.' + mm + '.' + dd + ' @ ' + hours + ':' + minutes + ampm;
+            return 'Filed by ' + loggedInProviderName + ' on behalf of ' + providerName + ' on ' + formattedDate;
+        }
+
+        /**
+         * Handles the Select All checkbox for the file dialogs.
+         */
+        function toggleSelectAll(selectAllCb, checkboxClass) {
+            var checkboxes = document.querySelectorAll('.' + checkboxClass + ':not(:disabled)');
+            checkboxes.forEach(function(cb) { cb.checked = selectAllCb.checked; });
         }
 
         function unlinkDemographic(labNo) {
@@ -799,6 +1065,35 @@ input[id^='acklabel_']{
                         ackFlag = true;//lab has been ack by this providers.
                         break;
                     }
+                }
+            }
+        }
+
+        // Determine if any provider's lab is NOT yet filed or acknowledged
+        boolean isLabNotFiledOrAckFlag = false;
+        if (ackList != null) {
+            for (int i = 0; i < ackList.size(); i++) {
+                ReportStatus rs = ackList.get(i);
+                String st = rs.getStatus();
+                if (st != null && !st.equals("Acknowledged") && !st.equals("Filed but not acknowledged")) {
+                    isLabNotFiledOrAckFlag = true;
+                    break;
+                }
+            }
+        }
+
+        // Resolve HL7 provider preferences for each provider in ackList
+        ProviderManager2 providerManager2 = SpringUtils.getBean(ProviderManager2.class);
+        LoggedInInfo loggedInInfoForPrefs = LoggedInInfo.getLoggedInInfoFromSession(request);
+        boolean isHl7OfferFileForOthers = providerManager2.isHl7OfferFileForOthers(loggedInInfoForPrefs, providerNo);
+
+        if (ackList != null) {
+            for (int i = 0; i < ackList.size(); i++) {
+                ReportStatus rs = ackList.get(i);
+                String rpNo = rs.getOscarProviderNo();
+                if (rpNo != null && !rpNo.isEmpty()) {
+                    boolean allowOthers = providerManager2.isHl7AllowOthersFileForYou(loggedInInfoForPrefs, rpNo);
+                    rs.setHl7AllowOthersFileForYou(allowOthers);
                 }
             }
         }
@@ -924,7 +1219,7 @@ input[id^='acklabel_']{
                     <table class="MainTableTopRowRightColumn" style="width:100%;">
                         <tr>
                             <td>
-                                <input type="hidden" name="segmentID"
+                                <input type="hidden" name="segmentID" id="segmentID"
                                        value="<%= Encode.forHtmlAttribute(segmentID) %>">
                                 <input type="hidden" name="multiID" value="<%= Encode.forHtmlAttribute(multiLabId) %>">
                                 <input type="hidden" name="providerNo" id="providerNo"
@@ -975,7 +1270,11 @@ input[id^='acklabel_']{
 
                                 <input type="button" class="btn btn-sm btn-outline-primary"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                                       onclick="<%=ackLabFunc%>">
+                                       onclick="openFileDialog(false, '<%=Encode.forJavaScript(segmentID)%>', 'HL7')">
+                                <% } else if (isLabNotFiledOrAckFlag && isHl7OfferFileForOthers) { %>
+                                <input type="button" class="btn btn-sm btn-outline-info"
+                                       value="File for..."
+                                       onclick="openFileDialog(true, '<%=Encode.forJavaScript(segmentID)%>', 'HL7')">
                                 <% } %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                        onclick="return getComment('addComment',<%=Encode.forJavaScript(segmentID)%>);">
@@ -2408,7 +2707,10 @@ input[id^='acklabel_']{
                 <td style="text-align:left; width:50%">
                     <% if (!ackFlag) { %>
                     <input type="button" class="btn btn-sm btn-outline-primary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
-                           onclick="<%=ackLabFunc%>">
+                           onclick="openFileDialog(false, '<%=Encode.forJavaScript(segmentID)%>', 'HL7')">
+                    <% } else if (isLabNotFiledOrAckFlag && isHl7OfferFileForOthers) { %>
+                    <input type="button" class="btn btn-sm btn-outline-info" value="File for..."
+                           onclick="openFileDialog(true, '<%=Encode.forJavaScript(segmentID)%>', 'HL7')">
                     <% } %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                            onclick="return getComment('addComment',<%=Encode.forJavaScript(segmentID)%>);">
@@ -2470,6 +2772,157 @@ input[id^='acklabel_']{
         </table>
 
     </form>
+
+    <%-- Hidden inputs for logged-in provider details --%>
+    <input type="hidden" id="loggedInProviderNo" value="<%=Encode.forHtmlAttribute(providerNo)%>" />
+    <input type="hidden" id="loggedInProviderName" value="<%=Encode.forHtmlAttribute(loggedInInfoForPrefs.getLoggedInProvider().getFullName())%>" />
+    <input type="hidden" id="skipAckComment" value="<%=skipComment%>" />
+
+    <%-- Hidden button for legacy fallback acknowledge flow --%>
+    <button id="tempAckBtn" onclick="<%=Encode.forHtmlAttribute(ackLabFunc)%>" style="display:none;"></button>
+
+    <%-- Overlay for dialogs --%>
+    <div id="fileDialogOverlay" class="dialog-overlay" style="display:none;" onclick="closeFileDialog()"></div>
+    <div id="combinedDialogOverlay" class="dialog-overlay" style="display:none;" onclick="closeCombinedDialog()"></div>
+
+    <%--
+        "File Document" dialog -- opened by the "File for..." button.
+        Lists eligible providers; those who have opted out appear greyed out.
+    --%>
+    <div id="fileDialog">
+        <h5>File Document</h5>
+        <p>This result is linked to other providers who have not acknowledged or filed it yet.</p>
+        <p>Do you want to "file" this result on their behalf?</p>
+        <p class="text-danger"><small>Important - doing so will mean they likely will not see this result.
+        Only proceed if you are sure they will not need to see this result.</small></p>
+
+        <div class="provider-checkbox-list">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="ackSelectAllCheckbox"
+                       onchange="toggleSelectAll(this, 'ackProviderCheckbox')">
+                <label class="form-check-label" for="ackSelectAllCheckbox"><b>Select All</b></label>
+            </div>
+            <%
+                if (ackList != null) {
+                    for (int fi = 0; fi < ackList.size(); fi++) {
+                        ReportStatus fReport = ackList.get(fi);
+                        String fProvNo = fReport.getOscarProviderNo();
+                        if (fProvNo != null && !fProvNo.equals(providerNo)) {
+                            String fStatus = fReport.getStatus();
+                            if (fStatus != null && !fStatus.equals("Acknowledged") && !fStatus.equals("Filed but not acknowledged")) {
+                                boolean fDisabled = !fReport.isHl7AllowOthersFileForYou();
+                                String fProvName = fReport.getProviderName();
+            %>
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input ackProviderCheckbox<%= fDisabled ? " disabled-checkbox" : "" %>"
+                       id="ackProvider_<%=fi%>" value="<%=Encode.forHtmlAttribute(fProvNo)%>"
+                       <%= fDisabled ? "disabled" : "" %>>
+                <label class="form-check-label" for="ackProvider_<%=fi%>"
+                       style="<%= fDisabled ? "color: gray; cursor: not-allowed;" : "" %>">
+                    <%=Encode.forHtml(fProvName)%><%= fDisabled ? " (opted out by user preference)" : "" %>
+                </label>
+                <input type="hidden" class="ackProviderName" data-provider-no="<%=Encode.forHtmlAttribute(fProvNo)%>"
+                       value="<%=Encode.forHtmlAttribute(fProvName)%>">
+            </div>
+            <%
+                            }
+                        }
+                    }
+                }
+            %>
+        </div>
+        <p><small>Tip: In your user preferences, you can prevent others from filing results on your behalf.
+        See "Set HL7 Lab Result Preferences".</small></p>
+        <div class="dialog-btn-group">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="closeFileDialog()">Cancel</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="submitFileDialog()">Submit</button>
+        </div>
+    </div>
+
+    <%--
+        "Acknowledge/File Document" combined modal -- opened by the "Acknowledge" button
+        when the provider has opted in to offer filing for others.
+    --%>
+    <div id="combinedAckFileDialog">
+        <h5>Acknowledge / File Document</h5>
+        <div class="mb-3">
+            <label for="combinedAckComment" class="form-label"><b>Please enter a comment (max 255 characters):</b></label>
+            <input type="text" id="combinedAckComment" class="form-control" maxlength="255">
+        </div>
+
+        <%
+            // Count eligible providers
+            int eligibleCount = 0;
+            if (ackList != null) {
+                for (int ci = 0; ci < ackList.size(); ci++) {
+                    ReportStatus cReport = ackList.get(ci);
+                    String cProvNo = cReport.getOscarProviderNo();
+                    if (cProvNo != null && !cProvNo.equals(providerNo)) {
+                        String cStatus = cReport.getStatus();
+                        if (cStatus != null && !cStatus.equals("Acknowledged") && !cStatus.equals("Filed but not acknowledged")) {
+                            eligibleCount++;
+                        }
+                    }
+                }
+            }
+            if (eligibleCount > 0) {
+        %>
+        <div class="card mb-3">
+            <div class="card-header" style="cursor:pointer;" onclick="var b=document.getElementById('combinedAccordionBody');b.style.display=b.style.display==='none'?'block':'none';">
+                <b>(Optional) File Document On Behalf of Others</b>
+            </div>
+            <div id="combinedAccordionBody" class="card-body" style="display:<%= isHl7OfferFileForOthers ? "block" : "none" %>;">
+                <p>This result is linked to other providers who have not acknowledged or filed it yet.</p>
+                <p>Do you want to "file" this result on their behalf?</p>
+                <p class="text-danger"><small>Important - doing so will mean they likely will not see this result.
+                Only proceed if you are sure they will not need to see this result.</small></p>
+
+                <div class="provider-checkbox-list">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="combinedAckSelectAllCheckbox"
+                               onchange="toggleSelectAll(this, 'combinedAckProviderCheckbox')">
+                        <label class="form-check-label" for="combinedAckSelectAllCheckbox"><b>Select All</b></label>
+                    </div>
+                    <%
+                        if (ackList != null) {
+                            for (int ci = 0; ci < ackList.size(); ci++) {
+                                ReportStatus cReport = ackList.get(ci);
+                                String cProvNo = cReport.getOscarProviderNo();
+                                if (cProvNo != null && !cProvNo.equals(providerNo)) {
+                                    String cStatus = cReport.getStatus();
+                                    if (cStatus != null && !cStatus.equals("Acknowledged") && !cStatus.equals("Filed but not acknowledged")) {
+                                        boolean cDisabled = !cReport.isHl7AllowOthersFileForYou();
+                                        String cProvName = cReport.getProviderName();
+                    %>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input combinedAckProviderCheckbox<%= cDisabled ? " combined-disabled-checkbox" : "" %>"
+                               id="combinedProvider_<%=ci%>" value="<%=Encode.forHtmlAttribute(cProvNo)%>"
+                               <%= cDisabled ? "disabled" : "" %>>
+                        <label class="form-check-label" for="combinedProvider_<%=ci%>"
+                               style="<%= cDisabled ? "color: gray; cursor: not-allowed;" : "" %>">
+                            <%=Encode.forHtml(cProvName)%><%= cDisabled ? " (opted out by user preference)" : "" %>
+                        </label>
+                        <input type="hidden" class="combinedAckProviderName" data-provider-no="<%=Encode.forHtmlAttribute(cProvNo)%>"
+                               value="<%=Encode.forHtmlAttribute(cProvName)%>">
+                    </div>
+                    <%
+                                    }
+                                }
+                            }
+                        }
+                    %>
+                </div>
+                <p><small>Tip: In your user preferences, you can automatically show this prompt or prevent others
+                from filing results on your behalf. See "Set HL7 Lab Result Preferences".</small></p>
+            </div>
+        </div>
+        <% } %>
+
+        <div class="dialog-btn-group">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="closeCombinedDialog()">Cancel</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="submitCombinedDialog()">Submit</button>
+        </div>
+    </div>
 
     <%String s = "" + System.currentTimeMillis();%>
     <a style="color:lightgrey;" href="javascript: void(0);" onclick="showHideItem('rawhl7<%=s%>');">show</a>

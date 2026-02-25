@@ -1168,6 +1168,10 @@
                        class="pref-link" target="_blank" rel="noopener noreferrer">
                         <i class="fas fa-code"></i> Lab Macros
                     </a>
+                    <a href="<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewHl7LabResultPrefs"
+                       class="pref-link" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-flask"></i> <fmt:message key="provider.btnViewHl7LabPrefs"/>
+                    </a>
                 </div>
             </div>
         </div>

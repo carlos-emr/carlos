@@ -35,7 +35,7 @@
                 <label class="form-check-label" for="offerFileForOthers">
                     Automatically offer to file results on behalf of other providers when acknowledging HL7 lab results
                 </label>
-                <div class="form-text text-muted">(default: yes)</div>
+                <div class="form-text text-muted">(default: no)</div>
             </div>
 
             <div class="form-check form-switch mb-3">
