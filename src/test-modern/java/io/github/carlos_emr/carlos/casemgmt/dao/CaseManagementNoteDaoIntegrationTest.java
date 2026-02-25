@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -527,6 +528,177 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
                 .extracting(CaseManagementNote::getId)
                 .contains(recent.getId())
                 .doesNotContain(old.getId());
+        }
+    }
+
+    /** Tests for editor cross-join queries (Provider join CaseManagementNote). */
+    @Nested
+    @DisplayName("Editor queries (Provider cross-join)")
+    class EditorQueries {
+
+        private Provider ensureProvider(String providerNo, String firstName, String lastName) {
+            Provider p = new Provider();
+            p.setProviderNo(providerNo);
+            p.setFirstName(firstName);
+            p.setLastName(lastName);
+            p.setSex("M");
+            p.setProviderType("doctor");
+            p.setSpecialty("");
+            hibernateTemplate.save(p);
+            return p;
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return editors by note UUID")
+        void shouldReturnEditors_byNoteUuid() {
+            // Given
+            Provider drSmith = ensureProvider("ED0001", "Ed", "Smith");
+            Provider drJones = ensureProvider("ED0002", "Ed", "Jones");
+            String sharedUuid = UUID.randomUUID().toString();
+
+            CaseManagementNote note1 = createNoteWithProvider("2001", "ED0001");
+            note1.setUuid(sharedUuid);
+            caseManagementNoteDAO.updateNote(note1);
+
+            CaseManagementNote note2 = createNoteWithProvider("2001", "ED0002");
+            note2.setUuid(sharedUuid);
+            caseManagementNoteDAO.updateNote(note2);
+            hibernateTemplate.flush();
+
+            // When
+            CaseManagementNote lookupNote = new CaseManagementNote();
+            lookupNote.setUuid(sharedUuid);
+            List<Provider> editors = caseManagementNoteDAO.getEditors(lookupNote);
+
+            // Then
+            assertThat(editors)
+                .isNotEmpty()
+                .extracting(Provider::getProviderNo)
+                .contains("ED0001", "ED0002");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return all editors by demographic number")
+        void shouldReturnAllEditors_byDemographicNo() {
+            // Given
+            Provider drA = ensureProvider("AE0001", "Alice", "Editor");
+            Provider drB = ensureProvider("AE0002", "Bob", "Editor");
+            createNoteWithProvider("3001", "AE0001");
+            createNoteWithProvider("3001", "AE0002");
+            createNoteWithProvider("3002", "AE0001");  // different demographic
+            hibernateTemplate.flush();
+
+            // When
+            List<Provider> editors = caseManagementNoteDAO.getAllEditors("3001");
+
+            // Then
+            assertThat(editors)
+                .isNotEmpty()
+                .extracting(Provider::getProviderNo)
+                .contains("AE0001", "AE0002");
+        }
+    }
+
+    /** Tests for note history and raw projection queries. */
+    @Nested
+    @DisplayName("History and projection queries")
+    class HistoryAndProjectionQueries {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return note history ordered by update date")
+        void shouldReturnHistory_byNoteUuid() {
+            // Given
+            String sharedUuid = UUID.randomUUID().toString();
+            CaseManagementNote v1 = createNote("4001", "Version 1", daysFromNow(-10));
+            v1.setUuid(sharedUuid);
+            caseManagementNoteDAO.updateNote(v1);
+
+            CaseManagementNote v2 = createNote("4001", "Version 2", daysFromNow(-5));
+            v2.setUuid(sharedUuid);
+            caseManagementNoteDAO.updateNote(v2);
+
+            CaseManagementNote v3 = createNote("4001", "Version 3", daysFromNow(-1));
+            v3.setUuid(sharedUuid);
+            caseManagementNoteDAO.updateNote(v3);
+            hibernateTemplate.flush();
+
+            // When
+            CaseManagementNote lookupNote = new CaseManagementNote();
+            lookupNote.setUuid(sharedUuid);
+            List<CaseManagementNote> history = caseManagementNoteDAO.getHistory(lookupNote);
+
+            // Then
+            assertThat(history)
+                .hasSizeGreaterThanOrEqualTo(3)
+                .extracting(CaseManagementNote::getUuid)
+                .allMatch(u -> u.equals(sharedUuid));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return raw note info as Object array by demographic")
+        void shouldReturnRawNoteInfo_byDemographic() {
+            // Given
+            createNote("5001", "Raw info test note 1");
+            createNote("5001", "Raw info test note 2");
+            createNote("5002", "Different demo");
+            hibernateTemplate.flush();
+
+            // When
+            List<Object[]> results = caseManagementNoteDAO.getRawNoteInfoByDemographic("5001");
+
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .hasSize(2);
+            // Each Object[] should contain: id, observation_date, providerNo, program_no, reporter_caisi_role, uuid
+            Object[] first = results.get(0);
+            assertThat(first).hasSizeGreaterThanOrEqualTo(6);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return raw note info as Map by demographic")
+        void shouldReturnRawNoteInfoMap_byDemographic() {
+            // Given
+            createNote("6001", "Map projection test 1");
+            createNote("6001", "Map projection test 2");
+            createNote("6002", "Different demo");
+            hibernateTemplate.flush();
+
+            // When
+            List<Map<String, Object>> results = caseManagementNoteDAO.getRawNoteInfoMapByDemographic("6001");
+
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .hasSize(2);
+            // Verify map keys from the HQL projection
+            Map<String, Object> first = results.get(0);
+            assertThat(first).containsKeys("id", "observation_date", "providerNo", "uuid");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return most recent notes by demographic number")
+        void shouldReturnMostRecentNotes_byDemographicNo() {
+            // Given — two notes with different UUIDs for same demographic
+            CaseManagementNote note1 = createNote("7001", "First note");
+            CaseManagementNote note2 = createNote("7001", "Second note");
+            createNote("7002", "Different demo");
+            hibernateTemplate.flush();
+
+            // When
+            List<CaseManagementNote> results = caseManagementNoteDAO.getMostRecentNotes(7001);
+
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(CaseManagementNote::getDemographic_no)
+                .allMatch(d -> d.equals("7001"));
         }
     }
 }

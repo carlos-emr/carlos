@@ -30,6 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -369,6 +371,118 @@ public class DemographicDaoIntegrationTest extends OpenOTestBase {
             assertThat(ids)
                 .isNotEmpty()
                 .contains(demo1.getDemographicNo(), demo2.getDemographicNo());
+        }
+    }
+
+    /** Tests for additional single-parameter ?0 query methods. */
+    @Nested
+    @DisplayName("Additional ?0 parameter queries")
+    class AdditionalParameterQueries {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find demographic by chart number")
+        void shouldFindDemographic_byChartNo() {
+            // Given
+            demo1.setChartNo("CHT001");
+            demographicDao.save(demo1);
+            hibernateTemplate.flush();
+
+            // When
+            List<Demographic> results = demographicDao.getClientsByChartNo("CHT001");
+
+            // Then
+            assertThat(results)
+                .hasSize(1)
+                .extracting(Demographic::getDemographicNo)
+                .containsExactly(demo1.getDemographicNo());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should filter demographics by year of birth greater than threshold")
+        void shouldFilterDemographics_byYearOfBirthGreaterThan() {
+            // Given — all setUp demos have yearOfBirth "1980"
+            Demographic youngDemo = createDemographic("Young", "Person", "ON", uniquePrefix + "Y", "AC");
+            youngDemo.setYearOfBirth("2000");
+            demographicDao.save(youngDemo);
+            hibernateTemplate.flush();
+
+            // When
+            List<Demographic> results = demographicDao.getDemographicWithGreaterThanYearOfBirth(1990);
+
+            // Then
+            assertThat(results)
+                .extracting(Demographic::getDemographicNo)
+                .contains(youngDemo.getDemographicNo())
+                .doesNotContain(demo1.getDemographicNo());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find demographics by health number")
+        void shouldFindDemographics_byHealthNum() {
+            // When
+            List<Demographic> results = demographicDao.getDemographicsByHealthNum(uniquePrefix + "0");
+
+            // Then
+            assertThat(results)
+                .hasSize(1)
+                .extracting(Demographic::getDemographicNo)
+                .containsExactly(demo1.getDemographicNo());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find demographic by exact name match")
+        void shouldFindDemographic_byExactNameMatch() {
+            // When
+            List<Demographic> results = demographicDao.getDemographicWithLastFirstDOBExact(
+                "Smith", "John", null, null, null);
+
+            // Then
+            assertThat(results)
+                .extracting(Demographic::getDemographicNo)
+                .contains(demo1.getDemographicNo())
+                .doesNotContain(demo2.getDemographicNo());  // John Doe should not match
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return demographic IDs added since date")
+        void shouldReturnDemographicIds_addedSinceDate() {
+            // Given — demos were just created, so lastUpdateDate is recent
+            Date pastDate = daysAgo(1);
+
+            // When
+            List<Integer> results = demographicDao.getDemographicIdsAddedSince(pastDate);
+
+            // Then
+            assertThat(results)
+                .contains(demo1.getDemographicNo(), demo2.getDemographicNo());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return active demographics after date")
+        void shouldReturnActiveDemographics_afterDate() {
+            // Given — demos were just created with lastUpdateDate = now
+            Date pastDate = daysAgo(1);
+
+            // When
+            List<Demographic> results = demographicDao.getActiveDemographicAfter(pastDate);
+
+            // Then — demo4 is inactive (IN), should be excluded
+            assertThat(results)
+                .extracting(Demographic::getDemographicNo)
+                .contains(demo1.getDemographicNo(), demo2.getDemographicNo(), demo3.getDemographicNo())
+                .doesNotContain(demo4.getDemographicNo());
+        }
+
+        private Date daysAgo(int days) {
+            Calendar cal = Calendar.getInstance();
+            cal.add(Calendar.DAY_OF_MONTH, -days);
+            return cal.getTime();
         }
     }
 }

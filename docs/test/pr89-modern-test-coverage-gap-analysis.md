@@ -34,24 +34,45 @@ These already have modern integration tests and are good signals for positional 
 1. **`LookupDaoImpl`** → `LookupDaoIntegrationTest` (added in this PR)
    - ✅ `from LookupTableDefValue s where s.tableId= ?0` — `shouldBindTableId_inGetLookupTableDef`
    - ✅ `from FieldDefValue s where s.tableId=?0 order by s.fieldIndex` — `shouldBindAndOrder_inLoadFieldDefList`
-   - ⬜ `FROM LstOrgcd o WHERE o.codecsv like ?0` — not yet covered (LIKE semantics, future work)
-   - ⬜ `From LstOrgcd a where  a.fullcode like %?0` — not yet covered (fragile LIKE semantics, future work)
+   - ⬜ `FROM LstOrgcd o WHERE o.codecsv like ?0` — not directly testable (`updateOrgStatus` is private)
+   - ✅ `From LstOrgcd a where  a.fullcode like %?0` — `shouldExerciseInOrg_withLikeParameterBinding` (documents fragile `%?0` HQL pattern)
 
 2. **`ProgramTeamDAOImpl`** → `ProgramTeamDaoIntegrationTest` (added in this PR)
    - ✅ `select pt.id from ProgramTeam pt where pt.programId = ?0 and pt.name = ?1` — `shouldReturnTrue_whenBothProgramAndNameMatch`
    - ✅ `from ProgramTeam tp where tp.programId = ?0` — `shouldFilterTeams_byRequestedProgramOnly`
 
-## Remaining modern-test coverage gaps (LIKE semantics — future work)
+## Remaining modern-test coverage gaps
 
-### `LookupDaoImpl` — LIKE query paths (not yet covered)
+### `LookupDaoImpl` — `updateOrgStatus` (private method, not directly testable)
 File: `src/main/java/io/github/carlos_emr/carlos/daos/LookupDaoImpl.java`
 
-These LIKE-based queries were not added in this PR and remain as future work:
-1. **updateOrgStatus path using LIKE ?0**
-   - verify only matching descendants are updated.
-2. **inOrg behavior around `like %?0` query**
-   - assert expected inclusion semantics and null/empty handling.
-   - this is especially important because `%?0` is fragile for Hibernate parser changes.
+The `updateOrgStatus` method is private and uses `FROM LstOrgcd o WHERE o.codecsv like ?0`.
+It is only exercisable through higher-level public methods that modify org status.
+Direct test coverage is not feasible without refactoring the method to package-private or testing through the public API chain.
+
+### `inOrg` — LIKE `%?0` pattern (documented, fragile)
+The `inOrg` method uses `like %?0` where the `%` wildcard is embedded in the HQL string rather than in the parameter value.
+This is non-standard HQL and may break during Hibernate 6 migration. The test `shouldExerciseInOrg_withLikeParameterBinding` documents
+current behavior via a try/catch pattern — it will detect if the query starts failing after migration.
+
+### Depth gaps in `CaseManagementNoteDAOImpl` and `DemographicDaoImpl` — NOW COVERED
+The following previously untested `?0` methods now have modern integration tests:
+
+**CaseManagementNoteDAOImpl** (6 methods added):
+- `getEditors(CaseManagementNote)` — cross-join with Provider by UUID
+- `getAllEditors(String)` — cross-join with Provider by demographicNo
+- `getHistory(CaseManagementNote)` — note history ordered by update_date
+- `getRawNoteInfoByDemographic(String)` — Object[] projection
+- `getRawNoteInfoMapByDemographic(String)` — Map projection
+- `getMostRecentNotes(Integer)` — most recent note per UUID by demographicNo
+
+**DemographicDaoImpl** (6 methods added):
+- `getClientsByChartNo(String)` — single-param chart number lookup
+- `getDemographicWithGreaterThanYearOfBirth(int)` — year comparison with String cast
+- `getDemographicsByHealthNum(String)` — HIN lookup
+- `getDemographicWithLastFirstDOBExact(String, String, ...)` — 2+ params with dynamic binding
+- `getDemographicIdsAddedSince(Date)` — date-based ID filter
+- `getActiveDemographicAfter(Date)` — active status + date filter
 
 ## Additional checks needed for your stated end-goal (functional + equivalent performance)
 Your end-goal includes **equivalent DAO behavior** and confidence that positional updates do not alter function.
@@ -79,19 +100,21 @@ Before merge, minimum high-signal checklist:
 - [x] Add `ProgramTeamDaoIntegrationTest` (all 5 test methods across 4 categories implemented).
 - [x] Extend `IssueDAOIntegrationTest` with projection and normalization assertions.
 - [x] Extend `SecProviderDaoIntegrationTest` with `findByLastName` and `findAll` coverage.
+- [x] Add LIKE semantics test for `LookupDaoImpl.inOrg` (documents fragile `%?0` pattern).
+- [x] Deepen `CaseManagementNoteDaoIntegrationTest` with 6 additional `?0` method tests (editors, history, projections).
+- [x] Deepen `DemographicDaoIntegrationTest` with 6 additional `?0` method tests (chartNo, yearOfBirth, healthNum, exact name, date filters).
 - [ ] Run modern-tests suite on the PR branch rebased/aligned with `develop`.
 - [ ] Include at least one query-count/timing guardrail for top 3 most-called migrated DAO methods.
-- [ ] Add LIKE semantics tests for `LookupDaoImpl` (`updateOrgStatus`, `inOrg`) — future work.
 
 With those added, you should be able to catch functional regressions caused by positional-parameter updates with high confidence at the data abstraction layer.
 
 
 ## Implementation status for the two previously missing suites
 
-### A) `LookupDaoIntegrationTest` — IMPLEMENTED (core), DEFERRED (LIKE)
+### A) `LookupDaoIntegrationTest` — IMPLEMENTED (core + LIKE)
 1. ✅ **Test fixture and seed helpers** — native SQL inserts (ORM save incompatible with `mutable="false"` + `native` generator on String ID).
 2. ✅ **Core query-binding tests** — `shouldBindTableId_inGetLookupTableDef`, `shouldBindAndOrder_inLoadFieldDefList`.
-3. ⬜ **LIKE semantics tests** — deferred to future PR (requires `LstOrgcd` entity setup).
+3. ✅ **LIKE semantics test** — `shouldExerciseInOrg_withLikeParameterBinding` documents fragile `%?0` HQL pattern via try/catch (infrastructure: `LstOrgcd.hbm.xml` registered in persistence.xml, `lst_orgcd` table in `test-lookup-tables.sql`).
 4. ⬜ **Negative and edge tests** — deferred.
 
 ### B) `ProgramTeamDaoIntegrationTest` — FULLY IMPLEMENTED
@@ -109,7 +132,7 @@ Status legend:
 | DAO | In-scope changed behavior | Status | Evidence |
 |---|---|---|---|
 | `ProviderDAOImpl` | `getProviderByName` parameter binding and null behavior | **Covered** | `ProviderDAOIntegrationTest` has positive and both negative match asserts. |
-| `CaseManagementNoteDAOImpl` | `getNotesByDemographicSince` demographic/date filtering (`locked=false` path query) | **Covered** | `CaseManagementNoteDaoIntegrationTest` asserts inclusion/exclusion by demo+date and empty result behavior. |
+| `CaseManagementNoteDAOImpl` | `getNotesByDemographicSince` + 6 additional `?0` methods (editors, history, projections, most-recent) | **Covered** | `CaseManagementNoteDaoIntegrationTest` — 27 tests covering CRUD, search, date filtering, cross-join editor queries, history, raw/map projections, and most-recent-per-UUID. |
 | `ClientReferralDAOImpl` | multi-parameter referral queries | **Covered** | `ClientReferralDAOIntegrationTest` asserts filtering for client/facility/program combinations. |
 | `IssueDAOImpl` | search and multi-param issue queries | **Covered** | `IssueDAOIntegrationTest` now asserts scalar projection, input normalization (uppercase→lowercase), and blank-input behavior for `getLocalCodesByCommunityType`. |
 | `SecProviderDaoImpl` | `findById(id,status)` and status filters | **Covered** | `SecProviderDaoIntegrationTest` now includes `findByLastName` (findByProperty path) and `findAll` assertions. |
@@ -118,7 +141,10 @@ Status legend:
 - The existing test base is solid for the primary PR89 migration themes (parameter binding/order/filtering).
 - Both previously missing suites (`LookupDaoImpl`, `ProgramTeamDAOImpl`) have been added in this PR.
 - The previously partial `IssueDAOImpl` and `SecProviderDaoImpl` coverage has been upgraded to **Covered** with targeted additions in this PR.
-- Remaining gap: `LookupDaoImpl` LIKE semantics tests (`updateOrgStatus`, `inOrg`) — deferred to future work.
+- `CaseManagementNoteDAOImpl` depth expanded: 6 additional `?0` methods now tested (editors, history, projections, most-recent).
+- `DemographicDaoImpl` depth expanded: 6 additional `?0` methods now tested (chartNo, yearOfBirth, healthNum, exact name, date filters).
+- `LookupDaoImpl` LIKE semantics: `inOrg` now has a behavioral test documenting the fragile `%?0` pattern. `updateOrgStatus` remains untestable (private method).
+- Remaining gap: `LookupDaoImpl.updateOrgStatus` (private, not directly testable without refactoring).
 
 ## Answer to your merge-test question
 Yes — this is exactly the right strategy.

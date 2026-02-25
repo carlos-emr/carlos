@@ -133,6 +133,19 @@ CREATE TABLE IF NOT EXISTS lst_field_category (
     description VARCHAR(255)
 );
 
+-- lst_orgcd table (mapped by LstOrgcd.hbm.xml)
+-- Created here instead of via hbm2ddl because the HBM uses generator class="native"
+-- on a String-typed ID, which is incompatible with H2 DDL generation.
+CREATE TABLE IF NOT EXISTS lst_orgcd (
+    code VARCHAR(8) NOT NULL PRIMARY KEY,
+    description VARCHAR(240),
+    activeyn INT,
+    orderbyindex INT,
+    codetree VARCHAR(80),
+    fullCode VARCHAR(80),
+    codeCsv VARCHAR(80)
+);
+
 -- app_lookuptable table (mapped by LookupTableDefValue.hbm.xml)
 -- Created here instead of via hbm2ddl because the HBM uses generator class="native"
 -- on a String-typed ID, which is incompatible with H2 DDL generation.

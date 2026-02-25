@@ -161,6 +161,28 @@ public abstract class CaseManagementNoteDaoBaseIntegrationTest extends OpenOTest
     }
 
     /**
+     * Creates a CaseManagementNote with the specified demographic and provider.
+     *
+     * @param demographicNo the demographic number
+     * @param providerNo the provider number (must match a Provider record)
+     * @return the created and persisted note
+     */
+    protected CaseManagementNote createNoteWithProvider(String demographicNo, String providerNo) {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no(demographicNo);
+        note.setNote("Note by provider " + providerNo);
+        note.setProviderNo(providerNo);
+        note.setUuid(UUID.randomUUID().toString());
+        note.setUpdate_date(new Date());
+        note.setObservation_date(new Date());
+        note.setSigned(false);
+        note.setArchived(false);
+        note.setLocked(false);
+        caseManagementNoteDAO.saveNote(note);
+        return note;
+    }
+
+    /**
      * Creates a specific date.
      *
      * @param year the year
