@@ -25,9 +25,9 @@
 
         <%-- Consumption indicator --%>
         <div class="d-flex align-items-center gap-1 me-2" style="font-size: 9px; font-variant: small-caps; font-weight: bold;">
-            <span>${consumption}%</span>
+            <span><c:out value="${consumption}"/>%</span>
             <div style="width: 80px; height: 12px; background-color: white; border: 1px solid #ccc; border-radius: 2px; overflow: hidden;">
-                <div style="width: ${consumption}%; height: 100%; background-color: ${consumptionColor};"></div>
+                <div style="width: <e:forHtmlAttribute value='${consumption}'/>%; height: 100%; background-color: <e:forHtmlAttribute value='${consumptionColor}'/>;" ></div>
             </div>
         </div>
 
@@ -44,7 +44,7 @@
     </div>
     <div class="card-body">
         <textarea name="enTextarea" tabindex="7" wrap="hard" cols="90"
-                  style="height:${rowThreeSize};overflow:auto"><c:out value="${encounterText}"/></textarea>
+                  style="height:<e:forHtmlAttribute value='${rowThreeSize}'/>;overflow:auto"><c:out value="${encounterText}"/></textarea>
     </div>
 </div>
 
@@ -96,10 +96,10 @@
                onclick="document.forms['encForm'].btnPressed.value='Exit'; if (closeEncounterWindow()) {document.forms['encForm'].submit();}">
 
         <%-- Hidden form state fields --%>
-        <input type="hidden" name="rowOneSize" value="${rowOneSize}">
-        <input type="hidden" name="rowTwoSize" value="${rowTwoSize}">
-        <input type="hidden" name="presBoxSize" value="${presBoxSize}">
-        <input type="hidden" name="rowThreeSize" value="${rowThreeSize}">
+        <input type="hidden" name="rowOneSize" value="<e:forHtmlAttribute value='${rowOneSize}'/>">
+        <input type="hidden" name="rowTwoSize" value="<e:forHtmlAttribute value='${rowTwoSize}'/>">
+        <input type="hidden" name="presBoxSize" value="<e:forHtmlAttribute value='${presBoxSize}'/>">
+        <input type="hidden" name="rowThreeSize" value="<e:forHtmlAttribute value='${rowThreeSize}'/>">
         <input type="hidden" name="status" value="t"/>
         <input type="hidden" name="appointment_no" value="${bean.appointmentNo}"/>
     </div>

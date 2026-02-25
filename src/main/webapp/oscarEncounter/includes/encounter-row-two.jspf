@@ -24,11 +24,11 @@
         <div class="row g-0">
             <div class="col-6" style="border-right: 2px solid #ccccff">
                 <textarea name="ocTextarea" tabindex="4" wrap="hard" cols="44"
-                          style="height:${rowTwoSize};overflow:auto"><c:out value="${bean.ongoingConcerns}"/></textarea>
+                          style="height:<e:forHtmlAttribute value='${rowTwoSize}'/>;overflow:auto"><c:out value="${bean.ongoingConcerns}"/></textarea>
             </div>
             <div class="col-6">
                 <textarea name="reTextarea" tabindex="5" wrap="hard" cols="44"
-                          style="height:${rowTwoSize};overflow:auto"><c:out value="${bean.reminders}"/></textarea>
+                          style="height:<e:forHtmlAttribute value='${rowTwoSize}'/>;overflow:auto"><c:out value="${bean.reminders}"/></textarea>
             </div>
         </div>
     </div>
