@@ -284,38 +284,6 @@
                 <td></td>
             </tr>
 
-            <tr>
-                <td width="2"><%=j%>
-                    <%j++;%>
-                </td>
-                <td width="1"></td>
-                <td width="300"><a
-                        href="<%= request.getContextPath() %>/oscarReport/oscarMeasurements/SetupSelectCDMReport.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.chronicDiseaseManagement"/></a></td>
-                <td></td>
-                <td></td>
-                <td></td>
-            </tr>
-            <tr>
-                <td width="2"><%=j%>
-                    <%j++;%>
-                </td>
-                <td width="1"></td>
-                <td width="300"><a
-                        href="<%= request.getContextPath() %>/oscarWaitingList/SetupDisplayWaitingList.do?waitingListId="><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnWaiting"/></a></td>
-                <td></td>
-                <td></td>
-                <td></td>
-            </tr>
-
-            <tr>
-                <td width="2"><%=j%><%j++;%></td>
-                <td width="1"></td>
-                <td width="300"><a href="ClinicalReports.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnClinicalReport"/> </a></td>
-                <td></td>
-                <td></td>
-                <td></td>
-            </tr>
-
         </table>
     </form>
     </div>

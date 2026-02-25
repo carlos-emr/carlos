@@ -23,9 +23,7 @@
  */
 
 /**
- * Opens a URL in a named popup window, or delegates to popupTab() when the
- * provider preference "Open Encounters in Tab" is enabled on the current page.
- *
+ * Opens a URL in a named popup window or delegates to popupTab() if tab mode is active.
  * @param {number} height - Popup window height in pixels
  * @param {number} width - Popup window width in pixels
  * @param {string} url - URL to open
