@@ -211,7 +211,6 @@ public class GDMLLabHL7Generator {
 	// OBX format matching GDML sample EXACTLY:
 	// OBX|1|ST|253&21^GLUCOSE|1|NEG|mmol/L|-NEG^NEGATIVE (mmol/L)|N||F||||||
 	// Fields: 1=setId, 2=type, 3=identifier, 4=subId, 5=value, 6=units, 7=refRange,
-	//         8=abnormalFlag, 9=probability, 10=natureOfAbnormal, 11=resultStatus,
 	/**
 	 * Appends OBX segments (and optional NTE notes) for every LabTest in the provided Lab to the given StringBuilder.
 	 *

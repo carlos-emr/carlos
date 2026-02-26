@@ -47,7 +47,6 @@ public class CVCImmunization extends AbstractModel<Integer> {
     private Boolean generic;
 
 
-    /* for tradename ones*/
     Integer prevalence;
     String parentConceptId;
     boolean ispa;

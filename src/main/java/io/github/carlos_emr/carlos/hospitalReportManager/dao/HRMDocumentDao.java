@@ -166,9 +166,7 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         }
         String sql = "select x from " + this.modelClass.getName() + " x   ";
 
-        //	if(providerNo != null || providerUnmatched) {
         sql += " inner JOIN x.matchedProviders p ";
-        //	}
 
         sql += " WHERE x.parentReport IS NULL  ";
 
@@ -226,9 +224,7 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         }
         String sql = "select count(x) from " + this.modelClass.getName() + " x   ";
 
-        //	if(providerNo != null || providerUnmatched) {
         sql += " inner JOIN x.matchedProviders p ";
-        //	}
 
         sql += " WHERE x.parentReport IS NULL  ";
 

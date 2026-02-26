@@ -85,31 +85,6 @@ public class CanadianVaccineCatalogueManager {
 
     static {
         ctx = FhirContext.forDstu3();
-		/*
-		SSLParameters sslParameters = new SSLParameters();
-		List sniHostNames = new ArrayList(1);
-		sniHostNames.add(new SNIHostName("api.cvc.canimmunize.ca"));
-		sslParameters.setServerNames(sniHostNames);
-		
-		try {
-		
-			SSLContext sslcontext = SSLContexts.custom().build();
-			
-			
-			SSLConnectionSocketFactory fac = new SSLConnectionSocketFactory(new SSLSocketFactoryWrapper(sslcontext.getSocketFactory(), sslParameters), SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
-			
-			List<Header> defaultHeaders = new ArrayList<Header>();
-			defaultHeaders.add(new BasicHeader("Accept-Encoding", "gzip;q=0,deflate,sdch"));
-			CloseableHttpClient httpclient = HttpClients.custom().setSSLSocketFactory(fac).setDefaultHeaders(defaultHeaders).build();
-			
-			
-		//	CloseableHttpClient httpclient = HttpClients.custom().setSslcontext(sslcontext).build();
-			
-			
-			ctx.getRestfulClientFactory().setHttpClient(httpclient);
-		}catch(Exception e) {
-		}
-		*/
 
     }
 
@@ -195,7 +170,6 @@ public class CanadianVaccineCatalogueManager {
             }
 
             if (med.getManufacturer() != null) {
-                //med.getManufacturer().getIdentifier().getSystem();
                 cMed.setManufacturerId(med.getManufacturer().getIdentifier().getValue());
                 cMed.setManufacturerDisplay(med.getManufacturer().getDisplay());
             }
@@ -204,7 +178,6 @@ public class CanadianVaccineCatalogueManager {
                 cMed.getLotNumberList().add(new CVCMedicationLotNumber(cMed, comp.getLotNumber(), comp.getExpirationDate()));
             }
 
-            //logger.info("saving a medication: " + cMed.getDinDisplayName());
 
             saveMedication(loggedInInfo, cMed);
         }

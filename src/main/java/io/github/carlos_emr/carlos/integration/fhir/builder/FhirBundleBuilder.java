@@ -42,45 +42,6 @@ import io.github.carlos_emr.carlos.integration.fhir.model.Destination;
 import io.github.carlos_emr.carlos.integration.fhir.model.AbstractOscarFhirResource;
 import io.github.carlos_emr.carlos.integration.fhir.model.Sender;
 
-/*
- * {doco
-  "resourceType" : "Bundle",
-  // from Resource: id, meta, implicitRules, and language
-  "identifier" : { Identifier }, // Persistent identifier for the bundle
-  "type" : "<code>", // R!  document | message | transaction | transaction-response | batch | batch-response | history | searchset | collection
-  "total" : "<unsignedInt>", // C? If search, the total number of matches
-  "link" : [{ // Links related to this Bundle
-    "relation" : "<string>", // R!  See http://www.iana.org/assignments/link-relations/link-relations.xhtml#link-relations-1
-    "url" : "<uri>" // R!  Reference details for the link
-  }],
-  "entry" : [{ // Entry in the bundle - will have a resource, or information
-    "link" : [{ Content as for Bundle.link }], // Links related to this entry
-    "fullUrl" : "<uri>", // Absolute URL for resource (server address, or UUID/OID)
-    "resource" : { Resource }, // A resource in the bundle
-    "search" : { // C? Search related information
-      "mode" : "<code>", // match | include | outcome - why this is in the result set
-      "score" : <decimal> // Search ranking (between 0 and 1)
-    },
-    "request" : { // C? Transaction Related Information
-      "method" : "<code>", // R!  GET | POST | PUT | DELETE
-      "url" : "<uri>", // R!  URL for HTTP equivalent of this entry
-      "ifNoneMatch" : "<string>", // For managing cache currency
-      "ifModifiedSince" : "<instant>", // For managing update contention
-      "ifMatch" : "<string>", // For managing update contention
-      "ifNoneExist" : "<string>" // For conditional creates
-    },
-    "response" : { // C? Transaction Related Information
-      "status" : "<string>", // R!  Status response code (text optional)
-      "location" : "<uri>", // The location, if the operation returns a location
-      "etag" : "<string>", // The etag for the resource (if relevant)
-      "lastModified" : "<instant>", // Server's date time modified
-      "outcome" : { Resource } // OperationOutcome with hints and warnings (for batch/transaction)
-    }
-  }],
-  "signature" : { Signature } // Digital Signature
-}
- * 
- */
 
 public class FhirBundleBuilder extends AbstractFhirMessageBuilder<Bundle> {
 

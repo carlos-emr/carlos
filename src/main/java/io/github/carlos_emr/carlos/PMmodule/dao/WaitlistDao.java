@@ -71,8 +71,6 @@ public interface WaitlistDao {
 
     public ClientData getClientData(int clientId);
 
-    // private static final String field_type_one = "select_one";
-    // private static final String field_type_number = "number";
 
     public VacancyData loadVacancyData(final int vacancyId);
 

@@ -158,18 +158,11 @@ public class EctDisplayBilling2Action extends EctDisplayAction {
             ////
             MSPReconcile msp = new MSPReconcile();              //"ALL", "1999-01-01","9999-99-99"
             MSPReconcile.BillSearch bSearch = msp.getBills("%", null, null, null, bean.demographicNo); //, true, true, true, true);
-            // ArrayList<MSPReconcile.Bill> list = bSearch.list;
 
             MiscUtils.getLogger().debug("list size for bills is " + bSearch.list.size());
 
-//                JdbcBillingReviewImpl dbObj = new JdbcBillingReviewImpl();
-//                List aL = null;
 //                try{
-//                     aL   = dbObj.getBillingHist(bean.demographicNo, 10, 0, null);
-//                }catch (Exception e){
 //
-//                    MiscUtils.getLogger().error("Error", e);
-//                }
 
             for (int i = 0; i < bSearch.list.size(); i++) {
 

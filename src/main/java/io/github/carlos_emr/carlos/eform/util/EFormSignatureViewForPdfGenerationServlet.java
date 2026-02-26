@@ -53,7 +53,6 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 			DigitalSignature digitalSignature = digitalSignatureManager
 					.getDigitalSignature(Integer.parseInt(request.getParameter("digitalSignatureId")));
             if (digitalSignature != null) {
-                //renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
 
                 byte[] image = digitalSignature.getSignatureImage();
                 String imageType = "jpeg";

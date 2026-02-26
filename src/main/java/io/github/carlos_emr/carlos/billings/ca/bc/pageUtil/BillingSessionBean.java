@@ -49,8 +49,6 @@ public class BillingSessionBean implements java.io.Serializable {
     private ArrayList<BillingItem> billitem;
     private String xml_billtype = null;
     private String xml_location = null;
-    //  private String xml_starttime = null;
-//  private String xml_endtime = null;
     private String xml_appointment_date = null;
     private String xml_provider = null;
     private String xml_visittype = null;
@@ -325,17 +323,13 @@ public class BillingSessionBean implements java.io.Serializable {
         return this.startTimeHr + this.startTimeMin;
     }
 
-//  public void setStartTime(String RHS) {
 //    this.xml_starttime = RHS;
-//  }
 
     public String getEndTime() {
         return this.endTimeHr + this.endTimeMin;
     }
 
-//  public void setEndTime(String RHS) {
 //    this.xml_endtime = RHS;
-//  }
 
     public String getServiceDate() {
         return this.xml_appointment_date;

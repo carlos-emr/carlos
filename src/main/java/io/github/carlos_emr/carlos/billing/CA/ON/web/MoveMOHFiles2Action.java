@@ -120,14 +120,12 @@ public class MoveMOHFiles2Action extends ActionSupport {
         if (folderParam == null || folderParam.isEmpty()) {
             errors.append("A folder must be selected.<br/>");
             isValid = false;
-            // return "Unable to get folderParam";
         }
 
         String[] fileNames = request.getParameterValues("mohFile");
         if (fileNames == null) {
             errors.append("Please select file(s) to archive.<br/>");
             isValid = false;
-            // return "Unable to get file names";
         }
 
         if (isValid) {

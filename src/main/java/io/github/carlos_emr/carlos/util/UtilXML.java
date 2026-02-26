@@ -85,8 +85,6 @@ public class UtilXML {
         StreamResult rslt = new StreamResult(ret);
         try {
             Transformer trans = TransformerFactory.newInstance().newTransformer();
-            //trans.setOutputProperty(OutputKeys.INDENT, "yes");
-            //trans.setOutputProperty("{http://xml.apache.org/xslt}baseIndent-amount", "1");
             trans.transform(src, rslt);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -102,7 +100,6 @@ public class UtilXML {
             Transformer trans = TransformerFactory.newInstance().newTransformer();
             trans.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
             trans.setOutputProperty(javax.xml.transform.OutputKeys.DOCTYPE_SYSTEM, dtdname);
-            //trans.setOutputProperty("{http://xml.apache.org/xslt}baseIndent-amount", "1");
             trans.transform(src, rslt);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -342,7 +339,6 @@ public class UtilXML {
     }
 
     //escapes all xml inside and including a certain tag (Good to use before parsing with jdom)
-    //'tag' parameter must be in the form <mytag>; no attributes;
     //must be a complete tag
     //Example:  <param><attr>hello</attr></param>  -->   &lt;param>&lt;attr>hello&lt;/attr>&lt;/param>
     //-Paul A
@@ -357,7 +353,6 @@ public class UtilXML {
                 pointer1++;
                 continue;
             }
-            //pointer1 = xml.indexOf(">", pointer1);
             pointer2 = xml.indexOf(closetag, pointer1) + closetag.length();
             String innerText = xml.substring(pointer1, pointer2);
             innerText = escapeAllXML(innerText);

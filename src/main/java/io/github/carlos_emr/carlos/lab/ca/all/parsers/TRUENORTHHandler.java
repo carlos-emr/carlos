@@ -584,40 +584,6 @@ public class TRUENORTHHandler implements MessageHandler {
 
         String docNames = "";
 
-        /*try {
-            Terser terser = new Terser(msg);
-
-            String givenName = terser.get("/.ZDR(0)-4-1");
-            String middleName = terser.get("/.ZDR(0)-4-3");
-            String familyName = terser.get("/.ZDR(0)-4-2");
-
-            int i=1;
-            while (givenName != null){
-
-                if (i==1)
-                    docNames = givenName;
-                else
-                    docNames = docNames+", "+givenName;
-
-                if (middleName != null)
-                    docNames = docNames+" "+middleName;
-                if (familyName != null)
-                    docNames = docNames+" "+familyName;
-
-                givenName = terser.get("/.ZDR("+i+")-4-1");
-                middleName = terser.get("/.ZDR("+i+")-4-3");
-                familyName = terser.get("/.ZDR("+i+")-4-2");
-
-                i++;
-            }
-
-            return(docNames);
-
-        } catch (Exception e) {
-            //ignore error... it will occur when the zdr segment is not present
-            //logger.error("Could not retrieve cc'd docs", e);
-            return("");
-        }*/
         return (docNames);
     }
 
@@ -645,7 +611,6 @@ public class TRUENORTHHandler implements MessageHandler {
 
         } catch (Exception e) {
             //ignore error... it will occur when the zdr segment is not present
-            //logger.error("Could not return numbers", e);
         }
         return (nums);
     }

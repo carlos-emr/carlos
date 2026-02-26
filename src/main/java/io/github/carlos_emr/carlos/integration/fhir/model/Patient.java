@@ -52,52 +52,6 @@ import io.github.carlos_emr.carlos.integration.fhir.manager.OscarFhirConfigurati
 import io.github.carlos_emr.carlos.integration.fhir.utils.EnumMappingUtil;
 import io.github.carlos_emr.carlos.integration.fhir.utils.FhirUtils;
 
-/*
- *{
-  "resourceType" : "Patient",
-  // from Resource: id, meta, implicitRules, and language
-  // from DomainResource: text, contained, extension, and modifierExtension
-  "identifier" : [{ Identifier }], // An identifier for this patient
-  "active" : <boolean>, // Whether this patient's record is in active use
-  "name" : [{ HumanName }], // A name associated with the patient
-  "telecom" : [{ ContactPoint }], // A contact detail for the individual
-  "gender" : "<code>", // male | female | other | unknown
-  "birthDate" : "<date>", // The date of birth for the individual
-  // deceased[x]: Indicates if the individual is deceased or not. One of these 2:
-  "deceasedBoolean" : <boolean>,
-  "deceasedDateTime" : "<dateTime>",
-  "address" : [{ Address }], // Addresses for the individual
-  "maritalStatus" : { CodeableConcept }, // Marital (civil) status of a patient
-  // multipleBirth[x]: Whether patient is part of a multiple birth. One of these 2:
-  "multipleBirthBoolean" : <boolean>,
-  "multipleBirthInteger" : <integer>,
-  "photo" : [{ Attachment }], // Image of the patient
-  "contact" : [{ // A contact party (e.g. guardian, partner, friend) for the patient
-    "relationship" : [{ CodeableConcept }], // The kind of relationship
-    "name" : { HumanName }, // A name associated with the contact person
-    "telecom" : [{ ContactPoint }], // A contact detail for the person
-    "address" : { Address }, // Address for the contact person
-    "gender" : "<code>", // male | female | other | unknown
-    "organization" : { Reference(Organization) }, // C? Organization that is associated with the contact
-    "period" : { Period } // The period during which this contact person or organization is valid to be contacted relating to this patient
-  }],
-  "animal" : { // This patient is known to be an animal (non-human)
-    "species" : { CodeableConcept }, // R!  E.g. Dog, Cow
-    "breed" : { CodeableConcept }, // E.g. Poodle, Angus
-    "genderStatus" : { CodeableConcept } // E.g. Neutered, Intact
-  },
-  "communication" : [{ // A list of Languages which may be used to communicate with the patient about his or her health
-    "language" : { CodeableConcept }, // R!  The language which can be used to communicate with the patient about his or her health 
-    "preferred" : <boolean> // Language preference indicator
-  }],
-  "careProvider" : [{ Reference(Organization|Practitioner) }], // Patient's nominated primary care providers
-  "managingOrganization" : { Reference(Organization) }, // Organization that is the custodian of the patient record
-  "link" : [{ // Link to another patient resource that concerns the same actual person
-    "other" : { Reference(Patient) }, // R!  The other patient resource that the link refers to
-    "type" : "<code>" // R!  replace | refer | seealso - type of link
-  }]
-} 
-*/
 
 public class Patient extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.Patient, Demographic> {
 
@@ -183,13 +137,11 @@ public class Patient extends AbstractOscarFhirResource<org.hl7.fhir.dstu3.model.
 
     private void setLanguage(org.hl7.fhir.dstu3.model.Patient patient) {
         if (include(OptionalFHIRAttribute.language)) {
-            //if("English".equals(getOscarResource().getOfficialLanguage()) || "".equals(getOscarResource().getOfficialLanguage()) ) {
             CodeableConcept cc = new CodeableConcept();
             Coding c = cc.addCoding();
             c.setSystem("https://www.hl7.org/fhir/valueset-languages.html");
             c.setCode("en-US");
             patient.addCommunication().setLanguage(cc);
-            //}
         }
     }
 

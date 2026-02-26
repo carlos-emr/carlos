@@ -103,7 +103,6 @@ public class ImportMeasurementTypes {
         if (measurementReInitNeeded) {
             MeasurementTypes.getInstance().reInit();
         }
-        //return measurementReInitNeeded;
     }
 
 }

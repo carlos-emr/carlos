@@ -75,10 +75,6 @@ public class ConsultationResponseConverter extends AbstractConverter<Consultatio
     public ConsultationResponseTo1 getAsTransferObject(LoggedInInfo loggedInInfo, ConsultationResponse d) throws ConversionException {
         ConsultationResponseTo1 t = new ConsultationResponseTo1();
 
-        /* cannot set the following 2 fields from domain object
-         * t.setDemographic(...);
-         * t.setReferringDoctor(...);
-         */
         t.setId(d.getId());
         t.setResponseDate(d.getResponseDate());
         t.setReferralDate(d.getReferralDate());

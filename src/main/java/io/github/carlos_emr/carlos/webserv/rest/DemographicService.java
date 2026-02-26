@@ -439,7 +439,6 @@ public class DemographicService extends AbstractServiceImpl {
         if (demoCust != null) {
             result.setNurse(demoCust.getNurse());
             result.setResident(demoCust.getResident());
-            //result.setAlert(demoCust.getBookingAlert());
             result.setMidwife(demoCust.getMidwife());
             result.setNotes(demoCust.getNotes());
         }

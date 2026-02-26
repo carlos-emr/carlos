@@ -109,7 +109,6 @@ public class EctMeasurementsDataBeanHandler {
                     firstName = "Automatic";
                     lastName = "";
                 }
-                //log.debug("canPlot value: " + canPlot);
                 EctMeasurementsDataBean data = new EctMeasurementsDataBean(
                         m.getId().intValue(),
                         m.getType(),

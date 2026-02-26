@@ -64,12 +64,10 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
 
 
     public void init(String hl7Body) throws HL7Exception {
-        //super.init(hl7Body);
         Parser p = new PipeParser();
         p.setValidationContext(new NoValidation());
 
         // force parsing as a generic message by changing the message structure
-        // hl7Body = hl7Body.replaceAll("R01", "");
         version = p.parse(hl7Body.replaceAll("\n", "\r\n")).getVersion();
         if (version.equals("2.2")) {
             msg22 = (ca.uhn.hl7v2.model.v22.message.ORU_R01) p.parse(hl7Body.replaceAll("\n", "\r\n"));
@@ -92,9 +90,6 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
         String[] segments = terser.getFinder().getRoot().getNames();
         obrGroups = new ArrayList<ArrayList<Segment>>();
 
-        /*
-         *  Fill the OBX array list for use by future methods
-         */
         for (int i = 0; i < obrCount; i++) {
             ArrayList<Segment> obxSegs = new ArrayList<Segment>();
 
@@ -216,7 +211,6 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
 
     public String getObservationHeader(int i, int j) {
         try {
-            //return(getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR().getUniversalServiceIdentifier().getAlternateIdentifier().getValue()));
             if (version.equals("2.2")) {
                 return (getString(msg22.getPATIENT_RESULT().getORDER_OBSERVATION(i).getOBR().getUniversalServiceID().getText().getValue()));
 
@@ -390,7 +384,6 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
             if (version.equals("2.2")) {
                 return (getString(Terser.get(msg22.getPATIENT_RESULT().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX(), 7, 0, 2, 1)));
             } else {
-                //return(getString(msg23.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX().getReferencesRange().getValue()));
                 return (getString(Terser.get(msg23.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX(), 7, 0, 2, 1)));
 
             }

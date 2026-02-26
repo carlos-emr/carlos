@@ -183,9 +183,6 @@ public class IHAHandler extends DefaultGenericHandler implements MessageHandler 
         return (result);
     }
 
-    /*
-     *  Return the message as an xml document if it is in the xml format
-     */
     private Document getXML(String fileName) {
         try {
             // Validate the file path using PathValidationUtils

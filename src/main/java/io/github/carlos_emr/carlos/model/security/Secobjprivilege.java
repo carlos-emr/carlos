@@ -30,7 +30,6 @@ public class Secobjprivilege implements java.io.Serializable {
 
     // Fields
 
-    // private SecobjprivilegeId id;
     private String roleusergroup;
 
     private Integer priority;

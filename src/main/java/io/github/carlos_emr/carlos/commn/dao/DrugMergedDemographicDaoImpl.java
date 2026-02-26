@@ -134,13 +134,6 @@ public class DrugMergedDemographicDaoImpl extends DrugDaoImpl implements DrugMer
     public List<Drug> getUniquePrescriptions(final String demographic_no) {
         List<Drug> result = super.getUniquePrescriptions(demographic_no);
         // super.getUniquePrescriptions already finds all the necessary prescriptions
-//		MergedDemographicTemplate<Drug> template = new MergedDemographicTemplate<Drug>() {
-//			@Override
-//			public List<Drug> findById(Integer demographic_no) {
-//				return DrugMergedDemographicDaoImpl.super.getUniquePrescriptions(demographic_no.toString());
-//			}
-//		};
-//		return template.findMerged(ConversionUtils.fromIntString(demographic_no), result);
         return result;
     }
 

@@ -131,17 +131,7 @@ public class OscarOAuthDataProvider {
         return rt;
     }
 
-    // public String finalizeAuthorization(Token data) throws OAuthServiceException {
-    //     logger.debug("finalizeAuthorization() called");
-    //     RequestToken requestToken = data.getToken();
-    //     requestToken.setVerifier(UUID.randomUUID().toString());
-    //     ServiceRequestToken srt = serviceRequestTokenDao.findByTokenId(requestToken.getTokenKey());
     //     if (srt != null) {
-    //         srt.setVerifier(requestToken.getVerifier());
-    //         serviceRequestTokenDao.merge(srt);
-    //     }
-    //     return requestToken.getVerifier();
-    // }
 
 
     public AccessToken createAccessToken(RequestToken requestToken) {

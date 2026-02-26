@@ -186,7 +186,6 @@ public class DroolsNumerator3 implements Numerator {
             MeasurementDSHelper dshelper = new MeasurementDSHelper(loggedInInfo, demographicNo);
             boolean a = dshelper.setMeasurement(measurement, startDateAsDate, endDateAsDate);
 
-            // Return negation: true when measurement is ABSENT (useful for gap detection)
             return !a;
 
 

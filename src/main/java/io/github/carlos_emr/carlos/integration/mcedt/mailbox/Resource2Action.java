@@ -77,12 +77,6 @@ public class Resource2Action extends ActionSupport {
         if (startDate != null && endDate != null) {
             ActionUtils.moveOhipToOutBox(startDate, endDate);
             
-            /*
-             * The method ActionUtils.moveObecToOutBox is slow with many files in 'OscarDocument/oscar/document/'.
-             * To optimize, we will move OBEC files during generation rather than during MCEDT mailbox opening.
-             * See ObecData.writeFile() for details on the updated process.
-             */
-            // ActionUtils.moveObecToOutBox(startDate,endDate);
 
             ActionUtils.setOutboxTimestamp(endDate);
         }
@@ -152,7 +146,6 @@ public class Resource2Action extends ActionSupport {
             return getResourceList(delegate, resourceStatus);
         } catch (Exception e) {
             logger.error("Unable to load resource list ", e);
-            //saveErrors(request, ActionUtils.addMessage("resourceAction.getResourceList.fault", McedtMessageCreator.exceptionToString(e)));
             String errorMessage = McedtMessageCreator.exceptionToString(e);
             addActionError(getText("resourceAction.getResourceList.fault", new String[]{errorMessage}));
             return null;

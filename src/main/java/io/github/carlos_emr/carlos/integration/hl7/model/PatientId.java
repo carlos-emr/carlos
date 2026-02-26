@@ -31,15 +31,10 @@
 package io.github.carlos_emr.carlos.integration.hl7.model;
 
 //typeIds
-//MR=ADT MRN
 //TMR=PHS Temporary MRN
-//PI = ADT CPI
-//PE = Enterprise EPN
 //TPN = PHS Temporary EPN
 //AN = ADT Patient Account Number
 //TAN = PHS temporary patient account number
-//NH = National health card #
-//JHN = regional health card #
 
 public class PatientId {
     private String id;

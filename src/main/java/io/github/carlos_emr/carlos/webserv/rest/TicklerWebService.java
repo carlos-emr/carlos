@@ -339,7 +339,6 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         tickler.setMessage(json.get("message").asText());
 
-        //tickler.setUpdateDate(new Date());
 
         String dt = json.get("serviceDate").asText();
         tickler.setServiceDate(javax.xml.bind.DatatypeConverter.parseDateTime(dt).getTime());

@@ -289,9 +289,6 @@ public class PDFController {
             replaceWith = invokeValue(cleanKey);
 
             //count the characters and compare to limit.
-            //			if(fieldType == AcroFields.FIELD_TYPE_TEXT) {
-            //				replaceWith = contentSplicer(replaceWith, 30);
-            //			}
 
             try {
 

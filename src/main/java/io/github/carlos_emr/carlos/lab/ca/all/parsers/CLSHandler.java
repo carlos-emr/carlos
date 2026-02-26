@@ -710,7 +710,6 @@ public class CLSHandler implements MessageHandler {
         return get("/.OBR-20");
     }
 
-    ////this.isUnstructuredDoc = "TX".equals(handler.getOBXValueType(0,0));
     public boolean isUnstructured() {
         boolean result = true;
         for (int j = 0; j < this.getOBRCount(); j++) {

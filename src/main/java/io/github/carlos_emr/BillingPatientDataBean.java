@@ -68,166 +68,76 @@ public class BillingPatientDataBean extends java.lang.Object implements java.io.
     protected String status = "";
 
 
-    /*   ****************************************************************************
-     * Set method for the PARAMETER property
-     *
-     * @param value the new value for the property
-     */
     public void setDemoname(String value) {
         demoname = value;
     }
 
-    /*   ****************************************************************************
-     * Get method for the PARAMETER property
-     *
-     * @return the value of the property
-     */
     public String getDemoname() {
         return demoname;
     }
 
-    /*   ****************************************************************************
-     * Set method for the PARAMETER property
-     *
-     * @param value the new value for the property
-     */
     public void setAddress(String value) {
         address = value;
     }
 
-    /*   ****************************************************************************
-     * Get method for the PARAMETER property
-     *
-     * @return the value of the property
-     */
     public String getAddress() {
         return address;
     }
 
-    /*   ****************************************************************************
-     * Set method for the PARAMETER property
-     *
-     * @param value the new value for the property
-     */
     public void setProvince(String value) {
         province = value;
     }
 
-    /*   ****************************************************************************
-     * Get method for the PARAMETER property
-     *
-     * @return the value of the property
-     */
     public String getProvince() {
         return province;
     }
 
-    /*   ****************************************************************************
-     * Set method for the PARAMETER property
-     *
-     * @param value the new value for the property
-     */
     public void setPostal(String value) {
         postal = value;
     }
 
-    /*   ****************************************************************************
-     * Get method for the PARAMETER property
-     *
-     * @return the value of the property
-     */
     public String getPostal() {
         return postal;
     }
 
-    /*   ****************************************************************************
-     * Set method for the PARAMETER property
-     *
-     * @param value the new value for the property
-     */
     public void setCity(String value) {
         city = value;
     }
 
-    /*   ****************************************************************************
-     * Get method for the PARAMETER property
-     *
-     * @return the value of the property
-     */
     public String getCity() {
         return city;
     }
 
 
-    /*   ****************************************************************************
-     * Set method for the PARAMETER property
-     *
-     * @param value the new value for the property
-     */
     public void setHin(String value) {
         hin = value;
     }
 
-    /*   ****************************************************************************
-     * Get method for the PARAMETER property
-     *
-     * @return the value of the property
-     */
     public String getHin() {
         return hin;
     }
 
 
-    /*   ****************************************************************************
-     * Set method for the PARAMETER property
-     *
-     * @param value the new value for the property
-     */
     public void setStatus(String value) {
         status = value;
     }
 
-    /*   ****************************************************************************
-     * Get method for the PARAMETER property
-     *
-     * @return the value of the property
-     */
     public String getStatus() {
         return status;
     }
 
-    /*   ****************************************************************************
-     * Set method for the PARAMETER property
-     *
-     * @param value the new value for the property
-     */
     public void setDob(String value) {
         dob = value;
     }
 
-    /*   ****************************************************************************
-     * Get method for the PARAMETER property
-     *
-     * @return the value of the property
-     */
     public String getDob() {
         return dob;
     }
 
-    /*   ****************************************************************************
-     * Set method for the PARAMETER property
-     *
-     * @param value the new value for the property
-     */
     public void setSex(String value) {
         sex = value;
     }
 
-    /*   ****************************************************************************
-     * Get method for the PARAMETER property
-     *
-     * @return the value of the property
-     */
     public String getSex() {
         return sex;
     }

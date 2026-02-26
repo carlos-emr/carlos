@@ -326,7 +326,6 @@ public class FrmRourke2017Record extends FrmRecord implements JasperReportPdfPri
                             }
 
                             if (mDateHt.compareTo(mDateWt) == 0) {
-                                //name = elementName_num_section_page
                                 props.setProperty("xVal_" + idx + "_1_" + graphicPage, mHt.getDataField());
                                 props.setProperty("yVal_" + idx + "_1_" + graphicPage, mWt.getDataField());
                                 break;
@@ -335,7 +334,6 @@ public class FrmRourke2017Record extends FrmRecord implements JasperReportPdfPri
                     } else if (graphType.equals(FrmRourke2017Record.LENGTH_GRAPH)) {
                         date = UtilDateUtilities.DateToString(mDateHt, "dd/MM/yyyy");
 
-                        //name = elementName_num_section_page
                         props.setProperty("xVal_" + idx + "_1_" + graphicPage, date);
                         props.setProperty("yVal_" + idx + "_1_" + graphicPage, mHt.getDataField());
                     }

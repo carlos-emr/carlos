@@ -554,7 +554,6 @@ public class ProviderProperty2Action extends ActionSupport {
 
     //public String viewDefaultDocQueue(){
     //    return "genDefaultDocQueue";
-    //}
     public String viewDefaultDocQueue() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -692,7 +691,6 @@ public class ProviderProperty2Action extends ActionSupport {
             propValue = prop.getValue();
         }
 
-        //String [] propertyArray= new String[7];
         boolean checked;
         if (propValue.equalsIgnoreCase("yes"))
             checked = true;
@@ -748,7 +746,6 @@ public class ProviderProperty2Action extends ActionSupport {
         request.setAttribute("method", "saveShowPatientDOB");
         return "genShowPatientDOB";
     }
-
 
 
     public String viewUseRx3() {
@@ -832,7 +829,6 @@ public class ProviderProperty2Action extends ActionSupport {
             quantity = new UserProperty();
         }
 
-        //request.setAttribute("propert", propertyToSet);
         request.setAttribute("quantity", quantity);
         request.setAttribute("providertitle", "provider.setRxDefaultQuantity.title");
         request.setAttribute("providermsgPrefs", "provider.setRxDefaultQuantity.msgPrefs");
@@ -894,7 +890,6 @@ public class ProviderProperty2Action extends ActionSupport {
             prop2 = new UserProperty();
         }
 
-        //request.setAttribute("propert", propertyToSet);
         request.setAttribute("dateProperty", prop);
         request.setAttribute("dateProperty2", prop2);
 
@@ -1055,9 +1050,6 @@ public class ProviderProperty2Action extends ActionSupport {
         }
         serviceList.add(new LabelValueBean("None", ""));
 
-
-        //conUtil.teamVec.add("All");
-        //conUtil.teamVec.add("None");
 
         request.setAttribute("dropOpts", serviceList);
 
@@ -2256,7 +2248,6 @@ public class ProviderProperty2Action extends ActionSupport {
     }
 
 
-
     public String viewHideOldEchartLinkInAppt() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -2475,8 +2466,6 @@ public class ProviderProperty2Action extends ActionSupport {
 
         return "genAppointmentCardPrefs";
     }
-
-
 
 
     public String viewPreventionPrefs() {

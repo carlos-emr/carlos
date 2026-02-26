@@ -86,7 +86,6 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
             throw new IllegalArgumentException();
         }
 
-        // Session session = getSession();
         Session session = sessionFactory.getCurrentSession();
         List teams = new ArrayList();
         try {
@@ -100,7 +99,6 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
                 log.debug("teamNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !teams.isEmpty());
             }
         } finally {
-            //releaseSession(session);
             session.close();
         }
         return !teams.isEmpty();

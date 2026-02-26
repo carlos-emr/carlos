@@ -58,11 +58,6 @@ public class IssueNoteSummary implements Summary {
     @Autowired
     protected PreferenceManager preferenceManager;
 
-    //protected static final String ELLIPSES = "...";
-    //protected static final int MAX_LEN_TITLE = 48;
-    //protected static final int CROP_LEN_TITLE = 45;
-    //protected static final int MAX_LEN_KEY = 12;
-    //protected static final int CROP_LEN_KEY = 9;
 
     public SummaryTo1 getSummary(LoggedInInfo loggedInInfo, Integer demographicNo, String summaryCode) {
         SummaryTo1 summary = null;
@@ -104,11 +99,9 @@ public class IssueNoteSummary implements Summary {
 
 
     protected void getSummaryListForIssuedNotes(LoggedInInfo loggedInInfo, Integer demographicNo, List<SummaryItemTo1> list, String[] issueCodes) {
-        //String[] issueCodes = { "OMeds", "SocHistory", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors" };
 
         List<Issue> issueList = new ArrayList<Issue>();
         for (int j = 0; j < issueCodes.length; ++j) {
-            //List<Issue> issues = caseManagementMgr.getIssueInfoByCode(loggedInInfo.getLoggedInProviderNo(), issueCodes[j]);
             issueList.addAll(caseManagementMgr.getIssueInfoByCode(loggedInInfo.getLoggedInProviderNo(), issueCodes[j]));
 
         }

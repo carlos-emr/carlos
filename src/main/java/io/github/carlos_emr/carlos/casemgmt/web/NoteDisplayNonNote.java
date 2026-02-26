@@ -83,7 +83,6 @@ public class NoteDisplayNonNote implements NoteDisplay {
     }
 
     public NoteDisplayNonNote(PatientForm patientForm) {
-        //SimpleDateFormat sdf = new SimpleDateFormat("yy/MM/dd HH:mm:ss");
 
         date = patientForm.edited;
         if (date == null) {

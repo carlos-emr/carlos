@@ -62,10 +62,6 @@ public class IssueTo1 implements Serializable {
         this.sortOrderId = sortOrderId;
     }
 
-	/*public Issue() {
-		update_date = new Date();
-		sortOrderId=0;
-	}*/
 
     public Long getId() {
         return id;
@@ -131,22 +127,4 @@ public class IssueTo1 implements Serializable {
         this.issueChange = issueChange;
     }
 	
-	/*
-    public String getUpdate_date_web() {        
-        if(update_date==null)
-                return null;
-        else
-                return formatter.format(update_date);
-    }
-    public void setUpdate_date_web(String update_date_s) {
-
-    formatter.setLenient(false);
-        try{
-                        if(update_date_s!=null)
-                                this.update_date = formatter.parse(update_date_s);
-                        else
-                                this.update_date = new Date();
-            }catch(Exception e){ MiscUtils.getLogger().error("Invalid issue update date", e);}
-        }
-	*/
 }

@@ -42,14 +42,7 @@ import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 
 public interface FaxDocumentManager {
 
-    //	@Autowired
-    //	DocumentManager documentManager;
 
-    //	@Autowired
-    //	private LabManager labManager;
-
-    //	@Autowired
-    //	private FormsManager formsManager;
     /*
      * Returns a temporary path to a PDF version of the given eformId.
      */

@@ -46,54 +46,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 
 
-/*
-  {doco
-  "resourceType" : "Immunization",
-  // from Resource: id, meta, implicitRules, and language
-  // from DomainResource: text, contained, extension, and modifierExtension
-  "identifier" : [{ Identifier }], // Business identifier
-  "status" : "<code>", // R!  completed | entered-in-error
-  "notGiven" : <boolean>, // R!  Flag for whether immunization was given
-  "vaccineCode" : { CodeableConcept }, // R!  Vaccine product administered
-  "patient" : { Reference(Patient) }, // R!  Who was immunized
-  "encounter" : { Reference(Encounter) }, // Encounter administered as part of
-  "date" : "<dateTime>", // Vaccination administration date
-  "primarySource" : <boolean>, // R!  Indicates context the data was recorded in
-  "reportOrigin" : { CodeableConcept }, // Indicates the source of a secondarily reported record
-  "location" : { Reference(Location) }, // Where vaccination occurred
-  "manufacturer" : { Reference(Organization) }, // Vaccine manufacturer
-  "lotNumber" : "<string>", // Vaccine lot number
-  "expirationDate" : "<date>", // Vaccine expiration date
-  "site" : { CodeableConcept }, // Body site vaccine  was administered
-  "route" : { CodeableConcept }, // How vaccine entered body
-  "doseQuantity" : { Quantity(SimpleQuantity) }, // Amount of vaccine administered
-  "practitioner" : [{ // Who performed event
-    "role" : { CodeableConcept }, // What type of performance was done
-    "actor" : { Reference(Practitioner) } // R!  Individual who was performing
-  }],
-  "note" : [{ Annotation }], // Vaccination notes
-  "explanation" : { // Administration/non-administration reasons
-    "reason" : [{ CodeableConcept }], // Why immunization occurred
-    "reasonNotGiven" : [{ CodeableConcept }] // Why immunization did not occur
-  },
-  "reaction" : [{ // Details of a reaction that follows immunization
-    "date" : "<dateTime>", // When reaction started
-    "detail" : { Reference(Observation) }, // Additional information on reaction
-    "reported" : <boolean> // Indicates self-reported reaction
-  }],
-  "vaccinationProtocol" : [{ // What protocol was followed
-    "doseSequence" : "<positiveInt>", // Dose number within series
-    "description" : "<string>", // Details of vaccine protocol
-    "authority" : { Reference(Organization) }, // Who is responsible for protocol
-    "series" : "<string>", // Name of vaccine series
-    "seriesDoses" : "<positiveInt>", // Recommended number of doses for immunity
-    "targetDisease" : [{ CodeableConcept }], // R!  Disease immunized against
-    "doseStatus" : { CodeableConcept }, // R!  Indicates if dose counts towards immunity
-    "doseStatusReason" : { CodeableConcept } // Why dose does (not) count
-  }]
-}
- */
-
 /**
  * constraint: Oscar class must implement ImmunizationInterface.
  */
@@ -277,18 +229,9 @@ public class Immunization<T extends AbstractModel<Integer> & ImmunizationInterfa
      * SNOMED is a fixed (static) system in Oscar.
      */
     private void setVaccineCode2(org.hl7.fhir.dstu3.model.Immunization immunization) {
-		/*
-		if(!StringUtils.isEmpty(getOscarResource().getVaccineCode2())) {
-			immunization.getVaccineCode().addCoding()
-			.setSystem("http://snomed.info/sct")
-			.setCode( getOscarResource().getVaccineCode2() )
-			.setDisplay((getOscarResource().getName()).trim());
-		}
-		*/
     }
 
     private void setVaccineCode2(ImmunizationInterface immunization) {
-        //immunization.setVaccineCode2( getFhirResource().getVaccineCode().getCoding().get(1).getCode() );
     }
 
 
@@ -327,55 +270,6 @@ public class Immunization<T extends AbstractModel<Integer> & ImmunizationInterfa
 
     private String mapSite(String oscarSite) {
         return oscarSite;
-		/*
-		if(oscarSite == null) {
-			return "";
-		}
-		
-		if("Superior Deltoid Lt".equals(oscarSite)) {
-			return "JiON_LID";
-		} else if("Inferior Deltoid Lt".equals(oscarSite)) {
-			return "JiON_LLD";
-		} else if("Anterolateral Thigh Lt".equals(oscarSite)) {
-			return "LATH";
-		} else if("Gluteal Lt".equals(oscarSite)) {
-			return "LDG";
-		} else if("Superior Deltoid Rt".equals(oscarSite)) {
-			return "JiON_RID";
-		} else if("Inferior Deltoid Rt".equals(oscarSite)) {
-			return "JiON_RLD";
-		} else if("Anterolateral Thigh Rt".equals(oscarSite)) {
-			return "RATH";
-		} else if("Gluteal Rt".equals(oscarSite)) {
-			return "RDG";
-		} else if("Arm Lt".equals(oscarSite)) {
-			return "JiON_AL";
-		} else if("Arm Rt".equals(oscarSite)) {
-			return "JiON_AR";
-		} else if("Unknown".equals(oscarSite)) {
-			return "UK";
-		} else if("Mouth".equals(oscarSite)) {
-			return "MOUTH";
-		} else if("Deltoid Lt".equals(oscarSite)) {
-			return "JiON_LD";
-		} else if("Deltoid Rt".equals(oscarSite)) {
-			return "JiON_RD";
-		} else if("Naris Lt".equals(oscarSite)) {
-			return "JiON_LN";
-		} else if("Naris Rt".equals(oscarSite)) {
-			return "JiON_RN";
-		} else if("Forearm Lt".equals(oscarSite)) {
-			return "JiON_LFA";
-		} else if("Forearm Rt".equals(oscarSite)) {
-			return "JiON_RFA";
-		} else if("Other".equals(oscarSite)) {
-			return "JiON_OTHER";
-		} else if("Nares (Lt and Rt)".equals(oscarSite)) {
-			return "JiON_Nares_L";
-		}
-			
-		return oscarSite;
-		*/
     }
 
     private void setSite(ImmunizationInterface immunization) {

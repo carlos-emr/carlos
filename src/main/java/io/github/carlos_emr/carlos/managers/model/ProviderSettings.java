@@ -116,7 +116,6 @@ public class ProviderSettings {
     private boolean summaryItemDisplayOtherMeds;
     private boolean summaryItemDisplayAssessments;
 
-    //private boolean summaryItemDisplayOutgoing;
 
     private boolean summaryItemDisplayIncoming;
     private boolean summaryItemDisplayDsSupport;
@@ -713,9 +712,6 @@ public class ProviderSettings {
     public void setDefaultPmm(boolean defaultPmm) {
         this.defaultPmm = defaultPmm;
     }
-
-
-
 
 
     public boolean isDashboardShare() {

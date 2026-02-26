@@ -245,7 +245,6 @@ public class ChildImmunizationReport implements PreventionReport {
                     prd.numMonths = numMonths;
                     prd.numShots = "" + totalImmunizations;
                     prd.color = "green";
-                    //done++;
                 } else {
                     prd.state = "------";
                     prd.lastDate = prevDateStr;
@@ -384,33 +383,8 @@ public class ChildImmunizationReport implements PreventionReport {
 
                     return prd.nextSuggestedProcedure;
 
-                  /*if ( measurementData.getDateObservedAsDate().before(onemon)){
-                	  
-                      if (prd.lastFollupProcedure.equals(this.LETTER1)){
-                                    prd.nextSuggestedProcedure = this.LETTER2;
-                                    return this.LETTER2;
-                      //is last measurementData within 3 months
-                      }else if( measurementData.getDateObservedAsDate().before(threemon)){
-                                  prd.nextSuggestedProcedure = "----";
-                                  return "----";
-                      }else if(prd.lastFollupProcedure.equals(this.LETTER2)){
-                                    prd.nextSuggestedProcedure = this.PHONE1;
-                                    return this.PHONE1;
-                      }else{
-                                  prd.nextSuggestedProcedure = "----";
-                                  return "----";
-                      }
-
-                  }else if(prd.lastFollupProcedure.equals(this.LETTER2)){
-                      prd.nextSuggestedProcedure = this.PHONE1;
-                      return this.PHONE1;
-                  }else{
-                      prd.nextSuggestedProcedure = "----";
-                      return "----";
-                  }*/
                 }
             } else if (prd.state.equals("Refused")) {  //Not sure what to do about refused
-                //prd.lastDate = "-----";
 
                 EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
                 log.debug("2getting followup data for " + prd.demographicNo);
@@ -423,7 +397,6 @@ public class ChildImmunizationReport implements PreventionReport {
                 }
 
                 prd.nextSuggestedProcedure = "----";
-                //prd.numMonths;
             } else if (prd.state.equals("Ineligible")) {
                 // Do nothing
                 prd.nextSuggestedProcedure = "----";

@@ -71,17 +71,6 @@ public class Info2Action extends ActionSupport {
         try {
 
             //temorary code as mcedt is not working
-			/*DetailData detailData = new DetailData();
-			detailData.setResourceID(resourceIds.get(0));
-			detailData.setDescription("description");
-			detailData.setResourceType("resourceType");						
-			request.setAttribute("detaildata", detailData);
-			
-			Detail detail = new Detail();
-			detail.getData().add(detailData);
-			request.setAttribute("detail", detail);
-			
-			request.getSession().setAttribute("info", "true");*/
             //----------
 
             EDTDelegate delegate = DelegateFactory.getEDTDelegateInstance(serviceId);
@@ -129,7 +118,6 @@ public class Info2Action extends ActionSupport {
     private List<DetailDataCustom> getResourceList(HttpServletRequest request) {
         Detail result = ActionUtils.getDetails(request);
         List<DetailDataCustom> resourceList = new ArrayList<DetailDataCustom>();
-        //ResourceForm resourceForm = (ResourceForm) form;
 
         if (result == null) {
             try {
@@ -161,15 +149,12 @@ public class Info2Action extends ActionSupport {
                     for (DetailData detailData : result.getData()) {
 
                         //add to list if only of certain status
-                        //if(ActionUtils.filterResourceStatus(detailData)){
                         detailDataK = new DetailDataCustom();
                         detailDataK = Action2Utils.mapDetailData(detailDataK, detailData, this.getTypeListResult().getData(), this.getServiceIdSent());
                         resourceList.add(detailDataK);
-                        //}
                     }
 
                     if (resourceList.size() > 0) {
-                        //Collections.sort(resourceList, DetailDataCustom.ResourceIdComparator);
                         request.getSession().setAttribute("resourceListDL", resourceList);
                     }
                 } else if (result == null) {
@@ -192,7 +177,6 @@ public class Info2Action extends ActionSupport {
 
     public String changeDisplay() throws Exception {
 
-        //ResourceForm resourceForm = (ResourceForm) form;
         String prvStatus = (String) request.getSession().getAttribute("resourceStatus");
         String currStatus = this.getStatus();
         if (prvStatus.equalsIgnoreCase(currStatus)) {

@@ -373,8 +373,6 @@ public interface DemographicDao {
 
     public void saveClient(Demographic client);
 
-    // public Map<String, ClientListsReportResults>
-    // findByReportCriteria(ClientListsReportFormBean x);
 
     public List<Demographic> getClientsByChartNo(String chartNo);
 
@@ -405,7 +403,6 @@ public interface DemographicDao {
 
     public List<Demographic> findByField(String fieldName, Object fieldValue, String orderBy, int offset);
 
-    // public List<Demographic> findByCriterion(DemographicCriterion c);
 
     public List<Object[]> findDemographicsForFluReport(String providerNo);
 

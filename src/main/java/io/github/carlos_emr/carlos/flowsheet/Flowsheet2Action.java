@@ -696,7 +696,6 @@ public class Flowsheet2Action extends ActionSupport {
                 MiscUtils.getLogger().error("Error", e);
             }
 
-            //	Item[] items = new Item[flowsheet.getHeaderArray(0).getItemArray().length - 1];
             List<Item> items = new ArrayList<Item>();
 
             int y = 0;
@@ -890,7 +889,6 @@ public class Flowsheet2Action extends ActionSupport {
             if (item != null) {
                 Ruleset ruleSet = item.getRuleset();
                 if (ruleSet != null) {
-                    //List<Rule> newRules = new ArrayList<Rule>();
                     for (int x = 0; x < ruleSet.getRuleArray().length; x++) {
                         Rule r = ruleSet.getRuleArray(x);
 
@@ -900,14 +898,12 @@ public class Flowsheet2Action extends ActionSupport {
 
                             if (hash.equals(sha256hex)) {
                                 r.removeCondition(y);
-                                //	newRules.add(r);
                             }
                         }
                         if (r.getConditionArray().length == 0) {
                             ruleSet.removeRule(x);
                         }
                     }
-                    //	ruleSet.setRuleArray(newRules.toArray(new Rule[newRules.size()]));
                 }
             }
 
@@ -1072,7 +1068,6 @@ public class Flowsheet2Action extends ActionSupport {
 
             String strength = request.getParameter("strength");
             rec.setStrength(strength);
-            //rec.setmessage();
             Condition cond = rec.addNewCondition();
 
             cond.setParam(request.getParameter("param"));

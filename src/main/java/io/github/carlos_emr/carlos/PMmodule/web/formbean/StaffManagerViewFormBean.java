@@ -73,16 +73,5 @@ public class StaffManagerViewFormBean {
         };
     }
 	
-	/*
-	public static Comparator getRoleComparator() {
-		return new Comparator() {
-			public int compare(Object o1, Object o2) {
-				Provider provider1  = (Provider)o1;
-				Provider provider2  = (Provider)o2;
-				
-				return provider1.g.compareTo(provider2.getFormattedName());				
-			}
-		};
-	}*/
 
 }

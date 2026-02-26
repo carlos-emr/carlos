@@ -142,7 +142,6 @@ public class EctMeasurementsDataBean {
     }
 
     public String getDateEntered() {
-        //return dateEntered.substring(0,10);
         return dateEntered;
     }
 

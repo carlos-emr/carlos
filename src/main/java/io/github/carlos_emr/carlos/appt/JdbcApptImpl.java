@@ -91,7 +91,6 @@ public class JdbcApptImpl {
         return retval;
     }
 
-    // priority = c, reason = location
     private String getLocationFromSpec(String apptDate, String provider_no, String priority) {
         String retval = "";
 

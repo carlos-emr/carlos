@@ -142,7 +142,6 @@ public class LabVersionComparator {
      * @return A map containing missing tests and deleted tests.
      */
     private Map<String, OrderStatus> findMissingTests(Map<String, OrderStatus> currentLabTestStatusMap, Map<String, OrderStatus> overallLabTestStatusMap, boolean addCanceledLabs) {
-        //Map<String, OrderStatus> missingEntries = new HashMap<>();
 
         // Step 1: Find tests missing in currentLabTestStatusMap
         Map<String, OrderStatus> missingEntries = overallLabTestStatusMap.entrySet().stream()

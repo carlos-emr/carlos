@@ -42,9 +42,6 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-//import java.util.List;
-
-
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
@@ -95,17 +92,6 @@ public class ClinicaidCommunication {
 
             // Get latest diagnostic code
             String dx_codes = "";
-			/*
-			CaseManagementIssueDAO caseManagementIssueDAO = new CaseManagementIssueDAO();
-			List<CaseManagementIssue> issues = 
-				caseManagementIssueDAO.getIssuesByDemographicOrderActive(
-						2, false);
-
-			for (CaseManagementIssue issue : issues)
-			{
-				dx_codes = dx_codes + "|" + issue.getIssue_id();
-			}
-			*/
 
             String referral_no = demo.getFamilyDoctorNumber();
             String referral_first_name = demo.getFamilyDoctorFirstName();

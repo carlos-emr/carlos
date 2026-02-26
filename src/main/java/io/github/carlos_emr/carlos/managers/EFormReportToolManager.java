@@ -44,7 +44,6 @@ public interface EFormReportToolManager {
 
 
     //@PersistenceContext
-    //protected EntityManager entityManager = null;
 
 
     public List<EFormReportTool> findAll(LoggedInInfo loggedInInfo, Integer offset, Integer limit);

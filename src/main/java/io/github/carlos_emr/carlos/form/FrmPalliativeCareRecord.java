@@ -55,7 +55,6 @@ public class FrmPalliativeCareRecord extends FrmRecord {
             if (rs.next()) {
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("pName", Misc.getString(rs, "pName"));
             }

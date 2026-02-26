@@ -81,7 +81,6 @@ public class AlertTimer {
      */
     class ReminderClass extends TimerTask {
         public void run() {
-            // LoggedInInfo loggedInInfo=LoggedInInfo.getLoggedInInfoAsCurrentClassAndMethod();
             // work around for the sec object.
             String providerNo = "-1";
             ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);

@@ -62,7 +62,6 @@ public class FrmMentalHealthRecord extends FrmRecord {
                 props.setProperty("c_sex", Misc.getString(rs, "sex"));
                 props.setProperty("c_referralDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("c_address", Misc.getString(rs, "address"));
                 props.setProperty("c_birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
                 props.setProperty("c_homePhone", Misc.getString(rs, "phone"));

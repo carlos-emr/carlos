@@ -126,8 +126,6 @@ public final class WCBForm {
 
         wcb.setProvider_no(providerNo);
 
-        //wcb.set formCreated);
-        //wcb.set formEdited);
         wcb.setW_reporttype(w_reportype);
         wcb.setW_fname(w_fname);
         wcb.setW_lname(w_lname);
@@ -171,13 +169,10 @@ public final class WCBForm {
         wcb.setW_tofollow(w_tofollow); //="N"
         wcb.setW_payeeno(w_payeeno);
         wcb.setW_pracno(w_pracno);
-        ////wcb.setW_pracname( w_pracname);
         wcb.setW_wcbadvisor(w_wcbadvisor); //="N"
         wcb.setW_feeitem(w_feeitem); //--
         wcb.setW_extrafeeitem(w_extrafeeitem); //--
         wcb.setW_servicelocation(w_servicelocation); //--
-        //wcb.setW_formNeeded(formNeeded);
-        //private List injuryLocations;
 
 
         return wcb;
@@ -239,7 +234,6 @@ public final class WCBForm {
         w_tofollow = wcb.getW_tofollow();
         w_payeeno = wcb.getW_payeeno();
         w_pracno = wcb.getW_pracno();
-        //w_pracname= result.get("w_pracname").asText();
         w_wcbadvisor = wcb.getW_wcbadvisor();
         w_feeitem = wcb.getW_feeitem();
         w_extrafeeitem = wcb.getW_extrafeeitem();

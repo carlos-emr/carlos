@@ -117,11 +117,9 @@ public class ReSubmit2Action extends ActionSupport {
                     for (DetailData detailData : result.getData()) {
 
                         //add to list if only of certain status
-                        //if(ActionUtils.filterResourceStatus(detailData)){
                         detailDataK = new DetailDataCustom();
                         detailDataK = Action2Utils.mapDetailData(detailDataK, detailData, this.getTypeListResult().getData(), this.getServiceIdSent());
                         resourceList.add(detailDataK);
-                        //}
                     }
                 }
 

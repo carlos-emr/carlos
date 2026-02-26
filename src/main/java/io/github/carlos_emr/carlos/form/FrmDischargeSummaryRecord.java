@@ -77,9 +77,6 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
                     props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
                     props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
                             "yyyy/MM/dd"));
-                    //props.setProperty("formEdited",
-                    // UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd
-                    // HH:mm:ss"));
                     props.setProperty("birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
                     props.setProperty("clientName", Misc.getString(rs, "clientName"));
                     props.setProperty("ohip", Misc.getString(rs, "ohip"));
@@ -189,7 +186,6 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
                     if (rs5.isFirst()) {
                         prescriptions.append(Misc.getString(rs5, "special"));
                     } else {
-                        //prescriptions.append(";");
                         prescriptions.append(Misc.getString(rs5, "special"));
                     }
                 }
@@ -243,9 +239,6 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
                         "yyyy/MM/dd"));
-                //props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd
-                // HH:mm:ss"));
                 props.setProperty("birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
                 props.setProperty("clientName", Misc.getString(rs, "pName"));
             }
@@ -284,7 +277,6 @@ public class FrmDischargeSummaryRecord extends FrmRecord {
 
         if (action.equalsIgnoreCase("print")) {
             temp = where + "?demoNo=" + demoId + "&formId=" + formId; // + "&study_no=" + studyId +
-            // "&study_link" + studyLink;
         } else if (action.equalsIgnoreCase("save")) {
             temp = where + "?demographic_no=" + demoId + "&formId=" + formId; // "&study_no=" +
             // studyId +

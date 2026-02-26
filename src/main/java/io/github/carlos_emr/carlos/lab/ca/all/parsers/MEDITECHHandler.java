@@ -44,7 +44,6 @@ import ca.uhn.hl7v2.parser.Parser;
 import ca.uhn.hl7v2.parser.PipeParser;
 import ca.uhn.hl7v2.parser.XMLParser;
 import ca.uhn.hl7v2.util.Terser;
-// import ca.uhn.hl7v2.validation.ValidationContext;
 import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 
@@ -68,7 +67,6 @@ public class MEDITECHHandler implements MessageHandler {
 
     public static enum ORDER_STATUS {F, C, S, P, X, I} // complete(or final), corrected, signed, preliminary, cancelled, incomplete
 
-    //	public static final boolean USE_OBR_HEADERS_FOR_OBR_NAME = Boolean.TRUE;
     public static final String DEFAULT_LAB_NAME = "LAB";
     public static final String NORMAL_LAB = "N";
     public static String DATE_FORMAT = "yyyyMMddHHmmss";

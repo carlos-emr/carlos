@@ -104,7 +104,6 @@ public class PaymentType2Action extends ActionSupport {
                     billingPaymentType.setPaymentType(paymentType);
                     billingPaymentTypeDao.persist(billingPaymentType);
                     retMap.put("ret", "0");
-                    //return actionMapping.findForward("success");
                 }
             } catch (Exception e) {
                 retMap.put("ret", "1");

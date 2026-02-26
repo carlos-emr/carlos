@@ -81,10 +81,7 @@ public class EformDataManagerImpl implements EformDataManager {
         // Default
     }
 
-    // @Autowired
-    // public void setDocumentAttachmentManager(DocumentAttachmentManager documentAttachmentManager) {
     //     this.documentAttachmentManager = documentAttachmentManager;
-    // }
 
     public Integer saveEformData(LoggedInInfo loggedInInfo, EForm eform) {
         Integer formid = null;

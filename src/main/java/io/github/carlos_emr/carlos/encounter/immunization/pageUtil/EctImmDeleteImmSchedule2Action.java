@@ -84,7 +84,6 @@ public class EctImmDeleteImmSchedule2Action extends ActionSupport {
         try {
 
             String imm = immData.getImmunizations(demographicNo);
-            ///String sDoc = UtilMisc.decode64(imm);
             Document doc = UtilXML.parseXML(imm);
             NodeList sets = doc.getElementsByTagName("immunizationSet");
             Element set = (Element) sets.item(setnum);
@@ -98,7 +97,6 @@ public class EctImmDeleteImmSchedule2Action extends ActionSupport {
 
             String sXML = UtilXML.toXML(doc);
 
-            //EctImmImmunizationData imm = new EctImmImmunizationData();
             immData.saveImmunizations(demographicNo, providerNo, sXML);
         } catch (Exception ex) {
             throw new ServletException("Exception occurred in EctImmDeleteImmSchedule2Action", ex);

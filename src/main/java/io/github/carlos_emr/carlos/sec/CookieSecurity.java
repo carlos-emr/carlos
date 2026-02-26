@@ -69,7 +69,6 @@ public class CookieSecurity {
     private boolean CheckCookieValue(String cookieValue) {
         try {
             Adler32 adler32 = new Adler32();
-            //adler32.update(cookieValue.substring(0, 32).getBytes());
             for (int i = 0; i < 32; i++) {
                 adler32.update(Integer.parseInt(cookieValue.substring(i, i + 1)));
             }

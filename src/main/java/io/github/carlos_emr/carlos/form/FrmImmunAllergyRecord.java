@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.db.DBHandler;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmImmunAllergyRecord extends FrmRecord {
-    //FrmRecordHelp recordHlp = null;
 
     public Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID)
             throws SQLException {
@@ -58,7 +57,6 @@ public class FrmImmunAllergyRecord extends FrmRecord {
                 props.setProperty("c_givenName", Misc.getString(rs, "first_name"));
                 props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
             }
             rs.close();
         } else {

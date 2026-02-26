@@ -67,9 +67,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 public class DashboardManagerImpl implements DashboardManager {
 
 
-    // public enum ObjectName {
     // 	IndicatorTemplate, Dashboard
-    // }
 
     @Autowired
     private SecurityInfoManager securityInfoManager;
@@ -278,7 +276,6 @@ public class DashboardManagerImpl implements DashboardManager {
     public String importIndicatorTemplate(LoggedInInfo loggedInInfo, byte[] bytearray) {
         ObjectNode message = objectMapper.createObjectNode();
         IndicatorTemplate indicatorTemplate = null;
-        // Boolean isValid = Boolean.FALSE;
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", SecurityInfoManager.WRITE, null)) {
             LogAction.addLog(loggedInInfo, "DashboardManager.importIndicatorTemplate", null, null, null,
@@ -748,11 +745,9 @@ public class DashboardManagerImpl implements DashboardManager {
         user.setCity("");
         user.setFirstName(provider.getFirstName());
         // TODO: not sure yet how we want to implement this
-        // user.setAuthorizedUsernameList(null);
         user.setLastName(provider.getLastName());
         user.setPostalCode("");
         user.setProvince(Province.ON);
-        // user.setUniqueIdentifier(uniqueIdentifier);
         user.setUsername(provider.getProviderNo());
         user.setRole("providers");
 

@@ -60,10 +60,6 @@ public class TargetCondition {
     private String param = null;
 
 
-//    public String toString(){
-//         return "monthrange "+monthrange+" strength "+strength+" text "+text+" ruleName "+ruleName+" measurement "+measurement;
-//    }
-
     public TargetCondition() {
 
     }
@@ -84,8 +80,6 @@ public class TargetCondition {
             if (toParse.indexOf("-") != -1 && toParse.indexOf("-") != 0) { //between style
                 String[] betweenVals = toParse.split("-");
                 if (betweenVals.length == 2) {
-                    //int lower = Integer.parseInt(betweenVals[0]);
-                    //int upper = Integer.parseInt(betweenVals[1]);
                     list.add(new DSCondition("getDataAsDouble", "", ">=", betweenVals[0]));
                     list.add(new DSCondition("getDataAsDouble", "", "<=", betweenVals[1]));
                 }
@@ -121,7 +115,6 @@ public class TargetCondition {
             if (value == null || value.equalsIgnoreCase("true")) {
                 list.add(new DSCondition("isMale", "", "==", "true"));
             }
-            //        list.add(new DSCondition("getLastDateRecordedInMonths", measurement, "<=", betweenVals[1]));
 
         } else if ("isFemale".equals(type)) {
             if (value == null || value.equalsIgnoreCase("true")) {
@@ -151,8 +144,6 @@ public class TargetCondition {
                     if (toParse.indexOf("-") != -1 && toParse.indexOf("-") != 0) { //between style
                         String[] betweenVals = toParse.split("-");
                         if (betweenVals.length == 2) {
-                            //int lower = Integer.parseInt(betweenVals[0]);
-                            //int upper = Integer.parseInt(betweenVals[1]);
                             list.add(new DSCondition("getNumberFromSplit(\"/\"," + i + ")", param, ">=", betweenVals[0]));
                             list.add(new DSCondition("getNumberFromSplit(\"/\"," + i + ")", param, "<=", betweenVals[1]));
                         }

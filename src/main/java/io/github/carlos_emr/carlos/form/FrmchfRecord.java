@@ -61,8 +61,6 @@ public class FrmchfRecord extends FrmRecord {
                 props.setProperty("pName", Misc.getString(rs, "pName"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
                         "yyyy/MM/dd"));
-                //props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
                 props.setProperty("sex", Misc.getString(rs, "sex"));
 
@@ -102,7 +100,6 @@ public class FrmchfRecord extends FrmRecord {
 
         if (action.equalsIgnoreCase("print")) {
             temp = where + "?demoNo=" + demoId + "&formId=" + formId; // + "&study_no=" + studyId +
-            // "&study_link" + studyLink;
         } else if (action.equalsIgnoreCase("save")) {
             temp = where + "?demographic_no=" + demoId + "&formId=" + formId; // "&study_no=" +
             // studyId +

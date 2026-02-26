@@ -47,7 +47,6 @@ import org.springframework.stereotype.Component;
 public class MessagingConverter extends AbstractConverter<MessageList, MessageTo1> {
 
 
-    //private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     private MessageTblDao messageTblDao;
 
     @Override

@@ -75,7 +75,6 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
     private final BillingmasterDAO billingmasterDAO = SpringUtils.getBean(BillingmasterDAO.class);
 
-    //Misc misc = new Misc();
     MSPReconcile msp = new MSPReconcile();
 
     public String execute() throws IOException, ServletException {
@@ -212,7 +211,6 @@ public class BillingReProcessBill2Action extends ActionSupport {
             }
 
             if (hcType.equals(billRegion)) { //if its bc go on
-                //oinInsurerCode = "";
                 oinRegistrationNo = "";
                 oinBirthdate = "";
                 oinFirstName = "";
@@ -280,8 +278,6 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
             try {
 
-                //BillingCodeData bcd = new BillingCodeData();
-                //BillingService billingService = bcd.getBillingCodeByCode(billingServiceCode, new Date());
                 String codePrice = StringUtils.isNullOrEmpty(request.getParameter("billingAmount")) ? (StringUtils.isNullOrEmpty(frm.getBillingAmount()) ? "0.00" : frm.getBillingAmount()) : request.getParameter("billingAmount"); //billingService.getValue();
                 logger.debug("codePrice=" + codePrice + " amount on form " + request.getParameter("billingAmount"));
 
@@ -504,7 +500,6 @@ public class BillingReProcessBill2Action extends ActionSupport {
         Billingmaster billingMaster = billingmasterDAO.getBillingMasterByBillingMasterNo(billingMasterNo);
         Billing bill = billingmasterDAO.getBilling(billingMaster.getBillingNo());
 
-//        boolean reProcessBCP = request.getParameter("hiddenFilterType") != null && request.getParameter("hiddenFilterType").equals("BCP");
 
         BillingReProcessBill2Form billingReProcessBillForm = new BillingReProcessBill2Form();
         billingReProcessBillForm.setBillingmasterNo(String.valueOf(billingMasterNo));
@@ -581,7 +576,6 @@ public class BillingReProcessBill2Action extends ActionSupport {
         Billingmaster billingMaster = billingmasterDAO.getBillingMasterByBillingMasterNo(billingMasterNo);
         Billing bill = billingmasterDAO.getBilling(billingMaster.getBillingNo());
 
-//        boolean reProcessBCP = request.getParameter("hiddenFilterType") != null && request.getParameter("hiddenFilterType").equals("BCP");
 
         BillingReProcessBill2Form billingReProcessBillForm = new BillingReProcessBill2Form();
         billingReProcessBillForm.setBillingmasterNo(String.valueOf(billingMasterNo));

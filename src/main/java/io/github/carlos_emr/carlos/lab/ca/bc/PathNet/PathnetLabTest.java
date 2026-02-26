@@ -340,11 +340,8 @@ public class PathnetLabTest {
 
         public String timeStamp = "";
         public String resultStatus = "";
-        //String title = null;       // 2. Title
         //String notUsed1 = null;    // 3. not used ?
         public String description = null; // 4. Description/Comment
-        //String locationId = null;  // 5. Location Id
-        //String last = null;        // 6. Last Y or N
 
         public String notes = null;
 

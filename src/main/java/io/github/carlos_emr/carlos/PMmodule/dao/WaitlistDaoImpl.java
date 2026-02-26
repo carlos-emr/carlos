@@ -254,8 +254,6 @@ public class WaitlistDaoImpl implements WaitlistDao {
     @Override
     public VacancyDisplayBO getDisplayVacancy(int vacancyID) {
         VacancyDisplayBO bo = new VacancyDisplayBO();
-        // String queryString = "SELECT v.vacancyName, t.NAME, " +
-        //         "v.dateCreated, p.name, v.vacancyName  FROM vacancy v JOIN vacancy_template t ON v.templateId=t.TEMPLATE_ID JOIN program p ON v.wlProgramId=p.id  WHERE v.id=?1";
 
         String queryString = "SELECT v.vacancyName AS v_vacancyName, t.NAME AS t_name, " +
                 "v.dateCreated AS v_dateCreated, p.name AS p_name, " +
@@ -311,8 +309,6 @@ public class WaitlistDaoImpl implements WaitlistDao {
     @Override
     public Integer getProgramIdByVacancyId(int vacancyId) {
         List<Integer> programIds = new ArrayList<Integer>();
-        // String queryString = "SELECT t.PROGRAM_ID FROM vacancy v JOIN
-        // vacancy_template t ON " + "v.templateId=t.TEMPLATE_ID WHERE v.id=?1";
         String queryString = "SELECT wlProgramId FROM vacancy where id=?1";
         Query query = entityManager.createNativeQuery(queryString);
         query.setParameter(1, vacancyId);
@@ -573,8 +569,6 @@ public class WaitlistDaoImpl implements WaitlistDao {
 
     private static final String field_type_multiple = "select_multiple";
     private static final String field_type_range = "select_one_range";
-    // private static final String field_type_one = "select_one";
-    // private static final String field_type_number = "number";
 
     @Override
     public VacancyData loadVacancyData(final int vacancyId) {

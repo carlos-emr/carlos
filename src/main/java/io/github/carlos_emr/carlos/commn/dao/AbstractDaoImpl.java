@@ -306,11 +306,7 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
 
     @Override
     public int getCountAll() {
-        // new JPA way of doing it, but our hibernate is too old or doesn't support
         // primitives yet?
-        // String sqlCommand="select count(*) from "+modelClass.getSimpleName();
-        // Query query = entityManager.createNativeQuery(sqlCommand, Integer.class);
-        // return((Integer)query.getSingleResult());
 
         String tableName = modelClass.getSimpleName();
         javax.persistence.Table t = modelClass.getAnnotation(javax.persistence.Table.class);

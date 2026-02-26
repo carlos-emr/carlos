@@ -124,9 +124,7 @@ public class MeasurementPrint implements ExtPrint {
             }
 
             //
-            // engine.getDocument().add(table);
         }
-        //engine.getDocument().add(p);
     }
 
     private void printMeasurementEntries(String date, List<Measurement> measurements, PdfPTable table) {

@@ -52,8 +52,6 @@ public class FrmONARRecord extends FrmRecord {
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
                 props.setProperty("formCreated", UtilDateUtilities
                         .DateToString(new Date(), "yyyy/MM/dd"));
-                // props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(),"yyyy/MM/dd"));
                 props.setProperty("c_lastName", Misc.getString(rs, "last_name"));
                 props.setProperty("c_firstName", Misc.getString(rs, "first_name"));
                 props.setProperty("c_address", Misc.getString(rs, "address"));

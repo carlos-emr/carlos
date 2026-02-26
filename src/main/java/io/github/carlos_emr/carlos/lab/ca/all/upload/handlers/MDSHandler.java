@@ -73,9 +73,6 @@ public class MDSHandler implements MessageHandler {
             ArrayList<String> messages = Utilities.separateMessages(fileName);
             for (i = 0; i < messages.size(); i++) {
                 String msg = messages.get(i);
-				/*if(isDuplicate(loggedInInfo,msg)) {
-					continue;
-				}*/
                 routeResults = new RouteReportResults();
                 String auditLine = MessageUploader.routeReport(loggedInInfo, serviceName, "MDS", msg, fileId, routeResults) + "\n";
 

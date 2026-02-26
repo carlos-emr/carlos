@@ -206,16 +206,6 @@ public class RscheduleBean {
                 break;
             }
         }
-/*
-    //check if it is a special day of month, then modify the status
-    st = new StringTokenizer(this.avail_hourB);
-    while (st.hasMoreTokens() ) {
-      if( st.nextToken().compareTo(""+ aDate.get(Calendar.avail_hourB) )==0 ) { 
-    	  bAvail = bAvailableTemp;
-    	  break;
-      }
-    }
-*/
         return bAvail;
     }
 

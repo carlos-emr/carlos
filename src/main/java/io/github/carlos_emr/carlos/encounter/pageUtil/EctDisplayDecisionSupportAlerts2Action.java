@@ -173,8 +173,6 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
                         winName = dsConsequence.getConsequenceType().toString() + bean.demographicNo;
 
                         url = "popupPage(500,950,'" + winName + "','" + request.getContextPath() + "/oscarEncounter/decisionSupport/guidelineAction.do?method=detail&guidelineId=" + dsGuideline.getId() + "&provider_no=" + bean.providerNo + "&demographic_no=" + bean.demographicNo + "&parentAjaxId=" + cmd + "'); return false;";
-                        //Date date = (Date)curform.get("formDateAsDate");
-                        //String formattedDate = DateUtils.getDate(date,dateFormat,request.getLocale());
                         key = StringUtils.maxLenString(dsConsequence.getText(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES);
                         item.setLinkTitle(dsGuideline.getTitle());
                         key = StringEscapeUtils.escapeEcmaScript(key);
@@ -187,7 +185,6 @@ public class EctDisplayDecisionSupportAlerts2Action extends EctDisplayAction {
                         if (dsConsequence.getConsequenceStrength() == DSConsequence.ConsequenceStrength.warning) {
                             item.setColour("#ff5409;");
                         }
-                        //item.setDate(new Date());
                         Dao.addItem(item);
                     }
                 } catch (Exception e) {

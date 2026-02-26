@@ -408,43 +408,6 @@ public class GDMLHandler implements MessageHandler {
     /**
      * Methods to get information from observation notes
      */
-/*
-    public int getOBXCommentCount(int i, int j){
-        int count = 0;
-        try{
-            String comment = "";
-            OBX obxSeg = ( obrSegMap.get(obrSegKeySet.get(i))).get(j);
-            while(comment != null){
-                count++;
-                comment = Terser.get(obxSeg,7,count,1,1);
-                if (comment == null)
-                    comment = Terser.get(obxSeg,7,count,2,1);
-            }
-            count--;
-
-        }catch(Exception e){
-            logger.error("Exception retrieving obx comment count", e);
-            count = 0;
-        }
-        return count;
-    }
-
-    public String getOBXComment(int i, int j, int k){
-        String comment = "";
-        try{
-            k++;
-
-            OBX obxSeg = ( obrSegMap.get(obrSegKeySet.get(i))).get(j);
-            comment = getComponent(obxSeg, 7, k, 1);
-            if (comment == null)
-                comment = getComponent(obxSeg, 7, k, 2);
-
-        }catch(Exception e){
-            logger.error("Cannot return comment", e);
-        }
-        return getString(comment).replaceAll("\\\\\\.br\\\\", "<br />");
-    }
-  */
     public int getOBXCommentCount(int i, int j) {
         try {
             if (!getOBXComment(i, j, 0).equals("")) {
@@ -591,23 +554,6 @@ public class GDMLHandler implements MessageHandler {
     }
 
     public String getClientRef() {
-        /*String docNum = "";
-        int i=0;
-        try{
-            while(!getString(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getOrderingProvider(i).getIDNumber().getValue()).equals("")){
-                if (i==0){
-                    docNum = getString(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getOrderingProvider(i).getIDNumber().getValue());
-                }else{
-                    docNum = docNum + ", " + getString(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getOrderingProvider(i).getIDNumber().getValue());
-                }
-                i++;
-            }
-            return(docNum);
-        }catch(Exception e){
-            logger.error("Could not return doctor id numbers", e);
-
-            return("");
-        }*/
         try {
             return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientIDInternalID(0).getAssigningAuthority().getNamespaceID().getValue()));
         } catch (Exception e) {
@@ -680,7 +626,6 @@ public class GDMLHandler implements MessageHandler {
 
         } catch (Exception e) {
             //ignore error... it will occur when the zdr segment is not present
-            //logger.error("Could not retrieve cc'd docs", e);
             return ("");
         }
 
@@ -711,7 +656,6 @@ public class GDMLHandler implements MessageHandler {
 
         } catch (Exception e) {
             //ignore error... it will occur when the zdr segment is not present
-            //logger.error("Could not return numbers", e);
         }
 
         return (nums);
@@ -785,7 +729,6 @@ public class GDMLHandler implements MessageHandler {
                 }
 
                 if (hl7Body.equals(new String(base64.decode(l.message.getBytes("ASCII")), "ASCII"))) {
-                    //logger.error("same message ");
                     break;
                 }
             }
@@ -931,9 +874,6 @@ public class GDMLHandler implements MessageHandler {
         }
     }
 
-    /*
-     * for OMD validation (imported files)
-     */
     public boolean isTestResultBlocked(int i, int j) {
         try {
             Segment obxSeg = ((obrSegMap.get(obrSegKeySet.get(i))).get(j));

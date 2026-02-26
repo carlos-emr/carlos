@@ -55,7 +55,6 @@ public final class OAuth1Utils {
 
     /** Provide a CXF JSONProvider (legacy callers expect this). */
     public static List<Object> getProviderK2A() {
-        // return Collections.singletonList(new JSONProvider<Object>());
         logger.warn("OAuth1Utils.getProviderK2A called.");
         return null;
     }

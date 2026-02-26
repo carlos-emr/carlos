@@ -58,7 +58,6 @@ public final class RxStash2Action extends ActionSupport {
         // Setup variables
 
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
-        // bean.setStashIndex(11);
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -70,7 +69,6 @@ public final class RxStash2Action extends ActionSupport {
                 request.setAttribute("BoxNoFillFirstLoad", "true");
 
                 bean.setStashIndex(this.getStashId());
-                //bean.setStashIndex(11);
             }
             if (this.getAction().equals("delete")) {
                 bean.removeStashItem(this.getStashId());

@@ -235,9 +235,6 @@ public class EFormBase {
      */
     protected Document getDocument() {
         if (this.document == null && this.formHtml != null) {
-            /*
-             * use the ConvertToEdoc utilities for consistent use of the JSoup parser.
-             */
             this.document = ConvertToEdoc.getDocument(this.formHtml, this.realPath);
         }
         if (this.document == null) {

@@ -98,7 +98,6 @@ public class DHIR {
         SubmittingPractitioner submittingPractitioner = new SubmittingPractitioner(configurationManager.getLoggedInInfo().getLoggedInProvider(), configurationManager);
         FhirBundleBuilder fhirBundleBuilder = new FhirBundleBuilder(configurationManager);
 
-        // Public Health Unit requirement for Ontario submissions.
         org.hl7.fhir.dstu3.model.Organization publicHealthUnit = OscarFhirResourceManager.getPublicHealthUnit(configurationManager, demographicNo);
 
         // the patient is the focus resource for this type of bundle. A reference link will be inserted into the MessageHeader.focus

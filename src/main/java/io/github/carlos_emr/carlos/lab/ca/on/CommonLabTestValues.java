@@ -290,7 +290,6 @@ public class CommonLabTestValues {
         }
 
         if (labType != null && labType.equals("CML")) {
-            // LabTestResultsDao daos = SpringUtils.getBean(LabTestResultsDao.class);
             PatientLabRoutingDao dao = SpringUtils.getBean(PatientLabRoutingDao.class);
             for (Object[] i : dao.findRoutingsAndTests(demographicNo == null ? 0 : demographicNo, labType, testName)) {
                 PatientLabRouting p = (PatientLabRouting) i[0];
@@ -324,7 +323,6 @@ public class CommonLabTestValues {
                         h.put("lab_no", lab_no);
                         h.put("collDate", collDate);
                         h.put("collDateDate", dateB);
-                        //labList.add(h);
                         labMap.put(accessionNum, h);
                     }
                 }
@@ -403,10 +401,7 @@ public class CommonLabTestValues {
                     .getBean(PatientLabRoutingDao.class);
 
             for (Object[] i : dao.findHl7InfoForRoutingsAndTests(demographicNo == null ? 0 : demographicNo, "BCP", testName)) {
-                // PatientLabRouting p = (PatientLabRouting) i[0];
-                // Hl7Msh m = (Hl7Msh) i[1];
                 Hl7Pid pi = (Hl7Pid) i[2];
-                // Hl7Obr r = (Hl7Obr) i[3];
                 Hl7Obx x = (Hl7Obx) i[4];
                 Hl7Orc c = (Hl7Orc) i[5];
 

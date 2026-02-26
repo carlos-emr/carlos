@@ -203,8 +203,6 @@ public class ExtractBean implements Serializable {
         hcLast.replaceAll("\\W", "");
         hcFirst.replaceAll("\\W", "");
         checkHeader2();
-        //patientHeader2 = "\n" + HE + "R" + hcHin + hcLast + hcFirst + demoSex + hcType +
-        // space(47) + "\r";
         return ("\n" + HE + "R" + hcHin + hcLast + hcFirst + demoSex + hcType + space(47) + "\r");
     }
 
@@ -246,7 +244,6 @@ public class ExtractBean implements Serializable {
                 + pCount
                 + " RECORDS PROCESSED</td><td colspan='4' class='bodytext'>TOTAL: "
                 + BigTotal.toString().substring(0, BigTotal.toString().length() - 2) + "\n</td></tr>" + "\n</table>";
-        //  writeFile(value);
         String checkSummary = errorMsg.equals("") ? "\n<table border='0' width='100%' bgcolor='green'><tr><td>Pass</td></tr></table>"
                 : "\n<table border='0' width='100%' bgcolor='orange'><tr><td>Please correct the errors and run this simulation again!</td></tr></table>";
         htmlValue += htmlContent + checkSummary;
@@ -257,8 +254,6 @@ public class ExtractBean implements Serializable {
     }
 
     private String buildItem() {
-        //return ("\n" + HE + "T" + serviceCode + space(2) + zero(count) + fee + "0" + billingUnit
-        // + apptDate + diagcode + space(12)+ space(5) + space(2) + space(6) + space(25) + "\r");
         return ("\n" + HE + "T" + serviceCode + space(2) + zero(count) + fee + forwardZero(billingUnit, 2) + apptDate
                 + diagcode + space(12) + space(5) + space(2) + space(6) + space(25) + "\r");
 
@@ -351,7 +346,6 @@ public class ExtractBean implements Serializable {
             for (Billing b : dao.findByProviderStatusAndDates(providerNo, Arrays.asList(new String[]{"O", "W"}), dateRange)) {
                 patientCount++;
                 invNo = "" + b.getId();
-                //   ohipVer = b.getorganization_spec_code");
                 inPatient = "" + b.getClinicNo();
                 // if there is no clinic no for a clinic, it should be an empty str
                 inPatient = "0".equals(inPatient) ? "    " : inPatient;
@@ -375,7 +369,6 @@ public class ExtractBean implements Serializable {
                     diagcode = bd.getDiagnosticCode();
                     // changed the following line for the no need of diagcode 
                     diagcode = ":::".equals(diagcode) ? "   " : diagcode;
-                    //appt = rs2.getDate("appointment_date").toString();
                     billingUnit = bd.getBillingUnit();
                     count = 6 - fee.length();
                     apptDate = UtilDateUtilities.DateToString(bd.getAppointmentDate(), "yyyyMMdd");
@@ -404,13 +397,10 @@ public class ExtractBean implements Serializable {
             BigTotal = BigTotal.multiply(percent);
             value += buildTrailer();
             htmlCode = buildHTMLContentTrailer();
-            // writeHtml(htmlCode);
             ohipReciprocal = String.valueOf(hcCount);
             ohipRecord = String.valueOf(rCount);
             ohipClaim = String.valueOf(pCount);
             totalAmount = BigTotal.toString();
-            //}
-            //dbExt.closeConnection();
         } catch (Exception e) {
             MiscUtils.getLogger().error("error", e);
         }
@@ -510,7 +500,6 @@ public class ExtractBean implements Serializable {
         specialty = newSpecialty;
     }
 
-    // return i space str, e.g. " "
     public String space(int i) {
         String returnValue = new String();
         for (int j = 0; j < i; j++) {
@@ -553,7 +542,6 @@ public class ExtractBean implements Serializable {
         }
     }
 
-    // return x zero str, e.g. 000000
     public String zero(int x) {
         String returnZeroValue = new String();
         for (int y = 0; y < x; y++) {
@@ -562,7 +550,6 @@ public class ExtractBean implements Serializable {
         return returnZeroValue;
     }
 
-    // return x length string with zero str, e.g. 0018
     public String forwardZero(String y, int x) {
         // x must >= y.length()
         String returnZeroValue = "";

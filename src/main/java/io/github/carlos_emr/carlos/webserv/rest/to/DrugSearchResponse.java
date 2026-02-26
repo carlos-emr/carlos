@@ -44,7 +44,6 @@ public class DrugSearchResponse extends AbstractSearchResponse<DrugTo1> {
     private static final long serialVersionUID = 1L;
 
     public DrugSearchResponse() {
-        // super();
     }
 
     public DrugSearchResponse(List<DrugTo1> drugTo1List) {

@@ -84,8 +84,6 @@ public class FrmLabReq07Record extends FrmRecord {
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
                         "yyyy/MM/dd"));
 
-                //props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 java.util.Date dob = UtilDateUtilities.calcDate(demographic.getYearOfBirth(), demographic.getMonthOfBirth(), demographic.getDateOfBirth());
                 props.setProperty("birthDate", StringUtils.trimToEmpty(UtilDateUtilities.DateToString(dob, "yyyy/MM/dd")));
 
@@ -213,7 +211,6 @@ public class FrmLabReq07Record extends FrmRecord {
             props.setProperty("clinicPC", clinic.getClinicPostal());
         }
 
-        //lab_req_override=true
         OscarProperties oscarProps = OscarProperties.getInstance();
         if (oscarProps.getProperty("lab_req_provider", "").length() > 0) {
             props.setProperty("reqProvName", oscarProps.getProperty("lab_req_provider"));

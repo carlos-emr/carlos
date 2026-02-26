@@ -197,7 +197,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 // directly rather
                 // than open/save
                 // selection
-                // sbContentDispValue.append("; filename=");
                 sbContentDispValue.append(sbFilename);
 
                 res.setHeader("Content-disposition", sbContentDispValue.toString());
@@ -398,7 +397,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 prescriberHeading.append(newline);
                 prescriberHeading.append(newline).append(clinicName);
 
-                // render clnicaTel;
                 if (this.clinicTel != null && !this.clinicTel.isEmpty()) {
                     prescriberHeading.append(newline).append(geti18nTagValue(locale, "RxPreview.msgTel")).append(": ").append(this.clinicTel);
                 }
@@ -636,7 +634,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             rx = "";
         }
 
-        // parse prescript and put into a list of prescript;
         String[] rxA = rx.split(newline);
         List<String> listRx = new ArrayList<String>();
         String listElem = "";
@@ -674,11 +671,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
         document.setPageSize(pageSize);
 
-        // 285=left margin+width of box, 5f is space for looking nice
-        // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
         document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
 
-        //writer = PdfWriter.getInstance(document, baosPDF);
         writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, imgFile, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
         document.addTitle(title);
         document.addSubject("");

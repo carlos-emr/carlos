@@ -140,7 +140,6 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
         query.setParameter(1, region);
         query.setParameter(2, code + "%");
         query.setParameter(3, billingDate);
-        // query.setParameter("order", orderByClause);
 
 
         List<BillingService> list = query.getResultList();
@@ -169,7 +168,6 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
         query.setParameter(1, region);
         query.setParameter(2, str);
         query.setParameter(3, billingDate);
-        // String sql = "select * from billingservice where service_code like '"+str+"' or description like '%"+str+"%' ";
 
 
         List<BillingService> list = query.getResultList();

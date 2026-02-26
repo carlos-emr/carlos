@@ -123,7 +123,6 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
               -commits log statements
               -commits Submission Links
              */
-                //submission.commit(filename,home_dir);
                 submission.commit(filename, home_dir, bActDao.getMonthCode(), batchCount, providerNo);
 
             } catch (Exception e) {

@@ -89,19 +89,15 @@ public class SpireHandler implements MessageHandler {
             List<Hl7TextInfo> dupResults = hl7TextInfoDao.searchByAccessionNumber(acc);
             for (Hl7TextInfo dupResult : dupResults) {
                 if (("Spire" + dupResult.getAccessionNumber()).equals(acc)) {
-                    //if(h.getHealthNum().equals(dupResult.getHealthNumber())) {
                     OscarAuditLogger.getInstance().log(loggedInInfo, "Lab", "Skip", "Duplicate lab skipped - accession " + acc + "\n" + msg);
                     return true;
-                    //}
 
                 }
                 if (dupResult.getAccessionNumber().indexOf("-") != -1) {
                     if (dupResult.getAccessionNumber().substring(0, dupResult.getAccessionNumber().indexOf("-")).equals(acc)) {
                         //olis1 match
-                        //if(h.getHealthNum().equals(dupResult.getHealthNumber())) {
                         OscarAuditLogger.getInstance().log(loggedInInfo, "Lab", "Skip", "Duplicate lab skipped - accession " + acc + "\n" + msg);
                         return true;
-                        //}
                     }
                 }
             }

@@ -834,9 +834,6 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
                 }
             }
         }
-        // else {
-        // logger.error("Drugs special field was null, this means nothing will print.", new IllegalStateException("Drugs special field was null."));
-        // }
 
         return ret;
     }

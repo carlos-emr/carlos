@@ -61,20 +61,14 @@ public class BillingService extends AbstractModel<Integer> implements Serializab
     private String serviceCompositecode;
     @Column(name = "service_code")
     private String serviceCode;
-    // @Column(name = "description")
     private String description;
-    // @Column(name = "value")
     private String value;
-    // @Column(name = "percentage")
     private String percentage;
     @Column(name = "billingservice_date")
     @Temporal(value = javax.persistence.TemporalType.DATE)
     private Date billingserviceDate;
-    // @Column(name = "specialty")
     private String specialty;
-    // @Column(name = "region")
     private String region;
-    // @Column(name = "anaesthesia")
     private String anaesthesia;
     @Column(name = "termination_date")
     @Temporal(value = javax.persistence.TemporalType.DATE)

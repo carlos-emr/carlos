@@ -94,13 +94,6 @@ public class BasicReport2Action extends ActionSupport {
         Map map = new LinkedHashMap();
 
         map.put("Total number of providers", Long.valueOf(providerManager.getProviders().size()));
-		/*
-		List roles = roleManager.getRoles();
-		for(Iterator iter=roles.iterator();iter.hasNext();) {
-			Role role = (Role)iter.next();
-			
-		}
-		*/
         return map;
     }
 }

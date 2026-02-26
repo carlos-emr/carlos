@@ -519,17 +519,6 @@ public class ReportHelper {
         //TODO:do it for CKD too
 		
 		
-		/*
-		
-		//hba1c < 7%,fasting gluc 4-7 
-		idents = new ArrayList<String>();
-		for(MeasurementMap mp:measurementMapDao.getMapsByLoinc("4548-4")) {
-			idents.add(mp.getIdentCode());
-		}
-		List<Measurement> mps = measurementDao.findByType(idents);
-		*/
-
-
         //Avg.
 
         return r;

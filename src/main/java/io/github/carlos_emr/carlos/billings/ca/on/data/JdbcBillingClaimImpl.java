@@ -417,7 +417,6 @@ public class JdbcBillingClaimImpl {
                 payment.setCreator(claim1Obj.getCreator());
                 payment.setPaymentTypeId(Integer.parseInt(paymentTypeParam));
 
-                //payment.setBillingPaymentType(type);
                 billingONPaymentDao.persist(payment);
                 addItemPaymentRecord((List) vecObj.get(1), id, payment.getId(), Integer.parseInt(paymentTypeParam));
                 addCreate3rdInvoiceTrans((BillingClaimHeader1Data) vecObj.get(0), (List<BillingItemData>) vecObj.get(1), payment);

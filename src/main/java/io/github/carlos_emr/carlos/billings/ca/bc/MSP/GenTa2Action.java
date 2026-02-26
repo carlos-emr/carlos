@@ -724,8 +724,6 @@ class S01 {
 
 class S02 {//{") == 0 || header.compareTo("S00") == 0 || header.compareTo("S03") == 0){
     //if (header.equals("S02")){ //header.compareTo("S00") == 0 || header.compareTo("S03") == 0){
-    //}else if (header.equals("S03")){
-    //}else if (header.equals("S00")){
 
     public S02(String line) {
         parse(line);

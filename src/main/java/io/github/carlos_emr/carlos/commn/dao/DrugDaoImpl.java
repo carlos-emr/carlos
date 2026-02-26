@@ -253,7 +253,6 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
 
         List<Drug> rt = new ArrayList<Drug>();
         for (Drug drug : rs) {
-            // Drug prescriptDrug = new PrescriptDrug();
 
             boolean b = true;
             for (int i = 0; i < rt.size(); i++) {
@@ -512,7 +511,6 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         Query query = createQuery("d",
                 "d.brandName = :bn AND d.demographicId = :dn AND d.providerNo = :pn order by d.id desc"); // most recent
         // is the
-        // first.);
         query.setParameter("bn", brandName);
         query.setParameter("dn", demographicNo);
         query.setParameter("pn", providerNo);

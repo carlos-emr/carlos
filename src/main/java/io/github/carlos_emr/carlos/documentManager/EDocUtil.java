@@ -961,7 +961,6 @@ public final class EDocUtil {
         return doc.getDocumentNo() != null ? doc.getDocumentNo() : 0;
     }
 
-    // private static String getLastDocumentNo() {
     public static String getLastDocumentNo() {
         DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
         return "" + dao.findMaxDocNo();
@@ -1315,10 +1314,8 @@ public final class EDocUtil {
             }
         } catch (SecurityException e) {
             logger.error("Security violation: Attempted to access file outside allowed directory: " + fileName, e);
-            // Return 0 to indicate error without exposing security details
         } catch (IllegalArgumentException e) {
             logger.error("Invalid file name provided: " + fileName, e);
-            // Return 0 to indicate error
         }
 
         return pagecount;

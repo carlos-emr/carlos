@@ -305,8 +305,6 @@ public class QuickBillingBCHandler {
         bean.setGrandtotal(bmanager.getGrandTotal(billItem));
         bean.setBillItem(billItem);
         bean.setSubmissionCode(SUBMISSION_CODE);
-        //bean.setFacilityNum(null);
-        //bean.setFacilitySubNum(null);
         bean.setPaymentTypeName(PAYMENT_TYPE_NAME);
         bean.setApptNo(APPOINTMENT_NO.toString());
         bean.setBillRegion(BILL_REGION);
@@ -329,17 +327,12 @@ public class QuickBillingBCHandler {
         bean.setBillingType(BILLING_TYPE); // billing account status = O
         bean.setPaymentType(PAYMENT_TYPE);
         bean.setEncounter(PAYMENT_MODE);
-        //bean.setWcbId(null);
 
         // visit information
         bean.setVisitType(quickBillingBCFormBean.getVisitLocation());
         bean.setVisitLocation(oscarProperties.getProperty("visitlocation")); //global location also sets the clarification code.
         bean.setServiceDate(convertDDMMYYYY(quickBillingBCFormBean.getServiceDate()));
 
-        //bean.setStartTimeHr(null);
-        //bean.setStartTimeMin(null);
-        //bean.setEndTimeHr(null);
-        //bean.setEndTimeMin(null);
         bean.setAdmissionDate(ADMISSION_DATE);
 
         // providers data for billing
@@ -359,13 +352,7 @@ public class QuickBillingBCHandler {
         bean.setCorrespondenceCode(CORRESPONDENCE_CODE);
 
         // notes which are sent to msp and seen by recipient.
-        //bean.setNotes(null);
         bean.setDependent(DEPENDENT_CODE);
-        //bean.setAfterHours(null);
-        //bean.setTimeCall(null);
-        //bean.setShortClaimNote(null);
-        //bean.setService_to_date(null);
-        //bean.setIcbc_claim_no(null);
         bean.setMva_claim_code(MVA_CLAIM_CODE);
 
         // notes which are internal - NOT seen by recipient.
@@ -433,7 +420,6 @@ public class QuickBillingBCHandler {
             for (BillingItem item : billItems) {
 
                 // save indivdual bills.
-                //billing.setBillingNo(0);
                 billingmasterDAO.save(billing);
 
                 billingmaster = saveBill(

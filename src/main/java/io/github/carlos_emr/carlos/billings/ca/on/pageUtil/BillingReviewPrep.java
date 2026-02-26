@@ -101,7 +101,6 @@ public class BillingReviewPrep {
             bigFee = bigFee.multiply(bigCodeAt);
 
             bigFee = bigFee.setScale(2, BigDecimal.ROUND_HALF_UP);
-            // bigFee = bigFee.round(new MathContext(2));
             MiscUtils.getLogger().debug("big end: " + bigFee.toString());
 
             codeItem = new BillingReviewCodeItem();
@@ -125,7 +124,6 @@ public class BillingReviewPrep {
         if (vecCode.size() == vecReviewCodeItem.size())
             return ret;
 
-        // BillingReviewCodeItem codeItem = null;
         BillingReviewPercItem percItem = null;
         Vector vecCodeFee = new Vector();
         for (int i = 0; i < vecReviewCodeItem.size(); i++) {
@@ -170,8 +168,6 @@ public class BillingReviewPrep {
                 BigDecimal bigCodeFee = new BigDecimal((String) vecCodeFee
                         .get(j));
                 // BigDecimal bigCodeUnit = new BigDecimal((String)
-                // vecUnit.get(i));
-                // BigDecimal bigCodeAt = new BigDecimal((String) vecAt.get(i));
 
 
                 if (fee.equals(".00") || fee.equals("")) {
@@ -180,10 +176,8 @@ public class BillingReviewPrep {
 
                 BigDecimal bigFee = bigCodeFee.multiply(new BigDecimal(fee));
 
-                // bigFee = bigFee.multiply(bigCodeAt);
 
                 bigFee = bigFee.setScale(4, BigDecimal.ROUND_HALF_UP);
-                // bigFee = bigFee.round(new MathContext(2));
                 vecCodeTotal.add(bigFee.toString());
             }
             // get min/max fee
@@ -202,7 +196,6 @@ public class BillingReviewPrep {
         return ret;
     }
 
-    // ret[0],[1],[2] - Vector vecCode, Vector vecUnit, Vector vecAt
     public Vector<String>[] getRequestCodeVec(HttpServletRequest requestData,
                                               String paramNameCode, String paramNameUnit, String paramNameAt,
                                               int numItem) {
@@ -224,7 +217,6 @@ public class BillingReviewPrep {
         return ret;
     }
 
-    // ret[0],[1],[2] - Vector vecCode, Vector vecUnit, Vector vecAt - from form
     // checkbox
     // this way for no sequence order
     // should change to col1, col2, col3 scan and get a sequence order
@@ -242,8 +234,6 @@ public class BillingReviewPrep {
             if (temp.startsWith(paramNameCode)
                     && (temp.length() == 9 || temp.startsWith(paramNameCode
                     + "_")) && !temp.equals("xml_vdate")) {
-                // _logger.info(requestData.getParameter(temp) +
-                // "getRequestFormCodeVec:" + temp);
                 ret[0].add(temp.substring(4));
                 ret[1].add(defaultParamValue(paramNameUnit));
                 ret[2].add(defaultParamValue(paramNameAt));

@@ -122,7 +122,6 @@ public class OscarChartPrinter {
         this.os = os;
 
         document = new Document();
-        // writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
 
         writer = PdfWriter.getInstance(document, os);
         writer.setPageEvent(new EndPage());
@@ -462,7 +461,6 @@ public class OscarChartPrinter {
         if (newPage)
             document.newPage();
         //  else
-        //      newPage = true;
 
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
 
@@ -492,17 +490,13 @@ public class OscarChartPrinter {
         Phrase phrase;
         Chunk chunk;
 
-        //if( newPage )
-        //     document.newPage();
         // else
-        //     newPage = true;
 
         //Print notes
         Iterator<CaseManagementNote> notesIter = notes.iterator();
         while (notesIter.hasNext()) {
             note = notesIter.next();
             p = new Paragraph();
-            //p.setSpacingBefore(font.leading(LINESPACING)*2f);
             phrase = new Phrase(LEADING, "", font);
 
             if (compact) {
@@ -570,12 +564,6 @@ public class OscarChartPrinter {
     public void printRx(String demoNo, List<CaseManagementNote> cpp) throws DocumentException {
         if (demoNo == null)
             return;
-        /*
-        if( newPage )
-            document.newPage();
-        else
-            newPage = true;
-        */
         RxPrescriptionData prescriptData = new RxPrescriptionData();
         RxPrescriptionData.Prescription[] arr = {};
         arr = prescriptData.getUniquePrescriptionsByPatient(Integer.parseInt(demoNo));

@@ -292,7 +292,6 @@ public class CommonLabResultData {
         return labs;
     }
 
-    // return documents specific to this providers only, doesn't include documents that are not linked to any providers
     public ArrayList<LabResultData> populateDocumentDataSpecificProvider(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, String scannedDocStatus) {
         ArrayList<LabResultData> labs = new ArrayList<LabResultData>();
         if (scannedDocStatus != null && (scannedDocStatus.equals("O") || scannedDocStatus.equals("I") || scannedDocStatus.equals(""))) {
@@ -369,9 +368,6 @@ public class CommonLabResultData {
             }
 
             if (spire != null && spire.trim().equals("yes")) {
-                //SpireResultsData spireData = new SpireResultsData();
-                //ArrayList<LabResultData> spireLabs = spireData.populateSpireResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status);
-                //labs.addAll(spireLabs);
             }
         }
         return labs;
@@ -418,10 +414,6 @@ public class CommonLabResultData {
             }
         }
 
-        /*
-         * Add a new entry if it does not exist.
-         * This could be an entry with a "0" providers number which indicates that it is unassigned.
-         */
         else {
             ProviderLabRoutingModel providerLabRouting = new ProviderLabRoutingModel();
             providerLabRouting.setProviderNo(providerNo);
@@ -557,7 +549,6 @@ public class CommonLabResultData {
         try {
             CommonLabResultData data = new CommonLabResultData();
             ProviderLabRouting plr = new ProviderLabRouting();
-            // MiscUtils.getLogger().info(flaggedLabs.size()+"--");
             for (int i = 0; i < flaggedLabs.size(); i++) {
                 String[] strarr = flaggedLabs.get(i);
                 String lab = strarr[0];
@@ -566,7 +557,6 @@ public class CommonLabResultData {
                 // Forward all versions of the lab
                 String matchingLabs = data.getMatchingLabs(lab, labType);
                 String[] labIds = matchingLabs.split(",");
-                // MiscUtils.getLogger().info(labIds.length+"labIds --");
                 for (int k = 0; k < labIds.length; k++) {
 
                     for (int j = 0; j < providersArray.length; j++) {

@@ -64,16 +64,10 @@ public class RBTGetTemplatesInGroup2Action extends ActionSupport {
         Map<Integer, ReportObjectGeneric> templatesMap = new HashMap<Integer, ReportObjectGeneric>();
         List<RBTGroup> templatesInGroup = rbtGroupManager.getGroup(loggedInInfo, groupName);
 
-        /*
-         * Create a new master map of all templates.
-         */
         for (ReportObjectGeneric template : templates) {
             templatesMap.put(Integer.parseInt(template.getTemplateId()), template);
         }
 
-        /*
-         * Copy the main template map for sorting.
-         */
         Map<Integer, ReportObjectGeneric> templatesNotInGroupMap = new HashMap<Integer, ReportObjectGeneric>(templatesMap);
 
         /*

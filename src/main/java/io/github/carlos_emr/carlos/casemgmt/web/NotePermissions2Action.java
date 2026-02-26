@@ -300,13 +300,8 @@ public class NotePermissions2Action extends ActionSupport {
 
 //		for (HashMap<String, String> p : getDischargedPrograms(demoNo)) {
 //			HashMap<String, Object> map = new HashMap<String, Object>();
-//			map.put("programNo", p.get("programNo"));
-//			map.put("programName", p.get("programName") + " (discharged)");
 //
-//			map.put("roleAccess", new ArrayList<String>());
 //
-//			mapList.add(map);
-//		}
 
         hashMap.put("programs", mapList);
 

@@ -92,6 +92,5 @@ public interface BillingONExtDao extends AbstractDao<BillingONExt> {
 
     public void setExtItem(int billingNo, int demographicNo, String keyVal, String value, Date dateTime, char status);
 
-    // public static boolean isNumberKey(String key);
     public boolean isNumberKey(String key);
 }

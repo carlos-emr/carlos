@@ -93,7 +93,6 @@ public class ABCDParser {
                     for (int k = 0; k < patient.cdtypes.size(); k++) {
                         Object labResult = patient.cdtypes.get(k);
                         //la
-                        //Ctype labResult = (Ctype) patient.ctypes.get(k);
                         if (labResult instanceof Ctype) {
                             ((Ctype) labResult).save(conn, patientId);
                         } else if (labResult instanceof Dtype) {
@@ -102,7 +101,6 @@ public class ABCDParser {
                     }
                 }
             }
-            //report.btypes;
         }
     }
 

@@ -73,7 +73,6 @@ public class OrganizationMessage2Action extends ActionSupport {
     }
 
     public String list() {
-        //List activeMessages = mgr.getMessages();
         Facility facility = (Facility) request.getSession().getAttribute("currentFacility");
         Integer facilityId = null;
         if (facility != null)
@@ -101,7 +100,6 @@ public class OrganizationMessage2Action extends ActionSupport {
     public String edit() {
         String messageId = request.getParameter("id");
 
-        //List facilities = programProviderDAO.getFacilitiesInProgramDomain(providerNo);
         List<Facility> facilities = new ArrayList<Facility>();
         facilities.add((Facility) request.getSession().getAttribute("currentFacility"));
 
@@ -143,8 +141,6 @@ public class OrganizationMessage2Action extends ActionSupport {
 
     public String view() {
 
-        //String providerNo = (String)request.getSession().getAttribute("user");
-        //List messages = programProviderDAO.getFacilityMessagesInProgramDomain(providerNo);
         Facility facility = (Facility) request.getSession().getAttribute("currentFacility");
         Integer facilityId = null;
         if (facility != null)

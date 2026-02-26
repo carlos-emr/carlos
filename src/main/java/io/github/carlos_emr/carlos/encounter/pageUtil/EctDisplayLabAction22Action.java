@@ -104,22 +104,14 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
             // now we add individual module items
             LabResultData result;
             String labDisplayName, label;
-            // String bgcolour = "FFFFCC";
             StringBuilder func;
             int hash;
 
             // Comment out this code and instead using the correct method to
             // get latest lab versions, which is the getLatestLabVersions() function below.
-            // LinkedHashMap<String,LabResultData> accessionMap = new LinkedHashMap<String,LabResultData>();
             // for (int i = 0; i < labs.size(); i++) {
-            // 	result = labs.get(i);
             // 	if (result.accessionNumber == null || result.accessionNumber.equals("")) {
-            // 		accessionMap.put("noAccessionNum" + i + result.labType, result);
-            // 	} else {
             // 		if (!accessionMap.containsKey(result.accessionNumber + result.labType)) accessionMap.put(result.accessionNumber + result.labType, result);
-            // 	}
-            // }
-            // labs = new ArrayList<LabResultData>(accessionMap.values());
 
             //First, getting the latest versions of the lab results and then sorting them ensures
             //that they will be displayed in the correct date order in the encounter window.
@@ -133,7 +125,6 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
                 if (date != null) {
                     DateUtils.getDate(date, "dd-MMM-yyyy", request.getLocale());
                 }
-                // String formattedDate = DateUtils.getDate(date);
                 func = new StringBuilder("popupPage(700,960,'");
                 label = result.getLabel();
 
@@ -184,7 +175,6 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
                 }
 
 
-                // item.setBgColour(bgcolour);
                 Dao.addItem(item);
             }
 

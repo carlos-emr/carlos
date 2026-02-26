@@ -163,7 +163,6 @@ public class MDSResultsData {
     }
 
     private ArrayList<LabResultData> populateLabResultsData(String labName, String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, Integer labNo) {
-        //logger.info("populateCMLResultsData getting called now");
         if (providerNo == null) {
             providerNo = "";
         }
@@ -213,7 +212,6 @@ public class MDSResultsData {
                 lbData.patientName = lpp.getPatientFullName();
                 lbData.sex = lpp.getPatientSex();
                 lbData.resultStatus = "0"; //TODO
-                // solve lbData.resultStatus.add(db.getString(rs,"abnormalFlag"));
 
                 lbData.dateTime = lpp.getCollectionDate();
                 lbData.setDateObj(UtilDateUtilities.getDateFromString(lbData.dateTime, "dd-MMM-yy"));
@@ -598,7 +596,6 @@ public class MDSResultsData {
                 // must reverse the order of the labs based on the final result count when
                 // being sorted so subtract from a large integer
                 lData.finalResultsCount = 100 - Integer.parseInt(accessionNum.substring(accessionNum.lastIndexOf("-")));
-                //lData.multiLabId = getMatchingLabs(lData.segmentID);
                 labResults.add(lData);
             }
         } catch (Exception e) {

@@ -61,7 +61,6 @@ public class FutureApptFilter implements AvailableTimeSlotFilter {
         }
 
         if (allowedTimesFilteredByFutureTimes.size() == 0) {
-            //BookingLearningManager.recommendDayToBeSkipped(clinic, providerId, date, appointmentTypeId, this.getClass().getName());
         }
 
         return allowedTimesFilteredByFutureTimes;

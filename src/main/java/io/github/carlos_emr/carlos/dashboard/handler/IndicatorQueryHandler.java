@@ -135,7 +135,6 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
                         numerator = ((Double) theRow.get(key)).intValue();
 
                     }
-                    //	BigDecimal numerator = (BigDecimal)theRow.get(key);
                     denominator += numerator.intValue();
                 }
             }
@@ -250,7 +249,6 @@ public class IndicatorQueryHandler extends AbstractQueryHandler {
         for (Object row : queryResultList) {
             Map<String, ?> theRow = (Map<String, ?>) row;
             for (String key : theRow.keySet()) {
-                //BigDecimal numerator = (BigDecimal)theRow.get(key);
                 json.append("{'");
                 json.append(key);
                 json.append("':");

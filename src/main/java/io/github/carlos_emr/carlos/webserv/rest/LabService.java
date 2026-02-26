@@ -83,7 +83,6 @@ public class LabService extends AbstractServiceImpl {
     @Path("/hl7LabsByDemographicNo")
     @Produces("application/json")
     public LabResponse getHl7LabsByDemographicNo(@QueryParam("demographicNo") int demographicNo, @QueryParam("offset") int offset, @QueryParam("limit") int limit) {
-//	public LabResponse getHl7LabsByDemographicNo() {
 
         LabResponse response = new LabResponse();
 

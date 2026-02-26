@@ -9,7 +9,6 @@ public class MeasurementConverter extends AbstractConverter<Measurement, Measure
     public Measurement getAsDomainObject(LoggedInInfo loggedInInfo, MeasurementTo1 t) throws ConversionException {
         Measurement d = new Measurement();
         //Sets the properties
-        //d.setId(t.getId());
         d.setType(t.getType());
         d.setDemographicId(t.getDemographicId());
         d.setProviderNo(t.getProviderNo());

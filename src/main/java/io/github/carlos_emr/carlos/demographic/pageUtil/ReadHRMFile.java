@@ -64,12 +64,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public class ReadHRMFile {
     private List<ReportsReceived> reportsReceived = null;
     private List<TransactionInformation> transactionInformation = null;
-/*
-    private Demographics demographics = null;
-    private ReportsReceived[] reportsReceived = null;
-    private TransactionInformation[] transactionInformation = null;
- *
- */
 
     public ReadHRMFile(String hrmFile) {
         try {

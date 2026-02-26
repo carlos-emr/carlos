@@ -163,10 +163,6 @@ public class OscarRoleObjectPrivilege {
 
     private static boolean[] checkRights(String privilege, String rights1) {
         boolean[] ret = {false, false}; // (gotRights, break/continue)
-        /*
-         * if ("*".equals(privilege)) { ret[0] = true; } else if (privilege.equals(rights1.toLowerCase()) || (privilege.length() > 1 && privilege.startsWith("o") && privilege.substring(1).equals( rights1.toLowerCase()))) { ret[0] = true; if
-         * (privilege.startsWith("o")) ret[1] = true; // break } else if (privilege.equals("o")) { // for "o" ret[0] = false; ret[1] = true; // break }
-         */
         if ("x".equals(privilege)) {
             ret[0] = true;
         } else if (privilege.compareTo(rights1.toLowerCase()) >= 0) {

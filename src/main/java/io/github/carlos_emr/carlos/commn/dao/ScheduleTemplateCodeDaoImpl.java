@@ -53,7 +53,6 @@ public class ScheduleTemplateCodeDaoImpl extends AbstractDaoImpl<ScheduleTemplat
 
     @Override
     public ScheduleTemplateCode getByCode(char code) {
-        //Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName() + " bst WHERE bst.id IN (:typeCodes)");
         Query query = entityManager.createQuery("select s from ScheduleTemplateCode s where s.code=?1");
         query.setParameter(1, code);
 

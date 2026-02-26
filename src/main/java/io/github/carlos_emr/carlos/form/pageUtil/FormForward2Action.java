@@ -79,9 +79,6 @@ public class FormForward2Action extends ActionSupport {
         int latestForm = 0;
         String[] formPath = null;
 
-        /*
-         * Fetch all the meta data for the requested form
-         */
         try {
             FrmData frmData = new FrmData();
             formPath = frmData.getShortcutFormValue(demographicNo, strFrm);
@@ -131,9 +128,6 @@ public class FormForward2Action extends ActionSupport {
             formId = null;
         }
 
-        /*
-         * get the latest form id from the formPath return by the frmData object.
-         */
         if (formPath.length > 1 && formPath[1] != null) {
             latestForm = Integer.parseInt(formPath[1]);
         }

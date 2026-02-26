@@ -122,7 +122,6 @@ public class FrmForm2Action extends ActionSupport {
         }
 
         String dateEntered = UtilDateUtilities.DateToString(new Date(), _dateFormat);
-        // String visitCod = UtilDateUtilities.DateToString(new Date(),"yyyyMMdd");
         String today = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
 
         logger.debug("current mem 2 " + currentMem());
@@ -282,7 +281,6 @@ public class FrmForm2Action extends ActionSupport {
             return "/form/SetupForm.do?formName=" + formName + "&formId=0";
         }
 
-        // return SUCCESS;
         // forward to the for with updated formId
 
         logger.debug("submit value: " + submit);

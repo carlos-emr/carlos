@@ -104,8 +104,6 @@ public class Download2Action extends ActionSupport {
                 }
                 List<DetailDataCustom> resourceList = this.getData();
                 if (resourceList.size() > 0) {
-                    //ActionUtils.setDetails(request, result);
-                    //Collections.sort(resourceList, DetailDataCustom.ResourceIdComparator);
                     //setting the first element to downloading to view on the jsp
                     resourceList.get(0).setDownloadStatus("Downloading");
                     this.setData(resourceList);
@@ -135,7 +133,6 @@ public class Download2Action extends ActionSupport {
                 resourceType = null;
             }
             //original code
-            //result = delegate.list(resourceType, this.getStatusAsResourceStatus(), this.getPageNoAsBigInt());
 
             //filtering out the downloadable files
             this.getStatusAsResourceStatus();
@@ -159,7 +156,6 @@ public class Download2Action extends ActionSupport {
                         detailDataK.setModifyTimestamp(detailData.getModifyTimestamp());
                         detailDataK.setResourceID(detailData.getResourceID());
 
-                        //detailDataK.setResourceType(detailData.getResourceType());
                         detailDataK.setResourceType(getTypeDescription(detailData.getResourceType()));
 
                         detailDataK.setResult(detailData.getResult());
@@ -171,7 +167,6 @@ public class Download2Action extends ActionSupport {
                     }
                 }
                 if (resourceList.size() > 0) {
-                    //ActionUtils.setDetails(request, result);
                     Collections.sort(resourceList, DetailDataCustom.ResourceIdComparator);
                     this.setData(resourceList);
                     request.getSession().setAttribute("resourceList", resourceList);
@@ -270,8 +265,6 @@ public class Download2Action extends ActionSupport {
             }
 
 
-            //}
-
         } catch (Exception e) {
             if (ActionUtils.getResourceList(request) != null) {
                 ActionUtils.removeResourceList(request);
@@ -285,7 +278,6 @@ public class Download2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        //return null;
         return SUCCESS;
     }
 
@@ -430,7 +422,6 @@ public class Download2Action extends ActionSupport {
                     }
 
                     if (resourceList.size() > 0) {
-                        //Collections.sort(resourceList, DetailDataCustom.ResourceIdComparator);
                         request.getSession().setAttribute("resourceListDL", resourceList);
                     }
                 } else if (result.getResultSize() == null) {

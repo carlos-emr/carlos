@@ -62,8 +62,6 @@ public class FrmAdfV2Record extends FrmRecord {
                         UtilDateUtilities.DateToString(
                                 new Date(),
                                 _dateFormat));
-                //props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(),_dateFormat));
                 props.setProperty("c_patientname", Misc.getString(rs, "last_name") + ", " + Misc.getString(rs, "first_name"));
                 props.setProperty(
                         "c_address",

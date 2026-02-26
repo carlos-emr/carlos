@@ -41,7 +41,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class AllergiesSummary implements Summary {
 
-    //private static Logger logger = MiscUtils.getLogger();
 
     @Autowired
     private AllergyManager allergyManager = null;
@@ -59,7 +58,6 @@ public class AllergiesSummary implements Summary {
             SummaryItemTo1 summaryItem = new SummaryItemTo1(allergy.getId(), allergy.getDescription(), "../oscarRx/showAllergy.do?demographicNo=" + demographicNo, "allergy");
 
             if ("1".equalsIgnoreCase(allergy.getSeverityOfReaction())) {
-                //summaryItem.setIndicatorClass("mild");
             } else if ("2".equalsIgnoreCase(allergy.getSeverityOfReaction())) {
                 summaryItem.setIndicatorClass("moderate");
             } else if ("3".equalsIgnoreCase(allergy.getSeverityOfReaction())) {

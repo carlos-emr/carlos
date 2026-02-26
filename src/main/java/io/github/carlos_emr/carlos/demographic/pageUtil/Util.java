@@ -880,7 +880,6 @@ public class Util {
             }
         }
         
-        // Final validation - ensure no path traversal characters remain
         if (sanitized.contains("..") || sanitized.contains("/") || sanitized.contains("\\")) {
             logger.error("Invalid filename after sanitization: " + fileName);
             return "";

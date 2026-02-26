@@ -48,12 +48,6 @@ import javax.annotation.Resource;
 
 import org.springframework.stereotype.Service;
 
-/*
- * New emailing feature (EmailManager) is in production, utilizing JavaMailSender.
- * This method will be updated to use EmailManager for sending emails in the future.
- *
- * TODO: Update the deprecated code to use the EmailManager once the new emailing feature is fully implemented.
- */
 @Deprecated
 @Service(value = "asyncMailSender")
 public class AsyncMailSender implements MailSender {

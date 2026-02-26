@@ -49,7 +49,6 @@ public class RxSessionBean implements java.io.Serializable {
     private String view = "Active";
 
     private ArrayList<RxPrescriptionData.Prescription> stash = new ArrayList();
-    // private ArrayList stash=new ArrayList();
     private HashMap<Integer, Long> favIdRandomIdMap = new HashMap<Integer, Long>();
     private int stashIndex = -1;
     private Hashtable allergyWarnings = new Hashtable();

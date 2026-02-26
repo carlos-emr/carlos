@@ -130,9 +130,6 @@ public class Issue extends BaseObject {
     }
 
     public void setUpdate_date_web(String update_date_s) {
-        //SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
-        //sdf.setLenient(false);
-        //SimpleDateFormat sdf = new SimpleDateFormat();
         formatter.setLenient(false);
         try {
             if (update_date_s != null)

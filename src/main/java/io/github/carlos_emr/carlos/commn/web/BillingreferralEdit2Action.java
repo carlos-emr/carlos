@@ -84,7 +84,6 @@ public class BillingreferralEdit2Action extends ActionSupport {
     }
 
     public String searchByNo() {
-        //DynaBean lazyForm = (DynaBean) form;
         String referralNo = search;
 
         List<ProfessionalSpecialist> referrals = psDao.findByReferralNo(referralNo);
@@ -96,7 +95,6 @@ public class BillingreferralEdit2Action extends ActionSupport {
     }
 
     public String searchBySpecialty() {
-        //DynaBean lazyForm = (DynaBean) form;
         String specialty = search;
 
         List<ProfessionalSpecialist> referrals = psDao.findBySpecialty(specialty);
@@ -107,7 +105,6 @@ public class BillingreferralEdit2Action extends ActionSupport {
     }
 
     public String searchByName() {
-        //DynaBean lazyForm = (DynaBean) form;
         String name = search;
 
         String last_name = "", first_name = "";
@@ -190,7 +187,6 @@ public class BillingreferralEdit2Action extends ActionSupport {
             try {
                 referralNo = Integer.parseInt(name);
             } catch (NumberFormatException e) {
-                //MiscUtils.getLogger().error("Error",e);
             }
         }
 

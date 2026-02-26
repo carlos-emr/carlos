@@ -55,10 +55,8 @@ public class CaseManagementIssue extends BaseObject {
     protected Integer demographic_no;
     protected long issue_id;
     protected boolean acute;
-    // protected boolean medical_diagnosis;
     protected boolean certain;
     protected boolean major;
-    // protected boolean active;
     protected boolean resolved;
     protected String type;
     protected Date update_date = new Date();
@@ -177,9 +175,6 @@ public class CaseManagementIssue extends BaseObject {
         this.major = major;
     }
 
-    /*
-     * public boolean isMedical_diagnosis() { return medical_diagnosis; } public void setMedical_diagnosis(boolean medical_diagnosis) { this.medical_diagnosis = medical_diagnosis; }
-     */
 
     /**
      * deprecated too inefficient and too many dependencies use CaseManagementIssueNotesDao

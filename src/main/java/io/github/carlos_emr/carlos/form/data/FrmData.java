@@ -178,7 +178,6 @@ public class FrmData {
         return ret;
     }
 
-    //ret[0] = form path;   ret[1] = formId
     public String[] getShortcutFormValue(String demoNo, String formName) throws java.sql.SQLException {
         String[] ret = new String[2];
         String table = null;

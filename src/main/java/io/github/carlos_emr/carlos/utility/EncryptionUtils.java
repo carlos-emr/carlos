@@ -246,7 +246,6 @@ public final class EncryptionUtils {
 
         byte[] cipherBytes = EncryptionUtils.encrypt(plainText.getBytes(StandardCharsets.UTF_8));
 
-        // Return the encrypted string with a prefix, encoded in Base64
         return ENCRYPTION_PREFIX + Base64.getEncoder().encodeToString(cipherBytes);
     }
 

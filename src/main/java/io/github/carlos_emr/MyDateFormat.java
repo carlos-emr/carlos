@@ -295,7 +295,6 @@ public class MyDateFormat {
         if (i1 > 0) {
             hour = Integer.parseInt(aXX_XXampm.substring(0, i1).trim());
             temp = aXX_XXampm.substring(i1 + 1); //temp xxam or xx
-            //t2=aXX_XXampm.indexOf(58);
             if (aXX_XXampm.endsWith("am")) {
                 temp = temp.substring(0, temp.length() - 2).trim();
 
@@ -490,7 +489,6 @@ public class MyDateFormat {
     }
 
     public static Calendar getCalendar(String pDate) {
-        //date format yyyymmddHHMM or yyyymmdd or yyyy/mm/dd or yyyy-mm-dd
         if (pDate == null || "".equals(pDate)) return null;
         if ("TODAY".equals(pDate.toUpperCase())) return Calendar.getInstance();
         int len = pDate.length();

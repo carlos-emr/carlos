@@ -88,7 +88,6 @@ public class UtilDateUtilities {
         }
     }
 
-    //"yyyy-MM-dd";
     public static String justYear(Date date) {
         SimpleDateFormat simpledateformat = new SimpleDateFormat("yyyy");
         return simpledateformat.format(date);
@@ -205,7 +204,6 @@ public class UtilDateUtilities {
     }
 
     private static String defaultPattern = "yyyy-MM-dd";
-    //    private static String dateTimePattern = "yyyy-MM-dd HH:mm:ss"; timeStampPattern = "yyyyMMddHHmmss";
     private static Locale defaultLocale = Locale.CANADA;
 
     public static String getToday(String datePattern) {
@@ -228,7 +226,6 @@ public class UtilDateUtilities {
             date = formatter.parse(dateStr);
         } catch (ParseException e) {
             //no point logging this..returns null
-            //MiscUtils.getLogger().error("Looks bad, too bad original author didn't document how bad", e);
         }
         return date;
     }

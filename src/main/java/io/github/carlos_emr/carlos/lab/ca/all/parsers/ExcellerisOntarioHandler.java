@@ -292,19 +292,10 @@ public class ExcellerisOntarioHandler implements MessageHandler {
 
             String accessionNum = getString(str);
 
-            // String[] nums = accessionNum.split("-");
             // if (nums.length == 3){
-            //     return nums[0];
-            // }else if (nums.length == 5){
-            //     return nums[0]+"-"+nums[1]+"-"+nums[2];
-            // }else{
 
 
-            //     if(nums.length>1)
-            //         return nums[0]+"-"+nums[1];
             //     else
-            //         return "";
-            // }
 
             return accessionNum;
         }catch(Exception e){

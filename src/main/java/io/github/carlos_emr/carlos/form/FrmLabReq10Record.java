@@ -78,8 +78,6 @@ public class FrmLabReq10Record extends FrmRecord {
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
                         "yyyy/MM/dd"));
 
-                //props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 java.util.Date dob = UtilDateUtilities.calcDate(demographic.getYearOfBirth(), demographic.getMonthOfBirth(), demographic.getDateOfBirth());
                 props.setProperty("birthDate", StringUtils.trimToEmpty(UtilDateUtilities.DateToString(dob, "yyyy/MM/dd")));
 

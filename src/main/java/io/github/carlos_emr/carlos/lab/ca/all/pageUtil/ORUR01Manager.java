@@ -22,9 +22,6 @@ package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
  */
 public class ORUR01Manager {
 
-	/*public static ca.uhn.hl7v2.model.v21.message.ORU_R01 getORUR01_21(Object obj) {
-		return (ca.uhn.hl7v2.model.v21.message.ORU_R01) obj;
-	}*/
 
     public static ca.uhn.hl7v2.model.v22.message.ORU_R01 getORUR01_22(Object obj) {
         return (ca.uhn.hl7v2.model.v22.message.ORU_R01) obj;
@@ -34,9 +31,6 @@ public class ORUR01Manager {
         return (ca.uhn.hl7v2.model.v23.message.ORU_R01) obj;
     }
 
-	/*public static ca.uhn.hl7v2.model.v24.message.ORU_R01 getORUR01_24(Object obj) {
-		return (ca.uhn.hl7v2.model.v24.message.ORU_R01) obj;
-	}*/
 
     public static ca.uhn.hl7v2.model.v25.message.ORU_R01 getORUR01_25(Object obj) {
         return (ca.uhn.hl7v2.model.v25.message.ORU_R01) obj;

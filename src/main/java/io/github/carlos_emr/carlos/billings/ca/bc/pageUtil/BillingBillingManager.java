@@ -195,7 +195,6 @@ public class BillingBillingManager implements Serializable {
             if (service1unit.compareTo("") == 0) {
                 service1unit = "1";
             }
-            //int numUnit = Integer.parseInt(service1unit);
             addBillItem(billingItemsArray, service1, service1unit);
 
         }
@@ -203,7 +202,6 @@ public class BillingBillingManager implements Serializable {
             if (service2unit.compareTo("") == 0) {
                 service2unit = "1";
             }
-            //int numUnit = Integer.parseInt(service2unit);
             addBillItem(billingItemsArray, service2, service2unit);
 
         }
@@ -211,7 +209,6 @@ public class BillingBillingManager implements Serializable {
             if (service3unit.compareTo("") == 0) {
                 service3unit = "1";
             }
-            //int numUnit = Integer.parseInt(service3unit);
             addBillItem(billingItemsArray, service3, service3unit);
         }
 
@@ -308,7 +305,6 @@ public class BillingBillingManager implements Serializable {
 
         public String getDispPrice() {
             BigDecimal bdFee = new BigDecimal(price).setScale(2,
-                    //BigDecimal.ROUND_HALF_UP);
                     RoundingMode.HALF_UP);
             MiscUtils.getLogger().debug("price" + price + " fee" + bdFee.toString());
             return bdFee.toString();

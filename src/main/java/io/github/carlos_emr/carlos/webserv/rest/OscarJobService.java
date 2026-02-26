@@ -117,7 +117,6 @@ public class OscarJobService extends AbstractServiceImpl {
 
             if (result.getCronExpression() != null) {
                 CronTrigger trigger = new CronTrigger(result.getCronExpression());
-                //ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(result.getId());
 
                 if (result.isEnabled()) {
                     to.setNextPlannedExecutionDate(trigger.nextExecutionTime(new SimpleTriggerContext()));

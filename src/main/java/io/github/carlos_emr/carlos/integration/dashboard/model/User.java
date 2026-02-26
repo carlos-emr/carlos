@@ -70,7 +70,6 @@ public class User {
     private String city;
     private String postalCode;
     private String uniqueIdentifier;
-    //	private List<String> authorizedUsernameList = new ArrayList<String>();
     private String role;
 
 
@@ -130,14 +129,6 @@ public class User {
         this.uniqueIdentifier = uniqueIdentifier;
     }
 
-    /*
-    public List<String> getAuthorizedUsernameList() {
-        return authorizedUsernameList;
-    }
-    public void setAuthorizedUsernameList(List<String> authorizedUsernameList) {
-        this.authorizedUsernameList = authorizedUsernameList;
-    }
-    */
     public String getRole() {
         return role;
     }

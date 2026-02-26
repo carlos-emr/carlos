@@ -64,7 +64,6 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
 
     public String execute() throws ServletException, IOException {
         String groupName = this.getSelectedGroupName();
-        //String forward = frm.getForward();
 
         MiscUtils.getLogger().debug("The forward message is: " + forward);
 

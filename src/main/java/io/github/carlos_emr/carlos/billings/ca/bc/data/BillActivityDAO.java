@@ -90,7 +90,6 @@ public class BillActivityDAO {
 
         Calendar beginningOfYear = Calendar.getInstance();
         beginningOfYear.set(Calendar.YEAR, curYear);
-        //beginningOfYear.set(Calendar.MONTH,0);
         beginningOfYear.set(Calendar.DAY_OF_YEAR, 1);
 
         List<BillActivity> bs = dao.findCurrentByMonthCodeAndGroupNo(getMonthCode(d), billinggroup_no, beginningOfYear.getTime());

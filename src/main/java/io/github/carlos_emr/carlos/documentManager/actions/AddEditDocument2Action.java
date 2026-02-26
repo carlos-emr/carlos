@@ -113,7 +113,6 @@ public class AddEditDocument2Action extends ActionSupport {
             newDoc.setProgramId(pp.getProgramId().intValue());
         }
 
-        // save local file;
         if (this.getDocFile().length() == 0) {
             response.setHeader("oscar_error", props.getString("dms.addDocument.errorZeroSize"));
             response.sendError(500, props.getString("dms.addDocument.errorZeroSize"));
@@ -357,7 +356,6 @@ public class AddEditDocument2Action extends ActionSupport {
 
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
-            // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
             request.setAttribute("docerrors", errors);
             return false;
         }

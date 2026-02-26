@@ -111,14 +111,12 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                 String name = "N/A";
                 String specialty = "";
                 String workPhone = "";
-                //String consent = "";
 
                 if (contact.getType() == DemographicContact.TYPE_CONTACT) {
                     Object o = contactDao.find(Integer.parseInt(contact.getContactId()));
                     if (o instanceof ProfessionalSpecialist) {
                         ProfessionalSpecialist c = (ProfessionalSpecialist) o;
                         name = c.getLastName() + "," + c.getFirstName();
-                        //specialty = c.getSpecialty();
                         workPhone = c.getWorkPhone();
                     } else {
                         Contact c = (Contact) o;
@@ -140,7 +138,6 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                         workPhone = p.getPhoneNumber();
                     }
                 }
-                //contactDao.find(Integer.parseInt(contact.getContactId()));
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
                 //48.45
                 String itemHeader = StringUtils.maxLenString(name, 20, 17, ELLIPSES) +
@@ -150,7 +147,6 @@ public class EctDisplayContacts2Action extends EctDisplayAction {
                 String consent = contact.isConsentToContact() ? "Ok to contact" : "Do not contact";
                 item.setLinkTitle(name + " " + specialty + " " + workPhone + " " + consent);
 
-                //item.setDate(contact.getUpdateDate());
                 int hash = Math.abs(winName.hashCode());
 
                 if ("true".equalsIgnoreCase(healthCareTeamEnabled)) {

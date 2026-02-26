@@ -133,13 +133,6 @@ public class ProviderData {
         return getProviderListWithInsuranceNo("%");
     }
 
-    /*
-     * Creates a deep copy of this instance, for proper interoperability with JPA classes.
-     *
-     * @return
-     * 		Returns a new {@link io.github.carlos_emr.carlos.commn.model.ProviderData} instance containing
-     * a copy of information in this instance.
-     */
     private io.github.carlos_emr.carlos.commn.model.ProviderData toProvider() {
         io.github.carlos_emr.carlos.commn.model.ProviderData result = new io.github.carlos_emr.carlos.commn.model.ProviderData();
         result.set(provider_no);

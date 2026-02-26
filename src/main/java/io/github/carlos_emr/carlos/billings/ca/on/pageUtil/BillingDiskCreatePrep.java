@@ -163,17 +163,13 @@ public class BillingDiskCreatePrep {
     public boolean updateSoloDiskName(String diskId, String creator) {
         boolean ret = false;
         // set up obj
-        // String groupNo = "";
 
         // get diskName obj
         BillingDiskNameData diskName = dbObj.getDisknameObj(diskId);
         dbObj.addRepoDiskName(diskName);
 
-        // diskName.setGroupno(groupNo);
         diskName.setCreator(creator);
         diskName.setClaimrecord("");
-        // diskName.setCreatedatetime(UtilDateUtilities.getToday("yyyy-MM-dd
-        // HH:mm:ss"));
         diskName.setStatus(BillingDataHlp.BILLINGFILE_STATUS_UNCERT);
         diskName.setTotal("");
 
@@ -235,7 +231,6 @@ public class BillingDiskCreatePrep {
         obj.setBatch_date(UtilDateUtilities.getToday("yyyy-MM-dd"));
 
         String strDateTime = UtilDateUtilities.getToday("yyyy-MM-dd HH:mm:ss");
-        // obj.setCreatedatetime(strDateTime);
         obj.setUpdatedatetime(strDateTime);
         obj.setCreator(creator);
         obj.setAction(BillingDataHlp.BILLINGACTION_UPDATE);
@@ -306,8 +301,6 @@ public class BillingDiskCreatePrep {
     private String[] getCurGrpMonthCodeBatchNum(String groupNo) {
         String[] ret = new String[2];
         GregorianCalendar now = new GregorianCalendar();
-        // int curYear = now.get(Calendar.YEAR); int curDay =
-        // now.get(Calendar.DAY_OF_MONTH);
         int curMonth = (now.get(Calendar.MONTH) + 1);
         String curMonthCode = BillingDataHlp.propMonthCode.getProperty("" + curMonth);
         String[] last = dbObj.getLatestGrpMonthCodeBatchNum(groupNo);

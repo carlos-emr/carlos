@@ -83,13 +83,11 @@ public final class Cds4ReportUIBean {
     }
 
     public static class SingleMultiAdmissions {
-        // key=clientId
         public HashMap<Integer, CdsClientForm> singleAdmissions = new HashMap<Integer, CdsClientForm>();
 
         // this is a map where key=0-10 representing each cohort bucket., value is a collection of CdsClientForms
         public MultiValueMap singleAdmissionCohortBuckets = new MultiValueMap();
 
-        // key=clientId
         public HashMap<Integer, CdsClientForm> multipleAdmissionsLatestForms = new HashMap<Integer, CdsClientForm>();
 
         public ArrayList<CdsClientForm> multipleAdmissionsAllForms = new ArrayList<CdsClientForm>();
@@ -882,7 +880,6 @@ public final class Cds4ReportUIBean {
     }
 
     private AccumulatorMap<Integer> getCdsHospitalisationAdmissionCount2YearsBeforeProgramAdmission(Collection<CdsClientForm> forms) {
-        // key = clientId, value = # of hospital admissions
         AccumulatorMap<Integer> admissionHospitalisations = new AccumulatorMap<Integer>();
 
         if (forms != null) {
@@ -1086,7 +1083,6 @@ public final class Cds4ReportUIBean {
 
 
     private AccumulatorMap<Integer> getCdsHospitalisationAdmissionCountDuringProgramAdmission(Collection<CdsClientForm> forms) {
-        // key = clientId, value = # of hospital admissions
         AccumulatorMap<Integer> admissionHospitalisations = new AccumulatorMap<Integer>();
 
         if (forms != null) {

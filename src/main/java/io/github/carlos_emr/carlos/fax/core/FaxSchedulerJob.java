@@ -76,7 +76,6 @@ public class FaxSchedulerJob {
     private static final long DEFAULT_PERIOD_MS = 60000L;
     // Intentional design: fixed 10-minute retry interval with no maximum attempt cap.
     // The fax scheduler is critical infrastructure and must keep trying to recover from
-    // transient failures (database connection drops, network glitches) indefinitely.
     // OOM and JVM errors are excluded from auto-restart (see runCycle exception handling).
     // Each retry is logged at ERROR level so admins can monitor via log aggregation.
     private static final long FAILURE_RESTART_DELAY_MS = 600000L;

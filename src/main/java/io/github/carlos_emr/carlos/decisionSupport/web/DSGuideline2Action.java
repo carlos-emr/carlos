@@ -112,7 +112,6 @@ public class DSGuideline2Action extends ActionSupport {
         List<ConditionResult> conditionResults = new ArrayList<ConditionResult>();
         for (DSCondition dsCondition : dsConditions) { //if viewing details about guideline in regards to patient
             DSGuideline testGuideline = factory.createBlankGuideline();
-            //BeanUtils.copyProperties(dsCondition, testGuideline);
             ArrayList<DSCondition> testCondition = new ArrayList<DSCondition>();
             testCondition.add(dsCondition);
             testGuideline.setConditions(testCondition);

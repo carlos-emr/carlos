@@ -493,41 +493,17 @@ public class TicklerManagerImpl implements TicklerManager {
 //        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
 //        if (t == null) {
-//            throw new IllegalArgumentException("Tickler object required to send tickler email");
-//        }
 //
-//        boolean ticklerEditEnabled = Boolean
-//                .parseBoolean(OscarProperties.getInstance().getProperty("tickler_edit_enabled"));
-//        boolean ticklerEmailEnabled = Boolean
-//                .parseBoolean(OscarProperties.getInstance().getProperty("tickler_email_enabled"));
 //
 //        if (ticklerEditEnabled & ticklerEmailEnabled) {
-//            String emailTo = t.getDemographic().getEmail();
 //            if (EmailUtilsOld.isValidEmailAddress(emailTo)) {
 //
-//                InputStream is = TicklerManager.class.getResourceAsStream(TICKLER_EMAIL_TEMPLATE_FILE);
-//                String emailTemplate = IOUtils.toString(is);
-//                String emailSubject = OscarProperties.getInstance().getProperty("tickler_email_subject");
-//                String emailFrom = OscarProperties.getInstance().getProperty("tickler_email_from_address");
 //
-//                ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
-//                Clinic c = clinicDao.getClinic();
 //
-//                VelocityContext velocityContext = VelocityUtils.createVelocityContextWithTools();
-//                velocityContext.put("tickler", t);
-//                velocityContext.put("clinic", c);
 //
-//                String mergedSubject = VelocityUtils.velocityEvaluate(velocityContext, emailSubject);
-//                String mergedBody = VelocityUtils.velocityEvaluate(velocityContext, emailTemplate);
 //
-//                EmailUtilsOld.sendEmail(emailTo, null, emailFrom, null, mergedSubject, mergedBody, null);
 //
 //                // --- log action ---
-//                LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.sendNotification", "ticklerId=" + t.getId());
-//            } else {
-//                throw new EmailException("Email Address is invalid");
-//            }
-//        }
     }
 
     @Override
@@ -716,13 +692,8 @@ public class TicklerManagerImpl implements TicklerManager {
 
         return ticklerDao.search_tickler(demographicNo, endDate);
 
-        // for(Tickler tmp:result) {
         // //--- log action ---
-        // LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.search_tickler",
-        // "ticklerId="+tmp.getId());
-        // }
         //
-        // return result;
     }
 
     @Override

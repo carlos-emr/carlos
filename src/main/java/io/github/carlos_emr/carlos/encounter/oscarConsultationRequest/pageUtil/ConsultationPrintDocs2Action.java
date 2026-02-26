@@ -66,7 +66,6 @@ public class ConsultationPrintDocs2Action extends ActionSupport {
 
         String reqId = request.getParameter("reqId");
         String demoNo = request.getParameter("demographicNo");
-        //ArrayList docs = EDocUtil.listDocs( demoNo, reqId, EDocUtil.ATTACHED);        
         String[] docs = request.getParameterValues("docNo");
         ArrayList alist = new ArrayList();
         String path = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");

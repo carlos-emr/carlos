@@ -196,13 +196,6 @@ public interface VacancyTemplateManager {
         sb.append("<td width=\"30%\" class=\"beright\">Requires ");
         sb.append(type);
         sb.append(":</td>");
-	/*
-		sb.append("<td><input type=\"checkbox\" value=\"on\" ");
-		sb.append(required);
-		sb.append(" name=\"");
-		sb.append(type.toLowerCase().replaceAll(" ","_"));  //
-		sb.append("Required\"></td>");
-		*/
         sb.append("<td>");
         for (int ii = 0; ii < 3; ii++) {
             sb.append("<input type=\"radio\" value=\"");
@@ -390,10 +383,8 @@ public interface VacancyTemplateManager {
                 CriteriaTypeOption option2 = criteriaTypeOptionDAO.getByValueAndTypeId(cso.getOptionValue(), ctype.getId());
 
                 //value in criteria_selection_option is the id in criteria_type_option, this makes more sense as the value may not be unique or may be null
-                //CriteriaTypeOption option2 = criteriaTypeOptionDAO.getCriteriaTypeOptionByOptionId(Integer.parseInt(cso.getOptionValue()));
                 String label = option2.getOptionLabel();
                 String htmlEscapedName = StringEscapeUtils.escapeHtml4(label);
-                //String selected = (CdsClientFormData.containsAnswer(existingAnswers, option.getCdsDataCategory()) ? "selected=\"selected\"" : "");
                 String selected = "selected";
                 sb.append("<option " + selected + " value=\"" + StringEscapeUtils.escapeHtml4(option2.getOptionValue()) + "\" title=\"" + htmlEscapedName + "\">" + htmlEscapedName + "</option>");
             }

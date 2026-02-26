@@ -112,18 +112,8 @@ public final class Misc {
         return (StringEscapeUtils.escapeHtml4(s));
 
 //		if (null == S) return S;
-//		int N = S.length();
-//		StringBuilder sb = new StringBuilder(N);
 //		for (int i = 0; i < N; i++) {
-//			char c = S.charAt(i);
 //			if (c == '&') sb.append("&amp;");
-//			else if (c == '"') sb.append("&quot;");
-//			else if (c == '<') sb.append("&lt;");
-//			else if (c == '>') sb.append("&gt;");
-//			else if (c == '\'') sb.append("&#39;");
-//			else sb.append(c);
-//		}
-//		return sb.toString();
     }
 
     /**
@@ -158,19 +148,8 @@ public final class Misc {
         return (StringEscapeUtils.escapeHtml4(s).replaceAll("\\n", "<br/>"));
 
 //		if (null == S) return S;
-//		int N = S.length();
-//		StringBuilder sb = new StringBuilder(N);
 //		for (int i = 0; i < N; i++) {
-//			char c = S.charAt(i);
 //			if (c == '&') sb.append("&amp;");
-//			else if (c == '"') sb.append("&quot;");
-//			else if (c == '<') sb.append("&lt;");
-//			else if (c == '>') sb.append("&gt;");
-//			else if (c == '\'') sb.append("&#39;");
-//			else if (c == '\n') sb.append("<br>");
-//			else sb.append(c);
-//		}
-//		return sb.toString();
     }
 
     /**
@@ -405,7 +384,6 @@ public final class Misc {
      * @return Hashtable containing the parsed key-value pairs
      */
     public static Hashtable splitDelimHash(String S) {// delim=S[0]
-        // S="xjoexSchmoexagex42xcommentsxxIQx42"
         // becomes joe="Schmoe",age="42",comments="",IQ="42"
         Hashtable H = new Hashtable(1);
         if (S == null || S.length() == 0) return H;
@@ -428,7 +406,6 @@ public final class Misc {
      * @return the string with substitutions applied
      */
     public static String stringDelimSubst(String S, String d, Dict defs) {
-        // S contains keys, beginning and ending with copies of delim;
         // result is to be that of replacing these with their values
         String[] A = stringSplit(S, d);
         for (int i = 1; i < A.length; i += 2)
@@ -446,7 +423,6 @@ public final class Misc {
      * @return the string with substitutions applied
      */
     public static String stringDelimSubst(String S, String d, Hashtable defs) {
-        // S contains keys, beginning and ending with copies of delim;
         // result is to be that of replacing these with their values
         String[] A = stringSplit(S, d);
         for (int i = 1; i < A.length; i += 2)
@@ -454,9 +430,6 @@ public final class Misc {
         return stringArrayJoin(A, "");
     }
 
-    /*
-     * public static String substFile(String fName, String fDelim, String defs){ Hashtable dict=splitDelimHash(defs); if(dict==null)return("no definitions for "+fName+" in "+defs); return stringDelimSubst(MiscFile.fileToString(fName),fDelim,dict); }
-     */
     /**
      * Creates an indentation string of spaces based on the level.
      * 
@@ -863,11 +836,7 @@ public final class Misc {
     public static String getString(ResultSet rs, String columnName) throws SQLException {
         return (StringUtils.trimToEmpty(rs.getString(columnName)));
 
-//		String text = rs.getString(columnName);
 //		if (rs.wasNull()) {
-//			text = "";
-//		}
-//		return text;
     }
 
     /**
@@ -881,11 +850,7 @@ public final class Misc {
     public static String getString(ResultSet rs, int columnIndex) throws SQLException {
         return (StringUtils.trimToEmpty(rs.getString(columnIndex)));
 
-//		String text = rs.getString(columnIndex);
 //		if (rs.wasNull()) {
-//			text = "";
-//		}
-//		return text;
     }
 
     /**
@@ -932,7 +897,6 @@ public final class Misc {
         if (s == null) return "";
         String s1 = replace((String) s, "'", "\\'");
         return replace(s1, "\"", "&#34;");
-        // return ((String) s).replace("'", "\\'");
     }
 
     /**

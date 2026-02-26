@@ -548,8 +548,6 @@ public class RxWebService extends AbstractServiceImpl {
 
         // Determine if the user has privileges to view this data.
         //if (!securityInfoManager.hasPrivilege(info, "_rx", "r", demographicNo)) {
-        //    throw new AccessDeniedException("_rx", "r", demographicNo);
-        //}
 
 
         prescriptionManager.print(info, scriptNo);

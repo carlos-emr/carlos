@@ -163,7 +163,6 @@ public class MsgViewMessage2Action extends ActionSupport {
         String boxType = request.getParameter("boxType") == null ? "" : request.getParameter("boxType");
 
         // Validate messageNo before use.
-        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
         Integer parsedMessageNo = ConversionUtils.fromIntString(messageNo);
         if (parsedMessageNo <= 0) {
             MiscUtils.getLogger().warn("Invalid or missing messageID parameter");
@@ -274,7 +273,6 @@ public class MsgViewMessage2Action extends ActionSupport {
                 + Encode.forUriComponent(boxType) + "&linkMsgDemo=" + Encode.forUriComponent(linkMsgDemo != null ? linkMsgDemo : "");
         response.sendRedirect(actionforward);
 
-        // Return NONE since we're redirecting rather than forwarding
         return NONE;
     }
 }

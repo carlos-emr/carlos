@@ -100,7 +100,6 @@ public class LabDisplayHelper {
 
         try {
             // okay serious hackage going on here. I'm just going to serialise the map and all it's values. *shrugs* it's one of those days and one of those features...
-            // key=identifier, value = CommonLabTestValues.findValuesForTest() result
             HashMap<String, ArrayList<Map<String, Serializable>>> mapOfTestValues = new HashMap<String, ArrayList<Map<String, Serializable>>>();
             MessageHandler handler = Factory.getHandler(lab.getSegmentID());
             int OBRCount = handler.getOBRCount();

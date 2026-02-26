@@ -50,10 +50,6 @@ public class RxDsMessageTo1 implements Serializable {
 
 
     //////////////
-	/*
-	   if(significanceStr==null || significanceStr.equals("")) {significanceStr="0";}
-	   int significance = Integer.valueOf(significanceStr);
-	 */
     private String id;
     private String summary;
     private String heading;
@@ -70,7 +66,6 @@ public class RxDsMessageTo1 implements Serializable {
     private String interactStr = "";
     private Boolean trustedResource;
     private Boolean agree;
-    //List<Map> commentsVec; //= (Map) ht.get("comments");
     private String type;
     private String author;
     private Integer updated_by;
@@ -94,7 +89,6 @@ public class RxDsMessageTo1 implements Serializable {
         name = (String) ht.get("name");
         updated_at = (Date) ht.get("updated_at");
         if (ht.get("id") instanceof String) {
-            //logger.error("---$string instance");
             id = (String) ht.get("id");
         } else if (ht.get("id") instanceof Integer) {
             id = ((Integer) ht.get("id")).toString();
@@ -148,114 +142,6 @@ public class RxDsMessageTo1 implements Serializable {
 
 
     }
-/*
-
-   String significance(String s){
-       Map<String,String> h = new HashMap<String,String>();
-       h.put("1","minor");
-       h.put("2","moderate");
-       h.put("3","major");
-       h.put(" ","unknown");
-
-       String retval=null;
-       if(s!=null){
-         retval = (String) h.get(s);
-         if (retval == null) {
-            retval = "unknown";
-         }
-       }else retval = "unknown";
-        return retval;
-   }
-
-   String evidence(String s){
-       Map<String,String> h = new HashMap<String,String>();
-       h.put("P","poor");
-       h.put("F","fair");
-       h.put("G","good");
-       h.put(" ","unknown");
-
-       String retval;
-      if(s!=null){
-           retval = (String) h.get(s);
-        if (retval == null) {retval = "unknown";}
-      }
-       else retval="unkown";
-        return retval;
-   }
-
-
-   String sigColor(String s){
-       Map<String,String> h = new HashMap<String,String>();
-       h.put("1","yellow");
-       h.put("2","orange");
-       h.put("3","red");
-       h.put(" ","greenyellow");
-       String retval;
-       if(s!=null){
-            retval = (String) h.get(s);
-            if (retval == null) {retval = "greenyellow";}
-       }else retval = "greenyellow";
-        return retval;
-   }
-
-   String severityOfReaction(String s){
-       Map<String,String> h = new HashMap<String,String>();
-       h.put("1","Mild");
-       h.put("2","Moderate");
-       h.put("3","Severe");
-
-       String retval = (String) h.get(s);
-       if (retval == null) {retval = "Unknown";}
-       return retval;
-   }
-
-   String severityOfReactionColor(String s){
-       Map<String,String> h = new HashMap<String,String>();
-       h.put("1","yellow");
-       h.put("2","orange");
-       h.put("3","red");
-
-       String retval = (String) h.get(s);
-       if (retval == null) {retval = "red";}
-       return retval;
-   }
-
-   String onSetOfReaction(String s){
-       Map<String,String> h = new HashMap<String,String>();
-       h.put("1","Immediate");
-       h.put("2","Gradual");
-       h.put("3","Slow");
-
-       String retval = (String) h.get(s);
-       if (retval == null) {retval = "Unknown";}
-       return retval;
-   }
-
-   String displayKeys(Map ht) {
-       StringBuilder sb = new StringBuilder();
-       if (ht != null){
-            for (Object o :ht.keySet()){
-                String s  = "key:"+o+" val "+ht.get(o)+"  class : "+ht.get(o).getClass().getName();
-                sb.append(s);
-
-                if ( o instanceof Map){
-                   Map v =  (Map) o;
-                }
-            }
-       }
-
-       return sb.toString();
-   }
-
-  boolean trusted(Object o){
-           boolean b = false;
-           if (o != null && o instanceof Boolean){
-              Boolean c  = (Boolean) o;
-              b = c.booleanValue();
-           }
-           return b;
-       }
-*/
 
     public String getId() {
         return id;

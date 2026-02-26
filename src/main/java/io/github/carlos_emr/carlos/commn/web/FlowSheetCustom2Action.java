@@ -574,7 +574,6 @@ public class FlowSheetCustom2Action extends ActionSupport {
         String displayName = request.getParameter("displayName");
         String warningColour = request.getParameter("warningColour");
         String recommendationColour = request.getParameter("recommendationColour");
-        //String topHTML 				= request.getParameter("topHTML");  // Not supported yet
 
 
         /// NEW FLOWSHEET CODE

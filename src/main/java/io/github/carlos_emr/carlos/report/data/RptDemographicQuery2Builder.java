@@ -194,9 +194,6 @@ public class RptDemographicQuery2Builder {
                 //if (ageStyle.equals("1")){
                 params.put("startYear2", startYear);
                 stringBuffer.append(" ( ( YEAR(" + asofDateSql + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDateSql + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) >  :startYear2 ) ");
-                //}else{
-                //   stringBuffer.append(" ( YEAR("+asofDateSql+") - year_of_birth > "+startYear+"  ) ");
-                //}
                 theFirstFlag = 1;
                 break;
             case 3:
@@ -214,7 +211,6 @@ public class RptDemographicQuery2Builder {
                 whereClause();
                 MiscUtils.getLogger().debug("age style " + ageStyle);
                 if (!ageStyle.equals("2")) {
-                    // stringBuffer.append(" ( ( YEAR("+asofDateSql+") -YEAR (DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'))) - (RIGHT("+asofDateSql+",5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth),'-',(month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) >  "+startYear+" and ( YEAR("+asofDateSql+") -YEAR (DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'))) - (RIGHT("+asofDateSql+",5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth),'-',(month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) <  "+endYear+"  ) ");
                     MiscUtils.getLogger().debug("VERIFYING INT" + startYear);
                     //check to see if its a number
                     if (verifyInt(startYear)) {

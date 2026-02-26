@@ -350,7 +350,6 @@ public class CkdScreener {
     protected boolean checkMedication(int demographicNo) {
         for (Drug d : drugDao.findByDemographicId(demographicNo, true)) {
             if (!d.isDeleted()) {
-                //if(d.isLongTerm() || (!d.isExpired() && !d.isArchived() && !d.isDeleted() && !d.isDiscontinued())) {
                 //does it match one of the ATCs?
                 if (getInterestingATCs().contains(d.getAtc())) {
                     return true;
@@ -373,14 +372,6 @@ public class CkdScreener {
             //we  don't have
             labs = true;
         }
-		/*
-		measures = measurementDao.findByType(demographicNo, "ACR");
-		if(measures == null || measures.size() == 0 || measures.get(0).getDateObserved().before(cal.getTime())) {
-			MiscUtils.getLogger().info("Missing ACR lab");
-			//we  don't have
-			labs=true;
-		}
-		*/
         return labs;
     }
 

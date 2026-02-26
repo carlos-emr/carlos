@@ -249,17 +249,6 @@ public class EctValidation {
             // option of using the oscarMeasurement_css property to form the css path.
             // If using this code, also uncomment the line in oscar.login.Startup.java
             // that checks and sets that property.
-            /*
-             * String downloadMethod = OscarProperties.getInstance().getProperty("oscarMeasurement_css_download_method");
-             * String place = "";
-             * if (downloadMethod == null || !(downloadMethod.equalsIgnoreCase("stream"))) {
-             *    place = OscarProperties.getInstance().getProperty("oscarMeasurement_css");
-             *    if(!place.endsWith("/"))
-             *       place = new StringBuilder(place).insert(place.length(),"/").toString();
-             * } else {
-             *    place = "StreamStyleSheet.do?cssfilename=";
-             * }
-             */
             if (location != null) {
                 cssLocation = place + location.getLocation();
             }

@@ -114,8 +114,6 @@ public class KeyConstants {
     public static final String STATUS_REMOVED = "removed";
     public static final String STATUS_ACTIVE = "active";
     public static final String STATUS_INACTIVE = "inactive";
-    //  public static final String STATUS_CURRENT = "current";
-//  public static final String STATUS_UNKNOWN = "unknown";
     public static final String STATUS_PENDING = "pending";
     public static final String STATUS_WITHDRAW = "withdrawn";
     public static final String STATUS_TERMEARLY = "terminated early";
@@ -125,19 +123,6 @@ public class KeyConstants {
     public static final String STATUS_EXPIRED = "expired";
     public static final String STATUS_SIGNED = "signed";
     public static final String STATUS_UNSIGNED = "unsigned";
-    //  public static final String STATUS_LOCKED="locked";
-//  public static final String STATUS_UNLOCKED="unlocked";
-  /*
-  public static final String FUNCTION_INTAKE="intake";
-  public static final String FUNCTION_ADMISSION="admission";
-  public static final String FUNCTION_REFERRAL="referral";
-  public static final String FUNCTION_DISCHARGE="discharge";
-  public static final String FUNCTION_COMPLAINT="complaint";
-  public static final String FUNCTION_CONSENT="consent";
-  public static final String FUNCTION_CASEMANAGEMENT="case";
-  public static final String FUNCTION_INCIDENT="incident";
-  public static final String FUNCTION_SERVICE_RESTRICTION="serviceRestriction";
- */
     public static final String CLIENT_MODE_MERGE = "merge";
     public static final String CLIENT_MODE_UNMERGE = "unmerge";
 
@@ -151,7 +136,6 @@ public class KeyConstants {
 
     /*Function Definition */
     public static final String FUN_FACILITY_EDIT = "_facility.edit";
-    //public static final String FUN_FACILITY_GENERAL="_facility.general";
     public static final String FUN_FACILITY_MESSAGE = "_facility.message";
     public static final String FUN_FACILITY_PROGRAM = "_facility.program";
     public static final String FUN_CLIENT = "_client";
@@ -169,7 +153,6 @@ public class KeyConstants {
     public static final String FUN_DEMOGRAPHIC = "_demographic";
     public static final String FUN_REPORTS = "_reports";
     public static final String FUN_PROGRAMEDIT = "_programEdit";
-    // public static final String FUN_PROGRAMEDIT_STAFF="_programEdit.staff";
     public static final String FUN_PROGRAM_CLIENTS = "_program.clients";
     public static final String FUN_PROGRAM_QUEUE = "_program.queue";
     public static final String FUN_PROGRAM_INCIDENT = "_program.incident";
@@ -197,12 +180,10 @@ public class KeyConstants {
     public static final String FUN_ADMIN_LOOKUP = "_admin.lookup";
     public static final String FUN_ADMIN_MERGECLIENT = "_admin.mergeClient";
     public static final String FUN_ADMIN_ORG = "_admin.org";
-    // public static final String FUN_ADMIN_SYSMESSAGE="_admin.systemMesage";
     public static final String FUN_ADMIN_UNLOCKUSER = "_admin.unlockUser";
 
     public static final String FUN_PMM_ADDPROGRAM = "_pmm.addProgram";
     public static final String FUN_PMM_AGENCYINFORMATION = "_pmm.agencyInformation";
-    // public static final String FUN_PMM_CASEMANAGEMENT="_pmm.caseManagement";
     public static final String FUN_PMM_GLOBALROLEACCESS = "_pmm.globalRoleAccess";
     public static final String FUN_PMM_MANAGEFACILITIES = "_pmm.manageFacilities";
     public static final String FUN_PMM_NEWCLIENT = "_pmm.newClient";

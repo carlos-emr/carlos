@@ -53,30 +53,6 @@ import static io.github.carlos_emr.carlos.integration.mcedt.McedtConstants.*;
 public class Action2Utils {
     private static Logger logger = MiscUtils.getLogger();
 
-/*    static ActionMessages addMessage(String messageId, String... messageParams) {
-        ActionMessage message = null;
-        if (messageParams != null) {
-            message = new ActionMessage(messageId, messageParams);
-        } else {
-            message = new ActionMessage(messageId);
-        }
-
-        ActionMessages messages = new ActionMessages();
-        messages.add(ActionMessages.GLOBAL_MESSAGE, message);
-        return messages;
-    }
-
-    static ActionMessages addMoreMessage(ActionMessages messages, String messageId, String... messageParams) {
-        ActionMessage message = null;
-        if (messageParams != null) {
-            message = new ActionMessage(messageId, messageParams);
-        } else {
-            message = new ActionMessage(messageId);
-        }
-        if (messages == null) messages = new ActionMessages();
-        messages.add(ActionMessages.GLOBAL_MESSAGE, message);
-        return messages;
-    }*/
 
     static Detail getDetails(HttpServletRequest request) {
         Detail result = (Detail) request.getSession().getAttribute(McedtConstants.SESSION_KEY_RESOURCE_LIST);
@@ -310,7 +286,6 @@ public class Action2Utils {
             }
 //			for (File file : toOutbox) {
 //				if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate)) copyFileToDirectory(file, outbox,false, true);
-//			}
         } catch (Exception e) {
             logger.error("Unable to copy OHIP files to outbox", e);
         }
@@ -397,7 +372,6 @@ public class Action2Utils {
             } catch (Exception e) {
                 logger.error("Unable to load type list", e);
 
-                //saveErrors(request, ActionUtils.addMessage("resourceAction.getTypeList.fault", McedtMessageCreator.exceptionToString(e)));
             }
         }
         return result;

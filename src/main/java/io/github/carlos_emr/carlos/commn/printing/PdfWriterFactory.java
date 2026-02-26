@@ -77,20 +77,8 @@ public class PdfWriterFactory {
             return null;
         }
 
-//		String confidentialtyStatement = OscarProperties.getConfidentialityStatement();
-//		PromoTextStamper pts = new PromoTextStamper(confidentialtyStatement, 30);
-//		pts.setFontSize(settings.getFontSize());
-//		result.setPageEvent(pts);
 //
-//		SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd");
-//		String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") + " " + f.format(new Date());
-//		pts = new PromoTextStamper(promoText, 20);
-//		pts.setFontSize(settings.getFontSize());
-//		result.setPageEvent(pts);
 
-//		PageNumberStamper pns = new PageNumberStamper(10);
-//		pns.setFontSize(settings.getFontSize());
-//		result.setPageEvent(pns);
 
         return result;
     }

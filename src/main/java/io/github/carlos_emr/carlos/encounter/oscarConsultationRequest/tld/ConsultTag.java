@@ -62,9 +62,7 @@ public class ConsultTag extends TagSupport {
                 UserPropertyDAO pref = (UserPropertyDAO) WebApplicationContextUtils.getWebApplicationContext(pageContext.getServletContext()).getBean(UserPropertyDAO.class);
 
                 // There are to two properties that could be set. One is the referal date and the other is the team
-                // Date set /  team set      == search on  both
                 // Date not set /  team set  == default to one month
-                // Date set /  team not set  == search on the whole clinic
                 // Date not set /  team not set  == do nothing
                 // BUT If the team is -1 it should search on all teams.
 

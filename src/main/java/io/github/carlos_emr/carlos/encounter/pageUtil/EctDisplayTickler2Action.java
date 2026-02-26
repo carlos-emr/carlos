@@ -103,7 +103,6 @@ public class EctDisplayTickler2Action extends EctDisplayAction {
                     flag = "";
                 }
                 item.setTitle(flag + itemHeader);
-                // item.setValue(String.valueOf(t.getTickler_no()));
                 winName = StringUtils.maxLenString(t.getMessage(), MAX_LEN_TITLE, MAX_LEN_TITLE, "");
                 hash = Math.abs(winName.hashCode());
                 url = "popupPage(500,900,'" + hash + "','" + request.getContextPath() + "/tickler/ticklerEdit.jsp?tickler_no=" + t.getId() + "&parentAjaxId=" + cmd + "'); return false;";

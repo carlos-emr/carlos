@@ -49,7 +49,6 @@ public class RxInformation {
             if (arr[i].isCurrent()) {
 
                 stringBuffer.append(arr[i].getFullOutLine().replaceAll(";", " ") + "\n");
-                // stringBuffer.append(arr[i].getRxDisplay()+"\n");
             }
         }
         this.currentMedication = stringBuffer.toString();

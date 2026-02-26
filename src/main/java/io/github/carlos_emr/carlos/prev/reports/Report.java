@@ -43,16 +43,6 @@ public class Report {
     private PreventionSearchTo1 searchConfig = null;
     private boolean active = true;
 
-    /*
-     h.put("up2date",""+Math.round(done));
-          h.put("percent",percentStr);
-          h.put("percentWithGrace",percentWithGraceStr);
-          h.put("returnReport",returnReport);
-          h.put("inEligible", ""+inList);
-          h.put("eformSearch","Mam");
-          h.put("followUpType","PAPF");
-          h.put("BillCode", "Q001A");
-     */
     private List<ReportItem> items;
 
     public List<ReportItem> getItems() {

@@ -80,15 +80,11 @@ public class ClinicalReportManager {
             numeratorList.add(n);
         }
         //if (!numeratorHash.contains(n)){
-        //    numeratorHash.put(n.getId(), n);
-        //}
     }
 
     public void addNumerator(Hashtable n, String id) {
 
         //if (!numeratorList.contains(n)){
-        //    numeratorList.add(n);
-        //}
         if (!numeratorHash.contains(n)) {
             numeratorHash.put(id, n);
         }
@@ -116,7 +112,6 @@ public class ClinicalReportManager {
         if (StringUtils.isEmpty(id)) {
             return null;
         }
-        //return (Numerator) numeratorHash.get(id);
         Hashtable numerHash = (Hashtable) numeratorHash.get(id);
         String type = (String) numerHash.get("type");
         if (type != null && type.equals("SQL")) {
@@ -273,7 +268,6 @@ public class ClinicalReportManager {
                             h.put("numeratorName", e.getAttributeValue("name"));
                             h.put("id", e.getAttributeValue("id"));
                             h.put("replaceKeys", e.getAttributeValue("replaceKeys"));
-                            //h.put("file", e.getAttributeValue("file"));
                             addNumerator(h, e.getAttributeValue("id"));
 
                             addNumerator(droolsN);
@@ -290,7 +284,6 @@ public class ClinicalReportManager {
                             h.put("numeratorName", e.getAttributeValue("name"));
                             h.put("id", e.getAttributeValue("id"));
                             h.put("replaceKeys", e.getAttributeValue("replaceKeys"));
-                            //h.put("file", e.getAttributeValue("file"));
                             addNumerator(h, e.getAttributeValue("id"));
 
                             addNumerator(droolsN);
@@ -307,7 +300,6 @@ public class ClinicalReportManager {
                             h.put("numeratorName", e.getAttributeValue("name"));
                             h.put("id", e.getAttributeValue("id"));
                             h.put("replaceKeys", e.getAttributeValue("replaceKeys"));
-                            //h.put("file", e.getAttributeValue("file"));
                             addNumerator(h, e.getAttributeValue("id"));
 
                             addNumerator(droolsN);
@@ -324,7 +316,6 @@ public class ClinicalReportManager {
                             h.put("numeratorName", e.getAttributeValue("name"));
                             h.put("id", e.getAttributeValue("id"));
                             h.put("replaceKeys", e.getAttributeValue("replaceKeys"));
-                            //h.put("file", e.getAttributeValue("file"));
                             addNumerator(h, e.getAttributeValue("id"));
 
                             addNumerator(droolsN);

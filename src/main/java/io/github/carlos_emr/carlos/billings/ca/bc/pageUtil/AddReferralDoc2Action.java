@@ -97,7 +97,6 @@ public class AddReferralDoc2Action extends ActionSupport {
             }
         }
 
-        //af.setRedirect(true);
         return af;
     }
 

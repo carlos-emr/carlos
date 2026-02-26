@@ -64,7 +64,6 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
         }
 
         HttpSession session = request.getSession();
-        //EctMeasurementsForm frm = (EctMeasurementsForm) form;
 
         String groupName = request.getParameter("groupName");
         EctValidation ectValidation = new EctValidation();
@@ -91,7 +90,6 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
         for (int i = 0; i < hd.getMeasurementTypeVector().size(); i++) {
             this.setValue("date-" + i, today);
         }
-        //session.setAttribute("EctMeasurementsForm", frm);
         session.setAttribute("measurementTypes", hd);
         Vector mInstrcVector = hd.getMeasuringInstrcHdVector();
         for (int i = 0; i < mInstrcVector.size(); i++) {

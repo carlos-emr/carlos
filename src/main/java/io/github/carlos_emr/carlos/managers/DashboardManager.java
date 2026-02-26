@@ -44,7 +44,6 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 public interface DashboardManager {
     public static final boolean MULTI_THREAD_ON = Boolean.TRUE;
 
-    // static final boolean MULTI_THREAD_ON = Boolean.TRUE;
 
     enum ObjectName {
         IndicatorTemplate, Dashboard

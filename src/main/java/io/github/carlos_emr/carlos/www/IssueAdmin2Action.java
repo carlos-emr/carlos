@@ -138,12 +138,7 @@ public class IssueAdmin2Action extends ActionSupport {
         }
 
         // run validation rules on this form
-//        ActionMessages errors = form.validate(mapping, request);
 //        if (!errors.isEmpty()) {
-//            saveErrors(request, errors);
-//            // request.setAttribute("caisiRoles", caisiRoleMgr.getRoles());
-//            return "edit";
-//        }
 
         //issue code cannot be duplicated
         String newCode = issueAdmin.getCode();
@@ -155,7 +150,6 @@ public class IssueAdmin2Action extends ActionSupport {
             String existId = String.valueOf(issueAdmin.getId());
             if ((existCode.equals(newCode)) && !(existId.equals(newId))) {
                 addActionError(getText("issueAdmin.code.exist"));
-                //request.setAttribute("caisiRoles", caisiRoleMgr.getRoles());
                 return "edit";
             }
         }

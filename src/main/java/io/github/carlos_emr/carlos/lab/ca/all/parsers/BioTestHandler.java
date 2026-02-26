@@ -462,41 +462,6 @@ public class BioTestHandler implements MessageHandler {
     /**
      * Methods to get information from observation notes
      */
-   /* public int getOBXCommentCount(int i, int j){
-        int count = 0;
-        try{
-            String comment = "";
-            OBX obxSeg = ( obrSegMap.get(obrSegKeySet.get(i))).get(j);
-            while(comment != null){
-                count++;
-                comment = Terser.get(obxSeg,7,count,1,1);
-                if (comment == null)
-                    comment = Terser.get(obxSeg,7,count,2,1);
-            }
-            count--;
-
-        }catch(Exception e){
-            logger.error("Exception retrieving obx comment count", e);
-            count = 0;
-        }
-        return count;
-    }
-
-    public String getOBXComment(int i, int j, int k){
-        String comment = "";
-        try{
-            k++;
-
-            OBX obxSeg = ( obrSegMap.get(obrSegKeySet.get(i))).get(j);
-            comment = Terser.get(obxSeg,7,k,1,1);
-            if (comment == null)
-                comment = Terser.get(obxSeg,7,k,2,1);
-
-        }catch(Exception e){
-            logger.error("Cannot return comment", e);
-        }
-        return comment.replaceAll("\\\\\\.br\\\\", "<br />");
-    }*/
     public int getOBXCommentCount(int i, int j) {
         int count = 0;
         try {
@@ -518,7 +483,6 @@ public class BioTestHandler implements MessageHandler {
 
     public String getOBXComment(int i, int j, int k) {
         try {
-            //int lastOBX = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATIONReps() - 1;
             return (getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k).getComment(0).getValue()));
         } catch (Exception e) {
             return ("");
@@ -644,23 +608,6 @@ public class BioTestHandler implements MessageHandler {
     }
 
     public String getClientRef() {
-        /*String docNum = "";
-        int i=0;
-        try{
-            while(!getString(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getOrderingProvider(i).getIDNumber().getValue()).equals("")){
-                if (i==0){
-                    docNum = getString(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getOrderingProvider(i).getIDNumber().getValue());
-                }else{
-                    docNum = docNum + ", " + getString(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getOrderingProvider(i).getIDNumber().getValue());
-                }
-                i++;
-            }
-            return(docNum);
-        }catch(Exception e){
-            logger.error("Could not return doctor id numbers", e);
-
-            return("");
-        }*/
         try {
             return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientIDInternalID(0).getAssigningAuthority().getNamespaceID().getValue()));
         } catch (Exception e) {

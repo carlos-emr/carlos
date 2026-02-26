@@ -351,9 +351,6 @@ public class RxPrescriptionData {
         return toPrescription(drugs.get(0), demographicNo);
     }
 
-    /*
-     * Limit returned prescriptions to those which have an entry in both drugs and prescription table
-     */
     public Prescription[] getPrescriptionScriptsByPatient(int demographicNo) {
         List<Prescription> lst = new ArrayList<Prescription>();
         DrugDao dao = SpringUtils.getBean(DrugDao.class);
@@ -516,9 +513,6 @@ public class RxPrescriptionData {
      * @return This returns the insert id of the script to be included the drugs table
      */
     public String saveScript(LoggedInInfo loggedInInfo, RxSessionBean bean) {
-        /*
-         * create table prescription ( script_no int(10) auto_increment primary key, provider_no varchar(6), demographic_no int(10), date_prescribed date, date_printed date, dates_reprinted text, textView text);
-         */
         String provider_no = bean.getProviderNo();
         int demographic_no = bean.getDemographicNo();
 
@@ -569,7 +563,6 @@ public class RxPrescriptionData {
             txt = fullOutLine.replaceAll(";", "\n");
             textView.append("\n" + txt);
         }
-        // textView.append();
 
         io.github.carlos_emr.carlos.commn.model.Prescription rx = new io.github.carlos_emr.carlos.commn.model.Prescription();
         rx.setProviderNo(provider_no);
@@ -596,7 +589,6 @@ public class RxPrescriptionData {
         return p.getComments();
     }
 
-    // erased an orfin }
     public static class Prescription {
 
         int drugId;
@@ -901,7 +893,6 @@ public class RxPrescriptionData {
             return this.archivedDate;
         }
 
-        // RxDrugData.GCN gcn = null;
         public Prescription(int drugId, String providerNo, int demographicNo) {
             this.drugId = drugId;
             this.providerNo = providerNo;
@@ -1081,14 +1072,11 @@ public class RxPrescriptionData {
                 GregorianCalendar cal = new GregorianCalendar(Locale.CANADA);
                 int days = 0;
 
-                //          p("this.getRxDate()", this.getRxDate().toString());
                 cal.setTime(this.getRxDate());
 
                 if (this.getDuration() != null && this.getDuration().length() > 0) {
                     if (Integer.parseInt(this.getDuration()) > 0) {
                         int i = Integer.parseInt(this.getDuration());
-                        //      p("i", Integer.toString(i));
-                        //      p("this.getDurationUnit()", this.getDurationUnit());
                         if (this.getDurationUnit() != null && this.getDurationUnit().equalsIgnoreCase("D")) {
                             days = i;
                         }
@@ -1106,7 +1094,6 @@ public class RxPrescriptionData {
 
                             days = days * r;
                         }
-                        //    p("days", Integer.toString(days));
                         if (days > 0) {
                             cal.add(GregorianCalendar.DATE, days);
                         }
@@ -1117,7 +1104,6 @@ public class RxPrescriptionData {
             } catch (Exception e) {
                 MiscUtils.getLogger().error("Error", e);
             }
-            //     p("endDate", RxUtil.DateToString(this.endDate));
         }
 
         public String getBrandName() {
@@ -1152,11 +1138,6 @@ public class RxPrescriptionData {
             // this.gcn=null;
         }
 
-        /*
-         * public RxDrugData.GCN getGCN() { if (this.gcn==null) { this.gcn = new RxDrugData().getGCN(this.BN, this.GCN_SEQNO); }
-         *
-         * return gcn; }
-         */
         public boolean isCustom() {
 			return this.customName != null;
         }
@@ -1497,12 +1478,10 @@ public class RxPrescriptionData {
                         ret = "Unknown ";
                     }
                 } else {
-                    // RxDrugData.GCN gcn = this.getGCN();
 
                     ret = this.getBrandName() + " "; // gcn.getBrandName() + " ";
                     // + gcn.getStrength() + " "
                     // + gcn.getDoseForm() + " "
-                    // + gcn.getRoute() + " ";
                 }
 
                 if (this.getTakeMin() != this.getTakeMax()) {

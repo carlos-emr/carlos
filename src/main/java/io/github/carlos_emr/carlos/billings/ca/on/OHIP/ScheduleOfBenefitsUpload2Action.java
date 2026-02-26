@@ -122,8 +122,6 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
 
         try {
             //retrieve the file data
-            //ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            //InputStream stream = file.getInputStream();
             OscarProperties props = OscarProperties.getInstance();
 
             //properties must exist
@@ -136,9 +134,6 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
             //write the file to the file specified
             OutputStream bos = new FileOutputStream(retVal);
             int bytesRead = 0;
-            //byte[] buffer = file.getFileData();
-            //while ((bytesRead = stream.read(buffer)) != -1){
-            //   bos.write(buffer, 0, bytesRead);
             while ((bytesRead = stream.read()) != -1) {
                 bos.write(bytesRead);
             }

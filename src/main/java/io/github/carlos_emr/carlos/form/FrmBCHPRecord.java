@@ -58,8 +58,6 @@ public class FrmBCHPRecord extends FrmRecord {
                 props.setProperty("demographic_no", rs.getString("demographic_no"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
                         _dateFormat));
-                // props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(),_dateFormat));
                 props.setProperty("pg1_patientName", rs.getString("last_name") + ", " + rs.getString("first_name"));
                 props.setProperty("pg1_phn", rs.getString("hin"));
                 props.setProperty("pg1_phone", rs.getString("phone") + "  " + rs.getString("phone2"));

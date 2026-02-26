@@ -42,8 +42,6 @@ import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.managers.DayWorkSchedule;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 
-//import io.github.carlos_emr.carlos.webserv.ScheduleWs;
-
 public class ExistingAppointmentFilter implements AvailableTimeSlotFilter {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -62,10 +60,6 @@ public class ExistingAppointmentFilter implements AvailableTimeSlotFilter {
         } catch (Exception e) {
             logger.error("Error getting existing appointments providers:" + providerId + " could be oscar 12 will check it", e);
 
-        }
-
-        if (allowedTimesFilteredByExistingAppointments.size() == 0) {
-            //BookingLearningManager.recommendDayToBeSkipped(clinic, providerId, date, appointmentTypeId, this.getClass().getName());
         }
 
         return allowedTimesFilteredByExistingAppointments;

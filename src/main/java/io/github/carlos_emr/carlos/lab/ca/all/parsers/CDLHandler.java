@@ -95,7 +95,6 @@ public class CDLHandler implements MessageHandler {
 
     public String getMsgDate() {
         try {
-            //return(formatDateTime(msg.getMSH().getDateTimeOfMessage().getTimeOfAnEvent().getValue()));
             return (formatDateTime(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getObservationDateTime().getTimeOfAnEvent().getValue()));
         } catch (Exception e) {
             logger.error("Could not retrieve message date", e);
@@ -307,21 +306,11 @@ public class CDLHandler implements MessageHandler {
      * Methods to get information from observation notes
      */
     public int getOBRCommentCount(int i) {
-        /*try {
-            int lastOBX = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATIONReps() - 1;
-            return(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(lastOBX).getNTEReps());
-        } catch (Exception e) {*/
         return (0);
-        // }
     }
 
     public String getOBRComment(int i, int j) {
-       /* try {
-            int lastOBX = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATIONReps() - 1;
-            return(getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(lastOBX).getNTE(j).getComment(0).getValue()));
-        } catch (Exception e) {*/
         return ("");
-        //}
     }
 
     /**
@@ -348,7 +337,6 @@ public class CDLHandler implements MessageHandler {
 
     public String getOBXComment(int i, int j, int k) {
         try {
-            //int lastOBX = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATIONReps() - 1;
             return (getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k).getComment(0).getValue()));
         } catch (Exception e) {
             return ("");

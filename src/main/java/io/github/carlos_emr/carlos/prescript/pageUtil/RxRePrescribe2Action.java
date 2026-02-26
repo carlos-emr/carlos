@@ -156,7 +156,6 @@ public final class RxRePrescribe2Action extends ActionSupport {
             beanRX.setStashIndex(beanRX.addStashItem(loggedInInfo, p));
             auditStr.append(p.getAuditString() + "\n");
         }
-        // p("auditStr "+auditStr.toString());
         // save print date/time
         if (p != null) {
             p.Print(loggedInInfo);
@@ -184,7 +183,6 @@ public final class RxRePrescribe2Action extends ActionSupport {
         try {
             RxPrescriptionData rxData = new RxPrescriptionData();
 
-            //String drugList = frm.getDrugList();
 
             String[] drugArr = drugList.split(",");
 
@@ -210,7 +208,6 @@ public final class RxRePrescribe2Action extends ActionSupport {
 
                 // allocate space for annotation
                 beanRX.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(beanRX.getStashIndex()));
-                // p("beanRX.getStashIndex() in represcribe after", "" + beanRX.getStashIndex());
                 request.setAttribute("BoxNoFillFirstLoad", "true");
             }
         } catch (Exception e) {
@@ -278,7 +275,6 @@ public String saveDigitalSignature() throws IOException {
                       ip, 
                       "" + beanRX.getDemographicNo());
     
-    // Return null for Ajax-style calls that don't require a view forward
     return null;
 }
 
@@ -295,7 +291,6 @@ public String saveDigitalSignature() throws IOException {
 
         RxPrescriptionData rxData = new RxPrescriptionData();
 
-        // String strId = (request.getParameter("drugId").split("_"))[1];
         String strId = request.getParameter("drugId");
         try {
             int drugId = Integer.parseInt(strId);
@@ -331,10 +326,7 @@ public String saveDigitalSignature() throws IOException {
 
             auditStr.append(rx.getAuditString() + "\n");
             bean.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(bean.getStashIndex()));
-            // p("brandName saved in stash", prescript.getBrandName());
-            // p("stashIndex becomes", "" + beanRX.getStashIndex());
 
-            // RxUtil.printStashContent(beanRX);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
         }
@@ -397,10 +389,7 @@ public String saveDigitalSignature() throws IOException {
 
             auditStr.append(rx.getAuditString() + "\n");
             beanRX.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(beanRX.getStashIndex()));
-            // p("brandName saved in stash", prescript.getBrandName());
-            // p("stashIndex becomes", "" + beanRX.getStashIndex());
 
-            // RxUtil.printStashContent(beanRX);
             request.setAttribute("listRxDrugs", listReRx);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
@@ -420,7 +409,6 @@ public String saveDigitalSignature() throws IOException {
             return null;
         }
         StringBuilder auditStr = new StringBuilder();
-        // String idList = request.getParameter("drugIdList");
 
         Integer demoNo = Integer.parseInt(request.getParameter("demoNo"));
         String strShow = request.getParameter("showall");
@@ -491,7 +479,6 @@ public String saveDigitalSignature() throws IOException {
             // allocate space for annotation
             beanRX.addAttributeName(rx.getAtcCode() + "-" + String.valueOf(beanRX.getStashIndex()));
         }
-        // RxUtil.printStashContent(beanRX);
         request.setAttribute("listRxDrugs", listLongTerm);
 
         return "repcbLongTerm";

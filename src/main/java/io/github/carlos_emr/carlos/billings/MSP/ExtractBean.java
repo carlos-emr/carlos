@@ -145,10 +145,6 @@ public class ExtractBean extends Object implements Serializable {
             htmlContentHeader += errorMsg;
             errorMsg = "";
 
-            // htmlFooter =  "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: 016096: 173 RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: 11277.32</td>  </tr></table></body></html>";
-            // htmlContentHeader = "<table width='100%' border='0' cellspacing='0' cellpadding='0'><tr><td colspan='4' class='bodytext'>Billing Invoice for Billing No." + providerNo +"</td><td colspan='4' class='bodytext'>Payment date of " + output.substring(0,8) + "</td></tr>";
-            // htmlContentHeader = htmlContentHeader + "<tr><td class='bodytext'>ACCT NO</td><td class='bodytext'>NAME</td><td class='bodytext'>HEALTH #</td><td class='bodytext'>BILLDATE</td><td class='bodytext'>CODE</td><td align='right' class='bodytext'>BILLED</td><td align='right' class='bodytext'>DX</td><td align='right' class='bodytext'>Comment</td></tr>";
-            // htmlValue = htmlContentHeader;
             value = batchHeader;
             dbExtract dbExt = new dbExtract();
             MiscUtils.getLogger().debug("1st billing query d");
@@ -161,96 +157,36 @@ public class ExtractBean extends Object implements Serializable {
                 while (rs.next()) {
                     patientCount = patientCount + 1;
                     invNo = rs.getString("billing_no");
-                    //  ohipVer = rs.getString("organization_spec_code");
-                    //  inPatient = rs.getString("clinic_no");
-                    //  hin = rs.getString("hin");
-                    //  dob = rs.getString("dob");
                     demoName = rs.getString("demographic_name");
-                    //  	      visitType = rs.getString("visittype");
-                    // outPatient = rs.getString("clinic_ref_code");
-                    // outPatientDate = rs.getDate("visitdate").toString();
-                    //    visitDate = rs.getDate("visitdate");
                     //    referral = "";
                     //    referralDoc = "000000";
-                    //    hcFlag = "";
                     //    referral = oscar.SxmlMisc.getXmlContent(rs.getString("content"),"<xml_referral>","</xml_referral>");
-                    //    hcType = oscar.SxmlMisc.getXmlContent(rs.getString("content"),"<hctype>","</hctype>");
-                    //    m_review = oscar.SxmlMisc.getXmlContent(rs.getString("content"),"<mreview>","</mreview>");
                     //      if (m_review == null){  m_review = space(1);
-                    //		  m_Flag = "";}
                     //    if (m_review.compareTo("checked") == 0){
-                    //		  m_review = "Y";
-                    //		  m_Flag = "M";
-                    //	  } else {
-                    //		  m_review = space(1);
-                    //		  m_Flag = "";
-                    //	  }
                     //    if (hcType == null || hcType.compareTo("ON")==0 || hcType.compareTo("") == 0 ){hcFlag = "";}
-                    //   else{
-                    //		 demoSex = oscar.SxmlMisc.getXmlContent(rs.getString("content"),"<demosex>","</demosex>");
-                    //		 hcFlag = "H";
-                    //       hcLast = demoName.substring(0, demoName.indexOf(",")).toUpperCase();
-                    //       hcFirst = demoName.substring(demoName.indexOf(",")+1).toUpperCase();
                     //       if (hcLast.length() <9) {hcLast = hcLast + space(9-hcLast.length()); } else{ hcLast = hcLast.substring(0,9);}
                     //       if (hcFirst.length() <5) {hcFirst = hcFirst + space(5-hcFirst.length()); } else{ hcFirst = hcFirst.substring(0,5);}
                     //
-                    //	 }
                     //    if (referral == null){referral = "";}
                     //    referralDoc = oscar.SxmlMisc.getXmlContent(rs.getString("content"),"<rdohip>","</rdohip>");
                     //    if (referral.compareTo("checked")==0 ){
                     //    if (referralDoc == null || referralDoc.compareTo("000000")==0){
                     //		 referral = "";
                     //		 referralDoc = space(6);
-                    //	  }else{
                     //		referral = "R";
                     //		referralDoc = referralDoc + space(6-referralDoc.length());
-                    //	  }
-                    //  }
-                    //	  else{
                     //		  referral = "";
                     //		  	 referralDoc = space(6);
-                    //	  }
                     //      if (visitDate == null) {
-                    //      	outPatientDateValue = space(8);
-                    //    } else {
-                    //    	outPatientDate = visitDate.toString();
-                    //     outPatientDateValue = outPatientDate.substring(0,4) + outPatientDate.substring(5,7) + outPatientDate.substring(outPatientDate.length()-2);
                     //
-                    //    	}
-                    //    specCode = rs.getString("status");
 
                     //    if (specCode.compareTo("O") == 0){
-                    //    	spec = "HCP";
-                    //    }
                     //    else
-                    //    {
-                    //          spec = "WCB";
-                    //    }
                     //    if (hin.length() < 12) {
-                    //    	hin = hin + space(12-hin.length());
-                    //    }
                     //    else
-                    //    {
-                    //    	hin = hin.substring(0,12);
-                    //    }
-                    //    hin = hin.toUpperCase();
-                    //    count = invNo.length();
-                    //    count = 8 - count;
-                    //    hcHin =hin;
                     //    if (hcFlag.compareTo("H")==0){ spec="RMB"; healthcardCount = healthcardCount + 1;hcHin =hin; hin = space(12); patientHeader2 = "\n" + HE + "R" + hcHin + hcLast + hcFirst + demoSex + hcType + space(47) + "\r"; }else{patientHeader2 = ""; }
                     //    if (visitType == null){
-                    //    	 patientHeader = HE + "H" + hin + dob + zero(count) + invNo + spec + "P" + referralDoc + space(4) + space(8) + space(4) + m_review + inPatient + space(11) + space(6);
-                    //} else{
                     //    if (visitType.compareTo("00") == 0){
-                    //    patientHeader = HE + "H" + hin + dob + zero(count) + invNo + spec + "P" + referralDoc + space(4) + space(8) + space(4) + m_review + inPatient + space(11) + space(6);
-                    //}
-                    //else{
-                    //	  patientHeader = HE + "H" + hin + dob + zero(count) + invNo + spec + "P" +referralDoc + outPatient + outPatientDateValue + space(4) + m_review + inPatient + space(11) + space(6);
-                    //}
-                    //}
-
-
-                    //    value = value + "\n" + patientHeader + "\r" + patientHeader2;
 
 
                     invCount = 0;
@@ -262,7 +198,6 @@ public class ExtractBean extends Object implements Serializable {
 
                         logNo = eFlag.equals("1") ? getSequence() : "1";
 
-                        //String dataLine =     rs2.getString("claimcode") + rs2.getString("datacenter") + forwardZero(logNo,7) + rs2.getString("payee_no") + rs2.getString("practitioner_no") +     forwardZero(rs2.getString("phn"),10)    + rs2.getString("name_verify") + rs2.getString("dependent_num") + forwardZero(rs2.getString("billing_unit"),3) + rs2.getString("clarification_code") + rs2.getString("anatomical_area") + rs2.getString("after_hour") + rs2.getString("new_program") + rs2.getString("billing_code") + moneyFormat(rs2.getString("bill_amount"),7) + rs2.getString("payment_mode") + rs2.getString("service_date") +rs2.getString("service_to_day") + rs2.getString("submission_code") + space(1) + backwardSpace(rs2.getString("dx_code1"), 5) + backwardSpace(rs2.getString("dx_code2"), 5) + backwardSpace(rs2.getString("dx_code3"), 5)+ space(15) + rs2.getString("service_location")+ forwardZero(rs2.getString("referral_flag1"), 1) + forwardZero(rs2.getString("referral_no1"),5)+ forwardZero(rs2.getString("referral_flag2"),1) + forwardZero(rs2.getString("referral_no2"),5) + forwardZero(rs2.getString("time_call"),4) + zero(4) + zero(4)+ forwardZero(rs2.getString("birth_date"),8) + forwardZero(rs2.getString("billingmaster_no"), 7) +rs2.getString("correspondence_code")+ space(20) + rs2.getString("mva_claim_code") + rs2.getString("icbc_claim_no") + rs2.getString("original_claim") + rs2.getString("facility_no")+ rs2.getString("facility_sub_no")+ space(58) + backwardSpace(rs2.getString("oin_insurer_code"),2) + backwardSpace(rs2.getString("oin_registration_no"),12)+ backwardSpace(rs2.getString("oin_birthdate"),8)+backwardSpace(rs2.getString("oin_first_name"),12) +backwardSpace(rs2.getString("oin_second_name"),1) + backwardSpace(rs2.getString("oin_surname"),18)+ backwardSpace(rs2.getString("oin_sex_code"),1) + backwardSpace(rs2.getString("oin_address"),25) + backwardSpace(rs2.getString("oin_address2"),25) + backwardSpace(rs2.getString("oin_address3"),25)+ backwardSpace(rs2.getString("oin_address4"),25)+ backwardSpace(rs2.getString("oin_postalcode"),6);
                         String dataLine = getClaimDetailRecord(rs2, logNo);
                         if (dataLine.length() != 424) {
                             MiscUtils.getLogger().debug("dataLine2 " + logNo + " Len" + dataLine.length());
@@ -294,20 +229,8 @@ public class ExtractBean extends Object implements Serializable {
                         setAsBilled(invNo);
                     }
                 }
-                //      hcCount = hcCount + healthcardCount;
                 pCount = pCount + patientCount;
                 rCount = rCount + recordCount;
-                //      flagOrder = 4 - pCount.length();
-                //      secondFlag = 5 - rCount.length();
-                //      thirdFlag= 4 - hcCount.length();
-                //      percent = new BigDecimal(0.01).setScale(2, BigDecimal.ROUND_HALF_UP);
-                //      BigTotal = BigTotal.multiply(percent);
-                //      value = value + "\n" + HE + "E" + zero(flagOrder) + pCount + zero(thirdFlag) +hcCount + zero(secondFlag) + rCount + space(63) + "\r";
-                // htmlContent = htmlContent + "<tr><td colspan='8' class='bodytext'>&nbsp;</td></tr><tr><td colspan='4' class='bodytext'>Billing No: "+ providerNo+": "+ pCount+" RECORDS PROCESSED</td><td colspan='4' class='bodytext'>TOTAL: " + BigTotal.toString().substring(0,BigTotal.toString().length() -2)  +"</td></tr>";
-                // totalAmount = BigTotal.toString();
-                //  writeFile(value);
-                //      htmlValue = htmlValue + htmlContent + "</table>";
-                //      htmlHeader = "<html><body><style type='text/css'><!-- .bodytext{  font-family: Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
 
                 htmlFooter = "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: " + providerNo + ": " + pCount + " RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: " + BigTotal + "</td>  </tr></table></body></html>";
                 htmlCode = htmlContentHeader + htmlContent + htmlFooter;

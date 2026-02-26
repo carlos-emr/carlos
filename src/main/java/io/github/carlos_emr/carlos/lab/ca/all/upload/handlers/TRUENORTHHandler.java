@@ -99,16 +99,12 @@ public class TRUENORTHHandler implements MessageHandler {
             List<Hl7TextInfo> dupResults = hl7TextInfoDao.searchByAccessionNumber(acc);
             for (Hl7TextInfo dupResult : dupResults) {
                 if (dupResult.equals(fullAcc)) {
-                    //if(h.getHealthNum().equals(dupResult.getHealthNumber())) {
                     OscarAuditLogger.getInstance().log(loggedInInfo, "Lab", "Skip", "Duplicate lab skipped - accession " + fullAcc + "\n" + msg);
                     return true;
-                    //}
                 }
                 if (dupResult.getAccessionNumber().length() > 4 && dupResult.getAccessionNumber().substring(4).equals(acc)) {
-                    //if(h.getHealthNum().equals(dupResult.getHealthNumber())) {
                     OscarAuditLogger.getInstance().log(loggedInInfo, "Lab", "Skip", "Duplicate lab skipped - accession " + fullAcc + "\n" + msg);
                     return true;
-                    //}
                 }
             }
         }

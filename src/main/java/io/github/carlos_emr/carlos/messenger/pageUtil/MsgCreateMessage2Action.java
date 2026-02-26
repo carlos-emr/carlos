@@ -180,7 +180,6 @@ public class MsgCreateMessage2Action extends ActionSupport {
         }
 
         // Link message and demographic if both IDs are valid (> 0).
-        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
         Integer parsedMessageId = ConversionUtils.fromIntString(messageId);
         Integer parsedDemoNo = ConversionUtils.fromIntString(demographic_no);
         if (parsedMessageId > 0 && parsedDemoNo > 0) {

@@ -256,7 +256,6 @@ public class RuleBaseCreator {
 
         StringBuilder rule = new StringBuilder();
 
-        // Import statement: required so the DRL engine can resolve the fact class.
         // Each rule string includes its own import because getRule() produces
         // self-contained DRL fragments that are later assembled by getRuleBase().
         rule.append("import ").append(incomingClass).append(";\n");
@@ -266,7 +265,6 @@ public class RuleBaseCreator {
 
         // "when" clause: bind the fact object to variable "m" for use in conditions
         // and consequence. The pattern "m : ClassName()" matches any instance of the
-        // class inserted into the Drools working memory, binding it to variable "m".
         rule.append("    when\n");
         rule.append("        m : ").append(simpleClassName).append("()\n");
 
@@ -281,7 +279,6 @@ public class RuleBaseCreator {
 
         // "then" clause: the consequence Java code that executes when all conditions match.
         // Typically sets an indication color on the MeasurementDSHelper fact object,
-        // e.g., m.setIndicationColor("HIGH");
         rule.append("    then\n");
         rule.append("        ").append(consequence).append("\n");
         rule.append("end");

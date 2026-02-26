@@ -273,8 +273,6 @@ public class EctMeasurements2Action extends ActionSupport {
                 }
 
             }
-            // textOnEncounter = textOnEncounter +
-            // "**********************************************************************************\\n";
 
         } else {
             String groupName = request.getParameter("groupName");

@@ -67,7 +67,6 @@ public class CopyFavorites2Action extends ActionSupport {
     public String update() {
         logger.debug("copyFavorites-update");
         
-        //LazyValidatorForm lazyForm = (LazyValidatorForm) form;
         String providerNo = request.getParameter("userProviderNo"); //lazyForm.get("userProviderNo").toString();
         int share = Integer.parseInt(request.getParameter("rb_share")); //Integer.parseInt(lazyForm.get("rb_share").toString());
         favoritesPrivilegeDao.setFavoritesPrivilege(providerNo, share==0?false:true, false);
@@ -78,8 +77,6 @@ public class CopyFavorites2Action extends ActionSupport {
     public String refresh() {
         logger.debug("copyFavorites-refresh");
 
-        //LazyValidatorForm lazyForm = (LazyValidatorForm) form;
-        //String providerNo = lazyForm.get("ddl_provider").toString();
         String providerNo = request.getParameter("ddl_provider");
         request.setAttribute("copyProviderNo", providerNo);
 
@@ -89,22 +86,18 @@ public class CopyFavorites2Action extends ActionSupport {
     public String copy() {
         logger.debug("copyFavorites-copy");
 
-        //LazyValidatorForm lazyForm = (LazyValidatorForm) form;
-        //String providerNo = lazyForm.get("userProviderNo").toString();
         
         String providerNo = request.getParameter("providerNo");
         //if ( lazyForm.get("ddl_provider") == null || lazyForm.get("ddl_provider").toString()=="")
         if (request.getParameter("ddl_provider") == null || request.getParameter("ddl_provider").equals(""))
             return SUCCESS;
 
-        //int count = Integer.parseInt(lazyForm.get("countFavorites").toString());
         int count = Integer.parseInt(request.getParameter("countFavorites"));
         List<Integer> favIDs = new ArrayList<Integer>();
         for (int i = 0; i < count; i++) {
             String search = "selected"+i;
             //if (lazyForm.get(search)!=null){
             if (request.getParameter(search) != null) {
-                //int id = Integer.parseInt(lazyForm.get("fldFavoriteId"+i).toString());
                 int id = Integer.parseInt(request.getParameter("fldFavoriteId"+i));
                 favIDs.add(id);
             }

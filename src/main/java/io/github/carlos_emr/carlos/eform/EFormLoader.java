@@ -79,18 +79,6 @@ public class EFormLoader {
     }
 
     private EFormLoader() {
-/*
-        String name = "patient_name";
-        String sql = "SELECT * FROM demographic WHERE demographic_no=${demographic}";
-        String output = "${last_name}, ${first_name}";
-        DatabaseAP ap1 = new DatabaseAP(name, sql, output);
-        String name2 = "patient_sex";
-        String sql2 = "SELECT * FROM demographic WHERE demographic_no=${demographic}";
-        String output2 = "${first_name}'s hin is: ${hin}";
-        DatabaseAP ap2 = new DatabaseAP(name2, sql2, output2);
-        eFormAPs.addElement(ap1);
-        eFormAPs.addElement(ap2);
- */
 
     }
 
@@ -178,7 +166,6 @@ public class EFormLoader {
         digester.setValidating(false);
 
         digester.addObjectCreate("eformap-config/databaseap", DatabaseAP.class);
-        //digester.addSetProperties("eformap-config/databaseap");
         digester.addBeanPropertySetter("eformap-config/databaseap/ap-name", "apName");
         digester.addBeanPropertySetter("eformap-config/databaseap/ap-sql", "apSQL");
         digester.addBeanPropertySetter("eformap-config/databaseap/ap-output", "apOutput");

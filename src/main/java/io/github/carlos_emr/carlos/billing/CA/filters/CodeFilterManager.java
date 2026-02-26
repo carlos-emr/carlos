@@ -170,7 +170,6 @@ public class CodeFilterManager {
             }
 
             if (cf.Dx != null) {
-                /* Don't check if Dx hasn't been set. */
                 boolean patientHasCodeInDxReg = false;
                 List<Dxresearch> codeList = dxresearchDao.getDxResearchItemsByPatient(demographic.getDemographicNo());
                 Arrays.sort(cf.Dx);

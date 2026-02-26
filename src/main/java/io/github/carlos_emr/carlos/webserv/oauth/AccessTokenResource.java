@@ -102,8 +102,6 @@ public class AccessTokenResource {
             return Response.status(401).entity("invalid_signature").build();
         }
 
-        // (optional) timestamp/nonce checks if you have them in provider/parser
-        // provider.checkTimestampAndNonce(oreq);
 
         // 4) Create access token (provider will handle marking request token as used)
         AccessToken at = provider.createAccessToken(rt);

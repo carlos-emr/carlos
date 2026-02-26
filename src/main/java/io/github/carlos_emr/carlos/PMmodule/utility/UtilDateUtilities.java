@@ -175,7 +175,6 @@ public class UtilDateUtilities {
     }
 
     private static String defaultPattern = "yyyy-MM-dd";
-    //    private static String dateTimePattern = "yyyy-MM-dd HH:mm:ss"; timeStampPattern = "yyyyMMddHHmmss";
     private static Locale defaultLocale = Locale.CANADA;
 
     public static String getToday(String datePattern) {

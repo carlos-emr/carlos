@@ -149,7 +149,6 @@ public class DocumentUpload2Action extends ActionSupport {
 
             fileName = newDoc.getFileName();
             String filePath = newDoc.getFilePath();
-            // save local file;
             if (docFile.length() == 0) {
                 map.put("error", 4);
                 throw new FileNotFoundException();

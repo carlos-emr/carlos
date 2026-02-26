@@ -55,7 +55,6 @@ public class BillingOnTransactionDaoImpl extends AbstractDaoImpl<BillingOnTransa
 
     public BillingOnTransaction getTransTemplate(BillingONCHeader1 cheader1, BillingONItem billItem, BillingONPayment billPayment, String curProviderNo, int itempaymentId) {
         int billNo = cheader1.getId();
-        //Date curDate1 = billPayment.getPaymentDate();
         Date curDate = new Date();
         String staus = "P";
         SimpleDateFormat admissionDateFormat = new SimpleDateFormat("yyyy-MM-dd");

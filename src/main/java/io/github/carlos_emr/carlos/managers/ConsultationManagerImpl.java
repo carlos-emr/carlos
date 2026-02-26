@@ -548,10 +548,6 @@ public class ConsultationManagerImpl implements ConsultationManager {
                         break;
                     // Checkout the comment in ConsultationWebService:getEReferAttachments() for more details
                     // case ConsultDocs.DOCTYPE_FORM:
-                    // 	Path formPDFPath = formsManager.renderForm(request, response, eReferAttachmentData.getLabId(), demographicNo);
-                    // 	String formName = String.format("Form_%03d.pdf", eReferAttachmentData.getLabId());
-                    // 	consultationAttachment = new ConsultationAttachment(eReferAttachmentData.getLabId(), DocumentType.FORM.getType(), formName, Files.readAllBytes(formPDFPath));
-                    // 	break;
                     default:
                         break;
                 }
@@ -761,7 +757,6 @@ public class ConsultationManagerImpl implements ConsultationManager {
             a.setLetterheadPhone(c.getLetterheadPhone());
             a.setLookupListItem(c.getLookupListItem());
             a.setPatientWillBook(c.isPatientWillBook());
-            //	a.setProfessionalSpecialist(c.getProfessionalSpecialist());
             a.setProviderNo(c.getProviderNo());
             a.setReasonForReferral(c.getReasonForReferral());
             a.setReferralDate(c.getReferralDate());
@@ -787,7 +782,6 @@ public class ConsultationManagerImpl implements ConsultationManager {
             }
 
 
-            //List<ConsultationRequestExtArchive> aExts = new ArrayList<ConsultationRequestExtArchive>();
             for (ConsultationRequestExt e : exts) {
                 ConsultationRequestExtArchive aext = new ConsultationRequestExtArchive();
                 aext.setDateCreated(e.getDateCreated());
@@ -796,7 +790,6 @@ public class ConsultationManagerImpl implements ConsultationManager {
                 aext.setRequestId(requestId);
                 aext.setValue(e.getValue());
                 aext.setConsultationRequestArchiveId(a.getId());
-                //aExts.add(aext);
 
                 consultationRequestExtArchiveDao.persist(aext);
             }

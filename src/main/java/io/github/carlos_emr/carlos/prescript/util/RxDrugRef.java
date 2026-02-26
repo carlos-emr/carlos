@@ -72,17 +72,12 @@ public class RxDrugRef {
     private static final Logger logger = MiscUtils.getLogger();
 
     private String server_url = null;
-    //"http://localhost:8080/drugref2/DrugrefService";
-    // "http://www.hherb.com:8001";
-    //"http://24.141.82.168:8001";
-    //"http://192.168.42.3:8001";
 
     /**
      * Creates a new instance of DrugRef
      */
     public RxDrugRef() {
         server_url = OscarProperties.getInstance().getProperty("drugref_url");
-        //server_url = System.getProperty("drugref_url");
 
     }
 
@@ -212,8 +207,6 @@ public class RxDrugRef {
         params.addElement(pKey);
         Vector vec = (Vector) callWebserviceLite("get_form", params);
         //if (vec == null || vec.isEmpty()){
-        //    return null;
-        //}
         Hashtable returnVal = (Hashtable) vec.get(0);
         return returnVal;
     }
@@ -238,8 +231,6 @@ public class RxDrugRef {
         Vector vec = (Vector) callWebserviceLite("get_generic_name", params);
         //  if (vec == null || vec.isEmpty()){
 
-        //     return null;
-        //  }
         Hashtable returnVal = (Hashtable) vec.get(0);
         return returnVal;
     }
@@ -551,8 +542,6 @@ public class RxDrugRef {
     public Vector list_drugs(String searchexpr, Hashtable tags) {
         Vector params = new Vector();
         params.addElement(searchexpr);
-        //params.addElement(tags);
-        //Vector vec = (Vector) callWebservice("list_drugs",params);
         Vector vec = (Vector) callWebservice("list_search_element", params);
 
 
@@ -781,7 +770,6 @@ public class RxDrugRef {
         Vector params = new Vector();
         params.addElement("interactions_byATC");
         params.addElement(drugs);
-        //Vector vec = (Vector) callWebserviceLite("get",params);
         Vector vec = new Vector();
         Object obj = callWebserviceLite("fetch", params);
         if (obj instanceof Vector) {

@@ -237,11 +237,6 @@ public class ProviderManager2 {
 
         //custom summary display
         //NEW
-		/*
-		if(map.get("summary.item.custom.display") != null) {
-			settings.setSummaryItemCustomDisplay("on".equals(map.get("summary.item.custom.display").getValue())?true:false);
-		}
-		*/
 
         //OLD
         //cpp.pref.enable - use for now so changes in the new to hide or display cpp items reflect in the encounter as well as new ui
@@ -271,16 +266,6 @@ public class ProviderManager2 {
             settings.setCppOngoingConcernsProblemStatus("on".equals(map.get(PreferenceManagerImpl.ONGOING_PROBLEM_STATUS).getValue()) ? true : false);
         }
 
-        /*
-         *
-         * if .position dosen't exist = on
-         * if .position exists and not equal "" = on
-         * ignore the R* position eg: R1I1 R1I2 R2I1 R2I2
-         *
-         * so setting position in old ui will have no effect on the new ui
-         * and when setting position in new ui it will have no effect on the old ui
-         *
-         */
         if (map.get(PreferenceManagerImpl.MED_HX_POS) != null) {
             settings.setCppDisplayMedHx("on".equals(map.get(PreferenceManagerImpl.MED_HX_POS).getValue()) ? true : false);
         } else if (map.get(PreferenceManagerImpl.OLD_MEDICAL_HISTORY_POS) != null) {
@@ -418,11 +403,6 @@ public class ProviderManager2 {
         if (map.get("hide_old_echart_link_in_appointment") != null) {
             settings.setHideOldEchartLinkInAppointment("Y".equals(map.get("hide_old_echart_link_in_appointment").getValue()));
         }
-		/*
-		if(settings.getFavoriteFormGroup()==null) {
-			settings.setFavoriteFormGroup("");
-		}
-		*/
 
         settings.setNewTicklerWarningWindow(pp.getNewTicklerWarningWindow());
 

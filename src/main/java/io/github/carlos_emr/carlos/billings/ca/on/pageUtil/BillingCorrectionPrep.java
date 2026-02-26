@@ -233,7 +233,6 @@ public class BillingCorrectionPrep {
 
     public boolean updateBillingItem(List lItemObj, HttpServletRequest request) throws ParseException {
         boolean ret = true; // dbObj.updateBillingClaimHeader(ch1Obj);
-        // _logger.info("updateBillingItem(old value = ");
 
         BillingClaimHeader1Data ch1Obj = (BillingClaimHeader1Data) lItemObj.get(0);
         String updateProviderNo = (String) request.getSession().getAttribute("user");
@@ -272,7 +271,6 @@ public class BillingCorrectionPrep {
             BillingItemData iObj = (BillingItemData) lItemObj.get(i);
             BillingONItem billOnItem = changeItem(ch1Obj, iObj, updateProviderNo, dx, serviceDate,
                     vecName.get(i), vecUnit.get(i), vecFee.get(i), vecStatus.get(i));
-            // claimId = iObj.getCh1_id();
             if (billOnItem != null) {
                 // this condition indicates one service code item was changed
                 iObj.setService_code(billOnItem.getServiceCode());
@@ -297,7 +295,6 @@ public class BillingCorrectionPrep {
             }
             String sFee = vecFee.get(i);
             if (sFee == null || sFee.trim().isEmpty()) {
-                // sFee = "0.00";
                 sFee = getFee(sFee, sUnit, sName, serviceDate);
                 vecFee.set(i, sFee);
             }
@@ -315,7 +312,6 @@ public class BillingCorrectionPrep {
         // update total field in billing_on_ext if pay_program is 3rd party
         if (ch1Obj.getPay_program().matches(
                 BillingDataHlp.BILLINGMATCHSTRING_3RDPARTY)) {
-            // BillingONExtDao billOnExtDao = SpringUtils.getBean(BillingONExtDao.class);
             if (null != billOnExtDao) {
                 int billingNo = Integer.parseInt(ch1Obj.getId());
                 int demographicNo = Integer
@@ -455,12 +451,8 @@ public class BillingCorrectionPrep {
         boolean ret = false;
         if (existObj == null)
             return ret;
-        // _logger.info("isChangedBillingClaimHeader(old value = " +
-        // existObj.getStatus() + "|" + existObj.getRef_num()
         // + "|" + existObj.getAdmission_date() + "|" +
-        // existObj.getFacilty_num() + "|" + existObj.getMan_review()
         // + "|" + existObj.getBilling_date() + "|" + existObj.getProviderNo()
-        // + "|" + existObj.getPay_program());
         String temp = request.getParameter("m_review") == null ? "" : "Y";
         if (existObj.getStatus() != null
                 && request.getParameter("status") != null
@@ -547,7 +539,6 @@ public class BillingCorrectionPrep {
         if (oldObj.getService_code().equals(serviceCode)) {
             // change to settle or not
             boolean bStatusChange = false;
-            // String cStatus = (String) oldObj.getStatus();
             String cStatus = status;
             if ((!oldObj.getStatus().equals("S") && cStatus.equals("S"))
                     || (oldObj.getStatus().equals("S") && !cStatus.equals("S"))) {
@@ -559,12 +550,6 @@ public class BillingCorrectionPrep {
                     || !oldObj.getDx().equals(sDx)
                     || !oldObj.getService_date().equals(serviceDate)
                     || bStatusChange) {
-                /*
-                 * int j = dbObj.addRepoOneItem(oldObj);
-                 * if (j == 0) {
-                 * return null;
-                 * }
-                 */
                 oldObj.setSer_num(getUnit(unit));
                 oldObj.setFee(getFee(fee, getUnit(unit), serviceCode, serviceDate));
                 oldObj.setService_date(serviceDate);
@@ -812,7 +797,6 @@ public class BillingCorrectionPrep {
             BigDecimal bigCodeUnit = new BigDecimal(unit);
             BigDecimal bigFee = bigCodeFee.multiply(bigCodeUnit);
             bigFee = bigFee.setScale(2, BigDecimal.ROUND_HALF_UP);
-            // bigFee = bigFee.round(new MathContext(2));
             ret = bigFee.toString();
         }
         return ret;

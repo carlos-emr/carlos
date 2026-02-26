@@ -264,7 +264,6 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
      * @return
      */
     private String getTicklerQueryString(String selectQuery, List<Object> paramList, CustomFilter filter) {
-//		String tickler_date_order = filter.getSort_order();
 
         String query = selectQuery + " FROM Tickler t WHERE 1=1 ";
         int paramIndex = 1;

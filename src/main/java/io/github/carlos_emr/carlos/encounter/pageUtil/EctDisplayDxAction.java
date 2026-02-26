@@ -111,7 +111,6 @@ public class EctDisplayDxAction extends EctDisplayAction {
                 } catch (ParseException ex) {
                     MiscUtils.getLogger().debug("EctDisplayDxAction: Error creating date " + ex.getMessage());
                     serviceDateStr = startDate;
-                    //date = new Date(System.currentTimeMillis());
                     date = null;
                 }
 

@@ -56,7 +56,6 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
     @SuppressWarnings("unchecked")
     public List<Object[]> findByBillingMasterNo(Integer billingMasterNo) {
         // "from billing_history bh left join billing_payment_type bt on bh.payment_type_id = bt.id where bh.billingmaster_no = " +
-        // billingMasterNo;
 
         // attempt to rewrite a left join with a cross product...
         Query query = entityManager.createQuery("FROM BillingHistory bh, "
@@ -75,7 +74,6 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
     @SuppressWarnings("unchecked")
     public List<Object[]> findBillingHistoryByBillingMasterNo(Integer billingMasterNo) {
         // "from billingmaster bm, billing_history bh left join billing_payment_type bt on bh.payment_type_id = bt.id
-        //     where bh.billingmaster_no = bm.billingmaster_no and bm.billing_no = " + billingNo;
         Query query = entityManager.createQuery("FROM "
                 + Billingmaster.class.getSimpleName() + " bm, "
                 + "BillingHistory bh, "

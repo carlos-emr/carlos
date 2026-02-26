@@ -77,7 +77,6 @@ public class MEDVUEHandler implements MessageHandler {
         for (int i = 0; i < labs.size(); i++) {
 
             msg = (ca.uhn.hl7v2.model.v23.message.ORU_R01) p.parse(labs.get(i).replaceAll("\n", "\r\n"));
-            //msg = (ca.uhn.hl7v2.model.v23.message.ORU_R01) p.parse(((String) hl7Body).replaceAll("\n", "\r\n"));
             ca.uhn.hl7v2.model.v23.group.ORU_R01_RESPONSE pat_res = msg.getRESPONSE();
 
             ca.uhn.hl7v2.model.v23.group.ORU_R01_ORDER_OBSERVATION obsr = pat_res.getORDER_OBSERVATION();
@@ -87,12 +86,6 @@ public class MEDVUEHandler implements MessageHandler {
             obxseg = obsr.getOBSERVATION().getOBX();
 			
 			
-			
-
-			/*if (!headers.contains(header)) {
-				headers.add(header);
-			}*/
-
         } //end lab iteration
 
     }
@@ -138,7 +131,6 @@ public class MEDVUEHandler implements MessageHandler {
 
     public String getMsgDate() {
         return formatDateTime(msg.getMSH().getDateTimeOfMessage().getTimeOfAnEvent().getValue());
-        //return (formatDateTime(msg.getMSH().getDateTimeOfMessage().getTimeOfAnEvent().getValue()));
     }
 
     public String getMsgPriority() {
@@ -233,7 +225,6 @@ public class MEDVUEHandler implements MessageHandler {
             if (subIdent != null)
                 ident = ident + "&" + subIdent;
 
-            //logger.info("returning obx identifier: " + ident);
             return (ident);
         } catch (Exception e) {
             logger.error("error returning obx identifier", e);
@@ -384,7 +375,6 @@ public class MEDVUEHandler implements MessageHandler {
             logger.error("getOBRComment error", e);
             return "";
         }
-        //return comment;
     }
 
     /**
@@ -454,7 +444,6 @@ public class MEDVUEHandler implements MessageHandler {
     }
 
     public String getHealthNum() {
-        //int pat_ids = pat_25.getPID().getPatientIdentifierListReps();
         try {
             ca.uhn.hl7v2.model.v23.datatype.CX patIdList = pat_23.getPID().getPatientIDInternalID(0);
             String hnumber = patIdList.getID().getValue();
@@ -506,7 +495,6 @@ public class MEDVUEHandler implements MessageHandler {
     }
 
     public String getPatientLocation() {
-        //return (getString(msg.getMSH().getSendingFacility().getNamespaceID().getValue()));
         return "MEDVUE";
     }
 
@@ -543,13 +531,7 @@ public class MEDVUEHandler implements MessageHandler {
     }
 
     public String getAccessionNum() {
-		/*try {
-			return msg.getMSH().getMessageControlID().getValue().toString();
-		} catch (Exception e) {
-			logger.error("Could not return accession num: ", e);
-		}*/
         return "";
-        //return this.getEncounterId();
     }
 
     public String getDocName() {
@@ -583,37 +565,11 @@ public class MEDVUEHandler implements MessageHandler {
         String docNames = "";
 
         try {
-			/*Terser terser = new Terser(msg);
-
-			String givenName = terser.get("/.ZDR(0)-4-1");
-			String middleName = terser.get("/.ZDR(0)-4-3");
-			String familyName = terser.get("/.ZDR(0)-4-2");
-
-			int i = 1;
-			while (givenName != null) {
-
-				if (i == 1)
-					docNames = givenName;
-				else
-					docNames = docNames + ", " + givenName;
-
-				if (middleName != null)
-					docNames = docNames + " " + middleName;
-				if (familyName != null)
-					docNames = docNames + " " + familyName;
-
-				givenName = terser.get("/.ZDR(" + i + ")-4-1");
-				middleName = terser.get("/.ZDR(" + i + ")-4-3");
-				familyName = terser.get("/.ZDR(" + i + ")-4-2");
-
-				i++;
-			}*/
 
             return (docNames);
 
         } catch (Exception e) {
             // ignore error... it will occur when the zdr segment is not present
-            // logger.error("Could not retrieve cc'd docs", e);
         }
         return "";
 
@@ -639,47 +595,6 @@ public class MEDVUEHandler implements MessageHandler {
         return "";
     }
 
-	/*private String getFullDocName(ca.uhn.hl7v2.model.v25.datatype.XCN xcn) {
-		String docName = "";
-
-		if (xcn.getPrefixEgDR().getValue() != null)
-			docName = xcn.getPrefixEgDR().getValue();
-
-		if (xcn.getGivenName().getValue() != null) {
-			if (docName.equals(""))
-				docName = xcn.getGivenName().getValue();
-			else
-				docName = docName + " " + xcn.getGivenName().getValue();
-
-		}
-		if (xcn.getSecondAndFurtherGivenNamesOrInitialsThereof().getValue() != null) {
-			if (docName.equals(""))
-				docName = xcn.getSecondAndFurtherGivenNamesOrInitialsThereof().getValue();
-			else
-				docName = docName + " " + xcn.getSecondAndFurtherGivenNamesOrInitialsThereof().getValue();
-		}
-		if (xcn.getFamilyName().getSurname().getValue() != null) {
-			if (docName.equals(""))
-				docName = xcn.getFamilyName().getSurname().getValue();
-			else
-				docName = docName + " " + xcn.getFamilyName().getSurname().getValue();
-
-		}
-		if (xcn.getSuffixEgJRorIII().getValue() != null) {
-			if (docName.equals(""))
-				docName = xcn.getSuffixEgJRorIII().getValue();
-			else
-				docName = docName + " " + xcn.getSuffixEgJRorIII().getValue();
-		}
-		if (xcn.getDegreeEgMD().getValue() != null) {
-			if (docName.equals(""))
-				docName = xcn.getDegreeEgMD().getValue();
-			else
-				docName = docName + " " + xcn.getDegreeEgMD().getValue();
-		}
-
-		return docName;
-	}*/
 
     private String formatDateTime(String plain) {
         String dateFormat = "yyyyMMddHHmmss";

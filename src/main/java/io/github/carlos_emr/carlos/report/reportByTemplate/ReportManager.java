@@ -232,7 +232,6 @@ public class ReportManager {
         try {
             SAXBuilder parser = new SAXBuilder();
             xml = UtilXML.escapeXML(xml); //escapes anomalies such as "date >= {mydate}" the '>' character
-            //xml = UtilXML.escapeAllXML(xml, "<param-list>");  //escapes all markup in <report> tag, otherwise can't retrieve element.getText()
             Document doc = parser.build(new java.io.ByteArrayInputStream(xml.getBytes()));
             Element root = doc.getRootElement();
             List<Element> reports = root.getChildren("report");
@@ -307,7 +306,6 @@ public class ReportManager {
     }
 
     //returns any error messages
-    //templateId = null if adding a new template
     @SuppressWarnings("unchecked")
     public String addUpdateTemplate(String uuid, String templateId, Document templateXML, LoggedInInfo loggedInInfo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", SecurityInfoManager.WRITE, null)) {

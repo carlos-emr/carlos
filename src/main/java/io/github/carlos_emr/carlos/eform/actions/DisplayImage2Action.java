@@ -226,7 +226,6 @@ public class DisplayImage2Action extends ActionSupport {
                 throw new Exception("Directory:  " + home_dir + " does not exist");
             }
             file = new File(directory, imageFileName);
-            //String canonicalPath = file.getParentFile().getCanonicalPath(); //absolute path of the retrieved file
 
             if (!directory.equals(file.getParentFile())) {
                 MiscUtils.getLogger().debug("SECURITY WARNING: Illegal file path detected, client attempted to navigate away from the file directory");

@@ -65,7 +65,6 @@ public class VacancyClientMatch2Action extends ActionSupport {
         }
         Integer vacancyId = Integer.parseInt(request.getParameter("vacancyId"));
         logger.info("vacancyID: " + vacancyId);
-        //List<MatchBO> matchList= matchingManager.listTopMatches(vacancyID, 50);
         List<MatchBO> matchList = matchingManager.getClientMatchesWithMinMatchPercentage(vacancyId, minPercentage);
         logger.info(" VacancyClientMatchList: " + matchList.size());
 

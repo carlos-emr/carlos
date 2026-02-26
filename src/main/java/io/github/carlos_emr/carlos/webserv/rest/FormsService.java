@@ -264,7 +264,6 @@ public class FormsService extends AbstractServiceImpl {
         MenuTo1 formMenu = new MenuTo1();
         int idCounter = 0;
 
-        //formMenu.add(idCounter++, bundle.getString("global.saveAsPDF"), "PDF", "URL");
         return formMenu;
     }
 }

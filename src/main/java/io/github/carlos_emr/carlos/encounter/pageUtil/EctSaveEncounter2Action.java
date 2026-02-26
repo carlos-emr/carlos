@@ -126,7 +126,6 @@ public class EctSaveEncounter2Action extends ActionSupport {
         }
 
         log.debug("EctSaveEncounter2Action Start");
-        //UtilDateUtilities dateutilities = new UtilDateUtilities();
         EctSessionBean sessionbean = null;
         sessionbean = (EctSessionBean) httpservletrequest.getSession().getAttribute(
                 "EctSessionBean");

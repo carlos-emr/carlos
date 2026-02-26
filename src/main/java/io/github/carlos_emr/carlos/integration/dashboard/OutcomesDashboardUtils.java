@@ -80,7 +80,6 @@ public class OutcomesDashboardUtils {
     public static void sendProviderIndicatorData(LoggedInInfo x, Provider provider, IndicatorTemplate indicatorTemplate) throws Exception {
         SimpleDateFormat formatter = new SimpleDateFormat("MMM d, yyyy hh:mm:ss aaa");
 
-        //logger.info("indicatorTemplate="+indicatorTemplate.toString());
         IndicatorTemplateHandler ith = new IndicatorTemplateHandler(x, indicatorTemplate.getTemplate().getBytes());
 
         //is there a mapping? read the XML template file for the sharedMetricSetName and sharedMappings
@@ -135,13 +134,6 @@ public class OutcomesDashboardUtils {
         metricOwner.setUsername(provider.getProviderNo());
 
         MetricSet metricSet = new MetricSet();
-		/*
-		metricSet.setName("OSCAR Metric Test");
-		metricSet.setDate(formatter.format(new Date()));
-		metricSet.getMetricData().add(createMetricData("Status","Up to date",200));
-		metricSet.getMetricData().add(createMetricData("Status","Overdue",200));
-		metricSet.getMetricData().add(createMetricData("Status","Not documented",400));
-		*/
 
         metricSet.setName(metricSetName);
         metricSet.setDate(formatter.format(new Date()));

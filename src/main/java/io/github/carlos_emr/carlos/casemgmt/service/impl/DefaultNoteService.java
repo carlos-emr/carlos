@@ -135,8 +135,6 @@ public class DefaultNoteService implements NoteService {
                 EChartNoteEntry e = new EChartNoteEntry();
                 e.setId(note.getNoteId());
                 e.setDate(note.getCreated());
-                // e.setProviderNo(note.get);
-                // e.setRoleId(roleId)
                 e.setType("group_note");
                 entries.add(e);
             }
@@ -201,8 +199,6 @@ public class DefaultNoteService implements NoteService {
                     logger.error("Unable to parse date " + date + " for note " + e.getId(), e1);
                 }
                 e.setProviderNo((String) h1.get("provider_no"));
-                // e.setProgramId(Integer.parseInt((String)note[3]));
-                // e.setRoleId(Integer.parseInt((String)note[4]));
                 e.setType("invoice");
                 entries.add(e);
             }

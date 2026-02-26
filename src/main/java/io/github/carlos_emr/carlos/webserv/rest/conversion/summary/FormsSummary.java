@@ -43,7 +43,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class FormsSummary implements Summary {
-    //private static Logger logger = MiscUtils.getLogger();
 
     @Autowired
     private FormsManager formsManager; // = SpringUtils.getBean(FormsManager.class);
@@ -69,17 +68,8 @@ public class FormsSummary implements Summary {
         for (EFormData eformData : completedEforms) {
             int id = eformData.getId();
 
-            //list.add(new SummaryItemTo1(id, eformData.getFormName(),"#/record/"+demographicNo+"/forms/eform/id/"+id));
             list.add(new SummaryItemTo1(id, eformData.getFormName(), "record.forms.existing", "eform"));
             count++;
-			/*int formId = eformData.getFormId();
-			String name = eformData.getFormName();
-			String subject = eformData.getSubject();
-			String status = eformData.getSubject();
-			Date date = eformData.getFormDate();
-			Boolean showLatestFormOnly = eformData.isShowLatestFormOnly();
-			formListTo1.add(FormTo1.create(id, demographicNo, formId, FormsManager.EFORM, name, subject, status, date, showLatestFormOnly));
-			*/
         }
 
 

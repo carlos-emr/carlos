@@ -134,20 +134,12 @@ public class EConsult2Action extends ActionSupport {
             return login();
         }
 
-//		String backendEconsultUrl = oscarProperties.getProperty("backendEconsultUrl");
 
 //        //Creates an HttpGet with the url to get eConsults and sets a header for the oneIdEmail
-//        HttpGet httpGet = new HttpGet(url);
-//        httpGet.addHeader("x-oneid-email", URLEncoder.encode(oneIdEmail, StandardCharsets.UTF_8.toString()));
-//        httpGet.addHeader("x-access-token", oneIdToken);
 //        
 //        //Gets an HttpClient that will ignore SSL validation
-//        HttpClient httpClient = getHttpClient2();
 //        //Executes the GET request and stores the response
-//        HttpResponse httpResponse = httpClient.execute(httpGet);
 //        //Gets the entity from the response and stores it as a JSONObject
-//        String entity = EntityUtils.toString(httpResponse.getEntity());
-//        JSONObject object = objectMapper.createObjectNode();
 
         return null;
     }

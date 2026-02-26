@@ -293,18 +293,6 @@ public class MDSHandler implements MessageHandler {
     }
 
     public String getOBRName(int i) {
-        /*String obrCode;
-        i++;
-        try{
-            if (i == 1){
-                obrCode = getString(terser.get("/.OBR-4-1"));
-            }else{
-                obrCode = getString(terser.get("/.OBR"+i+"-4-1"));
-            }
-            return("TEST "+i+": "+obrCode);
-        }catch(Exception e){
-            return("TEST "+i+":");
-        }*/
 
         // the MDS local table is not available so the corresponding lab names are unknown
         // NO NAMES FOR MDS OBR SEGMENTS
@@ -339,7 +327,6 @@ public class MDSHandler implements MessageHandler {
     public String getObservationHeader(int i, int j) {
 
         ArrayList obxSegs = (ArrayList) obrGroups.get(i);
-        //logger.info("OBRGROUP("+i+") OBXSEG("+j+"): '"+((String) obxSegs.get(j)));
         return (matchOBXToHeader((String) obxSegs.get(j)));
 
     }
@@ -500,7 +487,6 @@ public class MDSHandler implements MessageHandler {
                     String headerText = !displayName.isEmpty() ? displayName : headerName;
 
                     if (prevGroupNum != null && !groupNum.equals(prevGroupNum)) {
-                        // New group - save current header and start new one
                         if (!currentHeader.isEmpty()) {
                             headerMaps.put(prevGroupNum, currentHeader);
                             headers.add(currentHeader);
@@ -819,7 +805,6 @@ public class MDSHandler implements MessageHandler {
     public String getPatientLocation() {
         try {
             return (getString(terser.get("/.MSH-3-1")));
-            //return(getString(terser.get("/.PV1-3-1-1")));
         } catch (Exception e) {
             return ("");
         }
@@ -1086,7 +1071,6 @@ public class MDSHandler implements MessageHandler {
     }
 
     private String getFullDocName(String docSeg) {
-        //docSeg = "/.PV1-8-"
         String docName = "";
         String temp;
 

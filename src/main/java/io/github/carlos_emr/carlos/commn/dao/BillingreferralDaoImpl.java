@@ -143,9 +143,6 @@ public class BillingreferralDaoImpl extends AbstractDaoImpl<Billingreferral> imp
         }
     }
 
-    /*
-     * Don't blame me for this one, converted from SQL.
-     */
     @Override
     public List<Billingreferral> searchReferralCode(String codeName, String codeName1, String codeName2, String desc, String fDesc, String desc1, String fDesc1, String desc2, String fDesc2) {
         String sql = "SELECT b FROM Billingreferral b WHERE b.referralNo LIKE ?1 or b.referralNo LIKE ?2 or b.referralNo LIKE ?3"

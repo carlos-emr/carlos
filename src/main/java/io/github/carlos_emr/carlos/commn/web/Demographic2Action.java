@@ -134,7 +134,6 @@ public class Demographic2Action extends ActionSupport {
             throws Exception {
 
         String selectedCountry = request.getParameter("country");
-        //	String selectedSubDivision = request.getParameter("subdividion");
 
         ArrayNode results = objectMapper.createArrayNode();
 

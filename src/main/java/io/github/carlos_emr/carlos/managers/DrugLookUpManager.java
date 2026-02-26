@@ -175,7 +175,6 @@ public class DrugLookUpManager implements DrugLookUp {
 
         // TODO: This is not finished! Needs more work once drug ref gets better.
 
-        // { name=STRING, atc=STRING, product=STRING, regional_identifier=STRING, components=VECTOR, drugForm=STRING }
 
         Hashtable drug = dr.getDrug2(id, true);
 
@@ -194,7 +193,6 @@ public class DrugLookUpManager implements DrugLookUp {
         t.setForm((String) h.get("drugForm"));
         t.setName((String) h.get("product"));
 
-        // Component: { name=STRING, strength=INT, unit=STRING }
         Vector<Hashtable<String, Object>> components = (Vector<Hashtable<String, Object>>) h.get("components");
 
         DrugSearchTo1.DrugComponentTo1 comp;
@@ -207,7 +205,6 @@ public class DrugLookUpManager implements DrugLookUp {
             t.addComponent(comp);
         }
 
-        // Generic Name : { name=STRING, category=INT, id=INT }
         Hashtable generic = dr.getGenericName(id);
         String gn = (String) generic.get("name");
 

@@ -57,9 +57,6 @@ public class UCRConfigurationManager {
         digester.addObjectCreate("report-config/data-sources/data-source/forms/form/items/item", Item.class);
         digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/items/item/name", "name");
         digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/items/item/type", "valueType");
-        //digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/items/item/page", "pageId");
-        //digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/items/item/section", "sectionId");
-        //digester.addBeanPropertySetter("report-config/data-sources/data-source/forms/form/items/item/question", "questionId");
         digester.addSetNext("report-config/data-sources/data-source/forms/form/items/item", "addItem");
     }
 

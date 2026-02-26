@@ -126,7 +126,6 @@ public class CaseManagementPrintPdf {
         document = new Document();
         PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_12PT);
 
-        // writer.setPageEvent(new EndPage());
         document.setPageSize(PageSize.LETTER);
         document.open();
 
@@ -182,7 +181,6 @@ public class CaseManagementPrintPdf {
         cb.moveTo(document.left(), document.top());
         cb.lineTo(document.right(), document.top());
         cb.stroke();
-        //cb.setFontAndSize(bf, FONTSIZE);
 
         upperYcoord = document.top() - (font.getCalculatedLeading(LINESPACING) * 2f);
 
@@ -453,23 +451,11 @@ public class CaseManagementPrintPdf {
         phrase = new Phrase(LEADING, "Patient CPP", obsfont);
         p.add(phrase);
         document.add(p);
-        //upperYcoord -= p.leading() * 2f;
-        //lworkingYcoord = rworkingYcoord = upperYcoord;
-        //ColumnText ct = new ColumnText(cb);
         String[] headings = {"Social History\n", "Other Meds\n", "Medical History\n", "Ongoing Concerns\n", "Reminders\n", "Family History\n", "Risk Factors\n"};
         String[] issueCodes = {"SocHistory", "OMeds", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors"};
-        //String[] content = {cpp.getSocialHistory(), cpp.getFamilyHistory(), cpp.getMedicalHistory(), cpp.getOngoingConcerns(), cpp.getReminders()};
 
         //init column to left side of page
-        //ct.setSimpleColumn(document.left(), document.bottomMargin()+25f, document.right()/2f, lworkingYcoord);
 
-        //int column = 1;
-        //Chunk chunk;
-        //float bottom = document.bottomMargin()+25f;
-        //float middle;
-        //bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-        //cb.beginText();
-        //String headerContd;
         //while there are cpp headings to process
 
         for (int idx = 0; idx < headings.length; ++idx) {
@@ -500,7 +486,6 @@ public class CaseManagementPrintPdf {
         for (int idx = 0; idx < notes.size(); ++idx) {
             note = notes.get(idx);
             p = new Paragraph();
-            //p.setSpacingBefore(font.leading(LINESPACING)*2f);
             phrase = new Phrase(LEADING, "", font);
             chunk = new Chunk("Documentation Date: " + formatter.format(note.getObservation_date()) + "\n", obsfont);
             phrase.add(chunk);
@@ -517,40 +502,14 @@ public class CaseManagementPrintPdf {
     /*
      *Used to print footers on each page
      */
-//    class EndPage extends PdfPageEventHelper {
-//        private Date now;
-//        private String promoTxt;
 //
-//        public EndPage() {
-//            now = new Date();
-//            promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
-//            if( promoTxt == null ) {
-//                promoTxt = "";
-//            }
-//        }
 //
-//        public void onEndPage( PdfWriter writer, Document document ) {
 //            //Footer contains page numbers and date printed on all pages
-//            PdfContentByte cb = writer.getDirectContent();
-//            cb.saveState();
 //
-//            String strFooter = promoTxt + " " + formatter.format(now);
 //
-//            float textBase = document.bottom();
-//            cb.beginText();
-//            cb.setFontAndSize(font.getBaseFont(),FONTSIZE);
-//            Rectangle page = document.getPageSize();
-//            float width = page.getWidth();
 //
-//            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width/2.0f), textBase - 20, 0);
 //
-//            strFooter = "-" + writer.getPageNumber() + "-";
-//            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width/2.0f), textBase-10, 0);
 //
-//            cb.endText();
-//            cb.restoreState();
-//        }
-//    }
 
 
 }

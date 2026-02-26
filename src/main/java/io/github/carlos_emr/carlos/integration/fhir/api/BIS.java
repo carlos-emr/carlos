@@ -52,7 +52,6 @@ public class BIS {
         Patient patient = OscarFhirResourceManager.getPatientByDemographicNumber(configurationManager, demographicNo);
 
         // Practitioner
-        //Practitioner practitioner = new Practitioner(providers, configurationManager);
 
         FhirCommunicationBuilder fhirCommunicationBuilder = new FhirCommunicationBuilder(configurationManager);
         fhirCommunicationBuilder.setSubject(patient);

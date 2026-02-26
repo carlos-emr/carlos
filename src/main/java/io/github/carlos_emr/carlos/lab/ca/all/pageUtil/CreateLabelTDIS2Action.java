@@ -51,7 +51,6 @@ public class CreateLabelTDIS2Action extends ActionSupport {
             request.setAttribute("error", "Please enter a label");
 
         }
-        //response.setContentType("application/json");
         Hl7TextInfoDao hl7dao = (Hl7TextInfoDao) SpringUtils.getBean(Hl7TextInfoDao.class);
 
         try {

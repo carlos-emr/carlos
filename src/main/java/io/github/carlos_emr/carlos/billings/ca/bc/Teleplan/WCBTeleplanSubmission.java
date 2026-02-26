@@ -53,7 +53,6 @@ public class WCBTeleplanSubmission {
 
     private DemographicManager demographicManager = null;
 
-    //Misc misc = new Misc();
     public String getHtmlLine(WCB wcb, Billingmaster bm) {
         log.debug("WCB " + wcb + " BM " + bm);
         return getHtmlLine("" + bm.getBillingmasterNo(), "" + bm.getBillingNo(), wcb.getW_lname() + "," + wcb.getW_fname(), wcb.getW_phn(), dateFormat(wcb.getW_servicedate()), bm.getBillingCode(), bm.getBillAmount(), bm.getDxCode1(), "", "");

@@ -100,10 +100,8 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         }
 
         ServletOutputStream sos = null;
-        //OscarDocumentCreator osc = new OscarDocumentCreator();
 
         //Get Jasper Report
-        //InputStream ins = this.getClass().getClassLoader().getResourceAsStream("oscar/oscarBilling/ca/bc/reports/MyLetter.jrxml");
 
         if (log.isTraceEnabled()) {
             log.trace("Getting xml configuration stream ");
@@ -184,7 +182,6 @@ public class GeneratePatientLetters2Action extends ActionSupport {
         }
 
 
-        //LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_JASPERREPORTLETER, demographic$, request.getRemoteAddr());
         manageLetters.logLetterCreated(providerNo, id, demos);
         MiscUtils.getLogger().debug("Add Follow Up " + request.getParameter("addFollowUp"));
         if (request.getParameter("addFollowUp") != null && request.getParameter("addFollowUp").equals("ON")) {

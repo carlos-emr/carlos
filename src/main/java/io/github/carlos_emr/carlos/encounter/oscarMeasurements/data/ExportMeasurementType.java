@@ -63,7 +63,6 @@ public class ExportMeasurementType {
     }
 
     private Element createXMLMeasurement(String type, String typeDesc, String typeDisplayName, String measuringInstrc) {
-        //Document doc = new Document();
         Element me = new Element("measurement");
         me.setAttribute("type", type);
         me.setAttribute("typeDesc", typeDesc);

@@ -49,7 +49,6 @@ import io.github.carlos_emr.carlos.log.LogAction;
 @Service
 public class OscarJobManagerImpl implements OscarJobManager {
 
-    //private Logger logger = MiscUtils.getLogger();
 
     @Autowired
     private OscarJobDao oscarJobDao;

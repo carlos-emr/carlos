@@ -190,7 +190,6 @@ public class NextAppointmentSearchHelper {
             }
         }
 
-        //logger.info("startHour="+startHour + ",endHour="+endHour);
 
         for (int x = 0; x < timecode.length(); x++) {
             char slot = timecode.charAt(x);
@@ -200,7 +199,6 @@ public class NextAppointmentSearchHelper {
                 if (hour == startHour && min < startMin) {
                     continue;
                 }
-                //logger.info("currently at position " + x + " which is hour " + hour + " and min " + min);
                 if (slot != '_') {
                     //filter by code
                     if (searchBean.getCode().length() > 0) {
@@ -226,7 +224,6 @@ public class NextAppointmentSearchHelper {
                     }
 
                     //ready to check appointments
-                    //logger.info("schedule availability found at hour " + hour + ", min = " + min + " duration = " + duration);
 
                     Calendar cal2 = Calendar.getInstance();
                     cal2.setTime(day);
@@ -235,7 +232,6 @@ public class NextAppointmentSearchHelper {
                     cal2.set(Calendar.SECOND, 0);
                     cal2.set(Calendar.MILLISECOND, 0);
                     if (checkAvailability(cal2.getTime(), duration, providerNo)) {
-                        //logger.info("spot available at " + cal2.getTime() + " for " + duration + " mins with providers " + providerNo);
                         NextAppointmentSearchResult result = new NextAppointmentSearchResult();
                         result.setProviderNo(providerNo);
                         result.setProvider(providerDao.getProvider(providerNo));
@@ -257,14 +253,12 @@ public class NextAppointmentSearchHelper {
         cal.add(Calendar.MINUTE, (duration - 1));
         Date endTime = cal.getTime();
 
-        //MiscUtils.getLogger().info("checking availability - startTime:"+startTime + ",endTime="+endTime);
         //startTime + duration = endTime
         //we are wanting to make sure no appointments have overlapping time
         boolean booked = false;
         for (Appointment a : rs) {
             Date apptStartDate = fixDate(date, a.getStartTime());
             Date apptEndDate = fixDate(date, a.getEndTime());
-            //MiscUtils.getLogger().info("\tappt found @ startTime:"+apptStartDate + ",endTime="+apptEndDate);
 
             if (endTime.before(apptStartDate)) {
                 continue;

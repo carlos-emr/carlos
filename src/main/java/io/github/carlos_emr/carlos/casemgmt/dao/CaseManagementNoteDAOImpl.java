@@ -250,8 +250,6 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         } else {
             String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?0 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
             return (List<CaseManagementNote>) getHibernateTemplate().find(hql, demographic_no);
-            // return getHibernateTemplate().findByNamedQuery("mostRecent", new Object[] {
-            // demographic_no });
 
         }
     }
@@ -307,20 +305,12 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             List<CaseManagementNote> list = (List<CaseManagementNote>) Hibernatetemplate.find(hql, demographic_no);
             Hibernatetemplate.setMaxResults(0);
             return list;
-            // return getHibernateTemplate().findByNamedQuery("mostRecent", new Object[] {
-            // demographic_no });
 
         }
     }
 
     // This is the original method. It was created by CAISI, to get all notes for
     // each client.
-    /*
-     * public List getNotesByDemographic(String demographic_no) { return
-     * this.getHibernateTemplate().
-     * find("from CaseManagementNote cmn where cmn.demographic_no = ? ORDER BY cmn.update_date DESC"
-     *, new Object[] {demographic_no}); }
-     */
 
     @SuppressWarnings("unchecked")
     @Override
@@ -400,10 +390,8 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         }
 
         hibernateTemplate.setMaxResults(0);
-        // String hql = "select distinct cmn from CaseManagementNote cmn where
         // cmn.demographic_no = ? and cmn.issues.issue_id in (" + list +
         // ") and cmn.id in (select max(cmn.id) from cmn GROUP BY uuid) ORDER BY
-        // cmn.observation_date asc";
         return retList;
     }
 
@@ -432,10 +420,8 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
                         new Object[]{id, demographic_no});
             }
         }
-        // String hql = "select distinct cmn from CaseManagementNote cmn where
         // cmn.demographic_no = ? and cmn.issues.issue_id in (" + list +
         // ") and cmn.id in (select max(cmn.id) from cmn GROUP BY uuid) ORDER BY
-        // cmn.observation_date asc";
         return new ArrayList<CaseManagementNote>();
     }
 
@@ -467,7 +453,6 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             for (Integer id : ids)
                 notes.add(getNote(id.longValue()));
         } finally {
-            //session.close();
         }
 
         // make unique for uuid
@@ -543,7 +528,6 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     public List<CaseManagementNote> search(CaseManagementSearchBean searchBean) {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 
-        // Session session = getSession();
         Session session = currentSession();
 
         List<CaseManagementNote> results = null;
@@ -581,7 +565,6 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         } catch (ParseException e) {
             log.warn("Warning", e);
         } finally {
-            //session.close();
         }
 
         return results;
@@ -597,23 +580,19 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
 
     @Override
     public boolean haveIssue(Long issid, String demoNo) {
-        // Session session = getSession();
         Session session = currentSession();
         try {
             SQLQuery query = session.createSQLQuery("select * from casemgmt_issue_notes where id=" + issid.longValue());
             List results = query.list();
-            // log.info("haveIssue - DAO - # of results = " + results.size());
             if (results.size() > 0)
                 return true;
             return false;
         } finally {
-            //session.close();
         }
     }
 
     @Override
     public boolean haveIssue(String issueCode, Integer demographicId) {
-        // Session session=getSession();
         Session session = currentSession();
         try {
             SQLQuery query = session.createSQLQuery(
@@ -623,18 +602,13 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             query.setParameter("demographicId", demographicId);
             query.setParameter("issueCode", issueCode);
             List results = query.list();
-            // log.info("haveIssue - DAO - # of results = " + results.size());
             if (results.size() > 0)
                 return true;
             return false;
         } finally {
-            //session.close();
         }
     }
 
-    /*
-     * select issue_id from issue where code = 'Concerns';
-     */
 
     @Override
     public int getNoteCountForProviderForDateRange(String providerNo, Date startDate, Date endDate) {

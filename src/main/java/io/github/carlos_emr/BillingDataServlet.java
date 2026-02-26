@@ -74,8 +74,6 @@ public class BillingDataServlet extends HttpServlet implements java.io.Serializa
 //          instantiate the beans and store them so they can be accessed by the called page
             BillingDataBean billingDataBean = new BillingDataBean();
 
-//      	 javax.servlet.ServletRequest.setAttribute("billingDataBean", billingDataBean);
-
 
             billingDataBean.setBilling_no(request.getParameter("billing_no"));
 
@@ -92,18 +90,12 @@ public class BillingDataServlet extends HttpServlet implements java.io.Serializa
             billingDataBean.setStatus(request.getParameter("status"));
 
 //          Initialize the bean zip property from the parameters
-//         billingDataBean.setZip(request.getParameter("zip"));
 
 //          Initialize the bean phone property from the parameters
-//         billingDataBean.setPhone(request.getParameter("phone"));
 
 //          Initialize the bean email property from the parameters
-//         billingDataBean.setEmail(request.getParameter("email"));
 
 // Call the output page.
-
-            //	 RequestDispatcher dispatch = getServletContext().getRequestDispatcher(getInitParameter("result_page"));
-            //	 dispatch.forward(request, response);
 
 
             response.sendRedirect(getServletConfig().getInitParameter("result_page"));

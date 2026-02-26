@@ -81,14 +81,6 @@ public class DefaultGenericHandler implements MessageHandler {
         Parser p = new PipeParser();
         p.setValidationContext(new NoValidation());
 
-        /*
-         * force parsing as a generic message by changing the message structure
-         * Also clean up any potential new lines that will break the parser.
-         * Every segment in a lab should be separated with a carriage return "\r".
-         * Be sure to check the Parser specifications and confirm that "\r" is the proper deliminator.
-         * A lab will fail to parse if a new line or return is located in the middle of a
-         * segment.  Labs often insert breaks into comments.
-         */
 
         StringTokenizer stringTokenizer = new StringTokenizer(hl7Body, String.valueOf("\n"), false);
         if (stringTokenizer.countTokens() > 0) {
@@ -105,7 +97,6 @@ public class DefaultGenericHandler implements MessageHandler {
 
                     // this converts all HL7 into generic HL7
                     if (segment.startsWith("MSH")) {
-                        // segment = segment.replaceAll("R01", "");
                         pipe = segment.charAt(3);
                     }
 
@@ -135,9 +126,6 @@ public class DefaultGenericHandler implements MessageHandler {
         String[] segments = terser.getFinder().getRoot().getNames();
         obrGroups = new ArrayList<ArrayList<Segment>>();
 
-        /*
-         *  Fill the OBX array list for use by future methods
-         */
         for (int i = 0; i < obrCount; i++) {
             ArrayList<Segment> obxSegs = new ArrayList<Segment>();
 
@@ -197,7 +185,6 @@ public class DefaultGenericHandler implements MessageHandler {
             return (obrGroups.size());
         } else {
             int i = 1;
-            //String test;
             Segment test;
             try {
 

@@ -70,9 +70,6 @@ public class DemographicConverter extends AbstractConverter<Demographic, Demogra
         d.setDateOfBirth(t.getDobDay());
         d.setMonthOfBirth(t.getDobMonth());
         d.setYearOfBirth(t.getDobYear());
-//		d.setDateOfBirth(ConversionUtils.toDateString(t.getDateOfBirth(), ConversionUtils.DATE_PATTERN_DAY));
-//		d.setMonthOfBirth(ConversionUtils.toDateString(t.getDateOfBirth(), ConversionUtils.DATE_PATTERN_MONTH));
-//		d.setYearOfBirth(ConversionUtils.toDateString(t.getDateOfBirth(), ConversionUtils.DATE_PATTERN_YEAR));
         d.setSexDesc(t.getSexDesc());
         d.setDateJoined(t.getDateJoined());
         d.setFamilyDoctor(t.getFamilyDoctor());

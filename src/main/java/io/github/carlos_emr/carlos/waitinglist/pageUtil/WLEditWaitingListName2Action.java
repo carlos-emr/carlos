@@ -50,17 +50,12 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): just entering.");
         HttpSession session = request.getSession();
-        //LazyValidatorForm wlnForm = (LazyValidatorForm) form;
 
 
         String edit = request.getParameter("edit");
         String actionChosen = request.getParameter("actionChosen");
         String providerNo = (String) session.getAttribute("user");
         String groupNo = "";
-        /*String wlNewName = (String) wlnForm.get("wlNewName");
-        String wlChangedName = (String) wlnForm.get("wlChangedName");
-        String selectedWL = (String) wlnForm.get("selectedWL");
-        String selectedWL2 = (String) wlnForm.get("selectedWL2");*/
         int successCode = 0;
         request.setAttribute("message", "");
         setMessage("");
@@ -94,12 +89,8 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
                             } catch (Exception ex1) {
                                 if (ex1.getMessage().equals("wlNameExists")) {
                                     setMessage("oscar.waitinglistname.wlNameExists");
-                                    //msgs.add(ActionMessages.GLOBAL_MESSAGE,
-                                    //		 new ActionMessage("oscar.waitinglistname.wlNameExists"));
                                 } else {
                                     setMessage("oscar.waitinglistname.error");
-                                    //msgs.add(ActionMessages.GLOBAL_MESSAGE,
-                                    //		 new ActionMessage("oscar.waitinglistname.error"));
                                 }
                             }
                         }
@@ -112,12 +103,8 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
                             } catch (Exception ex2) {
                                 if (ex2.getMessage().equals("wlNameExists")) {
                                     setMessage("oscar.waitinglistname.wlNameExists");
-                                    //msgs.add(ActionMessages.GLOBAL_MESSAGE,
-                                    //		 new ActionMessage("oscar.waitinglistname.noSuchWL"));
                                 } else {
                                     setMessage("oscar.waitinglistname.error");
-                                    //msgs.add(ActionMessages.GLOBAL_MESSAGE,
-                                    //		 new ActionMessage("oscar.waitinglistname.error"));
                                 }
                             }
                         }
@@ -130,12 +117,8 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
                             } catch (Exception ex3) {
                                 if (ex3.getMessage().equals("wlNameUsed")) {
                                     setMessage("oscar.waitinglistname.wlNameUsed");
-                                    //msgs.add(ActionMessages.GLOBAL_MESSAGE,
-                                    //		 new ActionMessage("oscar.waitinglistname.wlNameUsed"));
                                 } else {
                                     setMessage("oscar.waitinglistname.error");
-                                    //msgs.add(ActionMessages.GLOBAL_MESSAGE,
-                                    //		 new ActionMessage("oscar.waitinglistname.error"));
                                 }
                             }
                         }
@@ -147,7 +130,6 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
             } catch (Exception ex) {
                 MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): Exception: " + ex);
                 setMessage("oscar.waitinglistname.error");
-                //msgs.add(ActionMessages.GLOBAL_MESSAGE, new ActionMessage("oscar.waitinglistname.error"));
                 return "failure";
             }
 
@@ -155,13 +137,10 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
         if (successCode == 1) {
             setMessage("oscar.waitinglistname.createSuccess");
-            //msgs.add(ActionMessages.GLOBAL_MESSAGE, new ActionMessage("oscar.waitinglistname.createSuccess"));
         } else if (successCode == 2) {
             setMessage("oscar.waitinglistname.editSuccess");
-            //msgs.add(ActionMessages.GLOBAL_MESSAGE, new ActionMessage("oscar.waitinglistname.editSuccess"));
         } else if (successCode == 3) {
             setMessage("oscar.waitinglistname.removeSuccess");
-            //msgs.add(ActionMessages.GLOBAL_MESSAGE, new ActionMessage("oscar.waitinglistname.removeSuccess"));
         } else {
             // no idea if this is good or bad, original author didn't document
         }
@@ -181,7 +160,6 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
 
         MiscUtils.getLogger().debug("WLEditWaitingListName2Action/execute(): getMessage() = " + getMessage());
         request.setAttribute("message", getMessage());
-        //saveMessages(request, msgs); //<-- since only one message is needed each time, this function is not needed
 
         return "continue";
     }

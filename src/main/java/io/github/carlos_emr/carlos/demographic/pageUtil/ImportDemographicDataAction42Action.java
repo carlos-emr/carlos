@@ -370,17 +370,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     // set the current directory globally. Other methods use it to retrieve relative files.
                     currentDirectory = stream.toAbsolutePath().toString();
 
-                    /* check for an XML file that matches the folder name (standard). It's best for performance
-                     * to avoid hunting through the folders when not needed.
-                     */
                     Path xmlFile = Paths.get(currentDirectory, stream.toFile().getName() + ".xml");
                     if (Files.exists(xmlFile)) {
                         processXmlFile(loggedInInfo, xmlFile, warnings, logs, request, timeshiftInDays, students, courseId);
                     }
 
-                    /*
-                     * otherwise hunting for a valid xml file is required. There should only be 1.
-                     */
                     else {
                         List<Path> possibleXmlFileList = searchFileByExtension(stream, warnings);
                         for (Path possibleXmlFile : possibleXmlFileList) {
@@ -575,45 +569,17 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return filteredFileList;
     }
 
-//    private void saveParts(String tmpDir, String ifile) throws Exception {
-//    	int len = 0;
-//    	byte[] buf = new byte[1024];
 //
-//        ZipInputStream in = new ZipInputStream(new FileInputStream(ifile));
-//        ZipEntry entry = in.getNextEntry();
-//        String entryDir = "";
 //
-//        while (entry!=null) {
-//            String entryName = entry.getName();
 //            if (entry.isDirectory())
-//            	entryDir = entryName;
 //            if (entryName.startsWith(entryDir))
-//            	entryName = entryName.substring(entryDir.length());
 //
 //            if (entryName.isEmpty()) {
-//            	entry = in.getNextEntry();
-//            	continue;
-//            }
 //
 //
-//            String ofile = tmpDir + entryDir +  entryName;
 //
 //            if (!matchFileExt(ofile, "xml")) {
-//                OutputStream out = null;
 //                try {
-//                	String path = ofile.substring(0, ofile.lastIndexOf(File.separator));
-//                	new File(path).mkdirs();
-//                    out = new FileOutputStream(ofile);
-//                    while ((len=in.read(buf)) > 0) out.write(buf, 0, len);
-//                    out.close();
-//                } finally {
-//                	IOUtils.closeQuietly(out);
-//                }
-//            }
-//            entry = in.getNextEntry();
-//        }
-//        in.close();
-//    }
 
     private void resetProviderBean(HttpServletRequest request) {
         ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -1249,80 +1215,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             demographicNo = dd.getDemoNoByNamePhoneEmail(loggedInInfo, firstName, lastName, phone, workPhone, email);
             demographic = dd.getDemographic(loggedInInfo, demographicNo);
         }
-/*
-        if (demographic!=null && StringUtils.nullSafeEqualsIgnoreCase(demographic.getPatientStatus(), "Contact-only")) {
-        	//found contact-only demo, replace!
-        	SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-            demographic.setTitle(title);
-            demographic.setMiddleNames(middleNames);
-            demographic.setAddress(address);
-            demographic.setCity(city);
-            demographic.setProvince(province);
-            demographic.setPostal(postalCode);
-            demographic.setYearOfBirth(year_of_birth);
-            demographic.setMonthOfBirth(month_of_birth);
-            demographic.setDateOfBirth(date_of_birth);
-            demographic.setHin(hin);
-            demographic.setVer(versionCode);
-            demographic.setRosterStatus(rosterStatus);
-            demographic.setRosterEnrolledTo(rosterEnrolledTo);
-
-            Date dDate;
-            try {
-            	dDate = formatter.parse(rosterDate);
-            }
-            catch ( Exception e ) {
-            	dDate = null;
-            }
-
-            demographic.setRosterDate(dDate);
-
-
-            try {
-            	dDate = formatter.parse(termDate);
-            }
-            catch ( Exception e ) {
-            	dDate = null;
-            }
-
-            demographic.setRosterTerminationDate(dDate);
-            demographic.setRosterTerminationReason(termReason);
-            demographic.setPatientStatus(patient_status);
-
-            try {
-            	dDate = formatter.parse(psDate);
-            }
-            catch ( Exception e ) {
-            	dDate = null;
-            }
-
-            demographic.setPatientStatusDate(dDate);
-            demographic.setChartNo(chart_no);
-            demographic.setOfficialLanguage(official_lang);
-            demographic.setSpokenLanguage(spoken_lang);
-            demographic.setFamilyDoctor(primaryPhysician);
-            demographic.setSex(sex);
-            demographic.setHcType(hc_type);
-
-            try {
-            	dDate = formatter.parse(hc_renew_date);
-            }
-            catch ( Exception e ) {
-            	dDate = null;
-            }
-
-            demographic.setHcRenewDate(dDate);
-            demographic.setSin(sin);
-            dd.setDemographic(loggedInInfo, demographic);
-            err_note.add("Replaced Contact-only patient "+patientName+" (Demo no="+demographicNo+")");
-
-        } else { //add patient!
-*/
         demoRes = dd.addDemographic(loggedInInfo, title, lastName, firstName, middleNames, address, city, province, postalCode, residentialAddress, residentialCity, residentialProvince, residentialPostalCode, homePhone, workPhone, year_of_birth, month_of_birth, date_of_birth, hin, versionCode, rosterStatus, rosterDate, termDate, termReason, rosterEnrolledTo, patient_status, psDate, ""/*date_joined*/, chart_no, official_lang, spoken_lang, primaryPhysician, sex, ""/*end_date*/, ""/*eff_date*/, ""/*pcn_indicator*/, hc_type, hc_renew_date, ""/*family_doctor*/, email, ""/*alias*/, ""/*previousAddress*/, ""/*children*/, ""/*sourceOfIncome*/, ""/*citizenship*/, sin);
         demographicNo = demoRes.getId();
-        /*        }
-
-         */
 
         if (StringUtils.filled(demographicNo)) {
             //TODO: Course - Admit to student program
@@ -1450,129 +1344,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
             }
 
             //Demographic Contacts
-/*
-            Demographics.Contact[] contt = demo.getContactArray();
-            for (int i=0; i<contt.length; i++) {
-                HashMap<String, String> contactName = getPersonName(contt[i].getName());
-                String cFirstName = StringUtils.noNull(contactName.get("firstname"));
-                String cLastName  = StringUtils.noNull(contactName.get("lastname"));
-                String cEmail = StringUtils.noNull(contt[i].getEmailAddress());
-
-                pn = contt[i].getPhoneNumberArray();
-                workPhone=""; workExt=""; homePhone=""; homeExt=""; cellPhone=""; ext="";
-                for (int j=0; j<pn.length; j++) {
-                    String phone = pn[j].getPhoneNumber();
-                    if (phone==null) {
-                        if (pn[j].getNumber()!=null) {
-                            if (pn[j].getAreaCode()!=null) phone = pn[j].getAreaCode()+"-"+pn[j].getNumber();
-                            else phone = pn[j].getNumber();
-                        }
-                    }
-                    if (phone!=null) {
-                        if (pn[j].getExtension()!=null) ext = pn[j].getExtension();
-                        else if (pn[j].getExchange()!=null) ext = pn[j].getExchange();
-
-                        if (pn[j].getPhoneNumberType()==cdsDt.PhoneNumberType.W) {
-                            workPhone = phone;
-                            workExt   = ext;
-                        } else if (pn[j].getPhoneNumberType()==cdsDt.PhoneNumberType.R) {
-                            homePhone = phone;
-                            homeExt   = ext;
-                        } else if (pn[j].getPhoneNumberType()==cdsDt.PhoneNumberType.C) {
-                            cellPhone = phone;
-                        }
-                    }
-                }
-
-                String contactNote = StringUtils.noNull(contt[i].getNote());
-                String cDemoNo = dd.getDemoNoByNamePhoneEmail(loggedInInfo, cFirstName, cLastName, homePhone, workPhone, cEmail);
-                String cPatient = cLastName+","+cFirstName;
-                if (StringUtils.empty(cDemoNo)) {   //add new demographic as contact
-                    psDate = UtilDateUtilities.DateToString(new Date(),"yyyy-MM-dd");
-                    demoRes = dd.addDemographic(loggedInInfo, "", cLastName, cFirstName,"", "", "", "", "","","","","",
-                    			homePhone, workPhone, "", "", "", "", "", "", "", "", "", null,
-                    			"Contact-only", psDate, "", "", "", "", "",
-                    			"F", "", "", "", "", "", "",
-                    			cEmail, "", "", "", "", "", "", "");
-                	cDemoNo = demoRes.getId();
-                    err_note.add("Contact-only patient "+cPatient+" (Demo no="+cDemoNo+") created");
-
-                    if (!workExt.equals("")) demographicExtDao.addKey("", Integer.parseInt(cDemoNo), "wPhoneExt", workExt);
-                    if (!homeExt.equals("")) demographicExtDao.addKey("", Integer.parseInt(cDemoNo), "hPhoneExt", homeExt);
-                    if (!cellPhone.equals("")) demographicExtDao.addKey("", Integer.parseInt(cDemoNo), "demo_cell", cellPhone);
-                }
-                insertIntoAdmission(cDemoNo);
-
-                cdsDt.PurposeEnumOrPlainText[] contactPurposes = contt[i].getContactPurposeArray();
-                String sdm="", emc="", cPurpose=null;
-                String[] rel = new String[contactPurposes.length];
-
-                for (int j=0; j<contactPurposes.length; j++) {
-                    cPurpose = contactPurposes[j].getPurposeAsPlainText();
-                    if (cPurpose==null) cPurpose = contactPurposes[j].getPurposeAsEnum().toString();
-                    if (cPurpose!=null) cPurpose = cPurpose.trim();
-                    else continue;
-
-                    if (cPurpose.equals("EC") || cPurpose.equalsIgnoreCase("emergency contact"))
-                    	emc = "true";
-                    else if (cPurpose.equals("SDM") || cPurpose.equalsIgnoreCase("substitute decision maker"))
-                    	sdm = "true";
-                    else if (cPurpose.equals("NK")) rel[j] = "Next of Kin";
-                    else if (cPurpose.equals("AS")) rel[j] = "Administrative Staff";
-                    else if (cPurpose.equals("CG")) rel[j] = "Care Giver";
-                    else if (cPurpose.equals("PA")) rel[j] = "Power of Attorney";
-                    else if (cPurpose.equals("IN")) rel[j] = "Insurance";
-                    else if (cPurpose.equals("GT")) rel[j] = "Guarantor";
-                    else if (cPurpose.equals("O")) rel[j] = "Other";
-                    else {
-                        rel[j] = cPurpose;
-                    }
-                }
-
-                if (StringUtils.filled(cDemoNo)) {
-                	if (oscarProperties.isPropertyActive("NEW_CONTACTS_UI")) {
-                        for (int j=0; j<rel.length; j++) {
-                        	if (rel[j]==null) continue;
-
-                            DemographicContact demoContact = new DemographicContact();
-                            demoContact.setCreated(new Date());
-                            demoContact.setUpdateDate(new Date());
-                            demoContact.setDemographicNo(Integer.valueOf(demographicNo));
-                            demoContact.setContactId(cDemoNo);
-                            demoContact.setType(1); //should be "type" - display problem
-                            demoContact.setCategory("personal");
-                        	demoContact.setRole(rel[j]);
-                            demoContact.setEc(emc);
-                            demoContact.setSdm(sdm);
-                            demoContact.setNote(contactNote);
-                            demoContact.setCreator(loggedInInfo.getLoggedInProviderNo());
-                        	contactDao.persist(demoContact);
-
-                        	//clear emc, sdm, contactNote after 1st save
-                        	emc = "";
-                        	sdm = "";
-                        	contactNote = "";
-                        }
-                	} else {
-				        Facility facility = (Facility) request.getSession().getAttribute(SessionConstants.CURRENT_FACILITY);
-				        Integer facilityId = null;
-				        if (facility!=null) facilityId = facility.getId();
-
-				        for (int j=0; j<rel.length; j++) {
-				        	if (rel[j]==null) continue;
-
-							DemographicRelationship demoRel = new DemographicRelationship();
-							demoRel.addDemographicRelationship(demographicNo, cDemoNo, rel[j], sdm.equals("true"), emc.equals("true"), contactNote, admProviderNo, facilityId);
-
-                        	//clear emc, sdm, contactNote after 1st save
-                        	emc = "";
-                        	sdm = "";
-                        	contactNote = "";
-				        }
-                	}
-                }
-            }
-*/
             Set<CaseManagementIssue> scmi = null;    //Declare a set for CaseManagementIssues
             //PERSONAL HISTORY
             PersonalHistory[] pHist = patientRec.getPersonalHistoryArray();
@@ -1646,15 +1417,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                 //to dumpsite
                 String dump = "imported.cms4.2011.06";
-                /*
-                String summary = fHist[i].getCategorySummaryLine();
-                if (StringUtils.empty(summary)) {
-                        err_summ.add("No Summary for Family History ("+(i+1)+")");
-                }
-                dump = Util.addLine(dump, summary);
-                */
-                //String diagCode = getCode(fHist[i].getDiagnosisProcedureCode(),"Diagnosis/Procedure");
-                //dump = Util.addLine(dump, diagCode);
                 dump = Util.addLine(dump, getResidual(fHist[i].getResidualInfo()));
                 if (!"imported.cms4.2011.06".equals(dump)) {
                     cmNote = prepareCMNote("2", null);
@@ -1734,13 +1496,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                 //to dumpsite
                 String dump = "imported.cms4.2011.06";
-                /*
-                String summary = pHealth[i].getCategorySummaryLine();
-                if (StringUtils.empty(summary)) {
-                    err_summ.add("No Summary for Past Health ("+(i+1)+")");
-                }
-                dump = Util.addLine(dump, summary);
-                */
                 String diagCode = isICD9(pHealth[i].getDiagnosisProcedureCode()) || isICD9CM(pHealth[i].getDiagnosisProcedureCode()) || isICD10(pHealth[i].getDiagnosisProcedureCode()) ? null : getCode(pHealth[i].getDiagnosisProcedureCode(), "Diagnosis/Procedure");
                 dump = Util.addLine(dump, diagCode);
                 dump = Util.addLine(dump, getResidual(pHealth[i].getResidualInfo()));
@@ -1826,13 +1581,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                 //to dumpsite
                 String dump = "imported.cms4.2011.06";
-                    /*
-                    String summary = probList[i].getCategorySummaryLine();
-                    if (StringUtils.empty(summary)) {
-                            err_summ.add("No Summary for Problem List ("+(i+1)+")");
-                    }
-                    dump = Util.addLine(dump, summary);
-                    */
                 String diagCode = isICD9(probList[i].getDiagnosisCode()) || isICD9CM(probList[i].getDiagnosisCode()) || isICD10(probList[i].getDiagnosisCode()) ? null : getCode(probList[i].getDiagnosisCode(), "Diagnosis");
                 dump = Util.addLine(dump, diagCode);
                 dump = Util.addLine(dump, getResidual(probList[i].getResidualInfo()));
@@ -1900,13 +1648,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                 //to dumpsite
                 String dump = "imported.cms4.2011.06";
-                    /*
-                    String summary = rFactors[i].getCategorySummaryLine();
-                    if (StringUtils.empty(summary)) {
-                        err_summ.add("No Summary for Risk Factors ("+(i+1)+")");
-                    }
-                    dump = Util.addLine(dump, summary);
-                    */
                 dump = Util.addLine(dump, getResidual(rFactors[i].getResidualInfo()));
                 if (!"imported.cms4.2011.06".equals(dump)) {
                     cmNote = prepareCMNote("2", null);
@@ -1975,13 +1716,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                 //to dumpsite
                 String dump = "imported.cms4.2011.06";
-                    /*
-                    String summary = alerts[i].getCategorySummaryLine();
-                    if (StringUtils.empty(summary)) {
-                            err_summ.add("No Summary for Alerts & Special Needs ("+(i+1)+")");
-                    }
-                    dump = Util.addLine(dump, summary);
-                    */
                 dump = Util.addLine(dump, getResidual(alerts[i].getResidualInfo()));
                 if (!"imported.cms4.2011.06".equals(dump)) {
                     cmNote = prepareCMNote("2", null);
@@ -2027,9 +1761,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                 if (aaReactArray[i].getCode() != null)
                     regionalId = StringUtils.noNull(aaReactArray[i].getCode().getCodeValue());
-                //  alg_extra = Util.addLine(alg_extra,"Offending Agent Description: ", aaReactArray[i].getOffendingAgentDescription());
                 if (aaReactArray[i].getReactionType() != null) {
-                    //alg_extra = Util.addLine(alg_extra,"Reaction Type: ", aaReactArray[i].getReactionType().toString());
                     if (aaReactArray[i].getReactionType() == AdverseReactionType.AR) {
                         intolerant = true;
                     }
@@ -2077,13 +1809,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                 //to dumpsite
                 String dump = "imported.cms4.2011.06";
-                    /*
-                    String summary = aaReactArray[i].getCategorySummaryLine();
-                    if (StringUtils.empty(summary)) {
-                        err_summ.add("No Summary for Allergies & Adverse Reactions ("+(i+1)+")");
-                    }
-                    dump = Util.addLine(dump, summary);
-                    */
                 dump = Util.addLine(dump, alg_extra);
                 dump = Util.addLine(dump, getResidual(aaReactArray[i].getResidualInfo()));
                 if (aaReactArray[i].getReactionType() != null)
@@ -2174,7 +1899,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
 
                 drug.setETreatmentType(medArray[i].getTreatmentType());
-                //no need: DrugReason drugReason = new DrugReason();
 
                 drug.setRxStatus(medArray[i].getPrescriptionStatus());
 
@@ -2183,10 +1907,8 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
                 String non_auth = medArray[i].getNonAuthoritativeIndicator();
                 if (non_auth != null && "Y".equals(non_auth)) drug.setNonAuthoritative(non_auth.equalsIgnoreCase("Y"));
-                //  else  err_data.add("Error! No non-authoritative indicator for Medications & Treatments ("+(i+1)+")");
 
                 drug.setDispenseInterval(medArray[i].getDispenseInterval() != null ? medArray[i].getDispenseInterval() : "");
-                //  else err_data.add("Error! Invalid Dispense Interval for Medications & Treatments ("+(i+1)+")");
 
                 String protocolIdentifier = medArray[i].getProtocolIdentifier();
                 if (protocolIdentifier != null) {
@@ -2287,7 +2009,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 if (medArray[i].getPrescribedBy() != null) {
                     HashMap<String, String> personName = getPersonName(medArray[i].getPrescribedBy().getName());
                     String personOHIP = medArray[i].getPrescribedBy().getOHIPPhysicianId();
-                    // writeProviderData(personName.get("firstname"), personName.get("lastname"), personOHIP, null);
                     ProviderData pd = getProviderByOhip(personOHIP);
                     if (pd != null && Integer.valueOf(pd.getProviderNo()) > -1000)
                         drug.setProviderNo(pd.getProviderNo());
@@ -2480,9 +2201,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
             //APPOINTMENTS
             Appointments[] appArray = patientRec.getAppointmentsArray();
-            //   ApptStatusData asd = new ApptStatusData();
-            //   String[] allStatus = asd.getAllStatus();
-            //   String[] allTitle = asd.getAllTitle();
             AppointmentStatusDao appointmentStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
             List<AppointmentStatus> appointmentStatusList = appointmentStatusDao.findAll();
 
@@ -2531,8 +2249,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                         AppointmentStatus tmp = createNewAppointmentStatus(apptStatus);
 
                         status = tmp.getStatus();
-                        //	err_note.add("Cannot map appointment status ["+apptStatus+"]. Appointment Status set to [Imported]");
-                        //	failedToMapStatus=true;
                     }
                 } else {
                     status = "t";
@@ -2624,9 +2340,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     hrmDoc.setRecipientId("");
                     hrmDoc.setRecipientName("");
 
-                    //    hrmDoc.setHrmCategoryId(hrmCategoryId);
-
-                    //    hrmDoc.setSourceFacilityReportNo(repR[i].getSendingFacilityReport());
 
                     hrmDocDao.persist(hrmDoc);
 
@@ -2839,8 +2552,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                             String receivedDate = dateFPtoString(repR[i].getReceivedDateTime(), timeShiftInDays);
 
                             String responsibleId = admProviderNo;
-                            //  DemographicDao dDao = SpringUtils.getBean(DemographicDao.class);
-                            //  Demographic demographic =dDao.getDemographic(demographicNo);
                             if (demographic != null && !StringUtils.isNullOrEmpty(demographic.getProviderNo())) {
                                 responsibleId = demographic.getProviderNo();
                             }
@@ -2866,7 +2577,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                                     der.setDocumentNo(docNum);
 
                                     String extraReviewer = writeProviderData(rr.getName().getFirstName(), rr.getName().getLastName(), rr.getReviewingOHIPPhysicianId());
-                                    //String extraReviewDateTime = dateFPtoString(rr.getDateTimeReportReviewed(), timeShiftInDays);
 
 
                                     der.setReviewDateTime(rr.getDateTimeReportReviewed().getFullDate().getTime());
@@ -3088,7 +2798,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 }
             }
 
-            //NEW CATEGORY - data that doesn't fit into other categories
             NewCategory[] newCategories = patientRec.getNewCategoryArray();
             String extraCategoryData = "";
             for (int i = 0; i < newCategories.length; i++) {
@@ -3114,7 +2823,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 String encounter = cNotes[i].getMyClinicalNotesContent();
                 if (StringUtils.empty(encounter)) {
                     err_data.add("Empty clinical note (" + (i + 1) + ")");
-                    //continue;
                     encounter = org.apache.commons.lang3.StringUtils.trimToEmpty(encounter);
                 }
 
@@ -3594,8 +3302,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                     Iterator iter = obj.keys();
                     while (iter.hasNext()) {
                         String countryCode = (String) iter.next();
-                        //String countryName = ((org.codehaus.jettison.json.JSONObject)obj.get(countryCode)).getString("name");
-                        //org.codehaus.jettison.json.JSONObject divisions = ((org.codehaus.jettison.json.JSONObject)obj.get(countryCode)).get("divisions");
                         JSONObject divisions = obj.getJSONObject(countryCode).getJSONObject("divisions");
                         Iterator iter2 = divisions.keys();
                         List<JSONObject> rList = new ArrayList<JSONObject>();
@@ -3624,7 +3330,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
         if (csdc.length == 2) {
             String country = csdc[0];
-            //	String province = csdc[1];
 
             List<JSONObject> divisions =
                     map.get(country);
@@ -3797,7 +3502,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         String codingSystem = StringUtils.noNull(diagCode.getStandardCodingSystem()).toLowerCase();
 
         return codingSystem.equals("icd-9");
-        //	return (codingSystem.contains("icd") && codingSystem.contains("9"));
     }
 
     boolean isICD9(cdsDt.Code diagCode) {
@@ -3805,7 +3509,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
         String codingSystem = StringUtils.noNull(diagCode.getCodingSystem()).toLowerCase();
         return codingSystem.equals("icd-9");
-        //return (codingSystem.contains("icd") && codingSystem.contains("9"));
     }
 
 
@@ -3813,7 +3516,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         if (diagCode == null) return false;
 
         String codingSystem = StringUtils.noNull(diagCode.getStandardCodingSystem()).toLowerCase();
-        //return (codingSystem.contains("icd") && codingSystem.contains("10"));
         return codingSystem.equals("icd-10");
     }
 
@@ -3821,7 +3523,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         if (diagCode == null) return false;
 
         String codingSystem = StringUtils.noNull(diagCode.getCodingSystem()).toLowerCase();
-        //return (codingSystem.contains("icd") && codingSystem.contains("10"));
         return codingSystem.equals("icd-10");
     }
 
@@ -3829,7 +3530,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         if (diagCode == null) return false;
 
         String codingSystem = StringUtils.noNull(diagCode.getStandardCodingSystem()).toLowerCase();
-        //return (codingSystem.contains("icd") && codingSystem.contains("10"));
         return codingSystem.equals("icd-9-cm");
     }
 
@@ -3837,7 +3537,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         if (diagCode == null) return false;
 
         String codingSystem = StringUtils.noNull(diagCode.getCodingSystem()).toLowerCase();
-        //return (codingSystem.contains("icd") && codingSystem.contains("10"));
         return codingSystem.equals("icd-9-cm");
     }
 
@@ -3942,7 +3641,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 cmIssu.setDemographic_no(Integer.valueOf(demographicNo));
                 cmIssu.setIssue_id(isu.getId());
                 cmIssu.setType(isu.getType());
-                //cmIssu.setResolved(resolved);
                 caseManagementManager.saveCaseIssue(cmIssu);
                 cmIssu.setIssue(isu);
                 sCmIssu.add(cmIssu);
@@ -4474,14 +4172,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
 
     }
 
-    /*
-     * MSH segment for a dummy GDML record
-     */
 
-
-    /*
-     * Get a new array of only the results which have a matching accessing number
-     */
     private LaboratoryResults[] filterByAccession(LaboratoryResults[] labResultArr, String accession) {
         List<LaboratoryResults> filteredList = new ArrayList<LaboratoryResults>();
 
@@ -4493,25 +4184,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return filteredList.toArray(new LaboratoryResults[filteredList.size()]);
     }
 
-
-	/*
-    String[] _accession = new String[labResultArr.length]; //accessionNumber
-    String[] _coll_date = new String[labResultArr.length]; //collectionDateTime
-    String[] _title	    = new String[labResultArr.length]; //same as _testName
-    String[] _testName  = new String[labResultArr.length]; //testName + "/" + getTestNameReportedByLab
-    String[] _abn	    = new String[labResultArr.length]; // A or N
-    String[] _minimum   = new String[labResultArr.length]; //if (getReferenceRangeText)getReferenceRangeText, getReferenceRange.getLowLimit
-    String[] _maximum   = new String[labResultArr.length]; //getReferenceRange.getHighLimit
-    String[] _result    = new String[labResultArr.length]; //result.getValue
-    String[] _unit	    = new String[labResultArr.length]; //result.getUnitOfMeasure
-    String[] _labnotes  = new String[labResultArr.length]; //"Notes: "+getNotesFromLab
-    String[] _location  = new String[labResultArr.length]; //laboratoryName
-    String[] _reviewer  = new String[labResultArr.length]; //getResultReviewer->getPersonName(getName) + ohip + names
-    String[] _lab_ppid  = new String[labResultArr.length];
-    String[] _rev_date  = new String[labResultArr.length]; //getDateTimeResultReviewed
-    String[] _req_date  = new String[labResultArr.length]; //getLabRequisitionDateTime (set to collectionDateTime if null)
-
-*/
 
     private Long findMeasurementId(Integer labNo, String testName) {
         Integer measId = measurementsExtDao.getMeasurementIdByLabNoAndTestName(labNo.toString(), testName);
@@ -4726,11 +4398,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         if (status.equals(as.getDescription())) {
             return as.getStatus();
         }
-/*
-		if ("Confirmed".equals(status) && "Here".equals(as.getDescription())) {
-			return as.getStatus();
-		}
-*/
         if ("No-Show".equals(status) && "No Show".equals(as.getDescription())) {
             return as.getStatus();
         }
@@ -4792,32 +4459,11 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
                 (blue.length() == 1 ? "0" + blue : blue);
     }
 
-//	protected String getImportStatus() {
 //		//create if necessary
-//		 AppointmentStatusDao appointmentStatusDao = SpringUtils.getBean(AppointmentStatusDao.class);
-//		 AppointmentStatus importedStatus = null;
 //		 for (AppointmentStatus as : appointmentStatusDao.findAll()) {
 //			 if (as.getDescription().equals("Imported")) {
-//				 importedStatus = as;
-//				 break;
-//			 }
-//		 }
 //		 if (importedStatus == null) {
-//			 importedStatus = new AppointmentStatus();
-//			 importedStatus.setActive(1);
-//			 importedStatus.setColor("#DDDDDD");
-//			 importedStatus.setDescription("Imported");
-//			 importedStatus.setEditable(1);
-//			 importedStatus.setIcon("5.gif");
 //			 if (appointmentStatusDao.findByStatus("i") == null) {
-//				 importedStatus.setStatus("i");
-//			 } else {
-//				 importedStatus.setStatus("I");
-//			 }
-//			 appointmentStatusDao.persist(importedStatus);
-//		 }
-//		return importedStatus.getStatus();
-//	}
 
     String tryToMapRoute(String route) {
         String ret = "";

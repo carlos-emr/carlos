@@ -314,7 +314,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
             return null;
         }
         bean.clearReRxDrugIdList();
-        //return "successClearStash";
         return null;
     }
 
@@ -361,29 +360,10 @@ public final class RxDeleteRx2Action extends ActionSupport {
         Date date = new Date();
         String logStatement = drug + " Changing end date to :" + date;
         drug.setArchivedDate(date);
-        //drug.setEndDate(drug.getArchivedDate());
         drug.setArchived(true);
         drug.setArchivedReason(reason);
 
         drugDao.merge(drug);
-      /*  Enumeration em=request.getParameterNames();
-        while (em.hasMoreElements()){
-            String s=em.nextElement().toString();
-            MiscUtils.getLogger().debug("request.parameterName="+s);
-            MiscUtils.getLogger().debug("value="+request.getParameter(s));
-        }
-        em=request.getAttributeNames();
-        while (em.hasMoreElements()){
-            String s=em.nextElement().toString();
-            MiscUtils.getLogger().debug("request.attributeName="+s);
-            MiscUtils.getLogger().debug("value="+request.getAttribute(s));
-        }
-        em=request.getSession().getAttributeNames();
-        while (em.hasMoreElements()){
-            String s=em.nextElement().toString();
-            MiscUtils.getLogger().debug("request.attributeName in session="+s);
-            MiscUtils.getLogger().debug("value="+request.getSession().getAttribute(s));
-        }*/
         try {
             createDiscontinueNote(request);
         } catch (Exception e) {
@@ -459,7 +439,6 @@ public final class RxDeleteRx2Action extends ActionSupport {
         cmn.setPassword("NULL");
         cmn.setLocked(false);
         cmn.setHistory(strNote);
-        //cmn.setPosition(0);
         //save note
         WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(se.getServletContext());
         CaseManagementManager cmm = (CaseManagementManager) ctx.getBean(CaseManagementManager.class);

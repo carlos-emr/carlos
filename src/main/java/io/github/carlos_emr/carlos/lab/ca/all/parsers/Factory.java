@@ -111,9 +111,6 @@ public final class Factory {
         return ret;
     }
 
-    /*
-     * Create and return the message handler corresponding to the message type
-     */
     public static MessageHandler getHandler(String type, String hl7Body) {
         Document doc = null;
         String msgType;

@@ -145,7 +145,6 @@ public class PreventionsSummary implements Summary {
         }
 
         //sort items
-        //Collections.sort(list, new ChronologicAsc());
 
     }
 
@@ -160,23 +159,5 @@ public class PreventionsSummary implements Summary {
         return false;
     }
 	
-	/* @SuppressWarnings("rawtypes")
-	 public class ChronologicAsc implements Comparator {
-		 public int compare( Object o1, Object o2 ) {
-			 Item i1 = (Item)o1;
-			 Item i2 = (Item)o2;
-			 Date d1 = i1.getDate();
-			 Date d2 = i2.getDate();
-
-			 if( d1 == null && d2 != null )
-				 return -1;
-			 else if( d1 != null && d2 == null )
-				 return 1;
-			 else if( d1 == null && d2 == null )
-				 return 0;
-			 else
-				 return -(i1.getDate().compareTo(i2.getDate()));
-		 }
-	 }*/
 
 }

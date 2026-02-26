@@ -288,10 +288,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         JFreeChart chart = ChartFactory.createHighLowChart("HighLowChartDemo2", "Time", "Value", new DefaultOHLCDataset("DREFERENCE RANGE", ohlc), true);
         XYPlot plot = (XYPlot) chart.getPlot();
 
-//        HighLowRenderer renderer = (HighLowRenderer) plot.getRenderer();
 //        renderer.
-//        renderer.setOpenTickPaint(Color.green);
-//        renderer.setCloseTickPaint(Color.black);
 
         plot.setDataset(1, dataset);
 
@@ -299,9 +296,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
 
         log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
-        //plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin()*6);
-        //plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin()*6);
-        // plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin()*1.7);
 
         plot.getDomainAxis().setUpperMargin(0.9);
         plot.getDomainAxis().setLowerMargin(0.9);
@@ -383,9 +377,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
 
         log.debug("LEN " + plot.getDomainAxis().getLowerBound() + " ddd " + plot.getDomainAxis().getUpperMargin() + " eee " + plot.getDomainAxis().getLowerMargin());
-        //plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin()*6);
-        //plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin()*6);
-        // plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin()*1.7);
 
         plot.getDomainAxis().setUpperMargin(0.9);
         plot.getDomainAxis().setLowerMargin(0.9);
@@ -625,16 +616,13 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         switch ((int) newSeries.getItemCount() / 10) {
             case 0:
-                //("0-9");
                 generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.###"));
                 renderer.setDefaultItemLabelsVisible(true);
                 break;
             case 1:
-                //("10-19");
                 renderer.setDefaultItemLabelsVisible(true);
                 break;
             case 2:
-                //("20-29");
                 Font font = new Font("helvetica", Font.PLAIN, 8);
                 renderer.setDefaultItemLabelFont(font);
                 renderer.setDefaultItemLabelsVisible(true);
@@ -771,16 +759,13 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         switch ((int) newSeries.getItemCount() / 6) {
             case 0:
-                //("0-5");
                 generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.###"));
                 renderer.setDefaultItemLabelsVisible(true);
                 break;
             case 1:
-                //("6-11");
                 renderer.setDefaultItemLabelsVisible(true);
                 break;
             case 2:
-                //("12-17");
                 Font font = new Font("helvetica", Font.PLAIN, 8);
                 renderer.setDefaultItemLabelFont(font);
                 renderer.setDefaultItemLabelsVisible(true);
@@ -815,15 +800,12 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         XYTaskDataset drugDataset = getDrugDataSet(demographicNo, drugs);
 
-        //DateAxis xAxis = new DateAxis("Date/Time");
-        //DateAxis xAxis = plot.getRangeAxis();
         SymbolAxis yAxis = new SymbolAxis("Meds", getDrugSymbol(demographicNo, drugs));
         yAxis.setGridBandsVisible(false);
         XYBarRenderer xyrenderer = new XYBarRenderer();
         xyrenderer.setUseYInterval(true);
         xyrenderer.setBarPainter(new StandardXYBarPainter());
 
-        //XYPlot xyplot = new XYPlot(drugDataset, xAxis, yAxis, xyrenderer);
         XYPlot xyplot = new XYPlot(drugDataset, plot.getDomainAxis(), yAxis, xyrenderer);
 
 
@@ -1070,7 +1052,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         xyrenderer.setUseYInterval(true);
         xyrenderer.setBarPainter(new StandardXYBarPainter());
 
-        //XYPlot xyplot = new XYPlot(drugDataset, xAxis, yAxis, xyrenderer);
         XYPlot xyplot = new XYPlot(drugDataset, plot.getDomainAxis(), yAxis, xyrenderer);
 
         xyplot.getDomainAxis().setUpperMargin(0.9);

@@ -144,32 +144,6 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                     Dao.addItem(item);
                 }
             }
-/*
-			FlowSheetUserCreatedDao flowsheetUserCreatedDao = SpringUtils.getBean(FlowSheetUserCreatedDao.class);
-			List<FlowSheetUserCreated> customFlowsheets = flowsheetUserCreatedDao.findActiveNoTemplate();
-			for(FlowSheetUserCreated cf : customFlowsheets) {
-				NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-				String flowsheetName = cf.getName();
-				if (securityMgr.hasReadAccess("_flowsheet." + flowsheetName, roleName$)) {
-					Flowsheet fs = null;
-					if ((fs = flowsheetDao.findByName(flowsheetName)) != null) {
-						if (!fs.isEnabled()) {
-							continue;
-						}
-					}
-					String dispname = cf.getDisplayName();
-
-					winName = flowsheetName + bean.demographicNo;
-					hash = Math.abs(winName.hashCode());
-					url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath() + "/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp?demographic_no=" + bean.demographicNo + "&name=" + flowsheetName + "');return false;";
-					item.setLinkTitle(dispname);
-					dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-					item.setTitle(dispname);
-					item.setURL(url);
-					Dao.addItem(item);
-				}
-			}
-*/
             //next we add program based flowsheets
             List<String> programs = new ArrayList<String>();
             AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
@@ -249,9 +223,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                     item.setLinkTitle(title + " " + data.getDataField() + " " + formattedDate);
                     title = padd(title, data.getDataField());
                     String tmp = "<span class=\"measureCol1\">" + title + "</span>";
-                    //tmp += "<span class=\"measureCol2\">" + data.getDataField() + "&nbsp;</span>";
                     item.setValue(StringUtils.maxLenString(data.getDataField(), 6, 5, ELLIPSES));
-                    //tmp += "<span class=\"measureCol3\">" + formattedDate + "</span><br style=\"clear:both\">";
                     item.setTitle(tmp);
                     item.setDate(date);
                     item.setURL("popupPage(300,800,'" + hash + "','" + request.getContextPath() + "/oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=" + type + "'); return false;");

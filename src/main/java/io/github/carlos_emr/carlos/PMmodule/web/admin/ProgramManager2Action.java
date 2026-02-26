@@ -129,14 +129,11 @@ public class ProgramManager2Action extends ActionSupport {
     private ProviderManager providerManager = SpringUtils.getBean(ProviderManager.class);
     private ProgramQueueManager programQueueManager = SpringUtils.getBean(ProgramQueueManager.class);
     private VacancyTemplateManager vacancyTemplateManager = SpringUtils.getBean(VacancyTemplateManager.class);
-    //private RoleManager roleManager;
     private RolesManager roleManager = SpringUtils.getBean(RolesManager.class);
     private FunctionalCentreDao functionalCentreDao = SpringUtils.getBean(FunctionalCentreDao.class);
     private static VacancyTemplateDao vacancyTemplateDAO = SpringUtils.getBean(VacancyTemplateDao.class);
     private static CriteriaDao criteriaDAO = SpringUtils.getBean(CriteriaDao.class);
-    //private static CriteriaTypeDao criteriaTypeDAO = SpringUtils.getBean(CriteriaTypeDao.class);
     private static CriteriaTypeOptionDao criteriaTypeOptionDAO = SpringUtils.getBean(CriteriaTypeOptionDao.class);
-    //private static CriteriaSelectionOptionDao criteriaSelectionOptionDAO = (CriteriaSelectionOptionDao) SpringUtils.getBean(CriteriaSelectionOptionDao.class);
 
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
 
@@ -356,9 +353,6 @@ public class ProgramManager2Action extends ActionSupport {
         if ("".equals(searchStatus)) {
             // what is 'any' used for? Temporarily commented them out.
             // when click 'program list' on PMM, it will not display community programs, only display bed and service programs.
-            // searchStatus = "Any";
-            // searchType = "Any";
-            // searchFacilityId = "0";
 
             if (userrole.indexOf("admin") != -1) {
                 list = programManager.getAllPrograms();
@@ -405,13 +399,7 @@ public class ProgramManager2Action extends ActionSupport {
             Collections.sort(functionalCentres, FunctionalCentre.ACCOUNT_ID_COMPARATOR);
             request.setAttribute("functionalCentres", functionalCentres);
 
-            // request.setAttribute("programFirstSignature",programManager.getProgramFirstSignature(Integer.valueOf(id)));
 
-            // programForm.set("programFirstSignature",programManager.getProgramFirstSignature(Integer.valueOf(id)));
-
-            // List<ProgramSignature> pss = programManager.getProgramSignatures(Integer.valueOf(id));
-            // programForm.set("programSignatures", (ProgramSignature[] ) pss.toArray(new ProgramSignature[pss.size()]));
-            // request.setAttribute("programSignatures",programManager.getProgramSignatures(Integer.valueOf(id)));
         }
 
         setEditAttributes(request, id);
@@ -440,8 +428,6 @@ public class ProgramManager2Action extends ActionSupport {
     public String programSignatures() {
         String programId = request.getParameter("programId");
         if (programId != null) {
-            // List<ProgramSignature> pss = programManager.getProgramSignatures(Integer.valueOf(programId));
-            // programForm.set("programSignatures", (ProgramSignature[] ) pss.toArray(new ProgramSignature[pss.size()]));
             request.setAttribute("programSignatures", programManager.getProgramSignatures(Integer.valueOf(programId)));
         }
         return "programSignatures";
@@ -832,7 +818,6 @@ public class ProgramManager2Action extends ActionSupport {
         // if a program has a client in it, you cannot make it inactive
         if (request.getParameter("program.programStatus").equals("inactive")) {
             if (!("External".equals(request.getParameter("program.type")))) {
-                // Admission ad = admissionManager.getAdmission(Long.valueOf(request.getParameter("id")));
                 List admissions = admissionManager.getCurrentAdmissionsByProgramId(String.valueOf(program.getId()));
                 if (admissions.size() > 0) {
                     addActionMessage(getText("program.client_in_the_program", program.getName()));
@@ -1035,7 +1020,6 @@ public class ProgramManager2Action extends ActionSupport {
             try {
                 matchManager.processEvent(vacancy, IMatchManager.Event.VACANCY_CREATED);
             } catch (MatchManagerException e) {
-                //log.error("Match manager failed", e);
             }
         }
 
@@ -1087,7 +1071,6 @@ public class ProgramManager2Action extends ActionSupport {
         VacancyTemplateManager.saveVacancyTemplate(vacancyTemplate);
 
         //Save Criteria
-        //List<CriteriaType> typeList = VacancyTemplateManager.getAllCriteriaTypes();
         List<CriteriaType> typeList = VacancyTemplateManager.getAllCriteriaTypesByWlProgramId(Integer.parseInt(request.getParameter("programId")));
         for (CriteriaType type : typeList) {
             Criteria criteria = new Criteria();
@@ -1172,13 +1155,11 @@ public class ProgramManager2Action extends ActionSupport {
                 criteria.setCriteriaTypeId(option.getCriteriaTypeId());
             }
 
-            //criteria.setMatchScoreWeight(Double.parseDouble("0.5"));
             VacancyTemplateManager.saveCriteria(criteria);
 
             //Save criteria_selection_option
             CriteriaSelectionOption selectedOption = new CriteriaSelectionOption();
             selectedOption.setCriteriaId(criteria.getId());
-            //selectedOption.setOptionValue(String.valueOf(option.getId()));
             selectedOption.setOptionValue(option.getOptionValue());
             VacancyTemplateManager.saveCriteriaSelectedOption(selectedOption);
         }
@@ -1204,7 +1185,6 @@ public class ProgramManager2Action extends ActionSupport {
             }
             for (String role : roles) {
                 access.getRoles().add(roleManager.getRole(role));
-                //access.getRoles().add()
             }
         }
 

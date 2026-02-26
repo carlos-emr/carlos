@@ -122,7 +122,6 @@ public class TraceabilityReportProcessor implements Callable<String> {
                 pw.write(newLine);
             }
             //to check equality
-            //boolean mapsEqual = diff.areEqual();
 
             pw.write(newLine);
             pw.write("Removed:");

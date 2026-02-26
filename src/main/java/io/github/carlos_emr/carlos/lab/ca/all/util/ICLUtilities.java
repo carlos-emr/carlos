@@ -58,7 +58,6 @@ public class ICLUtilities {
             String line = null;
             boolean firstPIDflag = false; //true if the first PID segment has been processed false otherwise
             boolean firstMSHflag = false; //true if the first MSH segment has been processed false otherwise
-            //String mshSeg = br.readLine();
 
             StringBuilder sb = new StringBuilder();
             String mshSeg = "";

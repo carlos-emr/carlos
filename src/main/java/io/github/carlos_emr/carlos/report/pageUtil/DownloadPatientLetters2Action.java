@@ -84,7 +84,6 @@ public class DownloadPatientLetters2Action extends ActionSupport {
             Hashtable h = manageLetters.getReportData(fileId);
             String filename = (String) h.get("file_name");
             response.addHeader("Content-Disposition", "attachment;filename=\"" + filename + "\"");
-            //response.addHeader("Content-Disposition", "attachment;filename=report.txt" );  
             ServletOutputStream output = response.getOutputStream();
             manageLetters.writeLetterToStream(fileId, output);
             output.flush();

@@ -402,7 +402,6 @@ public class EpsilonHandler extends DefaultGenericHandler {
                         logger.info("Adding header: '" + currentHeader + "' to list");
                         headers.add(currentHeader);
                     }
-                    //  }
 
                 }
 

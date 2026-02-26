@@ -63,11 +63,6 @@ public class DecisionSupportSummary implements Summary {
     @Qualifier("DxresearchDAO")
     private DxresearchDAO dxResearchDao;
 
-    //protected static final String ELLIPSES = "...";
-    //protected static final int MAX_LEN_TITLE = 48;
-    //protected static final int CROP_LEN_TITLE = 45;
-    //protected static final int MAX_LEN_KEY = 12;
-    //protected static final int CROP_LEN_KEY = 9;
 
     public SummaryTo1 getSummary(LoggedInInfo loggedInInfo, Integer demographicNo, String summaryCode) {
 
@@ -149,8 +144,6 @@ public class DecisionSupportSummary implements Summary {
                     summaryItem.setAction(url);
                     list.add(summaryItem);
                     //if (dsConsequence.getConsequenceStrength() == DSConsequence.ConsequenceStrength.warning) {
-                    //   item.setColour("#ff5409;");
-                    //}
 
                 }
             } catch (Exception e) {

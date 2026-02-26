@@ -70,10 +70,6 @@ public class MSPReconcile {
     public static final String REP_INVOICE = "REP_INVOICE";
     public static final String REP_PAYREF = "REP_PAYREF";
     public static final String REP_PAYREF_SUM = "REP_PAYREF_SUM";
-    //	public static final String REP_PAYREF_GST = "REP_PAYREF_GST";
-//	public static final String REP_PAYREF_SUM_GST = "REP_PAYREF_SUM_GST";
-//	public static final String REP_GST_SUM = "REP_GST_SUM";
-//	public static final String REP_GST_SUM_SPLIT = "REP_GST_SUM_SPLIT";
     public static final String REP_ACCOUNT_REC = "REP_ACCOUNT_REC";
     public static final String REP_REJ = "REP_REJ";
     public static final String REP_WO = "REP_WO";
@@ -131,10 +127,7 @@ public class MSPReconcile {
         initTeleplanMonetarySuffixes();
         fmt = new SimpleDateFormat(DATE_FORMAT);
         //if (!patchApplied()) {
-        //  migratePrivateTransactions();
-        //  updatePrivateBillState();
         //  setPatched();
-        //}
     }
 
     String propFile = "patch.properties";
@@ -142,31 +135,11 @@ public class MSPReconcile {
     String value = "true";
 
 //	@Deprecated
-//	private void setPatched() {
-//		Properties patchInd = new Properties();
-//		patchInd.setProperty(key, value);
 //		try {
-//			patchInd.store(new FileOutputStream(propFile), null);
-//		} catch (IOException e) {
-//			MiscUtils.getLogger().error("Error", e);
-//		}
-//	}
 //
 //	@Deprecated
-//	private boolean patchApplied() {
-//		boolean ret = false;
-//		Properties patchInd = new Properties();
 //		try {
-//			patchInd.load(new FileInputStream(propFile));
-//			String prop = patchInd.getProperty(key);
 //			if (prop != null && value.equals(prop)) {
-//				ret = true;
-//			}
-//		} catch (IOException e) {
-//			MiscUtils.getLogger().error("Error", e);
-//		}
-//		return ret;
-//	}
 
     /**
      * Initializes the Teleplan Payment suffixes.</P?
@@ -943,13 +916,9 @@ public class MSPReconcile {
 
 
 //	@Deprecated
-//	private void updatePaymentMethod(String billingNo, String paymentMethod) {
-//		updatePaymentMethodHlp(billingNo, paymentMethod);
 //		//if this is a private bill, update the status to bill patient
 //		if (!MSPReconcile.PAYTYPE_ELECTRONIC.equals(paymentMethod)) {
 //			this.updateBillingStatusHlp(billingNo, MSPReconcile.BILLPATIENT);
-//		}
-//	}
 
     /**
      * Updates the paymentMethod of the specified bill with the supplied paymentMethod code
@@ -1360,7 +1329,6 @@ public class MSPReconcile {
                     b.amount = String.valueOf(getAmountPaid(rs.getString("bm.billingmaster_no"), MSPReconcile.BILLTYPE_PRI));
                     if (!StringUtils.isNumeric(b.amount)) {
                         throw new RuntimeException("Amount not a number");
-                        //     b.amount = this.convCurValue(rs.getString("t_paidamt"));
                     }
                 }
                 b.status = b.reason;
@@ -1550,12 +1518,8 @@ public class MSPReconcile {
                 b.provName = this.getProvider(b.apptDoctorNo, 0).getInitials();
 
                 double amountReceived = Double.parseDouble(rs.getString("amount_received"));
-//				double billAmount = Double.parseDouble(rs.getString("bill_amount"));
-//				double gst = Double.parseDouble(rs.getString("gst"));
                 b.amount = "" + amountReceived;
 
-//				b.setGst(new BigDecimal(billAmount == 0 ? 0 : (amountReceived * (gst / billAmount))).setScale(2, RoundingMode.HALF_UP).toString());
-//				b.setGstNo(rs.getString("gst_no"));
 
                 b.paymentDate = this.fmt.format(rs.getDate("creation_date"));
                 b.paymentMethod = rs.getString("payment_type_id");

@@ -320,8 +320,6 @@ public class PreventionDisplayConfig {
                 int demoAge = demograph.getAgeInYears();
                 String demoSex = demograph.getSex();
                 boolean inAgeGroup = true;
-                //log.debug("min age " + minAgeStr + " max age " + maxAgeStr + " sex " + sex + " demoAge " + demoAge
-                //        + " demoSex " + demoSex);
 
                 if (minNumPrevs != null) {
                     int minNum = Integer.parseInt(minNumPrevs);
@@ -333,7 +331,6 @@ public class PreventionDisplayConfig {
                 if (!display) {
 
                     if (minAgeStr != null && maxAgeStr != null) { // between ages
-                        //log.debug("HERE1");
                         int minAge = Integer.parseInt(minAgeStr);
                         int maxAge = Integer.parseInt(maxAgeStr);
                         if (minAge <= demoAge && maxAge >= demoAge) {
@@ -342,7 +339,6 @@ public class PreventionDisplayConfig {
                             inAgeGroup = false;
                         }
                     } else if (minAgeStr != null) { // older than
-                        //log.debug("HERE2");
                         int minAge = Integer.parseInt(minAgeStr);
                         if (minAge <= demoAge) {
                             display = true;
@@ -350,7 +346,6 @@ public class PreventionDisplayConfig {
                             inAgeGroup = false;
                         }
                     } else if (maxAgeStr != null) { // younger than
-                        //log.debug("HERE3");
                         int maxAge = Integer.parseInt(maxAgeStr);
                         if (maxAge >= demoAge) {
                             display = true;
@@ -361,7 +356,6 @@ public class PreventionDisplayConfig {
                     // not?
 
                     if (sex != null && inAgeGroup) {
-                        //log.debug("HERE4");
                         if (sex.equals(demoSex)) {
                             display = true;
                         } else {

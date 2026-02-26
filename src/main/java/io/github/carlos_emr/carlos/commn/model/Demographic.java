@@ -393,8 +393,6 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
 
-
-
     /**
      * Return the value associated with the column: hin
      */
@@ -1159,9 +1157,6 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                 }
             }
         }
-        /*
-         * Only return the first (hopefully the only) result for now.
-         */
         if (!demographicExtList.isEmpty()) {
             demographicExtResult = demographicExtList.get(0);
         }

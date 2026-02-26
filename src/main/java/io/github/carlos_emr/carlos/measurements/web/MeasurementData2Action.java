@@ -145,7 +145,6 @@ public class MeasurementData2Action extends ActionSupport {
     }
 
 
-
     public String getLatestValues() throws IOException {
         String demographicNo = request.getParameter("demographicNo");
         String typeStr = request.getParameter("types");
@@ -195,7 +194,6 @@ public class MeasurementData2Action extends ActionSupport {
         for (String key : measurementMap.keySet()) {
             Measurement value = measurementMap.get(key);
             if ((freshMap.get(key) == null) || (freshMap.get(key) != null && value.getAppointmentNo() == Integer.parseInt(appointmentNo))) {
-                //script.append("jQuery(\"[measurement='"+key+"']\").val(\""+value.getDataField().replace("\n", "\\n")+"\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
                 script.append("jQuery(\"[measurement='" + key + "']\").val(\"" + StringEscapeUtils.escapeEcmaScript(value.getDataField()) + "\").attr({itemtime: \"" + value.getCreateDate().getTime() + "\", appointment_no: \"" + value.getAppointmentNo() + "\"});\n");
                 if (apptNo > 0 && apptNo == value.getAppointmentNo()) {
                     script.append("jQuery(\"[measurement='" + key + "']\").addClass('examfieldwhite');\n");
@@ -361,7 +359,6 @@ public class MeasurementData2Action extends ActionSupport {
                 String values[] = request.getParameterValues(key);
                 if (key.equals("action") || key.equals("demographicNo") || key.equals("appointmentNo"))
                     continue;
-                //if(values.length>0 && values[0]!=null && values[0].length()>0) {
                 if (values.length > 0) {
                     measurements.put(key, values[0]);
                     Measurement m = new Measurement();

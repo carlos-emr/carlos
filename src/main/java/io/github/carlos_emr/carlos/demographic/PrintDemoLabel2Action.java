@@ -213,7 +213,6 @@ public class PrintDemoLabel2Action extends ActionSupport {
         }
         if (ins == null) {
             try {
-//                ServletContext context = getServlet().getServletContext();
                 ins = getClass().getResourceAsStream("/oscar/oscarDemographic/label.xml");
                 logger.debug("loading from : /oscar/oscarDemographic/label.xml " + ins);
             } catch (Exception ex1) {

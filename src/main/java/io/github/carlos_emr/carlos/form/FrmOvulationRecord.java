@@ -54,7 +54,6 @@ public class FrmOvulationRecord extends FrmRecord {
                 props.setProperty("clientFirstName", Misc.getString(rs, "first_name"));
                 props.setProperty("clientLastName", Misc.getString(rs, "last_name"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("dob", String.valueOf(UtilDateUtilities.calcAge(dob)));
                 props.setProperty("healthNum", Misc.getString(rs, "hin") + Misc.getString(rs, "ver"));
             }

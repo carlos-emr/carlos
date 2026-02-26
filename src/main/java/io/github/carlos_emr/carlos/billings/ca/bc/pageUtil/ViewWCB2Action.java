@@ -67,7 +67,6 @@ public class ViewWCB2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
     public String execute() {
@@ -713,7 +712,6 @@ public class ViewWCB2Action extends ActionSupport {
         w_tofollow = wcb.getW_tofollow();
         w_payeeno = wcb.getW_payeeno();
         w_pracno = wcb.getW_pracno();
-        //w_pracname= result.get("w_pracname").asText();
         w_wcbadvisor = wcb.getW_wcbadvisor();
         w_feeitem = wcb.getW_feeitem();
         w_extrafeeitem = wcb.getW_extrafeeitem();

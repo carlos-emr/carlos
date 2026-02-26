@@ -124,7 +124,6 @@ public class BillingClaimsErrorReportBeanHandlerSave {
                     claimError = nextline.substring(64, 67).trim() + " " + nextline.substring(67, 70).trim() + " "
                             + nextline.substring(70, 73).trim() + " " + nextline.substring(73, 76).trim() + " "
                             + nextline.substring(76, 79);
-                    // erObj.setClaim_error()
                     erRepObj.deleteErrorReport(erObj);
 
                 }

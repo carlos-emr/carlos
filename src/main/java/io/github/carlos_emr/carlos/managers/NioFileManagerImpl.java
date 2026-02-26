@@ -176,9 +176,6 @@ public class NioFileManagerImpl implements NioFileManager {
 
         Path cacheFilePath = hasCacheVersion2(loggedInInfo, sanitizedFilename, pageNum);
 
-        /*
-         * create a new cache file if an existing cache file is not returned.
-         */
         if (cacheFilePath == null) {
             // Validate source directory input
             if (sourceDirectory == null || sourceDirectory.trim().isEmpty()) {

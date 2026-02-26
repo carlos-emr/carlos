@@ -99,9 +99,6 @@ public class JDBCUtil {
             //practically, it seems to be unsustainable at scale and has resulted in a server being shut down
             //also, when reviewing the write2Zip function, it seems to be attempting to create a zip file of EVERY xml file EVERY SINGLE TIME a new XML file is generated
             //the purpose of this approach is unclear
-            /*MiscUtils.getLogger().debug("Next is to call zip function!");
-            zip z = new zip();
-            z.write2Zip("xml");*/
         } catch (Exception e) {
             MiscUtils.getLogger().debug(e.getMessage() + "cannot saveAsXML");
             File newXML = new File(fileName);
@@ -114,9 +111,7 @@ public class JDBCUtil {
         Document doc;
 
         try {
-            //InputStream inputStream = file.getInputStream();
             InputSource source = new InputSource(inputStream);
-            //String fileName = file.getFileName();
             int indexForm = fileName.indexOf("_");
             int indexDemo = fileName.indexOf("_", indexForm + 1);
             int indexTimeStamp = fileName.indexOf(".", indexDemo);

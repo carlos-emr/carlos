@@ -86,7 +86,6 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
 
         String where = "success";
 
-        //TeleplanCorrectionFormWCB data = (TeleplanCorrectionFormWCB) form;
 
         try {
 

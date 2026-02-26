@@ -257,7 +257,6 @@ public class Utility {
     public static String[] separateStrComponentsIntoStrArray(String str,
                                                              String delimiter) {
 
-        // strTokens[10] =
         // ~MINP4~MAXA4~MAXP6~MAXC2~INFY~ROOMTYPEPHS~OCCUPCODEQAD
         String strComponents = str;
 
@@ -511,7 +510,6 @@ public class Utility {
     // ###################################################################################
     public static String toCurrency(double money) {
         double rtn = (Math.round(money * 100)) / 100.00;
-        // rtn = rtn * 0.0 /100.0;
         String rtnStr = "" + rtn;
 
         int pos = rtnStr.length() - rtnStr.indexOf(".");

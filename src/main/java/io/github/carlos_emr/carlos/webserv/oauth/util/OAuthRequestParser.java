@@ -106,7 +106,6 @@ public final class OAuthRequestParser {
         String[] pairs = authzHeader.substring("OAuth ".length()).split("\\s*,\\s*");
         for (String pair : pairs) {
             if (pair.startsWith("oauth_signature=")) {
-                // key=value
                 String v = pair.split("=", 2)[1]
                               .replaceAll("^\"|\"$", ""); // trim quotes
                 try {

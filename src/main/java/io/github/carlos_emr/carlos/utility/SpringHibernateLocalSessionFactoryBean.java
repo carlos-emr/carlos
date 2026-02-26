@@ -115,37 +115,13 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
             return Collections.emptyMap();
         }
 
-//		public void evict(Class arg0, Serializable arg1) throws HibernateException {
-//	        sessionFactory.evict(arg0, arg1);
-//        }
 //
-//		public void evict(Class arg0) throws HibernateException {
-//	        sessionFactory.evict(arg0);
-//        }
 //
-//		public void evictCollection(String arg0, Serializable arg1) throws HibernateException {
-//	        sessionFactory.evictCollection(arg0, arg1);
-//        }
 //
-//		public void evictCollection(String arg0) throws HibernateException {
-//	        sessionFactory.evictCollection(arg0);
-//        }
 //
-//		public void evictEntity(String arg0, Serializable arg1) throws HibernateException {
-//	        sessionFactory.evictEntity(arg0, arg1);
-//        }
 //
-//		public void evictEntity(String arg0) throws HibernateException {
-//	        sessionFactory.evictEntity(arg0);
-//        }
 //
-//		public void evictQueries() throws HibernateException {
-//	        sessionFactory.evictQueries();
-//        }
 //
-//		public void evictQueries(String arg0) throws HibernateException {
-//	        sessionFactory.evictQueries(arg0);
-//        }
 
         public Map getAllClassMetadata() throws HibernateException {
             return sessionFactory.getAllClassMetadata();
@@ -167,9 +143,6 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
             return sessionFactory.getCollectionMetadata(arg0);
         }
 
-        // public Session getCurrentSession() throws HibernateException {
-        //     return(trackSession(sessionFactory.getCurrentSession()));
-        // }
 
         public Set getDefinedFilterNames() {
             return sessionFactory.getDefinedFilterNames();
@@ -196,17 +169,6 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
             return (trackSession(sessionFactory.openSession()));
         }
 
-		/*public Session openSession(Connection arg0, Interceptor arg1) {
-	        return(trackSession(sessionFactory.openSession(arg0, arg1)));
-        }
-
-		public Session openSession(Connection arg0) {
-	        return(trackSession(sessionFactory.openSession(arg0)));
-        }
-
-		public Session openSession(Interceptor arg0) throws HibernateException {
-			return(trackSession(sessionFactory.openSession(arg0)));
-        }*/
 
         @Override
         public StatelessSession openStatelessSession() {
@@ -258,11 +220,7 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
 
         }
 
-//		@Override
-//		public SessionFactoryOptions getSessionFactoryOptions() {
 //			// TODO Auto-generated method stub
-//			return null;
-//		}
 
         @Override
         public SessionFactoryOptions getSessionFactoryOptions() {
@@ -322,13 +280,6 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
         }
     }
 	
-	/*@Override
-	public SessionFactory newSessionFactory(Configuration config)
-	{
-		SessionFactory sf=super.newSessionFactory(config);
-		
-		return(new TrackingSessionFactory(sf));
-	}*/
 
     @Override
     protected SessionFactory buildSessionFactory(LocalSessionFactoryBuilder sfb) {

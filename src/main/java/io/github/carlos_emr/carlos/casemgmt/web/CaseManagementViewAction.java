@@ -54,9 +54,6 @@ import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 
 import java.util.*;
 
-/*
- * Updated by Eugene Petruhin on 21 jan 2009 while fixing missing "New Note" link
- */
 public class CaseManagementViewAction {
 
     private static final Integer MAX_INVOICES = 20;
@@ -202,11 +199,6 @@ public class CaseManagementViewAction {
     }
 
 
-
-
-
-
-
     public static boolean hasSameAttributes(IssueDisplay issueDisplay1, IssueDisplay issueDisplay2) {
         if (issueDisplay1.code != null && !issueDisplay1.code.equals(issueDisplay2.code)) return (false);
         if (issueDisplay1.acute != null && !issueDisplay1.acute.equals(issueDisplay2.acute)) return (false);
@@ -271,14 +263,8 @@ public class CaseManagementViewAction {
         // set all colors
         String blackColour = "FFFFFF";
         String documentColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().documents + ";";
-        //String diseaseColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().disease + ";";
         String eFormsColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().eForms + ";";
         String formsColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().forms + ";";
-        //String labsColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().labs + ";";
-        //String measurementsColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().measurements + ";";
-        //String messagesColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().messages + ";";
-        //String preventionColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().prevention + ";";
-        //String ticklerColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().tickler + ";";
         String rxColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().rx + ";";
         String invoiceColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().invoices + ";";
         String ticklerNoteColour = "color:#" + blackColour + ";background-color:#" + Colour.getInstance().ticklerNotes + ";";

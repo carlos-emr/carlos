@@ -191,9 +191,6 @@ public class FormeCARESManager {
         if (jsonDataObject == null) {
             jsonDataObject = objectMapper.createObjectNode();
 
-            /* This is a new form. Check for existing incomplete forms.
-             * to warn the user with incompleteFormExists = true/false
-             */
             jsonDataObject.put(Constants.Cares.FormField.incompleteFormExists.name(), incompleteFormExists(demographicNo));
         }
 
@@ -233,9 +230,6 @@ public class FormeCARESManager {
         ObjectNode formJsonData = null;
 
         if (tickerString != null & !tickerString.isEmpty()) {
-            /* Would rather do this: tickler = (Tickler) JsonUtil.jsonToPojo(tickerString, Tickler.class);
-             * but then a refactor of OSCAR's Tickler model is needed to handle the ENUMs correctly
-             */
             formJsonData = (ObjectNode) JsonUtil.jsonToPojo(tickerString, ObjectNode.class);
             Provider assignedTo = providerManager.getProvider(loggedInInfo, formJsonData.get(Constants.Cares.Tickler.taskAssignedTo.name()).asText());
             tickler = new Tickler();
@@ -472,9 +466,6 @@ public class FormeCARESManager {
         List<Drug> drugList = null;
         int demographicNo = jsonDataObject.get(Constants.Cares.FormField.demographicNo.name()).asInt();
 
-        /* add authorization for fetching Medications here
-         * since a Drug manager does not exist in this version of OSCAR.
-         */
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.prescriptions", SecurityInfoManager.READ, demographicNo)) {
             ArrayNode errorArray = objectMapper.createArrayNode();
             errorArray.add("User not authorized to view medications for this patient. Missing required sec object (_newCasemgmt.prescriptions)");
@@ -525,9 +516,6 @@ public class FormeCARESManager {
 
     private void setProblems(LoggedInInfo loggedInInfo, ObjectNode jsonDataObject) {
         List<Dxresearch> dxresearchList = null;
-        /* add authorization for fetching disease registry here
-         * since a dxregistry manager not exist in this version of OSCAR.
-         */
         int demographicNo = jsonDataObject.get(Constants.Cares.FormField.demographicNo.name()).asInt();
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.DxRegistry", SecurityInfoManager.READ, demographicNo)) {
             ArrayNode errorArray = objectMapper.createArrayNode();

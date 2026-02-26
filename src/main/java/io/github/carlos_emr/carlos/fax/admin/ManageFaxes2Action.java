@@ -183,9 +183,6 @@ public class ManageFaxes2Action extends Fax2Action {
 
         boolean success = false;
 
-        /*
-         *  Dont even try to resend a fax if the service is not enabled.
-         */
         if (FaxManager.isEnabled()) {
             success = faxManager.resendFax(loggedInInfo, JobId, faxNumber);
         }

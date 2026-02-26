@@ -54,7 +54,6 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 public class ObecData {
     private static Logger logger = MiscUtils.getLogger();
 
-    //public ArrayList demoList = null;
     public String sql = "";
     public String results = null;
     public String text = null;

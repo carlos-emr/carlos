@@ -224,9 +224,6 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
         return (results);
     }
 
-    /*
-     * Warning. Don't use this. It's only for the log purging feature.
-     */
     @Override
     public int purgeLogEntries(Date maxDateToRemove) {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");

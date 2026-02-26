@@ -45,7 +45,6 @@ import java.util.*;
 
 public class EctDisplayEForm2Action extends EctDisplayAction {
     private static Logger logger = MiscUtils.getLogger();
-    //private final static String BGCOLOUR = "11CC00";
     private String cmd = "eforms";
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
@@ -99,8 +98,6 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
                 //history if they need to.
                 List<EFormData> eFormDatas = EFormUtil.listPatientEformsCurrent(Integer.valueOf(bean.demographicNo), true, 0, 100);
                 filterRoles(eFormDatas, roleName);
-                //Collections.sort(eFormDatas, EFormData.FORM_DATE_COMPARATOR);
-                //Collections.reverse(eFormDatas);
 
                 for (EFormData eFormData : eFormDatas) {
                     if (eFormData.isShowLatestFormOnly() && !EFormUtil.isLatestShowLatestFormOnlyPatientForm(eFormData.getId()))

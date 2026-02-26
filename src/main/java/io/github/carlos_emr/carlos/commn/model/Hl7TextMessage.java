@@ -62,13 +62,6 @@ public class Hl7TextMessage extends AbstractModel<Integer> implements Serializab
     @Temporal(TemporalType.TIMESTAMP)
     private Date created = new Date();
 
-	/* Apperantly we can delete them, and an entry goes into RecycleBin
-	 * 
-	@PreRemove
-	protected void jpaPreventDelete() {
-		throw (new UnsupportedOperationException("Remove is not allowed for this type of item."));
-	}
-	*/
 
     @PreUpdate
     protected void jpaPreventUpdate() {

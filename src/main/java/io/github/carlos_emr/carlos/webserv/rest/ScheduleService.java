@@ -363,37 +363,6 @@ public class ScheduleService extends AbstractServiceImpl {
         return response;
     }
 
-	/*
-	 * These are some method from the ERO branch which I didn't get to.
-	 * 
-	@GET
-	@Path("/{startDate}/{endDate}/{providerId}/fetchFlipView")
-	@Produces("application/json")
-	public Response fetchFlipView(@PathParam("startDate") String startDate, @PathParam("endDate") String endDate, @PathParam("providerId") String providerId) {
-		return Response.status(Status.OK).build();
-	}
-
-	@GET
-	@Path("/{appDate}/{providerId}/{startTime}/{endTime}/checkProvAvali")
-	@Produces("application/json")
-	public Response checkProviderAvaliablity(@PathParam("appDate") String appDate, @PathParam("providerId") String providerId, @PathParam("startTime") String startTime, @PathParam("endTime") String endTime) {
-		return Response.status(Status.OK).build();
-	}
-
-	@GET
-	@Path("/blockreason/get")
-	@Produces("application/json")
-	public Response getBlockTimeReason() {
-		return Response.status(Status.OK).build();
-	}
-
-	@GET
-	@Path("/scheduleTempCode/get")
-	@Produces("application/json")
-	public Response fetchScheduleTempCode() {
-		return Response.status(Status.OK).build();
-	}
-*/
 
     @GET
     @Path("/types")

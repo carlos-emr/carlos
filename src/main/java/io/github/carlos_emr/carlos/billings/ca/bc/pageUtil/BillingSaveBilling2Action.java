@@ -247,7 +247,6 @@ public class BillingSaveBilling2Action extends ActionSupport {
     private char getBillingAccountStatus(BillingSessionBean bean) {
         char billingAccountStatus = 'O';
         if ("DONOTBILL".equals(bean.getBillingType())) {
-            //bean.setBillingType("MSP"); //RESET this to MSP to get processed
             billingAccountStatus = 'N';
         } else if ("WCB".equals(bean.getBillingType())) {
             billingAccountStatus = 'O';

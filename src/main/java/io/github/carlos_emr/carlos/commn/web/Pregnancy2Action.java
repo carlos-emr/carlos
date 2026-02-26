@@ -204,7 +204,6 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String doComplete() {
-        //Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
         String endDate = request.getParameter("endDate");
         String notes = request.getParameter("notes");
@@ -223,7 +222,6 @@ public class Pregnancy2Action extends ActionSupport {
     }
 
     public String doDelete() {
-        //Integer demographicNo = Integer.parseInt(request.getParameter("demographicNo"));
         Integer episodeId = Integer.parseInt(request.getParameter("episodeId"));
         Episode e = episodeDao.find(episodeId);
         String notes = request.getParameter("notes");

@@ -183,7 +183,6 @@ public class StaffManager2Action extends ActionSupport {
             allProgramsInContainer.add(container);
         }
         request.setAttribute("all_programs", allProgramsInContainer);
-        // request.setAttribute("roles",roleManager.getRoles());
         request.setAttribute("roles", secRoleDao.findAll());
 
         List<Facility> allFacilities = facilityDao.findAll(true);

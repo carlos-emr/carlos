@@ -50,7 +50,6 @@ public class ServiceRequestToken extends AbstractModel<Integer> {
 
     private String tokenSecret;
 
-    //private String scopes;
 
     private String callback;
 

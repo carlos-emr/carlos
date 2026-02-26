@@ -177,7 +177,6 @@ public class SRFaxProviderClient implements FaxProviderClient {
             ensureSuccess(root, "Failed to queue fax with SRFax");
 
             // SRFax returns the FaxDetailsID directly as a flat string in the Result field.
-            // Example success response: {"Status":"Success","Result":"12345678"}
             String jobId = textAt(root, "Result");
 
             FaxJob result = new FaxJob();
@@ -291,7 +290,6 @@ public class SRFaxProviderClient implements FaxProviderClient {
         ensureSuccess(root, "Failed to download SRFax document");
 
         // SRFax returns the base64-encoded document directly in the Result field.
-        // Example success response: {"Status":"Success","Result":"<base64 content>"}
         String base64Doc = textAt(root, "Result");
         if (base64Doc == null || base64Doc.isEmpty()) {
             throw new FaxProviderException("SRFax download response did not include document content");

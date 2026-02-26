@@ -60,7 +60,6 @@ public class FrmMMSERecord extends FrmRecord {
                 props.setProperty("pName", Misc.getString(rs, "pName"));
                 props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("sex", Misc.getString(rs, "sex"));
                 props.setProperty("age", String.valueOf(UtilDateUtilities.calcAge(dob)));
             }

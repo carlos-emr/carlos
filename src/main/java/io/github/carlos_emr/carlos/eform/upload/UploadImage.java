@@ -75,8 +75,6 @@ public class UploadImage extends HttpServlet {
                 FileItem item = (FileItem) iter.next();
 
                 if (item.isFormField()) {
-                    //String name = item.getFieldName();
-                    //String value = item.getString(); 
 
                 } else {
                     String pathName = item.getName();

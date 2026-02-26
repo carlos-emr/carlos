@@ -142,14 +142,12 @@ public class LabResultData implements Comparable<LabResultData> {
         // For documents, the abn field is pre-set when loading data from the database
         // For labs, we calculate abnormal status on-demand based on lab type.
         if (EXCELLERIS.equals(this.labType)) {
-            //logger.debug("excelleris is doc type");
             PathnetResultsData prd = new PathnetResultsData();
             if (prd.findPathnetAdnormalResults(this.segmentID) > 0) {
                 this.abn = true;
             }
         } else if (CML.equals(this.labType) || EPSILON.equals(this.labType)) {
 
-            //logger.debug("cml is doc type");
             CMLLabTest cml = new CMLLabTest();
             if (cml.findCMLAdnormalResults(this.segmentID) > 0) {
                 this.abn = true;
@@ -296,9 +294,7 @@ public class LabResultData implements Comparable<LabResultData> {
 
     public boolean isMatchedToPatient() {
         //       if (EXCELLERIS.equals(this.labType)){
-        //          PathnetResultsData prd = new PathnetResultsData();
         //          this.isMatchedToPatient = prd.isLabLinkedWithPatient(this.segmentID);
-        //       }
         CommonLabResultData commonLabResultData = new CommonLabResultData();
         logger.debug("in ismatchedtopatient, " + this.segmentID + "--" + this.labType);
         if (this.isMatchedToPatient == null) {
@@ -327,10 +323,6 @@ public class LabResultData implements Comparable<LabResultData> {
     }
 
     public String getReportStatus() {
-		/* if (EXCELLERIS.equals(this.labType)){
-            PathnetResultsData prd = new PathnetResultsData();
-            this.reportStatus = prd.findPathnetStatus(this.segmentID);
-        }*/
         return this.reportStatus;
     }
 
@@ -340,10 +332,6 @@ public class LabResultData implements Comparable<LabResultData> {
 
 
     public String getRequestingClient() {
-		/*if (EXCELLERIS.equals(this.labType)){
-            PathnetResultsData prd = new PathnetResultsData();
-            this.requestingClient = prd.findPathnetOrderingProvider(this.segmentID);
-        }*/
         return this.requestingClient;
     }
 
@@ -470,7 +458,6 @@ public class LabResultData implements Comparable<LabResultData> {
     public int getMultipleAckCount() {
         if (multiplAckCount == null) {
 
-            // String[] multiId = this.multiLabId.split(",");
             CommonLabResultData data = new CommonLabResultData();
             String[] multiId = data.getMatchingLabs(this.segmentID, this.labType).split(",");
             int count = 0;

@@ -55,14 +55,6 @@ public class RaDetailDaoImpl extends AbstractDaoImpl<RaDetail> implements RaDeta
     //can be safely ignored, and do not require further review.
     //
     //This string should be in a format appropriate for an SQL statement X in irrelevantErrorCodes (se usage)
-    //EV = "Check health card for current version code", which is essentially when the pt's ohip card is about to expire
-    //55 = "Deduction is an adjustment on an earlier account"
-    //57 = "This payment is an adjustment on an earlier account"
-    //HM = "Invalid master number used on date of service"
-    //30 = Service is not a benefit of OHIP
-    //B2 = Paid in accordance with the OHIP Schedule of Benefits for Telephone Virtual Care Services
-    //I6 = Premium not applicable
-    //V8 = This service paid at lower fee as per stated OHIP policy
     //In addition to this list, the functions that use this string may have additional situations hardcoded; search for use of this string directly
     private static String irrelevantErrorCodes = "('EV','55','57','HM','30','B2','I6','V8')";
 

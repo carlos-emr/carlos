@@ -54,7 +54,6 @@ public class FaxJobParams {
     private String[] copyToRecipients;
 
     private FaxJobParams() {
-        // Private constructor - use builder()
     }
 
     /**

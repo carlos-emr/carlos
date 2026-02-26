@@ -299,7 +299,6 @@ public class Recommendation {
                     // at rule execution time, m.getLastDateRecordedInMonths("measurement") is
                     // called and its integer return value is interpolated into the message string.
                     // For example, message text "Overdue by $NUMMONTHS months" becomes:
-                    //   m.addRecommendation("A1C", "Overdue by "+m.getLastDateRecordedInMonths("A1C")+" months");
                     String NUMMONTHS = "\"+m.getLastDateRecordedInMonths(\"" + measurement + "\")+\"";
                     log.debug("TRY TO REPLACE $NUMMONTHS:" + txt.indexOf("$NUMMONTHS") + " WITH " + NUMMONTHS + " " + txt);
 

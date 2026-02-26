@@ -89,9 +89,6 @@ public class SplitDocument2Action extends ActionSupport {
         String[] commands = request.getParameterValues("page");
         String queueId = request.getParameter("queueID");
 
-        /*
-         * Default Queue is always 1 if not specified
-         */
         if (queueId == null || queueId.isEmpty()) {
             queueId = "1";
         }
@@ -151,7 +148,6 @@ public class SplitDocument2Action extends ActionSupport {
 
                 WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(request.getSession().getServletContext());
                 ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) ctx.getBean("queueDocumentLinkDao");
-                //providerInboxRoutingDao.addToProviderInbox("0", Integer.parseInt(newDocNo), "DOC");
 
                 List<ProviderInboxItem> routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docNum));
                 for (ProviderInboxItem i : routeList) {

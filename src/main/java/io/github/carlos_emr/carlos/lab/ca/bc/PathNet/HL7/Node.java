@@ -88,7 +88,6 @@ public abstract class Node {
         String[] properties = this.getProperties();
         int count = fields.length;
         for (int i = 0; (fieldsIndex + i) < count; i++) {
-            //_logger.debug("prop "+properties[propertiesIndex + i]+" : "+fields[fieldsIndex + i]);
             this.data.put(properties[propertiesIndex + i], fields[fieldsIndex + i]);
         }
         return this;

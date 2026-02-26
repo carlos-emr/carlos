@@ -392,13 +392,6 @@ public class NavBarDisplayDAO {
             Date d1 = i1.getDate();
             Date d2 = i2.getDate();
 
-			 /*if( d1.before(d2) )
-                return 1;
-            else if( d1.after(d2) )
-                return -1;
-            else
-                return 0;
-			  */
             if (d1 == null && d2 != null)
                 return -1;
             else if (d1 != null && d2 == null)

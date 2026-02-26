@@ -43,8 +43,6 @@ import javax.persistence.PreUpdate;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 import javax.persistence.ElementCollection;
-//import org.hibernate.annotations.CollectionOfElements;
-
 import io.github.carlos_emr.OscarProperties;
 
 @Entity

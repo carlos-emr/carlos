@@ -87,7 +87,6 @@ public class EctType2DiabetesRecord {
 
     public int saveType2DiabetesRecord(Properties props) throws SQLException {
 
-        /* if database = postgres, make a properties with ignore case */
         String db_type = OscarProperties.getInstance().getProperty("db_type").trim();
         if (db_type.equalsIgnoreCase("postgresql")) {
             Properties temp = new Properties();

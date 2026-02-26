@@ -61,17 +61,6 @@ public final class RxReason2Action extends ActionSupport {
         return addDrugReason();
     }
 
-    /*
-     * Needed for a new Drug Reason
-     *
-    private Integer drugId = null;
-    private String codingSystem = null;    // (icd9,icd10,etc...) OR protocol
-    private String code = null;   // (250 (for icd9) or could be the protocol identifier )
-    private String comments = null;
-    private Boolean primaryReasonFlag;
-    private String providerNo = null;
-    private Integer demographicNo = null;
-     */
     public String addDrugReason() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_rx", "r", null)) {

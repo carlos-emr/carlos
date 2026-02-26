@@ -200,7 +200,6 @@ public class CaseManagementView2Action extends ActionSupport {
         return null;
     }
 
-    /* save CPP for patient */
     public String patientCPPSave() throws Exception {
         logger.debug("patientCPPSave");
 
@@ -252,9 +251,6 @@ public class CaseManagementView2Action extends ActionSupport {
     }
 
     /* show case management view */
-    /*
-     * Session variables : case_program_id casemgmt_DemoNo casemgmt_VlCountry casemgmt_msgBeans readonly
-     */
     public String view() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -397,7 +393,6 @@ public class CaseManagementView2Action extends ActionSupport {
             }
             request.setAttribute("teamMembers", teamMembers);
 
-            /* prepare new form list for patient */
             EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
             se.setAttribute("casemgmt_newFormBeans", encounterFormDao.findAll());
 
@@ -474,7 +469,6 @@ public class CaseManagementView2Action extends ActionSupport {
             request.setAttribute("program_domain", programMgr.getProgramDomain(getProviderNo(request)));
         }
 
-        /* set form value for e-chart */
 
         Locale vLocale = request.getLocale();
         this.setVlCountry(vLocale.getCountry());
@@ -568,7 +562,6 @@ public class CaseManagementView2Action extends ActionSupport {
         // deal with local notes
         startTime = System.currentTimeMillis();
         Collection<CaseManagementNote> localNotes = caseManagementNoteDao.findNotesByDemographicAndIssueCode(demographicNo, checkedCodeList.toArray(new String[0]));
-        //show locked notes anyway: localNotes = manageLockedNotes(localNotes, true, this.getUnlockedNotesMap(request));
         localNotes = manageLockedNotes(localNotes, false, this.getUnlockedNotesMap(request));
         
         // Only filter if we have a valid program ID

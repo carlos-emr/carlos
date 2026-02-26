@@ -58,7 +58,6 @@ import io.github.carlos_emr.carlos.prevention.PreventionData;
  * @Deprecated use oscarehr/managers/PreventionManager
  */
 @Deprecated
-// @Component - Removed to avoid Spring bean conflict with io.github.carlos_emr.carlos.managers.PreventionManager
 public class PreventionManager {
     private static Logger logger = MiscUtils.getLogger();
     private static final QueueCache<String, String> dataCache = new QueueCache<String, String>(4, 500, DateUtils.MILLIS_PER_HOUR, null);

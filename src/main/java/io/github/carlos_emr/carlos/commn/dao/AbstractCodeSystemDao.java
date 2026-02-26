@@ -37,9 +37,6 @@ import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 
 public interface AbstractCodeSystemDao<T extends AbstractCodeSystemModel<?>> extends AbstractDao<T> {
 
-    //public static enum codingSystem {icd9, icd10, ichppccode, msp, SnomedCore}
-
-    // public static String getDaoName(codingSystem codeSystem);
 
     public List<T> searchCode(String term);
 

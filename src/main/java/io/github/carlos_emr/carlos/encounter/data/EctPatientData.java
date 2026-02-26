@@ -206,7 +206,6 @@ public class EctPatientData {
 
                         String sql = "select * from eChart where demographicNo=" + demographicNo
                                 + " ORDER BY eChartId DESC";
-                        //                            + " ORDER BY eChartId DESC limit 1";
                         rs = DBHandler.GetSQL(sql);
                         if (rs.next()) {
                             this.eChartTimeStamp = rs.getTimestamp("timeStamp");

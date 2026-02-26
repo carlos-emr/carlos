@@ -45,9 +45,6 @@ public class Parameter {
     public static final String DATE = "date";
     public static final String TEXTLIST = "textlist";
 
-    //public static final int TYPE_INTEGER = 1;
-    //public static final int TYPE_STRING = 2;
-    //public static final int TYPE_DATE = 3;
     private String paramId = "";
     private String paramDescription = "";
     private String paramType;
@@ -56,7 +53,6 @@ public class Parameter {
     public Parameter() {
     }
 
-    //choices.size() = 0 if 'text' or 'date' type
     public Parameter(String paramId, String paramType, String paramDescription, ArrayList paramChoices) {
         this.setParamId(paramId);
         this.setParamType(paramType);

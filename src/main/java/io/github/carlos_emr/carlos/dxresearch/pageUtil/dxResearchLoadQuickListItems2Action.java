@@ -59,8 +59,6 @@ public class dxResearchLoadQuickListItems2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_dxresearch)");
         }
 
-        //dxResearchLoadQuickListItemsForm frm = (dxResearchLoadQuickListItemsForm) form;
-        //request.getSession().setAttribute("dxResearchLoadQuickListItemsFrm", frm);
         String quickListName = getQuickListName();
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();

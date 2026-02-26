@@ -77,7 +77,6 @@ public class TeleplanAPI {
     public static String ExternalActionCheckE45 = "AcheckE45";
 
 
-    //public String CONTACT_URL = "https://tlpt2.moh.hnet.bc.ca/TeleplanBroker";
     public String CONTACT_URL = "https://teleplan.hnet.bc.ca/TeleplanBroker";
 
     private CloseableHttpClient httpclient = null;
@@ -372,24 +371,12 @@ public class TeleplanAPI {
         parts.put("submitASCII", f);
         return processRequest(CONTACT_URL, parts);
 
-//    my ($filename) = @_;
 //    my $request = POST $WEBBASE, Content_type => 'form-data',
-//                                 Content      => ['submitASCII'    => [ $filename ], 
 //                                                  'ExternalAction' => 'AputAscii'
-//                                                 ];
-//    my $retVal = processRequest($request);	
 //    if ($retVal == $SUCCESS)
 //    {#valid response
 //       if ($Result ne "SUCCESS")
-//       {
-//           $retVal = $VALID;
-//       }
-//    }
 //    else
-//    {
-//       $retVal = $ERROR;
-//    }
-//    return $retVal;
 
     }
     //-------------------------------------------------------------------------
@@ -409,25 +396,12 @@ public class TeleplanAPI {
         parts.put("submitFile", f);
         return processRequest(CONTACT_URL, parts);
 //
-//    my ($filename) = @_;
 //    my $request = POST $WEBBASE, Content_Type => 'form-data',
-//                                 Content      => ['submitFile'    => [ $filename ], 
 //                                                  'ExternalAction' => 'AputRemit'
-//                                                 ];
-//    my $retVal = processRequest($request);	
 //    if ($retVal == $SUCCESS)
 //    {#valid response
 //       if ($Result ne "SUCCESS")
-//       {
-//           $retVal = $VALID;
-//       }
-//    }
 //    else
-//    {
-//       $retVal = $ERROR;
-//    }
-//    return $retVal;
-//            return null;
     }
     //-------------------------------------------------------------------------
 

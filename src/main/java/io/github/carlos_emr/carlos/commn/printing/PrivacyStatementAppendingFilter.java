@@ -277,7 +277,6 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public void flushBuffer() throws IOException {
             // avoid flushing buffer
-            // super.flushBuffer();
         }
     }
 

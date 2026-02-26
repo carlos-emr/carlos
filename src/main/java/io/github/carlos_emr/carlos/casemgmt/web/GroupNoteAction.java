@@ -59,8 +59,6 @@ public class GroupNoteAction {
         String ids[] = cform.getGroupNoteClientIds();
         int totalAnonymous = cform.getGroupNoteTotalAnonymous();
 
-        //logger.info("group note will have " + ids.length + " clients, and " + totalAnonymous + " anonymous clients");
-
 
         List<GroupNoteLink> currentLinks = groupNoteDao.findLinksByNoteId(Integer.parseInt(cform.getNoteId()));
         if (currentLinks.size() > 0) {

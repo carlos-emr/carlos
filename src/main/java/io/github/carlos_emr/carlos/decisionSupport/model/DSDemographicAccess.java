@@ -177,7 +177,6 @@ public class DSDemographicAccess {
     }
 
 
-
     public boolean hasATCcode(DSValue rxCode) {
         logger.debug("hasATCcode dynamicArgs size " + this.dynamicArgs.size());
         boolean found = false;
@@ -225,8 +224,6 @@ public class DSDemographicAccess {
     public boolean hasATCcodeAll(String atcCode) throws DecisionSupportException {
         throw new DecisionSupportException("NOT IMPLEMENTED");
     }
-
-
 
 
     public List<dxResearchBean> getDxCodes() {
@@ -644,16 +641,10 @@ public class DSDemographicAccess {
 
     /////New Billing Functionality
     //Days since last billed
-//    public boolean billedFor(String searchString,Hashtable options) throws DecisionSupportException {
 
-//        return true;
-//    }
 
     //Look for any of the billing codes that have been billed for this patient
     //Options:  notInDays=999              limit to the number of days to check for this code
-    //          notInCalendarYear=true
-    //          unitsBilledToday=<4
-    //          requiresStartTime=true     not implemented yet.
     public boolean billedForAny(String searchStrings, Hashtable<String, String> options) {
         boolean retval = false;
         if (options.containsKey("payer") && options.get("payer").equals("MSP")) {
@@ -721,7 +712,6 @@ public class DSDemographicAccess {
                 }
 //                if (options.containsKey("notInCalendarYear")){
 //
-//                }
             }
 
 

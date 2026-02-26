@@ -112,8 +112,6 @@ public class TeleplanResponse {
     }
 
 
-    //#TID=001;Result=SUCCESS;Filename=TPBULET-I.txt;Msgs=;
-    //	String str = "#TID=001;Result=SUCCESS;Filename=TPBULET-I.txt;Msgs
     void processLastLine(String str) {
         int idx = str.indexOf("Msgs=");
         msgs = str.substring(idx + 5, str.lastIndexOf(';'));

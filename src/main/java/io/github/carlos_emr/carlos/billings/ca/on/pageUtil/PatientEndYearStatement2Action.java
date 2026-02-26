@@ -317,7 +317,6 @@ public class PatientEndYearStatement2Action extends ActionSupport {
         try {
             if (fromDateParam != null && fromDateParam.length() > 0) res = df.parse(fromDateParam);
         } catch (ParseException ex) {
-            //logger.error("Can't parse date: " + fromDateParam);
             return null;
         }
         return res;

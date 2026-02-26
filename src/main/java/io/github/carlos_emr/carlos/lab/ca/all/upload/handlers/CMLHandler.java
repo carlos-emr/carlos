@@ -71,9 +71,6 @@ public class CMLHandler implements MessageHandler {
             ArrayList<String> messages = Utilities.separateMessages(fileName);
             for (i = 0; i < messages.size(); i++) {
                 String msg = messages.get(i);
-				/*if(isDuplicate(loggedInInfo, msg)) {
-					continue;
-				}*/
 
                 routeResults = new RouteReportResults();
                 MessageUploader.routeReport(loggedInInfo, serviceName, "CML", msg, fileId, routeResults);

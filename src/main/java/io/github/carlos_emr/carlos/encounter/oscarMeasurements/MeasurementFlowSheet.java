@@ -712,7 +712,6 @@ public class MeasurementFlowSheet {
         if (itemList != null) {
             OrderedMapIterator iter = itemList.orderedMapIterator();
             while (iter.hasNext()) {
-                // iter.next() returns the key and advances the iterator
                 String key = (String) iter.next();
                 FlowSheetItem fsi = (FlowSheetItem) iter.getValue();
                 List<Recommendation> rules = fsi.getRecommendations();

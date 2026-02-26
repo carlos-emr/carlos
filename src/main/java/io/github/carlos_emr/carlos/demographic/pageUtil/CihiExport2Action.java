@@ -507,9 +507,7 @@ public class CihiExport2Action extends ActionSupport {
                     }
                 }
 
-                //if( !hasIssue ) {  //Commenting this out.  I don't see why it's not there if it has an issue
                 familyHistory.setProblemDiagnosisProcedureDescription(caseManagementNote.getNote());
-                //}
 
                 if (!"".equalsIgnoreCase(intervention)) {
                     familyHistory.setTreatment(intervention);
@@ -578,9 +576,7 @@ public class CihiExport2Action extends ActionSupport {
                     Util.putPartialDate(problemList.addNewResolutionDate(), endDate, endDateFormat);
                 }
 
-                //if( !hasIssue ) {  //Commenting out another one
                 problemList.setProblemDiagnosisDescription(caseManagementNote.getNote());
-                //}
 
 
             }
@@ -723,49 +719,6 @@ public class CihiExport2Action extends ActionSupport {
         }
     }
 
-/*
-	private void buildProcedure2(Demographic demo, PatientRecord patientRecord) {
-            OscarProperties properties = OscarProperties.getInstance();
-            Calendar cal = Calendar.getInstance();
-            Date procedureDate;
-            boolean hasIssue;
-            String code;
-            List<CaseManagementNote> notesList = getCaseManagementNoteDAO().getNotesByDemographic(demo.getDemographicNo().toString());
-            for( CaseManagementNote caseManagementNote: notesList) {
-
-                Procedure procedure = patientRecord.addNewProcedure();
-                hasIssue = false;
-                Set<CaseManagementIssue> noteIssueList = caseManagementNote.getIssues();
-                if( noteIssueList != null && noteIssueList.size() > 0 ) {
-                    Iterator<CaseManagementIssue> i = noteIssueList.iterator();
-                    CaseManagementIssue cIssue;
-                    hasIssue = true;
-                    while ( i.hasNext() ) {
-                        cIssue = i.next();
-                        if (cIssue.getIssue().getType().equals("system")) continue;
-
-                        StandardCoding procedureCode = procedure.addNewProcedureCode();
-                        procedureCode.setStandardCodingSystem(properties.getProperty("dxResearch_coding_sys","icd9"));
-                        procedureCode.setStandardCode(cIssue.getIssue().getCode());
-                        procedureCode.setStandardCodeDescription(cIssue.getIssue().getDescription());
-                        break;
-                    }
-                }
-
-                //if( !hasIssue ) {
-                    String note = caseManagementNote.getNote();
-                    if (note!=null && note.length()>250)
-                        procedure.setProcedureInterventionDescription(caseManagementNote.getNote().substring(0, 249));//Description only allow 250 characters
-                //}
-
-                procedureDate = caseManagementNote.getObservation_date();
-                cal.setTime(procedureDate);
-                DateFullOrPartial dateFullOrPartial = procedure.addNewProcedureDate();
-                dateFullOrPartial.setFullDate(cal);
-            }
-	}
- *
- */
 
     @SuppressWarnings("unchecked")
     private void buildProcedure(Demographic demo, PatientRecord patientRecord) {

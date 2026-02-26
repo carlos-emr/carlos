@@ -73,7 +73,6 @@ public class DelegateFactory {
         config.setKeystoreUser(props.getProperty("mcedt.keystore.user"));
         config.setKeystorePassword(props.getProperty("mcedt.keystore.pass"));
         config.setUserNameTokenUser(props.getProperty("mcedt.service.user"));
-        //config.setUserNameTokenPassword(props.getProperty("mcedt.service.pass"));
         UserProperty prop = userPropertyDAO.getProp(UserProperty.MCEDT_ACCOUNT_PASSWORD);
         config.setUserNameTokenPassword((prop == null || prop.getValue() == null || prop.getValue().trim().equals("")) ? props.getProperty("mcedt.service.pass") : prop.getValue());
         config.setServiceUrl(props.getProperty("mcedt.service.url"));

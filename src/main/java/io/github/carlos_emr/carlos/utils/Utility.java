@@ -125,7 +125,6 @@ public class Utility {
                 return date;
             } catch (Exception ex) {
                 return null;
-//                throw ex; //new Exception("Invalid Date - the input date is in wrong format or out of range");
             }
         }
     }
@@ -184,7 +183,6 @@ public class Utility {
 //    	if (pDate.getYear() < 1) pDate = Utility.SetDate(1,1,1);
             if (pDate.equals(Utility.SetDate(1, 1, 1))) return "";
             else {
-//            return pDate.ToString("dd/MM/yyyy", System.Globalization.DateTimeFormatInfo.InvariantInfo);
                 SimpleDateFormat formatter = new SimpleDateFormat("yyyy/MM/dd");
                 return formatter.format(pDate);
             }
@@ -192,9 +190,6 @@ public class Utility {
             return null;
         }
     }
-
-
-
 
 
     public static String FormatDate(String pDate, Integer len) {

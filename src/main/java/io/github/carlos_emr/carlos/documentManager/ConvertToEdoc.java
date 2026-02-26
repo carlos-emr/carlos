@@ -416,11 +416,6 @@ public final class ConvertToEdoc {
          */
         validateResourcePaths(document);
 
-        /*
-         * Returns a Document object.
-         * Document will contain a blank HTML page if the incoming HTML
-         * string is NULL, empty, or if an error occurs.
-         */
         return document;
     }
 
@@ -571,9 +566,6 @@ public final class ConvertToEdoc {
                 }
             }
 
-            /* parse the parameters and test if any are links to the eForm
-             * images library. Otherwise, these resources are no good.
-             */
             if (parameters != null && parameters.contains("&")) {
                 parameterList = parameters.split("&");
             }

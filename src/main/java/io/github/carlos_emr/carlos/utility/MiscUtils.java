@@ -270,7 +270,6 @@ public final class MiscUtils {
 
     private static class ShutdownHookThread extends Thread {
         // can't have override until everyone uses jdk1.6
-        // @Override
         public void run() {
             shutdownSignaled = true;
         }

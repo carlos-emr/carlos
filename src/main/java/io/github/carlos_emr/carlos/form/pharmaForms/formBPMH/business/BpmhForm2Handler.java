@@ -504,55 +504,6 @@ public class BpmhForm2Handler {
                     // using this uses wayyyy too many resources, but it is the only way to
                     // ensure this form is extensible with other Oscar changes.
                     //TODO: fix once othe parts merged in
-					/*
-					if( ! StringUtils.isBlank(drugDIN) ) {
-						
-						stringBuilder = new StringBuilder();
-						try {
-							drugData = drugFetch.getDrugByDIN(drugDIN);
-                        } catch (Exception e) {
-                        	logger.fatal("Failed to fetch Drug from DrugRef with DIN " + drugDIN, e); 
-                        } 
-
-						if( drugData != null ) {	
-							
-							drugName = drugData.getName();
-							drugProduct = drugData.getProduct();
-							drugComponents = drugData.getDrugComponentList();							
-						}
-						
-						if( drugComponents != null && drugComponents.size() > 0 ) {
-							
-							int count = 0;
-							for( RxDrugData.DrugMonograph.DrugComponent drugComponent : drugComponents ) {
-								
-								stringBuilder.append( drugComponent.getName() );
-								stringBuilder.append(" ");
-								stringBuilder.append( drugComponent.getStrength() );
-								stringBuilder.append( drugComponent.getUnit() );
-								
-								count++;
-								if( count > 0 && count != drugComponents.size() ) {
-									stringBuilder.append( " / " );
-								}
-							}
-							
-							stringBuilder.append(" " + drugData.getDrugForm());
-							
-							bpmhDrug.setWhat( stringBuilder.toString() );
-						
-						} else if( ! StringUtils.isBlank( drugName ) ) {
-							
-							bpmhDrug.setGenericName( drugName );
-							
-						} else if( ! StringUtils.isBlank( drugProduct ) ) {
-							
-							bpmhDrug.setGenericName( drugProduct );
-							
-						} else {
-							// do nothing
-						}												
-					}*/
                 }
 
                 SortDrugList.byPositionOrder(bpmhDrugBeans);

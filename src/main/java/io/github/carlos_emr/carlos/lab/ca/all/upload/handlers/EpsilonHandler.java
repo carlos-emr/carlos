@@ -40,30 +40,6 @@ public class EpsilonHandler implements MessageHandler {
 
     private static Logger logger = MiscUtils.getLogger();
 
-    /*
-    @SuppressWarnings("unchecked")
-    public String parse(String fileName, int fileId) {
-
-        Utilities u = new Utilities();
-        MessageUploader uploader = new MessageUploader();
-        int i = 0;
-        try {
-            ArrayList messages = u.separateMessages(fileName);
-            for (i = 0; i < messages.size(); i++) {
-
-                String msg = (String) messages.get(i);
-                uploader.routeReport("Epsilon", msg, fileId);
-
-            }
-        } catch (Exception e) {
-            uploader.clean(fileId);
-            logger.error("Could not upload message: ", e);
-            return null;
-        }
-        return ("success");
-
-    }
-    */
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
         int i = 0;

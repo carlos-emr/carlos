@@ -56,10 +56,6 @@ public class ServiceAccessTokenDaoImpl extends AbstractDaoImpl<ServiceAccessToke
         this.entityManager.remove(token);
     }
 
-    // @Override
-// public ServiceRequestToken merge(ServiceAccessTokenDao token) {
-//     return this.entityManager.merge(token);
-// }
     @Override
     @SuppressWarnings("unchecked")
     public List<ServiceAccessToken> findAll() {

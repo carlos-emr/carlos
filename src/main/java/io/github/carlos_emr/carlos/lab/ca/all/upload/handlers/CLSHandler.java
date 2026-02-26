@@ -58,11 +58,6 @@ public class CLSHandler implements MessageHandler {
             for (i = 0; i < messages.size(); i++) {
 
                 String msg = messages.get(i);
-				/*
-				if(isDuplicate(msg)) {
-					return ("success");
-				}
-				*/
 
                 routeResults = new RouteReportResults();
                 MessageUploader.routeReport(loggedInInfo, serviceName, "CLS", msg, fileId, routeResults);

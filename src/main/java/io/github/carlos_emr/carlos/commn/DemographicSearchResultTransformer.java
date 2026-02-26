@@ -100,7 +100,6 @@ public class DemographicSearchResultTransformer implements ResultTransformer {
         try {
             dob = sdf.parse(year + "-" + month + "-" + day);
         } catch (ParseException e) {
-            //logger.warn("Demographic " + demographicNo + " has a bad DOB ",e);
         }
 
 

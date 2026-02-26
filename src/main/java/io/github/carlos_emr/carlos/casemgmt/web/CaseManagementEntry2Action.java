@@ -241,7 +241,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             request.setAttribute("from", "");
         }
 
-        /* prepare url for billing */
         if (request.getParameter("from") != null) {
             request.setAttribute("from", request.getParameter("from"));
         }
@@ -399,9 +398,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         logger.debug("Get note to edit " + String.valueOf(current - start));
         start = current;
 
-        /*
-         * do the restore if(restore != null && restore.booleanValue() == true) { String tmpsavenote = this.caseManagementMgr.restoreTmpSave(providerNo,demono,programId); if(tmpsavenote != null) { note.setNote(tmpsavenote); } }
-         */
         logger.debug("Set Encounter Type: " + note.getEncounter_type());
         logger.debug("Fetched Note " + String.valueOf(note.getId()));
 
@@ -1326,7 +1322,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         List<CheckBoxBean> checkedlist = sessionFrm.getIssueCheckList();
         // this is for debugging, please keep it for future development
-        // System.out.println("Checkedlist from sessionFrm: " + Arrays.toString(checkedlist));
         // this gets attached to the CaseManagementNote object
         Set<CaseManagementIssue> issueset = new HashSet<CaseManagementIssue>();
         Set<CaseManagementNote> noteSet = new HashSet<CaseManagementNote>();
@@ -2886,9 +2881,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return map;
     }
 
-    /*
-     * Insert encounter reason for new note
-     */
     protected void insertReason(HttpServletRequest request, CaseManagementNote note) {
         String encounterText = "";
         String apptDate = request.getParameter("appointmentDate");
@@ -3331,9 +3323,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 return rt;
             String begNote = note.substring(0, indexb);
             String endNote = subNote.substring(indexe + 3);
-            // String midNote = subNote.substring(subStr.length());
-            // String[] sp = midNote.split(" ");
-            // midNote = "[" + sp[0] + " " + sp[1] + "]";
             rt = begNote + endNote;
         }
         return rt;

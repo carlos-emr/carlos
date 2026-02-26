@@ -37,8 +37,6 @@ public class BillingStatusPrep {
     private static final String ANY_BILLING_FORM = "---";
     public static final String ANY_VISIT_LOCATION = "0000";
 
-    // JdbcBillingRAImpl dbObj = new JdbcBillingRAImpl();
-
 
     public List<BillingClaimHeader1Data> getBills(String[] billTypes, String statusType, String providerNo, String startDate, String endDate,
                                                   String demoNo, String visitLocation, String paymentStartDate, String paymentEndDate) {

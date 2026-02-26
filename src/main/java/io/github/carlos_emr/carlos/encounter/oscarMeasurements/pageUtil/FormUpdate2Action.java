@@ -102,22 +102,11 @@ public class FormUpdate2Action extends ActionSupport {
         MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
         MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(temp, custList);
 
-        //List<MeasurementTemplateFlowSheetConfig.Node> nodes = mFlowsheet.getItemHeirarchy();
 
         List<String> measurementLs = mFlowsheet.getMeasurementList();
         ArrayList<String> measurements = new ArrayList(measurementLs);
 
         EctMeasurementTypeBeanHandler mType = new EctMeasurementTypeBeanHandler();
-
-        //FlowSheetItem item;
-        //String measure;
-
-		/*for (int i = 0; i < nodes.size(); i++) {
-			MeasurementTemplateFlowSheetConfig.Node node = nodes.get(i);
-
-			for (int j = 0; j < node.children.size(); j++) {
-				MeasurementTemplateFlowSheetConfig.Node child = node.children.get(j);
-				if (child.children == null && child.flowSheetItem != null) {*/
 
 
         for (String measure : measurements) {
@@ -183,8 +172,6 @@ public class FormUpdate2Action extends ActionSupport {
 
 
         //if (request.getParameter("ycoord") != null) {
-        //	request.setAttribute("ycoord", request.getParameter("ycoord"));
-        //}
 
         if (errorPage) {
             request.setAttribute("testOutput", testOutput);

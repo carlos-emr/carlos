@@ -118,18 +118,8 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
     }
 
-//	private boolean isSegmentIDUnique(ArrayList<LabResultData> doclabs, LabResultData data) {
-//		boolean unique = true;
-//		String sID = (data.segmentID).trim();
 //		for (int i = 0; i < doclabs.size(); i++) {
-//			LabResultData lrd = doclabs.get(i);
 //			if (sID.equals((lrd.segmentID).trim())) {
-//				unique = false;
-//				break;
-//			}
-//		}
-//		return unique;
-//	}
 
     public String previewPatientDocLab() {
         String demographicNo = request.getParameter("demog");
@@ -270,9 +260,7 @@ public class DmsInboxManage2Action extends ActionSupport {
 
         // can't use userrole from session, because it changes if providers A search for providers B's documents
 
-        // oscar.oscarMDS.data.MDSResultsData mDSData = new oscar.oscarMDS.data.MDSResultsData();
         CommonLabResultData comLab = new CommonLabResultData();
-        // String providerNo = request.getParameter("providerNo");
         String providerNo = (String) session.getAttribute("user");
         String searchProviderNo = request.getParameter("searchProviderNo");
         String ackStatus = request.getParameter("status");
@@ -481,7 +469,6 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
         logger.debug("labdocs.size()=" + labdocs.size());
 
-        /* find all data for the index.jsp page */
         Hashtable patientDocs = new Hashtable();
         Hashtable patientIdNames = new Hashtable();
         String patientIdNamesStr = "";
@@ -708,7 +695,6 @@ public class DmsInboxManage2Action extends ActionSupport {
         return null;
     }
 
-    // return a hastable containing queue id to queue name, a hashtable of queue id and a list of document nos.
     // forward to documentInQueus.jsp
     @SuppressWarnings({"unchecked", "rawtypes"})
     public String getDocumentsInQueues() {

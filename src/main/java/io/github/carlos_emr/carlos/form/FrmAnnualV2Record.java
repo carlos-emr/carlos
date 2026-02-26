@@ -57,7 +57,6 @@ public class FrmAnnualV2Record extends FrmRecord {
                 props.setProperty("pName", Misc.getString(rs, "pName"));
                 props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
                 props.setProperty("age", String.valueOf(UtilDateUtilities.calcAge(dob)));
             }

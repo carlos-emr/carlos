@@ -431,7 +431,6 @@ public final class Login2Action extends ActionSupport {
 
             if (cl.isBlock(ip, userName)) {
                 logger.info(LOG_PRE + " Blocked: " + userName);
-                // return mapping.findForward(where); //go to block page
                 // change to block page
                 String newURL = request.getContextPath() + "/loginfailed.jsp?errormsg=Oops! Your account is now locked due to incorrect password attempts!";
 
@@ -498,9 +497,6 @@ public final class Login2Action extends ActionSupport {
                 return NONE;
             }
 
-            /*
-             * This section is added for forcing the initial password change.
-             */
             Security security = getSecurity(userName);
             if (!OscarProperties.getInstance().getBooleanProperty("mandatory_password_reset", "false") &&
                     security.isForcePasswordReset() != null && security.isForcePasswordReset()
@@ -641,9 +637,6 @@ public final class Login2Action extends ActionSupport {
             }
 
 
-            /*
-             * if (OscarProperties.getInstance().isTorontoRFQ()) { where = "caisiPMM"; }
-             */
             // Lazy Loads AlertTimer instance only once, will run as daemon for duration of
             // server runtime
             if (pvar.getProperty("billregion").equals("BC")) {

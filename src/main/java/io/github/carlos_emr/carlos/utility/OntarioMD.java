@@ -70,7 +70,6 @@ public class OntarioMD {
 
     //HACKED SOAP CALL.  THIS SHOULD BE REPLACED BUT IT'S SO SIMPLE
     public Hashtable loginToOntarioMD(String username, String password, String incomingRequestor) throws Exception {
-        //public ArrayList soapHttpCall(int siteCode, String userId, String passwd,		String xml) throws Exception
         Hashtable h = null;
         HttpPost post = new HttpPost("https://www.ontariomd.ca/services/OMDAutomatedAuthentication");
         post.setHeader("SOAPAction", "");

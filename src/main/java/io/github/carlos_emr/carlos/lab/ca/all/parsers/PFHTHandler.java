@@ -48,7 +48,6 @@ public class PFHTHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
 
     private ORU_R01 msg = null;
-    //private MDM_R01 mdmMsg = null;
 
     private ArrayList<String> headers = null;
     private HashMap<OBR, ArrayList<OBX>> obrSegMap = null;
@@ -63,7 +62,6 @@ public class PFHTHandler implements MessageHandler {
 
         Parser p = new PipeParser();
         p.setValidationContext(new NoValidation());
-        //  msg = (ORU_R01) p.parse(hl7Body.replaceAll( "\n", "\r\n" ));
 
 
         msg = (ORU_R01) p.parse(hl7Body);
@@ -95,7 +93,6 @@ public class PFHTHandler implements MessageHandler {
 
                 logger.info("obxCount = " + obxCount);
                 for (int k = 0; k < obxCount; k++) {
-                    //	int obxNteCount = msg.getRESPONSE().getORDER_OBSERVATION(j).getOBSERVATION(k).getNTEReps();
                     OBX curObxSeg = msg.getRESPONSE().getORDER_OBSERVATION(j).getOBSERVATION(k).getOBX();
                     obxSegs.add(curObxSeg);
                 }
@@ -159,10 +156,6 @@ public class PFHTHandler implements MessageHandler {
         String priority = "R";
         for (int i = 0; i < getOBRCount(); i++) {
             try {
-	               /* if (getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR().getQuantityTiming().getPriority().getValue()).equals("S")){
-	                    priority="S";
-	                    break;
-	                }*/
                 priority = getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR().getQuantityTiming().getPriority().getValue());
             } catch (Exception e) {
                 logger.error("Error finding priority", e);
@@ -418,38 +411,6 @@ public class PFHTHandler implements MessageHandler {
         String comment = "";
 
         // update j to the number of the comment not the index of a comment array
-	        /*j++;
-	        try {
-	            Terser terser = new Terser(msg);
-
-	            int obxCount = getOBXCount(i);
-	            int count = 0;
-	            int l = 0;
-	            OBX obxSeg = null;
-
-	            while ( l < obxCount && count < j){
-
-	                obxSeg = (OBX) ((ArrayList) obrSegMap.get(obrSegKeySet.get(i))).get(l);
-	                if (getString(obxSeg.getValueType().getValue()).equals("FT")){
-	                    count++;
-	                }
-	                l++;
-
-	            }
-	            l--;
-
-	            int k = 0;
-	            String nextComment = terser.get(obxSeg,5,k,1,1);
-	            while(nextComment != null){
-	                comment = comment + nextComment.replaceAll("\\\\\\.br\\\\", "<br />");
-	                k++;
-	                nextComment = terser.get(obxSeg,5,k,1,1);
-	            }
-
-	        } catch (Exception e) {
-	            logger.error("getOBRComment error", e);
-	            comment = "";
-	        }*/
 
         return comment;
     }
@@ -615,20 +576,6 @@ public class PFHTHandler implements MessageHandler {
     }
 
     public String getOrderStatus() {
-	    	/*try{
-	            String status = "F";
-	            int obrCount = msg.getRESPONSE().getORDER_OBSERVATIONReps();
-
-	            for (int i=0; i < obrCount; i++){
-	                if (getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR().getResultStatus().getValue()).equals("P"))
-	                    status = "P";
-	            }
-
-	            return(status);
-	        }catch(Exception e){
-	            logger.error("Exception retrieving order status", e);
-	            return("");
-	        }*/
         return ("F"); //PFHT result status is Transcribed, Auth(Verified) so just return F
     }
 
@@ -706,7 +653,6 @@ public class PFHTHandler implements MessageHandler {
 
         } catch (Exception e) {
             //ignore error... it will occur when the zdr segment is not present
-            //logger.error("Could not retrieve cc'd docs", e);
             return ("");
         }
 
@@ -735,7 +681,6 @@ public class PFHTHandler implements MessageHandler {
 
         } catch (Exception e) {
             //ignore error... it will occur when the zdr segment is not present
-            //logger.error("Could not return numbers", e);
         }
 
         return (nums);

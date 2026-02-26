@@ -229,18 +229,8 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
 
         //if fromBilling is true set forward to WCB Form
-////    if ("true".equals(fromBilling)) {
 ////      if (this.getXml_billtype().equalsIgnoreCase("WCB")) {
-////        WCBForm wcbForm = new WCBForm();
-////        wcbForm.Set(bean);
-////        request.setAttribute("WCBForm", wcbForm);
-////        wcbForm.setFormNeeded("1");
-////        wcbForm.setProviderNo(bean.getApptProviderNo());
-////        wcbForm.setDoValidate(true);
 ////
-////        return "WCB";
-////      }
-////    }
         return SUCCESS;
     }
 

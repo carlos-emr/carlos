@@ -62,8 +62,6 @@ public class dxResearch2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_dxresearch)");
         }
 
-        //dxResearchForm frm = (dxResearchForm) form;
-        //request.getSession().setAttribute("dxResearchForm", frm);
         String codingSystem = this.getSelectedCodingSystem();
         String demographicNo = this.getDemographicNo();
         String providerNo = this.getProviderNo();

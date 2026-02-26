@@ -104,8 +104,6 @@ public class FrmBCINRRecord extends FrmRecord {
                 props
                         .setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
                                 _dateFormat));
-                // props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(),_dateFormat));
                 props.setProperty("c_surname", Misc.getString(rs, "last_name"));
                 props.setProperty("c_givenName", Misc.getString(rs, "first_name"));
                 props.setProperty("c_address", Misc.getString(rs, "address"));

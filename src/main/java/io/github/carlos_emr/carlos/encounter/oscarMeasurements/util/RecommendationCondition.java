@@ -57,10 +57,6 @@ public class RecommendationCondition {
     private String param = null;
 
 
-//    public String toString(){
-//         return "monthrange "+monthrange+" strength "+strength+" text "+text+" ruleName "+ruleName+" measurement "+measurement;
-//    }
-
     public RecommendationCondition() {
 
     }
@@ -74,7 +70,6 @@ public class RecommendationCondition {
 
     public void getRuleBaseElement(ArrayList<DSCondition> list, String measurement) {
 
-        //m.getLastDateRecordedInMonths("NOSK") &gt;= 3</java:condition>
         //<java:condition>m.getLastDateRecordedInMonths("NOSK") &lt; 6</java:condition>
         //<java:condition>m.getLastValueAsInt("NO
         if (param == null || param.trim().equals("")) {
@@ -176,98 +171,6 @@ public class RecommendationCondition {
             list.add(new DSCondition("isDataEqualToYes", param, "==", "" + v)); //change "Yes" to ""+value
         }
 
-        /*if ("getDataAsDouble".equals(type)){
-            String toParse = value;
-            ///---
-            if (toParse.indexOf("-") != -1 && toParse.indexOf("-") != 0 ){ //between style
-                String[] betweenVals = toParse.split("-");
-                if (betweenVals.length == 2 ){
-                    //int lower = Integer.parseInt(betweenVals[0]);
-                    //int upper = Integer.parseInt(betweenVals[1]);
-                    list.add(new DSCondition("getDataAsDouble", "", ">=", betweenVals[0]));
-                    list.add(new DSCondition("getDataAsDouble", "", "<=", betweenVals[1]));
-                }
-//TODO: how to handle = sign in greater than or equal too.
-            }else if (toParse.indexOf("&gt;") != -1 ||  toParse.indexOf(">") != -1 ){ // greater than style
-                toParse = toParse.replaceFirst("&gt;", "");
-                toParse = toParse.replaceFirst(">", "");
-                double gt = Double.parseDouble(toParse.trim());
-                list.add(new DSCondition("getDataAsDouble", "", ">", ""+gt));
-            }else if (toParse.indexOf("&lt;") != -1  ||  toParse.indexOf("<") != -1 ){ // less than style
-                toParse = toParse.replaceFirst("&lt;","");
-                toParse = toParse.replaceFirst("<","");
-                double lt = Double.parseDouble(toParse.trim());
-                list.add(new DSCondition("getDataAsDouble", "", "<=", ""+lt));
-            }else if (!toParse.equals("")){
-                double eq = Double.parseDouble(toParse.trim());
-                list.add(new DSCondition("getDataAsDouble", "", "==", ""+eq));
-            }
-
-            ///---
-
-        }else if ("isMale".equals(type)){
-            if (value == null ){
-                list.add(new DSCondition("isMale", "", "==", "true"));
-            }
-            //        list.add(new DSCondition("getLastDateRecordedInMonths", measurement, "<=", betweenVals[1]));
-
-        }else if ("isFemale".equals(type)){
-            if (value == null ){
-                list.add(new DSCondition("isFemale", "", "==", "true"));
-            }
-        }else if ("getNumberFromSplit".equals(type)){
-
-           // /  >130/
-           //   >130/>80
-           //  140-120/>80
-          //   >130
-
-
-            String toParse = value;
-            param = null;
-
-            String[] bps = toParse.split("/");
-
-            log.debug("Len " + bps.length+" -- "+bps[0]);
-            if (bps.length>1){
-                log.debug("Len " + bps.length+" -- "+bps[1]);
-            }
-
-            if (bps.length <3){
-                for (int i =0; i < bps.length; i++){
-                    toParse = bps[i];
-                    if (toParse.indexOf("-") != -1 && toParse.indexOf("-") != 0 ){ //between style
-                        String[] betweenVals = toParse.split("-");
-                        if (betweenVals.length == 2 ){
-                            //int lower = Integer.parseInt(betweenVals[0]);
-                            //int upper = Integer.parseInt(betweenVals[1]);
-                            list.add(new DSCondition("getNumberFromSplit(\"/\","+i+")", param, ">=", betweenVals[0]));
-                            list.add(new DSCondition("getNumberFromSplit(\"/\","+i+")", param, "<=", betweenVals[1]));
-                        }
-
-                    }else if (toParse.indexOf("&gt;") != -1 ||  toParse.indexOf(">") != -1 ){ // greater than style
-                        toParse = toParse.replaceFirst("&gt;", "");
-                        toParse = toParse.replaceFirst(">", "");
-                        int gt = Integer.parseInt(toParse);
-                        list.add(new DSCondition("getNumberFromSplit(\"/\","+i+")", param, ">", ""+gt));
-                    }else if (toParse.indexOf("&lt;") != -1  ||  toParse.indexOf("<") != -1 ){ // less than style
-                        toParse = toParse.replaceFirst("&lt;","");
-                        toParse = toParse.replaceFirst("<","");
-                        int lt = Integer.parseInt(toParse);
-                        list.add(new DSCondition("getNumberFromSplit(\"/\","+i+")", param, "<=", ""+lt));
-                    }else if (!toParse.equals("")){
-                        int eq = Integer.parseInt(toParse);
-                        list.add(new DSCondition("getNumberFromSplit(\"/\","+i+")", param, "==", ""+eq));
-                    }
-
-                }
-            }
-
-
-        }else if ("isDataEqualTo".equals(type)){
-            list.add(new DSCondition("isDataEqualTo", value,"",""));
-        }
-         */
 
     }
 
@@ -309,7 +212,6 @@ public class RecommendationCondition {
     }
 
     public static void main(String[] args) {
-        //String filename = "/Users/jaygallagher/Desktop/PATIENT.D
         ArrayList<DSCondition> list = new ArrayList<DSCondition>();
         RecommendationCondition tc = new RecommendationCondition();
         tc.setType("monthrange");

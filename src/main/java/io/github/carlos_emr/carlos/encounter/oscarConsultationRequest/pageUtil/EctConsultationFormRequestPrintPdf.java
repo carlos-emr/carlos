@@ -131,7 +131,6 @@ public class EctConsultationFormRequestPrintPdf {
 
         //Create the document we are going to write to
         document = new Document();
-        // writer = PdfWriter.getInstance(document,out);
         writer = PdfWriterFactory.newInstance(document, out, FontSettings.HELVETICA_6PT);
 
         //Use the template located at '/oscar/oscarEncounter/oscarConsultationRequest/props'
@@ -154,7 +153,6 @@ public class EctConsultationFormRequestPrintPdf {
         // start writing the pdf document
         PdfImportedPage page1 = writer.getImportedPage(reader, 1);
         cb.addTemplate(page1, 1, 0, 0, 1, 0, 0);
-        // addFooter();
         setAppointmentInfo(reqForm);
 
         // add the dynamically positioned text elements

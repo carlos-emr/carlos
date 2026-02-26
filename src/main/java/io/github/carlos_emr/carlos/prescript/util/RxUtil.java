@@ -587,7 +587,6 @@ public class RxUtil {
 
                 Pattern p4 = Pattern.compile("\\s*\\d*\\.*\\d+-\\s*\\d*\\.*\\d+\\s+" + Pattern.quote(frequency)); //use * after the first \s because "1 OD", 1 doesn't have a space in front.
                 Matcher m4 = p4.matcher(instructions);
-                //     p("here11", instructions);
                 //since "\\s+[0-9]+-[0-9]+\\s+" is a case in "\\s+[0-9]+\\s+", check the latter regex first.
                 if (m4.find()) {
                     String str2 = instructions.substring(m4.start(), m4.end());
@@ -595,7 +594,6 @@ public class RxUtil {
                     Matcher m5 = p5.matcher(str2);
                     if (m5.find()) {
                         String str3 = str2.substring(m5.start(), m5.end());
-                        //       p("here str3", str3);
                         takeMinFrequency = str3.split("-")[0];
                         takeMaxFrequency = str3.split("-")[1];
                     }
@@ -603,7 +601,6 @@ public class RxUtil {
                     String str = instructions.substring(m2.start(), m2.end());
                     Pattern p3 = Pattern.compile("\\d*\\.*\\d+");
                     Matcher m3 = p3.matcher(str);
-                    //     p("here22", str);
                     if (m3.find()) {
                         amountFrequency = str.substring(m3.start(), m3.end());
                     }
@@ -663,10 +660,6 @@ public class RxUtil {
                         }
                     }
 
-		/*    p(takeMinMethod);
-		p(takeMaxMethod);
-		p(takeMinFrequency);
-		p(takeMaxFrequency);*/
         if (!takeMinMethod.equals("") && takeMinFrequency.equals("")) {
 
             takeMin = takeMinMethod;
@@ -697,8 +690,6 @@ public class RxUtil {
         //from frequency code we can deduce a duration unit.
         //check if a durationunit is already specified, if not, use that, if yes, check if they are equal, if not output an warning and use specified.
         for (String s : durationUnits) {
-            // p(instructions);
-            // p(s);
             String instructionToCheck = checkInstructionStr(instructions);
             Pattern p = Pattern.compile(s);
             Matcher m = p.matcher(instructionToCheck);
@@ -752,7 +743,6 @@ public class RxUtil {
 
         //if durationUnit is not specified, deduce it
         if (durationUnitSpec.equals("")) {
-            //    p("here?? if");
             String[] freq1 = {"\\s*(?i)OD\\s*", "\\s*(?i)BID\\s*", "\\s*(?i)TID\\s*", "\\s*(?i)QID\\s*", "\\s*(?i)Q1H\\s*", "\\s*(?i)Q2H\\s*", "\\s*(?i)Q1-2H\\s*", "\\s*(?i)Q3-4H\\s*", "\\s*(?i)Q4H\\s*", "\\s*(?i)Q4-6H\\s*", "\\s*(?i)Q6H\\s*", "\\s*(?i)Q8H\\s*", "\\s*(?i)Q12H\\s*", "\\s*(?i)QAM\\s*", "\\s*(?i)QPM\\s*", "\\s*(?i)QHS\\s*", "\\s*(?i)once daily\\s*", "\\s*(?i)twice daily\\s*", "\\s*(?i)3x day\\s*", "\\s*(?i)4x day\\s*", "\\s*(?i)3x daily\\s*", "\\s*(?i)4x daily\\s*", "\\s*(?i)daily\\s*"// put at last because if frequency is 'twice daily', it will first be detected as 'daily'
             }; //QPM is once a day in the evening, qhs once a day at night.
             String[] freq2 = {"\\s*(?i)Q1Week\\s*", "\\s*(?i)Q2Week\\s*"};
@@ -761,8 +751,6 @@ public class RxUtil {
             for (String f1 : freq1) {
                 Pattern p = Pattern.compile(f1);
                 Matcher m = p.matcher(frequency);
-                // p(f1);
-                // p(frequency);
                 if (m.find()) {
 
                     durationUnit = "D";
@@ -808,7 +796,6 @@ public class RxUtil {
 
         //make sure min is smaller than max
         if (takeMax.compareTo(takeMin) < 0) {
-            //      p("max<min");
             String swap = takeMin;
             takeMin = takeMax;
             takeMax = swap;
@@ -831,7 +818,6 @@ public class RxUtil {
         //if frequency, durationUnit, takeMax are valid too
         //yes, calculate quantity
         //no, leave quantity intact.
-        //--start new code
         rx.setQuantity(rx.getQuantity().trim());
         if (duration.equals("0") || duration.length() == 0 || duration == null) {//if duration is not specified, find duration based on quantity
             rx.setDurationSpecifiedByUser(false);
@@ -852,7 +838,6 @@ public class RxUtil {
                 nPerDay = findNPerDay(frequency);
                 nDays = findNDays(durationUnit);
                 MiscUtils.getLogger().debug("in instrucParser duration=" + duration);
-                //quantity=takeMax * nDays * duration * nPerDay
                 double quantityD = (Double.parseDouble(takeMax)) * nPerDay * nDays * (Double.parseDouble(duration));
                 quantity = (int) quantityD;
                 MiscUtils.getLogger().debug("in instrucParser, else=" + quantity + "-- " + takeMax + " --" + nPerDay + "-- " + nDays + "-- " + duration);
@@ -967,7 +952,6 @@ public class RxUtil {
 			Matcher m5 = p5.matcher(str2);
 			if (m5.find()) {
 				String str3 = str2.substring(m5.start(), m5.end());
-				//           p("str3", str3);
 				takeMinMethod = str3.split("-")[0];
 				takeMaxMethod = str3.split("-")[1];
 			}
@@ -980,7 +964,6 @@ public class RxUtil {
 			if (m3.find()) {
 				p("found1");
 				amountMethod = str.substring(m3.start(), m3.end());
-				//      p("amountMethod", amountMethod);
 			}
 		} else if (mF1.find()) {
 			String partInstructions = instructions.substring(mF1.start(), mF1.end());
@@ -1220,7 +1203,6 @@ public class RxUtil {
                 if (retList.size() == 0) {
                     retList = getBNPrevInstructions(rx.getBrandName());
                     //if (retList.size()==0)
-                    //retList=getGNPrevInstructions(prescript.getGenericName());
                 }
             } else {
                 String bn = rx.getBrandName();
@@ -1333,7 +1315,6 @@ public class RxUtil {
             p("if1");
             p(rx.getRegionalIdentifier());
             //query the database to see if there is a prescript with same din as this prescript.
-            // String sql = "SELECT * FROM drugs WHERE regional_identifier='" + prescript.getRegionalIdentifier() + "' order by written_date desc"; //most recent is the first.
 
             List<Drug> drugs = dao.findByRegionBrandDemographicAndProvider(rx.getRegionalIdentifier(), rx.getBrandName(), rx.getDemographicNo(), rx.getProviderNo());
             if (drugs.isEmpty()) {
@@ -1402,7 +1383,6 @@ public class RxUtil {
     public static boolean checkDiscontinuedBefore(RxPrescriptionData.Prescription rx) {
 
         //check if this drug was discontinued before
-        //String sql="SELECT * FROM drugs WHERE archived=1 AND (archived_reason>'' OR archived_reason<'' ) AND ATC='" + this.atcCode + "' AND regional_identifier='" + this.regionalIdentifier + "' AND demographic_no=" + this.demographicNo+" order by written_date desc";
         //the query will fail to check if a drug A is prescribed, and drug A is prescribed again, and then the first drug A is discontinued, when the second drug A is represcribed
         //or a third drug A is added, no warning will be given.
         boolean discontinuedLatest = false;
@@ -1420,7 +1400,6 @@ public class RxUtil {
                 //get date discontinued
                 //get reason for discontinued
                 Date archivedDate = drug.getArchivedDate();
-                // String archDate = rs.getProperty("archived_date");
                 String archDate = RxUtil.DateToString(archivedDate);
                 String archReason = drug.getArchivedReason();
 
@@ -1445,13 +1424,6 @@ public class RxUtil {
             for (int j = 0; j < beanRx.getStashSize(); j++) {
                 try {
                     RxPrescriptionData.Prescription rxTemp = beanRx.getStashItem(j);
-                    //p(""+rxTemp.isCustom());
-                    //p(rxTemp.getCustomName());
-                    //p(prescript.getCustomName());
-                    //p(""+rxTemp.isCustomNote());
-                    //p(""+prescript.isCustomNote());
-                    //p(""+rxTemp.getRandomId());
-                    //p(""+prescript.getRandomId());
                     if (rxTemp.isCustom() && rxTemp.getCustomName().equals(rx.getCustomName()) && rxTemp.isCustomNote() == rx.isCustomNote() && rxTemp.getRandomId() != rx.getRandomId()) {
                         p("1unique turning false");
                         unique = false;
@@ -1464,11 +1436,7 @@ public class RxUtil {
             for (int j = 0; j < beanRx.getStashSize(); j++) {
                 try {
                     RxPrescriptionData.Prescription rxTemp = beanRx.getStashItem(j);
-                    //p(prescript.getBrandName());
-                    //p(rxTemp.getBrandName());
 
-                    //p(""+rxTemp.getRandomId());
-                    //p(""+prescript.getRandomId());
                     if (rx.getBrandName() != null && !rx.getBrandName().equalsIgnoreCase("null") && rx.getBrandName().equals(rxTemp.getBrandName()) && rxTemp.getRandomId() != rx.getRandomId()) { //GCN_SWQNO changes when drugref database is updated
                         p("2unique turning false");
                         unique = false;

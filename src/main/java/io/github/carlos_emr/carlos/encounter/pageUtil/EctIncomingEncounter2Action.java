@@ -126,19 +126,15 @@ public class EctIncomingEncounter2Action extends ActionSupport {
             // demographicNo is passed from search screen
             bean.demographicNo = request.getParameter("demographicNo");
             // no curProviderNo when viewing eCharts from search screen
-            // bean.curProviderNo="";
             // no reason when viewing eChart from search screen
             bean.reason = "";
             // userName is already set
-            // bean.userName=request.getParameter("userName");
             // no appointmentDate from search screen keep old date
-            // bean.appointmentDate="";
             // no startTime from search screen
             bean.startTime = "";
             // no status from search screen
             bean.status = "";
             // no date from search screen-keep old date
-            // bean.date="";
             bean.appointmentNo = "0";
             bean.check = "myCheck";
             bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));

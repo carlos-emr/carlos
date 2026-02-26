@@ -185,32 +185,20 @@ public class MeasurementInfo {
         return warningHash.get(measurement);
     }
 
-//    public void setIndicationColour(String measurement,int threshold,String comparison){
-//        ArrayList list = getMeasurementData(measurement);
 //        if ( list != null){
 //            for (int i =0; i < list.size(); i++){
-//                EctMeasurementsDataBean mdata = (EctMeasurementsDataBean) list.get(i);
-//                String val = mdata.getDataField();
-//            }
-//        }
-//    }
 
     public int getLastDateRecordedInMonths(String measurement) {
         int numMonths = -1;
         ArrayList list = getMeasurementData(measurement);
         Hashtable h = null;
         if (list != null && list.size() > 0) {
-            //h = (Hashtable) list.get(0);
             EctMeasurementsDataBean mdata = (EctMeasurementsDataBean) list.get(0);
             Date date = mdata.getDateObservedAsDate();
             numMonths = getNumMonths(date, Calendar.getInstance().getTime());
         }
 
-        //EctMeasurementsDataBeanHandler.getLast(demographicNo, measurement);
         //if (h != null ){
-        //   Date date = (Date) h.get("dateObserved_date");
-        //   numMonths = getNumMonths(date, Calendar.getInstance().getTime());
-        //}
         log.debug("Returning the number of months " + numMonths);
         return numMonths;
     }

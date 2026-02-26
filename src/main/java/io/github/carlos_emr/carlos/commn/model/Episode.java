@@ -150,7 +150,6 @@ public class Episode extends AbstractModel<Integer> {
         try {
             setStartDate(formatter.parse(val));
         } catch (ParseException e) {
-            //MiscUtils.getLogger().warn("error",e);
         }
     }
 
@@ -158,7 +157,6 @@ public class Episode extends AbstractModel<Integer> {
         try {
             setEndDate(formatter.parse(val));
         } catch (ParseException e) {
-            //MiscUtils.getLogger().warn("error",e);
         }
     }
 

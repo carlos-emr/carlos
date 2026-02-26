@@ -93,8 +93,6 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
                 FileItem item = (FileItem) iter.next();
 
                 if (item.isFormField()) {
-                    //String name = item.getFieldName();
-                    //String value = item.getString(); 
 
                 } else {
                     String pathName = item.getName();
@@ -116,73 +114,8 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
         //
 
 
-        // function = request.getParameter("function");
-        // function_id = request.getParameter("functionid");
         // filedesc = request.getParameter("filedesc");
-        // creator = request.getParameter("creator");
         
-  /*      ServletInputStream sis = request.getInputStream();
-        BufferedOutputStream dest = null;
-        FileOutputStream fos = null;
-        boolean bwri = false;
-        boolean bfbo = true;
-        boolean benddata = false;
-        boolean bf = false;
-        byte boundary[] = temp.getBytes();
-        
-        while (bf?true:((count = sis.readLine(data, 0, BUFFER)) != -1)) {
-            bf = false;
-            benddata = false;
-            if(count==2 && data[0]==13 && data[1]==10) {
-                enddata[0] = 13;
-                enddata[1] = 10;
-                for(int i=0;i<BUFFER;i++) data[i]=0;
-                
-                count = sis.readLine(data, 0, BUFFER);
-                if(count==2 && data[0]==13 && data[1]==10) {
-                    dest.write(enddata, 0, 2);
-                    bf = true;
-                    continue;
-                } else {
-                    benddata = true;
-                }
-            }
-            String s = new String(data,2,temp.length());
-            if(temp.equals(s)) {
-                if(benddata) break;
-                if((c =sis.readLine(data1, 0, BUFFER)) != -1) {
-                    filename = new String(data1);
-                    if(filename.length()>2 && filename.indexOf("filename")!=-1) {
-                        filename = filename.substring(filename.lastIndexOf('\\')+1,filename.lastIndexOf('\"'));
-
-                        fileheader = filename;
-                        fos = new FileOutputStream(foldername+ filename);
-                        dest = new BufferedOutputStream(fos, BUFFER);
-                    }
-                    c =sis.readLine(data2, 0, BUFFER);
-                    if((c =sis.readLine(data2, 0, BUFFER)) != -1) {
-                        bwri = bfbo?true:false;
-                    }
-                }
-                bfbo = bfbo?false:true;
-                for(int i=0;i<BUFFER;i++) data[i]=0;
-                continue;
-            } //end period
-            
-            if(benddata) {
-                benddata = false;
-                dest.write(enddata, 0, 2);
-                for(int i=0;i<2;i++) enddata[i]=0;
-            }
-            if(bwri) {
-                dest.write(data, 0, count);
-                for(int i=0;i<BUFFER;i++) data[i]=0;
-            }
-        } //end while
-        //dest.flush();
-        dest.close();
-        sis.close();
-    */
 
         DocumentBean documentBean = new DocumentBean();
 
@@ -190,18 +123,6 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 
 
         documentBean.setFilename(fileheader);
-
-        //  documentBean.setFileDesc(filedesc);
-
-        //  documentBean.setFoldername(foldername);
-
-        //  documentBean.setFunction(function);
-
-        //  documentBean.setFunctionID(function_id);
-
-        //  documentBean.setCreateDate(fileheader);
-
-        //  documentBean.setDocCreator(creator);
 
 
         // Call the output page.

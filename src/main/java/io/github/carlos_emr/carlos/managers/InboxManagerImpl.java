@@ -105,8 +105,6 @@ public class InboxManagerImpl implements InboxManager {
         Date endDate = query.getEndDate();
 
 
-        //logger.info("Got dates: " + startDate + "-" + endDate + " out of " + startDateStr + "-" + endDateStr);
-
         Boolean isAbnormal = null;
         if (ABNORMAL.equals(view))
             isAbnormal = true;
@@ -176,7 +174,6 @@ public class InboxManagerImpl implements InboxManager {
 
                     // if doc sent to default queue and no valid providers, do NOT include it
                     if (queueIdInt == Queue.DEFAULT_QUEUE_ID && !documentResultsDao.isSentToValidProvider(docid) && isSegmentIDUnique(validlabdocs, data)) {
-                        // validlabdocs.add(data);
                     }
                     // if doc sent to default queue && valid providers, check if it's sent to this providers, if yes include it
                     else if (queueIdInt == Queue.DEFAULT_QUEUE_ID && documentResultsDao.isSentToValidProvider(docid) && documentResultsDao.isSentToProvider(docid, searchProviderNo) && isSegmentIDUnique(validlabdocs, data)) {
@@ -309,7 +306,6 @@ public class InboxManagerImpl implements InboxManager {
         }
         logger.debug("labdocs.size()=" + labdocs.size());
 
-        /* find all data for the index.jsp page */
         Hashtable patientDocs = new Hashtable();
         Hashtable patientIdNames = new Hashtable();
         String patientIdNamesStr = "";

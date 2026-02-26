@@ -38,16 +38,10 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ProgramProviderTo1;
 import org.springframework.stereotype.Component;
 
 @Component
-/*
- * I see a component-scan for this in applicationContextREST.xml but it's not being autowired..can't figure it out
- * right now..but this is a problem for all these I think.
- */
 public class ProgramProviderConverter extends AbstractConverter<ProgramProvider, ProgramProviderTo1> {
 
-    //@Autowired
     private ProgramDao programDao;
 
-    //@Autowired
     private SecRoleDao secRoleDao;
 
     @Override

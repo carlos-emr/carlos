@@ -737,12 +737,10 @@ public class LabPDFCreator extends PdfPageEventHelper {
 											if (isLongText) {
 												cell.setColspan(4);
 											}
-											// cell.setHorizontalAlignment(Element.ALIGN_RIGHT);
 											table.addCell(cell);
 										}
 										cell.setColspan(1);
 									}
-									
 									
 									
 								} else { // end PATHHL7 labs
@@ -817,7 +815,6 @@ public class LabPDFCreator extends PdfPageEventHelper {
                                 if (handler.getOBXCommentCount(j, k) > 0) {
                                     cell.setBorder(Rectangle.BOTTOM);
 
-                                    //	cell.setBorderColor(Color.white);
 
                                     for (int l = 0; l < handler.getOBXCommentCount(j, k); l++) {
 
@@ -922,7 +919,6 @@ public class LabPDFCreator extends PdfPageEventHelper {
 					} else {
 						cell.setColspan(7);
 					}
-					// cell.setHorizontalAlignment(Element.ALIGN_LEFT);
 					for (int k = 0; k < handler.getOBRCommentCount(j); k++) {
 						// the obrName should only be set if it has not been
 						// set already which will only have occured if the

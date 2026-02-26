@@ -32,13 +32,9 @@ import io.github.carlos_emr.OscarProperties;
 
 public class HCValidationFactory {
 
-//    private static HCValidator validator;
 
     public static HCValidator getHCValidator() {
 //        if (validator == null) {
-//            validator = getValidator();
-//        }
-//        return validator;
         return getValidator();
     }
 

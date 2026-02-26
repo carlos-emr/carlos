@@ -620,7 +620,6 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
                 if (!dxTriggers.contains(aDxTrig)) {
                     dxTriggers.add(aDxTrig);
                 }
-                // Map this code to the flowsheet name, creating the list if needed
                 if (dxTrigHash.containsKey(aDxTrig)) {
                     ArrayList<String> l = dxTrigHash.get(aDxTrig);
                     if (!l.contains(name)) {
@@ -1643,7 +1642,6 @@ public class MeasurementTemplateFlowSheetConfig implements InitializingBean {
         int count = 0;
         if (measurements != null) {
             for (String mstring : measurements) {
-                //java.util.List ruleList = mFlowsheet.getRules(mstring);
 
                 EctMeasurementTypesBean measurementTypesBean = mType.getMeasurementType(mstring);
 

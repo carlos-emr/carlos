@@ -100,10 +100,6 @@ public class TeleplanFileWriter {
     private void addToMarkBillingList(String billingNo) {
         billingToBeMarkedAsBilled.add(billingNo);
     }
-    /*
-    private void increaseClaims(){
-        totalClaims++;
-    }*/
 
     private void increaseClaims(int numClaims) {
         totalClaims += numClaims;
@@ -225,13 +221,9 @@ public class TeleplanFileWriter {
 
 
         //setMasDAO(new BillingmasterDAO());
-        //log.debug
         MiscUtils.getLogger().debug("creating WCB teleplan record for claim " + billing_no);
         List billMasterList = billingmasterDAO.getBillingMasterByBillingNo(billing_no);
         Billingmaster bm = (Billingmaster) billMasterList.get(0);
-
-
-        //Billingmaster bm = billingmasterDAO.getBillingMasterByBillingMasterNo(billing_no);
 
 
         WCB wcbForm = billingmasterDAO.getWCBForm("" + bm.getWcbId());
@@ -240,7 +232,6 @@ public class TeleplanFileWriter {
 
         WCBTeleplanSubmission wcbSub = new WCBTeleplanSubmission();
         wcbSub.setDemographicManager(demographicManager);
-        //WcbSb sb = new WcbSb(billing_no);
         appendToHTML(wcbSub.getHtmlLine(wcbForm, bm)); //sb.getHtmlLine());
         appendToHTML(wcbSub.validate(wcbForm, bm)); //sb.validate());
         //TODO: DOES THIS DO ANYTHING appendToHTML(checkData.printWarningMsg(""))
@@ -302,7 +293,6 @@ public class TeleplanFileWriter {
         addToMarkBillingmasterList("" + bm.getBillingmasterNo());
         return claims;
     }
-
 
 
     //This needs to handle having multiple billingmaster line per billing but from now 
@@ -428,7 +418,6 @@ public class TeleplanFileWriter {
         dLine.append(Misc.forwardZero(bm.getBirthDate(), 8));                        //p52   8
         dLine.append(Misc.forwardZero("" + bm.getBillingmasterNo(), 7));              //p54   7
         dLine.append(Misc.forwardSpace(bm.getCorrespondenceCode(), 1));             //p56   1
-        //dLine.append(Misc.space(20));                                             //p58  20
         dLine.append(Misc.backwardSpace(bm.getClaimComment(), 20));        //p58  20
         dLine.append(Misc.forwardSpace(bm.getMvaClaimCode(), 1));                    //p60   1
         dLine.append(Misc.forwardZero(bm.getIcbcClaimNo(), 8));                     //p62   8

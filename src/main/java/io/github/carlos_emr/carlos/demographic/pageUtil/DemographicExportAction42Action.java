@@ -368,7 +368,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                         if (StringUtils.filled(name)) {
                             firstName.setPart(name);
                             firstName.setPartType(cdsDt.PersonNamePartTypeCode.GIV);
-//				firstName.setPartQualifier(cdsDt.PersonNamePartQualifierCode.BR);
                         } else {
                             exportError.add("Error! No First Name for Patient " + demoNo);
                         }
@@ -376,7 +375,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                         if (StringUtils.filled(name)) {
                             lastName.setPart(name);
                             lastName.setPartType(cdsDt.PersonNamePartTypeCode.FAMC);
-//				lastName.setPartQualifier(cdsDt.PersonNamePartQualifierCode.BR);
                         } else {
                             exportError.add("Error! No Last Name for Patient " + demoNo);
                         }
@@ -926,7 +924,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         fHist.setNotes(annotation);
                                         summary = Util.addSummary(summary, "Notes", annotation);
                                     }
-                                    //fHist.setCategorySummaryLine(summary);
                                 }
                             }
                             if (exPastHealth) {
@@ -1003,7 +1000,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         pHealth.setNotes(annotation);
                                         summary = Util.addSummary(summary, "Notes", annotation);
                                     }
-                                    //	pHealth.setCategorySummaryLine(summary);
 
                                 }
                             }
@@ -1082,7 +1078,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         pList.setNotes(annotation);
                                         summary = Util.addSummary(summary, "Notes", annotation);
                                     }
-                                    //pList.setCategorySummaryLine(summary);
                                 }
                             }
                             if (exRiskFactors) {
@@ -1150,7 +1145,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     if (residualInformation != null) {
                                         rFact.addNewResidualInfo().set(residualInformation);
                                     }
-                                    //	rFact.setCategorySummaryLine(summary);
                                 }
                             }
 
@@ -1178,10 +1172,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     }
 
                                     //entered datetime
-					/*	if (createDate!=null) {
-							cNote.addNewEnteredDateTime().setFullDateTime(Util.calDateTZD(createDate));
-						}
-					 */
                                     //event datetime
                                     if (cmn.getObservation_date() != null) {
                                         cNote.addNewEventDateTime().setFullDateTime(Util.calDateTZD(cmn.getObservation_date()));
@@ -1263,7 +1253,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         alerts.setNotes(StringUtils.maxLenString(annotation, 1000, 980, "... (see residual)"));
                                         summary = Util.addSummary(summary, "Notes", annotation);
                                     }
-                                    //alerts.setCategorySummaryLine(summary);
                                 }
                             }
                         }
@@ -1275,7 +1264,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                             for (Dxresearch dx : dxItems) {
                                 if (dx.getStatus() == 'A' || dx.getStatus() == 'C') {    //active
                                     ProblemList pList = patientRec.addNewProblemList();
-                                    //pList.setProblemDiagnosisDescription("");
                                     if (dx.getStartDate() != null) {
                                         Util.putPartialDate(pList.addNewOnsetDate(), dx.getStartDate(), "yyyy-MM-dd");
                                     }
@@ -1299,8 +1287,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                             diagnosis.setStandardCodeDescription(result.getDescription());
                                         }
                                     }
-                                    //pList.setProblemDescription(arg0);
-                                    //pList.setProblemStatus(arg0);
                                     addOneEntry(PROBLEMLIST);
 
                                 }
@@ -1312,7 +1298,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                             List<Episode> episodes = episodeDao.findAll(demographic.getDemographicNo());
                             for (Episode episode : episodes) {
                                 ProblemList pList = patientRec.addNewProblemList();
-                                //pList.setProblemDiagnosisDescription("");
                                 if (episode.getStartDate() != null) {
                                     Util.putPartialDate(pList.addNewOnsetDate(), episode.getStartDate(), "yyyy-MM-dd");
                                 }
@@ -1331,8 +1316,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         diagnosis.setStandardCodeDescription(result.getDescription());
                                     }
                                 }
-                                //pList.setProblemDescription(arg0);
-                                //pList.setProblemStatus(arg0);
                                 addOneEntry(PROBLEMLIST);
                             }
                         }
@@ -1361,10 +1344,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 String typeCode = String.valueOf(allergy.getTypeCode());
                                 if (StringUtils.filled(typeCode)) {
                                     if (typeCode.equals("0")) {
-                                        //alr.setReactionType(cdsDt.AdverseReactionType.AL);
                                         alr.setPropertyOfOffendingAgent(cdsDt.PropertyOfOffendingAgent.ND);
                                     } else {
-                                        //alr.setReactionType(cdsDt.AdverseReactionType.AR);
                                         if (typeCode.equals("13")) {
                                             alr.setPropertyOfOffendingAgent(cdsDt.PropertyOfOffendingAgent.DR);
                                         } else {
@@ -1429,7 +1410,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 if (StringUtils.empty(aSummary)) {
                                     exportError.add("Error! No Category Summary Line (Allergies & Adverse Reactions) for Patient " + demoNo + " (" + (j + 1) + ")");
                                 }
-                                //alr.setCategorySummaryLine(aSummary);
                             }
                         }
 
@@ -1566,7 +1546,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 if (residualInformation != null) {
                                     immu.addNewResidualInfo().set(residualInformation);
                                 }
-                                //	immu.setCategorySummaryLine(StringUtils.noNull(imSummary));
                             }
                         }
 
@@ -1585,8 +1564,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     mSummary = Util.addSummary("Prescription Written Date", partialDateDao.getDatePartial(arr[p].getWrittenDate(), dateFormat));
                                 }
                                 if (arr[p].getRxDate() != null) {
-                                    //medi.addNewStartDate().setFullDate(Util.calDate(arr[p].getRxDate()));
-                                    //mSummary = Util.addSummary(mSummary,"Start Date", UtilDateUtilities.DateToString(arr[p].getRxDate(),"yyyy-MM-dd"));
                                     String dateFormat = partialDateDao.getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_STARTDATE);
                                     Util.putPartialDate(medi.addNewStartDate(), arr[p].getRxDate(), dateFormat);
                                     mSummary = Util.addSummary("Start Date", partialDateDao.getDatePartial(arr[p].getRxDate(), dateFormat));
@@ -1850,7 +1827,6 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                                 if (StringUtils.empty(mSummary))
                                     exportError.add("Error! No Category Summary Line (Medications & Treatments) for Patient " + demoNo + " (" + (p + 1) + ")");
-                                //	medi.setCategorySummaryLine(mSummary);
                             }
                             arr = null;
                         }
@@ -1901,52 +1877,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 }
                             }
 
-				/*
-				//get lab readings from measurements table
-				List<LabMeasurements> labMeaList = ImportExportMeasurements.getLabMeasurements(demoNo);
-				for (LabMeasurements labMea : labMeaList) {
-					LaboratoryResults labResults = patientRec.addNewLaboratoryResults();
-					exportLabResult(labMea, labResults, demoNo);
-
-					String lab_no = labMea.getExtVal("lab_no");
-					if (StringUtils.filled(lab_no)) {
-						Hl7TextMessage hl7TextMessage = hl7TxtMssgDao.find(Integer.valueOf(lab_no));
-						String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()));
-						MessageHandler h = Factory.getHandler(hl7TextMessage.getType(), hl7Body);
-						for (int i=0; i<h.getOBRCount(); i++) {
-							for (int j=0; j<h.getOBXCount(i); j++) {
-								if (StringUtils.filled(h.getOBXResult(i, j))) continue; //skip entries with result
-
-								String commentAsResult = null;
-								for (int k=0; k<h.getOBXCommentCount(i, j); k++) {
-									commentAsResult = Util.addLine(commentAsResult, h.getOBXComment(i, j, k));
-								}
-
-								if (StringUtils.filled(commentAsResult)) {
-									HashMap<String, String> labMeaValues = new HashMap<String, String>();
-
-									labMeaValues.put("identifier", h.getOBXIdentifier(i, j));
-									labMeaValues.put("name", h.getOBXName(i, j));
-									labMeaValues.put("labname", h.getPatientLocation());
-									labMeaValues.put("datetime", h.getTimeStamp(i, j));
-									labMeaValues.put("abnormal", h.getOBXAbnormalFlag(i, j));
-									labMeaValues.put("measureData", commentAsResult);
-									labMeaValues.put("unit", h.getOBXUnits(i, j));
-									labMeaValues.put("accession", h.getAccessionNum());
-									labMeaValues.put("range", h.getOBXReferenceRange(i, j));
-									labMeaValues.put("request_datetime", h.getRequestDate(i));
-									labMeaValues.put("olis_status", h.getOBXResultStatus(i, j));
-									labMeaValues.put("lab_no", lab_no);
-									labMeaValues.put("other_id", i+"-"+j);
-
-									LaboratoryResults labResults2 = patientRec.addNewLaboratoryResults();
-									exportLabResult(labMeaValues, labResults2, demoNo);
-								}
-							}
-						}
-					}
-				}
-				*/
                         }
 
                         if (exAppointments) {
@@ -2268,14 +2198,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                                                 reviewed.addNewDateTimeReportReviewed().setFullDate(reviewCal);
                                             }
                                         }
-							/*
-							//reviewing info
-							if (reviewerId!=null && reviewDate!=null) {
-								ReportReviewed reviewed = rpr.addNewReportReviewed();
-								reviewed.addNewName();
-								reviewed.setReviewingOHIPPhysicianId(reviewerId);
-								reviewed.addNewDateTimeReportReviewed().setFullDate(reviewDate);
-							}*/
 
                                         //Notes
                                         List<HRMDocumentComment> comments = hrmDocCommentDao.getCommentsForDocument(Integer.parseInt(hrmDocumentId));
@@ -2542,7 +2464,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                             fw.flush();
                             fw.close();
 
-                            //omdCdsDoc.save(files.get(files.size()-1), options);
 
                         } catch (IOException ex) {
                             logger.error("Error", ex);
@@ -2638,104 +2559,42 @@ public class DemographicExportAction42Action extends ActionSupport {
             // Remove unused E2E tools.
 //		case E2E:
 //			if (!Util.checkDir(tmpDir)) {
-//				logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions.");
-//			} else {
-//				ArrayList<File> files = new ArrayList<File>();
-//				StringBuilder exportLog = new StringBuilder();
 //				for (String demoNo : list) {
 //					if (StringUtils.empty(demoNo)) {
-//						String msg = "Error! No Demographic Number";
-//						logger.error(msg);
-//						exportLog.append(msg);
-//						continue;
-//					}
 //
 //					// Populate Clinical Document
-//					ClinicalDocument clinicalDocument = E2ECreator.createEmrConversionDocument(Integer.parseInt(demoNo));
 //					if (clinicalDocument == null) {
-//						String msg = "[Demo ".concat(demoNo).concat("] Not active or failed to populate");
-//						logger.info(msg);
-//						exportLog.append(msg);
-//						continue;
-//					}
 //
 //					// Output Clinical Document as String
-//					String output = EverestUtils.generateDocumentToString(clinicalDocument, true);
 //
 //					//export file to temp directory
 //					try {
 //						File directory = new File(tmpDir);
 //						if (!directory.exists()){
 //							throw new Exception("Temporary Export Directory does not exist!");
-//						}
 //
 //						//Standard format for xml exported file : Demographic_PatientUniqueID
-//						String expFile = "Demographic_".concat(demoNo);
 //						files.add(new File(directory, expFile+".xml"));
-//					} catch (Exception e) {
-//						logger.error("Error", e);
-//					}
-////					BufferedWriter out = null;
 //					try(BufferedWriter out = new BufferedWriter(new FileWriter(files.get(files.size()-1)))) {
-//						out.write(output);
-//					} catch (IOException e) {
-//						logger.error("Error", e);
-//						throw new Exception("Cannot write .xml file(s) to export directory.\nPlease check directory permissions.");
-//					}
-//				}
 //
 //				// Create Export Log
 //				try {
 //					File exportLogFile = new File(files.get(0).getParentFile(), "ExportEvent.log");
-//					BufferedWriter out = new BufferedWriter(new FileWriter(exportLogFile));
-//					String pidRange = "Patient ID Range: ".concat(list.get(0));
-//					pidRange = pidRange.concat("-").concat(list.get(list.size()-1));
 //
-//					out.write(pidRange.concat(System.getProperty("line.separator")));
-//					out.write(System.getProperty("line.separator"));
 //					if (exportLog.toString().length() == 0) {
-//						out.write("Export contains no errors".concat(System.getProperty("line.separator")));
-//					} else {
-//						out.write(exportLog.toString());
-//					}
-//					out.close();
 //
 //					files.add(exportLogFile);
-//				} catch (IOException e) {
-//					logger.error("Error", e);
-//					throw new Exception("Cannot write .xml file(s) to export directory.\nPlease check directory permissions.");
-//				}
 //
 //				// Zip all export files
-//				String zipName = files.get(0).getName().replace(".xml", ".zip");
 //				if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".zip";
-//				//	if (setName!=null) zipName = "export_"+setName.replace(" ","")+"_"+UtilDateUtilities.getToday("yyyyMMddHHmmss")+".pgp";
 //				if (!Util.zipFiles(files, zipName, tmpDir)) {
-//					logger.debug("Error! Failed to zip export files");
-//				}
 //
 //				// Apply PGP if installed
 //				if (pgpReady.equals("Yes")) {
 //					//PGP encrypt zip file
-//					PGPEncrypt pgp = new PGPEncrypt();
 //					if (pgp.encrypt(zipName, tmpDir)) {
-//						Util.downloadFile(zipName+".pgp", tmpDir, response);
-//						Util.cleanFile(zipName+".pgp", tmpDir);
-//						ffwd = "success";
-//					} else {
-//						request.getSession().setAttribute("pgp_ready", "No");
-//					}
-//				} else {
-//					logger.info("Warning: PGP Encryption NOT available - unencrypted file exported!");
-//					Util.downloadFile(zipName, tmpDir, response);
-//					ffwd = "success";
-//				}
 //
 //				// Remove zip & export files from temp dir
-//				Util.cleanFile(zipName, tmpDir);
-//				Util.cleanFiles(files);
-//			}
-//			break;
             default:
                 break;
         }
@@ -2912,7 +2771,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                     return true;
                 }
             }
-            //}
         }
         return false;
     }
@@ -2925,7 +2783,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                     return true;
                 }
             }
-            //}
         }
         return false;
     }
@@ -3300,31 +3157,6 @@ public class DemographicExportAction42Action extends ActionSupport {
         return extensionTooLong;
     }
 
-	/*
-	private void exportLabResult(LabMeasurements labMea, LaboratoryResults labResults, String demoNo) {
-		HashMap<String, String> labMeaValues = new HashMap<String, String>();
-
-		labMeaValues.put("identifier", labMea.getExtVal("identifier"));
-		labMeaValues.put("name_internal", labMea.getExtVal("name_internal"));
-		labMeaValues.put("name", labMea.getExtVal("name"));
-		labMeaValues.put("labname", labMea.getExtVal("labname"));
-		labMeaValues.put("datetime", labMea.getExtVal("datetime"));
-		labMeaValues.put("abnormal", labMea.getExtVal("abnormal"));
-		labMeaValues.put("measureData", labMea.getMeasure().getDataField());
-		labMeaValues.put("unit", labMea.getExtVal("unit"));
-		labMeaValues.put("accession", labMea.getExtVal("accession"));
-		labMeaValues.put("comments", labMea.getExtVal("comments"));
-		labMeaValues.put("range", labMea.getExtVal("range"));
-		labMeaValues.put("minimum", labMea.getExtVal("minimum"));
-		labMeaValues.put("maximum", labMea.getExtVal("maximum"));
-		labMeaValues.put("request_datetime", labMea.getExtVal("request_datetime"));
-		labMeaValues.put("olis_status", labMea.getExtVal("olis_status"));
-		labMeaValues.put("lab_no", labMea.getExtVal("lab_no"));
-		labMeaValues.put("other_id", labMea.getExtVal("other_id"));
-
-		exportLabResult(labMeaValues, labResults, demoNo);
-	}
-	*/
 
     private void exportLabResult(PatientRecord patientRec, Hl7TextMessage hl7TextMessage, Hl7TextInfo hl7TxtInfo, MessageHandler h, String name, String result, String comments, String demoNo, int i, int j) {
 		HashMap<String, String> labMeaValues = new HashMap<String, String>();
@@ -3391,12 +3223,6 @@ public class DemographicExportAction42Action extends ActionSupport {
         }
 
         //lab normal/abnormal flag
-		/*
-		labResults.setResultNormalAbnormalFlag(cdsDt.ResultNormalAbnormalFlag.U);
-		String abnormalFlag = StringUtils.noNull(labMea.get("abnormal"));
-		if (abnormalFlag.equals("A") || abnormalFlag.equals("L")) labResults.setResultNormalAbnormalFlag(cdsDt.ResultNormalAbnormalFlag.Y);
-		if (abnormalFlag.equals("N")) labResults.setResultNormalAbnormalFlag(cdsDt.ResultNormalAbnormalFlag.N);
-*/
         //lab unit of measure
         String measureData = StringUtils.noNull(labMea.get("measureData"));
         if (StringUtils.filled(measureData)) {
@@ -3424,7 +3250,6 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         ResultNormalAbnormalFlag rnaf = labResults.addNewResultNormalAbnormalFlag();
         rnaf.setResultNormalAbnormalFlagAsPlainText(labMea.get("abnormal"));
-        //labResults.setResultNormalAbnormalFlag(rnaf);
 
         //lab reference range
         String range = StringUtils.noNull(labMea.get("range"));
@@ -3466,8 +3291,6 @@ public class DemographicExportAction42Action extends ActionSupport {
             String other_id = StringUtils.noNull(labMea.get("other_id"));
             String annotation = getNonDumpNote(labTable, Long.valueOf(lab_no), other_id);
             if (StringUtils.filled(annotation)) labResults.setPhysiciansNotes(annotation);
-
-//		  String info = labRoutingInfo.get("comment"); <--for whole report, may refer to >1 lab results
 
 
             //lab reviewer

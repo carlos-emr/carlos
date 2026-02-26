@@ -131,10 +131,6 @@ public class AdmissionManagerImpl implements AdmissionManager {
         dao.saveAdmission(admission);
     }
 
-    /*public void processAdmissionToExternal(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes) throws ProgramFullException, AdmissionException, ServiceRestrictionException {
-        processAdmission(demographicNo, providerNo, program, dischargeNotes, admissionNotes, false, null, false);
-    }
-    */
     public void processAdmission(Integer demographicNo, String providerNo, Program program, String dischargeNotes, String admissionNotes) throws ProgramFullException, AdmissionException, ServiceRestrictionException {
         processAdmission(demographicNo, providerNo, program, dischargeNotes, admissionNotes, false, null, false, null);
     }
@@ -232,7 +228,6 @@ public class AdmissionManagerImpl implements AdmissionManager {
                 }
             }
         }
-
 
 
         //For the clients dependents

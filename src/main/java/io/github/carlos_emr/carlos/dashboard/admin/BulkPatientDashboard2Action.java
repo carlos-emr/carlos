@@ -267,16 +267,6 @@ public class BulkPatientDashboard2Action extends ActionSupport {
         }
     }
 
-/*	private List<Integer> parseIntegers(String jsonString) {
-		List<Integer> ints = new ArrayList<Integer>();
-
-		ArrayNode jsonArray = asJsonArray(jsonString);
-		for (int i = 0; i < jsonArray.size(); i++) {
-			ints.add(jsonArray.get(i).asInt());
-		}
-
-		return ints;
-	}*/
 
     private String getProviderNo(LoggedInInfo loggedInInfo) {
         String providerNo = null;

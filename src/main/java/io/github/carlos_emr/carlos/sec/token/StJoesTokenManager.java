@@ -173,7 +173,6 @@ public class StJoesTokenManager extends SecurityTokenManager {
         session.setAttribute("userlastname", provider.getLastName());
         session.setAttribute("userrole", sb.toString());
         session.setAttribute("oscar_context_path", httpRequest.getContextPath());
-        //session.setAttribute("expired_days", strAuth[5]);
         Facility facility = facilityDao.find(facilityId);
         httpRequest.getSession().setAttribute("currentFacility", facility);
 

@@ -70,9 +70,6 @@ public final class EctImmSaveConfig2Action extends ActionSupport {
         EctSessionBean bean = null;
         bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         try {
-            //String sCfgDoc = UtilMisc.decode64(request.getParameter("xmlDoc"));
-            //Document cfgDoc = UtilXML.parseXML(sCfgDoc);
-            //NodeList cfgSets = cfgDoc.getElementsByTagName("immunizationSet");
 
             EctImmImmunizationData imm = new EctImmImmunizationData();
             String sDoc = imm.getImmunizations(bean.demographicNo);
@@ -98,16 +95,6 @@ public final class EctImmSaveConfig2Action extends ActionSupport {
                 root.appendChild(nod);
             }
          
-/*
-            for(int i = 0; i < cfgSets.getLength(); i++) {
-                if(request.getParameter("chkSet".concat(String.valueOf(String.valueOf(i)))) != null && request.getParameter("chkSet".concat(String.valueOf(String.valueOf(i)))).equalsIgnoreCase("on"))
-                {
-                    Element cfgSet = (Element)cfgSets.item(i);
-                    Node nod = doc.importNode(cfgSet, true);
-                    root.appendChild(nod);
-                }
-            }
- */
             if (doc != null) {
                 String sXML = UtilXML.toXML(doc);
                 imm.saveImmunizations(bean.demographicNo, bean.providerNo, sXML);

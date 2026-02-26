@@ -191,32 +191,6 @@ public class JdbcBilling3rdPartImpl {
         return ret;
     }
 
-    /*
-     * seems this method not used by any one.
-     * public List get3rdAddrList(String keyword, String field) {
-     * Properties prop = new Properties();
-     * List<Properties> ret = new Vector<Properties>();
-     * List<Billing3rdPartyAddress> addressList = daos.findAddressesByOneField(field,
-     * keyword);
-     * if(addressList != null) {
-     * for(Billing3rdPartyAddress b : addressList) {
-     * prop.setProperty("id", b.getId().toString());
-     * prop.setProperty("attention", b.getAttention());
-     * prop.setProperty("company_name", b.getCompanyName());
-     * prop.setProperty("address", b.getAddress());
-     * prop.setProperty("city", b.getCity());
-     * prop.setProperty("province", b.getProvince());
-     * prop.setProperty("postcode", b.getPostalCode());
-     * prop.setProperty("telephone", b.getTelephone());
-     * prop.setProperty("fax", b.getFax());
-     *
-     * ret.add(prop);
-     * }
-     * }
-     *
-     * return ret;
-     * }
-     */
 
     public Properties get3rdAddr(String id) {
         Properties prop = new Properties();

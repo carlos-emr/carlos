@@ -42,7 +42,6 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidatio
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctValidationsBeanHandler;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.prop.EctFormProp;
 
-//import com.ibatis.commons.resources.Resources;
 /*
  * Author: Ivy Chan
  * Company: iConcept Technologes Inc.

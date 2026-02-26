@@ -64,7 +64,6 @@ public class EctConAddInstitution2Action extends ActionSupport {
         }
 
         Institution institution = null;
-        //EctConAddInstitutionForm addInstitutionForm = (EctConAddInstitutionForm) form;
 
         int whichType = this.getWhichType();
         if (whichType == 1) //create

@@ -70,7 +70,6 @@ public final class OscarSpringContextLoader extends ContextLoaderListener {
         }
 
         ConfigurableWebApplicationContext wac = (ConfigurableWebApplicationContext) BeanUtils.instantiateClass(contextClass);
-        // wac.setParent(parent);
         wac.setServletContext(servletContext);
 
         // to load various contexts, we need to get Modules property

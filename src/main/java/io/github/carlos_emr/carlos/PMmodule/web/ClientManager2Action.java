@@ -114,7 +114,6 @@ public class ClientManager2Action extends ActionSupport {
     private MatchingManager matchingManager = new MatchingManager();
 
 
-
     public void setCdsClientFormDao(CdsClientFormDao cdsClientFormDao) {
         this.cdsClientFormDao = cdsClientFormDao;
     }
@@ -461,7 +460,6 @@ public class ClientManager2Action extends ActionSupport {
             request.setAttribute("hasOverridePermission", caseManagementManager.hasAccessRight("Service restriction override on referral", "access", loggedInInfo.getLoggedInProviderNo(), String.valueOf(referral.getClientId()), "" + program.getId()));
 
             // jump to service restriction error page to allow overrides, etc.
-            // return "service_restriction_error";
         }
 
         if (success) {
@@ -520,7 +518,6 @@ public class ClientManager2Action extends ActionSupport {
         request.setAttribute("do_refer", true);
         request.setAttribute("temporaryAdmission", programManager.getEnabled());
 
-        //return "edit";
         return "refer_vacancy";
     }
 
@@ -642,7 +639,6 @@ public class ClientManager2Action extends ActionSupport {
     public String save() {
         return edit();
     }
-
 
 
     public String save_joint_admission() {
@@ -792,7 +788,6 @@ public class ClientManager2Action extends ActionSupport {
 
         if (tabBean.getTab().equals("Summary")) {
 
-            // request.setAttribute("admissions", admissionManager.getCurrentAdmissions(Integer.valueOf(demographicNo)));
             // only allow bed/service programs show up.(not external program)
             List<Admission> currentAdmissionList = admissionManager.getCurrentAdmissionsByFacility(demographicId, facilityId);
             ArrayList<AdmissionForDisplay> admissionList = new ArrayList<AdmissionForDisplay>();
@@ -1049,7 +1044,6 @@ public class ClientManager2Action extends ActionSupport {
     public void setAdmissionManager(AdmissionManager mgr) {
         this.admissionManager = mgr;
     }
-
 
 
     public void setClientManager(ClientManager mgr) {

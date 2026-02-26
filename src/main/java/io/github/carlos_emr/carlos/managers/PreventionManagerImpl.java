@@ -259,9 +259,6 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
             Map<String, Object> warningMsgs = prev.getWarningMsgs();
             Set<String> keySet = warningMsgs.keySet();
 
-            /*
-             * check if display of each warning message has been disabled
-             */
             String value;
             for (String key : keySet) {
                 value = (String) warningMsgs.get(key);

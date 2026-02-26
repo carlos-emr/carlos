@@ -72,11 +72,6 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         query.setParameter(2, demographicNo);
         @SuppressWarnings("unchecked")
         List<Admission> rs = query.getResultList();
-        /*
-         * if (!rs.isEmpty()) {
-         * admission = ((Admission) rs.get(0));
-         * }
-         */
         if (log.isDebugEnabled()) {
             log.debug((admission != null) ? "getAdmission:" + admission.getId() : "getAdmission: not found");
         }
@@ -746,7 +741,6 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         // startDate<dischargeDate
         // ======================
         // time T(0)---------->T(n)
-        // A------>D
         // n- SE
         // n- SE
         // y- S----->E
@@ -880,8 +874,6 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
         cal.set(Calendar.MINUTE, 59);
         cal.set(Calendar.SECOND, 59);
 
-        // 2 = end of day
-        // 3 = start of day so ok
         query.setParameter(1, programNo);
         query.setParameter(2, cal.getTime());
         query.setParameter(3, day);

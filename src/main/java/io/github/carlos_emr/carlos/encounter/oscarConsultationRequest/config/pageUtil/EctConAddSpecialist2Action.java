@@ -68,7 +68,6 @@ public class EctConAddSpecialist2Action extends ActionSupport {
         }
 
         ProfessionalSpecialist professionalSpecialist = null;
-        //EctConAddSpecialistForm addSpecailistForm = (EctConAddSpecialistForm) form;
 
         int whichType = this.getwhichType();
         if (whichType == 1) //create

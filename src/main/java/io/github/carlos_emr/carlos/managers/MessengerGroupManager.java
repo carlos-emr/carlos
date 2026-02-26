@@ -392,12 +392,6 @@ public class MessengerGroupManager {
         groupMembers.setProviderNo(contactIdentifier.getContactId());
         groupMembers.setClinicLocationNo(contactIdentifier.getClinicLocationNo());
 
-        /*
-         * A general membership registry with group id=0
-         * needs to be added if this member was added directly into a group.
-         * Indicated by a groupId greater than 0.
-         * But first check if the general membership exists before adding.
-         */
         if (groupId > 0 && !isRegistered(contactIdentifier)) {
             GroupMembers registeredMember = new GroupMembers();
             BeanUtils.copyProperties(groupMembers, registeredMember);

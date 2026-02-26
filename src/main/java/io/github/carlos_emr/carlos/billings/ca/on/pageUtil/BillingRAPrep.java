@@ -73,7 +73,6 @@ public class BillingRAPrep {
         BigDecimal BigOTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
         BigDecimal BigLTotal = new BigDecimal(0.).setScale(2, BigDecimal.ROUND_HALF_UP);
         // Billing No Provider Patient HIN Service Date Service Code Invoiced :
-        // new BigDecimal(0)
         // Paid Clinic Pay Hospital Pay OB Error
         for (int j = 0; j < ret.size(); j++) {
             Properties prop = (Properties) ret.get(j);
@@ -128,7 +127,6 @@ public class BillingRAPrep {
                 obPay = amountpay;
             } else {
                 obPay = "N/A";
-                // amountOB = "N/A";
             }
 
             if (COflag.equals("1")) {
@@ -137,7 +135,6 @@ public class BillingRAPrep {
                 BigDecimal bdCOFee = new BigDecimal(dCOFee).setScale(2, BigDecimal.ROUND_HALF_UP);
                 BigCOTotal = BigCOTotal.add(bdCOFee);
             } else {
-                // amountCO = "N/A";
             }
 
             if (explain.compareTo("") == 0 || explain == null) {

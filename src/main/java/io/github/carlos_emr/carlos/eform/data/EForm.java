@@ -170,7 +170,6 @@ public class EForm extends EFormBase {
         StringBuilder html = new StringBuilder(this.formHtml);
         int index = StringBuilderUtils.indexOfIgnoreCase(html, "<form", 0);
         int endtag = html.indexOf(">", index + 1);
-        // --remove all previous actions, methods and names from the form tag
         if (index < 0) return;
 
         int pointer, pointer2;
@@ -669,38 +668,6 @@ public class EForm extends EFormBase {
 
         return type;
     }
-/*
-	private String getFieldType(StringBuilder html, int pointer) {
-		// pointer can be any place in the tag - isolates tag and sends back field type
-		int open = html.substring(0, pointer).lastIndexOf("<");
-		int close = html.substring(pointer).indexOf(">") + pointer + 1;
-		String tag = html.substring(open, close);
-		log.debug("TAG ====" + tag);
-		int start; // <input type="^text".....
-		int end; // <input type="text^"....
-		if (tag.substring(1, 9).equalsIgnoreCase("textarea")) return "textarea";
-		if (tag.substring(1, 7).equalsIgnoreCase("select")) return "select";
-
-		log.debug("TAG PROCESS ====" + tag.substring(1, 9));
-		if ((start = tag.toLowerCase().indexOf(" type=")) >= 0) {
-			start += 6; // account for type=...
-			if (tag.charAt(start) == '\"') { // account for type="..."
-				start += 1;
-				end = tag.indexOf("\"", start);
-			} else {
-				int nextSpace = tag.indexOf(" ", start);
-				int nextBracket = tag.indexOf(">", start);
-				if (nextSpace < 0) end = nextBracket;
-				else if ((nextBracket < 0) || (nextSpace < nextBracket)) end = nextSpace;
-				else end = nextBracket;
-
-			}
-			return tag.substring(start, end).toLowerCase();
-		}
-		return "";
-	}
- *
- */
 
     private StringBuilder putValuesFromAP(DatabaseAP ap, String type, int pointer, StringBuilder html) {
         //prepare all sql & output
@@ -776,10 +743,8 @@ public class EForm extends EFormBase {
     }
 
     private String findValueInForm(String name) {
-        // name format = {xxx}
         if (StringUtils.isBlank(name) || !name.trim().startsWith("{") || !name.trim().endsWith("}")) return name;
 
-        // extract content from brackets {}
         name = name.trim().substring(1, name.trim().length() - 1).toLowerCase();
         if (StringUtils.isBlank(name)) return "";
 
@@ -799,25 +764,6 @@ public class EForm extends EFormBase {
         }
 
 
-		/*  Code too slow, replaced with regex
-		if (html == null) return -1;
-
-		Integer[] index = new Integer[4];
-		index[0] = StringBuilderUtils.indexOfIgnoreCase(html, "<input", from);
-		index[1] = StringBuilderUtils.indexOfIgnoreCase(html, "<select", from);
-		index[2] = StringBuilderUtils.indexOfIgnoreCase(html, "<textarea", from);
-                index[3] = StringBuilderUtils.indexOfIgnoreCase(html, "<div", from);
-
-		ArrayList<Integer> list = new ArrayList<Integer>();
-		for (int i = 0; i < index.length; i++)
-			if (index[i] >= 0) list.add(index[i]);
-
-		int min = list.isEmpty() ? -1 : list.get(0);
-		for (int i = 1; i < list.size(); i++)
-			min = min > list.get(i) ? list.get(i) : min;
-
-		return min;
-		*/
     }
 
     private String getFieldName(StringBuilder html, int pointer) {

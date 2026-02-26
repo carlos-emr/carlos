@@ -96,9 +96,6 @@ public class UnlinkDemographic2Action extends ActionSupport {
             }
         }
 
-        /* ensure the lab requisitioning providers is aware by inserting lab back into their inbox.
-         * or into the unattached inbox if no providers is identified.
-         */
         if (success) {
             List<ProviderLabRoutingModel> providerLabRoutingModel = providerLabRoutingDao.findAllLabRoutingByIdandType(labNo, ProviderLabRoutingDao.LAB_TYPE.HL7.name());
             for (ProviderLabRoutingModel providerLabRouting : providerLabRoutingModel) {

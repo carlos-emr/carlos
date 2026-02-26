@@ -149,7 +149,6 @@ public class BillingBillingManager {
             if (service1unit.compareTo("") == 0) {
                 service1unit = "1";
             }
-            //int numUnit = Integer.parseInt(service1unit);
             addBillItem(billingItemsArray, service1, service1unit);
 
         }
@@ -157,7 +156,6 @@ public class BillingBillingManager {
             if (service2unit.compareTo("") == 0) {
                 service2unit = "1";
             }
-            //int numUnit = Integer.parseInt(service2unit);
             addBillItem(billingItemsArray, service2, service2unit);
 
         }
@@ -165,7 +163,6 @@ public class BillingBillingManager {
             if (service3unit.compareTo("") == 0) {
                 service3unit = "1";
             }
-            //int numUnit = Integer.parseInt(service3unit);
             addBillItem(billingItemsArray, service3, service3unit);
         }
 

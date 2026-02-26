@@ -91,9 +91,6 @@ public class RptByExample2Action extends ActionSupport {
         request.setAttribute("favorites", favorites);
 
 
-        //String sql = frm.getSql();
-
-
         if (sql != null) {
             write2Database(sql, providerNo);
         } else
@@ -114,11 +111,6 @@ public class RptByExample2Action extends ActionSupport {
     public void write2Database(String query, String providerNo) {
         if (query != null && query.compareTo("") != 0) {
 
-
-            // StringEscapeUtils strEscUtils = new StringEscapeUtils();
-
-            //query = exampleData.replaceSQLString (";","",query);
-            //query = exampleData.replaceSQLString("\"", "\'", query);
 
             ReportByExamples r = new ReportByExamples();
             r.setProviderNo(providerNo);

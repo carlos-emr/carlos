@@ -96,7 +96,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
          * Create a new table named form<formName> which include the name of all the input elements in the <formName>.jsp
          * Add the form description to encounterForm table of the database
          **/
-        //System.gc();
         MiscUtils.getLogger().debug("SetupFormAction is called");
         HttpSession session = request.getSession(true);
 
@@ -188,13 +187,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
             }
             is.close();
         }
-		/*
-		catch (SQLException e) {
-		    MiscUtils.getLogger().error("Error", e);
-		}
-		/*catch (Exception e) {
-		    MiscUtils.getLogger().error("Error", e);
-		} */ catch (IOException e) {
             MiscUtils.getLogger().debug("IO error.");
             MiscUtils.getLogger().debug("Error, file " + formName + ".xml not found.");
             MiscUtils.getLogger().debug("This file must be placed at www/form");

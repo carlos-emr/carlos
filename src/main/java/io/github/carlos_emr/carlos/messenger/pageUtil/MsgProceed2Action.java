@@ -145,7 +145,6 @@ public class MsgProceed2Action extends ActionSupport {
         }
 
         // Validate IDs before DAO operations.
-        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
         Integer parsedDemoId = ConversionUtils.fromIntString(demoId);
         Integer parsedMsgId = ConversionUtils.fromIntString(id);
         if (parsedDemoId <= 0 || parsedMsgId <= 0) {

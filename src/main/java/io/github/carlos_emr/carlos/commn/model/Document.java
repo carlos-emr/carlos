@@ -101,7 +101,6 @@ public class Document extends AbstractModel<Integer> implements Serializable {
     @Column(name = "document_no")
     private Integer documentNo;
 
-    // private Integer id;
     @Column(name = "doctype")
     private String doctype;
 

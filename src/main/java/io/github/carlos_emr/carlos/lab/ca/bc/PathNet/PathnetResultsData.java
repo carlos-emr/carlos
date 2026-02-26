@@ -200,7 +200,6 @@ public class PathnetResultsData {
                 }
                 lbData.sex = pid.getSex();
                 lbData.resultStatus = "0"; //TODO
-                // solve lbData.resultStatus.add(oscar.Misc.getString(rs,"abnormalFlag"));
                 lbData.dateTime = ConversionUtils.toTimestampString(msh.getDateTime());
 
                 //priority

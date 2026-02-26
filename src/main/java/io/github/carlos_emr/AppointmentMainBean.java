@@ -258,7 +258,6 @@ public class AppointmentMainBean {
                     String str2 = str1.substring(0, str1.lastIndexOf(" "));
                     String str3 = sqlQuery.substring(iIndex1 + 5, sqlQuery.length());
                     int iIndex2 = str3.indexOf("?");
-//            if(str3.indexOf("and")>iIndex2) iIndex2=str3.indexOf("and") + 3;
                     sqlQuery = str2 + " 1=1 " + str3.substring(iIndex2 + 1, str3.length());
                 }
                 rs = dbPH.queryResults_paged(sqlQuery, iOffSet);

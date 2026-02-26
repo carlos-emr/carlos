@@ -52,7 +52,6 @@ public class RAData {
     public RAData() {
     }
 
-    // select * from radetail limit 100,10;
     // radetail_no | raheader_no | providerohip_no | billing_no | service_code |
     // service_count | hin | amountclaim | amountpay | service_date | error_code
     // | billtype |

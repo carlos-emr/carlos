@@ -91,7 +91,6 @@ public class RptLabReportData {
         this.days = days;
         try {
             ResultSet rs;
-            // mysql function for dates = select date_sub(now(),interval 1 month);
             // Note: MySQL INTERVAL syntax cannot be parameterized, but we validate it's an integer
             if (!verifyInt(days)) {
                 throw new IllegalArgumentException("Invalid days parameter: " + days);

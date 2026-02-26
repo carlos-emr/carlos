@@ -58,9 +58,4 @@ public interface PharmacyInfoDao extends AbstractDao<PharmacyInfo> {
 
     public List<String> searchPharmacyByCity(String city);
 
-    // public PharmacyInfo find(Integer id);
-    // public void persist(PharmacyInfo pharmacyInfo);
-    // public void merge(PharmacyInfo pharmacyInfo);
-    // public List<PharmacyInfo> findAll();
-    //public PharmacyInfo saveEntity(PharmacyInfo pharmacyInfo);
 }

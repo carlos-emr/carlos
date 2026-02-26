@@ -188,7 +188,6 @@ public class ManageDocument2Action extends ActionSupport {
         LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.ADD, LogConst.CON_DOCUMENT, documentId, request.getRemoteAddr(), demog);
 
         String[] flagproviders = request.getParameterValues("flagproviders");
-        // String demoLink=request.getParameter("demoLink");
 
         // TODO: if demoLink is "on", check if msp is in flagproviders, if not save to providerInboxRouting, if yes, don't save.
 
@@ -357,7 +356,6 @@ public class ManageDocument2Action extends ActionSupport {
         String demog = request.getParameter("demog");
 
         String[] flagproviders = request.getParameterValues("flagproviders");
-        // String demoLink=request.getParameter("demoLink");
 
         // TODO: if demoLink is "on", check if msp is in flagproviders, if not save to providerInboxRouting, if yes, don't save.
 
@@ -442,7 +440,6 @@ public class ManageDocument2Action extends ActionSupport {
     private void saveDocNote(final HttpServletRequest request, String docDesc, String demog, String documentId) {
 
         Date now = EDocUtil.getDmsDateTimeAsDate();
-        // String docDesc=d.getDocdesc();
         CaseManagementNote cmn = new CaseManagementNote();
         cmn.setUpdate_date(now);
         cmn.setObservation_date(now);
@@ -462,7 +459,6 @@ public class ManageDocument2Action extends ActionSupport {
         }
         String strNote = "Document" + " " + docDesc + " " + "created at " + now + " by " + provFirstName + " " + provLastName + ".";
 
-        // String strNote="Document"+" "+docDesc+" "+ "created at "+now+".";
         cmn.setNote(strNote);
         cmn.setSigned(true);
         cmn.setSigning_provider_no("-1");
@@ -490,9 +486,6 @@ public class ManageDocument2Action extends ActionSupport {
         EDocUtil.addCaseMgmtNoteLink(cmnl);
     }
 
-    /*
-     * private void savePatientLabRouting(String demog, String docId, String docType){ CommonLabResultData.updatePatientLabRouting(docId, demog, docType); }
-     */
 
     private static String getDocumentCacheDir() {
         if (DOCUMENT_CACHE_DIR != null && !DOCUMENT_CACHE_DIR.isEmpty()) {
@@ -605,7 +598,6 @@ public class ManageDocument2Action extends ActionSupport {
             throw new Exception(e);
         }
 
-        // long readfile = System.currentTimeMillis() - start;
         // draw the first page to an image
         PDFPage ppage = pdffile.getPage(0);
 
@@ -741,7 +733,6 @@ public class ManageDocument2Action extends ActionSupport {
         // TODO: Right now this assumes it's a pdf which it shouldn't
 
         response.setContentType("image/png");
-        // response.setHeader("Content-Disposition", "attachment;filename=\"" + filename+ "\"");
         // read the file name.
         File file = new File(documentDir, d.getDocfilename());
 
@@ -749,7 +740,6 @@ public class ManageDocument2Action extends ActionSupport {
         FileChannel channel = raf.getChannel();
         ByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
         PDFFile pdffile = new PDFFile(buf);
-        // long readfile = System.currentTimeMillis() - start;
         // draw the first page to an image
         PDFPage ppage = pdffile.getPage(0);
 

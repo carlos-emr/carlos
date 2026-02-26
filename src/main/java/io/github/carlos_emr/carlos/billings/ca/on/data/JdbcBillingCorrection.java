@@ -53,7 +53,6 @@ public class JdbcBillingCorrection {
     JdbcBillingLog dbLog = new JdbcBillingLog();
 
     private BillingONCHeader1Dao billingHeaderDao = SpringUtils.getBean(BillingONCHeader1Dao.class);
-    //private BillingONRepoDao billingRepoDao = SpringUtils.getBean(BillingONRepoDao.class);
     private BillingONItemDao billingItemDao = SpringUtils.getBean(BillingONItemDao.class);
     private BillingONEAReportDao billingEaReportDao = SpringUtils.getBean(BillingONEAReportDao.class);
     private RaDetailDao raDetailDao = SpringUtils.getBean(RaDetailDao.class);
@@ -101,30 +100,6 @@ public class JdbcBillingCorrection {
         billingHeaderDao.merge(c);
 		
 		
-	/*	String sql = "update billing_on_cheader1 set transc_id='" + ch1Obj.getTransc_id() + "'," + " rec_id='"
-				+ ch1Obj.getRec_id() + "'," + " hin='" + ch1Obj.getHin() + "'," + " ver='" + ch1Obj.getVer() + "',"
-				+ " dob='" + ch1Obj.getDob() + "'," + " pay_program='" + ch1Obj.getPay_program() + "'," + " payee='"
-				+ ch1Obj.getPayee() + "'," + " ref_num='" + ch1Obj.getRef_num() + "'," + " facilty_num='"
-				+ ch1Obj.getFacilty_num() + "'," + " admission_date='" + ch1Obj.getAdmission_date() + "',"
-				+ " ref_lab_num='" + ch1Obj.getRef_lab_num() + "'," + " man_review='" + ch1Obj.getMan_review() + "',"
-				+ " location='" + ch1Obj.getLocation()
-
-				+ "'," + " demographic_no='" + ch1Obj.getDemographic_no() + "'," + " provider_no='"
-				+ ch1Obj.getProviderNo() + "'," + " appointment_no='" + ch1Obj.getAppointment_no() + "',"
-				+ " demographic_name='" + StringEscapeUtilsch1Obj.getDemographic_name() + "'," + " sex='"
-				+ ch1Obj.getSex() + "'," + " province='" + ch1Obj.getProvince() + "'," + " billing_date='"
-				+ ch1Obj.getBilling_date() + "'," + " billing_time='" + ch1Obj.getBilling_time() + "'," + " total='"
-				+ ch1Obj.getTotal() + "'," + " paid='" + ch1Obj.getPaid() + "'," + " status='" + ch1Obj.getStatus()
-				+ "'," + " comment1='" + ch1Obj.getComment() + "'," + " visittype='" + ch1Obj.getVisittype() + "',"
-				+ " provider_ohip_no='" + ch1Obj.getProvider_ohip_no() + "'," + " provider_rma_no='"
-				+ ch1Obj.getProvider_rma_no() + "'," + " apptProvider_no='" + ch1Obj.getApptProvider_no() + "',"
-				+ " asstProvider_no='" + ch1Obj.getAsstProvider_no() + "'," + " creator='" + ch1Obj.getCreator()
-
-				+ "', clinic=" + (ch1Obj.getClinic()==null?"null":"'"+ch1Obj.getClinic()+"'")
-
-				+ " where id=" + ch1Obj.getId();
-				*/
-
         return true;
     }
 

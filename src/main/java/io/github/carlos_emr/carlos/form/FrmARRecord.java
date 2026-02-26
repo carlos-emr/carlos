@@ -55,8 +55,6 @@ public class FrmARRecord extends FrmRecord {
                         .getString("month_of_birth"), Misc.getString(rs, "date_of_birth"));
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
-                //props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(),"yyyy/MM/dd"));
                 props.setProperty("c_pName", Misc.getString(rs, "pName"));
                 props.setProperty("c_address", Misc.getString(rs, "address"));
                 props.setProperty("pg1_dateOfBirth", UtilDateUtilities.DateToString(date,

@@ -118,10 +118,6 @@ public final class RxAddFavorite2Action extends ActionSupport {
             bean.getStashItem(stashId).AddToFavorites(providerNo, favoriteName);
         }
        
-        /*
-        request.setAttribute("BoxNoFillFirstLoad", "true");
-        MiscUtils.getLogger().debug("fill box no");
-        */
         RxUtil.printStashContent(bean);
 
         return null;

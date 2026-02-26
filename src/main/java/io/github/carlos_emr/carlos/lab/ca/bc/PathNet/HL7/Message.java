@@ -131,7 +131,6 @@ public class Message {
     }
 
     public void linkToProvider(int parent, int id) {
-        // public void providerRouteReport (int segmentID) {
         try {
 
             String sql;
@@ -153,7 +152,6 @@ public class Message {
                     // route lab first to admitting doctor
                     subStrings = obr.getOrderingProvider().split("\\^");
                     providerMinistryNo = subStrings[0]; // StringUtils.returnStringToFirst(subStrings[0].substring(1,
-                    // subStrings[0].length())," ");
                     // check that this is a legal providers
                     MiscUtils.getLogger().debug("looking for " + providerMinistryNo);
                     providerNo = getProviderNoFromBillingNo(providerMinistryNo);
@@ -167,7 +165,6 @@ public class Message {
                         for (int i = 1; i <= conDoctors.length; i++) {
                             subStrings = conDoctors[i - 1].split("\\^");
                             providerMinistryNo = subStrings[0]; // StringUtils.returnStringToFirst(subStrings[0].substring(1,
-                            // subStrings[0].length())," ");
                             // check that this is a legal providers
                             MiscUtils.getLogger().debug("looking for 2 " + providerMinistryNo);
                             providerNo = getProviderNoFromBillingNo(providerMinistryNo);

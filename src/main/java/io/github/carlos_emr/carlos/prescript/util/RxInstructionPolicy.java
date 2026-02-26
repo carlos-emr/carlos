@@ -72,10 +72,8 @@ public class RxInstructionPolicy {
         addPolicy(new String[]{"µg"}, instr, errors, "µg", "microgram or mcg");
 
         //MS
-        //addPolicy(new String[]{"\\s+MS\\s+","\\s+MS$","^MS\\s+","^MS$"},instr,errors,"MS","Morphine or morphine sulphate");
 
         //MgSO4
-        //addPolicy(new String[]{"\\s+MgSO4\\s+","\\s+MgSO4$","^MgSO4\\s+","^MgSO4$"},instr,errors,"MgSO4","Magnesium sulphate");
 
         //>
         addPolicy(new String[]{">"}, instr, errors, ">", "greater than");

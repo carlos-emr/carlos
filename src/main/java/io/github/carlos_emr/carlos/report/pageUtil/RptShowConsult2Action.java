@@ -47,9 +47,6 @@ public class RptShowConsult2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
-        // EctSessionBean bean = (EctSessionBean)request.getSession().getAttribute("EctSessionBean");
-        // if(bean == null)
-        //     return "eject";
 
         request.setAttribute("reqId", requestId);
         return SUCCESS;

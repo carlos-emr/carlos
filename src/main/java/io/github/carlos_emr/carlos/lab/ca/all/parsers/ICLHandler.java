@@ -220,7 +220,6 @@ public class ICLHandler extends DefaultGenericHandler implements MessageHandler 
 
     public String getObservationHeader(int i, int j) {
         try {
-            //return(getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR().getUniversalServiceIdentifier().getAlternateIdentifier().getValue()));
             return (getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBR().getUniversalServiceIdentifier().getText().getValue()));
         } catch (Exception e) {
             return ("");

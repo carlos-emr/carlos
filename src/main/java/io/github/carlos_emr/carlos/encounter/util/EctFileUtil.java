@@ -51,7 +51,6 @@ public class EctFileUtil {
         try {
             String filepath = path + "/" + fileName;
             InputStream is = getClass().getResourceAsStream(filepath);
-            //InputStreamReader inputStreamReader = new InputStreamReader(is);
             BufferedReader bufReader = new BufferedReader(new InputStreamReader(is));
             for (int i = 0; i < s; i++) {
                 c[i] = bufReader.readLine();

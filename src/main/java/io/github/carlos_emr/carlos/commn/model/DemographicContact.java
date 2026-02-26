@@ -159,11 +159,6 @@ public class DemographicContact extends AbstractModel<Integer> {
     public void setCategory(String category) {
         this.category = category;
     }
-/*
-	public void setId(Integer id) {
-    	this.id = id;
-    }
-*/
 
     public String getContactName() {
         return contactName;

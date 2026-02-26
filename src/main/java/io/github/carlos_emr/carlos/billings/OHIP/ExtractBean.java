@@ -223,7 +223,6 @@ public class ExtractBean extends Object implements Serializable {
         hcLast.replaceAll("\\W", "");
         hcFirst.replaceAll("\\W", "");
         checkHeader2();
-        //patientHeader2 = "\n" + HE + "R" + hcHin + hcLast + hcFirst + demoSex	+ hcType + space(47) + "\r";
         return ("\n" + HE + "R" + hcHin + hcLast + hcFirst + demoSex + hcType + space(47) + "\r");
     }
 
@@ -278,7 +277,6 @@ public class ExtractBean extends Object implements Serializable {
                 BigTotal.toString().length() - 2)
                 + "\n</td></tr>"
                 + "\n</table>";
-        //  writeFile(value);
         String checkSummary = errorMsg.equals("")
                 ? "\n<table border='0' width='100%' bgcolor='green'><tr><td>Pass</td></tr></table>"
                 : "\n<table border='0' width='100%' bgcolor='orange'><tr><td>Please correct the errors and run this simulation again!</td></tr></table>";
@@ -290,7 +288,6 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     private String buildItem() {
-        //return ("\n" + HE + "T" + serviceCode + space(2) + zero(count) + fee	+ "0" + billingUnit + apptDate + diagcode + space(12)+ space(5) + space(2) + space(6) + space(25) + "\r");
         return ("\n" + HE + "T" + serviceCode + space(2) + zero(count) + fee
                 + forwardZero(billingUnit, 2) + apptDate + diagcode + space(12)
                 + space(5) + space(2) + space(6) + space(25) + "\r");
@@ -409,7 +406,6 @@ public class ExtractBean extends Object implements Serializable {
                     serviceCode = bd.getServiceCode();
                     fee = bd.getBillingAmount();
                     diagcode = bd.getDiagnosticCode();
-                    //appt = rs2.getDate("appointment_date").toString();
                     billingUnit = bd.getBillingUnit();
                     count = 6 - fee.length();
                     apptDate = UtilDateUtilities.DateToString(bd.getAppointmentDate(), "yyyyMMdd");
@@ -441,12 +437,10 @@ public class ExtractBean extends Object implements Serializable {
             BigTotal = BigTotal.multiply(percent);
             value += buildTrailer();
             htmlCode = buildHTMLContentTrailer();
-            // writeHtml(htmlCode);
             ohipReciprocal = String.valueOf(hcCount);
             ohipRecord = String.valueOf(rCount);
             ohipClaim = String.valueOf(pCount);
             totalAmount = BigTotal.toString();
-            //}
         } catch (Exception e) {
             MiscUtils.getLogger().error("error", e);
         }
@@ -545,7 +539,6 @@ public class ExtractBean extends Object implements Serializable {
         specialty = newSpecialty;
     }
 
-    // return i space str, e.g. " "
     public String space(int i) {
         String returnValue = new String();
         for (int j = 0; j < i; j++) {
@@ -575,15 +568,6 @@ public class ExtractBean extends Object implements Serializable {
     public void writeHtml(String htmlvalue1) {
         try {
             String home_dir1;
-			/*
-			String userHomePath1 = System.getProperty("user.home", "user.dir");
-
-			File pFile1 = new File(userHomePath1, oscar_home);
-			FileInputStream pStream1 = new FileInputStream(pFile1.getPath());
-			Properties ap1 = new Properties();
-			ap1.load(pStream1);
-			pStream1.close();
-			*/
             home_dir1 = OscarProperties.getInstance().getProperty("HOME_DIR");
 
             FileOutputStream out1 = new FileOutputStream(home_dir1
@@ -598,7 +582,6 @@ public class ExtractBean extends Object implements Serializable {
         }
     }
 
-    // return x zero str, e.g. 000000
     public String zero(int x) {
         String returnZeroValue = new String();
         for (int y = 0; y < x; y++) {
@@ -607,7 +590,6 @@ public class ExtractBean extends Object implements Serializable {
         return returnZeroValue;
     }
 
-    // return x length string with zero str, e.g. 0018
     public String forwardZero(String y, int x) {
         // x must >= y.length()
         String returnZeroValue = "";

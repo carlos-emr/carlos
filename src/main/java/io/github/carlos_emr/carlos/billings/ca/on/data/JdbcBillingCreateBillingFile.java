@@ -330,7 +330,6 @@ public class JdbcBillingCreateBillingFile {
 
     private String buildSiteHTMLContentTrailer() {
         htmlContent += "\n<tr><td colspan='9' class='myIvory'>&nbsp;</td></tr><tr><td colspan='4' class='myIvory'>OHIP No: " + bhObj.getProvider_reg_num() + ": " + pCount + " RECORDS PROCESSED</td><td colspan='5' class='myIvory'>TOTAL: " + BigTotal.toString() + "\n</td></tr>" + "\n</table>";
-        // writeFile(value);
         String checkSummary = errorMsg.equals("") ? "\n<table border='0' width='100%' bgcolor='green'><tr><td>Pass</td></tr></table>" : "\n<table border='0' width='100%' bgcolor='orange'><tr><td>Please correct the errors and run this simulation again!</td></tr></table>";
         htmlValue += htmlContent + checkSummary;
         htmlHeader = "<html><body><style type='text/css'><!-- .myGreen{  font-family: Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
@@ -476,16 +475,12 @@ public class JdbcBillingCreateBillingFile {
                 ch1Obj.setProviderNo(h.getProviderNo());
                 ch1Obj.setAppointment_no("" + h.getAppointmentNo());
                 ch1Obj.setDemographic_name(h.getDemographicName());
-                // String temp[] =
                 // getPatientLF(val.getParameter("demographic_name());
-                // ch1Obj.setLast_name(h.gettransc_id());
-                // ch1Obj.setFirst_name(h.gettransc_id());
                 ch1Obj.setSex(h.getSex());
                 ch1Obj.setProvince(h.getProvince());
 
                 ch1Obj.setBilling_date(ConversionUtils.toDateString(h.getBillingDate()));
                 ch1Obj.setBilling_time(ConversionUtils.toDateString(h.getBillingTime()));
-                // ch1Obj.setUpdate_datetime(h.gettransc_id());
                 NumberFormat currency = NumberFormat.getCurrencyInstance(Locale.US);
                 ch1Obj.setTotal(h.getTotal() == null ? "0.00" : currency.format(h.getTotal()));
                 ch1Obj.setPaid(h.getPaid() == null ? "0.00" : currency.format(h.getPaid()));
@@ -515,7 +510,6 @@ public class JdbcBillingCreateBillingFile {
                 for (BillingONItem boi : itemDao.findByCh1Id(ConversionUtils.fromIntString(ch1Obj.getId()))) {
                     itemObj = new BillingItemData();
                     recordCount++;
-                    // int count = 0;
 
                     itemObj.setTransc_id(boi.getTranscId());
                     itemObj.setRec_id(boi.getRecId());
@@ -569,9 +563,6 @@ public class JdbcBillingCreateBillingFile {
             hcCount = hcCount + healthcardCount;
             pCount = pCount + patientCount;
             rCount = rCount + recordCount;
-            // percent = new BigDecimal((double) 0.01).setScale(2,
-            // BigDecimal.ROUND_HALF_UP);
-            // BigTotal = BigTotal.multiply(percent);
 
             if (summaryView) {
                 String items = htmlContent;
@@ -586,7 +577,6 @@ public class JdbcBillingCreateBillingFile {
             value += buildTrailer();
 
             htmlCode = buildHTMLContentTrailer(simulation);
-            // writeHtml(htmlCode);
             ohipReciprocal = String.valueOf(hcCount);
             ohipRecord = String.valueOf(rCount);
             ohipClaim = String.valueOf(pCount);
@@ -716,14 +706,10 @@ public class JdbcBillingCreateBillingFile {
             hcCount = hcCount + healthcardCount;
             pCount = pCount + patientCount;
             rCount = rCount + recordCount;
-            // percent = new BigDecimal((double) 0.01).setScale(2,
-            // BigDecimal.ROUND_HALF_UP);
-            // BigTotal = BigTotal.multiply(percent);
             BigTotal = BigTotal.setScale(2, BigDecimal.ROUND_HALF_UP);
             value += buildTrailer();
 
             htmlCode = buildSiteHTMLContentTrailer();
-            // writeHtml(htmlCode);
             ohipReciprocal = String.valueOf(hcCount);
             ohipRecord = String.valueOf(rCount);
             ohipClaim = String.valueOf(pCount);
@@ -884,7 +870,6 @@ public class JdbcBillingCreateBillingFile {
         providerNo = newProviderNo;
     }
 
-    // return i space str, e.g. " "
     public String space(int i) {
         String returnValue = new String();
         for (int j = 0; j < i; j++) {
@@ -987,7 +972,6 @@ public class JdbcBillingCreateBillingFile {
         }
     }
 
-    // return x zero str, e.g. 000000
     public String zero(int x) {
         String returnZeroValue = new String();
         for (int y = 0; y < x; y++) {
@@ -996,7 +980,6 @@ public class JdbcBillingCreateBillingFile {
         return returnZeroValue;
     }
 
-    // return x length string with zero str, e.g. 0018
     public String forwardZero(String y, int x) {
         // x must >= y.length()
         String returnZeroValue = "";
@@ -1007,7 +990,6 @@ public class JdbcBillingCreateBillingFile {
         return (returnZeroValue + y);
     }
 
-    // return x length string with zero str, e.g. 1800
     public String leftJustify(String y, int x, String z) {
         // x must >= y.length()
         if (z != null && z.length() > x) {

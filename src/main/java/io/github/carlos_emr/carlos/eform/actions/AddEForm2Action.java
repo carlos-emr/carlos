@@ -173,9 +173,6 @@ public class AddEForm2Action extends ActionSupport {
 
                         inSQL = DatabaseAP.parserReplace("value", request.getParameter(field), inSQL);
 
-                        //if(currentAP.getArchive() != null && currentAP.getArchive().equals("demographic")) {
-                        //	demographicArchiveDao.archiveRecord(demographicManager.getDemographic(loggedInInfo,demographic_no));
-                        //}
 
                         // Run the SQL query against the database
                         //TODO: do this a different way.
@@ -224,7 +221,6 @@ public class AddEForm2Action extends ActionSupport {
         }
 
         //----names parsed
-        //ActionMessages errors = curForm.setMeasurements(paramNames, paramValues);
         curForm.setFormSubject(subject);
         curForm.setValues(paramNames, paramValues);
         if (!openerNames.isEmpty()) curForm.setOpenerValues(openerNames, openerValues);
@@ -232,11 +228,6 @@ public class AddEForm2Action extends ActionSupport {
         curForm.setAction();
         curForm.setNowDateTime();
 //TODO        if (!errors.isEmpty()) {
-//            saveErrors(request, errors);
-//            request.setAttribute("curform", curForm);
-//            request.setAttribute("page_errors", "true");
-//            return mapping.getInputForward();
-//        }
 
         //Check if eform same as previous, if same -> not saved
         String prev_fdid = (String) se.getAttribute("eform_data_id");

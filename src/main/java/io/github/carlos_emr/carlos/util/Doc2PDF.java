@@ -150,7 +150,6 @@ public class Doc2PDF {
 
             PrintPDFFromBytes(response, bos.toByteArray());
 
-            // Return the exit status from HTMLDOC...
             return (process.waitFor());
         } catch (Exception e) {
             // An error occurred - send it to stderr for the www server...
@@ -164,7 +163,6 @@ public class Doc2PDF {
     // Main entry for htmldoc class
     public static void HTMLDOC(HttpServletRequest request, HttpServletResponse response, String url)// I - Command-line args
     {
-        //String server_name, // SERVER_NAME env var
         //server_port, // SERVER_PORT env var
         //path_info, // PATH_INFO env var
         String query_string, // QUERY_STRING env var

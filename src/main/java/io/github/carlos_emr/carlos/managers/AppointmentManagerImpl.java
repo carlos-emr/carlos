@@ -289,7 +289,6 @@ public class AppointmentManagerImpl implements AppointmentManager {
         Date startDate = cal.getTime();
 
         cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH));
-        //cal.add(Calendar.MINUTE,-1);  //this won't get the last day of the month
 
         cal.set(Calendar.HOUR_OF_DAY, 0);
         cal.set(Calendar.MINUTE, 0);

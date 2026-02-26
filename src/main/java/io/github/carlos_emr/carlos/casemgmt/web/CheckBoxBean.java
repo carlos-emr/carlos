@@ -71,14 +71,4 @@ public class CheckBoxBean implements Serializable {
         this.issueDisplay = issueDisplay;
     }
 
-    /* this is for debugging in CaseManagementEntry2Action - noteSave(), please keep it for future development
-    @Override
-    public String toString() {
-        return "CheckBoxBean{" +
-                "checked='" + checked + '\'' +
-                ", isUsed=" + isUsed +
-                ", issueId=" + (issue != null ? issue.getId() : "null") +
-                ", issueDisplay=" + (issueDisplay != null ? issueDisplay.toString() : "null") +
-                '}';
-    }*/
 }

@@ -82,9 +82,6 @@ public final class BillingCodeData implements Comparable {
     public BillingCodeData() {
     }
 
-    //public BillingCodeData(ResultSet rs) throws {
-    //    fillCodeData(rs);
-    //}
 
     public List<BillingService> search(String str, Date date) {
         return billingServiceDao.search(str, "BC", date);
@@ -146,7 +143,6 @@ public final class BillingCodeData implements Comparable {
     public BillingService getBillingCodeByCode(String code, Date date) {
         List list = billingServiceDao.findBillingCodesByCode(code, BillingServiceDao.BC, date, 1);
 
-        //List list = codeSearch("select * from billingservice where service_code like '" +code + "'" );
         if (list == null || list.size() == 0) {
             return null;
         }
@@ -157,7 +153,6 @@ public final class BillingCodeData implements Comparable {
 
     public BillingService getBillingCodeByCode(String code) {
         List list = billingServiceDao.findBillingCodesByCode(code, "BC");
-        //List list = codeSearch("select * from billingservice where service_code like '" +code + "'" );
         if (list == null || list.size() == 0) {
             return null;
         }

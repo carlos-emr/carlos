@@ -118,8 +118,6 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
     // - suggestion: to add a new field to the table client_referral (Referring program/agency)
     public List<ClientReferral> displayResult(List<ClientReferral> lResult) {
         List<ClientReferral> ret = new ArrayList<ClientReferral>();
-        //ProgramDao pd = new ProgramDao();
-        //AdmissionDao ad = new AdmissionDao();
 
         for (ClientReferral element : lResult) {
             ClientReferral cr = element;

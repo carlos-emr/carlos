@@ -182,11 +182,7 @@ public class RptReportConfigData {
     // 0 - name; 1 - caption
     public Vector[] getAllFieldNameValue(String saveAs, String reportId) throws SQLException {
         Vector[] ret = new Vector[2];
-        //Vector vecFieldCaption = new Vector();
-        //Vector vecFieldName = new Vector();
         Vector[] vecField = getConfigFieldName(saveAs, reportId);
-        //vecFieldName.addAll(vecField[0]);
-        //vecFieldCaption.addAll(vecField[1]);
         ret[0] = vecField[0]; //vecFieldName;
         ret[1] = vecField[1]; //vecFieldCaption;
         return ret;

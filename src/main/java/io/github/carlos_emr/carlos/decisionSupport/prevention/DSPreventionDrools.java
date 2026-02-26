@@ -347,7 +347,6 @@ public class DSPreventionDrools {
                 processLastPreventionIsNotWithinRange(dsConditions, condition);
             } else {
                 logger.error("Unrecognized condition type '{}' in prevention '{}'; condition will be SKIPPED, making the rule less restrictive", type, preventionType);
-                //throw new IllegalArgumentException("Invalid Type: " + type);
             }
         }
         return dsConditions;
@@ -382,7 +381,6 @@ public class DSPreventionDrools {
         // Split "2024-09-01,2025-04-30" into [startDate, endDate]
         String[] values = value.split(",");
         // Build multi-argument param: preventionType","startDate","endDate
-        // DSCondition.getType() wraps this as: isLastPreventionWithinRange("preventionType","startDate","endDate")
         param = param + "\",\"" + values[0] + "\",\"" + values[1];
         param = param.replaceAll(";", "");
         dsConditions.add(new DSCondition("isLastPreventionWithinRange", param, "", ""));
@@ -431,7 +429,6 @@ public class DSPreventionDrools {
         // Split "2024-09-01,2025-04-30" on comma into [startDate, endDate]
         String[] params = param.split(",");
         // Build two-argument param: startDate","endDate
-        // DSCondition.getType() wraps this as: isTodayinDateRange("startDate","endDate")
         param = params[0] + "\",\"" + params[1];
         param = param.replaceAll(";", "");
         dsConditions.add(new DSCondition("isTodayinDateRange", param, "", ""));
@@ -456,7 +453,6 @@ public class DSPreventionDrools {
         // Split "2024-09-01,2025-04-30" on comma into [startDate, endDate]
         String[] params = param.split(",");
         // Build two-argument param: startDate","endDate
-        // DSCondition.getType() wraps this as: isTodayinDateRange("startDate","endDate")
         param = params[0] + "\",\"" + params[1];
         param = param.replaceAll(";", "");
         dsConditions.add(new DSCondition("isTodayinDateRange", param, "==", "false"));

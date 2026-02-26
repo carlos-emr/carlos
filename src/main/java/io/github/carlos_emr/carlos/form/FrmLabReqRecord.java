@@ -71,8 +71,6 @@ public class FrmLabReqRecord extends FrmRecord {
                 props.setProperty("version", Misc.getString(rs, "ver"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(),
                         "yyyy/MM/dd"));
-                //props.setProperty("formEdited",
-                // UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("birthDate", UtilDateUtilities.DateToString(dob, "yyyy/MM/dd"));
                 props.setProperty("phoneNumber", Misc.getString(rs, "phone"));
                 props.setProperty("patientAddress", Misc.getString(rs, "address"));

@@ -253,7 +253,6 @@ public class BillingSpecPrep {
 
     private BillingItemData[] getItemInrObj(HttpServletRequest val) {
         BillingItemData[] claimItem = new BillingItemData[1];
-        // _logger.info("No billing item for billing # " + itemNum);
         claimItem[0] = new BillingItemData();
         claimItem[0].setTransc_id(BillingDataHlp.ITEM_TRANSACTIONIDENTIFIER);
         claimItem[0].setRec_id(BillingDataHlp.ITEM_REORDIDENTIFICATION);

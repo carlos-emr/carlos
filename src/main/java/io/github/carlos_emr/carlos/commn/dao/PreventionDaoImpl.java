@@ -99,9 +99,6 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         return (results);
     }
 
-    /*
-     * for integrator
-     */
     @Override
     public List<Integer> findDemographicIdsAfterDatetime(Date dateTime) {
         String sqlCommand = "select x.demographicId from " + modelClass.getSimpleName() + " x where x.lastUpdateDate > ?1";

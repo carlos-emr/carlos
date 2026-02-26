@@ -357,7 +357,6 @@ public class CaseManagementPrint {
                 }
 
                 for (LabResultData result : accessionMap.values()) {
-                    //Date d = result.getDateObj();
                     // TODO:filter out the ones which aren't in our date range if there's a date range????
                     String segmentId = result.segmentID;
                     MessageHandler handler = Factory.getHandler(segmentId);

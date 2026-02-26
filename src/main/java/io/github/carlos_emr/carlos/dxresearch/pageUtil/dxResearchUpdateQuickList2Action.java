@@ -59,9 +59,6 @@ public class dxResearchUpdateQuickList2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_dxresearch)");
         }
 
-        //dxResearchUpdateQuickListForm frm = (dxResearchUpdateQuickListForm) form;
-        //String quickListName = frm.getQuickListName();
-        //String forward = frm.getForward();
         String codingSystem = this.getSelectedCodingSystem();
         String curUser = (String) request.getSession().getAttribute("user");
         String contextPath = request.getContextPath();

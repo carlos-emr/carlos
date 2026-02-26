@@ -83,7 +83,6 @@ public class PreventionData {
             pd.setTableId(prevention.getId());
             pd.setFieldName(PartialDate.PREVENTION_PREVENTIONDATE);
             pd.setFormat("YYYY");
-            //partialDateDao.persist(pd);
             date = date + "-01-01 00:00";
         } else if (date.length() == 7) {
             pd = new PartialDate();
@@ -91,7 +90,6 @@ public class PreventionData {
             pd.setTableId(prevention.getId());
             pd.setFieldName(PartialDate.PREVENTION_PREVENTIONDATE);
             pd.setFormat("YYYY-MM");
-            //partialDateDao.persist(pd);
             date = date + "-01 00:00";
         }
         prevention.setPreventionDate(stringToDate(date));

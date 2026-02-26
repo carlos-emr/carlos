@@ -52,7 +52,6 @@ public final class Billing2Action extends ActionSupport {
 
     private static Logger _log = MiscUtils.getLogger();
 
-    //  private ServiceCodeValidationLogic vldt = new ServiceCodeValidationLogic();
     public String execute() throws IOException,
             ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

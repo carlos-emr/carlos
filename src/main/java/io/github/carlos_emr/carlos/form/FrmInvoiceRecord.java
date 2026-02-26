@@ -35,12 +35,9 @@ public class FrmInvoiceRecord extends FrmRecord {
                 props.setProperty("patientName", Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
                 props.setProperty("patientSex", Misc.getString(rs, "sex"));
                 props.setProperty("dateOfBirth", UtilDateUtilities.DateToString(date, _dateFormat));
-                //props.setProperty("c_surname", oscar.Misc.getString(rs,"last_name"));
                 props.setProperty("c_address", Misc.getString(rs, "address"));
                 props.setProperty("c_address2", Misc.getString(rs, "city") + "," + Misc.getString(rs, "province") + "   "
                         + Misc.getString(rs, "postal"));
-                //props.setProperty("c_province", oscar.Misc.getString(rs,"province"));
-                //props.setProperty("c_postal", oscar.Misc.getString(rs,"postal"));
                 props.setProperty("c_phn", Misc.getString(rs, "hin") + Misc.getString(rs, "ver") + "(" + Misc.getString(rs, "hc_type")
                         + ")");
                 props.setProperty("c_phone", Misc.getString(rs, "phone") + "  " + Misc.getString(rs, "phone2"));

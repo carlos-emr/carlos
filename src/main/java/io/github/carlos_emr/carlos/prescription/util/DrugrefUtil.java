@@ -120,7 +120,6 @@ public class DrugrefUtil {
                     if (hiddenList != null && hiddenList.containsKey("medispan" + dsMessage.getId())) {
                         logger.error("idWARNING medispan" + dsMessage.getId() + "  time value in warning " + hiddenList.get("medispan" + dsMessage.getId()) + " medispan update time " + dsMessage.getUpdated_at().getTime());
                         dsMessage.setHidden(true);
-                        //}
                     } else {
                         logger.error("hidden list was empty or didn't contain :medispan" + dsMessage.getId() + "<" + hiddenList);
                     }
@@ -164,7 +163,6 @@ public class DrugrefUtil {
 
         return returnList;
     }
-
 
 
     public List<RxDsMessageTo1> getMessages(LoggedInInfo loggedInInfo, String provider, int demographicNo, List<String> atcCodes, List regionalIdentifiers, Locale locale) throws Exception {

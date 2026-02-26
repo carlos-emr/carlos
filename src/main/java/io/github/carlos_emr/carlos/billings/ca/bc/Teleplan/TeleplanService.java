@@ -51,14 +51,7 @@ public class TeleplanService {
 
 
     ////////
-//     public int findExpectedSequenceNumber(){
 //        //TETA-022 SEQ NUMBER ERROR. EXPECTED: 0262113 LAST COMMITTED:0262112
-//        String errormsg = "TETA-022 SEQ NUMBER ERROR. EXPECTED: 0262113 LAST COMMITTED:0262112";
-//        int i = errormsg.lastIndexOf("COMMITTED:");
-//        log.debug(i);
-//        log.debug(errormsg.substring(i+10));
-//        return i;
-//    }
 
 
     public TeleplanAPI getTeleplanAPI(String username, String password) throws Exception {
@@ -113,60 +106,24 @@ public class TeleplanService {
     }
 
     //////
-//    public String getSequenceNumber(){
 //    
 //        TeleplanAPI tAPI = new TeleplanAPI(); //
-//        TeleplanResponse tr = tAPI.login("ttuv6242","jgprk07");
 //        
-//        String e = "VS1V62429999999V6242OSCAR_MCMASTER           V1.1      20030930OSCAR MCMASTER                          (905) 575-1300                                                                                   ";
 //
 //        
 //        File getSequenceFile =  File.createTempFile("ddd","eee");
 //        
-//        BufferedWriter out = new BufferedWriter(new FileWriter(getSequenceFile));
-//        out.write(e);
-//        out.close();
 //        
-//        tr = tAPI.putAsciiFile(getSequenceFile);
 //        getSequenceFile.delete();
-//        log.debug(tr.toString());
-//        tr = tAPI.logoff();
-//        return findExpectedSequenceNumber(tr.toString());
-//    }
 
     public void changePassword(TeleplanAPI tAPI, String oldpassword, String password) {
-        //TeleplanAPI tAPI = getTeleplanAPI("ttuv6242","jgprk07");
         TeleplanResponse chgPasswordResp = tAPI.changePassword("ttuv6242", "prkjg07", "jgprk07", "jgprk07");
 
         log.debug("RESULT " + chgPasswordResp.getResult());
         log.debug(chgPasswordResp.toString());
         tAPI.logoff();
     }
-        /*
-        tr = tAPI.getLogList();
-        log.debug(tr.toString()); 
-        
-        tr = tAPI.getRemittance(true);
-        log.debug(tr.toString());
-        
-        tr = tAPI.getAsciiFile("9");
-        log.debug(tr.toString());
-        
-        tr = tAPI.checkElig("9151210456","1959","09","17","","","", true, true, true);
-        log.debug("CHECKELIG"+tr.toString());
-        
-        File f = new File("/Users/jay/sandbox/teleplanCommunication/sendMe.txt");
-        tr = tAPI.putAsciiFile(f);
-        log.debug(tr.toString());
-        
-         f = new File("/Users/jay/sandbox/teleplanCommunication/sendMe.txt");
-        tr = tAPI.putMSPFile(f);
-        log.debug(tr.toString());
-        */
 
-
-    //  tr = tAPI.logoff();
-    //  log.debug(tr.toString());
 
     ////////
 

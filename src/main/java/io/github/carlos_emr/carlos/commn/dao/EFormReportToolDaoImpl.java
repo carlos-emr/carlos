@@ -88,7 +88,6 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
         }
         sql.append(")");
 
-        //logger.debug("sql=" + sql);
 
         //commit the table
         Query q = entityManager.createNativeQuery(sql.toString());
@@ -138,7 +137,6 @@ public class EFormReportToolDaoImpl extends AbstractDaoImpl<EFormReportTool> imp
 
         sb.append(")");
 
-        //logger.debug("sql=" + sb.toString());
 
         Query q = entityManager.createNativeQuery(sb.toString());
         q.executeUpdate();

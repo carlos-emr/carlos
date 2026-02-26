@@ -132,19 +132,15 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
             Calendar calDayToSearch = (Calendar) startDate.clone();
             calDayToSearch.add(Calendar.DAY_OF_YEAR, i);
 
-            /// keep? or change ?  Element searchRecord = recordDateSearched(doc, calDayToSearch,clinic.getTimezone());
 
             for (Provider provider : providerMap.keySet()) {
                 DayWorkSchedule dayWorkSchedule = scheduleManager.getDayWorkSchedule(provider.getProviderNo(), calDayToSearch);
-
-                /// keep? or change ? Element searchedProviderRecord = recordProviderSearched(doc,searchRecord,providers.getProviderNo(),dayWorkScheduleTransfer, providerMap.get(providers));
 
 
                 if (dayWorkSchedule == null || dayWorkSchedule.isHoliday()) continue;
                 // Is this still needed?  probably if (BookingLearningManager.isDaySetToSkip(clinic, providers.getProviderNo(), calDayToSearch, appointmentTypeId)) continue;
 
                 List<TimeSlot> providerAppointments = AppointmentSearchManager.getAllowedTimesByType(dayWorkSchedule, providerMap.get(provider), provider.getProviderNo());
-                /// keep? or change ? recordFilterForSearchedProvider(doc,searchedProviderRecord,dayWorkScheduleTransfer,"N/A", providerAppointments);
 
                 List<FilterDefinition> filterClassNames = provider.getFilter();
                 if (filterClassNames == null || filterClassNames.isEmpty()) {
@@ -157,7 +153,6 @@ public class AppointmentSearchManagerImpl implements AppointmentSearchManager {
                         logger.debug("filter class null? " + filterClass.getName());
                         AvailableTimeSlotFilter filterClassInstance = filterClass.newInstance();
                         providerAppointments = filterClassInstance.filterAvailableTimeSlots(config, mrp, provider.getProviderNo(), appointmentTypeId, dayWorkSchedule, providerAppointments, calDayToSearch, className.getParams());
-                        /// keep? or change ? recordFilterForSearchedProvider(doc,searchedProviderRecord,dayWorkScheduleTransfer,filterClassInstance.getClass().getSimpleName(), providerAppointments);
                         if (providerAppointments.size() == 0) {
                             break;
                         }

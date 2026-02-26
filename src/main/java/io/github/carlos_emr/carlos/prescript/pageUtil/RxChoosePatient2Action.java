@@ -73,8 +73,6 @@ public final class RxChoosePatient2Action extends ActionSupport {
             throw new RuntimeException("missing required sec object (_demographic)");
         }
 
-        // p("locale", locale.toString());
-        // p("messages", messages.toString());
         // Setup variables
 
         if (request.getSession().getAttribute("user") == null) {
@@ -84,8 +82,6 @@ public final class RxChoosePatient2Action extends ActionSupport {
         String redirect = "error.html";
         String user_no;
         user_no = (String) request.getSession().getAttribute("user");
-        // p("user_no", user_no);
-        // p("frm", frm.toString());
         // Setup bean
         RxSessionBean bean = new RxSessionBean();
 
@@ -115,9 +111,6 @@ public final class RxChoosePatient2Action extends ActionSupport {
                 redirect = "successRX3";
             }
             // place holder.
-//			else if ( OscarProperties.getInstance().getBooleanProperty("ENABLE_RX4", "yes") ) {
-//				redirect = "successRX4";
-//			} 
             else {
                 redirect = "success";
             }

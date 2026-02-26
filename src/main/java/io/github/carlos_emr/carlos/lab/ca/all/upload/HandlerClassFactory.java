@@ -57,9 +57,6 @@ public final class HandlerClassFactory {
         // don't instantiate
     }
 
-    /*
-     *  Create and return the message handler corresponding to the message type
-     */
     public static MessageHandler getHandler(String type) {
         Document doc = null;
         String msgType;

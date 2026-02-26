@@ -140,13 +140,11 @@ public class CustomFilter extends AbstractModel<Integer> {
 
     static {
         priorityList = new ArrayList<OptionsBean>();
-        //priorityList.add(new OptionsBean(""));
         priorityList.add(new OptionsBean("Normal"));
         priorityList.add(new OptionsBean("High"));
         priorityList.add(new OptionsBean("Low"));
 
         statusList = new ArrayList<OptionsBean>();
-        //statusList.add(new OptionsBean("",""));
         statusList.add(new OptionsBean("Active", "A"));
         statusList.add(new OptionsBean("Completed", "C"));
         statusList.add(new OptionsBean("Deleted", "D"));

@@ -98,7 +98,6 @@ public class BillingHistoryDAO {
     public List<BillHistory> getBillHistoryByBillNo(String billingNo) {
         List<BillHistory> result = new ArrayList<BillHistory>();
         for (Object[] i : dao.findBillingHistoryByBillingMasterNo(ConversionUtils.fromIntString(billingNo))) {
-            // Billingmaster bm = (Billingmaster) i[0];
             BillingHistory bh = (BillingHistory) i[1];
             BillingPaymentType bpt = (BillingPaymentType) i[2];
 

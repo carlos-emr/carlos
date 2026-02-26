@@ -34,9 +34,6 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
 
-/*
- * Updated by Eugene Petruhin on 09 jan 2009 while fixing #2482832 & #2494061
- */
 public interface CaseManagementCPPDAO {
 
     public CaseManagementCPP getCPP(String demographic_no);

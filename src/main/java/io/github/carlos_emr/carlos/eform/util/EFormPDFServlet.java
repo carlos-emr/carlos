@@ -315,7 +315,6 @@ public class EFormPDFServlet extends HttpServlet {
             return ret;
         }
         
-        // Final safety check - ensure no path traversal characters remain
         if (cfgFilename.contains("..") || cfgFilename.contains("/") || cfgFilename.contains("\\")) {
             log.warn("Potential path traversal attempt blocked: " + cfgFilename);
             return ret;

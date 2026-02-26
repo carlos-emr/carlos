@@ -214,7 +214,6 @@ public class ProgramManagerView2Action extends ActionSupport {
         if (this.getTab().equals("Clients")) {
             request.setAttribute("client_statuses", programManager.getProgramClientStatuses(Integer.valueOf(programId)));
 
-            // request.setAttribute("admissions", admissionManager.getCurrentAdmissionsByProgramId(programId));
             // clients should be active
             List<Admission> admissions = new ArrayList<Admission>();
             List<Admission> ads = admissionManager.getCurrentAdmissionsByProgramId(programId);
@@ -460,7 +459,6 @@ public class ProgramManagerView2Action extends ActionSupport {
                     newAdmission.setClientId(admission.getClientId());
                     newAdmission.setProgramId(Integer.valueOf(admitToProgramId));
                     newAdmission.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-//					newAdmission.setTeamId(0);
 
                     admissionManager.saveAdmission(newAdmission);
                 }
@@ -538,9 +536,6 @@ public class ProgramManagerView2Action extends ActionSupport {
         Program program = programManager.getProgram(String.valueOf(programId));
         ProgramQueue queue = programQueueManager.getProgramQueue(queueId);
 
-        //int numMembers = program.getNumOfMembers().intValue();
-        //int maxMem = program.getMaxAllowed().intValue();
-        //int familySize = clientManager.getDependents(new Long(clientId)).size();
         // TODO: add warning if this admission ( w/ dependents) will exceed the maxMem
 
         request.setAttribute("do_admit", Boolean.TRUE);

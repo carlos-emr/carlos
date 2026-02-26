@@ -86,9 +86,7 @@ public class GetProviderRoles {
             Secrole role = pp.getRole();
             if (role != null) {
                 roles.add(role.getRoleName());
-                //roles.add(String.valueOf(role.getId()));
             } else {
-                //log.error("ROLE IS NULL" + pp.getId());
             }
         }
         return roles;

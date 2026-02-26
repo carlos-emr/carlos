@@ -369,7 +369,6 @@ public class MsgAddressBook {
 
             } else {
 
-                //int binSearch = java.util.Arrays.binarySearch(thePros,element.getAttribute("id"));
 
                 //if ( ( binSearch > 0 ) && ( ( (String) locationVector.elementAt(binSearch) ).equals( (String) remoteLocationId.elementAt(remoId)  ) )){
 

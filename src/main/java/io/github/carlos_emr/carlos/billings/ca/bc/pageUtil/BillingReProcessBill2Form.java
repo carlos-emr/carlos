@@ -114,12 +114,7 @@ public final class BillingReProcessBill2Form {
    *
    
    
-   
-   
-   
-   
         String afterHour;//f
-   
    
    
         String exSubmissionCode;//f
@@ -995,22 +990,11 @@ clinic_ref_code
      * @param request The servlet request we are processing
      * @return fill in later
      */
-    //public ActionErrors validate(ActionMapping mapping,
-    //                               HttpServletRequest request) {
 
-    //   ActionErrors errors = new ActionErrors();
 
     //   if (message == null || message.length() == 0){
-    //      errors.add("message", new ActionError("error.message.missing"));
-    //   }
 
     //   if (providers == null || providers.length == 0){
-    //      errors.add(ActionErrors.GLOBAL_ERROR,
-    //              new ActionError("error.providers.missing"));
-    //   }
 
-    //   return errors;
-
-    //}
 
 }//CreateMessageForm

@@ -83,7 +83,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_con)");
         }
 
-        //EctConsultationFaxForm ectConsultationFaxForm = (EctConsultationFaxForm) form;
 
         if ("cancel".equals(this.getMethod())) {
             return "cancel";
@@ -205,12 +204,6 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
                 // start up a log track each time the CLIENT was run.
                 faxManager.logFaxJob(loggedInInfo, faxJob, TransactionType.CONSULTATION, Integer.parseInt(reqId));
-                // FaxClientLog faxClientLog = new FaxClientLog();
-                // faxClientLog.setFaxId(faxJob.getId()); // IMPORTANT! this is the id of the FaxJobID from the Faxes table. A 1:1 cardinality.
-                // faxClientLog.setProviderNo(faxJob.getOscarUser()); // the providers that sent this fax
-                // faxClientLog.setStartTime(new Date(System.currentTimeMillis())); // the exact time the fax was sent
-                // faxClientLog.setRequestId(Integer.parseInt(reqId));
-                // faxClientLogDao.persist(faxClientLog);
 
                 count++;
             }

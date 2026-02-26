@@ -125,12 +125,10 @@ public class FrmPDFServlet extends HttpServlet {
             }
             StringBuilder sbFilename = new StringBuilder();
             sbFilename.append("filename_");
-            //sbFilename.append(System.currentTimeMillis());
             sbFilename.append(".pdf");
 
             // set the Cache-Control header
             res.setHeader("Cache-Control", "max-age=0");
-            //res.setHeader("Cache-Control","no-cache"); //HTTP 1.1
             res.setDateHeader("Expires", 0);
             res.setContentType("application/pdf");
 
@@ -142,7 +140,6 @@ public class FrmPDFServlet extends HttpServlet {
             // directly rather
             // than open/save
             // selection
-            //sbContentDispValue.append("; filename=");
             sbContentDispValue.append(sbFilename);
 
             res.setHeader("Content-disposition", sbContentDispValue.toString());
@@ -180,7 +177,6 @@ public class FrmPDFServlet extends HttpServlet {
         } finally {
             if (baosPDF != null) {
                 baosPDF.reset();
-                //baosPDF.close();
             }
         }
 
@@ -213,7 +209,6 @@ public class FrmPDFServlet extends HttpServlet {
 
         final String PAGESIZE = "printPageSize";
         Document document = new Document();
-        //document = new Document(psize, 50, 50, 50, 50);
 
         String suffix = (multiple > 0) ? String.valueOf(multiple) : "";
 
@@ -299,7 +294,6 @@ public class FrmPDFServlet extends HttpServlet {
             }
 
             // get the print prop values
-            //Properties props = new Properties();
             StringBuilder temp = new StringBuilder("");
             for (Enumeration<String> e = req.getParameterNames(); e.hasMoreElements(); ) {
                 temp = new StringBuilder(e.nextElement().toString());
@@ -406,7 +400,6 @@ public class FrmPDFServlet extends HttpServlet {
             document.addKeywords("pdf, itext");
             document.addCreator("OSCAR");
             document.addAuthor("");
-            //document.addHeader("Expires", "0");
 
             // A0-A10, LEGAL, LETTER, HALFLETTER, _11x17, LEDGER, NOTE, B0-B5, ARCH_A-ARCH_E, FLSA
             // and FLSE
@@ -420,7 +413,6 @@ public class FrmPDFServlet extends HttpServlet {
             document.open();
 
             // create a reader for a certain document
-            //String propFilename = "../../OscarDocument/" + getProjectName() + "/form/" + template;
             String propFilename = OscarProperties.getInstance().getProperty("pdfFORMDIR", "") + "/" + template;
             float height;
             int n;
@@ -456,10 +448,7 @@ public class FrmPDFServlet extends HttpServlet {
                 String encoding;
 
                 cb.setRGBColorStroke(0, 0, 1);
-                //cb.setFontAndSize(bf, 8);
                 // LEFT/CENTER/RIGHT, X, Y,
-                //cb.showTextAligned(PdfContentByte.ALIGN_LEFT, "Cathy
-                // Pacific", 126, height-50, 0);
 
                 if (i <= cfgFileNo) {
 
@@ -515,9 +504,6 @@ public class FrmPDFServlet extends HttpServlet {
                             } else {
                                 font = new Font(bf, Integer.parseInt(cfgVal[5].trim()), fontFlags);
                             }
-                            //ct.setSimpleColumn(60, 300, 200, 500, 10,
-                            // Element.ALIGN_LEFT);
-                            //ct.addText(new Phrase(15, "xxxx xxxxx xxxxx xxxxx xxx
                             // xxxxx xxxxx xxxx xxxxx xxxxxx xxxx xxxxxxx xxxxx
                             // xxxx", font));
                             ct.setSimpleColumn(Integer.parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2]
@@ -526,7 +512,6 @@ public class FrmPDFServlet extends HttpServlet {
                                     Element.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? Element.ALIGN_RIGHT :
                                     Element.ALIGN_CENTER)));
 
-                            //ct.addText(new Phrase(12, props.getProperty(tempName.toString(), ""), font)); // page
                             ct.setText(new Phrase(12, propValue, font));
                             // size
                             // leading
@@ -567,17 +552,8 @@ public class FrmPDFServlet extends HttpServlet {
                             cb.endText();
                         } else if (tempName.toString().equals("forms_promotext")) {
 //	                        if ( OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null ){
-//	                            log.info("adding user placed forms_promotext");
-//	                            cb.beginText();
-//	                            cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-//	                            cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT : PdfContentByte.ALIGN_CENTER)),
-//	                                    OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT"),
-//	                                    Integer.parseInt(cfgVal[1].trim()),
 //	                                    (height - Integer.parseInt(cfgVal[2].trim())),
-//	                                    0);
 //
-//	                            cb.endText();
-//	                        }
                         } else { // write prop text
                             cb.beginText();
                             cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
@@ -594,17 +570,9 @@ public class FrmPDFServlet extends HttpServlet {
 
                     //----------
                     if (OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
-//	                    log.info("adding forms_promotext");
 //
 //	                    // remove elements of the PDF file
-//	                    Rectangle rec = new Rectangle(160, 12, 465, 21);
-//	                    rec.setBackgroundColor(java.awt.Color.WHITE);
-//	                    cb.rectangle(rec);
 //
-//	                    cb.beginText();
-//	                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA,BaseFont.CP1252,BaseFont.NOT_EMBEDDED), 6);
-//	                    cb.showTextAligned(PdfContentByte.ALIGN_CENTER, OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT"), width/2, 16, 0);
-//	                    cb.endText();
                     }
 
 
@@ -722,55 +690,6 @@ public class FrmPDFServlet extends HttpServlet {
                                 cb.stroke();
                             }
                         }
-	                        /*
-	                        if (fEDB != null && fEDB.length() >= 8) {
-	                            //make the graphic class
-	                            FrmPdfGraphicAR myClass = new FrmPdfGraphicAR();
-	                            myClass.init(nMaxPixX, nMaxPixY, fStartX, fEndX, fStartY, fEndY, dateFormat, fEDB);
-	                            Properties gProp = myClass.getGraphicXYProp(xDate, yHeight);
-
-	                            //draw the pic
-	                            cb.setLineWidth(1.5f);
-	                            //cb.setRGBColorStrokeF(0f, 1f, 0f); //cb.circle(52f,
-	                            // height - 751f, 1f);//cb.circle(52f, height - 609f,
-	                            // 1f);
-	                            for (Enumeration e = gProp.propertyNames(); e.hasMoreElements();) {
-	                                tempName = new StringBuilder(e.nextElement().toString());
-	                                tempValue = gProp.getProperty(tempName.toString(), "");
-	                                if (tempValue.equals(""))
-	                                    continue;
-
-	                                cb.circle((origX + Float.parseFloat(tempName.toString())), (height - origY + Float
-	                                        .parseFloat(tempValue)), 1.5f);
-	                                cb.stroke();
-	                            }
-	                        }
-
-	                        // general chart
-	                        if (!bFormAR) {
-	                            //make the graphic class
-	                            FrmPdfGraphicGrowthChart myClass = new FrmPdfGraphicGrowthChart();
-	                            myClass.init(nMaxPixX, nMaxPixY, fStartX, fEndX, fStartY, fEndY);
-	                            Properties gProp = myClass.getGraphicXYProp(xDate, yHeight);
-
-	                            //draw the pic
-	                            cb.setLineWidth(1.5f);
-	                            if (k % 2 == 0) {
-	                                cb.setRGBColorStrokeF(0f, 0f, 1f);
-	                            } else {
-	                                cb.setRGBColorStrokeF(1f, 0f, 0f);
-	                            }
-	                            for (Enumeration e = gProp.propertyNames(); e.hasMoreElements();) {
-	                                tempName = new StringBuilder(e.nextElement().toString());
-	                                tempValue = gProp.getProperty(tempName.toString(), "");
-	                                if (tempValue.equals(""))
-	                                    continue;
-
-	                                cb.circle((origX + Float.parseFloat(tempName.toString())), (height - origY + Float
-	                                        .parseFloat(tempValue)), 1.5f);
-	                                cb.stroke();
-	                            }
-	                        } // end of first pic */
                     } // end of for loop
                 } //end if there are properties to process
 

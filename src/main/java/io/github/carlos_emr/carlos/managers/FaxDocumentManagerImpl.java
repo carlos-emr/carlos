@@ -50,14 +50,6 @@ import io.github.carlos_emr.carlos.log.LogAction;
 @Service
 public class FaxDocumentManagerImpl implements FaxDocumentManager {
 
-//	@Autowired
-//	DocumentManager documentManager;
-
-//	@Autowired 
-//	private LabManager labManager;
-
-//	@Autowired
-//	private FormsManager formsManager;
 
     @Autowired
     private SecurityInfoManager securityInfoManager;

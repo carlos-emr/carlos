@@ -84,11 +84,6 @@ public class HL7A04Data {
     /**
      * Constructor
      */
-    /*
-	public HL7A04Data(oscar.oscarDemographic.data.DemographicData.Demographic demograph) {
-		this.setDemographicData(demograph);
-	}
-	*/
 
     /**
      * Constructor
@@ -112,29 +107,10 @@ public class HL7A04Data {
     /**
      * Constructor
      */
-    /*
-	public HL7A04Data( oscar.oscarDemographic.data.DemographicData.Demographic demograph, ApptData appData, ClinicData clinicData) throws HL7Exception {
-        this.setDemographicData(demograph);
-        this.setAppData(appData);
-        this.setClinicData(clinicData);
-    }
-    */
 
     /**
      *
      */
-	/*
-	public void setDemographicData(oscar.oscarDemographic.data.DemographicData.Demographic demograph) {
-		this.demoData = new String[6];
-		
-		this.demoData[0] = demograph.getDemographicNo();
-        this.demoData[1] = demograph.getLastName();
-        this.demoData[2] = demograph.getFirstName();
-        this.demoData[3] = demograph.getDob();
-        this.demoData[4] = demograph.getSex();
-        this.demoData[5] = demograph.getChartNo();
-	}
-	*/
 
     /**
      *
@@ -338,12 +314,6 @@ public class HL7A04Data {
             pv1.getSetIDPatientVisit().setValue("1");
             pv1.getPatientClass().setValue("R");
 			
-			/*
-			if (clinicData != null) {
-				pv1.getAssignedPatientLocation().getPointOfCare().setValue(clinicData.getClinicNo());	// clinic number
-				pv1.getAssignedPatientLocation().getRoom().setValue(clinicData.getClinicName());		// clinic name
-			}
-			*/
 
             if (this.programs != null) {
                 String programId = "";
@@ -354,17 +324,6 @@ public class HL7A04Data {
                     }
                 }
 				
-				/*
-				for (int i=0; i < this.programs.size(); i++) {
-					Integer programId = (Integer)this.programs.get(i);
-					if (programId != null) {
-						if (programIds.length() != 0)
-							programIds += "-";
-						programIds += programId.toString();
-					}
-					//pv1.getAssignedPatientLocation().getRoom().setValue( p.getName() ); // program name (not used anymore)
-				}
-				*/
                 pv1.getAssignedPatientLocation().getPointOfCare().setValue(programId);    // program number
             }
 

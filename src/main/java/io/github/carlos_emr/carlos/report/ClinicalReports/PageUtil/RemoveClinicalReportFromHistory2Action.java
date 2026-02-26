@@ -70,7 +70,6 @@ public class RemoveClinicalReportFromHistory2Action extends ActionSupport {
         if (arrList != null && arrList.size() == 0) {
             request.getSession().removeAttribute("ClinicalReports");
         }
-        //request.getSession().setAttribute("ClinicalReports",arrList);
 
         return SUCCESS;
     }

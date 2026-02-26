@@ -86,7 +86,6 @@ public class SpireClient extends TimerTask {
                     File f = new File(saveDir + file.getFilename() + ".HL7");
                     spireSFTPChannel.get(file.getFilename(), new FileOutputStream(f));
 
-                    //spireSFTPChannel.rename(file.getFilename(), "downloaded/" + file.getFilename());
 
                     spireSFTPChannel.rm(file.getFilename());
                 }

@@ -17,11 +17,5 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 
-
 public interface InboxResultsRepository {
-    //String getLabsSql(String loggedInProviderNo, String providerNumber, String firstName, String lastName, String hin, String startDate, String endDate, String status, String abnormalStatus, InboxQueryParameters.MatchedStatus matchedStatus, Boolean getCounts, Boolean getDemographicCounts, Map<String, String> whereValues);
-    //String getLabsWhereSql(String loggedInProviderNo, String providerNumber, String firstName, String lastName, String hin, String startDate, String endDate, String status, String abnormalStatus, InboxQueryParameters.MatchedStatus matchedStatus, Map<String, String> whereValues);
-    //String getLabsGroupedWhereSql(String providerNumber, String firstName, String lastName, String hin, String status, InboxQueryParameters.MatchedStatus matchedStatus, Map<String, String> whereValues);
-    //String getHRMReportsSql(String loggedInProviderNo, String providerNumber, String firstName, String lastName, String hin, String startDate, String endDate, String status, InboxQueryParameters.MatchedStatus matchedStatus, Boolean getCounts, Boolean getDemographicCounts, Map<String, String> whereValues);
-    //String getHRMReportsWhereSql(String loggedInProviderNo, String providerNumber, String firstName, String lastName, String hin, String startDate, String endDate, String status, InboxQueryParameters.MatchedStatus matchedStatus, Map<String, String> whereValues);
 }

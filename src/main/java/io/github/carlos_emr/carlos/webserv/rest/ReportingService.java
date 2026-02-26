@@ -73,7 +73,6 @@ import org.springframework.stereotype.Component;
 public class ReportingService extends AbstractServiceImpl {
     private static Logger logger = MiscUtils.getLogger();
 
-    //private static final Logger logger = MiscUtils.getLogger();
 
     @Autowired
     DemographicSetsManager demographicSetsManager;

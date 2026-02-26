@@ -156,8 +156,6 @@ public class RxUtil {
         fm = g.getFontMetrics();
 
         int y = 10; //; ((height - fm.getHeight()) / 2) + fm.getDescent();
-        //g.setTransform(AffineTransform.getRotateInstance(Math.toRadians(-45), 150, y));
-        //g.drawString(text, x, y);
         for (String line : text.split("\n")) {
             int x = (width - fm.stringWidth(line)) / 2;
             g.drawString(line, x, y += g.getFontMetrics().getHeight());

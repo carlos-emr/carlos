@@ -139,7 +139,6 @@ public class MatchingManager {
 
         loadAdditionalClientFields(top, vacancyID);
 
-        //logger.info(System.currentTimeMillis()-t+"ms to search, score, filter and rank");
 
         return Arrays.asList(matches);
     }

@@ -169,10 +169,6 @@ public class LabsDocsSummary implements Summary {
             if (summaryItem.getDisplayName().trim().equals("")) {
                 summaryItem.setDisplayName("N/A");
             }
-            //item.setLinkTitle(title + serviceDateStr);
-            //item.setTitle(title);
-            //key = StringUtils.maxLenString(curDoc.getDescription(), MAX_LEN_KEY, CROP_LEN_KEY, ELLIPSES) + "(" + serviceDateStr + ")";
-            ///key = StringEscapeUtils.escapeEcmaScript(key);
 
             list.add(summaryItem);
             count++;

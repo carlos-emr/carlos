@@ -186,7 +186,6 @@ public class DesAntenatalPlannerRisksHandler_99_12 extends DefaultHandler {
                     results += "</td></tr>\n<tr BGCOLOR='ivory'><td width=" + 10 / numcols + "% >";
                 } else {
                     results += "</td><td width=" + 10 / numcols + "% >";
-                    //results += "</td><td width="+10/numcols+"% >";
                 }
             }
             results += "<font size=-2>";
@@ -214,10 +213,6 @@ public class DesAntenatalPlannerRisksHandler_99_12 extends DefaultHandler {
         }
         //for (int i=0; i < atts.getLength(); i++) {
         //  if (atts.getQName(i) == "riskno") {
-        //  	riskNameObj.setProperty(atts.getValue(i), "risk_"+riskName);
-        //    break;
-        //  }
-        //}
     }
 
     /**

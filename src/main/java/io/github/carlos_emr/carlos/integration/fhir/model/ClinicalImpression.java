@@ -78,7 +78,6 @@ public class ClinicalImpression extends AbstractOscarFhirResource<org.hl7.fhir.d
     public ClinicalImpression(CaseManagementNote caseManagementNote) {
         setCaseManagementNote(caseManagementNote);
         setFhirResource(new org.hl7.fhir.dstu3.model.ClinicalImpression());
-        // mapAttributes( getFhirResource(), getFilter( this.getClass() ) );
     }
 
     /**

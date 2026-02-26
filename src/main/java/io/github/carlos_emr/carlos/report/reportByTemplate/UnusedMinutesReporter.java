@@ -65,8 +65,6 @@ public class UnusedMinutesReporter implements Reporter {
             return false;
         }
 
-        // String scheduleSQL = "select scheduletemplate.timecode, scheduledate.sdate from scheduletemplate, scheduledate where scheduletemplate.name=scheduledate.hour and scheduledate.sdate >= '" + date_from + "' and scheduledate.sdate <= '" + date_to + "' and  scheduledate.provider_no='" + provider_no + "' and scheduledate.status = 'A' and (scheduletemplate.provider_no=scheduledate.provider_no or scheduletemplate.provider_no='Public') order by scheduledate.sdate";
-        // String apptSQL = "select start_time, end_time from appointment where provider_no = '" + provider_no + "' and appointment_date = '";
         int booked, unbooked;
         booked = unbooked = 0;
 
@@ -140,7 +138,6 @@ public class UnusedMinutesReporter implements Reporter {
         }
         rsHtml = makeHTML(booked, unbooked);
         csv = makeCSV(booked, unbooked);
-        // String sql = scheduleSQL + ";\n " + apptSQL;
         request.setAttribute("reportobject", curReport);
         request.setAttribute("resultsethtml", rsHtml);
         request.setAttribute("csv", csv);

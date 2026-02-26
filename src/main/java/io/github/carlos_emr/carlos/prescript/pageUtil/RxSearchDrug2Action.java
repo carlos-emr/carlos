@@ -94,8 +94,6 @@ public final class RxSearchDrug2Action extends ActionSupport {
 
         // Setup variables
         String genericSearch = this.getGenericSearch();
-        //String searchString = reqForm.getSearchString();
-        //String searchRoute = reqForm.getSearchRoute();
         if (searchRoute == null) searchRoute = "";
 
         RxDrugData drugData = new RxDrugData();
@@ -250,9 +248,6 @@ public final class RxSearchDrug2Action extends ActionSupport {
         }
 //        Hashtable d = new Hashtable();
 //
-//        d.put("id", id);
-//        d.put("vec", vec);
-//        mapper.writeValueAsString(d);
         return null;
     }
 
@@ -286,12 +281,10 @@ public final class RxSearchDrug2Action extends ActionSupport {
 
     private static class Parameter {
 
-        //public static String DRUG_STATUS;
         public static String WILDCARD;
         public static String SEARCH_STRING;
 
         private static void reset() {
-            //DRUG_STATUS = "";
             WILDCARD = "";
             SEARCH_STRING = "";
         }

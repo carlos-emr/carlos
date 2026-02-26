@@ -276,16 +276,6 @@ public class DemographicExportHelper {
             //TODO change the library class so that it can handle null values.
             medi.addNewPastMedications().setBoolean(arr[p].isPastMed());
             mSummary = Util.addSummary(mSummary, "Past Medcation", pastMed);
-/*
-			cdsDt.YnIndicatorAndBlank pc = medi.addNewPatientCompliance();
-			if (arr[p].getPatientCompliance() == null) {
-				pc.setBlank(cdsDt.Blank.X);
-			} else {
-				String patientCompliance = arr[p].getPatientCompliance() ? "Yes" : "No";
-				pc.setBoolean(arr[p].getPatientCompliance());
-				mSummary = Util.addSummary(mSummary, "Patient Compliance", patientCompliance);
-			}
-*/
             String outsideProviderName = arr[p].getOutsideProviderName();
             if (StringUtils.filled(outsideProviderName)) {
                 MedicationsAndTreatments.PrescribedBy pcb = medi.addNewPrescribedBy();
@@ -315,7 +305,6 @@ public class DemographicExportHelper {
 
             if (StringUtils.empty(mSummary))
                 exportErrors.add("Error! No Category Summary Line (Medications & Treatments) for Patient " + demoNo + " (" + (p + 1) + ")");
-            //	medi.setCategorySummaryLine(mSummary);
         }
     }
 

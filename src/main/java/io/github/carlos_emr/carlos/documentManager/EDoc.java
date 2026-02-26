@@ -411,7 +411,6 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         return docPublic;
     }
 
-    // docPublic = "checked" for the edoc to be public
     public void setDocPublic(String docPublic) {
         if (docPublic.equalsIgnoreCase("checked")) this.docPublic = "1";
         else if (docPublic == null || docPublic.length() == 0) this.docPublic = "0";

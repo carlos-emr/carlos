@@ -132,7 +132,6 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
 
                     String strTitle = StringUtils.maxLenString(tmp, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-                    // strTitle = "<span " + styleColor + ">" + strTitle + "</span>";
                     strTitle = "<span " + getClassColour(drug, now, month) + ">" + strTitle + "</span>";
                     item.setTitle(strTitle);
                     item.setLinkTitle(tmp + " " + serviceDateStr + " - " + drug.getEndDate());

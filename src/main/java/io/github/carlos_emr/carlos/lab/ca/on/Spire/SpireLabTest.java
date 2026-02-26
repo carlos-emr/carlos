@@ -241,7 +241,6 @@ public class SpireLabTest {
     }
 
     private void populateLabReportInfo(String labid) {
-        //labID = labid;
         try {
             LabReportInformationDao dao = SpringUtils.getBean(LabReportInformationDao.class);
             LabReportInformation lri = dao.find(labid);
@@ -332,12 +331,9 @@ public class SpireLabTest {
         public String locationId = null; // 11. Location Id (Test performed at)
         public String last = null; // 12. Last Y or N
 
-        //String title = null;       // 2. Title
         //String notUsed1 = null;    // 3. not used ?
         public String description = null; // 4. Description/Comment
 
-        //String locationId = null;  // 5. Location Id
-        //String last = null;        // 6. Last Y or N
 
         ///
         public String getReferenceRange() {

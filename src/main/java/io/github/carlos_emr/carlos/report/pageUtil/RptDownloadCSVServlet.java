@@ -111,7 +111,6 @@ public class RptDownloadCSVServlet extends HttpServlet {
         String SAVE_AS = "default";
         String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
         // get form name
-        //String reportName = "";
         String in = "";
         try {
             reportName = (new RptReportItem()).getReportName(reportId);
@@ -416,7 +415,6 @@ public class RptDownloadCSVServlet extends HttpServlet {
                     }
                 }
 
-                //sTempEle = sSpecSelect.length()>0? (","+sSpecSelect) : "";
                 sql = "select demographic.demographic_no," + sDemoSelect + " from demographic where ";
                 sql += " demographic.demographic_no in (" + subFormDemoNo + ") " + ORDER_BY;
                 MiscUtils.getLogger().debug(" demographic and demographicExt: " + sql);
@@ -427,16 +425,6 @@ public class RptDownloadCSVServlet extends HttpServlet {
                     vecFieldName.add(temp[i].trim());
                     MiscUtils.getLogger().debug(" vecFieldCaption: " + propDemoSelect.getProperty(temp[i].trim()));
                 }
-                /*
-                if(bSpecSelect) {
-                    temp = sSpecSelect.replaceAll("demographicExt.","").split(",");
-                    for(int i=0; i<temp.length; i++) {
-                        vecFieldCaption.add(propSpecSelect.getProperty(temp[i].trim()));
-                        vecFieldName.add(temp[i].trim());
-                        MiscUtils.getLogger().debug(" vecFieldCaption: " + propSpecSelect.getProperty(temp[i].trim()));
-                    }
-                }
-                */
                 vecFieldValue = (new RptReportCreator()).query(sql, vecFieldName);
                 vecFieldName.remove(0); // remove "demographic_no"
             }
@@ -478,7 +466,6 @@ public class RptDownloadCSVServlet extends HttpServlet {
             }
             vecFieldValue = (new RptReportCreator()).query(sql, vecFieldName);
 
-            //vecFieldName.remove(0); // remove "demographic_no"
         }
 
 //         table: all

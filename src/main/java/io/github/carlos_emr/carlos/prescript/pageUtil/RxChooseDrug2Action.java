@@ -64,8 +64,6 @@ public final class RxChooseDrug2Action extends ActionSupport {
 
         // Extract attributes we will need
 
-        //     p("locale="+locale.toString());
-        //    p("message="+messages.toString());
         // Setup variables
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
         if (bean == null) {
@@ -89,7 +87,6 @@ public final class RxChooseDrug2Action extends ActionSupport {
             try {
 
                 RxDrugData.DrugMonograph f = drugData.getDrug(drugId);
-//                    rx.setGCN_SEQNO(f.gcnCode);
                 String genName = "";
                 genName = f.name;
                 rx.setAtcCode(f.atc);

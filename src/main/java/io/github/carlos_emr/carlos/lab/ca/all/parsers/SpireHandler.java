@@ -301,7 +301,6 @@ public class SpireHandler implements MessageHandler {
 
         // fix message type
         message = message.replaceAll("\\|MDM\\^R01\\|", "|ORU^R01|");
-        //message = message.replaceAll("\\|MDM^R01\\|","|ORU^R01|");
 
         message = message.replaceAll("\\\\.br\\\\", "<br>");
 
@@ -360,7 +359,6 @@ public class SpireHandler implements MessageHandler {
 
     public String getMsgDate() {
         try {
-            //return(formatDateTime(msg.getMSH().getDateTimeOfMessage().getTimeOfAnEvent().getValue()));
             return (formatDateTime(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getObservationDateTime().getTimeOfAnEvent().getValue()));
         } catch (Exception e) {
             logger.error("Could not retrieve message date", e);
@@ -440,16 +438,6 @@ public class SpireHandler implements MessageHandler {
         } catch (Exception e) {
             return ("");
         }
-        /*
-        try{
-            Terser terser = new Terser(msg);
-            return (getString(terser.get(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX(),4,0,1,1))+" "+
-                    getString(terser.get(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX(),4,0,2,1))+" "+
-                    getString(terser.get(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX(),4,0,3,1))).trim();
-        }catch(Exception e){
-            return("");
-        }
-        */
     }
 
     public String getOBXIdentifier(int i, int j) {
@@ -591,9 +579,6 @@ public class SpireHandler implements MessageHandler {
             if (info.getSuffixEgJRorIII().getValue() != null)
                 retVal += info.getSuffixEgJRorIII().getValue() + " ";
 
-            //retVal += info.getGivenName().getValue() + " " + info.getMiddleInitialOrName().getValue() + " " + info.getFamilyName().getValue();
-            //retVal += " " + info.getAssigningAuthority().getUniversalIDType().getValue();
-            //retVal += " " + info.getSourceTable().getValue();
             return retVal;
         } catch (HL7Exception e) {
             logger.error("Could not get ZDS name", e);
@@ -661,21 +646,11 @@ public class SpireHandler implements MessageHandler {
      * Methods to get information from observation notes
      */
     public int getOBRCommentCount(int i) {
-        /*try {
-            int lastOBX = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATIONReps() - 1;
-            return(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(lastOBX).getNTEReps());
-        } catch (Exception e) {*/
         return (0);
-        // }
     }
 
     public String getOBRComment(int i, int j) {
-       /* try {
-            int lastOBX = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATIONReps() - 1;
-            return(getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(lastOBX).getNTE(j).getComment(0).getValue()));
-        } catch (Exception e) {*/
         return ("");
-        //}
     }
 
     /**
@@ -702,7 +677,6 @@ public class SpireHandler implements MessageHandler {
 
     public String getOBXComment(int i, int j, int k) {
         try {
-            //int lastOBX = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATIONReps() - 1;
             return (getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k).getComment(0).getValue()));
         } catch (Exception e) {
             return ("");
@@ -856,12 +830,6 @@ public class SpireHandler implements MessageHandler {
         try {
             accessionNum = msg.getMSH().getMessageControlID().getValue();
 			
-			/*
-            accessionNum = getString(msg.getRESPONSE().getORDER_OBSERVATION(0).getORC().getPlacerOrderNumber(0).getEntityIdentifier().getValue());
-            if(msg.getRESPONSE().getORDER_OBSERVATION(0).getORC().getFillerOrderNumber().getEntityIdentifier().getValue() != null){
-                accessionNum = accessionNum+", "+getString(msg.getRESPONSE().getORDER_OBSERVATION(0).getORC().getFillerOrderNumber().getEntityIdentifier().getValue());
-            }
-            */
             return (accessionNum);
         } catch (Exception e) {
             logger.error("Could not return accession number", e);

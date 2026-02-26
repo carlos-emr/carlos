@@ -320,7 +320,6 @@ public final class RxWriteScriptForm {
 //     * @param mapping The mapping used to select this instance
 //     * @param request The servlet request we are processing
 //     */
-//    public void reset(ActionMapping mapping, HttpServletRequest request) {
 //        this.action = "";
 //        this.drugId = 0;
 //        this.demographicNo = 0;
@@ -349,7 +348,6 @@ public final class RxWriteScriptForm {
 //	this.patientCompliance = null;
 //	this.outsideProviderName = null;
 //	this.outsideProviderOhip = null;
-//    }
 //
 //
 //    /**
@@ -362,14 +360,9 @@ public final class RxWriteScriptForm {
 //     * @param mapping The mapping used to select this instance
 //     * @param request The servlet request we are processing
 //     */
-//    public ActionErrors validate(ActionMapping mapping,
-//    HttpServletRequest request) {
 //
-//        ActionErrors errors = new ActionErrors();
 //
-//        return errors;
 //
-//    }
 //
     /** Getter for property atcCode.
      * @return Value of property atcCode.

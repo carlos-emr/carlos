@@ -97,7 +97,6 @@ public class ReportEvaluator {
                 }
             }
 
-            //Object obj = numer.getOutputValues();  // PROBLEM IS THAT THIS WILL ALWAYS HAVE A VALUE
             Hashtable<String, Object> h = new Hashtable<String, Object>();
             h.put("_demographic_no", demo);
             h.put("_report_result", Boolean.valueOf(bool && bool2));
@@ -110,7 +109,6 @@ public class ReportEvaluator {
                     EctMeasurementsDataBeanHandler ect = new EctMeasurementsDataBeanHandler(Integer.valueOf(demo), val);
                     Collection<EctMeasurementsDataBean> v = ect.getMeasurementsDataVector();
                     //Execute for the value and attach it to the key in the hashtable
-                    //Object obj =
                     if (v.iterator().hasNext()) {
                         h.put(key, v.iterator().next());
                     }
@@ -129,7 +127,6 @@ public class ReportEvaluator {
 
 //            if (obj != null){
 //                getReportResultList().add(obj);
-//            }
             if (bool && bool2) {
                 numeratorCount++;
             }
@@ -152,7 +149,6 @@ public class ReportEvaluator {
             percentage = ((float) getNumeratorCount() / (float) getDenominatorCount()) * 100;
         } catch (java.lang.ArithmeticException arithEx) {
             MiscUtils.getLogger().error("Error", arithEx);
-            //request.setAttribute("divisionByZero",denominatorId);
             percentage = 0;
         }
         return percentage;

@@ -55,8 +55,6 @@ public final class ApptStatusData {
     String[] aStatus = {"t", "T", "H", "P", "E", "N", "C", "B", "tS", "TS", "HS", "PS", "ES", "NS", "CS", "BS", "tV", "TV", "HV", "PV", "EV", "NV", "CV", "BV"};
     String[] aNextStatus = {"T", "H", "P", "E", "N", "C", "t", "", "TS", "HS", "PS", "ES", "NS", "CS", "tS", "", "TV", "HV", "PV", "EV", "NV", "CV", "tV", ""};
     String[] aImageName = {"starbill.gif", "todo.gif", "here.gif", "picked.gif", "empty.gif", "noshow.gif", "cancel.gif", "billed.gif", "lts.gif", "uts.gif", "hs.gif", "ps.gif", "es.gif", "noshow.gif", "cancel.gif", "bs.gif", "ltv.gif", "utv.gif", "hv.gif", "pv.gif", "ev.gif", "noshow.gif", "cancel.gif", "bv.gif"};
-    /* Here we have the keys for the message on oscarResource_*.properties 
-       The page need take this String to call the i18n message             */
     String[] aTitle = {
             "oscar.appt.ApptStatusData.msgTodo",
             "oscar.appt.ApptStatusData.magDaySheetPrinted",
@@ -231,8 +229,6 @@ public final class ApptStatusData {
         List<AppointmentStatus> apptStatuses = AppointmentStatusMgrImpl.getCachedActiveStatuses();
 
 
-        // Collections.sort(apptStatuses, new BeanComparator("id"));
-
         if (apptStatus.length() >= 2) {
             strOtherIcon = apptStatus.substring(1, 2);
             strStatus = apptStatus.substring(0, 1);
@@ -312,7 +308,6 @@ public final class ApptStatusData {
                 if (strStatus.equals(s.getStatus())) {
                     Integer colour = Integer.valueOf(s.getShortLetterColour());
 
-                    // return null if it's null
                     if (colour == null) {
                         return null;
                     }

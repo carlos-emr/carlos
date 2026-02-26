@@ -151,7 +151,6 @@ public class JdbcBillingReviewImpl {
                 ch1Obj.setProvider_ohip_no(b[8]);
                 ch1Obj.setUpdate_datetime(b[9]);
                 ch1Obj.setTotal(b[10]);
-                //ch1Obj.setPaid(b[11]);
                 ch1Obj.setClinic(b[12]);
                 //ch1Obj.setTotal(b[13]);//fee is not total?
                 ch1Obj.setSer_num(b[15]); //14 is service code

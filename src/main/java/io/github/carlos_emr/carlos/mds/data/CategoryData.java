@@ -485,11 +485,6 @@ public class CategoryData {
         }
     }
 
-    /*
-     * This will return the total documents found for this patients.
-     * it will also add to the patients map (demographicNo, PatientInfo) with a document count for the patient.
-     *
-     */
     public int getDocumentCountForPatientSearch() throws SQLException {
         PatientInfo info;
 

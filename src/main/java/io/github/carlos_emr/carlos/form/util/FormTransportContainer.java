@@ -65,8 +65,6 @@ public class FormTransportContainer {
     private String formName;
     private static String FORM_FORWARD_PATH = "/form/forwardshortcutname.jsp";
 
-//	private final Map<String, String[]> modifiableParameters;
-//	private Map<String, String[]> allParameters = new TreeMap<>();
 
     public FormTransportContainer(HttpServletResponse response,
                                   HttpServletRequest request, final String formPath) throws ServletException, IOException {

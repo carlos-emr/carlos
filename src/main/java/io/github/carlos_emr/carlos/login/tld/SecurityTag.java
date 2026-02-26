@@ -67,7 +67,6 @@ public class SecurityTag implements Tag {
     public int doStartTag() throws JspException {
         int ret = 0;
         Vector v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);
-        /*TODO: temporily allow current sec work, the if statement should be removed */
         if (roleName == null)
         {
             ret = SKIP_BODY;

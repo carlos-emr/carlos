@@ -85,10 +85,7 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
         pStream.close();
 
 
-        // function = request.getParameter("function");
-        // function_id = request.getParameter("functionid");
         // filedesc = request.getParameter("filedesc");
-        // creator = request.getParameter("creator");
 
         ServletInputStream sis = request.getInputStream();
         BufferedOutputStream dest = null;
@@ -148,7 +145,6 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
                 for (int i = 0; i < BUFFER; i++) data[i] = 0;
             }
         } //end while
-        //dest.flush();
         dest.close();
         sis.close();
 
@@ -159,18 +155,6 @@ public class DocumentTeleplanReportUploadServlet extends HttpServlet {
 
 
         documentBean.setFilename(fileheader);
-
-        //  documentBean.setFileDesc(filedesc);
-
-        //  documentBean.setFoldername(foldername);
-
-        //  documentBean.setFunction(function);
-
-        //  documentBean.setFunctionID(function_id);
-
-        //  documentBean.setCreateDate(fileheader);
-
-        //  documentBean.setDocCreator(creator);
 
 
         // Call the output page.

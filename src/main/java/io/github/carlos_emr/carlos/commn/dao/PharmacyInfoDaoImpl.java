@@ -167,31 +167,6 @@ public class PharmacyInfoDaoImpl extends AbstractDaoImpl<PharmacyInfo> implement
 
     }
 
-    //  @Override
-    //  public PharmacyInfo find(Integer id){
-    //     return this.entityManager.find(PharmacyInfo.class, id);
-    //  }
-
-    //  @Override
-    // public void persist(PharmacyInfo pharmacyInfo){
-    //     return this.entityManager.persist(pharmacyInfo);
-    // }
-
-    // @Override
-    // public void merge(PharmacyInfo pharmacyInfo){
-    //     return this.entityManager.merge(pharmacyInfo);
-    // }
-
-    // @Override
-    // public List<PharmacyInfo> findAll(){
-    //     Query query = this.entityManager.createQuery("SELECT x FROM PharmacyInf x", PharmacyInfo.class);
-    //     return query.getResultList();
-    // }
-
-    // @Override
-    // public PharmacyInfo saveEntity(PharmacyInfo pharmacyInfo){
-    //     return this.entityManager.saveEntity(pharmacyInfo);
-    // }
 
 }
  

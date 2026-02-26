@@ -307,10 +307,6 @@ public class CheckBillingData {
         ret += checkDependentNum(rs2.getString("dependent_num")); //P18 2 +
         ret += checkSrvUnits(rs2.getString("billing_unit")); //P20 3 +
 
-        /*
-         * forwardZero(rs2.getString("clarification_code"), 2) //P22 2 +
-         * forwardSpace(rs2.getString("anatomical_area"), 2) //P23 2 +
-         */
 
         ret += checkAfterHourIndicator(rs2.getString("after_hour")); //P24 1 +
 
@@ -325,11 +321,6 @@ public class CheckBillingData {
         ret += checkSubmissionCode(rs2.getString("submission_code")); //P34 1 +
         // space(1) //P35 1 +
         ret += checkDxCode1(rs2.getString("dx_code1")); //P36 5 +
-        /*
-         * backwardSpace(rs2.getString("dx_code2"), 5) //P37 5 +
-         * backwardSpace(rs2.getString("dx_code3"), 5) //P38 5 + space(15) //
-         * //P39 15 +
-         */
 
         ret += checkSrvLocation(rs2.getString("service_location")); //P40 1 +
         ret += checkReferral(rs2.getString("referral_flag1"), rs2
@@ -348,32 +339,12 @@ public class CheckBillingData {
         // 1 +
 
         ret += checkMVACode(rs2.getString("mva_claim_code")); //P60 1
-        /*
-         * space(20) //P58 20 + forwardSpace(rs2.getString("mva_claim_code"), 1)
-         * //P60 1 + forwardZero(rs2.getString("icbc_claim_no"), 8) //P62 8 +
-         * forwardZero(rs2.getString("original_claim"), 20 ) //P64 20 +
-         * forwardZero(rs2.getString("facility_no"), 5) //P70 5 +
-         * forwardZero(rs2.getString("facility_sub_no"), 5) //P72 5 + space(58)
-         * //p80 58 +
-         */
 
         ret += checkOinInsCode(rs2.getString("oin_insurer_code")); //P100 2
 
         // backwardSpace(rs2.getString("oin_registration_no"), 12)//P102 12 // +
         ret += checkOinBirthDate(rs2.getString("oin_birthdate")); //P104 8 +
-        /*
-         * backwardSpace(rs2.getString("oin_first_name"), 12) //P106 12 +
-         * backwardSpace(rs2.getString("oin_second_name"), 1) //P108 1 +
-         * backwardSpace(rs2.getString("oin_surname"), 18) //P110 18 +
-         */
         ret += checkOinSexCode(rs2.getString("oin_sex_code")); //P112 1 +
-        /*
-         * backwardSpace(rs2.getString("oin_address"), 25) //P114 25 +
-         * backwardSpace(rs2.getString("oin_address2"), 25) //P116 25 +
-         * backwardSpace(rs2.getString("oin_address3"), 25) //P118 25 +
-         * backwardSpace(rs2.getString("oin_address4"), 25) //P120 25 +
-         * backwardSpace(rs2.getString("oin_postalcode"), 6); //P122 6
-         */
         ret = printErrorMsg(billingNo, ret);
         return ret;
     }

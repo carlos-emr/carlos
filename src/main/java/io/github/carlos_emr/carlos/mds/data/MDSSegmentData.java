@@ -237,7 +237,6 @@ public class MDSSegmentData {
         for (int i = 0; i < statusArray.size(); i++) {
 
             if ((statusArray.get(i)).getProviderNo().equals(providerNo)) {
-                // logger.info("Status of "+i+" is : "+ ((ReportStatus) statusArray.get(i)).getStatus() );
                 return ((statusArray.get(i)).getStatus().startsWith("Ack"));
             }
         }

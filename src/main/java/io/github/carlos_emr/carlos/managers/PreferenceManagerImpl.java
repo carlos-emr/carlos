@@ -51,20 +51,6 @@ public class PreferenceManagerImpl implements PreferenceManager {
     //NEW - summary.item.custom.display
 
 
-
-    /*
-     *
-     * if .position dosne't exist = on
-     * if .position exists and not equal "" = on
-     * ignore the R* position eg: R1I1 R1I2 R2I1 R2I2
-     *
-     * so setting position in old ui will have not effect on the new ui
-     * and when setting position in new ui it will have no effect on the old ui
-     *
-     *
-     */
-
-
     public boolean displaySummaryItem(LoggedInInfo loggedInInfo, String item) {
         if (isCustomSummaryEnabled(loggedInInfo)) {
             List<Property> results = providerManager.getProviderProperties(loggedInInfo, loggedInInfo.getLoggedInProviderNo(), item);

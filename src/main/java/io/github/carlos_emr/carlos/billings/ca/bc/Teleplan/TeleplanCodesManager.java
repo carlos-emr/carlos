@@ -55,18 +55,6 @@ public class TeleplanCodesManager {
     public TeleplanCodesManager() {
     }
 
-    /*
-     * Position Name                 Description                   **                      
-REM026 **  01 - 05 Fee Item Code  X(5)  Fee for Service Fee Item      **                      
-REM027 **                               code to be used for claims.   **                      
-REM028 **                                                             **                      
-REM029 **  06 - 12 Fee Schedule   N(7)  Fee for Service Amount        **                      
-REM030 **          Amount               for this Fee Item            **   REM031 **                               5 dollars 2 decimal $$$$$CC   **   
-     *                                                           **                      
-27 - 76 Fee Item       X(50) Fee Item Title Description    **                      
-REM075 **          Description          This is a Title description   **                      
-REM076 **                                                             **        
-     */
     public List parse(File f) throws Exception {
         // Use PathValidationUtils to validate file is in allowed directory or temp
         File allowedDir = new File(OscarProperties.getInstance().getProperty("DOCUMENT_DIR"));

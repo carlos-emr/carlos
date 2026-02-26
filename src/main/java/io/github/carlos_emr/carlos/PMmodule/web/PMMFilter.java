@@ -93,16 +93,6 @@ public class PMMFilter implements Filter {
             session.setAttribute("pmm_admin", Boolean.valueOf(oscarSecurityManager.hasAdminRole(oscarUser)));
         }
 		
-/* If the providers didn't have the role 'admin', he can still have the access to the administration links(eg. Add Program) on PMM.
- * Each link should be separately configurable under the role rights object screen.
- *
-
-		if (request.getRequestURI().indexOf("ProgramManager.do") != -1 && ((String) session.getAttribute("userrole")).indexOf("admin") == -1) {
-			RequestDispatcher rd = baseRequest.getRequestDispatcher("/commons/auth.jsp");
-			rd.forward(baseRequest, baseResponse);
-			return;
-		}
-*/
         // set local agency
         if (request.getSession().getServletContext().getAttribute("agency") == null) {
             Agency agency = agencyManager.getLocalAgency();

@@ -32,15 +32,6 @@ import java.util.Date;
 
 public class AdmissionTo1 {
 
-	/*
-	private Program program;
-	
-	private ProgramTeam team;
-	
-	private ProgramClientStatus clientStatus;
-	
-	private Demographic client;
-	*/
 
     private Integer id;
 

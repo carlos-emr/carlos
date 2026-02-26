@@ -170,20 +170,10 @@ public class RxManagerImpl implements RxManager {
      */
     public List<String> getCurrentSingleLineMedications(LoggedInInfo loggedInInfo, int demographicNo) {
         List<String> singleLineMedications = new ArrayList<>();
-        // List<Drug> medications = getDrugs(loggedInInfo, demographicNo, CURRENT);
 
         // for (Drug medication : medications) {
-        //     if(medication.isCurrent() || (medication.isLongTerm() && !medication.isArchived())) {
-        //         String prescription = medication.getSpecial();
 
         //         if (StringUtils.isNotEmpty(prescription)) {
-        //             prescription = prescription.replace("\n", " ").replace("\r", " ");
-        //             singleLineMedications.add(WordUtils.capitalizeFully(prescription));
-        //         } else {
-        //             singleLineMedications.add(medication.getDrugName());
-        //         }
-        //     }
-        // }
 
         RxInformation rxInformation = new RxInformation();
         String[] medications = rxInformation.getCurrentMedication(String.valueOf(demographicNo)).split("\\n");

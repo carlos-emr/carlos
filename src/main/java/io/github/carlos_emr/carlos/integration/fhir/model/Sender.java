@@ -42,21 +42,6 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 	  }
  */
 
-/*
-
-    {
-      "resourceType": "Organization",
-      "id": "Clinic1",
-      "identifier": [
-        {
-          "system": "urn:ietf:rfc:3986",
-          "value": "CLINICTEST"
-        }
-      ],
-      "name": "Family Health Team"
-    }
-
-*/
 
 /**
  * A class that references a message senders header information.

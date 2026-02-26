@@ -75,14 +75,6 @@ public class RptResultStruct {
     //improvement over getStructure() - changed CSS naming conventions, added enterspaces for cleaner html,
 //added more CSS classes for additional customization
 //used by 'report by template'
-/*
-CSS:
- *table.reportTable {}
- *th.reportHeader{}
- *tr.reportRow1{}
- *tr.reportRow2{}
- *td.reportCell{}
- */
 //~apavel (Paul)
     public static String getStructure2(ResultSet rs) throws SQLException {
 

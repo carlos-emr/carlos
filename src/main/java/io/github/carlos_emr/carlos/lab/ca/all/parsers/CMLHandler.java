@@ -97,7 +97,6 @@ public class CMLHandler implements MessageHandler {
     @Override
     public String getMsgDate(){
         try {
-            //return(formatDateTime(msg.getMSH().getDateTimeOfMessage().getTimeOfAnEvent().getValue()));
             return(formatDateTime(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getObservationDateTime().getTimeOfAnEvent().getValue()));
         } catch (Exception e) {
             logger.error("Could not retrieve message date", e);
@@ -311,22 +310,12 @@ public class CMLHandler implements MessageHandler {
      */
     @Override
     public int getOBRCommentCount(int i){
-        /*try {
-            int lastOBX = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATIONReps() - 1;
-            return(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(lastOBX).getNTEReps());
-        } catch (Exception e) {*/
         return(0);
-        // }
     }
 
     @Override
     public String getOBRComment(int i, int j){
-       /* try {
-            int lastOBX = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATIONReps() - 1;
-            return(getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(lastOBX).getNTE(j).getComment(0).getValue()));
-        } catch (Exception e) {*/
         return("");
-        //}
     }
 
     /**
@@ -355,7 +344,6 @@ public class CMLHandler implements MessageHandler {
     @Override
     public String getOBXComment(int i, int j, int k){
         try {
-            //int lastOBX = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATIONReps() - 1;
             return(getString(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k).getComment(0).getValue()));
         } catch (Exception e) {
             return("");
@@ -731,10 +719,6 @@ public class CMLHandler implements MessageHandler {
     }
     
     
-    
-    /*
-     * for OMD validation (imported files)
-     */
     @Override
     public boolean isTestResultBlocked(int i, int j){
         try{

@@ -39,6 +39,5 @@ public interface InboxResultsDao {
                                                                 String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
                                                                 Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate);
 
-    //String getStringValue(Object value);
 }
  

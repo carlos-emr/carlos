@@ -54,13 +54,6 @@ public class FrmGrowthChartRecord extends FrmRecord {
                 props.setProperty("patientName", Misc.getString(rs, "first_name") + " " + Misc.getString(rs, "last_name"));
                 props.setProperty("patientSex", Misc.getString(rs, "sex"));
                 props.setProperty("dateOfBirth", UtilDateUtilities.DateToString(date, _dateFormat));
-                //props.setProperty("c_surname", oscar.Misc.getString(rs,"last_name"));
-                //props.setProperty("c_address", oscar.Misc.getString(rs,"address"));
-                //props.setProperty("c_city", oscar.Misc.getString(rs,"city"));
-                //props.setProperty("c_province", oscar.Misc.getString(rs,"province"));
-                //props.setProperty("c_postal", oscar.Misc.getString(rs,"postal"));
-                //props.setProperty("c_phn", oscar.Misc.getString(rs,"hin"));
-                //props.setProperty("c_phone", oscar.Misc.getString(rs,"phone") +"  "+ oscar.Misc.getString(rs,"phone2"));
             }
             rs.close();
         } else {

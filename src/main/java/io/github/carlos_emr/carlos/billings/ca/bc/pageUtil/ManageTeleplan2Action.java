@@ -85,7 +85,6 @@ public class ManageTeleplan2Action extends ActionSupport {
     }
 
     public String execute() throws Exception {
-        //log.debug("UNSPECIFIED ACTION!");
         String method = request.getParameter("method");
         if ("setUserName".equals(method)) {
             return setUserName();
@@ -575,7 +574,6 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         }
 
-        //request.setAttribute("message", tr.toString());
         return "checkElig";
     }
 

@@ -62,7 +62,6 @@ public class DxReference {
      */
     public DxReference() {
     }
-    //select dx_code1, dx_code2, dx_code3,service_date from billingmaster order by service_date desc;
     /*
 +----------+----------+----------+--------------+
 | dx_code1 | dx_code2 | dx_code3 | service_date |

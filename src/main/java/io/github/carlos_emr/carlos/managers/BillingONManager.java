@@ -87,89 +87,27 @@ public class BillingONManager {
         return (p);
     }
 
-    /*
-     * This method is deprecated because EmailUtilOld.java has been removed.
-     * Currently, a new email feature (EmailManager.java) is in production.
-     *
-     * TODO: Once the new emailing feature is fully implemented, refactor and update this method to make it compatible with the latest email handling in EmailManager.java.
-     */
     @Deprecated
     public void sendInvoiceEmailNotification(Integer invoiceNo, Locale locale) {
         throw new UnsupportedOperationException("This method is no longer supported.");
-        // BillingONCHeader1 billingONCHeader1 = billingONCHeader1Dao.find(invoiceNo);   
         // if (billingONCHeader1 != null) {
-        //     Integer demoNo = billingONCHeader1.getDemographicNo();
-        //     Demographic demographic = demographicDao.getDemographic(String.valueOf(demoNo));
-        //     String emailAddress = demographic.getEmail();
 
         //     if (EmailUtilsOld.isValidEmailAddress(emailAddress)) {
-        //         Clinic clinic = clinicDAO.getClinic();
 
         //         //Get Due Date of Invoice
-        //         String dueDateStr="";
         //         if (OscarProperties.getInstance().hasProperty("invoice_due_date")) {
-        //             BillingONExt dueDateExt = billingONExtDao.getDueDate(billingONCHeader1);
         //             if (dueDateExt != null) {
-        //                 dueDateStr = dueDateExt.getValue();
-        //             } else {
-        //                 Integer numDaysTilDue = Integer.parseInt(OscarProperties.getInstance().getProperty("invoice_due_date", "0")); 
-        //                 Date serviceDate = billingONCHeader1.getBillingDate();
-        //                 dueDateStr = DateUtils.sumDate(serviceDate, numDaysTilDue, locale);
-        //             }  
-        //         }
 
-        //         BillingONService billingONService = (BillingONService) SpringUtils.getBean(BillingONService.class);
-        //         BigDecimal bdBalance = billingONService.calculateBalanceOwing(invoiceNo);
 
         //         //Compile email                    
-        //         VelocityContext velocityContext = VelocityUtils.createVelocityContextWithTools();
-        //         velocityContext.put("clinic", clinic);
-        //         velocityContext.put("demographic", demographic);
-        //         velocityContext.put("billingONCHeader1", billingONCHeader1);
 
-        //         String startHour = emailProperties.getProperty("clinic_open_hour","");
-        //         velocityContext.put("start_hour",startHour);
 
-        //         String endHour = emailProperties.getProperty("clinic_close_hour","");
-        //         velocityContext.put("end_hour",endHour);
-
-        //         velocityContext.put("date_due", dueDateStr);
-        //         velocityContext.put("balance_owing",NumberFormat.getCurrencyInstance().format(bdBalance));
-
-        //         InputStream is = null;
-        //         String emailTemplate = null;
         //         try {
         //             is = BillingInvoice2Action.class.getResourceAsStream(BILLING_INVOICE_EMAIL_TEMPLATE_FILE);
-        //             emailTemplate = IOUtils.toString(is);
-        //         } 
-        //         catch (java.io.IOException e) {
-        //             MiscUtils.getLogger().error("Cannot read billing invoices email template:",e);
-        //         } 
-        //         finally {
         //             try {
         //                 if (is != null) is.close();
-        //             } 
-        //             catch (java.io.IOException e) {
-        //                 MiscUtils.getLogger().error("Cannot close billing invoice email template:",e);
-        //             }
-        //         }
-        //         String fromAddress = emailProperties.getProperty("from_address","");
-        //         String emailSubject = emailProperties.getProperty("billing_invoice_subject","");
-        //         String mergedSubject = VelocityUtils.velocityEvaluate(velocityContext, emailSubject);
-        //         String mergedBody = VelocityUtils.velocityEvaluate(velocityContext, emailTemplate);
 
         //         try {
-        //                 EmailUtilsOld.sendEmail(emailAddress, demographic.getFormattedName(), fromAddress, clinic.getClinicName(), mergedSubject, mergedBody, null);
-        //         } catch (EmailException e) {
-        //                 MiscUtils.getLogger().error("Unexpected error.", e);
-        //         }
-        //     } else {
-        //         MiscUtils.getLogger().warn("Email Address is invalid:" + emailAddress + " for DemoNo:" + demographic.getDemographicNo());
-        //     }    
-        // }
-        // else {
-        //     MiscUtils.getLogger().error("Cannot find BillingONCHeader1 JPA entity for Invoice No." + invoiceNo + ". Email not sent");
-        // }  
     }
 
     public void addPrintedBillingComment(Integer invoiceNo, Locale locale) {

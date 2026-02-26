@@ -133,11 +133,6 @@ public class Hl7textResultsData {
         String patternstring = OscarProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
         Pattern pattern = Pattern.compile(patternstring);
 
-        /*
-         * Setting in OSCAR properties that toggles if a code
-         * should be mapped to a measurement by Name AND identifier.
-         * Excelleris uses only LOINC identifiers for the most part.
-         */
         boolean isSearchName = Boolean.parseBoolean(OscarProperties.getInstance().getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false"));
 
         List<MeasurementsExt> measurementsExts = new ArrayList<>();
@@ -651,7 +646,6 @@ public class Hl7textResultsData {
 
         for (Object[] o : routings) {
             Hl7TextInfo hl7 = (Hl7TextInfo) o[0];
-            //PatientLabRouting p = (PatientLabRouting) o[1];
 
             LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
             lbData.labType = LabResultData.HL7TEXT;

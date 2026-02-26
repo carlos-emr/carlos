@@ -76,7 +76,6 @@ public class PopulationReportManager {
         int size = populationReportDao.getCurrentAndHistoricalPopulationSize(ONE_YEAR);
 
         if (size == 0) {
-            //denominator=0 fix
             return null;
         }
 

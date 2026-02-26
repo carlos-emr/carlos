@@ -103,7 +103,6 @@ public class SxmlMisc extends Properties {
      */
     public static String createDataString(HttpServletRequest req, String strPrefix, String defaultValue, int maxsize) {
         String temp = null; //default is not null
-        //StringBuilder sbContent=new StringBuilder("");
         byte[] abyte = new byte[maxsize];
         int i = 0, n = 0;
         for (Enumeration e = req.getParameterNames(); e.hasMoreElements(); ) {
@@ -115,8 +114,6 @@ public class SxmlMisc extends Properties {
                 //sbContent = sbContent.append(req.getParameter(temp).equals("")?defaultValue:req.getParameter(temp));
             }
         }
-        //String content=new String(abyte, 0, n);
-        //content=sbContent.toString();
         return new String(abyte, 0, n);
     }
 
@@ -254,8 +251,6 @@ public class SxmlMisc extends Properties {
         str = SxmlMisc.replaceString(str, "&", "&amp;");
         str = SxmlMisc.replaceString(str, ">", "&gt;");
         str = SxmlMisc.replaceString(str, "<", "&lt;");
-//  	str = SxmlMisc.replaceString(str,"'","&apos;");
-//  	str = SxmlMisc.replaceString(str,"\"","&quot;");
         return str;
     }
 

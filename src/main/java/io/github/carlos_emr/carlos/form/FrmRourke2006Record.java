@@ -57,12 +57,9 @@ public class FrmRourke2006Record extends FrmRecord {
             if (rs.next()) {
                 props.setProperty("demographic_no", Misc.getString(rs, "demographic_no"));
                 props.setProperty("c_pName", Misc.getString(rs, "pName"));
-                //props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "dd/MM/yyyy"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 java.util.Date dob = UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), Misc.getString(rs, "month_of_birth"), Misc.getString(rs, "date_of_birth"));
                 props.setProperty("c_birthDate", UtilDateUtilities.DateToString(dob, "dd/MM/yyyy"));
-                //props.setProperty("age", String.valueOf(UtilDateUtilities.calcAge(dob)));
             }
             rs.close();
         } else {

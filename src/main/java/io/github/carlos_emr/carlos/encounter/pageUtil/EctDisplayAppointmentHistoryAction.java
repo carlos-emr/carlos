@@ -89,11 +89,8 @@ public class EctDisplayAppointmentHistoryAction extends EctDisplayAction {
             for (Appointment sh : appts) {
                 if (index >= limit) break;
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-                //item.setDate(sh.getAppointmentDate());
                 SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 
-                //Demographic d = demographicDao.getClientByDemographicNo(sh.getDemographicNo());
-                //Provider p = d.getProvider();
                 Provider p = providerDao.getProvider(sh.getProviderNo());
 
                 String title = formatter.format(sh.getAppointmentDate());
@@ -114,7 +111,6 @@ public class EctDisplayAppointmentHistoryAction extends EctDisplayAction {
             return false;
         }
         return true;
-        //}
     }
 
     public String getCmd() {

@@ -54,7 +54,6 @@ public class OscarJobTo1 implements Serializable {
 
     private String providerNo;
 
-    /* for www */
     private Date nextPlannedExecutionDate;
 
 

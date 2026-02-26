@@ -76,7 +76,6 @@ public final class RptDemographicReport2Form {
         this.studyId = drf.studyId;
         this.demoIds = drf.demoIds;
 
-        ///            this.queryName      =;
         //            this.savedQuery     =;
     }
 

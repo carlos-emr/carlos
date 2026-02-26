@@ -170,8 +170,6 @@ public final class RptReportCreator {
         if (strDate.length() >= oDate.length()) {
             Date a = (new SimpleDateFormat(oDate)).parse(strDate);
             ret = DateFormatUtils.format(a, nDate);
-            //ret = DateFormatUtils.format(DateUtils.parseDate(strDate, new String[] { oDate }),
-            // nDate);
         } else {
             MiscUtils.getLogger().debug(" getDate wrong!!!");
         }

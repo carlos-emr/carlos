@@ -184,11 +184,7 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
             sSQL += " where b." + fieldNames[6] + " like a." + fieldNames[6] + "||'%'";
         }
         // if (tableDef.isTree())
-        // {
-        // sSQL += " order by 7,1";
-        // } else {
         sSQL += " order by 4,2";
-        // }
         DBPreparedHandlerParam[] pars = new DBPreparedHandlerParam[i];
         for (int j = 0; j < i; j++) {
             pars[j] = params[j];
@@ -592,7 +588,6 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
                     + "codecsv = replace(codecsv, :oldCsv, :newCsv) "
                     + "where codecsv like :oldCsvPattern";
 
-            // Session session = getSession();
             Session session = sessionFactory.getCurrentSession();
             try {
                 session.createSQLQuery(sql)
@@ -668,7 +663,6 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
         fcd.setActive(!facility.isDisabled());
         fcd.setOrderByIndex(0);
         fcd.setLastUpdateDate(Calendar.getInstance());
-        // fcd.setLastUpdateUser(facility.getLastUpdateUser());
         if (!isNew) {
             this.updateOrgTree(fcd.getCode(), fcd);
             this.updateOrgStatus(fcd.getCode(), fcd);

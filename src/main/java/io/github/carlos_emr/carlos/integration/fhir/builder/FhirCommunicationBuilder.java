@@ -87,9 +87,6 @@ public class FhirCommunicationBuilder extends AbstractFhirMessageBuilder<Communi
         communication.getMeta().setLastUpdated(timestamp);
 
         // TODO Need to feed Oscar's URI into this. ID is random UUID for now.
-        //Identifier id = communication.addIdentifier();
-        //id.setSystem("http://hl7.org/fhir/v2/0203")
-        //	.setValue( UUID.randomUUID().toString() );
 
         // Timestamp Sent
         communication.setSent(timestamp);
@@ -100,7 +97,6 @@ public class FhirCommunicationBuilder extends AbstractFhirMessageBuilder<Communi
         // Initial communication status is INPROGRESS
         setStatus(CommunicationStatus.COMPLETED);
 
-        //communication.setLanguage("en-US");
         // set the sender attribute automatically from the preset Sender Resource.
         setContainedSender(getSender());
 

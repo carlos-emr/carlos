@@ -97,8 +97,6 @@ public class VaccineProviderReport2Action extends ActionSupport {
         request.setAttribute("client_dob", dob);
         request.setAttribute("client_healthCard", healthCard);
 
-        //List allergies = this.caseManagementManager.getAllergies(clientId);
-        //request.setAttribute("allergies",allergies);
 
         // No intake data available - functionality removed
         request.setAttribute("allergies", "N/A - Intake data not available");

@@ -122,13 +122,6 @@ public class EChartDaoImpl extends AbstractDaoImpl<EChart> implements EChartDao 
         }
 
         etext = etext + rtStr;
-        /*
-         * String rolename=pcr.getCaisirole().getName(); if (rolename==null)
-         * rolename=""; dt=new SimpleDateFormat("yyyy.MM.dd HH:mm:ss"); if
-         * (note.getSigning_provider_no()!=null ||
-         * !note.getSigning_provider_no().equals("")) etext=etext+"\n[Signed on
-         * "+dt.format(now)+" "+"Signed by "+userName+" ]\n";
-         */
 
         ec.setEncounter(etext);
 

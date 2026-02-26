@@ -139,7 +139,6 @@ public class TimingOutCallback implements AsyncCallback {
         MiscUtils.getLogger().debug("arg2" + arg2);
         result = arg0;
         this.notify();
-        //throw new UnsupportedOperationException("Not supported yet.");
     }
 
     public synchronized void handleError(Exception arg0, URL arg1, String arg2) {
@@ -147,6 +146,5 @@ public class TimingOutCallback implements AsyncCallback {
         MiscUtils.getLogger().error("Error", arg0);
         error = arg0;
         this.notify();
-        //throw new UnsupportedOperationException("Not supported yet.");
     }
 }

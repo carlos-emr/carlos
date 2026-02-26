@@ -105,7 +105,6 @@ public class OscarMsgReviewSender implements OscarRunnable {
         List<ResidentOscarMsg> residentOscarMsgList;
         MessagingManager messagingManager = SpringUtils.getBean(MessagingManager.class);
 
-        // String sentToWho = null;
         Integer messageId = null;
 
         for (UserProperty property : properties) {

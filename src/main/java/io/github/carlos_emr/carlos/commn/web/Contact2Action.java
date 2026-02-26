@@ -260,7 +260,6 @@ public class Contact2Action extends ActionSupport {
                             demographicContact = new DemographicContact();
                         }
 
-                        //c.setDemographicNo( contactIdInt );
                         String role = getReverseRole(request.getParameter("contact_" + x + ".role"), demographicNo);
                         if (role != null) {
 
@@ -591,8 +590,6 @@ public class Contact2Action extends ActionSupport {
             forward = postMethod;
         }
 
-        //DynaValidatorForm dform = (DynaValidatorForm) form;
-        //Contact contact = (Contact) dform.get("contact");
         String id = request.getParameter("contact.id");
 
         if (id != null && id.length() > 0 && !"0".equals(id)) {
@@ -643,7 +640,6 @@ public class Contact2Action extends ActionSupport {
     public String saveProContact() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        //DynaValidatorForm dform = (DynaValidatorForm) form;
         ProfessionalContact contact = pcontact;
         String demographic_no = request.getParameter("demographic_no");
         String ec = null;
@@ -733,7 +729,6 @@ public class Contact2Action extends ActionSupport {
                     logger.info("Saved a new Professional Specialist with id " + contactId);
 
                 } else {
-                    // return a message.
                     request.setAttribute("existing_contact_found", DemographicContactCreator.buildContact(specialists.get(0)));
                     request.setAttribute("contact_submitted", contact);
                     request.setAttribute("specialties", contactSpecialtyDao.findAll());
@@ -961,8 +956,6 @@ public class Contact2Action extends ActionSupport {
     @SuppressWarnings("unused")
     public String savePharmacyInfo() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-//        DynaValidatorForm dform = (DynaValidatorForm) form;
-//        PharmacyInfo pharmacyInfo = (PharmacyInfo) dform.get("pharmacyInfo");
 
         logger.debug("PharmacyInfo bean: " + pharmacyInfo.toString());
 
@@ -1057,7 +1050,6 @@ public class Contact2Action extends ActionSupport {
     }
 
 
-
     /**
      * Return a list of of all the contacts in Oscar's database.
      * Contact, Professional Contact, and Professional Specialists
@@ -1067,7 +1059,6 @@ public class Contact2Action extends ActionSupport {
         List<ProfessionalSpecialist> professionalSpecialistContact = professionalSpecialistDao.search(keyword);
 
         // if there is a future in adding personal contacts.
-        // contacts.addAll( contactDao.search(searchMode, orderBy, keyword) );
         contacts.addAll(proContactDao.search(searchMode, orderBy, keyword));
         contacts.addAll(DemographicContactCreator.buildContact(professionalSpecialistContact));
 
@@ -1130,12 +1121,6 @@ public class Contact2Action extends ActionSupport {
             role = c.getRole();
             if (role != null && !role.isEmpty() && StringUtils.isNumeric(role)) {
 
-                /*
-                 * Try to recover if the specialty is null,
-                 * then set it to unknown if nothing could be found.
-                 *
-                 * First look in the contact info for a specialty.
-                 */
                 if (c.getType() == DemographicContact.TYPE_PROFESSIONALSPECIALIST
                         && c.getContactId() != null) {
                     ProfessionalSpecialist tempProfessionalSpecialist = professionalSpecialistDao.find(Integer.parseInt(c.getContactId()));
@@ -1152,9 +1137,6 @@ public class Contact2Action extends ActionSupport {
                     specialty = contactSpecialtyDao.find(Integer.parseInt(c.getRole().trim()));
                 }
 
-                /*
-                 * Try to set "UNKNOWN" if that fails.
-                 */
                 if (specialty == null) {
                     specialty = contactSpecialtyDao.findBySpecialty("UNKNOWN");
                 }

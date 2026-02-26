@@ -52,8 +52,6 @@ public class AddToGroup2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_eform)");
         }
 
-        //String fid = fm.getFid();
-        //String groupName = fm.getGroupName();
         if (fid != null) {
             EFormUtil.addEFormToGroup(groupName, fid);
         }

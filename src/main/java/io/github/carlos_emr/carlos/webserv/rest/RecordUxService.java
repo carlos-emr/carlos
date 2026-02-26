@@ -142,8 +142,6 @@ public class RecordUxService extends AbstractServiceImpl {
 
         //Remove until available
         //if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.labResult", "r", null) ) {
-        //	menulist.add(MenuItemTo1.generateStateMenuItem(idCounter++, "Labs/Docs", "record.labsdocs"));
-        //}
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.prescriptions", "r", null)) {
             menulist.add(new MenuItemTo1(idCounter++, "Rx", "../oscarRx/choosePatient.do?demographicNo=" + demographicNo));
@@ -179,18 +177,7 @@ public class RecordUxService extends AbstractServiceImpl {
 
         List<MenuItemTo1> morelist = new ArrayList<MenuItemTo1>();
 		
-		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.preventions", "r", null)) {
-			morelist.add(new MenuItemTo1(idCounter++, "Preventions", "../oscarPrevention/index.jsp?demographic_no="+demographicNo));
-		}*/
 		
-		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.viewTickler", "r", null)) {
-			if ( org.oscarehr.commons.IsPropertiesOn.isTicklerPlusEnable()) {
-				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "../Tickler.do?filter.demographicNo="+demographicNo));
-			}else {
-				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "..//tickler/ticklerDemoMain.jsp?demoview="+demographicNo));
-			}
-		}*/
-
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.DxRegistry", "r", null)) {
             morelist.add(new MenuItemTo1(idCounter++, "Disease Registry", "../oscarResearch/dxresearch/setupDxResearch.do?quickList=&demographicNo=" + demographicNo));
         }
@@ -204,8 +191,6 @@ public class RecordUxService extends AbstractServiceImpl {
         }
         // Requires EctSession bean to open the window.  I think it's best to just redo measurements in a better interface in the record with angular
         //if (checkPermissions("_newCasemgmt.measurements", roleName)){
-        //	morelist.add(new MenuItemTo1(2, "Measurements", "../oscarEncounter/oscarMeasurements/SetupHistoryIndex.do?demographic_no="+demographicNo));
-        //}
 
         if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null)) {
             morelist.add(new MenuItemTo1(idCounter++, "Documents", "../documentManager/documentReport.jsp?function=demographic&doctype=lab&functionid=" + demographicNo));
@@ -215,10 +200,6 @@ public class RecordUxService extends AbstractServiceImpl {
             morelist.add(new MenuItemTo1(idCounter++, "DS Guidelines", "../oscarEncounter/decisionSupport/guidelineAction.do?method=list&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo));
         }
 
-		/*measurements, <a onclick="popupPage(600, 1000,'measurements69','/oscar/oscarEncounter/oscarMeasurements/SetupHistoryIndex.do'); return false;" href="#">Measurements</a>
-		 <a onclick="popupPage(500, 900,'episode69','/oscar/Episode.do?method=list&amp;demographicNo=69'); return false;" href="#">Episodes</a>
-		 <a onclick="popupPage(500, 900,'pregnancy69','/oscar/Pregnancy.do?method=list&amp;demographicNo=69'); return false;" href="#">Pregnancies</a>
-		 */
         if (!morelist.isEmpty()) {  // If the more list is empty no sense in displaying it.
             moreMenu.setDropdownItems(morelist);
             menulist.add(moreMenu);
@@ -278,7 +259,6 @@ public class RecordUxService extends AbstractServiceImpl {
             }
 
             if (preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.SOC_HX_POS)) {
-                //summaryList[2] = new SummaryTo1("Social/Family History", 2,"socfamhx");
                 summaryList.add(new SummaryTo1("Social History", count++, SummaryTo1.SOCIALHISTORY_CODE));
             }
 
@@ -301,7 +281,6 @@ public class RecordUxService extends AbstractServiceImpl {
             if ((securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.forms", "r", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.eforms", "r", null)) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.ASSESSMENTS_POS)) {
                 summaryList.add(new SummaryTo1("Assessments", count++, SummaryTo1.ASSESSMENTS_CODE));
             }
-            //summaryList[9] = new SummaryTo1("Outgoing", 7,"outgoing");
         } else if ("rxLeft".equals(summaryName)) {
             summaryList = new ArrayList<SummaryTo1>();
 
@@ -444,7 +423,6 @@ public class RecordUxService extends AbstractServiceImpl {
         } catch (Exception e) {
             logger.error("Error parsing JSON", e);
         }
-        //{"printType":"all","cpp":true,"prescript":true,"selectedList":[]}
 
         final Integer demographicNof = demographicNo;
         final HttpServletRequest requestf = request;

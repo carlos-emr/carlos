@@ -80,7 +80,6 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         log.debug("\n\nWLSetupDisplayWaitingList2Action/execute(): update = " + update);
         log.debug("\n\nWLSetupDisplayWaitingList2Action/execute(): remove = " + remove);
 
-        //LazyValidatorForm wlForm = (LazyValidatorForm) form;
         log.debug("WLSetupDisplayWaitingList2Action/execute(): after  (LazyValidatorForm)form ");
 
 
@@ -103,13 +102,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
             demographicNo = request.getParameter(demographicNumSelected);
             waitingListNote = request.getParameter(wlNoteSelected);
             onListSince = request.getParameter(onListSinceSelected);
-//	        demographicNo = (String)wlForm.get(demographicNumSelected);
-//	        waitingListNote = (String)wlForm.get(wlNoteSelected);
-//	        onListSince =  (String)wlForm.get(onListSinceSelected);
 
-            /*if (waitingListId == null && wlForm.get("selectedWL") != null) {
-                waitingListId = (String) wlForm.get("selectedWL");
-            }*/
 
             if (waitingListId != null) {
                 try {
@@ -213,7 +206,6 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
 
         session.setAttribute("nbPatients", nbPatients);
 
-        //session.setAttribute("allWaitingListName", allWaitingListName);
         session.setAttribute("today", today);
 
         return "continue";

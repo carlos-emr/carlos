@@ -146,9 +146,7 @@ public final class DBPreparedHandlerParam {
         return intValue;
     }
 
-//   public void setDateValue(Date dateValue) {
 //	  this.dateValue = dateValue;
-//   }
 
     /**
      * Gets the parameter type identifier.
@@ -159,9 +157,7 @@ public final class DBPreparedHandlerParam {
         return paramType;
     }
 
-//   public void setParamType(String paramType) {
 //	  this.paramType = paramType;
-//   }
 
     /**
      * Gets the String value if this parameter contains a string.
@@ -172,8 +168,6 @@ public final class DBPreparedHandlerParam {
         return stringValue;
     }
 
-//   public void setStringValue(String stringValue) {
 //	  this.stringValue = stringValue;
-//   }
 
 }

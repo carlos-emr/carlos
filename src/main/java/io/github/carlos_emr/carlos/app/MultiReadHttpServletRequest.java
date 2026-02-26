@@ -112,7 +112,6 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         private final ByteArrayInputStream input;
 
         public CachedServletInputStream(ByteArrayOutputStream cachedBytes) {
-            /* create a new input stream from the cached request body */
             input = new ByteArrayInputStream(cachedBytes.toByteArray());
         }
 

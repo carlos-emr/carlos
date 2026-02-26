@@ -127,10 +127,6 @@ public final class MessageUploader {
             obrDate = h.getMsgDate();
         }
 
-        /*
-         * Temporary test for Excelleris labs.  This method should be added to the
-         * interface if useful with other HL7 labs.
-         */
         String label = "";
         if (h instanceof PATHL7Handler) {
             label = ((PATHL7Handler) h).getLabel();
@@ -154,7 +150,6 @@ public final class MessageUploader {
         // get actual ohip numbers based on doctor first and last name for spire lab
         if (h instanceof SpireHandler) {
             List<String> docNames = ((SpireHandler) h).getDocNames();
-            //logger.debug("docNames:");
             for (int i = 0; i < docNames.size(); i++) {
                 logger.debug(i + " " + docNames.get(i));
             }
@@ -311,20 +306,17 @@ public final class MessageUploader {
         for (int i = 0; i < docNames.size(); i++) {
             String[] firstLastName = docNames.get(i).split("\\s");
             if (firstLastName != null && firstLastName.length >= 2) {
-                //logger.debug("Searching for providers with first and last name: " + firstLastName[0] + " " + firstLastName[firstLastName.length-1]);
                 List<Provider> provList = providerDao.getProviderLikeFirstLastName("%" + firstLastName[0] + "%", firstLastName[firstLastName.length - 1]);
                 if (provList != null) {
                     int provIndex = findProviderWithShortestFirstName(provList);
                     if (provIndex != -1 && provList.size() >= 1 && !provList.get(provIndex).getProviderNo().equals("0")) {
                         docNums.add(provList.get(provIndex).getProviderNo());
-                        //logger.debug("ADDED1: " + provList.get(provIndex).getProviderNo());
                     } else {
                         // prepend 'dr ' to first name and try again
                         provList = providerDao.getProviderLikeFirstLastName("dr " + firstLastName[0], firstLastName[1]);
                         if (provList != null) {
                             provIndex = findProviderWithShortestFirstName(provList);
                             if (provIndex != -1 && provList.size() == 1 && !provList.get(provIndex).getProviderNo().equals("0")) {
-                                //logger.debug("ADDED2: " + provList.get(provIndex).getProviderNo());
                                 docNums.add(provList.get(provIndex).getProviderNo());
                             }
                         }

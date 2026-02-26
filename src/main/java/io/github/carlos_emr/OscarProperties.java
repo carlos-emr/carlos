@@ -208,9 +208,6 @@ public class OscarProperties extends Properties {
         }
     }
 
-    /*
-     * Check to see if the properties to see if that property exists.
-     */
     public boolean hasProperty(String key) {
         boolean prop = false;
         String propertyValue = getProperty(key.trim());
@@ -256,9 +253,6 @@ public class OscarProperties extends Properties {
      * Comma delimited spring configuration modules Options: Caisi Caisi - Required to run the Caisi Shelter Management System.
      */
 
-    /*
-     * not being used - commenting out public final String ModuleNames = "ModuleNames";
-     */
 
     public Date getStartTime() {
         String str = getProperty("OSCAR_START_TIME");

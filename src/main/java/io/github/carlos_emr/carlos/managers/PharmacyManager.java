@@ -48,7 +48,6 @@ import io.github.carlos_emr.carlos.log.LogAction;
 @Service
 public class PharmacyManager {
 
-    //private Logger logger=MiscUtils.getLogger();
 
     @Autowired
     private DemographicPharmacyDao demographicPharmacyDao;

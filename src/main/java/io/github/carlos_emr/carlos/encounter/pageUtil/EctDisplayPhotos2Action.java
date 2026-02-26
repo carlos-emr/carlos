@@ -48,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Date;
 
 public class EctDisplayPhotos2Action extends EctDisplayAction {
-    //private static final String BGCOLOUR = "476BB3";
     private static final String cmd = "photos";
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {

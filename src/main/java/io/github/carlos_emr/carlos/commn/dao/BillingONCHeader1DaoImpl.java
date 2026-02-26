@@ -205,7 +205,6 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         header1.setPayee(BillingDataHlp.CLAIMHEADER1_PAYEE);
         header1.setRefNum("");
         header1.setFaciltyNum(clinicRefCode);
-        // header1.setAdmissionDate(null);
         header1.setRefLabNum("");
         header1.setManReview("");
         header1.setLocation(properties.getProperty("clinic_no", ""));
@@ -283,7 +282,6 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
 
             if (billingservice != null && billingservice.getPercentage() != null
                     && !billingservice.getPercentage().equalsIgnoreCase("")) {
-                // billingPerc = billingservice
                 aPercentCodes.add(billingservice);
 
             } else {
@@ -441,15 +439,8 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
         return q.getResultList();
     }
 
-    // @Override
-    // public GstControlDao getGstControlDao() {
-    //     return gstControlDao;
-    // }
 
-    // @Override
-    // public void setGstControlDao(GstControlDao gstControlDao) {
     //     this.gstControlDao = gstControlDao;
-    // }
 
     @Override
     public BillingONItem findBillingONItemByServiceCode(BillingONCHeader1 ch1, String serviceCode) {

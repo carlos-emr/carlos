@@ -227,7 +227,6 @@ public class BillingSavePrep {
     private BillingItemData[] getItemObj(HttpServletRequest val) {
         int itemNum = Integer.parseInt(val.getParameter("totalItem"));
         BillingItemData[] claimItem = new BillingItemData[itemNum];
-        // _logger.info("No billing item for billing # " + itemNum);
 
         for (int i = 0; i < itemNum; i++) {
             claimItem[i] = new BillingItemData();
@@ -248,7 +247,6 @@ public class BillingSavePrep {
             } else {
                 claimItem[i].setPaid("0.00");
             }
-            //claimItem[i].setRefund(val.getParameter("refund"));
             if (val.getParameter("discount_" + i) != null) {
                 claimItem[i].setDiscount(val.getParameter("discount_" + i));
             } else {
@@ -326,7 +324,6 @@ public class BillingSavePrep {
                                              Vector vecServiceCodePrice, String service_date) {
         int itemNum = vecServiceCode.size();
         BillingItemData[] claimItem = new BillingItemData[itemNum];
-        // _logger.info("No billing item for billing # " + itemNum);
 
         for (int i = 0; i < vecServiceCode.size(); i++) { // recordCount
             BigDecimal bdEachPrice = new BigDecimal(Double.parseDouble((String) vecServiceCodePrice.get(i))).setScale(

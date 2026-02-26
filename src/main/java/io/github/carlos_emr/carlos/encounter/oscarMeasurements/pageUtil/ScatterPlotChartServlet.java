@@ -232,7 +232,6 @@ public class ScatterPlotChartServlet extends HttpServlet {
             int nbPatient = measurements.size();
             points = new long[2][nbPatient * 2];
             for (int i = 0; i < nbPatient; i++) {
-                //Measurement m = measurements.get(i);
 
                 Measurement mm = dao.findByDemographicNoTypeAndDate(ConversionUtils.fromIntString(demo), type, measurements.get(i));
                 if (mm != null) {

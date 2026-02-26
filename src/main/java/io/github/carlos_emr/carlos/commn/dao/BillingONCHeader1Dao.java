@@ -77,9 +77,6 @@ public interface BillingONCHeader1Dao extends AbstractDao<BillingONCHeader1> {
 
     public List<Map<String, Object>> getInvoicesMeta(Integer demographicNo);
 
-    // public GstControlDao getGstControlDao();
-
-    // public void setGstControlDao(GstControlDao gstControlDao);
 
     public BillingONItem findBillingONItemByServiceCode(BillingONCHeader1 ch1, String serviceCode);
 

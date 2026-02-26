@@ -160,7 +160,6 @@ public final class OmpO09 {
     private static void fillOrc(OMP_O09_ORDER order, Prescription prescription, Provider provider, Clinic clinic) throws HL7Exception {
         ORC orc = order.getORC();
 
-        // NW = new order request
         orc.getOrderControl().setValue("NW");
 
         // the EI of the placer order number should be the prescription id

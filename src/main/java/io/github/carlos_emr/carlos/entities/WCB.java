@@ -634,9 +634,6 @@ public class WCB {
         if (w_icd9 == null || "".equals(w_icd9)) {
             errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_icd9");
         }
-//        } else if (!per.dxcodeExists(w_icd9)) {
-//            errors.add("oscar.billing.CA.BC.billingBC.error.invaliddxcode", w_icd9);
-//        }
 
         if (w_noi == null || "".equals(w_noi)) {
             errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_noi");
@@ -715,9 +712,6 @@ public class WCB {
             if (w_rphysician == null) {
                 errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_rphysician");
             }
-////            if (w_reportype == null) {
-////                errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_reportype");
-////            }
             if (w_estimate == null) {
                 errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_estimate");
             }
@@ -924,9 +918,6 @@ public class WCB {
         checkNullValue(w_rphysician, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_rphysician");
         checkNullValue(w_estimate, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_estimate");
         checkNullValue(w_tofollow, errors, "oscar.billing.CA.BC.billingBC.wcb.error.w_tofollow");
-////            if (w_reportype == null) {
-////                errors.add("oscar.billing.CA.BC.billingBC.wcb.error.w_reportype");
-////            }
 
 
         return errors;

@@ -112,9 +112,7 @@ public class BasePhsStarHandler {
         int x = 0;
         while (true) {
             String identifier = t.get("PID-3(" + x + ")-1");
-            //String authority = t.get("PID-3("+x+")-4");
             String typeId = t.get("PID-3(" + x + ")-5");
-            //String renewDate = t.get("PID-3("+x+")-8");
             String ver = t.get("PID-3(" + x + ")-10");
 
 
@@ -134,10 +132,8 @@ public class BasePhsStarHandler {
         int x = 0;
         while (true) {
             String identifier = t.get("PID-3(" + x + ")-1");
-            //String authority = t.get("PID-3("+x+")-4");
             String typeId = t.get("PID-3(" + x + ")-5");
             String renewDate = t.get("PID-3(" + x + ")-8");
-            //String ver = t.get("PID-3("+x+")-10");
 
 
             if (identifier == null && t.get("PID-3(" + (x + 1) + ")-1") == null) {
@@ -238,9 +234,6 @@ public class BasePhsStarHandler {
         logger.debug("pseudoPerson=" + pseudoPerson);
     }
 
-    /*
-     * Doesn't seem to work with HL7 v2.2 (Under INSURANCE group for some reason)
-     */
     protected void extractAdditionalDemographicData() throws HL7Exception {
         logger.info("PD1");
 
@@ -325,9 +318,7 @@ public class BasePhsStarHandler {
         //String appointmentReason = this.extractOrEmpty("/SCH-7-1");
 
         //SCH-8 appt type (ASMT^ASSESSMENT DIABETES^HS)
-        //String abr = t.get("SCH-8-1");
         String apptType = t.get("SCH-8-2");
-        //String apptTypeAss = t.get("SCH-8-3");
 
         String aptDuration = t.get("SCH-9-1");
         String aptDurationUnit = t.get("SCH-10-1");
@@ -420,7 +411,6 @@ public class BasePhsStarHandler {
         String middleName = this.extractOrEmpty("AIP-3-4");
 
         String role = t.get("AIP-4-1");
-        //String rolePool = t.get("AIP-4-2");
 
         String strStartTime = t.get("AIP-6-1");
         Date startTime = this.convertToDate(strStartTime);

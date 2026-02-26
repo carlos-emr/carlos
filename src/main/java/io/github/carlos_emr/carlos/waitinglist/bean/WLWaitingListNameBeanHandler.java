@@ -44,9 +44,7 @@ public class WLWaitingListNameBeanHandler {
     List<String> waitingListNames = new ArrayList<String>();
     SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-    //  private MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
     private WaitingListNameDao waitingListNameDao = SpringUtils.getBean(WaitingListNameDao.class);
-    //  private ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 
     public WLWaitingListNameBeanHandler(String groupNo, String providerNo) {
         init(groupNo, providerNo);

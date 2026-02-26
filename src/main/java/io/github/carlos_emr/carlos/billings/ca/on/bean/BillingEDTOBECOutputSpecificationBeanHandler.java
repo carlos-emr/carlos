@@ -98,14 +98,8 @@ public class BillingEDTOBECOutputSpecificationBeanHandler {
                     }
 
                     if (nextline.length() > 14) {
-                        //osBean.setIdentifier(nextline.substring(14,18));
-                        //osBean.setSex(nextline.substring(18,19));
-                        //osBean.setDOB(nextline.substring(19,27));
                         osBean.setExpiry(nextline.substring(27, 35));
-                        //osBean.setLastName(nextline.substring(35,65));
-                        //osBean.setFirstName(nextline.substring(65,85));
                         osBean.setSecondName(nextline.substring(85, 105));
-                        //osBean.setMOH(nextline.substring(105,207));
                     }
 
                     EDTOBECOutputSecifiationBeanVector.add(osBean);

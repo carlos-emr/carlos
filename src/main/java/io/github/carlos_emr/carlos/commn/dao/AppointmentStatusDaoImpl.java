@@ -118,7 +118,6 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
             if (apptStatus.getActive() == 1)
                 continue;
             sql = "select count(*) as total from appointment a where a.status like ?1 ";
-            // sql = sql + "collate latin1_general_cs";
 
             Query q = entityManager.createNativeQuery(sql);
             q.setParameter(1, apptStatus.getStatus() + "%");

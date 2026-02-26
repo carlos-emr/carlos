@@ -255,11 +255,7 @@ public class JdbcBillingRAImpl {
                 }
 
                 if (headerCount.compareTo("6") == 0) {
-                    // balancefwd = "<table width='100%' border='0'
-                    // cellspacing='0' cellpadding='0'><tr><td
-                    // colspan='4'>Balance Forward Record - Amount Brought
                     // Forward (ABF)</td></tr><tr><td>Claims
-                    // Adjustment</td><td>Advances</td><td>Reductions</td><td>Deductions</td></tr><tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr></table>";
                     abf_ca = nextline.substring(3, 10) + "." + nextline.substring(10, 13);
                     abf_ad = nextline.substring(13, 20) + "." + nextline.substring(20, 23);
                     abf_re = nextline.substring(23, 30) + "." + nextline.substring(30, 33);
@@ -508,7 +504,6 @@ public class JdbcBillingRAImpl {
                     famProviderNo = "";
                 }
                 // proName =
-                // propProvierName.getProperty(r.getproviderohip_no());
                 String servicecode = r.getServiceCode();
                 String servicedate = r.getServiceDate();
                 String serviceno = r.getServiceCount();

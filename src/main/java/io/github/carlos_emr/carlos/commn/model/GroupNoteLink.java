@@ -68,13 +68,6 @@ public class GroupNoteLink extends AbstractModel<Integer> implements Serializabl
         throw (new UnsupportedOperationException("Remove is not allowed for this type of item."));
     }
 
-	/*
-	@PreUpdate
-	protected void jpaPreventUpdate()
-	{
-		throw(new UnsupportedOperationException("Update is not allowed for this type of item."));
-	}
-	*/
 
     public Integer getId() {
         return id;

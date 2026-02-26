@@ -130,7 +130,6 @@ public class RxDrugData {
                 drugComponentList.add(comp);
             }
 
-//			gcnCode = (String) hash.get("gcnCode");
 
         }
 
@@ -446,13 +445,6 @@ public class RxDrugData {
         public int authors;
         public String modified_after;
         boolean return_tags;
-		/*
-        hashtable.put("classes", new Boolean(true));
-        hashtable.put("generics", new Boolean(true));
-        hashtable.put("branded", new Boolean(true));
-        hashtable.put("composites", new Boolean(true));
-        hashtable.put("return_tags", new Boolean(false));
-		 */
 
         public Tag() {
             // default
@@ -468,7 +460,6 @@ public class RxDrugData {
             author = getInt(h.get("author")); //, new Integer(0));
             authors = getInt(h.get("authors")); //, new Integer(authors));
             modified_after = (String) h.get("modified_after"); //, new SimpleDateFormat("yyyy-MM-dd").parse(modified_after));
-            //return_tags      =h.get("return_tags"); //, Boolean.toString(return_tags));
 
         }
 
@@ -538,7 +529,6 @@ public class RxDrugData {
         DrugSearch drugSearch = new DrugSearch();
         RxDrugRef drugRef = new RxDrugRef();
         Vector vec = new Vector();
-        //Vector vec = drugRef.list_drugs(searchStr, hashtable);
         try {
             vec = drugRef.list_drug_element(searchStr);
         } catch (Exception connEx) {
@@ -562,7 +552,6 @@ public class RxDrugData {
         DrugSearch drugSearch = new DrugSearch();
         RxDrugRef drugRef = new RxDrugRef();
         Vector vec = new Vector();
-        //Vector vec = drugRef.list_drugs(searchStr, hashtable);
         try {
             vec = drugRef.list_drug_element2(searchStr);
         } catch (Exception connEx) {
@@ -586,7 +575,6 @@ public class RxDrugData {
         DrugSearch drugSearch = new DrugSearch();
         RxDrugRef drugRef = new RxDrugRef();
         Vector vec = new Vector();
-        //Vector vec = drugRef.list_drugs(searchStr, hashtable);
         try {
             vec = drugRef.list_drug_element_route(searchStr, searchRoute);
         } catch (Exception connEx) {

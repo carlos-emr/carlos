@@ -133,9 +133,7 @@ public class AllergyDaoImpl extends AbstractDaoImpl<Allergy> implements AllergyD
                                                                  Date updatedAfterThisDateExclusive, int itemsToReturn) {
         // the providerNo field is always blank right now... we have no idea which
         // providers did the allery entry
-        // String sqlCommand = "select x from "+modelClass.getSimpleName()+" x where
         // x.demographicNo=?1 and x.providerNo=?2 and x.lastUpdateDate>?3 order by
-        // x.lastUpdateDate";
 
         String sqlCommand = "select x from " + modelClass.getSimpleName()
                 + " x where x.demographicNo=?1 and x.lastUpdateDate>?2 order by x.lastUpdateDate";

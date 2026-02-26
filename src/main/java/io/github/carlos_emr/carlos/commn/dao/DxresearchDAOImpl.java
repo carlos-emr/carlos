@@ -180,8 +180,6 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
         dList = query.getResultList();
 
         if (dList != null && dList.size() > 0) {
-            //Iterator i = dList.listIterator();
-            //while (i.hasNext())
 
             return getPatientRegisted(dList, doctorList);
         } else {
@@ -235,8 +233,6 @@ public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements Dx
 
 
         if (dList != null && dList.size() > 0) {
-            //Iterator i = dList.listIterator();
-            //while (i.hasNext())
 
             return getPatientRegisted(dList, doctorList);
         } else {

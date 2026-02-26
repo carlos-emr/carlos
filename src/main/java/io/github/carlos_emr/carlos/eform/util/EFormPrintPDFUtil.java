@@ -150,7 +150,6 @@ public final class EFormPrintPDFUtil {
                     }
 
                     if (mDateHt.compareTo(mDateWt) == 0) {
-                        //name = elementName_num_section_page
                         props.setProperty("xVal_" + idx + "_1_" + graphicPage, mHt.getDataField());
                         props.setProperty("yVal_" + idx + "_1_" + graphicPage, mWt.getDataField());
                         break;
@@ -159,7 +158,6 @@ public final class EFormPrintPDFUtil {
             } else if (graphType.equals(LENGTH_GRAPH)) {
                 date = UtilDateUtilities.DateToString(mDateHt, "yyyy-MM-dd"); //dd/MM/yyyy
 
-                //name = elementName_num_section_page
                 props.setProperty("xVal_" + idx + "_1_" + graphicPage, date);
                 props.setProperty("yVal_" + idx + "_1_" + graphicPage, mHt.getDataField());
             }

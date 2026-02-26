@@ -42,10 +42,6 @@ public class CreateBillingReport2Action extends ActionSupport {
 
     private Properties reportCfg = new Properties();
     private OscarDocumentCreator osc = new OscarDocumentCreator();
-//    private boolean showICBC;
-//    private boolean showMSP;
-//    private boolean showPriv;
-//    private boolean showWCB;
     private static final String REPORTS_PATH = "oscar/oscarBilling/ca/bc/reports/";
 
     public CreateBillingReport2Action() {

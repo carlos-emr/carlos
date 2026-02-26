@@ -44,7 +44,6 @@ import java.util.Set;
 
 public interface RxManager {
 
-    //public static class PrescriptionDrugs{};
     public List<Drug> getDrugs(LoggedInInfo info, int demographicNo, String status)
             throws UnsupportedOperationException;
 

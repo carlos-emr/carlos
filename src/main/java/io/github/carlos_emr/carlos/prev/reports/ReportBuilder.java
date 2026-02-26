@@ -341,146 +341,6 @@ public class ReportBuilder {
          *   5. Ineligible -exclusion codes
          */
         
-       /*
-        if(ineligible(prevs)){
-        		item.setRank(5);
-        		item.setLastDate("------");
-        		item.setState("Ineligible");
-        		item.setNumMonths("------");
-        		item.setColor("grey");
-          // inList++;  // Jan 2 2019 commented this out for now, will probably have to incorporate it into the report object
-        }else if (noFutureItems.size() == 0){// no info
-	        	
-	        	item.setRank(1);
-	    		item.setLastDate("------");
-	    		item.setState("No Info");
-	    		item.setNumMonths("------");
-	    		item.setColor("Magenta");
-        	
-        }else{
-           DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
-           Map<String,Object> h = noFutureItems.get(noFutureItems.size()-1);
-        
-           boolean refused = false;
-           boolean dateIsRefused = false;
-           if ( h.get("refused") != null && ((String) h.get("refused")).equals("1")){
-              refused = true;
-              dateIsRefused = true;
-           }
-
-           String prevDateStr = (String) h.get("prevention_date");
-
-
-           if (refused && noFutureItems.size() > 1){
-               log.debug("REFUSED AND PREV IS greater than one for demo "+demo);
-               for (int pr = (noFutureItems.size() -2); pr > -1; pr--){
-                   log.debug("pr #"+pr);
-                   Map<String,Object> h2 = noFutureItems.get(pr);
-                   log.debug("pr #"+pr+ "  "+((String) h2.get("refused")));
-                   if ( h2.get("refused") != null && ((String) h2.get("refused")).equals("0")){
-                       prevDateStr = (String) h2.get("prevention_date");
-                       dateIsRefused = false;
-                       log.debug("REFUSED prevDateStr "+prevDateStr);
-                       pr = 0;
-                   }
-               }
-           }
-           Date prevDate = null;
-           try{
-              prevDate = formatter.parse(prevDateStr);
-           }catch (Exception e){
-           	//extra
-           }
-
-
-
-           Calendar cal = Calendar.getInstance();
-           cal.add(Calendar.YEAR, -3);
-           Date dueDate = cal.getTime();
-           cal.add(Calendar.MONTH,-6);
-           Date cutoffDate = cal.getTime();
-
-           Calendar cal2 = GregorianCalendar.getInstance();
-           cal2.add(Calendar.YEAR, -3);
-
-           //cal2.roll(Calendar.YEAR, -1);
-           cal2.add(Calendar.MONTH,-6);
-           Date cutoffDate2 = cal2.getTime();
-
-           log.debug("cut 1 "+cutoffDate.toString()+ " cut 2 "+cutoffDate2.toString());
-
-
-           String numMonths = "------";
-           if ( prevDate != null){
-              int num = UtilDateUtilities.getNumMonths(prevDate,asofDate);
-              numMonths = ""+num+" months";
-           }
-
-           // if prevDate is less than as of date and greater than 2 years prior
-           Calendar bonusEl = Calendar.getInstance();
-           bonusEl.setTime(asofDate);
-           bonusEl.add(Calendar.MONTH,-42);
-           //bonusEl.add(Calendar.YEAR,-2);
-           Date bonusStartDate = bonusEl.getTime();
-
-           log.debug("\n\n\n prevDate "+prevDate);
-           log.debug("bonusEl date "+bonusStartDate+ " "+bonusEl.after(prevDate));
-           log.debug("asofDate date"+asofDate+" "+asofDate.after(prevDate));
-
-           //IF REFUSED SHOULD CHECK TO SEE IF
-
-
-           if (!dateIsRefused && bonusStartDate.before(prevDate) && asofDate.after(prevDate)){
-              prd.bonusStatus = "Y";
-              prd.billStatus = "Y";
-              done++;
-           }
-           //outcomes
-           log.debug("due Date "+dueDate.toString()+" cutoffDate "+cutoffDate.toString()+" prevDate "+prevDate.toString());
-           log.debug("due Date  ("+dueDate.toString()+" ) After Prev ("+prevDate.toString() +" ) "+dueDate.after(prevDate));
-           log.debug("cutoff Date  ("+cutoffDate.toString()+" ) before Prev ("+prevDate.toString() +" ) "+cutoffDate.before(prevDate));
-           if (!refused && dueDate.after(prevDate) && cutoffDate.before(prevDate)){ // overdue
-              prd.rank = 2;
-              prd.lastDate = prevDateStr;
-              prd.state = "due";
-              prd.numMonths = numMonths;
-              prd.color = "yellow"; //FF00FF
-              if (!prd.bonusStatus.equals("Y")){
-                 prd.bonusStatus = "Y";
-                 doneWithGrace++;
-              }
-
-           } else if (!refused && cutoffDate.after(prevDate)){ // overdue
-              prd.rank = 2;
-              prd.lastDate = prevDateStr;
-              prd.state = "Overdue";
-              prd.numMonths = numMonths;
-              prd.color = "red"; //FF00FF
-
-           } else if (refused){  // recorded and refused
-              prd.rank = 3;
-              prd.lastDate = prevDateStr;
-              prd.state = "Refused";
-              prd.numMonths = numMonths;
-              prd.color = "orange"; //FF9933
-           } else if (dueDate.before(prevDate)  ){  // recorded done
-              prd.rank = 4;
-              prd.lastDate = prevDateStr;
-              prd.state = "Up to date";
-              prd.numMonths = numMonths;
-              prd.color = "green";
-              //done++;
-           }
-        }
-        letterProcessing( prd,"PAPF",asofDate);
-        //returnReport.add(prd);  // 2019 We just return the item now 
-		
-		
-		/////End pap
-		
-		
-		return item;
-		*/
     }
 
     private final String LETTER1 = "L1";
@@ -571,7 +431,6 @@ public class ReportBuilder {
 
 
             } else if (item.getState().equals("Refused")) {  //Not sure what to do about refused
-                //prd.lastDate = "-----";
                 EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType);
                 logger.debug("getting followup data for " + item.getDemographicNo());
                 Collection followupData = measurementDataHandler.getMeasurementsDataCollection();
@@ -581,7 +440,6 @@ public class ReportBuilder {
                     item.setLastFollupProcedure(measurementData.getDataField());
                 }
                 item.setNextSuggestedProcedure("----");
-                //prd.numMonths;
             } else if (item.getState().equals("Ineligible")) {
                 // Do nothing
                 item.setNextSuggestedProcedure("----");
@@ -652,12 +510,6 @@ public class ReportBuilder {
         boolean theFirstFlag = true;
 
         boolean getprovider = false;
-/*
-		int yStyle = 0;
-		if(yearStyle != null && yearStyle == 1) {
-			yStyle = 1;
-		}
-*/
         MiscUtils.getLogger().debug("date style" + ageStyle);
         logger.info("where before age " + theWhereFlag);
         if (ageStyle != null) {
@@ -679,9 +531,6 @@ public class ReportBuilder {
                     //if (ageStyle.equals("1")){
                     params.put("startYear2", startYear);
                     stringBuffer.append(" ( ( YEAR(" + asofDateSql + ") -YEAR (DATE_FORMAT(CONCAT((d.year_of_birth), '-', (d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'))) - (RIGHT(" + asofDateSql + ",5)<RIGHT(DATE_FORMAT(CONCAT((d.year_of_birth),'-',(d.month_of_birth),'-',(d.date_of_birth)),'%Y-%m-%d'),5)) >  :startYear2 ) ");
-                    //}else{
-                    //   stringBuffer.append(" ( YEAR("+asofDateSql+") - year_of_birth > "+startYear+"  ) ");
-                    //}
                     theFirstFlag = false;
                     break;
                 case 3:
@@ -699,7 +548,6 @@ public class ReportBuilder {
                     theWhereFlag = whereClause(stringBuffer, theWhereFlag);
                     MiscUtils.getLogger().debug("age style " + ageStyle);
                     if (yearStyle != null && !yearStyle.equals("2")) {
-                        // stringBuffer.append(" ( ( YEAR("+asofDateSql+") -YEAR (DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'))) - (RIGHT("+asofDateSql+",5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth),'-',(month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) >  "+startYear+" and ( YEAR("+asofDateSql+") -YEAR (DATE_FORMAT(CONCAT((year_of_birth), '-', (month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'))) - (RIGHT("+asofDateSql+",5)<RIGHT(DATE_FORMAT(CONCAT((year_of_birth),'-',(month_of_birth),'-',(date_of_birth)),'%Y-%m-%d'),5)) <  "+endYear+"  ) ");
                         MiscUtils.getLogger().debug("VERIFYING INT" + startYear);
                         //check to see if its a number
                         if (verifyInt(startYear)) {
@@ -731,37 +579,8 @@ public class ReportBuilder {
             }
         }
         logger.info("where after age " + theWhereFlag);
-		/*  This is done after
-		  if (rosterStatus != null) {
-			whereClause();
-			firstClause();
-			stringBuffer.append(" ( ");
-			for (int i = 0; i < rosterStatus.length; i++) {
-				theFirstFlag = 1;
-				if (i == (rosterStatus.length - 1)) {
-					stringBuffer.append(" d.roster_status = '" + rosterStatus[i] + "' )");
-				} else {
-					stringBuffer.append(" d.roster_status = '" + rosterStatus[i] + "' or  ");
-				}
-			}
-		}*/
 
 		
-/* This is done after now i thikn
-		if (providers != null) {
-			whereClause();
-			firstClause();
-			stringBuffer.append(" ( ");
-			for (int i = 0; i < providers.length; i++) {
-				theFirstFlag = 1;
-				if (i == (providers.length - 1)) {
-					stringBuffer.append(" d.provider_no = '" + providers[i] + "' )");
-				} else {
-					stringBuffer.append(" d.provider_no = '" + providers[i] + "' or  ");
-				}
-			}
-		}
-*/
         logger.info("where " + theWhereFlag);
         if (sex != null) {
             switch (sex) {
@@ -783,13 +602,6 @@ public class ReportBuilder {
         }
 
         //removed roster_status condition in place more complex check below
-/* only check if rostered
-		if (getprovider) {
-			whereClause(stringBuffer, theWhereFlag);
-			firstClause();
-			stringBuffer.append(" ( d.provider_no = p.provider_no )");
-		}
-*/
 
 
         logger.debug("SEARCH SQL STATEMENT \n" + stringBuffer.toString());
@@ -805,7 +617,6 @@ public class ReportBuilder {
                     continue;
                 }
 
-                //String demoNo = null;
                 Integer demographic = (Integer) o[0];
                 Date rosteredDate = frm.getRosterAsOf();
                 if (rosteredDate == null) {

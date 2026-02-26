@@ -103,12 +103,10 @@ public class PdfRecordPrinter {
     private static Logger logger = MiscUtils.getLogger();
 
     private static final String BILLING_INVOICE_TEMPLATE_FILE = "org/oscarehr/common/web/BillingInvoiceTemplate.jrxml";
-    //private static final String OSCAR_LOGO_FILE = "org/oscarehr/commons/www/images/Oscar.jpg";
 
     private OutputStream os;
 
     private Document document;
-    //private PdfContentByte cb;
     private BaseFont bf;
     private Font font, boldFont;
     private boolean newPage = false;
@@ -151,8 +149,6 @@ public class PdfRecordPrinter {
         //Create the document we are going to write to
         document = new Document();
         writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
-        // writer = PdfWriter.getInstance(document,os);
-        // writer.setPageEvent(new EndPage());
         writer.setStrictImageSequence(true);
 
         document.setPageSize(PageSize.LETTER);
@@ -411,12 +407,6 @@ public class PdfRecordPrinter {
     public void printRx(String demoNo, List<CaseManagementNote> cpp) throws DocumentException {
         if (demoNo == null)
             return;
-        /*
-        if( newPage )
-            document.newPage();
-        else
-            newPage = true;
-        */
         RxPrescriptionData prescriptData = new RxPrescriptionData();
         RxPrescriptionData.Prescription[] arr = {};
         arr = prescriptData.getUniquePrescriptionsByPatient(Integer.parseInt(demoNo));
@@ -470,7 +460,6 @@ public class PdfRecordPrinter {
         if (newPage)
             document.newPage();
         //  else
-        //      newPage = true;
 
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
 
@@ -487,15 +476,12 @@ public class PdfRecordPrinter {
         this.printNotes(notes, true);
 
 
-        // cb.endText();
-
     }
 
     public void printCPPItem(String heading, Measurement measurement) throws DocumentException {
         if (newPage)
             document.newPage();
         //  else
-        //      newPage = true;
 
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
 
@@ -512,12 +498,10 @@ public class PdfRecordPrinter {
 
         p = new Paragraph();
         phrase = new Phrase(LEADING, "", font);
-        //phrase.add(new Chunk(formatter.format(measurement.getDateObserved()) + ":"));
         phrase.add(measurement.getDataField() + "\n");
         p.add(phrase);
         document.add(p);
 
-        // cb.endText();
 
     }
 
@@ -544,23 +528,11 @@ public class PdfRecordPrinter {
         phrase = new Phrase(LEADING, "Patient CPP", obsfont);
         p.add(phrase);
         document.add(p);
-        //upperYcoord -= p.leading() * 2f;
-        //lworkingYcoord = rworkingYcoord = upperYcoord;
-        //ColumnText ct = new ColumnText(cb);
         String[] headings = {"Social History\n", "Other Meds\n", "Medical History\n", "Ongoing Concerns\n", "Reminders\n", "Family History\n", "Risk Factors\n"};
         String[] issueCodes = {"SocHistory", "OMeds", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors"};
-        //String[] content = {cpp.getSocialHistory(), cpp.getFamilyHistory(), cpp.getMedicalHistory(), cpp.getOngoingConcerns(), cpp.getReminders()};
 
         //init column to left side of page
-        //ct.setSimpleColumn(document.left(), document.bottomMargin()+25f, document.right()/2f, lworkingYcoord);
 
-        //int column = 1;
-        //Chunk chunk;
-        //float bottom = document.bottomMargin()+25f;
-        //float middle;
-        //bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-        //cb.beginText();
-        //String headerContd;
         //while there are cpp headings to process
 
         for (int idx = 0; idx < headings.length; ++idx) {
@@ -572,73 +544,18 @@ public class PdfRecordPrinter {
             newPage = false;
             this.printNotes(cpp.get(issueCodes[idx]));
         }
-        //phrase.add(content[idx]);
-        //ct.addText(phrase);
 
 //            //do we need a page break?  check if we're within a fudge factor of the bottom
-//            if( lworkingYcoord <= (bottom * 1.1) && rworkingYcoord <= (bottom*1.1) ) {
-//                document.newPage();
-//                rworkingYcoord = lworkingYcoord = document.top();
-//            }
 //
 //            //Are we in right column?  if so, flip over to left column if there is room
-//            if( column % 2 == 1 ) {
-//                if( lworkingYcoord > bottom ) {
-//                    ct.setSimpleColumn(document.left(), bottom, (document.right()/2f)-10f, lworkingYcoord);
-//                    ++column;
-//                }
-//            }
 //            //Are we in left column?  if so, flip over to right column only if text will fit
-//            else {
-//                ct.setSimpleColumn((document.right()/2f)+10f, bottom, document.right(), rworkingYcoord);
 //
-//                if( ct.go(true) == ColumnText.NO_MORE_COLUMN ) {
-//                    ct.setSimpleColumn(document.left(), bottom, (document.right()/2f)-10f, lworkingYcoord);
-//                }
-//                else {
-//                    ct.setYLine(rworkingYcoord);
-//                    ++column;
-//                }
 //
 //                //ct.go(true) consumes input so we reload
-//                phrase = new Phrase(LEADING, "", font);
-//                chunk = new Chunk(headings[idx], obsfont);
-//                phrase.add(chunk);
-//                phrase.add(content[idx]);
-//                ct.setText(phrase);
-//            }
 //
 //            //while there is text to write, fill columns/page break when page full
-//            while( ct.go() == ColumnText.NO_MORE_COLUMN ) {
-//                if( column % 2 == 0 ) {
-//                    lworkingYcoord = bottom;
-//                    middle = (document.right()/4f)*3f;
-//                    headerContd = headings[idx] + " cont'd";
-//                    cb.setFontAndSize(bf, FONTSIZE);
-//                    cb.showTextAligned(PdfContentByte.ALIGN_CENTER, headerContd, middle, rworkingYcoord-phrase.leading(), 0f);
-//                    //cb.showTextAligned(PdfContentByte.ALIGN_CENTER, headings[idx] + " cont'd", middle, rworkingYcoord, 0f);
-//                    rworkingYcoord -= phrase.leading();
-//                    ct.setSimpleColumn((document.right()/2f)+10f, bottom, document.right(), rworkingYcoord);
-//                }
-//                else {
-//                    document.newPage();
-//                    rworkingYcoord = lworkingYcoord = document.top();
-//                    middle = (document.right()/4f);
-//                    headerContd = headings[idx] + " cont'd";
-//                    cb.setFontAndSize(bf, FONTSIZE);
-//                    cb.showTextAligned(PdfContentByte.ALIGN_CENTER, headerContd, middle, lworkingYcoord-phrase.leading(), 0f);
-//                    lworkingYcoord -= phrase.leading();
-//                    ct.setSimpleColumn(document.left(), bottom, (document.right()/2f)-10f, lworkingYcoord);
-//                }
-//                ++column;
-//            }
 //
-//            if( column % 2 == 0 )
-//                lworkingYcoord -= (ct.getLinesWritten() * ct.getLeading() + (ct.getLeading() * 2f));
 //            else
-//                rworkingYcoord -= (ct.getLinesWritten() * ct.getLeading() + (ct.getLeading() * 2f));
-//        }
-//        cb.endText();
     }
 
     public void printNotes(Collection<CaseManagementNote> notes) throws DocumentException {
@@ -653,17 +570,13 @@ public class PdfRecordPrinter {
         Phrase phrase;
         Chunk chunk;
 
-        //if( newPage )
-        //     document.newPage();
         // else
-        //     newPage = true;
 
         //Print notes
         Iterator<CaseManagementNote> notesIter = notes.iterator();
         while (notesIter.hasNext()) {
             note = notesIter.next();
             p = new Paragraph();
-            //p.setSpacingBefore(font.leading(LINESPACING)*2f);
             phrase = new Phrase(LEADING, "", font);
 
             if (compact) {
@@ -724,7 +637,6 @@ public class PdfRecordPrinter {
     }
 
 
-
     public void printAllergies(List<Allergy> allergies) throws DocumentException {
         Font obsfont = new Font(getBaseFont(), FONTSIZE, Font.UNDERLINE);
 
@@ -747,7 +659,6 @@ public class PdfRecordPrinter {
         }
         getDocument().add(new Phrase("\n", getFont()));
     }
-
 
 
     public void printPhotos(String contextPath, List<io.github.carlos_emr.carlos.commn.model.Document> photos) throws DocumentException {

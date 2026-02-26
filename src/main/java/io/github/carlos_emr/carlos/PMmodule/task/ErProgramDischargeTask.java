@@ -72,10 +72,8 @@ public class ErProgramDischargeTask extends TimerTask {
 
         try {
             log.debug("running ErProgramDischargeTask");
-            //log.info("Running ErProgramDischargeTask.............");
 
             // get all "ER" Service programs		
-            //List providers = providerManager.getProvidersByType("er_clerk");
             List providers = providerManager.getProviders();
             boolean er_clerk = false;
 

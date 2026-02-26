@@ -67,9 +67,6 @@ public class TicklerTo1 implements Serializable {
 
     private String taskAssignedTo;
 
-    //private Set<TicklerUpdate> updates = new HashSet<TicklerUpdate>();
-
-    //private Set<TicklerComment> comments = new HashSet<TicklerComment>();
 
     private String demographicName;
 

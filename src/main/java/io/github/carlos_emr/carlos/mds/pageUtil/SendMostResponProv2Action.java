@@ -74,13 +74,11 @@ public class SendMostResponProv2Action extends ActionSupport {
         String demoId = request.getParameter("demoId");
         String docLabId = request.getParameter("docLabId");
         String docLabType = request.getParameter("docLabType");
-        //MiscUtils.getLogger().info(demoId+"--"+docLabId+"--"+docLabType);
         ArrayList listFlaggedLabs = new ArrayList();
         if (demoId != null && docLabId != null && docLabType != null) {
             demoId = demoId.trim();
             Demographic demog = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), Integer.parseInt(demoId));
             String mrp = demog.getProviderNo();
-            //MiscUtils.getLogger().info(mrp);
             String[] la = new String[]{docLabId, docLabType};
             listFlaggedLabs.add(la);
             CommonLabResultData.updateLabRouting(listFlaggedLabs, mrp);

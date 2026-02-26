@@ -70,12 +70,9 @@ public class FrmRourke2009Record extends FrmRecord {
             if (demo != null) {
                 props.setProperty("demographic_no", String.valueOf(demographicNo));
                 props.setProperty("c_pName", demo.getFormattedName());
-                //props.setProperty("formDate", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), "dd/MM/yyyy"));
-                //props.setProperty("formEdited", UtilDateUtilities.DateToString(new Date(), "yyyy/MM/dd"));
                 dob = UtilDateUtilities.calcDate(demo.getYearOfBirth(), demo.getMonthOfBirth(), demo.getDateOfBirth());
                 props.setProperty("c_birthDate", UtilDateUtilities.DateToString(dob, "dd/MM/yyyy"));
-                //props.setProperty("age", String.valueOf(UtilDateUtilities.calcAge(dob)));
                 String postal = demo.getPostal();
                 if (postal != null && postal.length() >= 6) {
                     postal = postal.replaceAll("\\s+", "");
@@ -313,7 +310,6 @@ public class FrmRourke2009Record extends FrmRecord {
                             }
 
                             if (mDateHt.compareTo(mDateWt) == 0) {
-                                //name = elementName_num_section_page
                                 props.setProperty("xVal_" + idx + "_1_" + graphicPage, mHt.getDataField());
                                 props.setProperty("yVal_" + idx + "_1_" + graphicPage, mWt.getDataField());
                                 break;
@@ -322,7 +318,6 @@ public class FrmRourke2009Record extends FrmRecord {
                     } else if (graphType.equals(FrmRourke2009Record.LENGTH_GRAPH)) {
                         date = UtilDateUtilities.DateToString(mDateHt, "dd/MM/yyyy");
 
-                        //name = elementName_num_section_page
                         props.setProperty("xVal_" + idx + "_1_" + graphicPage, date);
                         props.setProperty("yVal_" + idx + "_1_" + graphicPage, mHt.getDataField());
                     }

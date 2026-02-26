@@ -149,7 +149,6 @@ public class CdsForm4 {
             String gender = demographic.getSex();
             if (Gender.F.toString().equals(gender)) return ("008-02");
             else if (Gender.M.toString().equals(gender)) return ("008-01");
-//			else if (Gender.O.toString().equals(gender) || Gender.T.toString().equals(gender)) return("008-03");
             else return ("008-04");
         } else {
             return (null);

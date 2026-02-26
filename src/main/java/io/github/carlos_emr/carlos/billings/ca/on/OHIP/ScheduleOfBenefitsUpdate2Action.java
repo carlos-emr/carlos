@@ -56,7 +56,6 @@ public class ScheduleOfBenefitsUpdate2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-
     public String execute() {
 
         boolean forceUpdate = request.getAttribute("forceUpdate") == null ? "true".equals(request.getParameter("forceUpdate")) : (Boolean) request.getAttribute("forceUpdate");
@@ -115,11 +114,6 @@ public class ScheduleOfBenefitsUpdate2Action extends ActionSupport {
                     MiscUtils.getLogger().debug(changes[i]);
                     String[] change = changes[i].split("\\|");
                     if (change != null && change.length == 5) {
-                        //change[0] // billing code
-                        //change[1] // value
-                        //change[2] //effectiveDate
-                        //change[3] //terminactionDate
-                        //change[4] //description
 
                         String effDate;
                         if (change[2].equalsIgnoreCase("null")) {

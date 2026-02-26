@@ -192,9 +192,6 @@ public class LabUpload2Action extends ActionSupport {
     public LabUpload2Action() {
     }
 
-    /*
-     * Decrypt the encrypted message and return the original version of the message as an InputStream
-     */
     public static InputStream decryptMessage(InputStream is, String skey, PublicKey pkey) {
 
         // Decrypt the secret key and the message

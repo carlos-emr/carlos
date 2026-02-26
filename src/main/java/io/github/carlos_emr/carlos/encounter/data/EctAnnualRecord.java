@@ -119,7 +119,6 @@ public class EctAnnualRecord {
             throws SQLException {
 
         String demographic_no = props.getProperty("demographic_no");
-//        String ID = props.getProperty("ID");
 
 
         String sql = "SELECT * FROM formAnnual WHERE demographic_no=" + demographic_no + " AND ID=0";

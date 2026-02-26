@@ -97,14 +97,8 @@ public class DateUtils {
         int year = Calendar.getInstance().get(Calendar.YEAR);
         int month = Calendar.getInstance().get(Calendar.MONTH) + 1; //!!! add 1  to month for correction!
         int day = Calendar.getInstance().get(Calendar.DAY_OF_MONTH);
-//  	int hour = Calendar.getInstance().get(Calendar.HOUR);
-//  	int minute = Calendar.getInstance().get(Calendar.MINUTE);
-//    int am_pm = Calendar.getInstance().get(Calendar.AM_PM);
         String monthStr = String.valueOf(month);
         String dayStr = String.valueOf(day);
-//    String hourStr = String.valueOf(hour);
-//  	String minuteStr = String.valueOf(minute);
-//    String am_pmStr = String.valueOf(am_pm);
 
         if (monthStr.length() <= 1) {
             monthStr = "0" + monthStr;
@@ -112,16 +106,6 @@ public class DateUtils {
         if (dayStr.length() <= 1) {
             dayStr = "0" + dayStr;
         }
-/*    
-    if(hourStr.length() <= 1)
-    {
-        hourStr = "0" + hourStr;
-    }
-    if(minuteStr.length() <= 1)
-    {
-        minuteStr = "0" + minuteStr;
-    }
-*/
         String dateStr = year + delimiter + monthStr + delimiter + dayStr;
 
         return dateStr;

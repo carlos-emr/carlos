@@ -456,7 +456,6 @@ public class PATHL7Handler implements MessageHandler {
             // if count is 1 there may only be an nte segment and no obx segments so check
             if (count == 1) {
                 String test = msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(0).getOBX().getObservationIdentifier().getIdentifier().getValue();
-                // logger.info("name: "+test);
                 if (test == null)
                     count = 0;
             }
@@ -696,7 +695,6 @@ public class PATHL7Handler implements MessageHandler {
                 currentHeader = getObservationHeader(i, 0);
                 arraySize = headers.size();
                 if (arraySize == 0 || !currentHeader.equals(headers.get(arraySize - 1))) {
-                    //logger.info("Adding header: '"+currentHeader+"' to list");
                     headers.add(currentHeader);
                 }
 

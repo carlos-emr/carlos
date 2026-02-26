@@ -66,7 +66,6 @@ public class OBRisksHandler_99_12 extends DefaultHandler {
     private int interiortable = 0;
     private int href = 0;
     private Properties riskNameObj = null;
-//	private Hashtable savedparams;
 
     /**
      * Constructs a new OBRisksHandler.
@@ -173,7 +172,6 @@ public class OBRisksHandler_99_12 extends DefaultHandler {
                 results += "</td></tr>\n<tr><td width=" + 10 / numcols + "% >";
             } else {
                 results += "</td><td width=" + 10 / numcols + "% >";
-                //results += "</td><td width="+10/numcols+"% >";
             }
             results += "<font size=-2>";
             colcount += 1;
@@ -217,7 +215,6 @@ public class OBRisksHandler_99_12 extends DefaultHandler {
         } else if (rawName.equals("heading")) {
             results += "</b></font></td></tr></table>\n";
         } else if (rawName.equals("risk")) {
-            // results += "</font></td><td><input type=checkbox name=\"xml_" + riskName + "\" value='checked' datafld='xml_" +riskName+ "'>";
             riskName = "";
         } else if (rawName.equals("entry")) {
             results += "</font></td><td><input type=text size=6 name=\"xml_" + riskName + "\" datafld='xml_" + riskName + "'>";

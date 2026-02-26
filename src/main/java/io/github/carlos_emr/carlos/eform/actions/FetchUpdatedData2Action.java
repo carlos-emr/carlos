@@ -74,7 +74,6 @@ public final class FetchUpdatedData2Action extends ActionSupport {
                         sql = DatabaseAP.parserReplace("demographic", demographic, sql);
                         sql = DatabaseAP.parserReplace("providers", provider, sql);
                         sql = DatabaseAP.parserReplace("uuid", uuid, sql);
-                        //sql = replaceAllFields(sql);
 
                         ArrayList<String> names = DatabaseAP.parserGetNames(output); //a list of ${apName} --> apName
                         sql = DatabaseAP.parserClean(sql);  //replaces all other ${apName} expressions with 'apName'

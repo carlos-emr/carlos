@@ -114,7 +114,6 @@ public final class RefI12 {
         // for each data section, we'll create a new NTE and we'll label the section some how...
 
         // Was specifically told that appointment notes is considered a secret field that should never be shown to the referredTo Provider
-        // DataTypeUtils.fillNte(referralMsg.getNTE(0), REF_NTE_TYPE.APPOINTMENT_NOTES.name(), consultationRequest.getStatusText());
 
         int noteCounter = 0;
         String temp = consultationRequest.getReasonForReferral();

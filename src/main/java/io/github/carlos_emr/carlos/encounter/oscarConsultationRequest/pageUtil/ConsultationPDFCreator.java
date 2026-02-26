@@ -76,7 +76,6 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         try {
             bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             font = new Font(bf, 10, Font.NORMAL);
-            // boldFont = new Font(bf, 10, Font.BOLD);
             heading = new Font(bf, 12, Font.NORMAL);
             boldFontHeading = new Font(bf, 12, Font.BOLD);
         } catch (DocumentException e) {
@@ -106,7 +105,6 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         // Create the document we are going to write to
         document = new Document();
         PdfWriter.getInstance(document, os);
-//		PdfWriterFactory.newInstance( document, os, FontSettings.HELVETICA_10PT );
         document.setPageSize(PageSize.LETTER);
         document.addTitle(getResource("msgConsReq"));
         document.addCreator("OSCAR");

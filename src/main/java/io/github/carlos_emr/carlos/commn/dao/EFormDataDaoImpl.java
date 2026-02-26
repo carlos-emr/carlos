@@ -331,7 +331,6 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
         Query query = entityManager.createQuery("select x from " + modelClass.getSimpleName()
                 + " x where x.formId = ?1 and x.providerNo in (?2) and x.current = 1");
-        // query.setParameter(1,fid);
         query.setParameter(1, formId);
         query.setParameter(2, providerNo);
 
@@ -403,7 +402,6 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
 
     @Override
     public boolean isLatestShowLatestFormOnlyPatientForm(Integer fdid) {
-        // return true if:
         // 1) this is a ShowLatestFormOnly eform AND
         // 2.1) the patient has only 1 eform of the same fid OR
         // 2.2) this is the patient's latest eform of the same fid
@@ -592,10 +590,6 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
             int timeComponentInMillis = ((cal.get(Calendar.HOUR_OF_DAY) * 60 * 60) + (cal.get(Calendar.MINUTE) * 60)
                     + cal.get(Calendar.SECOND)) * 1000;
 
-            // date.setTime(date.getTime()+timeComponentInMillis);
-
-            // cal.setTime(date);
-            // cal.add(Calendar.MILLISECOND, timeComponentInMillis);
 
             Date d = new Date(date.getTime() + timeComponentInMillis);
             return d;

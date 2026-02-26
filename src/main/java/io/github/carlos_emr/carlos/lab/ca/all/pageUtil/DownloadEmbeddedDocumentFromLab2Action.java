@@ -63,7 +63,6 @@ public class DownloadEmbeddedDocumentFromLab2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
-        //String hl7 = io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory.getHL7Body(labNo);
 
         MessageHandler handler = Factory.getHandler(labNo);
 

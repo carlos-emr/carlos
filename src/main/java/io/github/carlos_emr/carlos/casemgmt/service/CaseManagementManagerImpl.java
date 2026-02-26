@@ -129,10 +129,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return this.caseManagementIssueDAO.getIssuebyIssueCode(demo, issue_code);
     }
 
-    /*
-     * check to see if issue has been saved for this demo beforeif it has return
-     * issue; else return null
-     */
     @Override
     public CaseManagementIssue getIssueById(String demo, String issue_id) {
         return this.caseManagementIssueDAO.getIssuebyId(demo, issue_id);
@@ -297,9 +293,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     }
 
-    /*
-     * fetch notes for demographicif date is set, fetch notes after specified date
-     */
     @Override
     public List getNotes(String demographic_no, UserProperty prop) {
         if (prop == null)
@@ -462,7 +455,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         return filterIssueList(getIssues(Integer.parseInt(demographic_no)), accessRight);
     }
 
-    /* return true if have the right to access issues */
     @Override
     public boolean inAccessRight(String right, String issueAccessType, List accessRight) {
         boolean rt = false;
@@ -1178,7 +1170,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
     @Override
     public String getCaisiRoleById(String id) {
-        // return providerCaisiRoleDAO.getCaisiRoleById(id);
         return roleManager.getRole(id).getName();
     }
 
@@ -1318,10 +1309,7 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         Map programAccessMap = ProgramAccessCache.getAccessMap(Long.valueOf(programId));
         // Load up access list from program
         // @SuppressWarnings("unchecked")
-        // List programAccessList = programAccessDAO.getAccessListByProgramId(new
-        // Long(programId));
         // @SuppressWarnings("unchecked")
-        // Map programAccessMap = convertProgramAccessListToMap(programAccessList);
 
         // iterate through the issue list
         for (CaseManagementNote cmNote : notes) {
@@ -1336,7 +1324,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             pa = (ProgramAccess) programAccessMap.get("read " + noteRoleName + " notes");
             if (pa != null) {
                 if (pa.isAllRoles() || isRoleIncludedInAccess(pa, role)) {
-                    // filteredIssues.add(cmIssue);
                     add = true;
                 }
             } else {
@@ -1427,7 +1414,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             pa = (ProgramAccess) programAccessMap.get("read " + noteRoleName + " notes");
             if (pa != null) {
                 if (pa.isAllRoles() || isRoleIncludedInAccess(pa, role)) {
-                    // filteredIssues.add(cmIssue);
                     add = true;
                 }
             } else {
@@ -1469,9 +1455,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
 
         // filter notes based on facility
         // if (OscarProperties.getInstance().getBooleanProperty("FILTER_ON_FACILITY",
-        // "true")) {
-        // filteredNotes = notesFacilityFiltering(filteredNotes);
-        // }
 
         return filteredNotes;
     }
@@ -1671,7 +1654,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             pa = programAccessMap.get("read " + issueRole + " issues");
             if (pa != null) {
                 if (pa.isAllRoles() || isRoleIncludedInAccess(pa, role)) {
-                    // filteredIssues.add(cmIssue);
                     add = true;
                 }
             } else {
@@ -1859,17 +1841,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             }
         }
 
-        /*
-         * String[] issueIdList = new String[1]; issueIdList[0] =
-         * String.valueOf(newIssueId); List<CaseManagementNote> notes =
-         * this.caseManagementNoteDAO.getNotesByDemographic(demographicNo);
-         * for (CaseManagementNote note:notes) { Set<CaseManagementIssue>
-         * issues = note.getIssues(); for (CaseManagementIssue issue:issues) {
-         * if (issue.getIssue().getId().equals(originalIssueId)) { //update this
-         * CaseManagementIssue issue.setIssue(null);
-         * issue.setIssue_id(newIssueId.longValue()); } }
-         * this.caseManagementNoteDAO.saveNote(note); }
-         */
     }
 
     @Override
@@ -2166,7 +2137,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
      */
     @Override
     public CaseManagementNote getLastSaved(String programId, String demono, String providerNo, Map unlockedNotesMap) {
-        // CaseManagementNote note = null;
         List<EChartNoteEntry> entries = new ArrayList<EChartNoteEntry>();
 
         // Gets some of the note data, no relationships, not the note/history..just
@@ -2192,7 +2162,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
 
         // UserProperty prop = caseManagementMgr.getUserProperty(providerNo,
-        // UserProperty.STALE_NOTEDATE);
         // notes = caseManagementMgr.getNotes(demono);
         // notes = manageLockedNotes(notes, false, this.getUnlockedNotesMap(request));
 
@@ -2298,7 +2267,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
                     cmnl.setTableName(CaseManagementNoteLink.DRUGS);
                     cmnl.setTableId(latestLink.getTableId());
                     saveNoteLink(cmnl);
-                    // EDocUtil.addCaseMgmtNoteLink(cmnl);
                 }
             }
         }
@@ -2331,10 +2299,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         } catch (Exception e) {
             role = "0";
         }
-        /*
-         * if (session.getAttribute("archiveView")!="true")
-         * note.setReporter_caisi_role(role); else note.setReporter_caisi_role("1");
-         */
         note.setReporter_caisi_role(role);
 
         try {
@@ -2357,7 +2321,6 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
         }
         note.setReporter_program_team(team);
 
-        /* save all issue changes for demographic */
         saveAndUpdateCaseIssues(issuelist);
         if (inCaisi)
             cpp.setOngoingConcerns(ongoing); // << Check on this one???

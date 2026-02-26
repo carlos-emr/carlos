@@ -96,7 +96,6 @@ public class TDISHandler implements MessageHandler {
         p.setValidationContext(new NoValidation());
         ArrayList<String> labs = getMatchingHL7Labs(hl7Body);
 
-		/*//for debug purposes, show the parsed labs
 		logger.info("TOTAL LABS: " + labs.size());
 		for (int k = 0; k < labs.size(); k++) {
 			logger.info("\n\n===========LAB[" + k + "]: \n\n" + labs.get(k) + "================END LAB\n\n");
@@ -210,7 +209,6 @@ public class TDISHandler implements MessageHandler {
 
     public String getMsgDate() {
         return formatDateTime(msg.getMSH().getDateTimeOfMessage().getTime().getValue());
-        //return (formatDateTime(msg.getMSH().getDateTimeOfMessage().getTimeOfAnEvent().getValue()));
     }
 
     public String getMsgPriority() {
@@ -241,7 +239,6 @@ public class TDISHandler implements MessageHandler {
         if (res == null)
             return 0;
 
-        //return (((ArrayList) obrSegMap.get(obrSegKeySet.get(i))).size());
         return this.obxCount.get(i);
     }
 
@@ -334,7 +331,6 @@ public class TDISHandler implements MessageHandler {
             if (subIdent != null)
                 ident = ident + "&" + subIdent;
 
-            //logger.info("returning obx identifier: " + ident);
             return (ident);
         } catch (Exception e) {
             logger.error("error returning obx identifier", e);
@@ -539,21 +535,12 @@ public class TDISHandler implements MessageHandler {
         try {
 
             // result status is stored in the wrong field.... i think
-            //return (getString(((ca.uhn.hl7v2.model.v25.segment.OBX) ((ArrayList) obrSegMap.get(obrSegKeySet.get(i))).get(j)).getNatureOfAbnormalTest()
-            //	.getValue()));
 
             ArrayList<ca.uhn.hl7v2.model.v25.segment.OBX> obr_res = obrSegMap
                     .get(obrSegKeySet.get(i));
             ca.uhn.hl7v2.model.v25.segment.OBX obx_res = obr_res.get(j);
 
-            //int obx_res_reps = obx_res.getNatureOfAbnormalTestReps();
             //TODO: fix so that it can handle multiple nature results
-			/*
-			for (int k=0; k<obx_res_reps; k++){
-				ca.uhn.hl7v2.model.v25.datatype.ID nature = res.getNatureOfAbnormalTest(k);
-				
-			}
-			*/
             ID nat = obx_res.getNatureOfAbnormalTest(0);
             if (nat.getValue() != null)
                 return nat.getValue();
@@ -706,7 +693,6 @@ public class TDISHandler implements MessageHandler {
             logger.error("Exception while parsing first name of patient: " + e);
         }
         return null;
-        //return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
     }
 
     public String getLastName() {
@@ -748,7 +734,6 @@ public class TDISHandler implements MessageHandler {
     }
 
     public String getHealthNum() {
-        //int pat_ids = pat_25.getPID().getPatientIdentifierListReps();
         String hin;
         try {
             String[] hinArray = null;
@@ -806,7 +791,6 @@ public class TDISHandler implements MessageHandler {
     }
 
     public String getPatientLocation() {
-        //return (getString(msg.getMSH().getSendingFacility().getNamespaceID().getValue()));
         String locacronym = getString(msg.getMSH().getSendingFacility().getNamespaceID().getValue());
         String location = null;
         HL7HandlerMSHMappingDao hL7HandlerMSHMappingDao = (HL7HandlerMSHMappingDao) SpringUtils.getBean(HL7HandlerMSHMappingDao.class);
@@ -832,18 +816,10 @@ public class TDISHandler implements MessageHandler {
     }
 
     public String getOrderStatus() {
-		/*String res = (String) orderStatus.get(0);
-		if (res != null && res.equals("0"))
-			return "P";
-		return "F";*/
         String status = getString(obrSegKeySet.get(0).getResultStatus().getValue());
         return status;
     }
 
-	/*public String getReportStatus() {
-		String status  = getString(obrSegKeySet.get(0).getObr25_ResultStatus().getValue());
-		return status;
-	}*/
 
     public String getClientRef() {
         try {
@@ -855,7 +831,6 @@ public class TDISHandler implements MessageHandler {
             PID pid = pat_25.getPID();
             CX lol = pid.getPatientID();
 
-            //		.getNamespaceID().getValue();
             String one = lol.getAssigningAuthority().getNamespaceID().getValue();
             String two = lol.getAssigningFacility().getNamespaceID().getValue();
             if (one != null)
@@ -865,7 +840,6 @@ public class TDISHandler implements MessageHandler {
             else if (fillerOrder != null)
                 return fillerOrder;
 
-            //return (getString(pat_25.getPID().getPatientID().getAssigningAuthority().getNamespaceID().getValue()));
         } catch (Exception e) {
             logger.error("ERROR Could not return accession num, getClientRef(): ", e);
         }
@@ -919,7 +893,6 @@ public class TDISHandler implements MessageHandler {
 
         } catch (Exception e) {
             // ignore error... it will occur when the zdr segment is not present
-            // logger.error("Could not retrieve cc'd docs", e);
         }
         return "";
 
@@ -948,7 +921,6 @@ public class TDISHandler implements MessageHandler {
 
         } catch (Exception e) {
             // ignore error... it will occur when the zdr segment is not present
-            // logger.error("Could not return numbers", e);
         }
 
         return nums;

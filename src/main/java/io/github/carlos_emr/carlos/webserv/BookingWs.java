@@ -77,11 +77,6 @@ public class BookingWs extends AbstractWs {
     private DemographicManager demographicManager;
 
 
-    //public ScheduleTemplateCodeTransfer[] getScheduleTemplateCodes() {
-    //	List<ScheduleTemplateCode> scheduleTemplateCodes = scheduleManager.getScheduleTemplateCodes();
-    //	return (ScheduleTemplateCodeTransfer.toTransfer(scheduleTemplateCodes));
-    //}
-
     //getAppointmentTypes
 
     public BookingType[] getAppointmentTypesByProvider(String providerNo) {
@@ -177,7 +172,6 @@ public class BookingWs extends AbstractWs {
             Calendar endTime = calculateEndTime(config, timeslot.getAvailableApptTime(), timeslot.getProviderNo(), timeslot.getAppointmentType(), timeslot.getCode());
             Appointment appointment = new Appointment();
             appointment.setReasonCode(apptType.getMappingOscarApptType());
-            //appointmentTransfer.copyTo(appointment);
             appointment.setAppointmentDate(timeslot.getAvailableApptTime().getTime());
             appointment.setEndTime(endTime.getTime());
             appointment.setStartTime(timeslot.getAvailableApptTime().getTime());
@@ -205,11 +199,6 @@ public class BookingWs extends AbstractWs {
             }
 
             //There was a check to see if there was more than one appt book for that day but
-			/*if(appointmentId == -1){
-				String msg = "You may not book more appointments on this day.";
-				logger.debug(msg);
-				return new AppointmentConfirmationTransfer(new BookingError("LIMIT_EXCEED", msg));
-			}*/
             if (appointmentId != null) {
                 return new AppointmentConfirmationTransfer(timeslot.getAvailableApptTime(), endTime, getLongExtDateTime(getLoggedInInfo().getLocale(), timeslot.getAvailableApptTime()), EDocUtil.getProviderName(timeslot.getProviderNo()), config.getTitle());
             }

@@ -138,7 +138,6 @@ public class ReportObjectGeneric implements ReportObject {
             if (substValues.length == 1) //if one valuemnmmnm
                 sql = sql.substring(0, cursor1) + substValues[0] + sql.substring(cursor2 + 1);
             else { //if multiple values
-                //DynamicElement curelement = getDynamicElement(dynamicElementId);
                 if (cursor1 != 0 && (sql.charAt(cursor1 - 1) == '\'' || sql.charAt(cursor1 - 1) == '\"')) {
                     sql = sql.substring(0, cursor1) + StringUtils.join(substValues, sql.charAt(cursor1 - 1) + "," + sql.charAt(cursor1 - 1)) + sql.substring(cursor2 + 1);
                 } else {
@@ -180,7 +179,6 @@ public class ReportObjectGeneric implements ReportObject {
             if (substValues.length == 1) //if one valuemnmmnm
                 sql = sql.substring(0, cursor1) + substValues[0] + sql.substring(cursor2 + 1);
             else { //if multiple values
-                //DynamicElement curelement = getDynamicElement(dynamicElementId);
                 if (cursor1 != 0 && (sql.charAt(cursor1 - 1) == '\'' || sql.charAt(cursor1 - 1) == '\"')) {
                     sql = sql.substring(0, cursor1) + StringUtils.join(substValues, sql.charAt(cursor1 - 1) + "," + sql.charAt(cursor1 - 1)) + sql.substring(cursor2 + 1);
                 } else {

@@ -37,19 +37,6 @@ public class AppointmentTypeTransfer {
     int duration;
     private Integer mappingOscarApptType;
 
-	/*public static AppointmentTypeTransfer getFromTransfer(org.oscarehr.webserv.AppointmentTypeTransfer appointmentTypeTransfer){
-		AppointmentTypeTransfer at = new AppointmentTypeTransfer();
-		
-		try{
-			at.id = new Long(appointmentTypeTransfer.getId());
-		}catch(Exception e) {
-			//This will be null if it's coming from oscar and beanutils copy properties has not been fixed. But the id is not used internally so we will ignore it.
-		}
-		at.name = appointmentTypeTransfer.getName();
-		at.duration = appointmentTypeTransfer.getDuration();
-		return at;
-	}
-	*/
 
     public static AppointmentTypeTransfer getFromTransfer(AppointmentType appointmentTypeTransfer) {
         AppointmentTypeTransfer at = new AppointmentTypeTransfer();

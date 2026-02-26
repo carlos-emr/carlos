@@ -237,7 +237,6 @@ public class FrmRecordHelp {
 
 
         ResultSet rs = DBHandler.GetSQL(sql, true);
-        //rs.relative(0);
 
         rs = updateResultSet(props, rs, false);
         rs.updateRow();
@@ -311,7 +310,6 @@ public class FrmRecordHelp {
 
         if (action.equalsIgnoreCase("print")) {
             temp = where + "?demoNo=" + demoId + "&formId=" + formId; // + "&study_no=" + studyId +
-            // "&study_link" + studyLink;
         } else if (action.equalsIgnoreCase("save")) {
             temp = where + "?demographic_no=" + demoId + "&formId=" + formId; // "&study_no=" +
             // studyId +

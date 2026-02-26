@@ -242,7 +242,6 @@ public class SearchConfig {
     public static Document toDocument(SearchConfig clinic) throws Exception {
 
         Document doc = XmlUtils.newDocument("clinic");
-        //doc.getDocumentElement().setAttribute("name",clinic.getName());
 
         XmlUtils.appendChildToRoot(doc, "defaultAppointmentCount", Integer.toString(clinic.getDefaultAppointmentCount()));
 
@@ -337,7 +336,6 @@ public class SearchConfig {
         SearchConfig returnClinic = new SearchConfig();
 
         Node rootNode = doc.getFirstChild();
-        //returnClinic.name = XmlUtils.getAttributeValue(rootNode, "name");
         returnClinic.timezone = XmlUtils.getChildNodeTextContents(rootNode, "timezone");
         returnClinic.appointmentLocation = XmlUtils.getChildNodeTextContents(rootNode, "appointment_location");
         returnClinic.title = XmlUtils.getChildNodeTextContents(rootNode, "title");
@@ -404,7 +402,6 @@ public class SearchConfig {
             Provider provider = Provider.fromXml(providerNode);
             returnClinic.providers.put(provider.getProviderNo(), provider);
         }
-        //returnClinic.secretKey = EncryptionUtils.generateEncryptionKey();
 
         return returnClinic;
     }
@@ -482,34 +479,6 @@ public class SearchConfig {
 
         returnClinic.appointmentCodeDurations = clinicTransfer.getAppointmentCodeDurations();
         List<BookingScheduleTemplateCodeTransfer> bookingCodeList = clinicTransfer.getApptCodes();
-		/* Check if this is not needed... it seems the above codes receives the hashmap instead of creating it.
-		  if(bookingCodeList != null) {
-			returnClinic.appointmentCodeDurations = new HashMap<Character,Integer>();
-			List<Character> openAccessList = new ArrayList<Character>();
-			for(BookingScheduleTemplateCodeTransfer code:bookingCodeList){
-				if(code.isOnlineBooking()){
-					logger.info("Adding Code"+code.getCode()+ " with dur "+code.getDuration());
-					returnClinic.appointmentCodeDurations.put(code.getCode(), Integer.parseInt(code.getDuration()));
-				}else{
-					logger.info("Not Adding Code"+code.getCode() );
-					
-				}
-				if(code.isOpenAccess()){
-					openAccessList.add(code.getCode());
-				}
-			}
-			
-			if(openAccessList.size() > 0){
-				FilterDefinition fd = new FilterDefinition();
-				fd.setFilterClassName("io.github.carlos_emr.carlos.appointment.search.filters.OpenAccessFilter");
-				returnClinic.filters.add(fd);
-			}
-			returnClinic.setOpenAccessCodes(openAccessList.toArray(new Character[openAccessList.size()]));
-		} else {
-			logger.debug("booking code List size is null just going with what was there ");
-			returnClinic.appointmentCodeDurations = oldClinic.appointmentCodeDurations;
-		}
-		*/
 
         if (clinicTransfer.getOpenAccessList() != null && clinicTransfer.getOpenAccessList().size() > 0) {
             FilterDefinition fd = new FilterDefinition();

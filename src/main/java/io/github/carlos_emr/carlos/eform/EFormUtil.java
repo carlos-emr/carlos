@@ -250,8 +250,6 @@ public class EFormUtil {
         List<EFormData> allEformDatas = eFormDataDao.findByDemographicIdCurrent(Integer.parseInt(demographic_no), current, offset, itemsToReturn, sortBy);
 
         //	if (NAME.equals(sortBy)) Collections.sort(allEformDatas, EFormData.FORM_NAME_COMPARATOR);
-        //	else if (SUBJECT.equals(sortBy)) Collections.sort(allEformDatas, EFormData.FORM_SUBJECT_COMPARATOR);
-        //	else Collections.sort(allEformDatas, EFormData.FORM_DATE_COMPARATOR);
 
         ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
         try {
@@ -858,15 +856,6 @@ public class EFormUtil {
             }
         }
 
-        /* write to document
-         * <document {optional:belong=providers/patient}>
-         * 		<docdesc>{optional:documentDescription}</docdesc>
-         * 		<docowner>{optional:provider_no/demographic_no}</docowner>
-         * 		<content>
-         * 			content to write to document
-         * 		</content>
-         * </document>
-         */
         templates = getWhole("document", text);
         for (String template : templates) {
             if (StringUtils.isBlank(template)) continue;
@@ -893,23 +882,6 @@ public class EFormUtil {
             }
         }
 
-        /* write to prevention
-         * <prevention>
-         * 		<type>{preventionType: must be identical to Oscar prevention types}</type>
-         * 		<providers>{optional:providerNo}</providers>
-         * 		<date>{optional:preventionDate}</date>
-         * 		<status>{optional:completed/refused/ineligible}</status>
-         * 		<name>{optional}</name>
-         * 		<dose>{optional}</dose>
-         * 		<manufacture>{optional}</manufacture>
-         * 		<route>{optional}</route>
-         * 		<lot>{optional}</lot>
-         * 		<location>{optional}</location>
-         * 		<comments>{optional}</comments>
-         * 		<reason>{optional}</reason>
-         * 		<result>{optional:pending/normal/abnormal/other}</result>
-         * </prevention>
-         */
 
         templates = getWithin("prevention", text);
         for (String template : templates) {
@@ -1318,7 +1290,6 @@ public class EFormUtil {
     }
 
     private static String rsGetString(ResultSet rs, String column) throws SQLException {
-        // protects agianst null values;
         String thisStr = Misc.getString(rs, column);
         if (thisStr == null) return "";
         return thisStr;
@@ -1658,38 +1629,14 @@ public class EFormUtil {
     public static void logError(int formId, String error) {
         io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao.findById(formId);
 
-        /*
-         * DEFAULT is always stable = true
-         * Reaching this point indicates an error. This form is not stable.
-         * This status can be reversed by deleting this entry and then uploading
-         * a new stable eform
-         */
         eform.setStable(Boolean.FALSE);
 
 //		/*
 //		 * Logs are stored and compared with JSON.
 //		 */
 //		if(error != null && ! error.isEmpty()) {
-//			String currentErrors = eform.getErrorLog();
-//			JSONArray jsonArray;
 //			if(currentErrors == null || currentErrors.isEmpty()) {
-//				jsonArray = objectMapper.createArrayNode();
-//				jsonArray.add(error);
-//			} else {
-//				jsonArray = objectMapper.valueToTree(currentErrors);
-//				boolean addError = true;
-//				for(Object jsonArrayObject : jsonArray) {
 //					if(((String)jsonArrayObject).equalsIgnoreCase(error)) {
-//						addError = false;
-//						break;
-//					}
-//				}
-//				if(addError) {
-//					jsonArray.add(error);
-//				}
-//			}
-//			eform.setErrorLog(jsonArray.toString());
-//		}
 
         eformDao.merge(eform);
     }

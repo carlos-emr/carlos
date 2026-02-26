@@ -51,7 +51,6 @@ public class RxAllergyWarningWorker extends Thread {
     }
 
     public RxAllergyWarningWorker(RxSessionBean sessionBean, String actCode, Allergy[] allergies) {
-        //drugData.getAllergyWarnings(prescript.getAtcCode(),allergies)
 
         this.atcCode = actCode;
         this.sessionBean = sessionBean;

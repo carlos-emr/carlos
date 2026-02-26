@@ -140,7 +140,6 @@ public final class RxWriteScript2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         checkPrivilege(loggedInInfo, PRIVILEGE_WRITE);
 
-        //RxWriteScriptForm frm = (RxWriteScriptForm) form;
         String fwd = "refresh";
         RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
 
@@ -229,7 +228,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 String scriptId = prescription.saveScript(loggedInInfo, bean);
                 @SuppressWarnings("unchecked")
                 ArrayList<String> attrib_names = bean.getAttributeNames();
-                // p("attrib_names", attrib_names.toString());
                 StringBuilder auditStr = new StringBuilder();
                 for (i = 0; i < bean.getStashSize(); i++) {
                     rx = bean.getStashItem(i);
@@ -406,7 +404,6 @@ public final class RxWriteScript2Action extends ActionSupport {
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
             try {
                 today = dateFormat.format(calendar.getTime());
-                // p("today's date", today);
             } catch (Exception e) {
                 logger.error("Error", e);
             }
@@ -499,7 +496,6 @@ public final class RxWriteScript2Action extends ActionSupport {
             SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
             try {
                 today = dateFormat.format(calendar.getTime());
-                // p("today's date", today);
             } catch (Exception e) {
                 logger.error("Error", e);
             }
@@ -546,7 +542,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                 bean.setStashItem(bean.getIndexFromRx(Integer.parseInt(randomId)), customRx);
                 List<RxPrescriptionData.Prescription> listRxDrugs = new ArrayList();
                 if (RxUtil.isRxUniqueInStash(bean, customRx)) {
-                    // p("unique");
                     listRxDrugs.add(customRx);
                 }
                 request.setAttribute("listRxDrugs", listRxDrugs);
@@ -854,7 +849,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                         nDays = RxUtil.findNDays(durationUnit);
                         if (RxUtil.isStringToNumber(quantity) && !rx.isDurationSpecifiedByUser()) {// don't not caculate duration if it's already specified by the user
                             double qtyD = Double.parseDouble(quantity);
-                            // quantity=takeMax * nDays * duration * nPerDay
                             double durD = qtyD / ((Double.parseDouble(takeMax)) * nPerDay * nDays);
                             int durI = (int) durD;
                             rx.setDuration(Integer.toString(durI));
@@ -863,7 +857,6 @@ public final class RxWriteScript2Action extends ActionSupport {
                         }
                         rx.setDurationUnit(durationUnit);
                     }
-                    // duration=quantity divide by no. of pills per duration period.
                     // if not, recalculate duration based on frequency if frequency is not empty
                     // if there is already a duration uni present, use that duration unit. if not, set duration unit to days, and output duration in days
                 }

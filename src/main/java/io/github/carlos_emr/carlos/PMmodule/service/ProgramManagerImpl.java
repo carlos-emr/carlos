@@ -385,11 +385,6 @@ public class ProgramManagerImpl implements ProgramManager {
             pList.add(new LabelValueBean(program.getName(), program.getId().toString()));
         }
         return pList;
-        /*
-         * Iterator iter = programProviderDAOT.getProgramProvidersByProvider(new Long(providerNo)).iterator(); ArrayList pList = new ArrayList(); while (iter.hasNext()) { ProgramProvider p = (ProgramProvider) iter.next(); if (p!=null && p.getProgramId() !=
-         * null && p.getProgramId().longValue()>0){ //logger.debug("programName="+p.getProgram().getName()+"::"+"programId="+p.getProgram().getId().toString()); Program program = programDao.getProgram(new Integer(p.getProgramId().intValue()));
-         * pList.add(new LabelValueBean(program.getName(),program.getId().toString())); } } return pList;
-         */
     }
 
     public List<DefaultRoleAccess> getDefaultRoleAccesses() {

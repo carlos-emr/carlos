@@ -332,19 +332,6 @@ public class PhsStarHandler extends BasePhsStarHandler {
         logger.info("resource unit = " + getApptResourceUnit());
         logger.info("procedure = " + getProcedureName());
 
-        //String programId = findProgram(getApptResourceUnit(),getProcedureName());
-		/*
-		String programId = findProgram2();
-		Program p = null;
-		if(programId != null) {
-			p = programDao.getProgram(Integer.parseInt(programId));
-			if(p != null) {
-				appt.setProgramId(p.getId());
-			} else {
-				throw new HL7Exception("System not configured to accept messages for runit " + getApptResourceUnit());
-			}
-		}
-		*/
 
         //TODO: fix the bug in schedule
         appt.setProgramId(0);
@@ -354,10 +341,6 @@ public class PhsStarHandler extends BasePhsStarHandler {
         appt.setResources("");
         appt.setStatus("t");
 
-        //if(appointmentDao.checkForConflict(appt)) {
-        //	logger.error("Conflict");
-        //	throw new HL7Exception("Unable to schedule this appointment due to conflict");
-        //}
 
         //save it
         appointmentDao.persist(appt);
@@ -379,16 +362,6 @@ public class PhsStarHandler extends BasePhsStarHandler {
             OtherIdManager.saveIdAppointment(appt.getId(), "AN", an.getId());
         }
 
-		/*
-		//admit if necessary
-		if(p != null && p.getId()>0) {
-			//check to see if they are admitted to program already
-			if(admissionDao.getCurrentAdmission(p.getId(), demographicNo) == null) {
-				logger.info("need to do admission");
-				doAdmit(demographic,p,"000001");
-			}
-		}
-		*/
 
     }
 
@@ -467,7 +440,6 @@ public class PhsStarHandler extends BasePhsStarHandler {
 
         logger.info("resource unit = " + getApptResourceUnit());
         logger.info("procedure = " + getProcedureName());
-//		String programId = findProgram(getApptResourceUnit(),getProcedureName());
         String programId = findProgram2();
         Program p = null;
         if (programId != null) {
@@ -481,11 +453,6 @@ public class PhsStarHandler extends BasePhsStarHandler {
         //TODO: fix the bug in schedule
         appt.setProgramId(0);
 
-
-        //if(appointmentDao.checkForConflict(appt)) {
-        //	logger.error("Conflict");
-        //	throw new HL7Exception("Unable to schedule this appointment due to conflict");
-        //}
 
         appointmentDao.merge(appt);
 
@@ -626,7 +593,6 @@ public class PhsStarHandler extends BasePhsStarHandler {
         String active = this.extractOrEmpty("/MF_STAFF/STF-7"); //eg. 'A' or 'I'
 
         //repetition
-        //(905)555-1212X1234^WPN^PH^^^905^5551212^1234
         //[NNN] [(999)]999-9999 [X99999] [B99999] [C any text] ^ <telecommunication use code (ID)> ^ <telecommunication equipment type (ID)> ^ <email address (ST)> ^ <county code (NM)> ^ <area/city code (NM)> ^ <phone number (NM) ^ <extension (NM)> ^ <any text (st)>
         String phone = null;
         String fax = null;
@@ -659,12 +625,10 @@ public class PhsStarHandler extends BasePhsStarHandler {
 
         //practitioner - do we need this?
         String praPractId = this.extractOrEmpty("/MF_STAFF/PRA-1-1"); //should be same as pract_id
-        //specialty = 1&FAMILY PRACTITIONER&99H62&1&FAMILY PRACTITIONER&99SPC
         String praSpecialty = this.extractOrEmpty("/MF_STAFF/PRA-5-1-2"); //should be same as pract_id
 
         logger.info("need to do a providers add/update for id " + practId);
 
-        //logger.info("mfId="+mfId);
         ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
         ProfessionalSpecialist specialist = null;
         specialist = professionalSpecialistDao.getByReferralNo(practId);
@@ -800,7 +764,6 @@ public class PhsStarHandler extends BasePhsStarHandler {
             updateDemographic(demographicNo);
             updateAppointmentAccountNumber();
             updateAppointmentStatus("H");
-            //updatePrimaryPhysician(demographicNo);
             String programId = findProgram2();
             Program pp = null;
             if (programId != null) {
@@ -1216,9 +1179,6 @@ public class PhsStarHandler extends BasePhsStarHandler {
     }
 
     private String findProgram2() {
-        //service = pv1-10
-        //patient_type = pv1-18
-        //location= pv2-23-3
         String service = null;
         String patientType = null;
         String location = null;

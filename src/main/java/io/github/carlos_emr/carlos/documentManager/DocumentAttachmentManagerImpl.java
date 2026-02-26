@@ -84,10 +84,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
-    // @Autowired
-    // public void setEformDataManager(EformDataManager eformDataManager) {
     //     this.eformDataManager = eformDataManager;
-    // }
 
     /**
      * Retrieves a list of document IDs attached to a specific consultation request.
@@ -226,11 +223,6 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
 
             AttachmentLabResultData attachmentLabResultData = new AttachmentLabResultData(lab.getSegmentID(), getDisplayLabName(lab), lab.getDateObj());
 
-            /*
-             * Then, if, for example, I pass lab ID 1, it will give all its related labs in the correct version order.
-             * By 'correct order,' I mean it will return this array [7, 9, 8, 1, 6].
-             * This array will be in version order, where the first is the oldest and the last is the latest.
-             */
             String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
 
 
@@ -243,10 +235,6 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                     attachmentLabResultData.getLabVersionIds().put(versionLab.getSegmentID(), DateUtils.formatDate(versionLab.getDateObj(), null));
                 }
 
-                /*
-                 * Then, I add those version labs (7, 9, and 8) into the 'allLabVersionIds' array so that they can be skipped.
-                 * At the start of the for loop, I use `if (allLabVersionIds.contains(lab.getSegmentID())) { continue; }` to ensure that labs already included in 'allLabVersionIds' are skipped during the iteration.
-                 */
                 allLabVersionIds.add(matchingLabIds[i]);
             }
             allLabsSortedByVersions.add(attachmentLabResultData);

@@ -53,7 +53,6 @@ import org.springframework.stereotype.Service;
  * @author Marc Dumontier
  */
 @Service
-//@Transactional
 public class EFormReportToolManagerImpl implements EFormReportToolManager {
 
     private Logger logger = MiscUtils.getLogger();
@@ -70,7 +69,6 @@ public class EFormReportToolManagerImpl implements EFormReportToolManager {
     private SecurityInfoManager securityInfoManager;
 
     //@PersistenceContext
-    //protected EntityManager entityManager = null;
 
 
     public List<EFormReportTool> findAll(LoggedInInfo loggedInInfo, Integer offset, Integer limit) {

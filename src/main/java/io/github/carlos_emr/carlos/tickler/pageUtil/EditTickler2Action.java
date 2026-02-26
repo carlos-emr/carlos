@@ -103,9 +103,6 @@ public class EditTickler2Action extends ActionSupport {
         boolean isComment = false;
         String newMessage = request.getParameter("newMessage");
 
-        /*
-         * Create a new TicklerComment
-         */
         if (newMessage != null && !newMessage.isEmpty()) {
 
             TicklerComment tc = new TicklerComment();
@@ -119,9 +116,6 @@ public class EditTickler2Action extends ActionSupport {
             isComment = true;
         }
 
-        /*
-         * Create a new TicklerUpdate
-         */
         //back fill the original state of the tickler so we don't lose it  
         TicklerUpdate tuOriginal = new TicklerUpdate();
 

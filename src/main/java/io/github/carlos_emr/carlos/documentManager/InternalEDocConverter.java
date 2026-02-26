@@ -31,7 +31,6 @@ public class InternalEDocConverter implements EDocConverterInterface {
             put("load.blockLocalFileAccess", "false");
             put("web.enableIntelligentShrinking", "true");
             put("web.minimumFontSize", "10");
-            // put("load.zoomFactor", "0.92");
             put("web.printMediaType", "true");
             put("web.defaultEncoding", "utf-8");
             put("T", "10mm");

@@ -95,7 +95,6 @@ public class Startup implements ServletContextListener {
                 logger.info(propFileName + " not found");
             }
             if (p.isEmpty()) {
-                /* if the file not found in the user root, look in the WEB-INF directory */
                 try {
                     logger.info("looking up  /WEB-INF/" + propName);
                     p.readFromFile("/WEB-INF/" + propName);
