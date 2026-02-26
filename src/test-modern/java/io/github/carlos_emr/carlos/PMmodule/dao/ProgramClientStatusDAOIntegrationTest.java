@@ -33,6 +33,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.orm.hibernate5.HibernateTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -55,6 +58,9 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private HibernateTemplate hibernateTemplate;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private Integer testProgramId1;
     private Integer testProgramId2;
@@ -153,6 +159,358 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
             ProgramClientStatus result = programClientStatusDAO.getProgramClientStatus(String.valueOf(testStatusId1));
             assertThat(result).isNotNull();
             assertThat(result.getName()).isEqualTo("Active");
+        }
+    }
+
+    /**
+     * Tests for {@code saveProgramClientStatus(ProgramClientStatus)} - persist and update operations.
+     */
+    @Nested
+    @DisplayName("saveProgramClientStatus")
+    class SaveProgramClientStatus {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist new client status and assign ID")
+        void shouldPersistNewClientStatus_withGeneratedId() {
+            // Given
+            ProgramClientStatus status = new ProgramClientStatus();
+            status.setProgramId(testProgramId2);
+            status.setName("Discharged");
+
+            // When
+            programClientStatusDAO.saveProgramClientStatus(status);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(status.getId()).isNotNull();
+            assertThat(status.getId()).isGreaterThan(0);
+
+            ProgramClientStatus found = programClientStatusDAO.getProgramClientStatus(
+                String.valueOf(status.getId()));
+            assertThat(found).isNotNull();
+            assertThat(found.getName()).isEqualTo("Discharged");
+            assertThat(found.getProgramId()).isEqualTo(testProgramId2);
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update existing client status name")
+        void shouldUpdateExistingClientStatusName() {
+            // Given
+            ProgramClientStatus status = createClientStatus(testProgramId1, "Temporary");
+            hibernateTemplate.flush();
+            Integer savedId = status.getId();
+
+            // When
+            status.setName("Updated");
+            programClientStatusDAO.saveProgramClientStatus(status);
+            hibernateTemplate.flush();
+
+            // Then
+            ProgramClientStatus updated = programClientStatusDAO.getProgramClientStatus(
+                String.valueOf(savedId));
+            assertThat(updated).isNotNull();
+            assertThat(updated.getName()).isEqualTo("Updated");
+        }
+    }
+
+    /**
+     * Tests for {@code deleteProgramClientStatus(String id)} - deletes a client status record.
+     */
+    @Nested
+    @DisplayName("deleteProgramClientStatus")
+    class DeleteProgramClientStatus {
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete client status when valid ID is provided")
+        void shouldDeleteClientStatus_whenValidIdProvided() {
+            // Given
+            ProgramClientStatus toDelete = createClientStatus(testProgramId1, "ToDelete");
+            hibernateTemplate.flush();
+            String deleteId = String.valueOf(toDelete.getId());
+
+            // Verify it exists
+            assertThat(programClientStatusDAO.getProgramClientStatus(deleteId)).isNotNull();
+
+            // When
+            programClientStatusDAO.deleteProgramClientStatus(deleteId);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(programClientStatusDAO.getProgramClientStatus(deleteId)).isNull();
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should throw exception for null ID")
+        void shouldThrow_whenIdIsNull() {
+            assertThatThrownBy(() -> programClientStatusDAO.deleteProgramClientStatus(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    /**
+     * Tests for {@code clientStatusNameExists(Integer programId, String statusName)} - checks
+     * whether a status name already exists for a given program. Uses native Hibernate Session
+     * with positional parameters.
+     *
+     * <p>NOTE: This method calls {@code sessionFactory.getCurrentSession()} and closes the session
+     * after query execution. In a {@code @Transactional} test, this closes the Spring-managed
+     * session, which may prevent further Hibernate operations in the same test.</p>
+     */
+    @Nested
+    @DisplayName("clientStatusNameExists")
+    class ClientStatusNameExists {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return true when status name exists for program")
+        void shouldReturnTrue_whenStatusNameExists() {
+            // Given - setUp already created "Active" for testProgramId1
+            hibernateTemplate.flush();
+
+            // When
+            boolean exists = programClientStatusDAO.clientStatusNameExists(
+                testProgramId1, "Active");
+
+            // Then
+            assertThat(exists).isTrue();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return false when status name does not exist for program")
+        void shouldReturnFalse_whenStatusNameDoesNotExist() {
+            // Given
+            hibernateTemplate.flush();
+
+            // When
+            boolean exists = programClientStatusDAO.clientStatusNameExists(
+                testProgramId1, "NonExistent");
+
+            // Then
+            assertThat(exists).isFalse();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return false when program ID does not match")
+        void shouldReturnFalse_whenProgramIdDoesNotMatch() {
+            // Given
+            hibernateTemplate.flush();
+
+            // When - Use a programId that has no statuses
+            boolean exists = programClientStatusDAO.clientStatusNameExists(
+                99999, "Active");
+
+            // Then
+            assertThat(exists).isFalse();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception for null program ID")
+        void shouldThrow_whenProgramIdIsNull() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(
+                null, "Active"))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception for null status name")
+        void shouldThrow_whenStatusNameIsNull() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(
+                testProgramId1, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception for empty status name")
+        void shouldThrow_whenStatusNameIsEmpty() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(
+                testProgramId1, ""))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception for zero or negative program ID")
+        void shouldThrow_whenProgramIdIsZeroOrNegative() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(
+                0, "Active"))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    /**
+     * Tests for {@code getAllClientsInStatus(Integer programId, Integer statusId)} - queries
+     * Admission entities filtered by programId, teamId (mapped from statusId), and
+     * admissionStatus='current'.
+     *
+     * <p>NOTE: The Admission entity has {@code @ManyToOne(fetch = EAGER)} relationships to
+     * Program, ProgramTeam, ProgramClientStatus, and Demographic. A {@code @PostLoad} callback
+     * calls {@code program.getName()} and {@code program.getType()}, requiring a valid
+     * Program parent record.</p>
+     */
+    @Nested
+    @DisplayName("getAllClientsInStatus (enabled)")
+    class GetAllClientsInStatusEnabled {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty when no admissions exist")
+        void shouldReturnEmpty_whenNoAdmissionsExist() {
+            // Given
+            hibernateTemplate.flush();
+
+            // When
+            List<Admission> results = programClientStatusDAO.getAllClientsInStatus(
+                testProgramId1, testStatusId1);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return admissions matching program and status")
+        void shouldReturnAdmissions_whenMatchingProgramAndStatus() {
+            // Given - Create required parent entities for Admission's eager relationships
+            int programIdForAdmission = testProgramId1;
+
+            // Insert a Program record via native SQL since Program is HBM-mapped
+            entityManager.createNativeQuery(
+                "INSERT INTO program (id, name, type) VALUES (?1, ?2, ?3)")
+                .setParameter(1, programIdForAdmission)
+                .setParameter(2, "TestProg")
+                .setParameter(3, "community")
+                .executeUpdate();
+
+            // Insert a Demographic record for the client_id FK
+            entityManager.createNativeQuery(
+                "INSERT INTO demographic (demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, patient_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+                .setParameter(1, 7777)
+                .setParameter(2, "TestLast")
+                .setParameter(3, "TestFirst")
+                .setParameter(4, "M")
+                .setParameter(5, "1990")
+                .setParameter(6, "01")
+                .setParameter(7, "15")
+                .setParameter(8, "AC")
+                .executeUpdate();
+
+            entityManager.flush();
+
+            // Create an Admission with status='current' matching our program and status(teamId)
+            Admission admission = new Admission();
+            admission.setProgramId(programIdForAdmission);
+            admission.setTeamId(testStatusId1);
+            admission.setAdmissionStatus("current");
+            admission.setProviderNo("999");
+            admission.setClientId(7777);
+            admission.setAdmissionDate(new Date());
+            entityManager.persist(admission);
+            entityManager.flush();
+
+            // When
+            List<Admission> results = programClientStatusDAO.getAllClientsInStatus(
+                programIdForAdmission, testStatusId1);
+
+            // Then
+            assertThat(results)
+                .hasSize(1)
+                .first()
+                .satisfies(a -> {
+                    assertThat(a.getProgramId()).isEqualTo(programIdForAdmission);
+                    assertThat(a.getTeamId()).isEqualTo(testStatusId1);
+                    assertThat(a.getAdmissionStatus()).isEqualTo("current");
+                });
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should not return discharged admissions")
+        void shouldNotReturnDischarged_whenStatusIsDischarged() {
+            // Given - Create parent records
+            int programIdForAdmission = testProgramId2;
+            entityManager.createNativeQuery(
+                "INSERT INTO program (id, name, type) VALUES (?1, ?2, ?3)")
+                .setParameter(1, programIdForAdmission)
+                .setParameter(2, "TestProg2")
+                .setParameter(3, "community")
+                .executeUpdate();
+
+            entityManager.createNativeQuery(
+                "INSERT INTO demographic (demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, patient_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+                .setParameter(1, 7778)
+                .setParameter(2, "Discharged")
+                .setParameter(3, "Patient")
+                .setParameter(4, "F")
+                .setParameter(5, "1985")
+                .setParameter(6, "06")
+                .setParameter(7, "20")
+                .setParameter(8, "AC")
+                .executeUpdate();
+
+            entityManager.flush();
+
+            // Create a discharged admission (should NOT be returned)
+            Admission discharged = new Admission();
+            discharged.setProgramId(programIdForAdmission);
+            discharged.setTeamId(testStatusId1);
+            discharged.setAdmissionStatus("discharged");
+            discharged.setProviderNo("999");
+            discharged.setClientId(7778);
+            discharged.setAdmissionDate(new Date());
+            entityManager.persist(discharged);
+            entityManager.flush();
+
+            // When
+            List<Admission> results = programClientStatusDAO.getAllClientsInStatus(
+                programIdForAdmission, testStatusId1);
+
+            // Then - discharged admissions should not be included
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception for null program ID")
+        void shouldThrow_whenProgramIdIsNull() {
+            assertThatThrownBy(() -> programClientStatusDAO.getAllClientsInStatus(
+                null, testStatusId1))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception for null status ID")
+        void shouldThrow_whenStatusIdIsNull() {
+            assertThatThrownBy(() -> programClientStatusDAO.getAllClientsInStatus(
+                testProgramId1, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception for zero or negative program ID")
+        void shouldThrow_whenProgramIdIsZeroOrNegative() {
+            assertThatThrownBy(() -> programClientStatusDAO.getAllClientsInStatus(
+                0, testStatusId1))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception for zero or negative status ID")
+        void shouldThrow_whenStatusIdIsZeroOrNegative() {
+            assertThatThrownBy(() -> programClientStatusDAO.getAllClientsInStatus(
+                testProgramId1, 0))
+                .isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

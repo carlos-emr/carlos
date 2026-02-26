@@ -24,7 +24,6 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
