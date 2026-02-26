@@ -633,7 +633,7 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
         if (!results1.isEmpty() && !results2.isEmpty()) {
             LstOrgcd orgObj1 = results1.get(0);
             LstOrgcd orgObj2 = results2.get(0);
-            if (orgObj2.getFullcode().indexOf(orgObj1.getFullcode()) > 0)
+            if (orgObj2.getFullcode().indexOf(orgObj1.getFullcode()) >= 0)
                 isInString = true;
         }
         return isInString;

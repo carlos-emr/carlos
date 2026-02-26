@@ -32,6 +32,7 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -218,6 +219,7 @@ public class SecobjprivilegeDaoImpl extends HibernateDaoSupport implements Secob
 
     @Override
     public List<Secobjprivilege> getByRoles(List<String> roles) {
+        if (roles == null || roles.isEmpty()) return Collections.emptyList();
         String hql = "from Secobjprivilege obj where obj.roleusergroup IN (:roles)";
         Map<String, Object> params = new HashMap<>();
         params.put("roles", roles);
