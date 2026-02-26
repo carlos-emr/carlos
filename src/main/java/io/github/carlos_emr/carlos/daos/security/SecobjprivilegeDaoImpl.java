@@ -39,12 +39,14 @@ import java.util.Map;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
 
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class SecobjprivilegeDaoImpl extends HibernateDaoSupport implements SecobjprivilegeDao {
 
     private Logger logger = MiscUtils.getLogger();
@@ -95,6 +97,11 @@ public class SecobjprivilegeDaoImpl extends HibernateDaoSupport implements Secob
     @Override
     public int update(Secobjprivilege instance) {
         logger.debug("update Secobjprivilege instance");
+        // providerNo is nullable in the SET clause; null means new record — fall through to save()
+        if (instance.getProviderNo() == null) {
+            logger.debug("update Secobjprivilege: providerNo is null, routing to save()");
+            return 0;
+        }
         try {
             String queryString = "update Secobjprivilege as model set model.providerNo = ?1 where model.objectname_code = ?2 and model.privilege_code = ?3 and model.roleusergroup = ?4";
 

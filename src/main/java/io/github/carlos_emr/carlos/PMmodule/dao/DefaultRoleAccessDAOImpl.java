@@ -35,8 +35,10 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 @SuppressWarnings("unchecked")
 public class DefaultRoleAccessDAOImpl extends HibernateDaoSupport implements DefaultRoleAccessDAO {
 

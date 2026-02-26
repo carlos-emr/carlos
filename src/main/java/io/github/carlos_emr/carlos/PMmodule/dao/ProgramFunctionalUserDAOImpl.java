@@ -38,10 +38,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.FunctionalUserType;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramFunctionalUser;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements ProgramFunctionalUserDAO {
 
     private static Logger log = MiscUtils.getLogger();

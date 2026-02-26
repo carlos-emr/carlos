@@ -35,6 +35,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
@@ -42,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
  * But oh well, some one imports this class and tries to have it injected so I'll
  * leave the code here so it compiles. what ever...
  */
+@Transactional
 public class ProviderDAOImpl extends HibernateDaoSupport implements ProviderDAO {
 
     @SuppressWarnings("unchecked")

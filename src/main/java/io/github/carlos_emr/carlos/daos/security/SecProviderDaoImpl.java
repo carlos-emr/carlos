@@ -39,6 +39,7 @@ import org.hibernate.Session;
 import org.hibernate.criterion.Example;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
@@ -47,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
  * @author JZhang
  */
 
+@Transactional
 public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProviderDao {
     private static final Logger logger = MiscUtils.getLogger();
     // property constants

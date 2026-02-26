@@ -33,8 +33,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class UserAccessDaoImpl extends HibernateDaoSupport implements UserAccessDao {
 
     @SuppressWarnings("unchecked")

@@ -38,11 +38,13 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import org.springframework.beans.factory.annotation.Required;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
  *
  */
+@Transactional
 public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport implements ProgramClientRestrictionDAO {
     private DemographicDao demographicDao;
     private ProgramDao programDao;

@@ -37,13 +37,13 @@ import java.util.Calendar;
 import java.util.List;
 
 import io.github.carlos_emr.Misc;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.OscarProperties;
@@ -61,6 +61,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
 
     /*
@@ -592,10 +593,7 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
                     + "codecsv = replace(codecsv, :oldCsv, :newCsv) "
                     + "where codecsv like :oldCsvPattern";
 
-            // Session session = getSession();
-            Session session = sessionFactory.getCurrentSession();
-            try {
-                session.createSQLQuery(sql)
+            currentSession().createSQLQuery(sql)
                     .setParameter("oldFullCode", oldFullCode)
                     .setParameter("newFullCode", newFullCode)
                     .setParameter("oldTreeCode", oldTreeCode)
@@ -604,10 +602,6 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
                     .setParameter("newCsv", newCsv)
                     .setParameter("oldCsvPattern", oldCsv + "_%")
                     .executeUpdate();
-            } finally {
-                // this.releaseSession(session);
-                session.close();
-            }
 
         }
 

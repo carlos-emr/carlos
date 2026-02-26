@@ -38,8 +38,10 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramSignature;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class ProgramSignatureDaoImpl extends HibernateDaoSupport implements ProgramSignatureDao {
 
     private static final Logger log = MiscUtils.getLogger();

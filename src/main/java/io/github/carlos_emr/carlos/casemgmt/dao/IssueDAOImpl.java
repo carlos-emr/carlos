@@ -42,10 +42,12 @@ import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
     private static Logger logger = MiscUtils.getLogger();
 

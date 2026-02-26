@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class ProgramProviderDAOImpl extends HibernateDaoSupport implements ProgramProviderDAO {
 
     private Logger log = MiscUtils.getLogger();

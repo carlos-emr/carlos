@@ -37,8 +37,10 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class CaseManagementNoteExtDAOImpl extends HibernateDaoSupport implements CaseManagementNoteExtDAO {
 
     @Override

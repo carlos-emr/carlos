@@ -40,7 +40,9 @@ import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import org.springframework.transaction.annotation.Transactional;
 
+@Transactional
 public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements ProgramClientStatusDAO {
 
     private Logger log = MiscUtils.getLogger();

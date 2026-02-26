@@ -38,11 +38,13 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /*
  * Updated by Eugene Petruhin on 09 jan 2009 while fixing #2482832 & #2494061
  */
+@Transactional
 public class CaseManagementCPPDAOImpl extends HibernateDaoSupport implements CaseManagementCPPDAO {
 
     private Logger log = MiscUtils.getLogger();
