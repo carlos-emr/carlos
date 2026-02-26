@@ -827,7 +827,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             program.setId(100);
             program.setFacilityId(999);
             program.setName("Test Program");
-            program.setActive(true);
+            program.setProgramStatus("active");
             program.setLastUpdateUser("admin");
 
             // When/Then - GetCode returns null for the facility, causing NPE
