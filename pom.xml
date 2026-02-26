@@ -27,6 +27,8 @@
         <!-- SonarCloud -->
         <sonar.organization>carlos-emr</sonar.organization>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
+        <argLine></argLine>
         <!-- Log4j Version -->
         <log4j2.version>2.25.3</log4j2.version>
         <!-- Slf4j Version -->
