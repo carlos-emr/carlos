@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.consultations.ConsultationRequestSearchFilter;
 import io.github.carlos_emr.carlos.consultations.ConsultationResponseSearchFilter;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestSearchResult;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseSearchResult;
@@ -106,7 +106,7 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("manager")
 @Tag("consultation")
-public class ConsultationManagerUnitTest extends OpenOUnitTestBase {
+public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
 
     // --- DAO Mocks ---
     @Mock

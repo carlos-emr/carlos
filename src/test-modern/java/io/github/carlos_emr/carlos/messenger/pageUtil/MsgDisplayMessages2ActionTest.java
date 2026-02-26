@@ -26,7 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.MessageList;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.base.OpenOWebTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -49,7 +49,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("MsgDisplayMessages2Action Tests")
 @Tag("integration")
 @Tag("messenger")
-class MsgDisplayMessages2ActionTest extends OpenOWebTestBase {
+class MsgDisplayMessages2ActionTest extends CarlosWebTestBase {
 
     @Mock
     private ProviderManager2 mockProviderManager;

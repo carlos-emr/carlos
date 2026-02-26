@@ -21,7 +21,7 @@
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -71,7 +71,7 @@ import static org.assertj.core.api.Assertions.*;
  * </ul>
  *
  * <h3>Test Infrastructure</h3>
- * <p>Extends {@link OpenOTestBase} which provides Spring context initialization,
+ * <p>Extends {@link CarlosTestBase} which provides Spring context initialization,
  * SpringUtils anti-pattern handling, and automatic transaction rollback. The
  * {@link Transactional} annotation on this class ensures each test runs in its own
  * transaction that is rolled back after completion, preventing test data leakage
@@ -86,14 +86,14 @@ import static org.assertj.core.api.Assertions.*;
  * @see CaseManagementCPPDAO
  * @see CaseManagementCPPDAOImpl
  * @see CaseManagementCPP
- * @see OpenOTestBase
+ * @see CarlosTestBase
  */
 @DisplayName("CaseManagementCPPDAO Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("casemgmt")
 @Transactional
-public class CaseManagementCPPDAOIntegrationTest extends OpenOTestBase {
+public class CaseManagementCPPDAOIntegrationTest extends CarlosTestBase {
 
     /**
      * The DAO under test, injected by Spring using the bean name

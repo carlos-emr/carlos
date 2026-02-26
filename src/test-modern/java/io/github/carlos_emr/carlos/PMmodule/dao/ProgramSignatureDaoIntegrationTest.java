@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramSignature;
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -73,7 +73,7 @@ import static org.assertj.core.api.Assertions.*;
  * </ul>
  *
  * <h3>Test Infrastructure</h3>
- * <p>Extends {@link OpenOTestBase} which provides the Spring context, H2 in-memory
+ * <p>Extends {@link CarlosTestBase} which provides the Spring context, H2 in-memory
  * database, and Hibernate session/transaction management. The {@code @Transactional}
  * annotation ensures each test runs within a transaction that is rolled back after
  * completion, preventing test data from leaking between tests.</p>
@@ -88,7 +88,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class ProgramSignatureDaoIntegrationTest extends OpenOTestBase {
+public class ProgramSignatureDaoIntegrationTest extends CarlosTestBase {
 
     /**
      * The DAO under test. Injected by Spring from the test application context.

@@ -26,7 +26,7 @@ import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage;
-import io.github.carlos_emr.carlos.test.base.OpenOWebTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -49,7 +49,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("MsgViewMessage2Action Tests")
 @Tag("integration")
 @Tag("messenger")
-class MsgViewMessage2ActionTest extends OpenOWebTestBase {
+class MsgViewMessage2ActionTest extends CarlosWebTestBase {
 
     @Mock
     private MessagingManager mockMessagingManager;

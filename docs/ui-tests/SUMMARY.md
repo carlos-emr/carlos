@@ -94,7 +94,7 @@ All screenshots successfully captured with proper fonts rendering:
 
 ### 1. Authentication Flow ✅
 - ✅ Login page loads with all form fields
-- ✅ Valid credentials accepted (openodoc / openo2025 / 2025)
+- ✅ Valid credentials accepted (carlosdoc / carlos2026 / 2026)
 - ✅ Successful redirect to provider dashboard
 - ✅ Session persists across navigation
 
@@ -102,7 +102,7 @@ All screenshots successfully captured with proper fonts rendering:
 - ✅ Navigation menu rendered (Schedule, Caseload, Resources, Search, Report, Billing, Inbox, Msg, Consultations, eDoc, Tickler, Administration, Help)
 - ✅ Appointment schedule displayed for current date (2026-01-16)
 - ✅ Provider selector showing multiple providers
-- ✅ User information displayed: "doctor openodoc"
+- ✅ User information displayed: "doctor carlosdoc"
 
 ### 3. Patient Search with Two Demographics ✅
 - ✅ Search page loads successfully
@@ -172,9 +172,9 @@ All screenshots successfully captured with proper fonts rendering:
 - **Test Framework**: Playwright MCP Server
 
 ### Test Credentials
-- **Username**: openodoc
-- **Password**: openo2025
-- **PIN**: 2025
+- **Username**: carlosdoc
+- **Password**: carlos2026
+- **PIN**: 2026
 - **Provider No**: 999998
 
 ### Test Data (Quick Test 1)

@@ -23,7 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -45,7 +45,7 @@ import java.lang.reflect.Method;
 @Tag("fax")
 @Tag("srfax")
 @DisplayName("SRFaxProviderClient Credential Validation Tests")
-class SRFaxProviderClientValidationTest extends OpenOUnitTestBase {
+class SRFaxProviderClientValidationTest extends CarlosUnitTestBase {
 
     private SRFaxProviderClient client;
     private Method validateCredentialsMethod;

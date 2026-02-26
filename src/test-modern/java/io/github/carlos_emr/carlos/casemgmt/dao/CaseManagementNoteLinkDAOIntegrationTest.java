@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -50,7 +50,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("casemgmt")
 @Transactional
-public class CaseManagementNoteLinkDAOIntegrationTest extends OpenOTestBase {
+public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     @Qualifier("CaseManagementNoteLinkDAO")

@@ -32,10 +32,10 @@
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <% java.util.Properties oscarVariables = OscarProperties.getInstance(); %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
-
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -50,126 +50,84 @@
         return;
     }
 %>
+<%
+    ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
+
+    String transactionType = new String(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.AddDepartment.addOperation"));
+    String id = null;
+    int whichType = 1;
+    if (request.getAttribute("upd") != null) {
+        transactionType = new String(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.AddDepartment.updateOperation"));
+        whichType = 2;
+        id = (String) request.getAttribute("id");
+    }
+%>
+<fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
 <html>
-
-    <%
-        ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
-
-        String transactionType = new String(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.AddDepartment.addOperation"));
-        String id = null;
-        int whichType = 1;
-        if (request.getAttribute("upd") != null) {
-            transactionType = new String(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.AddDepartment.updateOperation"));
-            whichType = 2;
-            id = (String) request.getAttribute("id");
-        }
-    %>
-
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><%=transactionType%>
-        </title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><%=transactionType%></title>
     </head>
-    <script language="javascript">
-        function BackToOscar() {
-            window.close();
-        }
-    </script>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
-    <body class="BodyStyle" vlink="#0000FF">
+    <body>
+    <div class="container-fluid">
+        <div class="page-header-bar">
+            <h5 class="page-header-title"><%=transactionType%></h5>
+        </div>
 
-    <% 
+<%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
+        <div class="action-errors">
+            <ul>
+                <% for (String error : actionErrors) { %>
+                    <li><%= Encode.forHtml(error) %></li>
+                <% } %>
+            </ul>
+        </div>
 <% } %>
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Consultation</td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td class="Header"><%=transactionType%>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr style="vertical-align: top">
-            <td class="MainTableLeftColumn">
+
+        <div class="row">
+            <div class="col-md-3 consult-sidebar">
                 <%
                     EctConTitlebar titlebar = new EctConTitlebar(request);
                     out.print(titlebar.estBar(request));
                 %>
-            </td>
-            <td class="MainTableRightColumn">
-                <table cellpadding="0" cellspacing="2"
-                       style="border-collapse: collapse" bordercolor="#111111" width="100%"
-                       height="100%">
+            </div>
 
-                    <!----Start new rows here-->
-                    <%
-                        String added = (String) request.getAttribute("Added");
-                        if (added != null) { %>
-                    <tr>
-                        <td style="color: red;">
-                            <fmt:setBundle basename="oscarResources"/>
-                            <fmt:message  key="oscarEncounter.oscarConsultationRequest.config.AddDepartment.msgDepartmentAdded">
-                                <fmt:param value="<%=added%>" />
-                            </fmt:message>
-                        </td>
-                    </tr>
-                    <%}%>
-                    <tr>
-                        <td>
+            <div class="col-md-9">
+                <%
+                    String added = (String) request.getAttribute("Added");
+                    if (added != null) {
+                %>
+                <div class="alert alert-success">
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddDepartment.msgDepartmentAdded">
+                        <fmt:param value="<%=added%>" />
+                    </fmt:message>
+                </div>
+                <% } %>
 
-                            <form action="${pageContext.request.contextPath}/oscarEncounter/AddDepartment.do" method="post">
-                            <table>
-                                    <input type="hidden" name="id" id="id" value="<%=id%>"/>
-                                <tr>
-                                    <td>Name</td>
-                                    <td><input type="text" name="name"/></td>
-                                </tr>
-
-                                <td>Annotation
-                                </td>
-                                <td colspan="4"><textarea name="annotation" cols="30" rows="3"></textarea>
-                                </td>
-                    </tr>
-
-                    <tr>
-                        <td colspan="6">
-                            <input type="hidden" name="whichType" value="<%=whichType%>"/>
-                            <input type="submit" name="transType" value="<%=transactionType%>"/>
-                        </td>
-                    </tr>
-                </table>
+                <form action="${pageContext.request.contextPath}/oscarEncounter/AddDepartment.do" method="post">
+                    <input type="hidden" name="id" id="id" value="<%= id != null ? id : "" %>"/>
+                    <div class="row mb-3">
+                        <div class="col-md-5">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" name="name" id="name" class="form-control" value="<e:forHtmlAttribute value='${name}'/>"/>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="annotation" class="form-label">Annotation</label>
+                            <textarea name="annotation" id="annotation" class="form-control" rows="3"><e:forHtmlContent value='${annotation}'/></textarea>
+                        </div>
+                    </div>
+                    <input type="hidden" name="whichType" value="<%=whichType%>"/>
+                    <input type="submit" class="btn btn-primary" name="transType" value="<%=transactionType%>"/>
                 </form>
-            </td>
-        </tr>
-        <!----End new rows here-->
-
-        <tr height="100%">
-            <td></td>
-        </tr>
-    </table>
-    </td>
-    </tr>
-    <tr>
-        <td class="MainTableBottomRowLeftColumn"></td>
-        <td class="MainTableBottomRowRightColumn"></td>
-    </tr>
-    </table>
+            </div>
+        </div>
+    </div>
     </body>
 </html>

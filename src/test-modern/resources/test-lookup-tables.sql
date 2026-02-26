@@ -125,3 +125,54 @@ CREATE TABLE IF NOT EXISTS program (
     facilityId INT,
     description VARCHAR(255)
 );
+
+-- lst_field_category table (referenced by LookupTableDefValue.hbm.xml formula:
+-- "select t.description from lst_field_category t where t.id=moduleId")
+CREATE TABLE IF NOT EXISTS lst_field_category (
+    id VARCHAR(10) NOT NULL PRIMARY KEY,
+    description VARCHAR(255)
+);
+
+-- lst_orgcd table (mapped by LstOrgcd.hbm.xml)
+-- Created here instead of via hbm2ddl because the HBM uses generator class="native"
+-- on a String-typed ID, which is incompatible with H2 DDL generation.
+CREATE TABLE IF NOT EXISTS lst_orgcd (
+    code VARCHAR(8) NOT NULL PRIMARY KEY,
+    description VARCHAR(240),
+    activeyn INT,
+    orderbyindex INT,
+    codetree VARCHAR(80),
+    fullCode VARCHAR(80),
+    codeCsv VARCHAR(80)
+);
+
+-- app_lookuptable table (mapped by LookupTableDefValue.hbm.xml)
+-- Created here instead of via hbm2ddl because the HBM uses generator class="native"
+-- on a String-typed ID, which is incompatible with H2 DDL generation.
+CREATE TABLE IF NOT EXISTS app_lookuptable (
+    tableId VARCHAR(20) NOT NULL PRIMARY KEY,
+    table_name VARCHAR(255),
+    description VARCHAR(255),
+    activeyn BOOLEAN DEFAULT TRUE,
+    readonly BOOLEAN DEFAULT FALSE,
+    istree BOOLEAN DEFAULT FALSE,
+    treecode_length INT DEFAULT 0,
+    moduleid VARCHAR(10)
+);
+
+-- app_lookuptable_fields table (mapped by FieldDefValue.hbm.xml)
+CREATE TABLE IF NOT EXISTS app_lookuptable_fields (
+    tableid VARCHAR(20) NOT NULL,
+    fieldname VARCHAR(100) NOT NULL,
+    fielddesc VARCHAR(255),
+    fieldtype VARCHAR(10),
+    edityn BOOLEAN DEFAULT TRUE,
+    lookuptable VARCHAR(20),
+    fieldsql VARCHAR(255),
+    fieldindex INT,
+    autoyn BOOLEAN DEFAULT FALSE,
+    uniqueyn BOOLEAN DEFAULT FALSE,
+    genericidx INT,
+    fieldlength INT,
+    PRIMARY KEY (tableid, fieldname)
+);

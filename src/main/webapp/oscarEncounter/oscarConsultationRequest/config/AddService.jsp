@@ -29,12 +29,10 @@
 
 --%>
 
-<%@ page import="java.util.ResourceBundle" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -50,106 +48,76 @@
     }
 %>
 <fmt:setBundle basename="oscarResources"/>
+<!DOCTYPE html>
 <html>
-
-
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.title"/>
-        </title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.title"/></title>
+        <script>
+            function checkServiceName() {
+                var service = document.forms[0].service;
+                if (service.value.trim() == "") {
+                    alert("<fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.serviceNameEmpty"/>");
+                    service.focus();
+                    return false;
+                } else return true;
+            }
+        </script>
     </head>
-    <script language="javascript">
-        function BackToOscar() {
-            window.close();
-        }
 
-        function checkServiceName() {
-            var service = document.forms[0].service;
-            if (service.value.trim() == "") {
-                alert("<fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.serviceNameEmpty"/>");
-                service.focus();
-                return false;
-            } else return true;
-        }
-    </script>
+    <body>
+    <div class="container-fluid">
+        <div class="page-header-bar">
+            <h5 class="page-header-title">
+                <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.title"/>
+            </h5>
+        </div>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
-    <body class="BodyStyle" vlink="#0000FF">
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Consultation</td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td class="Header"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.title"/>
-                        </td>
-                        <td></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr style="vertical-align: top">
-            <td class="MainTableLeftColumn">
+<%
+    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
+    if (actionErrors != null && !actionErrors.isEmpty()) {
+%>
+        <div class="action-errors">
+            <ul>
+                <% for (String error : actionErrors) { %>
+                    <li><%= Encode.forHtml(error) %></li>
+                <% } %>
+            </ul>
+        </div>
+<% } %>
+
+        <div class="row">
+            <div class="col-md-3 consult-sidebar">
                 <%
                     EctConTitlebar titlebar = new EctConTitlebar(request);
                     out.print(titlebar.estBar(request));
                 %>
-            </td>
-            <td class="MainTableRightColumn">
-                <table cellpadding="0" cellspacing="2"
-                       style="border-collapse: collapse" bordercolor="#111111" width="100%"
-                       height="100%">
+            </div>
 
-                    <!----Start new rows here-->
+            <div class="col-md-9">
+                <%
+                    String added = (String) request.getAttribute("SERVADD");
+                    if (added != null) {
+                %>
+                <div class="alert alert-success">
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.msgServiceAdded">
+                        <fmt:param value="<%=added%>" />
+                    </fmt:message>
+                </div>
+                <% } %>
 
-                    <tr>
-                        <td></td>
-                    </tr>
-                    <%
-                        String added = (String) request.getAttribute("SERVADD");
-                        if (added != null) { %>
-                    <tr>
-                        <td style="color:red">
-                            <fmt:message  key="oscarEncounter.oscarConsultationRequest.config.AddDepartment.msgDepartmentAdded">
-                                <fmt:param value="<%=added%>" />
-                            </fmt:message>
-                        </td>
-                    </tr>
-                    <%}%>
-                    <tr>
-                        <td>
-
-                            <table>
-                                <form action="${pageContext.request.contextPath}/oscarEncounter/AddService.do" method="post" onsubmit="return checkServiceName();">
-                                    <tr>
-                                        <td><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.service"/>
-                                        </td>
-                                        <td><input type="text" name="service"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td colspan="2"><input type="submit"
-                                                               value="<fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.btnAddService"/>"/>
-                                        </td>
-                                    </tr>
-                                </form>
-                            </table>
-                        </td>
-                    </tr>
-                    <!----End new rows here-->
-
-                    <tr height="100%">
-                        <td></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+                <form action="${pageContext.request.contextPath}/oscarEncounter/AddService.do" method="post" onsubmit="return checkServiceName();">
+                    <div class="row mb-3">
+                        <div class="col-md-5">
+                            <label for="service" class="form-label"><fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.service"/></label>
+                            <input type="text" name="service" id="service" class="form-control"/>
+                        </div>
+                    </div>
+                    <input type="submit" class="btn btn-primary"
+                           value="<fmt:message key="oscarEncounter.oscarConsultationRequest.config.AddService.btnAddService"/>"/>
+                </form>
+            </div>
+        </div>
+    </div>
     </body>
 </html>

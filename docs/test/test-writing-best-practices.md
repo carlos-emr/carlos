@@ -91,7 +91,7 @@ Organize related tests within a single file using @Nested:
 
 ```java
 @DisplayName("Tickler DAO Tests")
-class TicklerDaoMethodTest extends OpenOTestBase {
+class TicklerDaoMethodTest extends CarlosTestBase {
 
     @Nested
     @DisplayName("Find Operations")
@@ -144,7 +144,7 @@ class TicklerDaoMethodTest extends OpenOTestBase {
 @Tag("dao")          // Level 2: Layer
 @Tag("read")         // Level 3: CRUD operation
 @Tag("filter")       // Level 4: Extended operation (optional)
-class TicklerDaoMethodTest extends OpenOTestBase {
+class TicklerDaoMethodTest extends CarlosTestBase {
 ```
 
 ### Standard Tag Definitions
@@ -203,7 +203,7 @@ mvn test -Dgroups="unit,fast"
 ### Test Data Creation Pattern
 
 ```java
-public abstract class TicklerTestBase extends OpenOTestBase {
+public abstract class TicklerTestBase extends CarlosTestBase {
 
     protected Tickler createTestTickler() {
         Tickler tickler = new Tickler();
@@ -390,7 +390,7 @@ Create a base class for each domain with test data builders:
 @Tag("unit")
 @Tag("fast")
 @Tag("demographic")
-public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
+public abstract class DemographicUnitTestBase extends CarlosUnitTestBase {
 
     protected SecurityInfoManager mockSecurityInfoManager;
     protected LoggedInInfo mockLoggedInInfo;
@@ -590,7 +590,7 @@ void should_processLargeDataset() {
 @DisplayName("Tickler DAO Integration Tests")
 @Tag("integration")
 @Tag("dao")
-public class TicklerDaoIntegrationTest extends OpenODaoTestBase {
+public class TicklerDaoIntegrationTest extends CarlosDaoTestBase {
 ```
 
 ### Method-Level Documentation

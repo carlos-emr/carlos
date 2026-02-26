@@ -33,9 +33,9 @@ Test 9 validates the preventive care and immunization tracking workflow in CARLO
 #### Provider Credentials
 | Field | Value |
 |-------|-------|
-| Username | openodoc |
-| Password | openo2025 |
-| PIN | 2025 |
+| Username | carlosdoc |
+| Password | carlos2026 |
+| PIN | 2026 |
 | Provider No | 999998 |
 
 #### Existing Test Patients
@@ -86,7 +86,7 @@ Date Administered: Today's date
 Route: IM (intramuscular)
 Site: Left arm
 Lot Number: TEST-LOT-001
-Provider: openodoc
+Provider: carlosdoc
 ```
 
 ## Screenshot Reference

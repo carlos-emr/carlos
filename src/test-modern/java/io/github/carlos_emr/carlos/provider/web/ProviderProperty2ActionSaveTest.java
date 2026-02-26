@@ -25,7 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.base.OpenOWebTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -47,7 +47,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("ProviderProperty2Action Save/OscarMsgRecvd Tests")
 @Tag("integration")
 @Tag("provider")
-class ProviderProperty2ActionSaveTest extends OpenOWebTestBase {
+class ProviderProperty2ActionSaveTest extends CarlosWebTestBase {
 
     @Mock
     private UserPropertyDAO mockUserPropertyDAO;
