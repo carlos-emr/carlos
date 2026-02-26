@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.*;
 import org.mockito.*;
@@ -47,7 +47,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("MsgBulkOperationHelper Unit Tests")
 @Tag("unit")
 @Tag("messenger")
-class MsgBulkOperationHelperTest extends OpenOUnitTestBase {
+class MsgBulkOperationHelperTest extends CarlosUnitTestBase {
 
     @Mock
     private MessageListDao mockDao;

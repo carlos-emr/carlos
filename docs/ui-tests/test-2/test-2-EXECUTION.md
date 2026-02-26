@@ -72,9 +72,9 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-2"
 
 #### Step 2: Login
 **Action**: Fill and submit login form
-- Username: `openodoc`
-- Password: `openo2025`
-- PIN: `2025`
+- Username: `carlosdoc`
+- Password: `carlos2026`
+- PIN: `2026`
 
 **Screenshot**: `test-2-02-provider-dashboard.png`
 **Expected**: Provider dashboard with navigation menu (Schedule, Search, etc.)
@@ -136,7 +136,7 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-2"
 
 #### Step 7: Set Provider
 **Action**: Select the following:
-- Doctor (MRP): `openodoc, doctor` (select from dropdown)
+- Doctor (MRP): `carlosdoc, doctor` (select from dropdown)
 
 **Screenshot**: `test-2-07-add-patient-provider.png`
 **Expected**: Provider field populated

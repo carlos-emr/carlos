@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.*;
 
 import java.io.File;
@@ -94,7 +94,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("fax")
 @Tag("security")
-class FaxImporterCriticalGapsTest extends OpenOUnitTestBase {
+class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
 
     private FaxImporter faxImporter;
     private FaxConfigDao faxConfigDao;

@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.tickler.manager;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
@@ -51,7 +51,7 @@ import java.util.*;
 @DisplayName("Simple TicklerManager Integration Tests")
 @Transactional
 @ContextConfiguration(locations = {"classpath:test-context-mock-security.xml"})
-class SimpleTicklerManagerTest extends OpenOTestBase {
+class SimpleTicklerManagerTest extends CarlosTestBase {
 
     @Autowired
     private TicklerManager ticklerManager;

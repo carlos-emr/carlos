@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
@@ -55,7 +55,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("casemgmt")
 @Transactional
-public class IssueDAOIntegrationTest extends OpenOTestBase {
+public class IssueDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     @Qualifier("IssueDAO")
@@ -340,17 +340,36 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
 
         @Test
         @Tag("filter")
-        @DisplayName("should retrieve community-specific codes")
-        void shouldRetrieveCommunitySpecificCodes() {
+        @DisplayName("should retrieve community-specific codes by type")
+        void shouldRetrieveCodes_forCommunityType() {
             // Given
             createIssue("COMM001", "Community Issue", "doctor", "community");
             hibernateTemplate.flush();
 
-            // When
-            List<String> codes = issueDAO.getLocalCodesByCommunityType("community");
+            // When - pass uppercase to verify DAO lowercases input before binding
+            List<String> codes = issueDAO.getLocalCodesByCommunityType("COMMUNITY");
 
             // Then
-            assertThat(codes).contains("COMM001");
+            assertThat(codes)
+                .isNotEmpty()
+                .contains("COMM001")
+                .doesNotContain("DIAB001");
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should return empty list for blank community type")
+        void shouldReturnEmpty_forBlankCommunityType() {
+            List<String> codes = issueDAO.getLocalCodesByCommunityType("");
+            assertThat(codes).isEmpty();
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should return empty list for null community type")
+        void shouldReturnEmpty_forNullCommunityType() {
+            List<String> codes = issueDAO.getLocalCodesByCommunityType(null);
+            assertThat(codes).isEmpty();
         }
     }
 
