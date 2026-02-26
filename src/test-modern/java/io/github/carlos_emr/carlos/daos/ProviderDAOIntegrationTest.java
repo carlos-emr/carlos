@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.daos;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,7 +53,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("integration")
 @Tag("dao")
 @Transactional
-public class ProviderDAOIntegrationTest extends OpenOTestBase {
+public class ProviderDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProviderDAO providerDAO;

@@ -44,7 +44,7 @@ CREATE TABLE security (
 **Modern BCrypt Password:**
 ```sql
 INSERT INTO security(security_no, user_name, password, provider_no, pin, forcePasswordReset) 
-VALUES (128, 'openodoc', '{bcrypt}$2b$12$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96', '999998', '2025', 1);
+VALUES (128, 'carlosdoc', '{bcrypt}$2a$12$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO', '999998', '2026', 1);
 ```
 
 **Legacy SHA Password (deprecated):**
@@ -177,10 +177,10 @@ password.expirationDays=90
 
 ### Development/Testing
 
-**Default User**: `openodoc`
-- **Password**: `openo2025`
-- **PIN**: `2025`
-- **Hash**: `{bcrypt}$2b$12$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96`
+**Default User**: `carlosdoc`
+- **Password**: `carlos2026`
+- **PIN**: `2026`
+- **Hash**: `{bcrypt}$2a$12$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO`
 
 ⚠️ **Security Warning**: Change default credentials immediately in production environments!
 
@@ -188,7 +188,7 @@ password.expirationDays=90
 
 1. **Change default user**:
    ```sql
-   UPDATE security SET password = 'new_bcrypt_hash' WHERE user_name = 'openodoc';
+   UPDATE security SET password = 'new_bcrypt_hash' WHERE user_name = 'carlosdoc';
    ```
 
 2. **Or create new admin user**:
@@ -201,7 +201,7 @@ password.expirationDays=90
 3. **Disable/expire default account**:
    ```sql
    UPDATE security SET date_ExpireDate = CURDATE(), b_ExpireSet = 1 
-   WHERE user_name = 'openodoc';
+   WHERE user_name = 'carlosdoc';
    ```
 
 ## Migration Guide

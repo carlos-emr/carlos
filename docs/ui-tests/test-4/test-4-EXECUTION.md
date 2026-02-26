@@ -52,9 +52,9 @@ echo "Test run directory: ui-test-runs/$TIMESTAMP/test-4"
 
 #### Step 2: Login
 **Action**: Fill and submit login form
-- Username: `openodoc`
-- Password: `openo2025`
-- PIN: `2025`
+- Username: `carlosdoc`
+- Password: `carlos2026`
+- PIN: `2026`
 
 **Screenshot**: `test-4-02-provider-dashboard.png`
 **Expected**: Provider dashboard with navigation menu

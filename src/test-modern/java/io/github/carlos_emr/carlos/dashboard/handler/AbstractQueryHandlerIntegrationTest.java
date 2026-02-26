@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.dashboard.handler;
 import io.github.carlos_emr.carlos.dashboard.query.Parameter;
 import io.github.carlos_emr.carlos.dashboard.query.RangeLowerLimit;
 import io.github.carlos_emr.carlos.dashboard.query.RangeUpperLimit;
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -78,7 +78,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("dashboard")
 @Transactional
-public class AbstractQueryHandlerIntegrationTest extends OpenOTestBase {
+public class AbstractQueryHandlerIntegrationTest extends CarlosTestBase {
 
     /**
      * JPA EntityManager injected from the test persistence unit.

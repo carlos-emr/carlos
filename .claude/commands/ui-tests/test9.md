@@ -76,7 +76,7 @@ Follow the 12-step workflow defined in `docs/ui-tests/test-9/test-9-EXECUTION.md
 
 ### Phase 1: Authentication & Prevention Access (Steps 1-4)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Patient Search** - Search "FAKE-J", screenshot results
 4. **Patient Chart** - Open patient chart, screenshot
 
@@ -156,7 +156,7 @@ Date Administered: Today (auto-populated)
 Route: Intramuscular: IM
 Site: Left arm (optional)
 Lot Number: TEST-LOT-001 (optional)
-Provider: openodoc doctor (auto-populated)
+Provider: carlosdoc doctor (auto-populated)
 ```
 
 ### Form Auto-Population Behavior
@@ -164,8 +164,8 @@ The Add Prevention Data form automatically populates several fields when opened:
 - **Prevention**: Pre-filled with the vaccine type clicked (e.g., "Flu")
 - **Status**: "Completed" radio button selected by default
 - **Date**: Current date/time in format YYYY-MM-DD HH:MM (e.g., 2026-01-19 15:02)
-- **Provider**: Logged-in provider (e.g., "openodoc doctor")
-- **Creator**: Same as provider (e.g., "openodoc doctor")
+- **Provider**: Logged-in provider (e.g., "carlosdoc doctor")
+- **Creator**: Same as provider (e.g., "carlosdoc doctor")
 
 **Route Options Available**:
 - Intradermal: ID
