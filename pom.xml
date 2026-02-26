@@ -41,6 +41,10 @@
         <!-- Override mvel2 transitive dependency: 2.4.x references java.lang.Compiler (removed in JDK 16) -->
         <mvel2.version>2.5.2.Final</mvel2.version>
         <struts.devMode>false</struts.devMode>
+        <!-- Suppress Struts 6.x com.opensymphony.xwork2.* deprecation warnings by default.
+             These are expected and harmless (WW-5494); packages remain functional until Struts 7.x.
+             CI can restore visibility with: mvn ... -Dmaven.compiler.showDeprecation=true -->
+        <maven.compiler.showDeprecation>false</maven.compiler.showDeprecation>
         <!-- Test properties -->
         <skipModernTests>false</skipModernTests>
         <skipLegacyTests>false</skipLegacyTests>
@@ -1453,8 +1457,9 @@
                     <target>21</target>
                     <!-- Suppress Struts 6.x com.opensymphony.xwork2.* deprecation warnings.
                          These are expected and harmless (see WW-5494); packages remain
-                         fully functional until Struts 7.x / Jakarta EE migration. -->
-                    <showDeprecation>false</showDeprecation>
+                         fully functional until Struts 7.x / Jakarta EE migration.
+                         Override via: mvn ... -Dmaven.compiler.showDeprecation=true -->
+                    <showDeprecation>${maven.compiler.showDeprecation}</showDeprecation>
                 </configuration>
             </plugin>
 

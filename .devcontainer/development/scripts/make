@@ -205,10 +205,6 @@ build_and_deploy() {
     mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
   fi
 
-  # Record the current HEAD so the next auto-detect build can compare commits
-  # and catch dangerous changes (branch switches, Java deletions/renames).
-  git rev-parse HEAD > "target/.last-build-head" 2>/dev/null || true
-
   # Extract the version from the pom.xml file.
   # This will allow us to handle versioned directories during deployment.
   pom_file="pom.xml"
@@ -453,9 +449,19 @@ for arg in "$@"; do
         esac
       done
       # Run the build and deploy process, passing in whether or not to run tests and compile JSPs.
+      # Temporarily disable set -e so we can capture the exit code and gate the HEAD marker.
+      set +e
       build_and_deploy "$run_tests" "$compile_jsps" "$dev_mode" "$clean_mode" "$skip_checks"
+      build_rc=$?
+      set -e
+      # Only record the current HEAD on a successful build. Writing on a failed build
+      # would cause the next incremental run to compare from that HEAD and potentially
+      # skip a clean that is actually needed due to the incomplete prior build.
+      if [ $build_rc -eq 0 ]; then
+        git rev-parse HEAD > "target/.last-build-head" 2>/dev/null || true
+      fi
       # Exit after build to prevent help menu from showing; propagate build/test exit code
-      exit $?
+      exit $build_rc
       ;;
     jspc)
       # Compile JSPs only without deployment.
