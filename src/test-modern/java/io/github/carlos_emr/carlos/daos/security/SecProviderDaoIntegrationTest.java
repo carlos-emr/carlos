@@ -75,16 +75,36 @@ import static org.assertj.core.api.Assertions.*;
 @Transactional
 public class SecProviderDaoIntegrationTest extends CarlosTestBase {
 
+    /**
+     * The DAO under test, autowired from the Spring test application context.
+     * Backed by {@link SecProviderDaoImpl}, which extends {@code HibernateDaoSupport}
+     * and uses Hibernate Criteria API for most query operations.
+     */
     @Autowired
     private SecProviderDao secProviderDao;
 
+    /**
+     * JPA {@link EntityManager} for direct database verification in tests,
+     * bypassing the DAO layer to confirm actual persisted state.
+     */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    /**
+     * Unique 4-character prefix derived from {@code System.nanoTime()} to isolate
+     * test data across parallel test runs. Combined with a 2-character suffix to
+     * form provider numbers that fit within the {@code VARCHAR(6)} column constraint.
+     */
     private String uniquePrefix;
 
+    /**
+     * Seeds three test providers with unique IDs before each test.
+     * Two are active (status "1") and one is inactive (status "0"),
+     * providing a baseline dataset for query and filter tests.
+     */
     @BeforeEach
     void setUp() {
+        // Derive a 4-char prefix from nanoTime to avoid collisions across parallel runs
         uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 4);
 
         // Create test providers with unique IDs (providerNo must fit VARCHAR(6): 4-char prefix + 2-char suffix)
@@ -94,6 +114,18 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
         hibernateTemplate.flush();
     }
 
+    /**
+     * Creates and persists a {@link SecProvider} with minimal required fields.
+     *
+     * <p>Sets the {@code specialty} to empty string to satisfy the NOT NULL
+     * constraint from {@code Provider.hbm.xml} (dual entity mapping).</p>
+     *
+     * @param providerNo String the provider number (max 6 chars for VARCHAR(6))
+     * @param firstName  String the provider's first name
+     * @param lastName   String the provider's last name
+     * @param status     String the provider status ("1" = active, "0" = inactive)
+     * @return SecProvider the persisted provider entity
+     */
     private SecProvider createProvider(String providerNo, String firstName, String lastName, String status) {
         SecProvider provider = new SecProvider();
         provider.setProviderNo(providerNo);
@@ -108,7 +140,27 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     }
 
     /**
-     * Creates a fully-populated SecProvider with all fields set for comprehensive testing.
+     * Creates and persists a fully-populated {@link SecProvider} with all fields set
+     * for comprehensive query testing across all {@code findByXxx()} methods.
+     *
+     * @param providerNo       String the provider number (max 6 chars)
+     * @param firstName        String the provider's first name
+     * @param lastName         String the provider's last name
+     * @param status           String the provider status ("1" = active, "0" = inactive)
+     * @param providerType     String the provider type (e.g., "doctor", "nurse")
+     * @param specialty        String the medical specialty (e.g., "cardiology")
+     * @param team             String the team name, or null if not assigned
+     * @param sex              String the sex code ("M" or "F")
+     * @param address          String the provider's address, or null
+     * @param phone            String the phone number, or null
+     * @param workPhone        String the work phone number, or null
+     * @param ohipNo           String the OHIP billing number, or null
+     * @param rmaNo            String the RMA number, or null
+     * @param billingNo        String the billing number, or null
+     * @param hsoNo            String the HSO number, or null
+     * @param comments         String free-text comments, or null
+     * @param providerActivity String the activity code, or null
+     * @return SecProvider the persisted provider entity with all fields populated
      */
     private SecProvider createFullProvider(String providerNo, String firstName, String lastName,
                                           String status, String providerType, String specialty,
@@ -142,6 +194,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findById (2 params: id, status) - Original tests
     // ========================================================================
 
+    /**
+     * Tests for {@code findById(String id, String status)} - finds a provider
+     * matching both provider number and active/inactive status.
+     */
     @Nested
     @DisplayName("findById (2 params: id, status)")
     class FindByIdAndStatus {
@@ -201,6 +257,11 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // Single parameter queries (original tests)
     // ========================================================================
 
+    /**
+     * Tests for single-parameter query methods - baseline tests for
+     * {@code findById(String)}, {@code findByLastName(String)},
+     * {@code findAll()}, and {@code findByStatus(String)}.
+     */
     @Nested
     @DisplayName("Single parameter queries (baseline)")
     class SingleParamQueries {
@@ -262,6 +323,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // save() - Direct save lifecycle tests
     // ========================================================================
 
+    /**
+     * Tests for {@code save(SecProvider)} - persists a new provider to the database
+     * via {@code HibernateTemplate.save()}.
+     */
     @Nested
     @DisplayName("save()")
     class Save {
@@ -341,6 +406,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // saveOrUpdate()
     // ========================================================================
 
+    /**
+     * Tests for {@code saveOrUpdate(SecProvider)} - inserts new providers or
+     * updates existing ones via {@code HibernateTemplate.saveOrUpdate()}.
+     */
     @Nested
     @DisplayName("saveOrUpdate()")
     class SaveOrUpdate {
@@ -393,6 +462,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // delete()
     // ========================================================================
 
+    /**
+     * Tests for {@code delete(SecProvider)} - removes a provider from the database
+     * via {@code HibernateTemplate.delete()}.
+     */
     @Nested
     @DisplayName("delete()")
     class Delete {
@@ -437,6 +510,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findById (single param) - Additional edge case tests
     // ========================================================================
 
+    /**
+     * Tests for {@code findById(String)} edge cases - verifies null returns for
+     * non-existent IDs and full field round-trip for populated providers.
+     */
     @Nested
     @DisplayName("findById (single param) - Edge Cases")
     class FindByIdEdgeCases {
@@ -506,6 +583,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByProperty() - Direct Criteria API testing
     // ========================================================================
 
+    /**
+     * Tests for {@code findByProperty(String propertyName, Object value)} - exercises the
+     * generic Hibernate Criteria API method that all {@code findByXxx()} delegates call.
+     */
     @Nested
     @DisplayName("findByProperty() - Criteria API")
     class FindByProperty {
@@ -616,6 +697,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByFirstName()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByFirstName(String)} - delegates to
+     * {@code findByProperty("firstName", value)} using Criteria API exact match.
+     */
     @Nested
     @DisplayName("findByFirstName()")
     class FindByFirstName {
@@ -670,6 +755,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByProviderType()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByProviderType(String)} - delegates to
+     * {@code findByProperty("providerType", value)} for provider role filtering.
+     */
     @Nested
     @DisplayName("findByProviderType()")
     class FindByProviderType {
@@ -727,6 +816,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findBySpecialty()
     // ========================================================================
 
+    /**
+     * Tests for {@code findBySpecialty(String)} - delegates to
+     * {@code findByProperty("specialty", value)} for medical specialty filtering.
+     */
     @Nested
     @DisplayName("findBySpecialty()")
     class FindBySpecialty {
@@ -771,6 +864,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByTeam()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByTeam(String)} - delegates to
+     * {@code findByProperty("team", value)} for care team assignment filtering.
+     */
     @Nested
     @DisplayName("findByTeam()")
     class FindByTeam {
@@ -813,6 +910,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findBySex()
     // ========================================================================
 
+    /**
+     * Tests for {@code findBySex(String)} - delegates to
+     * {@code findByProperty("sex", value)} for demographic filtering by sex.
+     */
     @Nested
     @DisplayName("findBySex()")
     class FindBySex {
@@ -864,6 +965,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByAddress()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByAddress(String)} - delegates to
+     * {@code findByProperty("address", value)} for provider location filtering.
+     */
     @Nested
     @DisplayName("findByAddress()")
     class FindByAddress {
@@ -906,6 +1011,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByPhone()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByPhone(String)} - delegates to
+     * {@code findByProperty("phone", value)} for provider contact filtering.
+     */
     @Nested
     @DisplayName("findByPhone()")
     class FindByPhone {
@@ -948,6 +1057,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByWorkPhone()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByWorkPhone(String)} - delegates to
+     * {@code findByProperty("workPhone", value)} for work phone filtering.
+     */
     @Nested
     @DisplayName("findByWorkPhone()")
     class FindByWorkPhone {
@@ -990,6 +1103,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByOhipNo()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByOhipNo(String)} - delegates to
+     * {@code findByProperty("ohipNo", value)} for OHIP billing number filtering.
+     */
     @Nested
     @DisplayName("findByOhipNo()")
     class FindByOhipNo {
@@ -1032,6 +1149,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByRmaNo()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByRmaNo(String)} - delegates to
+     * {@code findByProperty("rmaNo", value)} for RMA number filtering.
+     */
     @Nested
     @DisplayName("findByRmaNo()")
     class FindByRmaNo {
@@ -1074,6 +1195,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByBillingNo()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByBillingNo(String)} - delegates to
+     * {@code findByProperty("billingNo", value)} for billing number filtering.
+     */
     @Nested
     @DisplayName("findByBillingNo()")
     class FindByBillingNo {
@@ -1116,6 +1241,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByHsoNo()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByHsoNo(String)} - delegates to
+     * {@code findByProperty("hsoNo", value)} for HSO number filtering.
+     */
     @Nested
     @DisplayName("findByHsoNo()")
     class FindByHsoNo {
@@ -1158,6 +1287,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByStatus() - Additional tests
     // ========================================================================
 
+    /**
+     * Tests for {@code findByStatus(String)} - additional scenarios verifying
+     * inactive-only filtering and non-existent status values.
+     */
     @Nested
     @DisplayName("findByStatus() - Extended")
     class FindByStatusExtended {
@@ -1196,6 +1329,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByComments()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByComments(String)} - delegates to
+     * {@code findByProperty("comments", value)} for provider comments filtering.
+     */
     @Nested
     @DisplayName("findByComments()")
     class FindByComments {
@@ -1238,6 +1375,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByProviderActivity()
     // ========================================================================
 
+    /**
+     * Tests for {@code findByProviderActivity(String)} - delegates to
+     * {@code findByProperty("providerActivity", value)} for activity code filtering.
+     */
     @Nested
     @DisplayName("findByProviderActivity()")
     class FindByProviderActivity {
@@ -1280,6 +1421,11 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findAll() - Additional tests
     // ========================================================================
 
+    /**
+     * Tests for {@code findAll()} - additional scenarios verifying that the
+     * result set includes both active and inactive providers and reflects
+     * save/delete operations.
+     */
     @Nested
     @DisplayName("findAll() - Extended")
     class FindAllExtended {
@@ -1341,6 +1487,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findByLastName() - Additional tests
     // ========================================================================
 
+    /**
+     * Tests for {@code findByLastName(String)} - additional scenarios verifying
+     * empty results, multiple matches, and exact-match semantics (no partial matching).
+     */
     @Nested
     @DisplayName("findByLastName() - Extended")
     class FindByLastNameExtended {
@@ -1394,6 +1544,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // Cross-cutting: Criteria API behavior validation
     // ========================================================================
 
+    /**
+     * Tests for Criteria API cross-cutting behavior - validates exact-match semantics,
+     * case sensitivity, and independent call isolation for all {@code findByProperty()} queries.
+     */
     @Nested
     @DisplayName("Criteria API - Cross-cutting behavior")
     class CriteriaApiBehavior {
@@ -1450,6 +1604,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // Lifecycle methods: saveOrUpdate edge cases
     // ========================================================================
 
+    /**
+     * Tests for {@code saveOrUpdate(SecProvider)} edge cases - verifies simultaneous
+     * multi-field updates and status transitions from active to inactive.
+     */
     @Nested
     @DisplayName("saveOrUpdate() - Edge Cases")
     class SaveOrUpdateEdgeCases {
@@ -1498,6 +1656,10 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // findById with status - Additional edge cases
     // ========================================================================
 
+    /**
+     * Tests for {@code findById(String id, String status)} edge cases - verifies
+     * behavior when both parameters are wrong and provider disambiguation with same status.
+     */
     @Nested
     @DisplayName("findById(id, status) - Extended")
     class FindByIdAndStatusExtended {
@@ -1533,6 +1695,11 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     // Combined operations: Save then query
     // ========================================================================
 
+    /**
+     * Tests for combined save-then-query operations - verifies that newly saved
+     * providers are immediately visible through all {@code findByXxx()} methods,
+     * deleted providers disappear, and updates are reflected in subsequent queries.
+     */
     @Nested
     @DisplayName("Combined save-then-query operations")
     class CombinedOperations {

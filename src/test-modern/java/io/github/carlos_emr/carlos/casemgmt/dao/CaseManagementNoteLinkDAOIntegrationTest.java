@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
@@ -37,12 +38,15 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for CaseManagementNoteLinkDAO multi-parameter query methods.
+ * Integration tests for {@link CaseManagementNoteLinkDAO} multi-parameter query methods.
  *
- * <p>These tests validate that HQL queries with multiple positional parameters
- * bind parameters correctly.</p>
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover CRUD operations, multi-parameter searches, and edge cases including
+ * ascending/descending ordering, three-parameter filtering with otherId, and
+ * delegation methods that return the last element from ordered result sets.</p>
  *
- * @since 2026-02-03
+ * @since 2026-02-26
  * @see CaseManagementNoteLinkDAO
  */
 @DisplayName("CaseManagementNoteLinkDAO Integration Tests")
@@ -59,6 +63,14 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    /**
+     * Creates and persists a {@link CaseManagementNoteLink} with the given parameters.
+     *
+     * @param tableName Integer the table name identifier for the linked entity type
+     * @param tableId Long the primary key of the linked entity in the target table
+     * @param noteId Long the ID of the associated case management note
+     * @return CaseManagementNoteLink the persisted link entity with generated ID
+     */
     private CaseManagementNoteLink createLink(Integer tableName, Long tableId, Long noteId) {
         CaseManagementNoteLink link = new CaseManagementNoteLink();
         link.setTableName(tableName);
@@ -68,6 +80,15 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         return link;
     }
 
+    /**
+     * Creates and persists a {@link CaseManagementNoteLink} with an additional otherId filter value.
+     *
+     * @param tableName Integer the table name identifier for the linked entity type
+     * @param tableId Long the primary key of the linked entity in the target table
+     * @param noteId Long the ID of the associated case management note
+     * @param otherId String an additional identifier used for three-parameter query filtering
+     * @return CaseManagementNoteLink the persisted link entity with generated ID
+     */
     private CaseManagementNoteLink createLink(Integer tableName, Long tableId, Long noteId, String otherId) {
         CaseManagementNoteLink link = new CaseManagementNoteLink();
         link.setTableName(tableName);
@@ -78,6 +99,10 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         return link;
     }
 
+    /**
+     * Tests for {@code getLinkByTableId(Integer tableName, Long tableId)} - two-parameter
+     * query filtering links by table name and table ID.
+     */
     @Nested
     @DisplayName("getLinkByTableId (2 params: tableName, tableId)")
     class GetLinkByTableIdTwoParams {
@@ -91,6 +116,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
             CaseManagementNoteLink match2 = createLink(1, 100L, 1002L);
             CaseManagementNoteLink wrongTable = createLink(2, 100L, 1003L);  // Different tableName
             CaseManagementNoteLink wrongId = createLink(1, 200L, 1004L);     // Different tableId
+            // Flush JPA context to sync pending writes to the database before querying
             entityManager.flush();
 
             // When
@@ -120,6 +146,10 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for {@code getLinkByTableId(Integer tableName, Long tableId, String otherId)} -
+     * three-parameter query adding otherId filtering to the two-parameter variant.
+     */
     @Nested
     @DisplayName("getLinkByTableId (3 params: tableName, tableId, otherId)")
     class GetLinkByTableIdThreeParams {
@@ -163,6 +193,10 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for {@code getLinkByTableIdDesc(Integer tableName, Long tableId)} -
+     * two-parameter query returning links in descending order by ID.
+     */
     @Nested
     @DisplayName("getLinkByTableIdDesc (2 params)")
     class GetLinkByTableIdDesc {
@@ -171,7 +205,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return links in descending order by ID")
         void shouldReturnLinks_inDescOrder() {
-            // Given
+            // Given - flush between each insert to guarantee sequential ID generation
             CaseManagementNoteLink link1 = createLink(1, 100L, 1001L);
             entityManager.flush();
             CaseManagementNoteLink link2 = createLink(1, 100L, 1002L);
@@ -189,6 +223,10 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for {@code getLinkByTableIdDesc(Integer tableName, Long tableId, String otherId)} -
+     * three-parameter query returning filtered links in descending order by ID.
+     */
     @Nested
     @DisplayName("getLinkByTableIdDesc (3 params)")
     class GetLinkByTableIdDescThreeParams {
@@ -197,7 +235,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should filter by all three params and return in desc order")
         void shouldFilterAndReturn_inDescOrder() {
-            // Given
+            // Given - flush between each insert to guarantee sequential ID generation for ordering tests
             CaseManagementNoteLink link1 = createLink(1, 100L, 1001L, "A");
             entityManager.flush();
             CaseManagementNoteLink link2 = createLink(1, 100L, 1002L, "A");
@@ -220,6 +258,10 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for {@code getLinkByNote(Long noteId)} - single-parameter baseline query
+     * retrieving links by note ID.
+     */
     @Nested
     @DisplayName("Single parameter queries (baseline)")
     class SingleParamQueries {
@@ -256,6 +298,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         void shouldReturnLink_whenValidIdProvided() {
             // Given
             CaseManagementNoteLink saved = createLink(1, 100L, 2001L);
+            // Flush Hibernate session to sync HibernateDaoSupport writes before read query
             hibernateTemplate.flush();
 
             // When
@@ -290,7 +333,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return last link ordered by ID ascending")
         void shouldReturnLastLink_orderedByIdAscending() {
-            // Given - create multiple links with same tableName and tableId
+            // Given - flush between inserts to guarantee sequential ID generation
             CaseManagementNoteLink first = createLink(3, 300L, 3001L);
             hibernateTemplate.flush();
             CaseManagementNoteLink second = createLink(3, 300L, 3002L);
@@ -347,7 +390,8 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return last link matching all three params")
         void shouldReturnLastLink_matchingAllThreeParams() {
-            // Given - links with same tableName/tableId but different otherIds
+            // Given - flush between inserts to guarantee sequential ID generation;
+            // links share tableName/tableId but have different otherIds
             CaseManagementNoteLink matchFirst = createLink(5, 500L, 5001L, "MATCH");
             hibernateTemplate.flush();
             CaseManagementNoteLink matchSecond = createLink(5, 500L, 5002L, "MATCH");
@@ -391,7 +435,8 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return last link for given note ID")
         void shouldReturnLastLink_forGivenNoteId() {
-            // Given - multiple links pointing to same note
+            // Given - flush between inserts to guarantee sequential ID generation;
+            // multiple links pointing to same note
             CaseManagementNoteLink first = createLink(1, 100L, 7777L);
             hibernateTemplate.flush();
             CaseManagementNoteLink second = createLink(2, 200L, 7777L);
@@ -437,6 +482,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
             link.setNoteId(9002L);
             link.setOtherId("UPDATED");
             caseManagementNoteLinkDAO.update(link);
+            // Flush Hibernate session to persist the update before re-fetching
             hibernateTemplate.flush();
 
             // Then - re-fetch and verify changes

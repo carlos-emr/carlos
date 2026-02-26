@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
@@ -41,9 +42,14 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for ProgramClientStatusDAO multi-parameter query methods.
+ * Integration tests for {@link ProgramClientStatusDAO} multi-parameter query methods.
  *
- * @since 2026-02-03
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover CRUD operations, status name existence checks, Admission-based
+ * queries, and input validation edge cases.</p>
+ *
+ * @since 2026-02-26
  * @see ProgramClientStatusDAO
  */
 @DisplayName("ProgramClientStatusDAO Integration Tests")
@@ -69,6 +75,7 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void setUp() {
+        // Generate unique IDs from nanosecond timestamp to avoid conflicts across test runs
         int baseId = (int) (System.nanoTime() % 100000);
         testProgramId1 = 1000 + baseId;
         testProgramId2 = 2000 + baseId;
@@ -84,6 +91,13 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
         hibernateTemplate.flush();
     }
 
+    /**
+     * Creates a new ProgramClientStatus with the specified program ID and name, then persists it.
+     *
+     * @param programId Integer the program ID to associate the status with
+     * @param name String the display name for the client status
+     * @return ProgramClientStatus the persisted entity with generated ID
+     */
     private ProgramClientStatus createClientStatus(Integer programId, String name) {
         ProgramClientStatus status = new ProgramClientStatus();
         status.setProgramId(programId);
@@ -92,6 +106,11 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
         return status;
     }
 
+    /**
+     * Tests for {@code getAllClientsInStatus(Integer programId, Integer statusId)} - returns
+     * Admission entities filtered by program and status. Disabled due to complex JPA
+     * relationship requirements not available in the test context.
+     */
     @Nested
     @DisplayName("getAllClientsInStatus (2 params)")
     @Disabled("Requires Admission entity which has complex JPA relationships not available in test context")
@@ -138,6 +157,10 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for single-parameter query methods as baseline coverage, including
+     * {@code getProgramClientStatuses(Integer)} and {@code getProgramClientStatus(String)}.
+     */
     @Nested
     @DisplayName("Single parameter queries (baseline)")
     class SingleParamQueries {

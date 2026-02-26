@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
@@ -39,20 +40,14 @@ import java.util.Date;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for ProgramClientRestrictionDAO multi-parameter query methods.
+ * Integration tests for {@link ProgramClientRestrictionDAO} multi-parameter query methods.
  *
- * <p>These tests validate that HQL queries with multiple positional parameters
- * bind parameters correctly. Tests are designed to catch parameter index errors
- * during Hibernate migration.</p>
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover CRUD operations, multi-parameter searches, facility-based subqueries,
+ * and the N+1 relationship enrichment pattern.</p>
  *
- * <p>HQL queries tested:
- * <ul>
- *   <li>{@code find(programId, demographicNo)}: "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.programId = ?0 and pcr.demographicNo = ?1"</li>
- *   <li>{@code findForClient(demographicNo, facilityId)}: "from ProgramClientRestriction pcr where pcr.enabled = true and pcr.demographicNo = ?0 and pcr.programId in (select s.id from Program s where s.facilityId = ?1 or s.facilityId is null)"</li>
- * </ul>
- * </p>
- *
- * @since 2026-02-03
+ * @since 2026-02-26
  * @see ProgramClientRestrictionDAO
  */
 @DisplayName("ProgramClientRestrictionDAO Integration Tests")
@@ -78,7 +73,7 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void setUp() {
-        // Use unique IDs based on timestamp to avoid conflicts
+        // Generate unique IDs from nanosecond timestamp to avoid conflicts across test runs
         int baseId = (int) (System.nanoTime() % 100000);
         testProgramId1 = 100 + baseId;
         testProgramId2 = 200 + baseId;
@@ -96,6 +91,14 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
         createRestriction(testProgramId1, testDemoNo1, false);
     }
 
+    /**
+     * Creates a new ProgramClientRestriction with the specified parameters and persists it.
+     *
+     * @param programId int the program ID to associate the restriction with
+     * @param demographicNo int the demographic (patient) number
+     * @param enabled boolean whether the restriction is active
+     * @return ProgramClientRestriction the persisted entity with generated ID
+     */
     private ProgramClientRestriction createRestriction(int programId, int demographicNo, boolean enabled) {
         ProgramClientRestriction pcr = new ProgramClientRestriction();
         pcr.setProgramId(programId);
@@ -110,6 +113,10 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
         return pcr;
     }
 
+    /**
+     * Tests for {@code find(int programId, int demographicNo)} - finds enabled restrictions
+     * matching both program and demographic number.
+     */
     @Nested
     @DisplayName("find (2 params: programId, demographicNo)")
     class FindByProgramAndDemo {
@@ -188,6 +195,10 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for single-parameter query methods as baseline coverage, including
+     * {@code findForClient(int)} and {@code findForProgram(int)}.
+     */
     @Nested
     @DisplayName("Single parameter queries (baseline)")
     class SingleParamQueries {

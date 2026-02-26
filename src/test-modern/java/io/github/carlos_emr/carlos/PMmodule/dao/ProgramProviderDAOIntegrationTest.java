@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
@@ -44,12 +45,14 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for ProgramProviderDAO - comprehensive coverage of all 20 public methods.
+ * Integration tests for {@link ProgramProviderDAO} multi-parameter query methods.
  *
- * <p>Covers simple queries, multi-parameter queries, subquery JOINs, LEFT JOINs,
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover simple queries, multi-parameter queries, subquery JOINs, LEFT JOINs,
  * 3-way JOINs, cache-evicting writes, loop deletes, and boolean domain checks.</p>
  *
- * @since 2026-02-03
+ * @since 2026-02-26
  * @see ProgramProviderDAO
  * @see ProgramProviderDAOImpl
  */
@@ -108,6 +111,14 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         hibernateTemplate.flush();
     }
 
+    /**
+     * Creates a new Provider with the specified identifiers and persists it.
+     *
+     * @param providerNo String the provider number (VARCHAR(6) constraint)
+     * @param firstName String the provider's first name
+     * @param lastName String the provider's last name
+     * @return Provider the persisted entity
+     */
     private Provider createProvider(String providerNo, String firstName, String lastName) {
         Provider provider = new Provider();
         provider.setProviderNo(providerNo);
@@ -121,10 +132,23 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         return provider;
     }
 
+    /**
+     * Creates a new Program with the given name and default facilityId of 0, then persists it.
+     *
+     * @param name String the program name
+     * @return Program the persisted entity with generated ID
+     */
     private Program createProgram(String name) {
         return createProgram(name, 0);
     }
 
+    /**
+     * Creates a new Program with the given name and facility ID, then persists it.
+     *
+     * @param name String the program name
+     * @param facilityId int the facility ID to associate with this program
+     * @return Program the persisted entity with generated ID
+     */
     private Program createProgram(String name, int facilityId) {
         Program program = new Program();
         program.setName(name);
@@ -135,6 +159,12 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         return program;
     }
 
+    /**
+     * Creates a new Facility with the given name and persists it.
+     *
+     * @param name String the facility name
+     * @return Facility the persisted entity with generated ID
+     */
     private Facility createFacility(String name) {
         Facility facility = new Facility();
         facility.setName(name);
@@ -143,6 +173,12 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         return facility;
     }
 
+    /**
+     * Creates a new Secrole with the given name and persists it.
+     *
+     * @param roleName String the name of the security role
+     * @return Secrole the persisted entity with generated ID
+     */
     private Secrole createSecrole(String roleName) {
         Secrole role = new Secrole();
         role.setRoleName(roleName);
@@ -151,6 +187,13 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         return role;
     }
 
+    /**
+     * Creates a new ProgramProvider linking a provider to a program and persists it.
+     *
+     * @param providerNo String the provider number
+     * @param programId Long the program ID to associate
+     * @return ProgramProvider the persisted entity with generated ID
+     */
     private ProgramProvider createProgramProvider(String providerNo, Long programId) {
         ProgramProvider pp = new ProgramProvider();
         pp.setProviderNo(providerNo);
@@ -159,6 +202,14 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         return pp;
     }
 
+    /**
+     * Creates a new ProgramProvider linking a provider to a program with a specific role and persists it.
+     *
+     * @param providerNo String the provider number
+     * @param programId Long the program ID to associate
+     * @param roleId Long the security role ID to assign
+     * @return ProgramProvider the persisted entity with generated ID
+     */
     private ProgramProvider createProgramProvider(String providerNo, Long programId, Long roleId) {
         ProgramProvider pp = new ProgramProvider();
         pp.setProviderNo(providerNo);

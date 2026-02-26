@@ -457,9 +457,10 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find demographic by chart number")
         void shouldFindDemographic_byChartNo() {
-            // Given
+            // Given -- assign a chart number post-creation to isolate this field
             demo1.setChartNo("CHT001");
             demographicDao.save(demo1);
+            // Flush through Hibernate session since DemographicDao extends HibernateDaoSupport
             hibernateTemplate.flush();
 
             // When
@@ -476,7 +477,8 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should filter demographics by year of birth greater than threshold")
         void shouldFilterDemographics_byYearOfBirthGreaterThan() {
-            // Given — all setUp demos have yearOfBirth "1980"
+            // Given -- all setUp demographics have yearOfBirth "1980"; create one born in 2000
+            // to verify the greater-than threshold filter excludes 1980 and includes 2000
             Demographic youngDemo = createDemographic("Young", "Person", "ON", uniquePrefix + "Y", "AC");
             youngDemo.setYearOfBirth("2000");
             demographicDao.save(youngDemo);
@@ -582,6 +584,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find demographic by criterion without HIN (7 params)")
         void shouldFindDemographic_byCriterionWithoutHin() {
             // Given - demo1: John Smith, ON, 1980-01-15, M, AC
+            // Flush to ensure @BeforeEach data is written before the criterion query executes
             hibernateTemplate.flush();
 
             DemographicCriterion criterion = new DemographicCriterion(
@@ -602,6 +605,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find demographic by criterion with HIN (8 params)")
         void shouldFindDemographic_byCriterionWithHin() {
             // Given - demo1: John Smith, HIN=uniquePrefix+"0", 1980-01-15, M, AC
+            // When HIN is non-empty, findByCriterion uses 8 positional params (?0-?7) instead of 7
             hibernateTemplate.flush();
 
             DemographicCriterion criterion = new DemographicCriterion(
@@ -658,6 +662,8 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
             // Given - demo4 is inactive (IN)
             hibernateTemplate.flush();
 
+            // Same demographic data but different patient status to verify the status parameter
+            // correctly filters active vs inactive records
             DemographicCriterion activeCriterion = new DemographicCriterion(
                 "", "Johnson", "Bob", "1980", "01", "15", "M", "AC");
             DemographicCriterion inactiveCriterion = new DemographicCriterion(

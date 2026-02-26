@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.commn.dao;
@@ -101,7 +102,10 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private DataSource dataSource;
 
-    /** Unique prefix for test isolation, prevents collision with parallel test runs. */
+    /**
+     * Counter for generating unique program IDs across test methods.
+     * Starts at 90000 to avoid collision with production-seeded data.
+     */
     private int programIdCounter = 90000;
 
     // =====================================================================
@@ -372,7 +376,8 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
             Program program2 = createActiveServiceProgram("Shelter D");
             Demographic client = createActiveDemographic("Eve", "Green");
 
-            // Same client admitted to two service programs
+            // Same client admitted to two service programs simultaneously;
+            // HQL uses "select distinct a.clientId" so this client should only be counted once
             createCurrentAdmission(client.getDemographicNo(), program1.getId(), monthsAgo(4));
             createCurrentAdmission(client.getDemographicNo(), program2.getId(), monthsAgo(2));
             hibernateTemplate.flush();
@@ -389,7 +394,8 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should not count inactive patients")
         @Tag("read")
         void shouldNotCountClients_whenPatientStatusInactive() {
-            // Given
+            // Given -- create an inactive patient directly (not via createActiveDemographic)
+            // to test that the HQL "d.PatientStatus='AC'" clause excludes them
             Program serviceProgram = createActiveServiceProgram("Shelter E");
             Demographic inactiveClient = new Demographic();
             inactiveClient.setFirstName("Frank");
@@ -465,12 +471,13 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
             Program serviceProgram = createActiveServiceProgram("Hist Shelter B");
             Demographic client = createActiveDemographic("Hank", "Irving");
 
-            // Discharged 6 months ago (within 1-year window)
+            // Discharged 6 months ago (within the 1-year lookback window).
+            // The HQL checks "a.dischargeDate > :cutoff OR a.dischargeDate IS NULL"
             createDischargedAdmission(client.getDemographicNo(), serviceProgram.getId(),
                     monthsAgo(12), monthsAgo(6));
             hibernateTemplate.flush();
 
-            // When
+            // When -- numYears=1 means cutoff date is 1 year ago
             int result = populationReportDao.getCurrentAndHistoricalPopulationSize(1);
 
             // Then
@@ -485,7 +492,8 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
             Program serviceProgram = createActiveServiceProgram("Hist Shelter C");
             Demographic client = createActiveDemographic("Iris", "Jackson");
 
-            // Discharged 3 years ago (outside 1-year window)
+            // Discharged 3 years ago, well outside the 1-year lookback window.
+            // The discharge date predates the cutoff so this client should be excluded.
             Date admitDate = yearsAgo(4);
             Date dischargeDate = yearsAgo(3);
             createDischargedAdmission(client.getDemographicNo(), serviceProgram.getId(),
@@ -520,9 +528,10 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
                 + "entity names cannot be parameterized. Requires DAO refactoring to fix.")
         void shouldReturnThreeElementArray_whenCalled() {
             // Given
-            // The HQL "select a.clientId, a.admissionDate, a.dischargeDate from ?1 a where ..."
-            // will fail because ?1 is used as an entity name, not a value parameter.
-            // HQL only supports value parameterization.
+            // KNOWN DEFECT: The HQL constant HQL_GET_USAGES uses "from ?1 a" to parameterize
+            // the entity name. HQL positional parameters (?N) can only bind column values,
+            // not entity/table names. This causes an org.hibernate.QueryException at runtime.
+            // A fix would require string concatenation of the entity name (with validation).
 
             // When
             int[] usages = populationReportDao.getUsages(1);
@@ -699,7 +708,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
             createCurrentAdmission(client.getDemographicNo(), serviceProgram.getId(), monthsAgo(2));
 
             Issue diabetesIssue = createIssue("E11", "Type 2 Diabetes");
-            // Resolved issue should not count
+            // Resolved=true: prevalence HQL filters "cmi.resolved = false", so this is excluded
             createCaseManagementIssue(client.getDemographicNo(), diabetesIssue, true);
             hibernateTemplate.flush();
 
@@ -813,7 +822,8 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
             int result = populationReportDao.getIncidence(codes);
 
             // Then
-            // Incidence counts ALL matching issues regardless of resolved status
+            // Incidence (unlike prevalence) counts ALL matching issues regardless of resolved
+            // status, capturing both new and historical cases in the population
             assertThat(result).isEqualTo(2);
         }
 
@@ -847,8 +857,12 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
     // These methods use DbConnectionFilter.getThreadLocalDbConnection() to
     // obtain a raw JDBC Connection outside of the Hibernate/JPA persistence
     // context. This servlet filter thread-local is NOT available during
-    // Spring integration tests. Tests are structured but @Disabled until
-    // the DAO is refactored to accept an injected DataSource.
+    // Spring integration tests because the servlet container lifecycle
+    // (filter init/doFilter) is not invoked by the test runner.
+    //
+    // Tests are fully structured with Given/When/Then but @Disabled until
+    // the DAO is refactored to accept an injected DataSource parameter
+    // instead of relying on the thread-local connection pattern.
     // =====================================================================
 
     /**
@@ -1227,7 +1241,8 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Disabled("Requires DbConnectionFilter thread-local - not available in test context")
         void shouldHandleNullStartDate_byUsingEpoch() {
             // Given
-            // When startDate is null, the DAO uses Timestamp(0) which is epoch (1970-01-01)
+            // When startDate is null, the DAO falls back to new java.sql.Timestamp(0),
+            // effectively querying from Unix epoch (1970-01-01 00:00:00 UTC) to endDate
             int programId = 1;
             Integer issueGroupId = 5;
 
