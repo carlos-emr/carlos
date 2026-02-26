@@ -437,6 +437,10 @@ public class RxDrugRef {
         return vec.get(0).toString();
     }
 
+    /**
+     * Calls the DrugRef XML-RPC service, swallowing all errors and returning null on failure.
+     * Used by methods where a missing result is acceptable (e.g., search results).
+     */
     private Object callWebservice(String procedureName, Vector params) {
         MiscUtils.getLogger().debug("#CALLDRUGREF-" + procedureName);
         Object object = null;
@@ -451,12 +455,18 @@ public class RxDrugRef {
         return object;
     }
 
+    /**
+     * Calls the DrugRef XML-RPC service, propagating non-zero fault codes as exceptions.
+     * A fault code of 0 is treated as a "no result" condition and silently returns null,
+     * while all other errors are re-thrown to the caller.
+     */
     private Object callWebserviceLite(String procedureName, Vector params) throws Exception {
         Object object = null;
         try {
             SimpleXmlRpcClient server = new SimpleXmlRpcClient(server_url);
             object = server.execute(procedureName, params);
         } catch (Exception exception) {
+            // Fault code 0 means "no result found" — log and return null
             if (exception instanceof XmlRpcFaultException && ((XmlRpcFaultException) exception).code == 0) {
                 logger.error("JavaClient: XML-RPC Fault. NoResultException thrown for procedure: {} with parameters {}", procedureName, params);
             } else {

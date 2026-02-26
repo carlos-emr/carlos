@@ -91,10 +91,17 @@ public class SimpleXmlRpcClient {
         return parseResponse(response.body());
     }
 
+    /**
+     * Builds the XML-RPC request envelope.
+     *
+     * @param methodName String the remote method name (must be a simple ASCII identifier)
+     * @param params     Vector of typed parameter values to serialize
+     * @return String the complete XML request body
+     */
     private String buildRequest(String methodName, Vector params) {
         StringBuilder sb = new StringBuilder();
         sb.append("<?xml version=\"1.0\"?>");
-        sb.append("<methodCall><methodName>").append(methodName).append("</methodName>");
+        sb.append("<methodCall><methodName>").append(escapeXml(methodName)).append("</methodName>");
         sb.append("<params>");
         for (int i = 0; i < params.size(); i++) {
             sb.append("<param>");
@@ -105,6 +112,11 @@ public class SimpleXmlRpcClient {
         return sb.toString();
     }
 
+    /**
+     * Recursively serializes a Java value into an XML-RPC {@code <value>} element.
+     * Maps Java types to XML-RPC types: String, Integer, Boolean, Double, Vector (array),
+     * and Hashtable (struct). Null and unrecognized types are serialized as empty/toString strings.
+     */
     @SuppressWarnings("unchecked")
     private void serializeValue(StringBuilder sb, Object value) {
         sb.append("<value>");
@@ -140,6 +152,7 @@ public class SimpleXmlRpcClient {
         sb.append("</value>");
     }
 
+    /** Escapes the five XML special characters for safe embedding in XML text content. */
     private String escapeXml(String s) {
         StringBuilder sb = new StringBuilder(s.length());
         for (int i = 0; i < s.length(); i++) {
@@ -156,7 +169,15 @@ public class SimpleXmlRpcClient {
         return sb.toString();
     }
 
+    /**
+     * Parses the XML-RPC response, extracting the return value or throwing on fault.
+     * Creates a new {@link DocumentBuilderFactory} per call for thread safety, with
+     * XXE protection features enabled.
+     *
+     * @throws XmlRpcFaultException if the response contains a {@code <fault>} element
+     */
     private Object parseResponse(String responseXml) throws Exception {
+        // Each call gets its own factory instance — DocumentBuilderFactory is not thread-safe
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
@@ -186,6 +207,12 @@ public class SimpleXmlRpcClient {
         return null;
     }
 
+    /**
+     * Deserializes a single XML-RPC {@code <value>} node into its Java equivalent.
+     * Handles all XML-RPC 1.0 types: string, int/i4, boolean, double, dateTime.iso8601,
+     * base64, array, and struct. A bare {@code <value>text</value>} without a type tag
+     * is treated as a string per the XML-RPC specification.
+     */
     private Object parseValue(Node valueNode) {
         Element child = getFirstChildElement(valueNode);
         if (child == null) {
@@ -209,6 +236,7 @@ public class SimpleXmlRpcClient {
         };
     }
 
+    /** Parses an XML-RPC {@code <array>} element into a {@link Vector}. */
     private Vector<Object> parseArray(Element arrayElem) {
         Vector<Object> vec = new Vector<>();
         NodeList dataNodes = arrayElem.getElementsByTagName("data");
@@ -223,6 +251,7 @@ public class SimpleXmlRpcClient {
         return vec;
     }
 
+    /** Parses an XML-RPC {@code <struct>} element into a {@link Hashtable}. */
     private Hashtable<String, Object> parseStruct(Element structElem) {
         Hashtable<String, Object> ht = new Hashtable<>();
         for (Node n = structElem.getFirstChild(); n != null; n = n.getNextSibling()) {
@@ -245,6 +274,7 @@ public class SimpleXmlRpcClient {
         return ht;
     }
 
+    /** Returns the first child {@link Element} of the given node, or null if none exist. */
     private Element getFirstChildElement(Node node) {
         for (Node n = node.getFirstChild(); n != null; n = n.getNextSibling()) {
             if (n.getNodeType() == Node.ELEMENT_NODE) {
