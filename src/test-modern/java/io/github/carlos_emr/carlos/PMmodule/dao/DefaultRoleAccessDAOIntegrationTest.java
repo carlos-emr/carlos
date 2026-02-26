@@ -156,4 +156,197 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
                 .anyMatch(dra -> dra.getRoleId() == testRoleId1 && dra.getAccessTypeId() == testAccessTypeId1);
         }
     }
+
+    /**
+     * Tests for {@code findAll()} - returns all DefaultRoleAccess records without ordering.
+     */
+    @Nested
+    @DisplayName("findAll")
+    class FindAll {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return all default role access records")
+        void shouldReturnAllRecords() {
+            // When
+            List<DefaultRoleAccess> results = defaultRoleAccessDAO.findAll();
+
+            // Then - setUp creates 3 entries
+            assertThat(results)
+                .hasSizeGreaterThanOrEqualTo(3)
+                .anyMatch(dra -> dra.getRoleId() == testRoleId1 && dra.getAccessTypeId() == testAccessTypeId1)
+                .anyMatch(dra -> dra.getRoleId() == testRoleId1 && dra.getAccessTypeId() == testAccessTypeId2)
+                .anyMatch(dra -> dra.getRoleId() == testRoleId2 && dra.getAccessTypeId() == testAccessTypeId1);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return same count as getDefaultRoleAccesses")
+        void shouldReturnSameCountAsGetDefaultRoleAccesses() {
+            // When
+            List<DefaultRoleAccess> findAllResults = defaultRoleAccessDAO.findAll();
+            List<DefaultRoleAccess> getResults = defaultRoleAccessDAO.getDefaultRoleAccesses();
+
+            // Then - Both should contain the same records (just different ordering)
+            assertThat(findAllResults).hasSameSizeAs(getResults);
+        }
+    }
+
+    /**
+     * Tests for {@code getDefaultRoleAccess(Long id)} - single entity lookup by primary key.
+     */
+    @Nested
+    @DisplayName("getDefaultRoleAccess (by ID)")
+    class GetDefaultRoleAccessById {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return role access when valid ID is provided")
+        void shouldReturnRoleAccess_whenValidIdProvided() {
+            // Given - Get a known ID from the saved entries
+            DefaultRoleAccess saved = createDefaultRoleAccess(testRoleId1, testAccessTypeId1);
+            hibernateTemplate.flush();
+            Long savedId = saved.getId();
+
+            // When
+            DefaultRoleAccess result = defaultRoleAccessDAO.getDefaultRoleAccess(savedId);
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(savedId);
+            assertThat(result.getRoleId()).isEqualTo(testRoleId1.longValue());
+            assertThat(result.getAccessTypeId()).isEqualTo(testAccessTypeId1.longValue());
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when ID does not exist")
+        void shouldReturnNull_whenIdNotFound() {
+            // When
+            DefaultRoleAccess result = defaultRoleAccessDAO.getDefaultRoleAccess(999999L);
+
+            // Then
+            assertThat(result).isNull();
+        }
+    }
+
+    /**
+     * Tests for {@code deleteDefaultRoleAccess(Long id)} - deletes a role access record.
+     */
+    @Nested
+    @DisplayName("deleteDefaultRoleAccess")
+    class DeleteDefaultRoleAccess {
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete role access when valid ID is provided")
+        void shouldDeleteRoleAccess_whenValidIdProvided() {
+            // Given - Create a new entry specifically for deletion
+            DefaultRoleAccess toDelete = createDefaultRoleAccess(testRoleId2, testAccessTypeId2);
+            hibernateTemplate.flush();
+            Long deleteId = toDelete.getId();
+
+            // Verify it exists first
+            assertThat(defaultRoleAccessDAO.getDefaultRoleAccess(deleteId)).isNotNull();
+
+            // When
+            defaultRoleAccessDAO.deleteDefaultRoleAccess(deleteId);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(defaultRoleAccessDAO.getDefaultRoleAccess(deleteId)).isNull();
+        }
+    }
+
+    /**
+     * Tests for {@code saveDefaultRoleAccess(DefaultRoleAccess)} - persist and update operations.
+     */
+    @Nested
+    @DisplayName("saveDefaultRoleAccess")
+    class SaveDefaultRoleAccess {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist new role access and assign ID")
+        void shouldPersistNewRoleAccess_withGeneratedId() {
+            // Given
+            DefaultRoleAccess dra = new DefaultRoleAccess();
+            dra.setRoleId(testRoleId2);
+            dra.setAccessTypeId(testAccessTypeId2);
+
+            // When
+            defaultRoleAccessDAO.saveDefaultRoleAccess(dra);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(dra.getId()).isNotNull();
+            assertThat(dra.getId()).isGreaterThan(0L);
+
+            // Verify persistence
+            DefaultRoleAccess found = defaultRoleAccessDAO.getDefaultRoleAccess(dra.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getRoleId()).isEqualTo(testRoleId2.longValue());
+            assertThat(found.getAccessTypeId()).isEqualTo(testAccessTypeId2.longValue());
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update existing role access")
+        void shouldUpdateExistingRoleAccess() {
+            // Given
+            DefaultRoleAccess dra = createDefaultRoleAccess(testRoleId1, testAccessTypeId1);
+            hibernateTemplate.flush();
+            Long savedId = dra.getId();
+
+            // When - Change the access type
+            dra.setAccessTypeId(testAccessTypeId2);
+            defaultRoleAccessDAO.saveDefaultRoleAccess(dra);
+            hibernateTemplate.flush();
+
+            // Then
+            DefaultRoleAccess updated = defaultRoleAccessDAO.getDefaultRoleAccess(savedId);
+            assertThat(updated).isNotNull();
+            assertThat(updated.getAccessTypeId()).isEqualTo(testAccessTypeId2.longValue());
+        }
+    }
+
+    /**
+     * Tests for {@code findAllRolesAndAccessTypes()} - cross-entity JOIN query returning
+     * Object[] pairs of (DefaultRoleAccess, AccessType) where IDs match.
+     *
+     * <p>The HQL query is: {@code FROM DefaultRoleAccess a, AccessType b WHERE a.id = b.Id}
+     * This is an implicit cross-join with an equality condition on IDs, which means it
+     * only returns pairs where the DefaultRoleAccess primary key matches an AccessType primary key.</p>
+     */
+    @Nested
+    @DisplayName("findAllRolesAndAccessTypes (JOIN query)")
+    class FindAllRolesAndAccessTypes {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return Object[] pairs when DefaultRoleAccess ID matches AccessType ID")
+        void shouldReturnObjectArrayPairs_whenIdsMatch() {
+            // Given - We need a DefaultRoleAccess whose ID happens to equal an AccessType ID.
+            // The query joins on a.id = b.Id (DefaultRoleAccess PK = AccessType PK).
+            // This is a fairly unusual join. We can verify it works by checking if any
+            // results are returned, or if none match, verify empty return.
+
+            // When
+            List<Object[]> results = defaultRoleAccessDAO.findAllRolesAndAccessTypes();
+
+            // Then - Each result should be an Object[] with 2 elements
+            // Results may or may not exist depending on whether any DRA id == AccessType id
+            assertThat(results).isNotNull();
+            for (Object[] pair : results) {
+                assertThat(pair).hasSize(2);
+                assertThat(pair[0]).isInstanceOf(DefaultRoleAccess.class);
+                assertThat(pair[1]).isInstanceOf(AccessType.class);
+
+                DefaultRoleAccess dra = (DefaultRoleAccess) pair[0];
+                AccessType at = (AccessType) pair[1];
+                // The JOIN condition: DefaultRoleAccess.id = AccessType.id
+                assertThat(dra.getId()).isEqualTo(at.getId());
+            }
+        }
+    }
 }

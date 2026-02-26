@@ -244,4 +244,206 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
                 .allMatch(id -> id.equals(5555L));
         }
     }
+
+    /** Tests for getNoteLink(Long id) - basic read by primary key. */
+    @Nested
+    @DisplayName("getNoteLink (by primary key)")
+    class GetNoteLink {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return link when valid ID provided")
+        void shouldReturnLink_whenValidIdProvided() {
+            // Given
+            CaseManagementNoteLink saved = createLink(1, 100L, 2001L);
+            hibernateTemplate.flush();
+
+            // When
+            CaseManagementNoteLink found = caseManagementNoteLinkDAO.getNoteLink(saved.getId());
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getTableName()).isEqualTo(1);
+            assertThat(found.getTableId()).isEqualTo(100L);
+            assertThat(found.getNoteId()).isEqualTo(2001L);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when ID does not exist")
+        void shouldReturnNull_whenIdDoesNotExist() {
+            // When
+            CaseManagementNoteLink found = caseManagementNoteLinkDAO.getNoteLink(999999L);
+
+            // Then
+            assertThat(found).isNull();
+        }
+    }
+
+    /** Tests for getLastLinkByTableId(Integer, Long) - delegation returning last element. */
+    @Nested
+    @DisplayName("getLastLinkByTableId (2 params: tableName, tableId)")
+    class GetLastLinkByTableIdTwoParams {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return last link ordered by ID ascending")
+        void shouldReturnLastLink_orderedByIdAscending() {
+            // Given - create multiple links with same tableName and tableId
+            CaseManagementNoteLink first = createLink(3, 300L, 3001L);
+            hibernateTemplate.flush();
+            CaseManagementNoteLink second = createLink(3, 300L, 3002L);
+            hibernateTemplate.flush();
+            CaseManagementNoteLink third = createLink(3, 300L, 3003L);
+            hibernateTemplate.flush();
+
+            // When - delegates to getLinkByTableId (ordered by id asc), returns last
+            CaseManagementNoteLink last = caseManagementNoteLinkDAO
+                .getLastLinkByTableId(3, 300L);
+
+            // Then - should be the one with highest ID (third)
+            assertThat(last).isNotNull();
+            assertThat(last.getId()).isEqualTo(third.getId());
+            assertThat(last.getNoteId()).isEqualTo(3003L);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return null when no matching links exist")
+        void shouldReturnNull_whenNoMatchingLinksExist() {
+            // When
+            CaseManagementNoteLink last = caseManagementNoteLinkDAO
+                .getLastLinkByTableId(99, 999L);
+
+            // Then
+            assertThat(last).isNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return single link when only one match exists")
+        void shouldReturnSingleLink_whenOnlyOneMatchExists() {
+            // Given
+            CaseManagementNoteLink only = createLink(4, 400L, 4001L);
+            hibernateTemplate.flush();
+
+            // When
+            CaseManagementNoteLink last = caseManagementNoteLinkDAO
+                .getLastLinkByTableId(4, 400L);
+
+            // Then
+            assertThat(last).isNotNull();
+            assertThat(last.getId()).isEqualTo(only.getId());
+        }
+    }
+
+    /** Tests for getLastLinkByTableId(Integer, Long, String) - delegation with otherId filter. */
+    @Nested
+    @DisplayName("getLastLinkByTableId (3 params: tableName, tableId, otherId)")
+    class GetLastLinkByTableIdThreeParams {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return last link matching all three params")
+        void shouldReturnLastLink_matchingAllThreeParams() {
+            // Given - links with same tableName/tableId but different otherIds
+            CaseManagementNoteLink matchFirst = createLink(5, 500L, 5001L, "MATCH");
+            hibernateTemplate.flush();
+            CaseManagementNoteLink matchSecond = createLink(5, 500L, 5002L, "MATCH");
+            hibernateTemplate.flush();
+            CaseManagementNoteLink differentOther = createLink(5, 500L, 5003L, "OTHER");
+            hibernateTemplate.flush();
+
+            // When - delegates to getLinkByTableId(3 params) and returns last
+            CaseManagementNoteLink last = caseManagementNoteLinkDAO
+                .getLastLinkByTableId(5, 500L, "MATCH");
+
+            // Then - should be matchSecond (last with otherId="MATCH")
+            assertThat(last).isNotNull();
+            assertThat(last.getId()).isEqualTo(matchSecond.getId());
+            assertThat(last.getOtherId()).isEqualTo("MATCH");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return null when otherId does not match any link")
+        void shouldReturnNull_whenOtherIdDoesNotMatch() {
+            // Given
+            createLink(5, 500L, 5001L, "EXISTS");
+            hibernateTemplate.flush();
+
+            // When
+            CaseManagementNoteLink last = caseManagementNoteLinkDAO
+                .getLastLinkByTableId(5, 500L, "NOPE");
+
+            // Then
+            assertThat(last).isNull();
+        }
+    }
+
+    /** Tests for getLastLinkByNote(Long noteId) - delegation returning last link for a note. */
+    @Nested
+    @DisplayName("getLastLinkByNote (noteId)")
+    class GetLastLinkByNote {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return last link for given note ID")
+        void shouldReturnLastLink_forGivenNoteId() {
+            // Given - multiple links pointing to same note
+            CaseManagementNoteLink first = createLink(1, 100L, 7777L);
+            hibernateTemplate.flush();
+            CaseManagementNoteLink second = createLink(2, 200L, 7777L);
+            hibernateTemplate.flush();
+            CaseManagementNoteLink third = createLink(3, 300L, 7777L);
+            hibernateTemplate.flush();
+
+            // When - delegates to getLinkByNote (ordered by id asc), returns last
+            CaseManagementNoteLink last = caseManagementNoteLinkDAO.getLastLinkByNote(7777L);
+
+            // Then
+            assertThat(last).isNotNull();
+            assertThat(last.getId()).isEqualTo(third.getId());
+            assertThat(last.getTableName()).isEqualTo(3);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return null when note has no links")
+        void shouldReturnNull_whenNoteHasNoLinks() {
+            // When
+            CaseManagementNoteLink last = caseManagementNoteLinkDAO.getLastLinkByNote(88888L);
+
+            // Then
+            assertThat(last).isNull();
+        }
+    }
+
+    /** Tests for update(CaseManagementNoteLink) - update operation. */
+    @Nested
+    @DisplayName("update (CaseManagementNoteLink)")
+    class UpdateLink {
+
+        @Test
+        @Tag("update")
+        @DisplayName("should persist changes when link is updated")
+        void shouldPersistChanges_whenLinkIsUpdated() {
+            // Given
+            CaseManagementNoteLink link = createLink(1, 100L, 9001L);
+            hibernateTemplate.flush();
+
+            // When - update the noteId
+            link.setNoteId(9002L);
+            link.setOtherId("UPDATED");
+            caseManagementNoteLinkDAO.update(link);
+            hibernateTemplate.flush();
+
+            // Then - re-fetch and verify changes
+            CaseManagementNoteLink found = caseManagementNoteLinkDAO.getNoteLink(link.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getNoteId()).isEqualTo(9002L);
+            assertThat(found.getOtherId()).isEqualTo("UPDATED");
+        }
+    }
 }

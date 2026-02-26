@@ -24,12 +24,14 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -1081,6 +1083,281 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             assertThat(results)
                 .extracting(CaseManagementNote::getId)
                 .contains(note.getId());
+        }
+    }
+
+    /**
+     * Tests for haveIssue(Long issid, String demoNo).
+     *
+     * <p>This method uses native SQL with string concatenation to check if a
+     * casemgmt_issue_notes record exists for the given CaseManagementIssue ID.
+     * Note: the demoNo parameter is accepted but not used in the query.</p>
+     */
+    @Nested
+    @DisplayName("haveIssue (Long issid, String demoNo) - native SQL")
+    class HaveIssueLongOverload {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return true when issue notes record exists for issue ID")
+        void shouldReturnTrue_whenIssueNotesRecordExists() {
+            // Given - create issue, CMI, note, and link them via join table
+            Issue issue = createIssue("HAVEISS001", "HaveIssue Test");
+            CaseManagementIssue cmi = createCaseManagementIssue("20100", issue);
+            CaseManagementNote note = createNoteWithIssue("20100", "Linked note",
+                createDate(2024, 5, 1), cmi);
+            hibernateTemplate.flush();
+
+            // When - query by the CaseManagementIssue's primary key (id column)
+            boolean result = caseManagementNoteDAO.haveIssue(cmi.getId(), "20100");
+
+            // Then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return false when no issue notes record exists")
+        void shouldReturnFalse_whenNoIssueNotesRecordExists() {
+            // When - query with a non-existent CMI ID
+            boolean result = caseManagementNoteDAO.haveIssue(999999L, "20100");
+
+            // Then
+            assertThat(result).isFalse();
+        }
+    }
+
+    /**
+     * Tests for haveIssue(String issueCode, Integer demographicId).
+     *
+     * <p>This method uses parameterized native SQL joining casemgmt_issue_notes,
+     * casemgmt_issue, and issue tables to check if any notes exist for a given
+     * issue code and demographic.</p>
+     */
+    @Nested
+    @DisplayName("haveIssue (String issueCode, Integer demographicId) - native SQL")
+    class HaveIssueStringOverload {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return true when notes exist for issue code and demographic")
+        void shouldReturnTrue_whenNotesExistForIssueCodeAndDemographic() {
+            // Given - create issue with specific code, link to demographic via CMI and note
+            Issue issue = createIssue("HICODE01", "Code-based HaveIssue");
+            CaseManagementIssue cmi = createCaseManagementIssue("20200", issue);
+            CaseManagementNote note = createNoteWithIssue("20200", "Code check note",
+                createDate(2024, 6, 1), cmi);
+            hibernateTemplate.flush();
+
+            // When - search by the issue's code and demographic
+            boolean result = caseManagementNoteDAO.haveIssue("HICODE01", 20200);
+
+            // Then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return false when issue code does not match")
+        void shouldReturnFalse_whenIssueCodeDoesNotMatch() {
+            // Given - create data for a different issue code
+            Issue issue = createIssue("HICODE02", "Wrong Code Issue");
+            CaseManagementIssue cmi = createCaseManagementIssue("20201", issue);
+            createNoteWithIssue("20201", "Wrong code note",
+                createDate(2024, 6, 1), cmi);
+            hibernateTemplate.flush();
+
+            // When - search with a non-matching code
+            boolean result = caseManagementNoteDAO.haveIssue("NONEXISTENT", 20201);
+
+            // Then
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return false when demographic does not match")
+        void shouldReturnFalse_whenDemographicDoesNotMatch() {
+            // Given - create data for a specific demographic
+            Issue issue = createIssue("HICODE03", "Demo Mismatch Issue");
+            CaseManagementIssue cmi = createCaseManagementIssue("20202", issue);
+            createNoteWithIssue("20202", "Demo mismatch note",
+                createDate(2024, 6, 1), cmi);
+            hibernateTemplate.flush();
+
+            // When - search with a different demographic
+            boolean result = caseManagementNoteDAO.haveIssue("HICODE03", 99999);
+
+            // Then
+            assertThat(result).isFalse();
+        }
+    }
+
+    /**
+     * Tests for findNotesByDemographicAndIssueCode(Integer, String[]).
+     *
+     * <p>This method uses a 4-table native SQL JOIN across issue, casemgmt_issue,
+     * casemgmt_issue_notes, and casemgmt_note tables. It also de-duplicates by UUID
+     * (keeping the most recently updated version) and sorts by observation_date.</p>
+     */
+    @Nested
+    @DisplayName("findNotesByDemographicAndIssueCode - 4-table native SQL JOIN")
+    class FindNotesByDemographicAndIssueCode {
+
+        private Issue issue1;
+        private CaseManagementIssue cmi1;
+        private static final String DEMO_NO = "20300";
+
+        @BeforeEach
+        void setUp() {
+            issue1 = createIssue("FNDIC001", "FindByCode Issue 1");
+            cmi1 = createCaseManagementIssue(DEMO_NO, issue1);
+            hibernateTemplate.flush();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find notes by demographic and issue code")
+        void shouldFindNotes_byDemographicAndIssueCode() {
+            // Given - note linked to issue with known code
+            CaseManagementNote note = createNoteWithIssue(DEMO_NO, "Found by code",
+                createDate(2024, 7, 1), cmi1);
+            hibernateTemplate.flush();
+
+            // When
+            Collection<CaseManagementNote> results = caseManagementNoteDAO
+                .findNotesByDemographicAndIssueCode(Integer.valueOf(DEMO_NO),
+                    new String[]{"FNDIC001"});
+
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(CaseManagementNote::getId)
+                .contains(note.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty when demographic does not match")
+        void shouldReturnEmpty_whenDemographicDoesNotMatch() {
+            // Given - note for different demographic
+            CaseManagementNote note = createNoteWithIssue(DEMO_NO, "Wrong demo note",
+                createDate(2024, 7, 1), cmi1);
+            hibernateTemplate.flush();
+
+            // When - query with a different demographic
+            Collection<CaseManagementNote> results = caseManagementNoteDAO
+                .findNotesByDemographicAndIssueCode(99999,
+                    new String[]{"FNDIC001"});
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should de-duplicate notes with same UUID keeping most recent")
+        void shouldDeduplicateByUuid_keepingMostRecent() {
+            // Given - two revisions of the same note (same UUID)
+            CaseManagementNote olderVersion = createNoteWithIssue(DEMO_NO, "Old version",
+                createDate(2024, 7, 1), cmi1);
+            String sharedUuid = olderVersion.getUuid();
+
+            CaseManagementNote newerVersion = createNote(DEMO_NO, "New version",
+                createDate(2024, 7, 10));
+            newerVersion.setUuid(sharedUuid);
+            newerVersion.getIssues().add(cmi1);
+            caseManagementNoteDAO.updateNote(newerVersion);
+            hibernateTemplate.flush();
+
+            // When
+            Collection<CaseManagementNote> results = caseManagementNoteDAO
+                .findNotesByDemographicAndIssueCode(Integer.valueOf(DEMO_NO),
+                    new String[]{"FNDIC001"});
+
+            // Then - only one note per UUID, and it should be the newer one
+            assertThat(results).hasSize(1);
+            CaseManagementNote resultNote = results.iterator().next();
+            assertThat(resultNote.getId()).isEqualTo(newerVersion.getId());
+        }
+    }
+
+    /**
+     * Tests for getNoteCountForProviderForDateRange(String, Date, Date).
+     *
+     * <p>This method uses native SQL to count distinct UUIDs in casemgmt_note
+     * for a given provider within a date range. It exercises parameterized
+     * native query with Timestamp parameters.</p>
+     */
+    @Nested
+    @DisplayName("getNoteCountForProviderForDateRange - native SQL count")
+    class GetNoteCountForProviderForDateRange {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should count distinct notes for provider within date range")
+        void shouldCountDistinctNotes_forProviderInDateRange() {
+            // Given - create notes for target provider within date range
+            String providerNo = "999998";
+            Date jan1 = createDate(2024, 1, 1);
+            Date jan15 = createDate(2024, 1, 15);
+            Date jan31 = createDate(2024, 1, 31);
+
+            createNote("30001", "Provider note 1", jan15);
+            createNote("30002", "Provider note 2", jan15);
+            hibernateTemplate.flush();
+
+            // When
+            int count = caseManagementNoteDAO
+                .getNoteCountForProviderForDateRange(providerNo, jan1, jan31);
+
+            // Then - 2 notes with distinct UUIDs
+            assertThat(count).isEqualTo(2);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return zero when no notes in date range")
+        void shouldReturnZero_whenNoNotesInDateRange() {
+            // Given - create notes outside the query range
+            createNote("30003", "Out of range note", createDate(2023, 6, 1));
+            hibernateTemplate.flush();
+
+            // When - query a date range with no matching notes
+            int count = caseManagementNoteDAO
+                .getNoteCountForProviderForDateRange("999998",
+                    createDate(2024, 1, 1), createDate(2024, 1, 31));
+
+            // Then
+            assertThat(count).isEqualTo(0);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should not count notes from other providers")
+        void shouldNotCountNotes_fromOtherProviders() {
+            // Given - create a note with a different provider
+            CaseManagementNote note = new CaseManagementNote();
+            note.setDemographic_no("30004");
+            note.setNote("Other provider note");
+            note.setProviderNo("OTHRPV");
+            note.setUuid(UUID.randomUUID().toString());
+            Date jan15 = createDate(2024, 1, 15);
+            note.setUpdate_date(jan15);
+            note.setObservation_date(jan15);
+            note.setSigned(false);
+            note.setArchived(false);
+            note.setLocked(false);
+            caseManagementNoteDAO.saveNote(note);
+            hibernateTemplate.flush();
+
+            // When - query for the default provider
+            int count = caseManagementNoteDAO
+                .getNoteCountForProviderForDateRange("999998",
+                    createDate(2024, 1, 1), createDate(2024, 1, 31));
+
+            // Then
+            assertThat(count).isEqualTo(0);
         }
     }
 }

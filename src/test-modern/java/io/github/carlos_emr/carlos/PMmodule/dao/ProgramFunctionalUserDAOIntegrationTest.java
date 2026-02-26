@@ -172,4 +172,246 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
                 .anyMatch(ut -> ut.getName().equals("Admin"));
         }
     }
+
+    /**
+     * Tests for {@code getFunctionalUser(Long id)} - single entity lookup by primary key
+     * for ProgramFunctionalUser (not FunctionalUserType).
+     */
+    @Nested
+    @DisplayName("getFunctionalUser (by ID)")
+    class GetFunctionalUser {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return functional user when valid ID is provided")
+        void shouldReturnFunctionalUser_whenValidIdProvided() {
+            // Given
+            ProgramFunctionalUser pfu = createFunctionalUser(testProgramId1, testUserTypeId1);
+            hibernateTemplate.flush();
+            Long savedId = pfu.getId();
+
+            // When
+            ProgramFunctionalUser result = programFunctionalUserDAO.getFunctionalUser(savedId);
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(savedId);
+            assertThat(result.getProgramId()).isEqualTo(testProgramId1);
+            assertThat(result.getUserTypeId()).isEqualTo(testUserTypeId1.longValue());
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when functional user ID does not exist")
+        void shouldReturnNull_whenIdNotFound() {
+            // When
+            ProgramFunctionalUser result = programFunctionalUserDAO.getFunctionalUser(999999L);
+
+            // Then
+            assertThat(result).isNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should throw exception for null ID")
+        void shouldThrow_whenIdIsNull() {
+            assertThatThrownBy(() -> programFunctionalUserDAO.getFunctionalUser(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should throw exception for zero or negative ID")
+        void shouldThrow_whenIdIsZeroOrNegative() {
+            assertThatThrownBy(() -> programFunctionalUserDAO.getFunctionalUser(0L))
+                .isInstanceOf(IllegalArgumentException.class);
+
+            assertThatThrownBy(() -> programFunctionalUserDAO.getFunctionalUser(-1L))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    /**
+     * Tests for {@code deleteFunctionalUserType(Long id)} - deletes a FunctionalUserType record.
+     */
+    @Nested
+    @DisplayName("deleteFunctionalUserType")
+    class DeleteFunctionalUserType {
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete functional user type when valid ID is provided")
+        void shouldDeleteFunctionalUserType_whenValidIdProvided() {
+            // Given - Create a dedicated user type for deletion
+            FunctionalUserType toDelete = createFunctionalUserType("ToDelete");
+            hibernateTemplate.flush();
+            Long deleteId = toDelete.getId();
+
+            // Verify it exists
+            assertThat(programFunctionalUserDAO.getFunctionalUserType(deleteId)).isNotNull();
+
+            // When
+            programFunctionalUserDAO.deleteFunctionalUserType(deleteId);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(programFunctionalUserDAO.getFunctionalUserType(deleteId)).isNull();
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should throw exception for null ID")
+        void shouldThrow_whenIdIsNull() {
+            assertThatThrownBy(() -> programFunctionalUserDAO.deleteFunctionalUserType(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should throw exception for zero or negative ID")
+        void shouldThrow_whenIdIsZeroOrNegative() {
+            assertThatThrownBy(() -> programFunctionalUserDAO.deleteFunctionalUserType(0L))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    /**
+     * Tests for {@code deleteFunctionalUser(Long id)} - deletes a ProgramFunctionalUser record.
+     */
+    @Nested
+    @DisplayName("deleteFunctionalUser")
+    class DeleteFunctionalUser {
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete functional user when valid ID is provided")
+        void shouldDeleteFunctionalUser_whenValidIdProvided() {
+            // Given - Create a dedicated user for deletion
+            ProgramFunctionalUser toDelete = createFunctionalUser(testProgramId1, testUserTypeId1);
+            hibernateTemplate.flush();
+            Long deleteId = toDelete.getId();
+
+            // Verify it exists
+            assertThat(programFunctionalUserDAO.getFunctionalUser(deleteId)).isNotNull();
+
+            // When
+            programFunctionalUserDAO.deleteFunctionalUser(deleteId);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(programFunctionalUserDAO.getFunctionalUser(deleteId)).isNull();
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should throw exception for null ID")
+        void shouldThrow_whenIdIsNull() {
+            assertThatThrownBy(() -> programFunctionalUserDAO.deleteFunctionalUser(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should throw exception for zero or negative ID")
+        void shouldThrow_whenIdIsZeroOrNegative() {
+            assertThatThrownBy(() -> programFunctionalUserDAO.deleteFunctionalUser(0L))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    /**
+     * Tests for {@code saveFunctionalUser(ProgramFunctionalUser)} - persist and update operations.
+     */
+    @Nested
+    @DisplayName("saveFunctionalUser")
+    class SaveFunctionalUser {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist new functional user and assign ID")
+        void shouldPersistNewFunctionalUser_withGeneratedId() {
+            // Given
+            ProgramFunctionalUser pfu = new ProgramFunctionalUser();
+            pfu.setProgramId(testProgramId2);
+            pfu.setUserTypeId(testUserTypeId2);
+
+            // When
+            programFunctionalUserDAO.saveFunctionalUser(pfu);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(pfu.getId()).isNotNull();
+            assertThat(pfu.getId()).isGreaterThan(0L);
+
+            ProgramFunctionalUser found = programFunctionalUserDAO.getFunctionalUser(pfu.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getProgramId()).isEqualTo(testProgramId2);
+            assertThat(found.getUserTypeId()).isEqualTo(testUserTypeId2.longValue());
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should throw exception for null input")
+        void shouldThrow_whenInputIsNull() {
+            assertThatThrownBy(() -> programFunctionalUserDAO.saveFunctionalUser(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    /**
+     * Tests for {@code saveFunctionalUserType(FunctionalUserType)} - persist and update operations.
+     */
+    @Nested
+    @DisplayName("saveFunctionalUserType")
+    class SaveFunctionalUserType {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist new functional user type and assign ID")
+        void shouldPersistNewFunctionalUserType_withGeneratedId() {
+            // Given
+            FunctionalUserType fut = new FunctionalUserType();
+            fut.setName("Manager");
+
+            // When
+            programFunctionalUserDAO.saveFunctionalUserType(fut);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(fut.getId()).isNotNull();
+            assertThat(fut.getId()).isGreaterThan(0L);
+
+            FunctionalUserType found = programFunctionalUserDAO.getFunctionalUserType(fut.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getName()).isEqualTo("Manager");
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update existing functional user type name")
+        void shouldUpdateExistingFunctionalUserType() {
+            // Given
+            FunctionalUserType fut = createFunctionalUserType("OldName");
+            hibernateTemplate.flush();
+            Long savedId = fut.getId();
+
+            // When
+            fut.setName("NewName");
+            programFunctionalUserDAO.saveFunctionalUserType(fut);
+            hibernateTemplate.flush();
+
+            // Then
+            FunctionalUserType updated = programFunctionalUserDAO.getFunctionalUserType(savedId);
+            assertThat(updated).isNotNull();
+            assertThat(updated.getName()).isEqualTo("NewName");
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should throw exception for null input")
+        void shouldThrow_whenInputIsNull() {
+            assertThatThrownBy(() -> programFunctionalUserDAO.saveFunctionalUserType(null))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
 }

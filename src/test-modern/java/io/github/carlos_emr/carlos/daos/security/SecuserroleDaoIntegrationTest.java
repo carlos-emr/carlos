@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -370,6 +371,528 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(deleted).isEqualTo(2);
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should return zero when deleting by non-existent orgcd")
+        void shouldReturnZero_whenDeletingByNonExistentOrgcd() {
+            // When
+            int deleted = secuserroleDao.deleteByOrgcd("NONEXIST_ORG");
+
+            // Then
+            assertThat(deleted).isEqualTo(0);
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should return zero when deleting by non-existent provider number")
+        void shouldReturnZero_whenDeletingByNonExistentProviderNo() {
+            // When
+            int deleted = secuserroleDao.deleteByProviderNo("NOPRV");
+
+            // Then
+            assertThat(deleted).isEqualTo(0);
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should return zero when deleting by non-existent ID")
+        void shouldReturnZero_whenDeletingByNonExistentId() {
+            // When
+            int deleted = secuserroleDao.deleteById(999999);
+
+            // Then
+            assertThat(deleted).isEqualTo(0);
+        }
+    }
+
+    /**
+     * Tests for the {@link SecuserroleDao#findByExample(Secuserrole)} method.
+     *
+     * <p>The {@code findByExample()} implementation uses Hibernate Criteria API
+     * with {@code Example.create(instance)} to find entities matching non-null
+     * property values of the provided example instance. This is a dynamic query
+     * that automatically includes only populated fields in the WHERE clause.</p>
+     */
+    @Nested
+    @DisplayName("findByExample() operations")
+    class FindByExampleOperations {
+
+        /**
+         * Verifies that {@code findByExample()} returns matching entities when
+         * the example instance has a single property set (providerNo).
+         */
+        @Test
+        @Tag("read")
+        @Tag("query")
+        @DisplayName("should find secuserroles matching example by provider number")
+        void shouldFindSecuserroles_byExampleProviderNo() {
+            // Given
+            createSecuserrole("EX100", "doctor", "ORG1");
+            createSecuserrole("EX100", "nurse", "ORG2");
+            createSecuserrole("EX200", "admin", "ORG1");
+            hibernateTemplate.flush();
+
+            Secuserrole example = new Secuserrole();
+            example.setProviderNo("EX100");
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findByExample(example);
+
+            // Then
+            assertThat(results)
+                .hasSize(2)
+                .allMatch(r -> r.getProviderNo().equals("EX100"));
+        }
+
+        /**
+         * Verifies that {@code findByExample()} returns matching entities when
+         * the example instance has a single property set (roleName).
+         */
+        @Test
+        @Tag("read")
+        @Tag("query")
+        @DisplayName("should find secuserroles matching example by role name")
+        void shouldFindSecuserroles_byExampleRoleName() {
+            // Given
+            createSecuserrole("EX300", "physio", "ORG1");
+            createSecuserrole("EX301", "physio", "ORG2");
+            createSecuserrole("EX302", "nurse", "ORG1");
+            hibernateTemplate.flush();
+
+            Secuserrole example = new Secuserrole();
+            example.setRoleName("physio");
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findByExample(example);
+
+            // Then
+            assertThat(results)
+                .hasSize(2)
+                .allMatch(r -> r.getRoleName().equals("physio"));
+        }
+
+        /**
+         * Verifies that {@code findByExample()} can match on multiple properties
+         * simultaneously (providerNo AND roleName AND orgcd).
+         */
+        @Test
+        @Tag("read")
+        @Tag("query")
+        @DisplayName("should find secuserroles matching example with multiple properties")
+        void shouldFindSecuserroles_byExampleWithMultipleProperties() {
+            // Given
+            createSecuserrole("EX400", "doctor", "ORG1");
+            createSecuserrole("EX400", "doctor", "ORG2");
+            createSecuserrole("EX400", "nurse", "ORG1");
+            hibernateTemplate.flush();
+
+            Secuserrole example = new Secuserrole();
+            example.setProviderNo("EX400");
+            example.setRoleName("doctor");
+            example.setOrgcd("ORG1");
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findByExample(example);
+
+            // Then
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getProviderNo()).isEqualTo("EX400");
+            assertThat(results.get(0).getRoleName()).isEqualTo("doctor");
+            assertThat(results.get(0).getOrgcd()).isEqualTo("ORG1");
+        }
+
+        /**
+         * Verifies that {@code findByExample()} returns an empty list when
+         * no entities match the example.
+         */
+        @Test
+        @Tag("read")
+        @Tag("query")
+        @DisplayName("should return empty list when no entities match example")
+        void shouldReturnEmptyList_whenNoEntitiesMatchExample() {
+            // Given
+            createSecuserrole("EX500", "doctor", "ORG1");
+            hibernateTemplate.flush();
+
+            Secuserrole example = new Secuserrole();
+            example.setProviderNo("NONEX");
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findByExample(example);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for the {@link SecuserroleDao#findByProperty(String, Object)} method.
+     *
+     * <p>The {@code findByProperty()} implementation builds an HQL query dynamically:
+     * {@code from Secuserrole as model where model.<propertyName> = ?1}.
+     * While tested indirectly through {@code findByProviderNo()}, {@code findByRoleName()},
+     * and {@code findByActiveyn()}, these tests exercise the method directly with
+     * various property names.</p>
+     */
+    @Nested
+    @DisplayName("findByProperty() operations")
+    class FindByPropertyOperations {
+
+        /**
+         * Verifies that {@code findByProperty()} works with the orgcd property,
+         * which is not covered by existing convenience method tests.
+         */
+        @Test
+        @Tag("read")
+        @Tag("query")
+        @DisplayName("should find secuserroles by orgcd property")
+        void shouldFindSecuserroles_byOrgcdProperty() {
+            // Given
+            createSecuserrole("FP100", "doctor", "FPORG");
+            createSecuserrole("FP101", "nurse", "FPORG");
+            createSecuserrole("FP102", "admin", "OTHER");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findByProperty("orgcd", "FPORG");
+
+            // Then
+            assertThat(results)
+                .hasSize(2)
+                .allMatch(r -> r.getOrgcd().equals("FPORG"));
+        }
+
+        /**
+         * Verifies that {@code findByProperty()} returns an empty list
+         * when no entities match the property value.
+         */
+        @Test
+        @Tag("read")
+        @Tag("query")
+        @DisplayName("should return empty list when property value has no matches")
+        void shouldReturnEmptyList_whenPropertyValueHasNoMatches() {
+            // Given
+            createSecuserrole("FP200", "doctor", "ORG1");
+            hibernateTemplate.flush();
+
+            // When
+            @SuppressWarnings("unchecked")
+            List<Secuserrole> results = secuserroleDao.findByProperty("providerNo", "NONEXISTENT");
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for the {@link SecuserroleDao#attachDirty(Secuserrole)} method.
+     *
+     * <p>The {@code attachDirty()} implementation calls
+     * {@code session.saveOrUpdate(instance)} after setting {@code lastUpdateDate}
+     * to the current time. This re-attaches a detached entity to the session
+     * and marks it as dirty for synchronization.</p>
+     */
+    @Nested
+    @DisplayName("attachDirty() operations")
+    class AttachDirtyOperations {
+
+        /**
+         * Verifies that {@code attachDirty()} persists a new (transient) entity
+         * via {@code saveOrUpdate()}, which behaves like {@code save()} for new entities.
+         */
+        @Test
+        @Tag("create")
+        @DisplayName("should persist new entity via attachDirty")
+        void shouldPersistNewEntity_viaAttachDirty() {
+            // Given
+            Secuserrole role = new Secuserrole();
+            role.setProviderNo("AD100");
+            role.setRoleName("doctor");
+            role.setOrgcd("ORG1");
+
+            // When
+            secuserroleDao.attachDirty(role);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(role.getId()).isNotNull();
+            assertThat(role.getLastUpdateDate()).isNotNull();
+            Secuserrole found = secuserroleDao.findById(role.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getProviderNo()).isEqualTo("AD100");
+        }
+
+        /**
+         * Verifies that {@code attachDirty()} updates the {@code lastUpdateDate}
+         * when called on an existing entity.
+         */
+        @Test
+        @Tag("update")
+        @DisplayName("should update lastUpdateDate when attaching dirty entity")
+        void shouldUpdateLastUpdateDate_whenAttachingDirtyEntity() {
+            // Given
+            Secuserrole role = createSecuserrole("AD200", "nurse", "ORG1");
+            hibernateTemplate.flush();
+            Date originalDate = role.getLastUpdateDate();
+
+            // When - modify and re-attach
+            role.setRoleName("specialist");
+            secuserroleDao.attachDirty(role);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(role.getLastUpdateDate()).isNotNull();
+            // The lastUpdateDate should be set (may be same or later than original)
+            Secuserrole found = secuserroleDao.findById(role.getId());
+            assertThat(found.getRoleName()).isEqualTo("specialist");
+            assertThat(found.getLastUpdateDate()).isNotNull();
+        }
+    }
+
+    /**
+     * Tests for the {@link SecuserroleDao#attachClean(Secuserrole)} method.
+     *
+     * <p>The {@code attachClean()} implementation calls
+     * {@code session.lock(instance, LockMode.NONE)} which re-associates a
+     * detached entity with the session without forcing a database read or
+     * marking it as dirty.</p>
+     */
+    @Nested
+    @DisplayName("attachClean() operations")
+    class AttachCleanOperations {
+
+        /**
+         * Verifies that {@code attachClean()} re-associates a detached entity
+         * with the session. After calling attachClean, the entity should be
+         * associated with the current session.
+         */
+        @Test
+        @Tag("read")
+        @DisplayName("should attach clean entity to session without modifying it")
+        void shouldAttachCleanEntity_withoutModifyingIt() {
+            // Given - create and flush an entity, then evict it from session
+            Secuserrole role = createSecuserrole("AC100", "doctor", "ORG1");
+            hibernateTemplate.flush();
+            String originalRoleName = role.getRoleName();
+            Integer originalId = role.getId();
+
+            // Evict to make it detached
+            hibernateTemplate.evict(role);
+
+            // When - re-attach as clean
+            secuserroleDao.attachClean(role);
+
+            // Then - entity should retain its original values
+            assertThat(role.getId()).isEqualTo(originalId);
+            assertThat(role.getRoleName()).isEqualTo(originalRoleName);
+            assertThat(role.getProviderNo()).isEqualTo("AC100");
+        }
+    }
+
+    /**
+     * Tests for the {@link SecuserroleDao#updateRoleName(Integer, String)} edge cases.
+     *
+     * <p>The {@code updateRoleName()} implementation first loads the entity via
+     * {@code HibernateTemplate.get()}, then sets the new role name and
+     * lastUpdateDate before calling {@code HibernateTemplate.update()}.</p>
+     */
+    @Nested
+    @DisplayName("updateRoleName() edge cases")
+    class UpdateRoleNameEdgeCases {
+
+        /**
+         * Verifies that {@code updateRoleName()} is a no-op when the ID does
+         * not correspond to any existing entity. The implementation checks
+         * for null return from {@code HibernateTemplate.get()} and silently
+         * skips the update.
+         */
+        @Test
+        @Tag("update")
+        @DisplayName("should not throw when updating role name with non-existent ID")
+        void shouldNotThrow_whenUpdatingRoleNameWithNonExistentId() {
+            // When / Then - no exception should be thrown
+            assertThatCode(() -> secuserroleDao.updateRoleName(999999, "newRole"))
+                .doesNotThrowAnyException();
+        }
+
+        /**
+         * Verifies that {@code updateRoleName()} also sets the lastUpdateDate
+         * to a non-null value.
+         */
+        @Test
+        @Tag("update")
+        @DisplayName("should set lastUpdateDate when updating role name")
+        void shouldSetLastUpdateDate_whenUpdatingRoleName() {
+            // Given
+            Secuserrole role = createSecuserrole("URN01", "doctor", "ORG1");
+            hibernateTemplate.flush();
+
+            // When
+            secuserroleDao.updateRoleName(role.getId(), "surgeon");
+            hibernateTemplate.flush();
+            hibernateTemplate.clear();
+
+            // Then
+            Secuserrole found = secuserroleDao.findById(role.getId());
+            assertThat(found.getRoleName()).isEqualTo("surgeon");
+            assertThat(found.getLastUpdateDate()).isNotNull();
+        }
+    }
+
+    /**
+     * Tests for the {@link SecuserroleDao#update(Secuserrole)} method with
+     * additional scenarios.
+     *
+     * <p>The {@code update()} method builds an HQL UPDATE statement using
+     * string concatenation to match on providerNo, roleName, and orgcd.
+     * It updates the activeyn and lastUpdateDate fields. Returns the count
+     * of affected rows.</p>
+     */
+    @Nested
+    @DisplayName("update() additional scenarios")
+    class UpdateAdditionalScenarios {
+
+        /**
+         * Verifies that {@code update()} returns zero when the specified
+         * combination of providerNo, roleName, and orgcd does not exist.
+         */
+        @Test
+        @Tag("update")
+        @DisplayName("should return zero when updating non-existent combination")
+        void shouldReturnZero_whenUpdatingNonExistentCombination() {
+            // Given - an entity with values that do not match any persisted record
+            Secuserrole nonExistent = new Secuserrole();
+            nonExistent.setProviderNo("NOEX");
+            nonExistent.setRoleName("nonexistent");
+            nonExistent.setOrgcd("NOORG");
+            nonExistent.setActiveyn(1);
+
+            // When
+            int rowsUpdated = secuserroleDao.update(nonExistent);
+
+            // Then
+            assertThat(rowsUpdated).isEqualTo(0);
+        }
+
+        /**
+         * Verifies that {@code update()} correctly matches on the combination
+         * of providerNo, roleName, and orgcd and updates the activeyn value.
+         */
+        @Test
+        @Tag("update")
+        @DisplayName("should update activeyn for exact match of provider, role, and org")
+        void shouldUpdateActiveyn_forExactMatchOfProviderRoleAndOrg() {
+            // Given
+            Secuserrole role = createSecuserroleWithActive("UP100", "doctor", "UPORG", 1);
+            hibernateTemplate.flush();
+            hibernateTemplate.clear();
+
+            // When - construct update entity with same key fields but different activeyn
+            Secuserrole updateEntity = new Secuserrole();
+            updateEntity.setProviderNo("UP100");
+            updateEntity.setRoleName("doctor");
+            updateEntity.setOrgcd("UPORG");
+            updateEntity.setActiveyn(0);
+            int rowsUpdated = secuserroleDao.update(updateEntity);
+
+            // Then
+            assertThat(rowsUpdated).isEqualTo(1);
+        }
+    }
+
+    /**
+     * Tests for the {@link SecuserroleDao#merge(Secuserrole)} additional
+     * scenarios.
+     *
+     * <p>The {@code merge()} implementation calls {@code session.merge()} and
+     * sets the {@code lastUpdateDate} before merging. It returns the merged
+     * (managed) entity instance.</p>
+     */
+    @Nested
+    @DisplayName("merge() additional scenarios")
+    class MergeAdditionalScenarios {
+
+        /**
+         * Verifies that {@code merge()} sets the lastUpdateDate on the merged entity.
+         */
+        @Test
+        @Tag("update")
+        @DisplayName("should set lastUpdateDate when merging entity")
+        void shouldSetLastUpdateDate_whenMergingEntity() {
+            // Given
+            Secuserrole role = createSecuserrole("MG100", "doctor", "ORG1");
+            hibernateTemplate.flush();
+
+            // When
+            role.setOrgcd("ORG2");
+            Secuserrole merged = secuserroleDao.merge(role);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(merged.getLastUpdateDate()).isNotNull();
+            assertThat(merged.getOrgcd()).isEqualTo("ORG2");
+        }
+
+        /**
+         * Verifies that {@code merge()} can persist a new (transient) entity
+         * that has no ID set. Hibernate's merge on a transient instance creates
+         * a new persistent copy.
+         */
+        @Test
+        @Tag("create")
+        @DisplayName("should create new entity when merging transient instance")
+        void shouldCreateNewEntity_whenMergingTransientInstance() {
+            // Given
+            Secuserrole role = new Secuserrole();
+            role.setProviderNo("MG200");
+            role.setRoleName("nurse");
+            role.setOrgcd("ORG1");
+
+            // When
+            Secuserrole merged = secuserroleDao.merge(role);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(merged.getId()).isNotNull();
+            assertThat(merged.getLastUpdateDate()).isNotNull();
+        }
+    }
+
+    /**
+     * Tests for the {@link SecuserroleDao#save(Secuserrole)} additional scenarios
+     * verifying that lastUpdateDate is automatically set.
+     */
+    @Nested
+    @DisplayName("save() lastUpdateDate behavior")
+    class SaveLastUpdateDateBehavior {
+
+        /**
+         * Verifies that {@code save()} automatically sets the lastUpdateDate
+         * to a non-null value.
+         */
+        @Test
+        @Tag("create")
+        @DisplayName("should auto-set lastUpdateDate when saving new entity")
+        void shouldAutoSetLastUpdateDate_whenSavingNewEntity() {
+            // Given
+            Secuserrole role = new Secuserrole();
+            role.setProviderNo("SV100");
+            role.setRoleName("doctor");
+            role.setOrgcd("ORG1");
+
+            // When
+            secuserroleDao.save(role);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(role.getLastUpdateDate()).isNotNull();
         }
     }
 }

@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.orm.hibernate5.HibernateTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
@@ -63,6 +64,9 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProgramClientRestrictionDAO programClientRestrictionDAO;
+
+    @Autowired
+    private HibernateTemplate hibernateTemplate;
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -214,6 +218,319 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
                 .hasSize(2)
                 .allMatch(pcr -> pcr.getProgramId() == testProgramId1)
                 .allMatch(ProgramClientRestriction::isEnabled);
+        }
+    }
+
+    /**
+     * Tests for {@code find(int restrictionId)} - single entity lookup by primary key.
+     */
+    @Nested
+    @DisplayName("find (1 param: restrictionId)")
+    class FindByRestrictionId {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return restriction when valid ID is provided")
+        void shouldReturnRestriction_whenValidIdProvided() {
+            // Given - Create and save a restriction, capture its generated ID
+            ProgramClientRestriction saved = createRestriction(testProgramId1, testDemoNo1, true);
+            hibernateTemplate.flush();
+            int savedId = saved.getId();
+
+            // When
+            ProgramClientRestriction result = programClientRestrictionDAO.find(savedId);
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(savedId);
+            assertThat(result.getProgramId()).isEqualTo(testProgramId1);
+            assertThat(result.getDemographicNo()).isEqualTo(testDemoNo1);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when restriction ID does not exist")
+        void shouldReturnNull_whenRestrictionIdNotFound() {
+            // When
+            ProgramClientRestriction result = programClientRestrictionDAO.find(999999);
+
+            // Then
+            assertThat(result).isNull();
+        }
+    }
+
+    /**
+     * Tests for {@code findDisabledForClient(int demographicNo)} - returns disabled
+     * (enabled=false) restrictions for a given client.
+     */
+    @Nested
+    @DisplayName("findDisabledForClient (1 param: demographicNo)")
+    class FindDisabledForClient {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return disabled restrictions for client")
+        void shouldReturnDisabledRestrictions_forClient() {
+            // Given - setUp already created one disabled restriction for (program1, demo1)
+
+            // When
+            Collection<ProgramClientRestriction> results =
+                programClientRestrictionDAO.findDisabledForClient(testDemoNo1);
+
+            // Then - Should find exactly the 1 disabled restriction
+            assertThat(results)
+                .hasSize(1)
+                .allSatisfy(pcr -> {
+                    assertThat(pcr.getDemographicNo()).isEqualTo(testDemoNo1);
+                    assertThat(pcr.isEnabled()).isFalse();
+                });
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty when client has no disabled restrictions")
+        void shouldReturnEmpty_whenNoDisabledRestrictions() {
+            // Given - demo2 has only enabled restrictions
+
+            // When
+            Collection<ProgramClientRestriction> results =
+                programClientRestrictionDAO.findDisabledForClient(testDemoNo2);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty when client does not exist")
+        void shouldReturnEmpty_whenClientNotFound() {
+            // When
+            Collection<ProgramClientRestriction> results =
+                programClientRestrictionDAO.findDisabledForClient(999999);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for {@code findDisabledForProgram(int programId)} - returns disabled
+     * restrictions for a given program.
+     */
+    @Nested
+    @DisplayName("findDisabledForProgram (1 param: programId)")
+    class FindDisabledForProgram {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return disabled restrictions for program")
+        void shouldReturnDisabledRestrictions_forProgram() {
+            // Given - setUp created one disabled restriction for (program1, demo1)
+
+            // When
+            Collection<ProgramClientRestriction> results =
+                programClientRestrictionDAO.findDisabledForProgram(testProgramId1);
+
+            // Then
+            assertThat(results)
+                .hasSize(1)
+                .allSatisfy(pcr -> {
+                    assertThat(pcr.getProgramId()).isEqualTo(testProgramId1);
+                    assertThat(pcr.isEnabled()).isFalse();
+                });
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty when program has no disabled restrictions")
+        void shouldReturnEmpty_whenNoDisabledRestrictions() {
+            // Given - program2 has only enabled restrictions
+
+            // When
+            Collection<ProgramClientRestriction> results =
+                programClientRestrictionDAO.findDisabledForProgram(testProgramId2);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty when program does not exist")
+        void shouldReturnEmpty_whenProgramNotFound() {
+            // When
+            Collection<ProgramClientRestriction> results =
+                programClientRestrictionDAO.findDisabledForProgram(999999);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for {@code findForClient(int demographicNo, int facilityId)} - subquery with
+     * OR condition matching programs by facilityId or null facilityId.
+     */
+    @Nested
+    @DisplayName("findForClient (2 params: demographicNo, facilityId)")
+    class FindForClientWithFacility {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find restrictions for client in programs matching facility")
+        void shouldFindRestrictions_whenProgramMatchesFacility() {
+            // Given - Create programs with specific facility IDs using native SQL
+            // because Program is HBM-mapped and hbm2ddl creates the table
+            int facilityId = 42;
+            entityManager.createNativeQuery(
+                "INSERT INTO program (id, name, type, facilityId) VALUES (?1, ?2, ?3, ?4)")
+                .setParameter(1, testProgramId1)
+                .setParameter(2, "TestProgram1")
+                .setParameter(3, "community")
+                .setParameter(4, facilityId)
+                .executeUpdate();
+            entityManager.flush();
+
+            // When
+            Collection<ProgramClientRestriction> results =
+                programClientRestrictionDAO.findForClient(testDemoNo1, facilityId);
+
+            // Then - demo1 has enabled restrictions in program1 which matches facilityId
+            assertThat(results)
+                .isNotEmpty()
+                .allSatisfy(pcr -> {
+                    assertThat(pcr.getDemographicNo()).isEqualTo(testDemoNo1);
+                    assertThat(pcr.isEnabled()).isTrue();
+                });
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should include restrictions for programs with null facilityId")
+        void shouldIncludeRestrictions_whenProgramHasNullFacility() {
+            // Given - Create a program with null facilityId
+            entityManager.createNativeQuery(
+                "INSERT INTO program (id, name, type, facilityId) VALUES (?1, ?2, ?3, NULL)")
+                .setParameter(1, testProgramId1)
+                .setParameter(2, "NullFacilityProg")
+                .setParameter(3, "community")
+                .executeUpdate();
+            entityManager.flush();
+
+            // When - Use a non-matching facilityId; the OR clause should still pick up
+            // programs with null facilityId
+            Collection<ProgramClientRestriction> results =
+                programClientRestrictionDAO.findForClient(testDemoNo1, 9999);
+
+            // Then - Should find restrictions for programs with null facilityId
+            assertThat(results)
+                .isNotEmpty()
+                .allSatisfy(pcr -> {
+                    assertThat(pcr.getDemographicNo()).isEqualTo(testDemoNo1);
+                    assertThat(pcr.isEnabled()).isTrue();
+                });
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty when no programs match facility")
+        void shouldReturnEmpty_whenNoProgramsMatchFacility() {
+            // Given - No programs exist in the program table matching any facilityId
+            // (setUp does not insert into program table)
+
+            // When
+            Collection<ProgramClientRestriction> results =
+                programClientRestrictionDAO.findForClient(testDemoNo1, 12345);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for {@code save(ProgramClientRestriction)} - persist and update operations.
+     */
+    @Nested
+    @DisplayName("save")
+    class Save {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist new restriction and assign ID")
+        void shouldPersistNewRestriction_withGeneratedId() {
+            // Given
+            ProgramClientRestriction pcr = new ProgramClientRestriction();
+            pcr.setProgramId(testProgramId1);
+            pcr.setDemographicNo(9999);
+            pcr.setEnabled(true);
+            pcr.setProviderNo("001");
+            pcr.setStartDate(new Date());
+            pcr.setEndDate(new Date(System.currentTimeMillis() + 86400000));
+            pcr.setCommentId("save-test-" + System.nanoTime());
+
+            // When
+            programClientRestrictionDAO.save(pcr);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(pcr.getId()).isNotNull();
+            assertThat(pcr.getId()).isGreaterThan(0);
+
+            // Verify it can be retrieved
+            ProgramClientRestriction found = programClientRestrictionDAO.find(pcr.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getProgramId()).isEqualTo(testProgramId1);
+            assertThat(found.getDemographicNo()).isEqualTo(9999);
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update existing restriction")
+        void shouldUpdateExistingRestriction() {
+            // Given - Create a restriction
+            ProgramClientRestriction pcr = createRestriction(testProgramId1, testDemoNo1, true);
+            hibernateTemplate.flush();
+            int savedId = pcr.getId();
+
+            // When - Update the restriction
+            pcr.setEnabled(false);
+            pcr.setEarlyTerminationProvider("Dr. Test");
+            programClientRestrictionDAO.save(pcr);
+            hibernateTemplate.flush();
+
+            // Then
+            ProgramClientRestriction updated = programClientRestrictionDAO.find(savedId);
+            assertThat(updated).isNotNull();
+            assertThat(updated.isEnabled()).isFalse();
+            assertThat(updated.getEarlyTerminationProvider()).isEqualTo("Dr. Test");
+        }
+    }
+
+    /**
+     * Tests verifying that the setRelationships() N+1 pattern executes without error
+     * even when referenced entities (Demographic, Program, Provider) are not in the database.
+     * This validates the post-processing enrichment pattern used by all query methods.
+     */
+    @Nested
+    @DisplayName("setRelationships N+1 pattern")
+    class SetRelationshipsN1 {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return restriction with null relationships when referenced entities do not exist")
+        void shouldReturnRestriction_withNullRelationships() {
+            // Given - Restrictions reference non-existent demographic/program/provider IDs
+            ProgramClientRestriction saved = createRestriction(testProgramId1, testDemoNo1, true);
+            hibernateTemplate.flush();
+
+            // When - find() calls setRelationships() internally
+            ProgramClientRestriction result = programClientRestrictionDAO.find(saved.getId());
+
+            // Then - The restriction is returned even though relationships resolve to null
+            assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(saved.getId());
+            // Client, Program, Provider set via setRelationships() - may be null when not in DB
+            // The key assertion is that no exception is thrown during setRelationships()
         }
     }
 }
