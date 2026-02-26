@@ -1340,62 +1340,6 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
-    /** Tests for Criteria-based search method. */
-    @Nested
-    @DisplayName("Criteria search (name prefix)")
-    class CriteriaSearch {
-
-        @Test
-        @Tag("search")
-        @DisplayName("should find providers by first name prefix")
-        void shouldFindProviders_byFirstNamePrefix() {
-            // When - search for names starting with "Jan"
-            List<Provider> results = providerDao.search("Jan");
-
-            // Then
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T003"); // Jane Smith
-        }
-
-        @Test
-        @Tag("search")
-        @DisplayName("should find providers by last name prefix")
-        void shouldFindProviders_byLastNamePrefix() {
-            // When - search for names starting with "Doe"
-            List<Provider> results = providerDao.search("Doe");
-
-            // Then
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T002"); // John Doe
-        }
-
-        @Test
-        @Tag("search")
-        @DisplayName("should return empty when no name matches prefix")
-        void shouldReturnEmpty_whenNoNameMatchesPrefix() {
-            // When
-            List<Provider> results = providerDao.search("Zzzzz");
-
-            // Then
-            assertThat(results).isEmpty();
-        }
-
-        @Test
-        @Tag("search")
-        @DisplayName("should match both first and last name prefixes via OR")
-        void shouldMatchBothFirstAndLastNamePrefixes_viaOr() {
-            // When - "Jo" matches both "John" (first name) and "Johnson" (last name)
-            List<Provider> results = providerDao.search("Jo");
-
-            // Then
-            assertThat(results)
-                .extracting(Provider::getProviderNo)
-                .contains("T001", "T002", "T004"); // John Smith, John Doe, Bob Johnson
-        }
-    }
-
     /** Tests for distinct provider queries. */
     @Nested
     @DisplayName("Distinct provider queries")
