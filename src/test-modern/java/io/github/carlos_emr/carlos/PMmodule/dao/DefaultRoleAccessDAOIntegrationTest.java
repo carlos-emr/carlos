@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
@@ -38,9 +39,13 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for DefaultRoleAccessDAO multi-parameter query methods.
+ * Integration tests for {@link DefaultRoleAccessDAO} multi-parameter query methods.
  *
- * @since 2026-02-03
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
+ *
+ * @since 2026-02-26
  * @see DefaultRoleAccessDAO
  */
 @DisplayName("DefaultRoleAccessDAO Integration Tests")
@@ -80,9 +85,16 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         createDefaultRoleAccess(testRoleId1, testAccessTypeId2);
         createDefaultRoleAccess(testRoleId2, testAccessTypeId1);
 
+        // Flush Hibernate session to synchronize in-memory state with database
         hibernateTemplate.flush();
     }
 
+    /**
+     * Creates a new Secrole with the given name and persists it.
+     *
+     * @param roleName String the name of the security role
+     * @return Secrole the persisted role entity with generated ID
+     */
     private Secrole createSecrole(String roleName) {
         Secrole role = new Secrole();
         role.setRoleName(roleName);
@@ -91,6 +103,13 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         return role;
     }
 
+    /**
+     * Creates a new AccessType with the given name and type and persists it.
+     *
+     * @param name String the display name of the access type
+     * @param type String the access type identifier (e.g., "read", "write")
+     * @return AccessType the persisted entity with generated ID
+     */
     private AccessType createAccessType(String name, String type) {
         AccessType accessType = new AccessType();
         accessType.setName(name);
@@ -99,6 +118,13 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         return accessType;
     }
 
+    /**
+     * Creates a new DefaultRoleAccess linking a role to an access type and persists it.
+     *
+     * @param roleId Long the ID of the Secrole
+     * @param accessTypeId Long the ID of the AccessType
+     * @return DefaultRoleAccess the persisted entity with generated ID
+     */
     private DefaultRoleAccess createDefaultRoleAccess(Long roleId, Long accessTypeId) {
         DefaultRoleAccess dra = new DefaultRoleAccess();
         dra.setRoleId(roleId);
@@ -107,6 +133,10 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         return dra;
     }
 
+    /**
+     * Tests for {@code find(Long roleId, Long accessTypeId)} - looks up a DefaultRoleAccess
+     * by both role ID and access type ID.
+     */
     @Nested
     @DisplayName("find (2 params: roleId, accessTypeId)")
     class FindByRoleAndAccessType {
@@ -141,6 +171,10 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for {@code getDefaultRoleAccesses()} - returns all DefaultRoleAccess records
+     * as baseline single-parameter query coverage.
+     */
     @Nested
     @DisplayName("Single parameter queries (baseline)")
     class SingleParamQueries {

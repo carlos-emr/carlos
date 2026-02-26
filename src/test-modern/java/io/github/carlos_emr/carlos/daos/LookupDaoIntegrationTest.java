@@ -44,7 +44,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Integration tests for {@link LookupDao} covering all 16 public interface methods.
+ * Integration tests for {@link LookupDao} multi-parameter query methods.
+ *
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *
  * <h3>Architecture Notes</h3>
  * <p>{@code LookupDaoImpl} uses two distinct data-access strategies:</p>

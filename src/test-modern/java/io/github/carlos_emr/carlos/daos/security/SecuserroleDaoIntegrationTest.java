@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.daos.security;
@@ -39,10 +40,21 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for SecuserroleDao (security module).
+ * Integration tests for {@link SecuserroleDao} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters and
- * CRUD operations for the Secuserrole entity.</p>
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
+ *
+ * <p><b>Test Coverage Summary:</b></p>
+ * <ul>
+ *   <li><b>CRUD operations</b> - save, saveAll, update, delete, deleteById, merge</li>
+ *   <li><b>Query operations</b> - findById, findByProviderNo, findByRoleName, findByActiveyn, findAll</li>
+ *   <li><b>Delete operations</b> - deleteByOrgcd, deleteByProviderNo, deleteById</li>
+ *   <li><b>findByExample()</b> - Hibernate Criteria API with {@code Example.create()}</li>
+ *   <li><b>findByProperty()</b> - Dynamic HQL query: {@code from Secuserrole as model where model.<property> = ?1}</li>
+ *   <li><b>Lifecycle methods</b> - attachDirty, attachClean, updateRoleName</li>
+ * </ul>
  *
  * @since 2026-02-03
  * @see SecuserroleDao

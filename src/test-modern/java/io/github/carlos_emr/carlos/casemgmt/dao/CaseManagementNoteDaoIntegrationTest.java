@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
@@ -39,16 +40,16 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for CaseManagementNoteDAO multi-parameter query methods.
+ * Integration tests for {@link CaseManagementNoteDAO} multi-parameter query methods.
  *
- * <p>These tests validate that HQL queries with multiple positional parameters
- * bind parameters correctly. They are designed to catch parameter index errors
- * during Hibernate migration (?0-&gt;?1 parameter renumbering).</p>
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *
  * <p><b>Test Strategy:</b> Create distinct test data where incorrect parameter
  * binding would return wrong results, then verify only correct data is returned.</p>
  *
- * @since 2026-02-03
+ * @since 2026-02-26
  * @see CaseManagementNoteDAO
  * @see CaseManagementNote
  */
@@ -69,6 +70,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         void shouldRetrieveNote_whenValidIdProvided() {
             // Given
             CaseManagementNote note = createNote("111", "Test note content");
+            // Flush Hibernate session to sync HibernateDaoSupport writes to the database
             hibernateTemplate.flush();
 
             // When
@@ -540,6 +542,14 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
     @DisplayName("Editor queries (Provider theta-join)")
     class EditorQueries {
 
+        /**
+         * Creates and persists a Provider entity for theta-join editor queries.
+         *
+         * @param providerNo String the unique provider number (max 6 chars per HBM mapping)
+         * @param firstName String the provider's first name
+         * @param lastName String the provider's last name
+         * @return Provider the persisted provider entity
+         */
         private Provider ensureProvider(String providerNo, String firstName, String lastName) {
             Provider p = new Provider();
             p.setProviderNo(providerNo);
@@ -547,6 +557,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             p.setLastName(lastName);
             p.setSex("M");
             p.setProviderType("doctor");
+            // Satisfy NOT NULL constraint from Provider.hbm.xml (dual mapping with SecProvider)
             p.setSpecialty("");
             hibernateTemplate.save(p);
             return p;

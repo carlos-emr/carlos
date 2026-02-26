@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.daos.security;
@@ -37,7 +38,11 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Comprehensive integration tests for {@link SecProviderDaoImpl}.
+ * Integration tests for {@link SecProviderDao} multi-parameter query methods.
+ *
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *
  * <p>This test class validates all 28 public methods of the SecProviderDao interface.
  * The DAO uses Hibernate Criteria API and HQL as its primary query mechanisms,
