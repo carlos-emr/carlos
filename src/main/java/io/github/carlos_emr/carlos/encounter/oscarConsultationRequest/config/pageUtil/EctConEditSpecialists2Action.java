@@ -80,7 +80,7 @@ public class EctConEditSpecialists2Action extends ActionSupport {
                             specialist.setDeleted(true);
                             professionalSpecialistDao.merge(specialist);
                             LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request),
-                                    LogConst.DELETE, "specialist", String.valueOf(specialist.getId()), null, null);
+                                    LogConst.DELETE, "specialist id=" + specialist.getId());
                         }
                     } catch (NumberFormatException e) {
                         MiscUtils.getLogger().warn("Invalid specialist ID: {}", Encode.forJava(specialists[i]), e);

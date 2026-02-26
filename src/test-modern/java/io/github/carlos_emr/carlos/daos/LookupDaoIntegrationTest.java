@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.orm.hibernate5.HibernateQueryException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -210,9 +209,10 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // When/Then — The production HQL `like %?0` has a syntax issue:
             // the % wildcard is outside the parameter value, which is non-standard.
             // Hibernate's HQL parser rejects the bare `%` token before the parameter.
-            // Spring wraps Hibernate's QueryException as HibernateQueryException.
+            // Hibernate 5's ExceptionConverterImpl.convert() wraps QueryException as
+            // IllegalArgumentException (JPA convention) rather than HibernateQueryException.
             assertThatThrownBy(() -> lookupDao.inOrg("PARENT", "CHILD"))
-                .isInstanceOf(HibernateQueryException.class);
+                .isInstanceOf(IllegalArgumentException.class);
         }
     }
 }
