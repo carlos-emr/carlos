@@ -250,19 +250,7 @@
 		<url-pattern>/ws/*</url-pattern>
 	</servlet-mapping>
 
-    <!-- HTTP header sec -->
-    <filter>
-        <filter-name>ClickjackFilterSameOrigin</filter-name>
-        <filter-class>org.owasp.esapi.filters.ClickjackFilter</filter-class>
-        <init-param>
-            <param-name>mode</param-name>
-            <param-value>SAMEORIGIN</param-value>
-        </init-param>
-    </filter>
-    <filter-mapping>
-        <filter-name>ClickjackFilterSameOrigin</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
+    <!-- Security headers (X-Frame-Options, Permissions-Policy, etc.) are set by ResponseDefaultsFilter -->
 
 	<filter>
 		<filter-name>XforwardHeader</filter-name>

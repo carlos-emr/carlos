@@ -116,7 +116,7 @@ public final class EFormViewForPdfGenerationServlet extends HttpServlet {
         eForm.setImagePath(request.getContextPath());
         eForm.setNowDateTime();
 
-        response.setContentType("text/html");
+        response.setContentType("text/html;charset=UTF-8");
         response.getOutputStream().write(eForm.getFormHtml().getBytes(Charset.forName("UTF-8")));
     }
 }

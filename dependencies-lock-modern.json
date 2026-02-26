@@ -3033,14 +3033,6 @@
     "optional" : false,
     "integrity" : "sha512:elrACNQnDCO9PHxSru7Tmrwq9SWNXnBlkRABPgxMC/WeIJ1FB1AYkqaHasaZNKnjXJZRGn6E03xp62WJiLVwdQ=="
   }, {
-    "groupId" : "org.owasp.esapi",
-    "artifactId" : "esapi",
-    "version" : "2.6.2.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:IYmTKMz5p1XaIXl93wsDz9mUBGrxXIn1SSGjnXkoNxBpBTOi2uyxh25ZzOsfmbSUmwzsW3S16w6jD4ucatJLbg=="
-  }, {
     "groupId" : "org.owasp",
     "artifactId" : "csrfguard-extension-session",
     "version" : "4.5.0",

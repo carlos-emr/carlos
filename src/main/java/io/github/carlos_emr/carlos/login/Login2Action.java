@@ -439,7 +439,7 @@ public final class Login2Action extends ActionSupport {
                     ObjectNode json = objectMapper.createObjectNode();
                     json.put("success", false);
                     json.put("error", "Oops! Your account is now locked due to incorrect password attempts!");
-                    response.setContentType("text/x-json");
+                    response.setContentType("application/json");
                     response.getWriter().write(json.toString());
                     return null;
                 }
@@ -472,7 +472,7 @@ public final class Login2Action extends ActionSupport {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
                 json.put("error", "Database connection error:" + e.getMessage() + ".");
-                response.setContentType("text/x-json");
+                response.setContentType("application/json");
                 response.getWriter().write(json.toString());
                 return null;
             }
@@ -705,7 +705,7 @@ public final class Login2Action extends ActionSupport {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
                 json.put("error", "Your account is expired. Please contact your administrator.");
-                response.setContentType("text/x-json");
+                response.setContentType("application/json");
                 response.getWriter().write(json.toString());
                 return null;
             }
@@ -720,7 +720,7 @@ public final class Login2Action extends ActionSupport {
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
-                response.setContentType("text/x-json");
+                response.setContentType("application/json");
                 json.put("error", "Invalid Credentials");
                 response.getWriter().write(json.toString());
                 return null;
@@ -752,7 +752,7 @@ public final class Login2Action extends ActionSupport {
             json.put("success", true);
             json.put("providerName", Encode.forJavaScript(prov.getFormattedName()));
             json.put("providerNo", prov.getProviderNo());
-            response.setContentType("text/x-json");
+            response.setContentType("application/json");
             response.getWriter().write(json.toString());
             return null;
         }
@@ -811,7 +811,7 @@ public final class Login2Action extends ActionSupport {
             // SECURITY: OWASP encode provider name for JavaScript context
             json.put("providerName", Encode.forJavaScript(prov.getFormattedName()));
             json.put("providerNo", prov.getProviderNo());
-            response.setContentType("text/x-json");
+            response.setContentType("application/json");
             response.getWriter().write(json.toString());
             return null;
         }

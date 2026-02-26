@@ -259,7 +259,7 @@ public class BillingONPayments2Action extends ActionSupport {
                 ret.put("reason", "Payments, discounts and refunds can't be all zeros!!");
             }
             response.setCharacterEncoding("utf-8");
-            response.setContentType("html/text");
+            response.setContentType("text/html;charset=UTF-8");
             try {
                 response.getWriter().print(ret.toString());
                 response.getWriter().flush();
@@ -417,7 +417,7 @@ public class BillingONPayments2Action extends ActionSupport {
         }
         ret.put("ret", 0);
         response.setCharacterEncoding("utf-8");
-        response.setContentType("html/text");
+        response.setContentType("text/html;charset=UTF-8");
         try {
             response.getWriter().print(ret.toString());
             response.getWriter().flush();
@@ -511,7 +511,7 @@ public class BillingONPayments2Action extends ActionSupport {
             payDetail.add(itemObj);
         }
         response.setCharacterEncoding("utf-8");
-        response.setContentType("html/text");
+        response.setContentType("text/html;charset=UTF-8");
         try {
             response.getWriter().print(payDetail.toString());
             response.getWriter().flush();

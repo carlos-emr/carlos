@@ -100,6 +100,8 @@ public final class ResponseDefaultsFilter implements Filter {
             this.setCaching(request, (HttpServletResponse) response);
         }
 
+        setSecurityHeaders(response);
+
         if (this.forceStrongETag || this.warnCharsetCacheChange) {
             response = new ResponseDefaultsFilterResponseWrapper((HttpServletResponse) response, this.forceStrongETag, this.warnCharsetCacheChange);
         }
@@ -120,6 +122,23 @@ public final class ResponseDefaultsFilter implements Filter {
             }
         }
 
+    }
+
+    /**
+     * Sets security headers on every response. Replaces the ESAPI ClickjackFilter
+     * that previously only set X-Frame-Options.
+     *
+     * @param response HttpServletResponse the response to add headers to
+     */
+    private void setSecurityHeaders(HttpServletResponse response) {
+        // Clickjack protection (replaces ESAPI ClickjackFilter)
+        response.setHeader("X-Frame-Options", "SAMEORIGIN");
+
+        // Prevent Adobe Flash/Acrobat cross-domain data loading
+        response.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+
+        // Restrict browser features not used by this application
+        response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     }
 
     private void setEncoding(HttpServletRequest request, HttpServletResponse response) throws UnsupportedEncodingException {
