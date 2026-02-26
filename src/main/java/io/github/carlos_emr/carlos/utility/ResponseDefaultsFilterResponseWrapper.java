@@ -25,7 +25,6 @@
  * CARLOS has no affiliation with OSCAR or McMaster University.
  *
  * Modifications by CARLOS Contributors, 2026.
- * - Added comprehensive JavaDoc documentation
  */
 package io.github.carlos_emr.carlos.utility;
 
