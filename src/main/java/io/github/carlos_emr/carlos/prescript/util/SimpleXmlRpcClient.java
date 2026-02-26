@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.prescript.util;
 
+import java.io.IOException;
 import java.io.StringReader;
 import java.net.ProxySelector;
 import java.net.URI;
@@ -75,7 +76,7 @@ public class SimpleXmlRpcClient {
      *
      * @param methodName String the remote method name
      * @param params     Vector of parameters to pass (String, Integer, Boolean, Double, Vector, Hashtable)
-     * @return Object the deserialized response value
+     * @return Object the deserialized response value, or null if the server returns an empty params section
      * @throws XmlRpcFaultException if the server returns an XML-RPC fault
      * @throws Exception            if a network or parsing error occurs
      */
@@ -85,17 +86,22 @@ public class SimpleXmlRpcClient {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(serverUrl))
                 .header("Content-Type", "text/xml")
+                .timeout(Duration.ofSeconds(30))
                 .POST(HttpRequest.BodyPublishers.ofString(requestXml))
                 .build();
 
         HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() != 200) {
+            throw new IOException("DrugRef XML-RPC server returned HTTP " + response.statusCode()
+                    + " for '" + methodName + "' at " + serverUrl);
+        }
         return parseResponse(response.body());
     }
 
     /**
      * Builds the XML-RPC request envelope.
      *
-     * @param methodName String the remote method name (must be a simple ASCII identifier)
+     * @param methodName String the remote method name, expected to be a simple ASCII identifier per the XML-RPC specification
      * @param params     Vector of typed parameter values to serialize
      * @return String the complete XML request body
      */
@@ -172,13 +178,15 @@ public class SimpleXmlRpcClient {
 
     /**
      * Parses the XML-RPC response, extracting the return value or throwing on fault.
-     * Creates a new {@link DocumentBuilderFactory} per call for thread safety, with
-     * XXE protection features enabled.
+     * XXE protection features are enabled on every parse.
      *
+     * @param responseXml String the raw XML body of the HTTP response from the XML-RPC server
+     * @return Object the deserialized response value, or null if the response contains no params
      * @throws XmlRpcFaultException if the response contains a {@code <fault>} element
+     * @throws Exception            if the XML cannot be parsed
      */
     private Object parseResponse(String responseXml) throws Exception {
-        // Each call gets its own factory instance — DocumentBuilderFactory is not thread-safe
+        // Per-call factory — DocumentBuilderFactory is not thread-safe (see class-level doc)
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setFeature("http://xml.org/sax/features/external-general-entities", false);

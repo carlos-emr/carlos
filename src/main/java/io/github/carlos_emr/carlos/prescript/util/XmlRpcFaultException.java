@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.prescript.util;
  */
 public class XmlRpcFaultException extends Exception {
 
+    private static final long serialVersionUID = 1L;
+
     /** The XML-RPC fault code returned by the server. */
     public final int code;
 
