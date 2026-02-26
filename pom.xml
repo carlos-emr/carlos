@@ -26,6 +26,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- SonarCloud -->
         <sonar.organization>carlos-emr</sonar.organization>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <!-- Log4j Version -->
         <log4j2.version>2.25.3</log4j2.version>
         <!-- Slf4j Version -->
@@ -1673,6 +1674,7 @@
                                 <exclude>**/archive/**/*Test.java</exclude>
                             </excludes>
                             <argLine>
+                               @{argLine}
                                -Xmx2048m
                                -Dnet.bytebuddy.experimental=true
                                --add-opens java.base/java.lang=ALL-UNNAMED
@@ -1721,6 +1723,7 @@
                             </systemPropertyVariables>
                             <!-- Java 21 compatibility flags for JAXB -->
                             <argLine>
+                                @{argLine}
                                 -Xmx2048m
                                 -Dnet.bytebuddy.experimental=true
                                 --add-opens java.base/java.lang=ALL-UNNAMED
