@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -264,7 +265,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<Provider> getActiveProvidersByRole(String role) {
-
+        if (role == null) return Collections.emptyList();
         String sSQL = "select p FROM Provider p, SecUserRole s where p.ProviderNo = s.ProviderNo and p.Status='1' " +
         "and s.RoleName = ?1 order by p.LastName, p.FirstName";
         List<Provider> rs = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, role);
@@ -553,9 +554,10 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<Provider> getBillableProvidersOnTeam(Provider p) {
-
+        String team = p.getTeam();
+        if (team == null) return Collections.emptyList();
         String sSQL = "from Provider p where status='1' and ohip_no!='' and p.Team=?1 order by last_name, first_name";
-        List<Provider> providers = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, p.getTeam());
+        List<Provider> providers = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, team);
 
         return providers;
     }
@@ -655,6 +657,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<String> getProvidersInTeam(String teamName) {
+        if (teamName == null) return Collections.emptyList();
         String sSQL = "select distinct p.ProviderNo from Provider p  where p.Team = ?1";
         List<String> providerList = (List<String>) HqlQueryHelper.find(currentSession(), sSQL, teamName);
         return providerList;

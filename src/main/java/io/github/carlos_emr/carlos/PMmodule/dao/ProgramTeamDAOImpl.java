@@ -82,8 +82,8 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
             throw new IllegalArgumentException();
         }
         List teams = HqlQueryHelper.find(currentSession(),
-                "select pt.id from ProgramTeam pt where pt.programId = ?1 and pt.name = ?2",
-                programId.longValue(), teamName);
+                "from ProgramTeam pt where pt.programId = ?1 and pt.name = ?2",
+                programId, teamName);
 
         if (log.isDebugEnabled()) {
             log.debug("teamNameExists: programId = " + programId + ", teamName = " + teamName + ", result = " + !teams.isEmpty());

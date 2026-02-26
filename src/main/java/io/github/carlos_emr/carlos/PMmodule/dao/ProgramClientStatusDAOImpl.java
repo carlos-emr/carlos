@@ -85,8 +85,8 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
         }
 
         List teams = HqlQueryHelper.find(currentSession(),
-                "select pt.id from ProgramClientStatus pt where pt.programId = ?1 and pt.name = ?2",
-                programId.longValue(), statusName);
+                "from ProgramClientStatus pt where pt.programId = ?1 and pt.name = ?2",
+                programId, statusName);
 
         if (log.isDebugEnabled()) {
             log.debug("teamNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !teams.isEmpty());

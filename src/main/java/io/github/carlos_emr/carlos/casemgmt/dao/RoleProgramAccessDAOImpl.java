@@ -31,6 +31,7 @@
 
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
+import java.util.Collections;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
@@ -42,6 +43,7 @@ public class RoleProgramAccessDAOImpl extends HibernateDaoSupport implements Rol
     @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultAccessRightByRole(Long roleId) {
+        if (roleId == null) return Collections.emptyList();
         String q = "from DefaultRoleAccess da where da.caisi_role.id=?1";
         return (List<DefaultRoleAccess>) HqlQueryHelper.find(currentSession(), q, roleId);
     }
@@ -49,12 +51,14 @@ public class RoleProgramAccessDAOImpl extends HibernateDaoSupport implements Rol
     @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultSpecificAccessRightByRole(Long roleId, String accessType) {
+        if (roleId == null || accessType == null) return Collections.emptyList();
         String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.Name like ?2";
         return (List<DefaultRoleAccess>) HqlQueryHelper.find(currentSession(), q, roleId, accessType);
     }
 
     @Override
     public boolean hasAccess(String accessName, Long roleId) {
+        if (accessName == null || roleId == null) return false;
         String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.Name=?2";
         return !HqlQueryHelper.find(currentSession(), q, roleId, accessName).isEmpty();
     }

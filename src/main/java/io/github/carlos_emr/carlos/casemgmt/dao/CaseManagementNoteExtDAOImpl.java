@@ -31,6 +31,7 @@
 
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -55,24 +56,28 @@ public class CaseManagementNoteExtDAOImpl extends HibernateDaoSupport implements
 
     @Override
     public List getExtByKeyVal(String keyVal) {
+        if (keyVal == null) return Collections.emptyList();
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1";
         return HqlQueryHelper.find(currentSession(), hql, keyVal);
     }
 
     @Override
     public List getExtByValue(String keyVal, String value) {
+        if (keyVal == null || value == null) return Collections.emptyList();
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.value like ?2";
         return HqlQueryHelper.find(currentSession(), hql, keyVal, value);
     }
 
     @Override
     public List getExtBeforeDate(String keyVal, Date dateValue) {
+        if (keyVal == null || dateValue == null) return Collections.emptyList();
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.dateValue <= ?2";
         return HqlQueryHelper.find(currentSession(), hql, keyVal, dateValue);
     }
 
     @Override
     public List getExtAfterDate(String keyVal, Date dateValue) {
+        if (keyVal == null || dateValue == null) return Collections.emptyList();
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1 and cExt.dateValue >= ?2";
         return HqlQueryHelper.find(currentSession(), hql, keyVal, dateValue);
     }

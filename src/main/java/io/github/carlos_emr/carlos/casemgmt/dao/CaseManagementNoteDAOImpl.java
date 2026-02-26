@@ -37,6 +37,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
@@ -89,6 +90,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @Override
     public List<Provider> getEditors(CaseManagementNote note) {
         String uuid = note.getUuid();
+        if (uuid == null) return Collections.emptyList();
         String hql = "select distinct p from Provider p, CaseManagementNote cmn where p.ProviderNo = cmn.providerNo and cmn.uuid = ?1";
         return (List<Provider>) HqlQueryHelper.find(currentSession(), hql, uuid);
     }
@@ -96,6 +98,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @SuppressWarnings("unchecked")
     @Override
     public List<Provider> getAllEditors(String demographicNo) {
+        if (demographicNo == null) return Collections.emptyList();
         String hql = "select distinct p from Provider p, CaseManagementNote cmn where p.ProviderNo = cmn.providerNo and cmn.demographic_no = ?1";
         return (List<Provider>) HqlQueryHelper.find(currentSession(), hql, demographicNo);
     }
@@ -104,6 +107,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @Override
     public List<CaseManagementNote> getHistory(CaseManagementNote note) {
         String uuid = note.getUuid();
+        if (uuid == null) return Collections.emptyList();
         return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(),
                 "from CaseManagementNote cmn where cmn.uuid = ?1 order by cmn.update_date asc", uuid);
     }
@@ -259,7 +263,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
 
     @Override
     public List<CaseManagementNote> getNotesByDemographicSince(String demographic_no, Date date) {
-
+        if (demographic_no == null || date == null) return Collections.emptyList();
         String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.update_date > ?2 and cmn.locked = false and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
         return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, demographic_no, date);
     }

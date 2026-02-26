@@ -496,10 +496,10 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
     /**
      * Tests for getProviderByPractitionerNo(String[] practitionerNoTypes, String practitionerNo).
      *
-     * <p>This method uses {@code IN (?0)} for an array parameter and {@code ?1} for the
-     * practitioner number. The current implementation has a known bug: Hibernate 5 cannot
-     * bind a String[] to a single positional parameter for an IN clause, causing a ClassCastException.
-     * PR #89 fixes this by converting to a named parameter with proper list binding.</p>
+     * <p>PR #89 fixed the pre-existing bug where {@code IN (?0)} with a {@code String[]}
+     * caused a ClassCastException. The fix converts to a named parameter with proper list
+     * binding ({@code IN (:types)} + {@code setParameterList}), so the method now works
+     * correctly.</p>
      */
     @Nested
     @DisplayName("getProviderByPractitionerNo (2 params: types[], practitionerNo)")
@@ -507,7 +507,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should throw ClassCastException due to array-to-IN positional param bug")
+        @DisplayName("should return provider when types array and practitioner number match")
         void shouldThrowClassCastException_whenArrayPassedToPositionalParam() {
             // Given
             Provider prov = persistProvider("PN001", "Pract", "Test", "1", "doctor");
@@ -516,12 +516,13 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.update(prov);
             hibernateTemplate.flush();
 
-            // When/Then — IN (?0) with String[] fails: Hibernate tries to cast
-            // String[] to String when binding the positional parameter.
-            // This documents the pre-change bug that PR #89 fixes.
-            assertThatThrownBy(() ->
-                providerDao.getProviderByPractitionerNo(new String[]{"MSP"}, "PRAC12345")
-            ).isInstanceOf(ClassCastException.class);
+            // When — PR #89 fixed IN (?0) with String[] by switching to named param binding;
+            // the method now returns the correct result instead of throwing ClassCastException.
+            Provider result = providerDao.getProviderByPractitionerNo(new String[]{"MSP"}, "PRAC12345");
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getProviderNo()).isEqualTo("PN001");
         }
 
         @Test

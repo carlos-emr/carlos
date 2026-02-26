@@ -185,6 +185,10 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
     @Override
     public int update(Secuserrole instance) {
         logger.debug("Update Secuserrole instance");
+        // activeyn is nullable; a null value means this is a new record — fall through to session.save()
+        if (instance.getActiveyn() == null) {
+            return 0;
+        }
         try {
             String queryString = "update Secuserrole as model set model.activeyn = ?1, lastUpdateDate=now() where model.providerNo = ?2 and model.roleName = ?3 and model.orgcd = ?4";
 
