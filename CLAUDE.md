@@ -39,6 +39,15 @@
 **Stack**: Java 21, Spring 5.3.39, Struts 6.8.0, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
+
+## Fax Provider Feature Context (AI + Dev)
+
+- Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE` or `SRFAX`).
+- Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+- Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
+- SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
+- See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
+
 ## Essential Commands
 
 ```bash
@@ -189,7 +198,7 @@ public class Example2Action extends ActionSupport {
 - **Multi-File Architecture**: Component-first naming (`TicklerDao*Test`) for scalability
 - **Documentation**: Complete guide at `docs/test/modern-test-framework-complete.md`
 - **Context Guide**: `docs/test/claude-test-context.md` (auto-injected by hooks when working on tests)
-- **Unit Test Support**: `OpenOUnitTestBase` for mocked tests without database
+- **Unit Test Support**: `CarlosUnitTestBase` for mocked tests without database
 - **Manager Testing**: @Nested classes for organizing 100+ tests per manager (see `DemographicManagerUnitTest`)
 
 ### Test Organization Standards
@@ -228,7 +237,7 @@ The preposition after the underscore (`when`, `by`, `for`, `with`, `to`, `from`,
 ### Test Context Configuration
 
 The codebase has legacy patterns (SpringUtils static access, mixed Hibernate/JPA, circular dependencies) that require specific test setup. See **[Test Writing Guide](docs/test/test-writing-guide.md)** for detailed configuration patterns.
-**Key points**: Extend `OpenOTestBase` (handles SpringUtils), define beans manually in test context, explicitly list entities in persistence.xml.
+**Key points**: Extend `CarlosTestBase` (handles SpringUtils), define beans manually in test context, explicitly list entities in persistence.xml.
 
 **Writing Tests - CRITICAL**:
 When asked to write tests, you MUST:
@@ -236,8 +245,8 @@ When asked to write tests, you MUST:
 2. **Only test methods that actually exist** in the codebase
 3. **Never invent or assume method names** - verify they exist
 4. **Choose the right base class**:
-   - `OpenOTestBase` - Integration tests with Spring context and database
-   - `OpenOUnitTestBase` - Unit tests with mocked SpringUtils (no database)
+   - `CarlosTestBase` - Integration tests with Spring context and database
+   - `CarlosUnitTestBase` - Unit tests with mocked SpringUtils (no database)
    - Domain-specific bases like `DemographicUnitTestBase` - Unit tests with test data builders
 5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for EntityManager (integration tests only)
 6. **For Manager unit tests**: Register SpringUtils mocks BEFORE creating static mocks (LogAction, etc.)
@@ -247,7 +256,7 @@ When asked to write tests, you MUST:
 The test infrastructure uses **dual persistence contexts** (JPA EntityManager + Hibernate Session) sharing one JDBC connection via `TransactionAwareDataSourceProxy`. This creates several non-obvious pitfalls:
 
 **1. Flush Context Mismatch**
-DAOs extending `HibernateDaoSupport` write through the Hibernate Session. `entityManager.flush()` only flushes the JPA context — it will NOT flush Hibernate writes. Always use `hibernateTemplate.flush()` (available via `OpenOTestBase`) when testing `HibernateDaoSupport`-based DAOs.
+DAOs extending `HibernateDaoSupport` write through the Hibernate Session. `entityManager.flush()` only flushes the JPA context — it will NOT flush Hibernate writes. Always use `hibernateTemplate.flush()` (available via `CarlosTestBase`) when testing `HibernateDaoSupport`-based DAOs.
 ```java
 // WRONG - won't flush HibernateDaoSupport DAO writes:
 entityManager.flush();
@@ -422,7 +431,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Vanilla JavaScript**: Progressively replacing jQuery dependencies where possible
 
 ### Security Libraries
-- **OWASP CSRF Guard**: CSRF protection with healthcare exclusions
+- **OWASP CSRFGuard 4.5**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
 - **OWASP Encoder**: Output encoding for XSS prevention
 - **BCrypt**: Password hashing for provider authentication
 - **Bouncy Castle**: Cryptographic functions for PHI protection
@@ -636,7 +645,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
   - Connection tracking: `OscarTrackingBasicDataSource`
   - Legacy MySQL compatibility settings
 - **Security Configuration**:
-  - `web.xml` - Complex filter chain with OWASP CSRF protection
+  - `web.xml` - Filter chain with CSRFGuard 4.5 CSRF protection (see `docs/csrf-protection-architecture.md`)
   - Privacy statement filters and audit logging
   - Multi-factor authentication and SAML 2.0 support
 - `pom.xml` - Maven with 200+ healthcare-specific dependencies
@@ -704,6 +713,7 @@ firstNationCommunities_lu_list.sql # First Nations communities
 - Container: `db-connect` alias → MariaDB as root user
 - Port 3306 with health checks, 2G memory limit
 - Seeded with medical forms (Rourke charts, BCAR) and reference data
+- **Default login**: username `carlosdoc`, password `carlos2026`, PIN `2026`
 
 ---
 
@@ -960,11 +970,11 @@ src/main/webapp/WEB-INF/classes/oscar/oscarSecurity/                # Security f
 src/main/webapp/*/*.jsp                            # Look for Encode.forHtml() usage patterns
 src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # Security check implementations
 
-# CSRF Protection Implementation
-src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties # CSRF Guard configuration
-src/main/webapp/WEB-INF/csrfguard.js               # Client-side token injection
-src/main/java/io/github/carlos_emr/carlos/app/CSRFPreservingFilter.java    # Custom CSRF filter
-src/main/java/io/github/carlos_emr/carlos/app/CsrfJavaScriptInjectionFilter.java # JS injection
+# CSRF Protection (CSRFGuard 4.5) — see docs/csrf-protection-architecture.md
+src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties # CSRFGuard configuration
+src/main/java/io/github/carlos_emr/carlos/app/CarlosCsrfGuardFilter.java          # CSRF token validation filter
+src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java # Auto-injects csrfguard script tag
+src/main/java/io/github/carlos_emr/carlos/app/MultiReadHttpServletRequest.java     # Multipart request dual-read wrapper
 
 ```
 
@@ -1017,7 +1027,7 @@ database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integrati
 # Modern Test Framework (JUnit 5) - ACTIVE AND RECOMMENDED
 src/test-modern/java/io/github/carlos_emr/carlos/            # Modern JUnit 5 tests
 src/test-modern/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
-src/test-modern/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (OpenOUnitTestBase)
+src/test-modern/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
 src/test-modern/resources/                        # Modern test configurations
 docs/test/modern-test-framework-complete.md       # Complete test framework documentation
 docs/test/test-writing-guide.md                   # Test writing patterns and static mocking
@@ -1033,8 +1043,8 @@ src/test/resources/over_ride_config.properties    # Test configuration template
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
 4. **Choose the right base class**:
-   - Integration tests: Extend `OpenOTestBase` (Spring context + database)
-   - Unit tests: Extend `OpenOUnitTestBase` (mocked SpringUtils, no database)
+   - Integration tests: Extend `CarlosTestBase` (Spring context + database)
+   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
 5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests

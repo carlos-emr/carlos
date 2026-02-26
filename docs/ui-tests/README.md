@@ -158,7 +158,7 @@ Run tests using Claude Code slash commands:
 
 2. **Database Seeded**:
    - Development database must contain test data
-   - Test user `openodoc` with password `openo2025` and PIN `2025`
+   - Test user `carlosdoc` with password `carlos2026` and PIN `2026`
    - Test patients with "FAKE-" prefix
 
 3. **Playwright MCP Available**:
@@ -180,9 +180,9 @@ The UI tests are currently run using the Playwright MCP server through Claude Co
 3. **Run UI test commands** (example):
    ```
    Navigate to http://localhost:8080/oscar/index.jsp
-   Fill username: openodoc
-   Fill password: openo2025
-   Fill PIN: 2025
+   Fill username: carlosdoc
+   Fill password: carlos2026
+   Fill PIN: 2026
    Press Enter
    Verify dashboard loaded
    ```
@@ -210,11 +210,11 @@ The Maven dependency for Playwright has been added to `pom.xml`:
 ## Test Credentials
 
 ### Provider Account
-- **Username**: `openodoc`
-- **Password**: `openo2025`
-- **PIN**: `2025`
+- **Username**: `carlosdoc`
+- **Password**: `carlos2026`
+- **PIN**: `2026`
 - **Provider No**: `999998`
-- **Name**: doctor openodoc
+- **Name**: doctor carlosdoc
 
 ### Test Patients
 
@@ -282,9 +282,9 @@ mysql -h db -uroot -ppassword oscar
 
 # Reset specific test user password
 UPDATE security
-SET password='{bcrypt}$2b$12$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96',
+SET password='{bcrypt}$2a$12$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO',
     forcePasswordReset=0
-WHERE user_name='openodoc';
+WHERE user_name='carlosdoc';
 
 # Exit
 exit
@@ -380,11 +380,11 @@ mysql -h db -uroot -ppassword -e "SHOW DATABASES;"
 ```bash
 # Check if user exists
 mysql -h db -uroot -ppassword oscar -e \
-  "SELECT user_name, pin, forcePasswordReset FROM security WHERE user_name='openodoc';"
+  "SELECT user_name, pin, forcePasswordReset FROM security WHERE user_name='carlosdoc';"
 
 # Reset password
 mysql -h db -uroot -ppassword oscar -e \
-  "UPDATE security SET password='{bcrypt}\$2b\$12\$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96', forcePasswordReset=0 WHERE user_name='openodoc';"
+  "UPDATE security SET password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO', forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
 ### JavaScript Errors in Console
@@ -469,7 +469,7 @@ curl http://localhost:8080/oscar/index.jsp
 
 # 3. Check test user
 mysql -h db -uroot -ppassword oscar -e \
-  "SELECT user_name, pin FROM security WHERE user_name='openodoc';"
+  "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
 
 # 4. Run UI tests (via Playwright MCP)
 ```

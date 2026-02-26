@@ -53,7 +53,7 @@
     </head>
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)"
           bgcolor="#eeeeee">
-    <form action="<%=request.getContextPath() %>/form/formname.do">
+    <form action="<%=request.getContextPath() %>/form/formname.do" method="post">
         <h1><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.formIntakeHx.title"/></h1>
 
         <%@include file="formIntakeHxTitleBar.jsp" %>

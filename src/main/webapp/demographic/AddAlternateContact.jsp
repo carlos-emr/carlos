@@ -81,7 +81,6 @@
 %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.msgAddRelation"/></title>
@@ -245,7 +244,13 @@
 				<td><%=Encode.forHtmlContent(h.get("relation"))%></td>
 				<td><%=Encode.forHtmlContent(returnYesIf1(h.get("sub_decision_maker")))%></td>
 				<td><%=Encode.forHtmlContent(h.get("notes"))%></td>
-				<td><a href="DeleteRelation.do?id=<%=h.get("id")%>&amp;origDemo=<%=creatorDemo%>">del</a></td>
+				<td>
+					<form method="post" action="<%=request.getContextPath()%>/demographic/DeleteRelation.do" style="display:inline;">
+						<input type="hidden" name="id" value="<%=h.get("id")%>"/>
+						<input type="hidden" name="origDemo" value="<%=creatorDemo%>"/>
+						<a href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this relationship?')){this.closest('form').submit();}">del</a>
+					</form>
+				</td>
                         </tr>
                         <%}%>
                     </table>

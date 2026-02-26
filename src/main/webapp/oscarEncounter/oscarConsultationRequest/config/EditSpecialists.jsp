@@ -45,6 +45,7 @@
         return;
     }
 %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html>
     <jsp:useBean id="displayServiceUtil" scope="request"
@@ -53,135 +54,82 @@
         displayServiceUtil.estSpecialistVector();
     %>
     <head>
-
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.title"/>
-        </title>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <script language="javascript">
-            function BackToOscar() {
-                window.close();
-            }
-        </script>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
-
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.title"/></title>
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
-    <jsp:include page="/images/spinner.jsp" flush="true"/>
-    <script>
-        ShowSpin(true);
-        document.onreadystatechange = function () {
-            if (document.readyState === "interactive") {
-                HideSpin();
-            }
-        }
-    </script>
-    <% 
+    <body>
+    <div class="container-fluid">
+        <div class="page-header-bar">
+            <h5 class="page-header-title">
+                <fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.title"/>
+            </h5>
+        </div>
+
+<%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
+        <div class="action-errors">
+            <ul>
+                <% for (String error : actionErrors) { %>
+                    <li><%= Encode.forHtml(error) %></li>
+                <% } %>
+            </ul>
+        </div>
 <% } %>
-    <div id="service-providers-wrapper" style="margin:auto 10px;">
-        <table class="MainTable" id="scrollNumber1">
-            <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn">Consultation</td>
-                <td class="MainTableTopRowRightColumn">
-                    <table class="TopStatusBar">
-                        <tr>
-                            <td class="Header"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.title"/>
-                            </td>
-                        </tr>
+
+        <div class="row">
+            <div class="col-md-3 consult-sidebar">
+                <%
+                    EctConTitlebar titlebar = new EctConTitlebar(request);
+                    out.print(titlebar.estBar(request));
+                %>
+            </div>
+
+            <div class="col-md-9">
+                <p><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.msgClickOn"/></p>
+
+                <form action="${pageContext.request.contextPath}/oscarEncounter/EditSpecialists.do" method="post">
+                    <input type="submit" class="btn btn-danger mb-3" name="delete"
+                           value="<fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"/>"
+                           onclick="return confirm('Are you sure you want to delete the selected specialists?');"/>
+                    <table class="table table-sm table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th class="col-checkbox">&nbsp;</th>
+                                <th><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.specialist"/></th>
+                                <th><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.address"/></th>
+                                <th><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.phone"/></th>
+                                <th><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.fax"/></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <%
+                                for (int i = 0; i < displayServiceUtil.specIdVec.size(); i++) {
+                                    String specId = displayServiceUtil.specIdVec.elementAt(i);
+                                    String fName = displayServiceUtil.fNameVec.elementAt(i);
+                                    String lName = displayServiceUtil.lNameVec.elementAt(i);
+                                    String proLetters = displayServiceUtil.proLettersVec.elementAt(i);
+                                    String address = displayServiceUtil.addressVec.elementAt(i);
+                                    String phone = displayServiceUtil.phoneVec.elementAt(i);
+                                    String fax = displayServiceUtil.faxVec.elementAt(i);
+                                    String contextPath = request.getContextPath();
+                                    String url = contextPath + "/oscarEncounter/EditSpecialists.do?specId=" + specId;
+                            %>
+                            <tr>
+                                <td><input type="checkbox" name="specialists" value="<%=specId%>"></td>
+                                <td><a href="<%= url %>"><%= Encode.forHtmlContent(lName + " " + fName + " " + (proLetters == null ? "" : proLetters)) %></a></td>
+                                <td><%= Encode.forHtmlContent(address) %></td>
+                                <td><%= Encode.forHtmlContent(phone) %></td>
+                                <td><%= Encode.forHtmlContent(fax) %></td>
+                            </tr>
+                            <% } %>
+                        </tbody>
                     </table>
-                </td>
-            </tr>
-            <tr style="vertical-align: top">
-                <td class="MainTableLeftColumn">
-                    <%
-                        EctConTitlebar titlebar = new EctConTitlebar(request);
-                        out.print(titlebar.estBar(request));
-                    %>
-                </td>
-                <td class="MainTableRightColumn">
-                    <table cellpadding="0" cellspacing="2"
-                           style="border-collapse: collapse" bordercolor="#111111" width="100%">
-
-                        <!----Start new rows here-->
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.msgClickOn"/><br>
-
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><form action="${pageContext.request.contextPath}/oscarEncounter/EditSpecialists.do" method="post">
-
-                                <table>
-                                    <tr>
-                                        <th>&nbsp;</th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.specialist"/>
-                                        </th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.address"/>
-                                        </th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.phone"/>
-                                        </th>
-                                        <th><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EditSpecialists.fax"/>
-                                        </th>
-
-                                    </tr>
-                                    <%
-
-                                        for (int i = 0; i < displayServiceUtil.specIdVec.size(); i++) {
-                                            String specId = displayServiceUtil.specIdVec.elementAt(i);
-                                            String fName = displayServiceUtil.fNameVec.elementAt(i);
-                                            String lName = displayServiceUtil.lNameVec.elementAt(i);
-                                            String proLetters = displayServiceUtil.proLettersVec.elementAt(i);
-                                            String address = displayServiceUtil.addressVec.elementAt(i);
-                                            String phone = displayServiceUtil.phoneVec.elementAt(i);
-                                            String fax = displayServiceUtil.faxVec.elementAt(i);
-                                    %>
-
-                                    <tr>
-                                        <td><input type="checkbox" name="specialists"
-                                                   value="<%=specId%>"></td>
-                                        <td>
-                                            <%
-                                                String contextPath = request.getContextPath();
-                                                String url = contextPath + "/oscarEncounter/EditSpecialists.do?specId=" + specId;
-                                                out.print("<a href=\"" + url + "\">");
-                                                out.print(Encode.forHtmlContent(lName + " " + fName + " " + (proLetters == null ? "" : proLetters)));
-                                                out.print("</a>");
-                                            %>
-                                        </td>
-                                        <td><%=Encode.forHtmlContent(address) %>
-                                        </td>
-                                        <td><%=Encode.forHtmlContent(phone)%>
-                                        </td>
-                                        <td><%=Encode.forHtmlContent(fax)%>
-                                        </td>
-                                    </tr>
-                                    <% }%>
-
-                                </table>
-
-                            </form></td>
-                        </tr>
-
-                    </table>
-                </td>
-            </tr>
-            <tr>
-                <td class="MainTableBottomRowLeftColumn"></td>
-                <td class="MainTableBottomRowRightColumn"></td>
-            </tr>
-        </table>
+                </form>
+            </div>
+        </div>
     </div>
     </body>
 </html>

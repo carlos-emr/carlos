@@ -27,7 +27,33 @@
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
 
+    Logout Broadcast Page
+    =====================
+    Broadcasts a logout signal to all open browser windows/tabs via
+    BroadcastChannel and localStorage before redirecting to logout.do.
+    This ensures popup windows close and other tabs redirect to the
+    login page when any window initiates logout.
+
+    session="false" prevents creating a new session when accessed
+    without an active session (e.g., after timeout).
+
+    The meta refresh tag provides a no-JavaScript fallback to ensure
+    logout completes even if JavaScript is disabled.
+
+    @since 2026-02-24
+
 --%>
-<%
-response.sendRedirect("logout.do");
-%>
+<%@ page session="false" %>
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="refresh" content="1;url=logout.do">
+</head><body>
+<script>
+(function(){
+    try { var bc = new BroadcastChannel('carlos_logout'); bc.postMessage('logout'); bc.close(); } catch(e) {}
+    try { localStorage.setItem('carlos_logout_signal', '' + Date.now()); } catch(e) {}
+    try { localStorage.removeItem('carlos_logout_signal'); } catch(e) {}
+    setTimeout(function(){ window.location.href = 'logout.do'; }, 200);
+})();
+</script>
+</body></html>

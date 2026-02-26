@@ -76,7 +76,7 @@
     <script>
         $(document).ready(function () {
             $("#runReport").bind("click", function () {
-                $.get("<%=request.getContextPath()%>/renal/Renal.do?method=submitCkdScreeningReport");
+                $.post("<%=request.getContextPath()%>/renal/Renal.do", { method: "submitCkdScreeningReport" });
 
             });
         });

@@ -22,11 +22,64 @@
  * Ontario, Canada
  */
 
+/**
+ * Opens a URL in a named popup window or delegates to popupTab() if tab mode is active.
+ * @param {number} height - Popup window height in pixels
+ * @param {number} width - Popup window width in pixels
+ * @param {string} url - URL to open
+ * @param {string} windowName - Named window target; reused across calls with the same name
+ * @returns {Window|null} The opened Window object, or null if tab mode is active
+ */
 function popup(height, width, url, windowName) {
+    if (typeof openEncounterInTab !== 'undefined' && openEncounterInTab) {
+        return popupTab(url);
+    }
     return popup2(height, width, 0, 0, url, windowName);
 }
 
+/**
+ * Opens a URL in a new browser tab with opener isolation.
+ *
+ * <p>Opens the tab without windowFeatures (so the browser returns a real Window reference),
+ * then immediately severs the opener relationship by setting {@code win.opener = null}.
+ * This achieves the same tabnabbing protection as passing {@code noopener} in windowFeatures,
+ * without the side-effect of {@code window.open()} returning {@code null}.
+ *
+ * <p><strong>Why not pass {@code noopener} as a window feature?</strong> Per the HTML spec,
+ * passing {@code noopener} or {@code noreferrer} in the third argument to {@code window.open()}
+ * causes all modern browsers to return {@code null}, making it impossible to detect
+ * whether the browser's popup blocker prevented the tab from opening, or to call {@code focus()}.
+ * See: https://html.spec.whatwg.org/multipage/nav-history-apis.html (window.open, noopener token)
+ *
+ * @param {string} url - URL to open in a new tab
+ * @returns {Window|null} The opened Window object, or null if the browser blocked the tab
+ */
+function popupTab(url) {
+    var win = window.open(url, '_blank');
+    if (win) {
+        // Manually sever the opener relationship to prevent reverse-tabnabbing.
+        // All URLs opened via this helper are same-origin CARLOS pages, so the
+        // brief window between open() and this assignment is not exploitable.
+        win.opener = null;
+        win.focus();
+    } else {
+        alert('Your browser blocked the new tab. Please allow popups for this site, or disable "Open in Tabs" in your preferences.');
+    }
+    return win;
+}
+
+/**
+ * Opens a URL in a full-viewport popup window sized to the current window, or
+ * delegates to popupTab() when the provider preference "Open Encounters in Tab" is enabled.
+ *
+ * @param {string} url - URL to open
+ * @param {string} windowName - Named window target; reused across calls with the same name
+ * @returns {Window|null} The opened Window object, or null if tab mode is active
+ */
 function newWindow(url, windowName) {
+    if (typeof openEncounterInTab !== 'undefined' && openEncounterInTab) {
+        return popupTab(url);
+    }
     //this way the w&d works with older browsers as well
     var w = document.getElementsByTagName('body')[0].clientWidth;//window.innerWidth;
     var h = document.getElementsByTagName('body')[0].clientHeight;//window.innerHeight;

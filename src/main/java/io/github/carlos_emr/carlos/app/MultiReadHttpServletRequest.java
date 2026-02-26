@@ -20,11 +20,11 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
  * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
+ * Now maintained by the CARLOS EMR Project.
  * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.app;
 
@@ -47,10 +47,25 @@ import java.io.InputStreamReader;
 public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
     private ByteArrayOutputStream cachedBytes;
 
+    /** Maximum request body size (500 MB) to prevent memory exhaustion. Matches struts.multipart.maxSize. */
+    static final long MAX_BODY_SIZE = 500L * 1024 * 1024;
+
+    /**
+     * Wraps the given request to allow multiple reads of the body.
+     *
+     * @param request the original HTTP servlet request
+     */
     public MultiReadHttpServletRequest(HttpServletRequest request) {
         super(request);
     }
 
+    /**
+     * Returns a new {@link ServletInputStream} over the cached request body, allowing
+     * the body to be read multiple times.
+     *
+     * @return a {@link ServletInputStream} backed by the cached request body
+     * @throws IOException if caching the request body fails or the body exceeds {@link #MAX_BODY_SIZE}
+     */
     @Override
     public ServletInputStream getInputStream() throws IOException {
         if (cachedBytes == null) {
@@ -60,17 +75,36 @@ public class MultiReadHttpServletRequest extends HttpServletRequestWrapper {
         return new CachedServletInputStream(cachedBytes);
     }
 
+    /**
+     * Returns a {@link BufferedReader} over the cached request body using the request's
+     * declared character encoding, or {@code ISO-8859-1} if no encoding is specified.
+     *
+     * @return a {@link BufferedReader} for reading the cached request body
+     * @throws IOException if caching the request body fails or the body exceeds {@link #MAX_BODY_SIZE}
+     */
     @Override
     public BufferedReader getReader() throws IOException {
-        return new BufferedReader(new InputStreamReader(getInputStream()));
+        String encoding = getCharacterEncoding();
+        if (encoding == null) {
+            encoding = "ISO-8859-1";
+        }
+        return new BufferedReader(new InputStreamReader(getInputStream(), encoding));
     }
 
     private void cacheInputStream() throws IOException {
-        /* Cache the inputstream in order to read it multiple times. For
-         * convenience, I use apache.commons IOUtils
-         */
         cachedBytes = new ByteArrayOutputStream();
-        IOUtils.copy(super.getInputStream(), cachedBytes);
+        try {
+            ServletInputStream input = super.getInputStream();
+            long copied = IOUtils.copyLarge(input, cachedBytes, 0, MAX_BODY_SIZE);
+            if (copied >= MAX_BODY_SIZE && input.read() != -1) {
+                cachedBytes = null;
+                throw new IOException("Request body exceeds maximum allowed size of "
+                        + (MAX_BODY_SIZE / (1024 * 1024)) + " MB");
+            }
+        } catch (IOException e) {
+            cachedBytes = null;
+            throw e;
+        }
     }
 
     /* An inputstream which reads the cached request body */

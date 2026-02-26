@@ -74,7 +74,7 @@ Follow the 15-step workflow defined in `docs/ui-tests/test-3/test-3-EXECUTION.md
 
 ### Phase 1: Authentication & Schedule Access (Steps 1-3)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Day Schedule** - View provider schedule, screenshot
 
 ### Phase 2: Schedule Navigation (Steps 4-5)
@@ -142,7 +142,7 @@ The patient search uses an **autocomplete widget**:
 
 ```
 Patient: FAKE-Jacky, FAKE-Jones (ID: 1)
-Provider: openodoc
+Provider: carlosdoc
 Reason: UI Test Appointment
 Notes: Created by UI Test 3
 ```

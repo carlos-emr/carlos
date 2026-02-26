@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramFunctionalUser;
 import io.github.carlos_emr.carlos.PMmodule.model.FunctionalUserType;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +47,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class ProgramFunctionalUserDAOIntegrationTest extends OpenOTestBase {
+public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProgramFunctionalUserDAO programFunctionalUserDAO;

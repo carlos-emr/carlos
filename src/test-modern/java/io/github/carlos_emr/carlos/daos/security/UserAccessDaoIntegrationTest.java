@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import io.github.carlos_emr.carlos.model.security.UserAccessValue;
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -74,7 +74,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("security")
 @Transactional
-public class UserAccessDaoIntegrationTest extends OpenOTestBase {
+public class UserAccessDaoIntegrationTest extends CarlosTestBase {
 
     /** DAO under test, autowired from Spring test context bean {@code userAccessDao}. */
     @Autowired

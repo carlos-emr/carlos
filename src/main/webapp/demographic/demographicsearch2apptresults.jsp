@@ -45,7 +45,6 @@
 %>
 
 <!DOCTYPE HTML>
-<%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -110,7 +109,6 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearch2apptresults.title"/></title>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
 
@@ -347,8 +345,6 @@
 
 
         <form method="post" name="addform" action="<%= request.getContextPath() %>/appointment/addappointment.jsp">
-            <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
-
             <table class="table table-condensed table-striped table-responsive">
                 <tr class="tableHeadings deep">
 

@@ -382,29 +382,25 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
     @Override
     public List<Demographic> searchDemographic(String searchStr) {
         String hql = "From Demographic d where ";
-        List<String> params = new ArrayList<>();
-
         String[] parts = searchStr.split(",");
-        if (searchStr.indexOf(",") != -1 && searchStr.trim().indexOf(",") != (searchStr.trim().length() - 1)) {
-            hql += "last_name like ?0 and first_name like ?1";
-            params.add(parts[0].trim() + "%");
-            params.add(parts[1].trim() + "%");
+        boolean hasFirstName = searchStr.indexOf(",") != -1
+            && searchStr.trim().indexOf(",") != (searchStr.trim().length() - 1);
+
+        if (hasFirstName) {
+            hql += "d.LastName like :ln and (d.FirstName like :fn or d.Alias like :fn)";
         } else {
-            hql += "last_name like ?0";
-            params.add(parts[0].trim() + "%");
+            hql += "d.LastName like :ln";
         }
 
-        Object[] object = null;
-        if (parts.length > 1) {
-            object = new Object[]{parts[0].trim() + "%", parts[1].trim() + "%"};
-        } else {
-            object = new Object[]{parts[0].trim() + "%"};
+        Session session = currentSession();
+        var q = session.createQuery(hql, Demographic.class);
+        q.setParameter("ln", parts[0].trim() + "%");
+        if (hasFirstName) {
+            q.setParameter("fn", parts[1].trim() + "%");
         }
-        List list = getHibernateTemplate().find(hql, object);
-        return list;
+        return q.list();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> searchDemographicByNameString(String searchString, int startIndex, int itemsToReturn) {
         String sqlCommand = "select x from Demographic x";
@@ -424,7 +420,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
                     if (sh[1] != null && sh[1].trim().length() > 0) {
                         if (where.length() > 0)
                             where = where + " and ";
-                        where = where + " x.FirstName like :fn ";
+                        where = where + "( x.FirstName like :fn or x.Alias like :fn ) ";
                         fn = sh[1].trim();
                     }
                 } else {
@@ -436,14 +432,14 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
                 if (where.length() > 0)
                     sqlCommand = sqlCommand + " where " + where;
             }
-            Query q = session.createQuery(sqlCommand);
+            var q = session.createQuery(sqlCommand, Demographic.class);
             if (ln.length() > 0)
                 q.setParameter("ln", ln + "%");
             if (fn.length() > 0)
                 q.setParameter("fn", fn + "%");
             q.setFirstResult(startIndex);
             q.setMaxResults(itemsToReturn);
-            return (q.list());
+            return q.list();
         } finally {
             // this.releaseSession(session);
             //session.close();
@@ -500,7 +496,6 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
             ignoreStatuses, true);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> searchDemographicByNameAndStatus(String searchStr, List<String> statuses, int limit,
                                                               int offset, String orderBy, String providerNo, boolean outOfDomain, boolean ignoreStatuses,
@@ -511,7 +506,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         String[] name = Objects.requireNonNullElse(searchStr, "").split(",");
 
         if (name.length == 2) {
-            queryString += " and first_name like :firstName ";
+            queryString += " and (d.FirstName like :firstName or d.Alias like :firstName) ";
         }
 
         if (statuses != null) {
@@ -528,7 +523,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         // Session session = this.getSession();
         Session session = currentSession();
         try {
-            Query q = session.createQuery(queryString);
+            var q = session.createQuery(queryString, Demographic.class);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
@@ -553,7 +548,6 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         return list;
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> searchMergedDemographicByName(String searchStr, int limit, int offset, String providerNo,
                                                            boolean outOfDomain) {
@@ -562,13 +556,13 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
 
         String[] name = searchStr.split(",");
         if (name.length == 2) {
-            queryString += " and first_name like :firstName ";
+            queryString += " and (d.FirstName like :firstName or d.Alias like :firstName) ";
         }
 
         // Session session = this.getSession();
         Session session = currentSession();
         try {
-            Query q = session.createQuery(queryString);
+            var q = session.createQuery(queryString, Demographic.class);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
 
@@ -1061,7 +1055,12 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
      * parameter.
      *
      * @param hin           it will do a substring match
-     * @param firstName     it will do a substring match
+     * @param firstName     it will do a substring match against both the FirstName
+     *                      and Alias fields (i.e. matches if either field contains the value).
+     *                      If both {@code firstName} and {@code alias} are non-null, the Alias
+     *                      field must satisfy both constraints simultaneously, so callers should
+     *                      pass {@code alias=null} when using {@code firstName} to avoid
+     *                      over-constraining the search.
      * @param lastName      it will do a substring match
      * @param gender        it will do an exact match
      * @param dateOfBirth   it will do an exact match
@@ -1069,10 +1068,14 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
      * @param province      it will do an exact match
      * @param phone         it will do an substring match
      * @param email         it will do an substring match
-     * @param alias         it will do an substring match
+     * @param alias         it will do a substring match against the Alias field only
      * @param startIndex    index of the first result
      * @param itemsToReturn number of items to return
      * @param orderByName   order by last name and first name
+     * @return List&lt;Demographic&gt; matching records, paginated by {@code startIndex} and
+     *         {@code itemsToReturn}, ordered by last name and first name when
+     *         {@code orderByName} is {@code true}
+     * @throws IllegalArgumentException if all searchable parameters are {@code null}
      */
     @Override
     public List<Demographic> findByAttributes(
@@ -1098,7 +1101,7 @@ public class DemographicDaoImpl extends HibernateDaoSupport implements Applicati
         if (hin != null)
             sqlParameters.append(" and d.Hin like :hin");
         if (firstName != null)
-            sqlParameters.append(" and d.FirstName like :firstName");
+            sqlParameters.append(" and (d.FirstName like :firstName or d.Alias like :firstName)");
         if (lastName != null)
             sqlParameters.append(" and d.LastName like :lastName");
         if (gender != null)

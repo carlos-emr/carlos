@@ -36,7 +36,7 @@
 //     - executeRules() creates WorkFlowInfo, passes to WorkFlowDS.getMessages()
 //     - getWorkFlowDS() delegates to WorkFlowDSFactory.getWorkFlowDS("Rh_workflow.drl")
 //   Loading: Two-tier priority via WorkFlowDSFactory:
-//     1. Filesystem path from WORKFLOW_DS_DIRECTORY property in oscar_mcmaster.properties
+//     1. Filesystem path from WORKFLOW_DS_DIRECTORY property in carlos.properties
 //     2. Classpath fallback: /oscar/oscarWorkflow/rules/Rh_workflow.drl (this file)
 //   UI: Linked from RH Form via forwardshortcutname.do?formname=RH Form
 //   Struts: FrmFormAddRHWorkFlow2Action handles form submission

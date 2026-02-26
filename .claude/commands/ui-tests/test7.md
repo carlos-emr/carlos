@@ -80,7 +80,7 @@ Follow the 15-step workflow defined in `docs/ui-tests/test-7/test-7-EXECUTION.md
 
 ### Phase 1: Authentication & Billing Access (Steps 1-4)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Patient Search** - Search "FAKE-J", screenshot results
 4. **Billing Module** - Click Billing link, screenshot
 
@@ -154,7 +154,7 @@ Billing actions may trigger **confirmation dialogs**:
 Service Code: A003 (Consultation)
 Diagnostic Code: J06.9 (Upper respiratory infection)
 Service Date: Today
-Provider: openodoc
+Provider: carlosdoc
 ```
 
 ## Post-Test Verification

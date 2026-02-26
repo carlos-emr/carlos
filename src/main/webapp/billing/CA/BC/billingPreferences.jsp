@@ -37,7 +37,6 @@
                 type="text/javascript"></script>
         <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
               type="text/css"/>
-        <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
 
         <style>

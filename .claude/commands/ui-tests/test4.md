@@ -79,7 +79,7 @@ Follow the 18-step workflow defined in `docs/ui-tests/test-4/test-4-EXECUTION.md
 
 ### Phase 1: Authentication & Patient Access (Steps 1-4)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Patient Search** - Search "FAKE-J", screenshot results
 4. **Patient Chart** - Open patient chart, screenshot
 

@@ -68,7 +68,6 @@
 %>
 
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <!--I18n-->
         <title>Reporting of Diabetes</title>
@@ -119,7 +118,7 @@
 
         <h3>Reporting of Diabetes </h3>
 
-        <form action="${pageContext.request.contextPath}/demographic/DiabetesExport.do" method="get"
+        <form action="${pageContext.request.contextPath}/demographic/DiabetesExport.do" method="post"
                    onsubmit="return checkAll();">
 
         <table>

@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Agency;
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -59,7 +59,7 @@ import static org.assertj.core.api.Assertions.*;
  *
  * <p><b>Test infrastructure:</b></p>
  * <ul>
- *   <li>Extends {@link OpenOTestBase} which initializes the Spring context
+ *   <li>Extends {@link CarlosTestBase} which initializes the Spring context
  *       and the legacy {@code SpringUtils} static bean factory via reflection</li>
  *   <li>All tests run within a transaction that is rolled back after each test,
  *       ensuring test isolation and a clean database state</li>
@@ -71,14 +71,14 @@ import static org.assertj.core.api.Assertions.*;
  * @see AgencyDao
  * @see AgencyDaoImpl
  * @see Agency
- * @see OpenOTestBase
+ * @see CarlosTestBase
  */
 @DisplayName("AgencyDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class AgencyDaoIntegrationTest extends OpenOTestBase {
+public class AgencyDaoIntegrationTest extends CarlosTestBase {
 
     /**
      * The DAO under test, injected by Spring from the test application context.
@@ -240,7 +240,7 @@ public class AgencyDaoIntegrationTest extends OpenOTestBase {
      * has been completed.</p>
      *
      * <p><b>Test strategy:</b> This test relies on the transactional rollback
-     * provided by {@link OpenOTestBase} to ensure the database starts empty.
+     * provided by {@link CarlosTestBase} to ensure the database starts empty.
      * No setup is performed, so the Agency table contains zero rows.</p>
      *
      * @see AgencyDao#getLocalAgency()

@@ -79,6 +79,23 @@
     %>
         </c:if>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarRx/styles.css">
+        <script>
+            function deletePharmacy(id) {
+                var form = document.createElement('form');
+                form.method = 'post';
+                form.action = '<%= request.getContextPath() %>/oscarRx/ManagePharmacy.jsp';
+                var fields = {type: 'Delete', ID: id};
+                for (var key in fields) {
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = fields[key];
+                    form.appendChild(input);
+                }
+                document.body.appendChild(form);
+                form.submit();
+            }
+        </script>
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
 
@@ -148,7 +165,7 @@
                                         <td><%=ph.getFax()%>
                                         </td>
                                         <td><a href="<%= request.getContextPath() %>/oscarRx/ManagePharmacy.jsp?type=Edit&ID=<%=ph.getId()%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.editLink"/></a></td>
-                                        <td><a href="<%= request.getContextPath() %>/oscarRx/ManagePharmacy.jsp?type=Delete&ID=<%=ph.getId()%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.deleteLink"/></a></td>
+                                        <td><a href="javascript:void(0);" onclick="deletePharmacy('<%=ph.getId()%>');"><fmt:setBundle basename="oscarResources"/><fmt:message key="SelectPharmacy.deleteLink"/></a></td>
                                     </tr>
                                     <% } %>
                                 </table>

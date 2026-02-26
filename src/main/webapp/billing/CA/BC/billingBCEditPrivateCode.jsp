@@ -154,12 +154,10 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
 
 <html>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManagePrivFrm"/></title>
-        <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
         <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">

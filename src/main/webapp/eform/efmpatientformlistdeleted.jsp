@@ -158,6 +158,23 @@
 				text-wrap: nowrap;
 			}
 		</style>
+		<script>
+			function unRemoveEForm(fdid, demographicNo, parentAjaxId) {
+				var form = document.createElement('form');
+				form.method = 'post';
+				form.action = '${pageContext.request.contextPath}/eform/unRemoveEForm.do';
+				var fields = {fdid: fdid, demographic_no: demographicNo, parentAjaxId: parentAjaxId};
+				for (var key in fields) {
+					var input = document.createElement('input');
+					input.type = 'hidden';
+					input.name = key;
+					input.value = fields[key];
+					form.appendChild(input);
+				}
+				document.body.appendChild(form);
+				form.submit();
+			}
+		</script>
 	</head>
 	<body onunload="updateAjax()" >
 	<div class="container">
@@ -222,7 +239,7 @@
 						<td><%=Encode.forHtmlContent((String)curform.get("formSubject"))%></td>
 						<td ><%=curform.get("formDate")%></td>
 						<td ><a
-								href="${pageContext.request.contextPath}/eform/unRemoveEForm.do?fdid=<%=curform.get("fdid")%>&demographic_no=<%=demographic_no%>&parentAjaxId=<%=parentAjaxId%>" onClick="javascript: return confirm('Are you sure you want to restore this eform?');">
+								href="javascript:void(0);" onClick="if(confirm('Are you sure you want to restore this eform?')){unRemoveEForm('<%=curform.get("fdid")%>','<%=demographic_no%>','<%=parentAjaxId%>');}">
                                     <fmt:message key="global.btnRestore" /></a></td>
 					</tr>
 					<%

@@ -30,6 +30,9 @@
 --%>
 <%@ page contentType="application/javascript; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     String newticklerwarningwindow = null;
     String cbiReminderWindow = null;
@@ -38,10 +41,18 @@
         cbiReminderWindow = (String) session.getAttribute("cbiReminderWindow");
     }
 
+    // Load "Open Encounter in Tab" preference
+    String curProviderNo = (String) session.getAttribute("user");
+    boolean openEncounterInTab = false;
+    if (curProviderNo != null) {
+        UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
+        UserProperty tabProp = upDao.getProp(curProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB);
+        openEncounterInTab = tabProp != null && "yes".equalsIgnoreCase(tabProp.getValue());
+    }
 %>
 function storeApptNo(apptNo) {
-var url = "storeApptInSession.jsp?appointment_no="+apptNo;
-new Ajax.Request(url, {method:'get'});
+var url = "storeApptInSession.jsp";
+new Ajax.Request(url, {method:'post', parameters: {appointment_no: apptNo}});
 }
 
 function getElementsByClass(searchClass,node,tag) {
@@ -381,12 +392,15 @@ popupPage2(queryString, 'appointment', height, width);
 }
 }
 
+var openEncounterInTab = <%=openEncounterInTab%>;
+
 function setfocus() {
 this.focus();
 }
 
 function popupPage(vheight,vwidth,varpage) {
 var page = "" + varpage;
+if (openEncounterInTab) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
 var popup=window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
 if (popup != null) {
@@ -399,6 +413,7 @@ popup.focus();
 
 function popUpEncounter(vheight,vwidth,varpage) {
 var page = "" + varpage;
+if (openEncounterInTab) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
 var popup=window.open(page, "Encounter", windowprops);
 
@@ -427,6 +442,7 @@ changePassword.moveTo(0,0);
 }
 function popupInboxManager(varpage, height = 700, width = 1215) {
 var page = "" + varpage;
+if (openEncounterInTab) { return popupTab(page); }
 var windowname="apptProviderInbox";
     windowprops = "height=" + height + ",width=" + width + ",location=no,"
 + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=10,left=0";
@@ -454,6 +470,7 @@ windowname = typeof(windowname)!= 'undefined' ? windowname : 'apptProviderSearch
 vheight = typeof(vheight) != 'undefined' ? vheight : '700px';
 vwidth = typeof(vwidth) != 'undefined' ? vwidth : '1024px';
 var page = "" + varpage;
+if (openEncounterInTab) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
 var popup = window.open(page, windowname, windowprops);
 if (popup != null) {
@@ -467,6 +484,7 @@ popup.focus();
 <!--messenger code block-->
 function popupOscarRx(vheight,vwidth,varpage) {
 var page = varpage;
+if (openEncounterInTab) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
 var popup=window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="global.oscarRx"/>_appt", windowprops);
 if (popup != null) {
@@ -481,8 +499,13 @@ function popupWithApptNo(vheight,vwidth,varpage,name,apptNo) {
 if (apptNo) storeApptNo(apptNo);
 if (name=='master')
 popup(vheight,vwidth,varpage,name);
-else if (name=='encounter')
+else if (name=='encounter') {
+if (openEncounterInTab) {
+popupTab(varpage);
+} else {
 popup(vheight, vwidth, varpage, name);
+}
+}
 else
 popupOscarRx(vheight,vwidth,varpage);
 }
@@ -577,6 +600,43 @@ function refreshSameLoc(mypage) {
 var X = (window.pageXOffset?window.pageXOffset:window.document.body.scrollLeft);
 var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
 window.location.href = mypage + "&x=" + X + "&y=" + Y;
+}
+
+/**
+ * Converts a URL with query parameters into a POST form submission.
+ * Parses the query string into hidden form fields and submits via POST.
+ * Also appends current scroll position (x, y) to preserve scroll state
+ * across schedule page navigations.
+ * @param {string} url - Full URL with optional query string (e.g., "page.jsp?key=val")
+ * @param {string} [targetWindow] - Optional form target window name
+ */
+function postViaForm(url, targetWindow) {
+var parts = url.split('?');
+var form = document.createElement('form');
+form.method = 'post';
+form.action = parts[0];
+if (targetWindow) { form.target = targetWindow; }
+if (parts.length > 1) {
+    var pairs = parts[1].split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        var kv = pairs[i].split('=');
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = decodeURIComponent(kv[0]);
+        input.value = kv.length > 1 ? decodeURIComponent(kv.slice(1).join('=')) : '';
+        form.appendChild(input);
+    }
+}
+var X = (window.pageXOffset?window.pageXOffset:window.document.body.scrollLeft);
+var Y = (window.pageYOffset?window.pageYOffset:window.document.body.scrollTop);
+var xi = document.createElement('input');
+xi.type = 'hidden'; xi.name = 'x'; xi.value = X;
+form.appendChild(xi);
+var yi = document.createElement('input');
+yi.type = 'hidden'; yi.name = 'y'; yi.value = Y;
+form.appendChild(yi);
+document.body.appendChild(form);
+form.submit();
 }
 
 function scrollOnLoad() {

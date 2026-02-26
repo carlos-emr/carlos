@@ -140,10 +140,11 @@
 
             function deleteFlowsheet(id) {
                 if (confirm('Are you sure you would like to delete this flowhseet?')) {
-                    jQuery.getJSON("<%=request.getContextPath()%>/admin/Flowsheet.do?method=deleteFlowsheet&id=" + id, {},
+                    jQuery.post("<%=request.getContextPath()%>/admin/Flowsheet.do",
+                        {method: "deleteFlowsheet", id: id},
                         function (xml) {
                             listFlowsheets1();
-                        }
+                        }, 'json'
                     );
                 }
             }

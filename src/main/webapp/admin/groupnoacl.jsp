@@ -61,7 +61,7 @@
     List<Provider> providers = providerDao.getActiveProviders();
 
 
-    if (request.getParameter("method") != null && request.getParameter("method").equals("save")) {
+    if (request.getParameter("method") != null && request.getParameter("method").equals("save") && "POST".equalsIgnoreCase(request.getMethod())) {
         String chosen_group = request.getParameter("chosen_group");
         String providerNos[] = request.getParameterValues("data");
         List<MyGroupAccessRestriction> fordel = myGroupAccessRestrictionDao.findByGroupId(chosen_group);

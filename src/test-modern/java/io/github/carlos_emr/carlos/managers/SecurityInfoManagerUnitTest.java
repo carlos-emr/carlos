@@ -28,7 +28,7 @@ import io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDao;
 import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -74,7 +74,7 @@ import static org.mockito.Mockito.*;
 @Tag("fast")
 @Tag("manager")
 @Tag("security")
-public class SecurityInfoManagerUnitTest extends OpenOUnitTestBase {
+public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
 
     @Mock
     private SecuserroleDao mockSecuserroleDao;

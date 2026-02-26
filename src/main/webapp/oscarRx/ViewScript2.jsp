@@ -574,10 +574,9 @@
             }
 
 function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
-	new Ajax.Request('<%=request.getContextPath() %>/oscarRx/saveDigitalSignature.do?method=saveDigitalSignature'
-			+ '&digitalSignatureId=' + digitalSignatureId
-			+ "&scriptId=" + scriptId, {
-		method: 'get'
+	new Ajax.Request('<%=request.getContextPath() %>/oscarRx/saveDigitalSignature.do', {
+		method: 'post',
+		parameters: {method: 'saveDigitalSignature', digitalSignatureId: digitalSignatureId, scriptId: scriptId}
 	});
 }
 
