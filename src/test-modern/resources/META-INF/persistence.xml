@@ -98,6 +98,8 @@
         <!-- PMmodule additional mappings -->
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</mapping-file>
+        <!-- Lookup / organization code mappings for LIKE-semantics tests -->
+        <mapping-file>com/quatro/model/LstOrgcd.hbm.xml</mapping-file>
     </persistence-unit>
 
 </persistence>

@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientStatus;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class ProgramClientStatusDAOIntegrationTest extends OpenOTestBase {
+public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProgramClientStatusDAO programClientStatusDAO;

@@ -44,10 +44,7 @@
     }
 %>
 
-<%@ page import="java.util.ResourceBundle" %>
-
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
 
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -59,118 +56,78 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.InstitutionDepartmentPK" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.InstitutitionDepartmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%
     InstitutionDao institutionDao = SpringUtils.getBean(InstitutionDao.class);
     DepartmentDao departmentDao = SpringUtils.getBean(DepartmentDao.class);
     InstitutitionDepartmentDao institutionDepartmentDao = SpringUtils.getBean(InstitutitionDepartmentDao.class);
-%>
-<html>
 
-    <%
-        String id = (String) request.getAttribute("id");
-        String name = (String) request.getAttribute("name");
-    %>
+    String id = (String) request.getAttribute("id");
+    String name = (String) request.getAttribute("name");
+%>
+<!DOCTYPE html>
+<html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <title>Display Institution</title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     </head>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
-    <body class="BodyStyle" vlink="#0000FF">
-    <% 
+    <body>
+    <div class="container-fluid">
+        <div class="page-header-bar">
+            <h5 class="page-header-title">Adjust Institutions</h5>
+        </div>
+
+<%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
+        <div class="action-errors">
+            <ul>
+                <% for (String error : actionErrors) { %>
+                    <li><%= Encode.forHtml(error) %></li>
+                <% } %>
+            </ul>
+        </div>
 <% } %>
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Consultation</td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td class="Header">Adjust Institutions
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr style="vertical-align: top">
-            <td class="MainTableLeftColumn">
+
+        <div class="row">
+            <div class="col-md-3 consult-sidebar">
                 <%
-                    EctConTitlebar titlebar = new EctConTitlebar();
+                    EctConTitlebar titlebar = new EctConTitlebar(request);
                     out.print(titlebar.estBar(request));
                 %>
-            </td>
-            <td class="MainTableRightColumn">
-                <table cellpadding="0" cellspacing="2"
-                       style="border-collapse: collapse" bordercolor="#111111" width="100%"
-                       height="100%">
+            </div>
 
-                    <!----Start new rows here-->
-                    <tr>
-                        <td>Please check off all the departments offered by <%=name%>.</td>
-                    </tr>
-                    <tr>
-                        <td>
-                            <form action="${pageContext.request.contextPath}/oscarEncounter/UpdateInstitutionDepartment.do" method="post">
-                            <input type="hidden" name="id" value="<%=id %>">
-                            <input type="submit"
-                                   value="Update Institution Department">
-                            <div class="ChooseRecipientsBox1">
-                                <table>
-                                    <tr>
-                                        <th>&nbsp;</th>
-                                        <th>Department</th>
+            <div class="col-md-9">
+                <p>Please check off all the departments offered by <%= Encode.forHtml(name) %>.</p>
 
-                                    </tr>
-                                    <tr>
-                                        <td><!--<div class="ChooseRecipientsBox1">--> <%
-								for(Department i:departmentDao.findAll()) {
-									InstitutionDepartment assoc = institutionDepartmentDao.find(new InstitutionDepartmentPK(Integer.parseInt(id),i.getId()));
-                              %>
+                <form action="${pageContext.request.contextPath}/oscarEncounter/UpdateInstitutionDepartment.do" method="post">
+                    <input type="hidden" name="id" value="<%=id %>">
+                    <input type="submit" class="btn btn-primary mb-3" value="Update Institution Department">
 
-                                    <tr>
-                                        <td>
-
-                                            <input type=checkbox name="specialists"
-                                                   value=<%=i.getId()%> <%=assoc!=null?"checked=\"checked\"":"" %>>
-
-                                        </td>
-                                        <td>
-                                            <% out.print(i.getName()); %>
-                                        </td>
-
-                                    </tr>
-                                            <% }%>
-                                    <!--</div>-->
-                        </td>
-                    </tr>
-                </table>
-                </div>
-                </form></td>
-        </tr>
-        <!----End new rows here-->
-
-        <tr height="100%">
-            <td></td>
-        </tr>
-    </table>
-    </td>
-    </tr>
-    <tr>
-        <td class="MainTableBottomRowLeftColumn"></td>
-        <td class="MainTableBottomRowRightColumn"></td>
-    </tr>
-    </table>
+                    <table class="table table-sm table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th class="col-checkbox">&nbsp;</th>
+                                <th>Department</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <%
+                                for (Department i : departmentDao.findAll()) {
+                                    InstitutionDepartment assoc = institutionDepartmentDao.find(new InstitutionDepartmentPK(Integer.parseInt(id), i.getId()));
+                            %>
+                            <tr>
+                                <td><input type="checkbox" name="specialists" value="<%=i.getId()%>" <%=assoc != null ? "checked" : ""%>></td>
+                                <td><%= Encode.forHtml(i.getName()) %></td>
+                            </tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+        </div>
+    </div>
     </body>
 </html>

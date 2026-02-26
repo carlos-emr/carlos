@@ -217,7 +217,7 @@ See `/workspace/docs/Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md` for f
 | **Organization** | Package/class hierarchy | @Nested classes + files |
 | **Naming** | testMethodName() | should_action_when_condition() |
 | **Spring Context** | Full applicationContextTest.xml | Optimized test contexts |
-| **Base Classes** | DaoTestFixtures | OpenOTestBase family |
+| **Base Classes** | DaoTestFixtures | CarlosTestBase family |
 
 ## Test Execution in CI/CD
 

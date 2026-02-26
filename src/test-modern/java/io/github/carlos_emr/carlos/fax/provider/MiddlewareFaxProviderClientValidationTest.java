@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -56,7 +56,7 @@ import java.nio.file.Paths;
 @Tag("fax")
 @Tag("middleware")
 @DisplayName("MiddlewareFaxProviderClient Validation Tests")
-class MiddlewareFaxProviderClientValidationTest extends OpenOUnitTestBase {
+class MiddlewareFaxProviderClientValidationTest extends CarlosUnitTestBase {
 
     private MiddlewareFaxProviderClient client;
     private Method validateMiddlewareConfigMethod;

@@ -57,7 +57,7 @@ import static org.mockito.Mockito.*;
  * @since 2025-01-17
  * @see TicklerDao
  * @see TicklerDaoImpl
- * @see OpenOUnitTestBase
+ * @see CarlosUnitTestBase
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Tickler DAO Unit Tests")

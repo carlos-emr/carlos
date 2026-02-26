@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -45,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("integration")
 @Tag("util")
 @DisplayName("Doc2PDF Integration Tests")
-class Doc2PDFIntegrationTest extends OpenOTestBase {
+class Doc2PDFIntegrationTest extends CarlosTestBase {
 
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;

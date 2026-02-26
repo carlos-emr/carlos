@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderClient;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderClientFactory;
 import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -60,7 +60,7 @@ import org.junit.jupiter.api.Test;
 @Tag("unit")
 @Tag("fax")
 @DisplayName("FaxImporter poll() Orchestration Tests")
-class FaxImporterPollTest extends OpenOUnitTestBase {
+class FaxImporterPollTest extends CarlosUnitTestBase {
 
     private FaxConfigDao faxConfigDao;
     private FaxJobDao faxJobDao;

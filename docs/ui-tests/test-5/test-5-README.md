@@ -31,9 +31,9 @@ Test 5 validates the tickler (task reminder) and messaging workflows in CARLOS E
 #### Provider Credentials
 | Field | Value |
 |-------|-------|
-| Username | openodoc |
-| Password | openo2025 |
-| PIN | 2025 |
+| Username | carlosdoc |
+| Password | carlos2026 |
+| PIN | 2026 |
 | Provider No | 999998 |
 
 #### Existing Test Patients (Must Exist)
@@ -81,7 +81,7 @@ Test 5 validates the tickler (task reminder) and messaging workflows in CARLOS E
 ```
 Message: UI Test 5 - Follow up call needed
 Service Date: (today + 7 days)
-Assigned To: openodoc
+Assigned To: carlosdoc
 Priority: Normal
 Patient: FAKE-Jacky FAKE-Jones (ID: 1)
 ```

@@ -36,6 +36,7 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
@@ -44,8 +45,6 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTeamDAO {
 
     private Logger log = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
-
     @Autowired
     public void setSessionFactoryOverride(SessionFactory sessionFactory) {
         super.setSessionFactory(sessionFactory);
@@ -58,6 +57,10 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
      */
     @Override
     public boolean teamExists(Integer teamId) {
+        if (teamId == null) {
+            log.debug("teamExists: called with null teamId, returning false");
+            return false;
+        }
         boolean exists = getHibernateTemplate().get(ProgramTeam.class, teamId) != null;
         log.debug("teamExists: " + exists);
 
@@ -159,7 +162,12 @@ public class ProgramTeamDAOImpl extends HibernateDaoSupport implements ProgramTe
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().delete(getProgramTeam(id));
+        ProgramTeam team = getProgramTeam(id);
+        if (team == null) {
+            throw new EmptyResultDataAccessException("No ProgramTeam found with id=" + id, 1);
+        }
+
+        this.getHibernateTemplate().delete(team);
 
         if (log.isDebugEnabled()) {
             log.debug("deleteProgramTeam: id=" + id);

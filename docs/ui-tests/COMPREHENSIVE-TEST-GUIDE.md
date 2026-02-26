@@ -86,11 +86,11 @@ All tests use the same provider credentials:
 
 | Field | Value |
 |-------|-------|
-| Username | `openodoc` |
-| Password | `openo2025` |
-| PIN | `2025` |
+| Username | `carlosdoc` |
+| Password | `carlos2026` |
+| PIN | `2026` |
 | Provider No | `999998` |
-| Name | doctor openodoc |
+| Name | doctor carlosdoc |
 
 ### Required Test Patients
 
@@ -132,8 +132,8 @@ mysql -h db -uroot -ppassword oscar -e "SELECT 1;"
 ### 3. Test User Exists
 ```bash
 mysql -h db -uroot -ppassword oscar -e \
-  "SELECT user_name, pin FROM security WHERE user_name='openodoc';"
-# Expected: openodoc | 2025
+  "SELECT user_name, pin FROM security WHERE user_name='carlosdoc';"
+# Expected: carlosdoc | 2025
 ```
 
 ### 4. Test Patients Exist
@@ -146,7 +146,7 @@ mysql -h db -uroot -ppassword oscar -e \
 ### 5. Reset Test Password (if needed)
 ```bash
 mysql -h db -uroot -ppassword oscar -e \
-  "UPDATE security SET password='{bcrypt}\$2b\$12\$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96', forcePasswordReset=0 WHERE user_name='openodoc';"
+  "UPDATE security SET password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO', forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
 ---
@@ -240,7 +240,7 @@ ui-test-runs/
 ```bash
 # Reset password
 mysql -h db -uroot -ppassword oscar -e \
-  "UPDATE security SET password='{bcrypt}\$2b\$12\$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96', forcePasswordReset=0 WHERE user_name='openodoc';"
+  "UPDATE security SET password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO', forcePasswordReset=0 WHERE user_name='carlosdoc';"
 ```
 
 ### Application Not Responding

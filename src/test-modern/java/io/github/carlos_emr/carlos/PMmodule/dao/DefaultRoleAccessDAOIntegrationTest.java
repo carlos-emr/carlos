@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.model.AccessType;
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
 import io.github.carlos_emr.carlos.model.security.Secrole;
@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class DefaultRoleAccessDAOIntegrationTest extends OpenOTestBase {
+public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private DefaultRoleAccessDAO defaultRoleAccessDAO;

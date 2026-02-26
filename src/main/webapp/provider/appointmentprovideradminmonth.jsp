@@ -456,6 +456,7 @@
         </SCRIPT>
     </head>
     <!-- menu goes here -->
+    <div id="fixedHeaderWrapper">
     <jsp:include page="mainMenu.jsp"/>
 
     <div id="jumpmenu"
@@ -618,8 +619,9 @@
             </td>
         </tr>
     </table>
+    </div><!-- end fixedHeaderWrapper -->
 
-    <table style="margin-top: 69px;" BGCOLOR="#C0C0C0">
+    <table id="monthScheduleTable" BGCOLOR="#C0C0C0">
         <tr>
             <td>
                 <table>

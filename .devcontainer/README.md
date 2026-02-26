@@ -88,9 +88,9 @@ Exploded WAR".
 * Open your web browser and navigate to `http://localhost:8080`.
 * You should see the CARLOS EMR application running.
 * Login credentials for local development are: 
-    * Username: openodoc
-    * Password: openo2025
-    * PIN     : 2025
+    * Username: carlosdoc
+    * Password: carlos2026
+    * PIN     : 2026
     * **Note**: On first login, you will be forced to change the password. Use the same credentials above to complete the password reset process.
 
 ### Subsequent Compilations
@@ -294,15 +294,15 @@ python3 scripts/generate_bcrypt_password.py
 
 # Update the database with the new hash
 docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
-  "UPDATE security SET password='YOUR_BCRYPT_HASH_HERE' WHERE user_name='openodoc';"
+  "UPDATE security SET password='YOUR_BCRYPT_HASH_HERE' WHERE user_name='carlosdoc';"
 
 # Optional: Force password reset on next login
 docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
-  "UPDATE security SET forcePasswordReset=1 WHERE user_name='openodoc';"
+  "UPDATE security SET forcePasswordReset=1 WHERE user_name='carlosdoc';"
 
 # Verify the change
 docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
-  "SELECT user_name, LEFT(password, 20) as password_start FROM security WHERE user_name='openodoc';"
+  "SELECT user_name, LEFT(password, 20) as password_start FROM security WHERE user_name='carlosdoc';"
 ```
 
 **Example:**
@@ -314,7 +314,7 @@ Generated BCrypt hash: {bcrypt}$2b$12$abc123...xyz789
 
 # Update database
 $ docker exec carlos-mariadb-dev mysql -u root -ppassword oscar -e \
-  "UPDATE security SET password='{bcrypt}\$2b\$12\$abc123...xyz789' WHERE user_name='openodoc';"
+  "UPDATE security SET password='{bcrypt}\$2b\$12\$abc123...xyz789' WHERE user_name='carlosdoc';"
 ```
 
 **Important Notes:**
