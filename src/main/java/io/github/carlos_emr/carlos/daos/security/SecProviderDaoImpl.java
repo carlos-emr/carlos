@@ -39,13 +39,16 @@ import org.hibernate.Session;
 import org.hibernate.criterion.Example;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
  * @author JZhang
  */
 
+@Transactional
 public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProviderDao {
     private static final Logger logger = MiscUtils.getLogger();
     // property constants
@@ -103,8 +106,8 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     public SecProvider findById(java.lang.String id, String status) {
         logger.debug("getting Provider instance with id: " + id);
         try {
-            String sql = "from SecProvider where id=?0 and status=?1";
-            List lst = this.getHibernateTemplate().find(sql, new Object[]{id, status});
+            String sql = "from SecProvider where id=?1 and status=?2";
+            List lst = HqlQueryHelper.find(currentSession(), sql, id, status);
             if (lst.size() == 0)
                 return null;
             else
