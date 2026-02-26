@@ -69,18 +69,21 @@ public class ProfessionalSpecialistDaoTest extends DaoTestFixtures {
 
         ProfessionalSpecialist professionalSpecialist1 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist1);
+        professionalSpecialist1.setDeleted(false);
         professionalSpecialist1.setFirstName(fName2);
         professionalSpecialist1.setLastName(lName2);
         dao.persist(professionalSpecialist1);
 
         ProfessionalSpecialist professionalSpecialist2 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist2);
+        professionalSpecialist2.setDeleted(false);
         professionalSpecialist2.setFirstName(fName3);
         professionalSpecialist2.setLastName(lName3);
         dao.persist(professionalSpecialist2);
 
         ProfessionalSpecialist professionalSpecialist3 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist3);
+        professionalSpecialist3.setDeleted(false);
         professionalSpecialist3.setFirstName(fName1);
         professionalSpecialist3.setLastName(lName1);
         dao.persist(professionalSpecialist3);
@@ -123,6 +126,7 @@ public class ProfessionalSpecialistDaoTest extends DaoTestFixtures {
 
         ProfessionalSpecialist professionalSpecialist1 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist1);
+        professionalSpecialist1.setDeleted(false);
         professionalSpecialist1.setFirstName(fName2);
         professionalSpecialist1.setLastName(lName2);
         professionalSpecialist1.seteDataUrl(eDataUrl1);
@@ -130,6 +134,7 @@ public class ProfessionalSpecialistDaoTest extends DaoTestFixtures {
 
         ProfessionalSpecialist professionalSpecialist2 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist2);
+        professionalSpecialist2.setDeleted(false);
         professionalSpecialist2.setFirstName(fName3);
         professionalSpecialist2.setLastName(lName3);
         professionalSpecialist2.seteDataUrl(eDataUrl2);
@@ -137,6 +142,7 @@ public class ProfessionalSpecialistDaoTest extends DaoTestFixtures {
 
         ProfessionalSpecialist professionalSpecialist3 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist3);
+        professionalSpecialist3.setDeleted(false);
         professionalSpecialist3.setFirstName(fName1);
         professionalSpecialist3.setLastName(lName1);
         professionalSpecialist3.seteDataUrl(eDataUrl3);
@@ -144,6 +150,7 @@ public class ProfessionalSpecialistDaoTest extends DaoTestFixtures {
 
         ProfessionalSpecialist professionalSpecialist4 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist4);
+        professionalSpecialist4.setDeleted(false);
         professionalSpecialist4.setFirstName(fName4);
         professionalSpecialist4.setLastName(lName4);
         professionalSpecialist4.seteDataUrl(eDataUrl4);
@@ -179,18 +186,21 @@ public class ProfessionalSpecialistDaoTest extends DaoTestFixtures {
 
         ProfessionalSpecialist professionalSpecialist1 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist1);
+        professionalSpecialist1.setDeleted(false);
         professionalSpecialist1.setFirstName(fName1);
         professionalSpecialist1.setLastName(lName1);
         dao.persist(professionalSpecialist1);
 
         ProfessionalSpecialist professionalSpecialist2 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist2);
+        professionalSpecialist2.setDeleted(false);
         professionalSpecialist2.setFirstName(fName2);
         professionalSpecialist2.setLastName(lName2);
         dao.persist(professionalSpecialist2);
 
         ProfessionalSpecialist professionalSpecialist3 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist3);
+        professionalSpecialist3.setDeleted(false);
         professionalSpecialist3.setFirstName(fName1);
         professionalSpecialist3.setLastName(lName1);
         dao.persist(professionalSpecialist3);
@@ -224,18 +234,21 @@ public class ProfessionalSpecialistDaoTest extends DaoTestFixtures {
 
         ProfessionalSpecialist professionalSpecialist1 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist1);
+        professionalSpecialist1.setDeleted(false);
         professionalSpecialist1.setFirstName(fName1);
         professionalSpecialist1.setLastName(lName1);
         dao.persist(professionalSpecialist1);
 
         ProfessionalSpecialist professionalSpecialist2 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist2);
+        professionalSpecialist2.setDeleted(false);
         professionalSpecialist2.setFirstName(fName2);
         professionalSpecialist2.setLastName(lName2);
         dao.persist(professionalSpecialist2);
 
         ProfessionalSpecialist professionalSpecialist3 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist3);
+        professionalSpecialist3.setDeleted(false);
         professionalSpecialist3.setFirstName(fName1);
         professionalSpecialist3.setLastName(lName1);
         dao.persist(professionalSpecialist3);
@@ -270,18 +283,21 @@ public class ProfessionalSpecialistDaoTest extends DaoTestFixtures {
 
         ProfessionalSpecialist professionalSpecialist1 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist1);
+        professionalSpecialist1.setDeleted(false);
         professionalSpecialist1.setSpecialtyType(specialty1);
         professionalSpecialist1.setLastName(lName2);
         dao.persist(professionalSpecialist1);
 
         ProfessionalSpecialist professionalSpecialist2 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist2);
+        professionalSpecialist2.setDeleted(false);
         professionalSpecialist2.setSpecialtyType(specialty2);
         professionalSpecialist2.setLastName(lName3);
         dao.persist(professionalSpecialist2);
 
         ProfessionalSpecialist professionalSpecialist3 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist3);
+        professionalSpecialist3.setDeleted(false);
         professionalSpecialist3.setSpecialtyType(specialty1);
         professionalSpecialist3.setLastName(lName1);
         dao.persist(professionalSpecialist3);
@@ -316,18 +332,21 @@ public class ProfessionalSpecialistDaoTest extends DaoTestFixtures {
 
         ProfessionalSpecialist professionalSpecialist1 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist1);
+        professionalSpecialist1.setDeleted(false);
         professionalSpecialist1.setReferralNo(referralNo1);
         professionalSpecialist1.setLastName(lName2);
         dao.persist(professionalSpecialist1);
 
         ProfessionalSpecialist professionalSpecialist2 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist2);
+        professionalSpecialist2.setDeleted(false);
         professionalSpecialist2.setReferralNo(referralNo2);
         professionalSpecialist2.setLastName(lName3);
         dao.persist(professionalSpecialist2);
 
         ProfessionalSpecialist professionalSpecialist3 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist3);
+        professionalSpecialist3.setDeleted(false);
         professionalSpecialist3.setReferralNo(referralNo1);
         professionalSpecialist3.setLastName(lName1);
         dao.persist(professionalSpecialist3);
@@ -363,18 +382,21 @@ public class ProfessionalSpecialistDaoTest extends DaoTestFixtures {
 
         ProfessionalSpecialist professionalSpecialist1 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist1);
+        professionalSpecialist1.setDeleted(false);
         professionalSpecialist1.setReferralNo(referralNo1);
         professionalSpecialist1.setLastName(lName2);
         dao.persist(professionalSpecialist1);
 
         ProfessionalSpecialist professionalSpecialist2 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist2);
+        professionalSpecialist2.setDeleted(false);
         professionalSpecialist2.setSpecialtyType(referralNo2);
         professionalSpecialist2.setLastName(lName3);
         dao.persist(professionalSpecialist2);
 
         ProfessionalSpecialist professionalSpecialist3 = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(professionalSpecialist3);
+        professionalSpecialist3.setDeleted(false);
         professionalSpecialist3.setSpecialtyType(referralNo3);
         professionalSpecialist3.setLastName(lName1);
         dao.persist(professionalSpecialist3);

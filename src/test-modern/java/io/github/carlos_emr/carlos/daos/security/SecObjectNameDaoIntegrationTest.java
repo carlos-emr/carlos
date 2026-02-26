@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import io.github.carlos_emr.carlos.model.security.Secobjectname;
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -78,7 +78,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("security")
 @Transactional
-public class SecObjectNameDaoIntegrationTest extends OpenOTestBase {
+public class SecObjectNameDaoIntegrationTest extends CarlosTestBase {
 
     /**
      * The DAO under test, providing {@code saveOrUpdate} operations for

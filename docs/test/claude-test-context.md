@@ -43,7 +43,7 @@ Never invent methods - verify they exist in the codebase first.
 @Tag("dao")          // Layer: dao, manager, service, controller
 @Tag("read")         // CRUD: create, read, update, delete
 @DisplayName("Component Tests")
-public class ComponentTest extends OpenOTestBase {  // MUST be public!
+public class ComponentTest extends CarlosTestBase {  // MUST be public!
 
     @PersistenceContext(unitName = "testPersistenceUnit")
     private EntityManager entityManager;
@@ -127,7 +127,7 @@ assertEquals("ACTIVE", result.getStatus());  // Argument order confusion
 [ ] Method name follows BDD pattern (pure camelCase or snake_case, consistently)
 [ ] @DisplayName describes behavior from user perspective
 [ ] Appropriate @Tag annotations (min: type + layer)
-[ ] Extends OpenOTestBase (or appropriate base)
+[ ] Extends CarlosTestBase (or appropriate base)
 [ ] Given-When-Then structure with comments
 [ ] Uses AssertJ assertions
 [ ] Deterministic test data (no random/time values)
@@ -139,7 +139,7 @@ assertEquals("ACTIVE", result.getStatus());  // Argument order confusion
 ## UNIT TESTING WITH MOCKS (SpringUtils Anti-Pattern)
 
 ```java
-public class ManagerUnitTest extends OpenOUnitTestBase {  // Note: OpenOUnitTestBase for unit tests
+public class ManagerUnitTest extends CarlosUnitTestBase {  // Note: CarlosUnitTestBase for unit tests
     @Mock private SomeDao mockDao;
     private MockedStatic<LogAction> logActionMock;
 

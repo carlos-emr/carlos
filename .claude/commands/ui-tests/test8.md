@@ -78,7 +78,7 @@ Follow the 12-step workflow defined in `docs/ui-tests/test-8/test-8-EXECUTION.md
 
 ### Phase 1: Authentication & Inbox Access (Steps 1-4)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Inbox Menu** - Click Inbox in navigation, screenshot
 4. **Lab Inbox** - View lab results section, screenshot
 
@@ -120,7 +120,7 @@ When forwarding a lab result, provider selection may use an **autocomplete widge
 
 **Example interaction for autocomplete:**
 ```
-1. browser_type(ref=providerField, text="openodoc", slowly=true)
+1. browser_type(ref=providerField, text="carlosdoc", slowly=true)
 2. browser_snapshot() - verify dropdown appears
 3. browser_click(ref=providerOption) - click on provider name
 ```

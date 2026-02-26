@@ -26,7 +26,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.OscarProperties;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,7 +51,7 @@ import java.lang.reflect.Method;
 @Tag("fax")
 @Tag("security")
 @DisplayName("SRFaxProviderClient SSRF Prevention Tests")
-class SRFaxProviderClientSsrfTest extends OpenOUnitTestBase {
+class SRFaxProviderClientSsrfTest extends CarlosUnitTestBase {
 
     private SRFaxProviderClient client;
     private Method getSrfaxApiUrlMethod;

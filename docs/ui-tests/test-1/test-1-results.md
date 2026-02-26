@@ -29,9 +29,9 @@ Test 1 validates the complete workflow for logging into CARLOS EMR and accessing
 - ✅ Roboto fonts rendering properly
 
 **Credentials Used**:
-- Username: `openodoc`
-- Password: `openo2025`
-- PIN: `2025`
+- Username: `carlosdoc`
+- Password: `carlos2026`
+- PIN: `2026`
 
 ---
 
@@ -40,11 +40,11 @@ Test 1 validates the complete workflow for logging into CARLOS EMR and accessing
 **Screenshot**: [test-1-02-provider-dashboard.png](screenshots/test-1-02-provider-dashboard.png)
 
 - ✅ Successfully authenticated and redirected to `/provider/providercontrol.jsp`
-- ✅ Page title: "Openodoc, D-Appointment Access"
+- ✅ Page title: "Carlosdoc, D-Appointment Access"
 - ✅ Navigation menu displayed with all items:
   - Schedule, Caseload, Resources, Search, Report, Billing
   - Inbox, Msg, Consultations, eDoc, Tickler¹, Administration, Help
-- ✅ Provider name shown: "doctor openodoc"
+- ✅ Provider name shown: "doctor carlosdoc"
 - ✅ Appointment schedule for 2026-01-16 displayed
 - ✅ Time slots rendered (08:00 - 18:45)
 - ✅ Provider dropdown functional
@@ -128,7 +128,7 @@ Test 1 validates the complete workflow for logging into CARLOS EMR and accessing
 - ✅ Date Joined: 2025-08-11
 
 **Patient Clinic Information**:
-- ✅ MRP: openodoc, doctor
+- ✅ MRP: carlosdoc, doctor
 - ✅ Left navigation menu fully functional with options:
   - Appointment, Billing, Consultations, Prescriptions
   - E-Chart, Preventions, Tickler, Documents, eForms
@@ -188,7 +188,7 @@ Test 1 validates the complete workflow for logging into CARLOS EMR and accessing
 - ✅ Date Joined: 2023-07-25
 
 **Patient Clinic Information**:
-- ✅ MRP: openodoc, doctor
+- ✅ MRP: carlosdoc, doctor
 - ✅ HEART (internal): provider, one
 - ✅ Referral Doctor: C, John
 
@@ -289,9 +289,9 @@ Test 1 validates the complete workflow for logging into CARLOS EMR and accessing
 ## Test Data Used
 
 ### Provider Account
-- **Username**: openodoc
-- **Password**: openo2025
-- **PIN**: 2025
+- **Username**: carlosdoc
+- **Password**: carlos2026
+- **PIN**: 2026
 - **Provider No**: 999998
 
 ### Patients Tested

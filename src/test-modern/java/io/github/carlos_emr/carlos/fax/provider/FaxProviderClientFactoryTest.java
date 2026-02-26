@@ -31,7 +31,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -45,7 +45,7 @@ import org.junit.jupiter.api.Test;
 @Tag("unit")
 @Tag("fax")
 @DisplayName("FaxProviderClientFactory Unit Tests")
-class FaxProviderClientFactoryTest extends OpenOUnitTestBase {
+class FaxProviderClientFactoryTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return middleware client when config defaults to MIDDLEWARE")
