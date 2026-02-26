@@ -721,25 +721,6 @@ public class RxDrugData {
     }
 
     /**
-     * Get list of drug components from official drug code.
-     *
-     * @param drugCode
-     * @return ArrayList
-     */
-    @Deprecated
-    public ArrayList getComponentsFromDrugCode(String drugCode) {
-        ArrayList lst = new ArrayList();
-        Vector v = new Vector();
-        RxDrugRef d = new RxDrugRef();
-        v = d.listComponents(drugCode);
-        for (int i = 0; i < v.size(); i++) {
-            Hashtable h = (Hashtable) v.get(i);
-            lst.add(h.get("name"));
-        }
-        return lst;
-    }
-
-    /**
      * Get ??
      *
      * @return ArrayList

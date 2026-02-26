@@ -39,13 +39,6 @@ package io.github.carlos_emr.carlos.prescript.util;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
-import org.apache.xmlrpc.Base64;
-import org.apache.xmlrpc.XmlRpcClient;
-import org.apache.xmlrpc.XmlRpcClientLite;
-import org.apache.xmlrpc.XmlRpcException;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -353,15 +346,6 @@ public class RxDrugRef {
         return vec;
     }
 
-    @Deprecated
-    public Vector listComponents(String drugId) {
-        Vector params = new Vector();
-        params.addElement(drugId);
-        Vector vec = (Vector) callWebservice("getComponents", params);
-        return vec;
-
-    }
-
     public Vector list_brands_from_element(String drugRefId) throws Exception {
         Vector params = new Vector();
         params.addElement(drugRefId);
@@ -457,9 +441,9 @@ public class RxDrugRef {
         MiscUtils.getLogger().debug("#CALLDRUGREF-" + procedureName);
         Object object = null;
         try {
-            XmlRpcClient server = new XmlRpcClient(server_url);
+            SimpleXmlRpcClient server = new SimpleXmlRpcClient(server_url);
             object = server.execute(procedureName, params);
-        } catch (XmlRpcException exception) {
+        } catch (XmlRpcFaultException exception) {
             logger.error("JavaClient: XML-RPC Fault #" + exception.code, exception);
         } catch (Exception exception) {
             logger.error("JavaClient: ", exception);
@@ -468,19 +452,12 @@ public class RxDrugRef {
     }
 
     private Object callWebserviceLite(String procedureName, Vector params) throws Exception {
-
         Object object = null;
         try {
-            if (!System.getProperty("http.proxyHost", "").isEmpty()) {
-                //The Lite client won't recgonize JAVA_OPTS as it uses a customized http
-                XmlRpcClient server = new XmlRpcClient(server_url);
-                object = server.execute(procedureName, params);
-            } else {
-                XmlRpcClientLite server = new XmlRpcClientLite(server_url);
-                object = server.execute(procedureName, params);
-            }
+            SimpleXmlRpcClient server = new SimpleXmlRpcClient(server_url);
+            object = server.execute(procedureName, params);
         } catch (Exception exception) {
-            if (exception instanceof XmlRpcException && ((XmlRpcException) exception).code == 0) {
+            if (exception instanceof XmlRpcFaultException && ((XmlRpcFaultException) exception).code == 0) {
                 logger.error("JavaClient: XML-RPC Fault. NoResultException thrown for procedure: {} with parameters {}", procedureName, params);
             } else {
                 logger.error("JavaClient: XML-RPC Fault ", exception);
@@ -490,285 +467,6 @@ public class RxDrugRef {
         return object;
     }
 
-
-    ////DRUGREF API
-
-    /**
-     * applications only permitting one or few data sources will use this function to check for valid databases.
-     * <p>
-     * Applications allowing more choice will expose all possible data sources to the end user
-     *
-     * @param searchexpr mnemonic describing data source,
-     *                   e.g. mims, amh, rote liste, first database.
-     *                   Case insensitive, partial match possible if using % as wild card
-     * @param tags       see tags
-     * @return array of structs alphabetically sorted by name with the following minimum keys:
-     *
-     * <B>pkey</B>: integer. Primary key
-     * <B>name</B>: string. Menemonic describing data source
-     * <B>revision</B>: string. Format and meaning depends on data source
-     * <B>last_change</B>: string (date in ISO format yyyy-mm-dd)
-     * <B>deprecated</B>: boolean. True if this source is deprecated and should no longer be used
-     */
-    @Deprecated
-    public Vector list_sources(String searchexpr, Hashtable tags) {
-        return new Vector();
-    }
-
-    /**
-     * useful if searches should be constrained to a single source
-     *
-     * @param pkey primary key.
-     * @return tags: see [tags].
-     */
-    @Deprecated
-    public Hashtable get_source_tag(int pkey) {
-        return new Hashtable();
-    }
-
-    /**
-     * returns basic identifiers of all drugs, drug products and drug classes available in the database which names match searchexpr, and which other criteria match the constraints in tags
-     *
-     * @param searchexpr (Partial) name of a drug (generic, brand name, composite drug) Case insensitive, partial match possible if using % as wild card
-     * @param tags       see [tags] Additional optional keys:
-     *                   classes : boolean. If true, class names (ATC) are listed
-     *                   generics : boolean. If true, generic names are listed
-     *                   branded : boolean. If true, branded product names are listed
-     *                   composites : if true, generic composite drugs are listed
-     * @return array of structs alphabetically sorted by name with the following minimum keys:
-     * pkey: integer. Primary key
-     * Name: string. Name of the drug
-     * Type: string(2):
-     * 'cl' = class
-     * 'ca' = anatomical class
-     * 'cc' = chemical class,
-     * 'ct' = therapeutic class
-     * 'ge' = generic
-     * 'gc' = composite generic (e.g. Co-Trimoxazole)
-     * 'bp' = branded product
-     * If the parameter return_tags was given in the query, tags will be available too.
-     */
-    public Vector list_drugs(String searchexpr, Hashtable tags) {
-        Vector params = new Vector();
-        params.addElement(searchexpr);
-        //params.addElement(tags);
-        //Vector vec = (Vector) callWebservice("list_drugs",params);
-        Vector vec = (Vector) callWebservice("list_search_element", params);
-
-
-        return vec;
-    }
-
-
-    public Hashtable tagCreatorEx(int sources, String languages, String countries, int authors, Date modified_after, boolean return_tags) {
-        Hashtable retHash = new Hashtable();
-        retHash.put("source", Integer.valueOf(0));
-        retHash.put("sources", Integer.valueOf(sources));
-        retHash.put("language", "");
-        retHash.put("languages", Integer.valueOf(languages));
-        retHash.put("country", "");
-        retHash.put("countries", Integer.valueOf(countries));
-        retHash.put("author", Integer.valueOf(0));
-        retHash.put("authors", Integer.valueOf(authors));
-        try {
-            retHash.put("modified_after", new SimpleDateFormat("yyyy-MM-dd").parse(modified_after.toString()));
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("error", e);
-        }
-        retHash.put("return_tags", Boolean.toString(return_tags));      //If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-        return retHash;
-    }
-
-    public Hashtable tagCreatorEx(int sources, String languages, String countries, int authors, boolean return_tags) {
-        Hashtable retHash = new Hashtable();
-        retHash.put("source", Integer.valueOf(0));
-        retHash.put("sources", Integer.valueOf(sources));
-        retHash.put("language", "");
-        retHash.put("languages", Integer.valueOf(languages));
-        retHash.put("country", "");
-        retHash.put("countries", Integer.valueOf(countries));
-        retHash.put("author", Integer.valueOf(0));
-        retHash.put("authors", Integer.valueOf(authors));
-        retHash.put("return_tags", Boolean.toString(return_tags));      //If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-        return retHash;
-    }
-
-
-    /**
-     * For Creating tags
-     *
-     * @param source         Primary key of the referenced information source (Drugref, MIMS, MULTUM, AMIS, Manufacturer, Inhouse, ...)
-     * @param language       string. Three character ISO language code
-     * @param country        string. Two character ISO country code
-     * @param author         integer. Primary key of the submitter of the referenced information
-     * @param modified_after string. ISO date (yyyy-mm-dd). If set, records older than this date will be ignored.
-     * @param return_tags    boolean. If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-     * @return Hashtable with values set from input for tags
-     */
-    public Hashtable tagCreator(int source, String language, String country, int author, Date modified_after, boolean return_tags) {
-        Hashtable retHash = new Hashtable();
-        retHash.put("source", Integer.valueOf(source));
-        retHash.put("language", language);
-        retHash.put("country", country);
-        retHash.put("author", Integer.valueOf(author));
-        try {
-            retHash.put("modified_after", new SimpleDateFormat("yyyy-MM-dd").parse(modified_after.toString()));
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("error", e);
-        }
-        retHash.put("return_tags", Boolean.toString(return_tags));      //If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-        return retHash;
-    }
-
-
-    /**
-     * For Creating tags
-     *
-     * @param source      Primary key of the referenced information source (Drugref, MIMS, MULTUM, AMIS, Manufacturer, Inhouse, ...)
-     * @param language    string. Three character ISO language code
-     * @param country     string. Two character ISO country code
-     * @param author      integer. Primary key of the submitter of the referenced information
-     * @param return_tags boolean. If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-     * @return Hashtable with values set from input for tags
-     */
-    public Hashtable tagCreator(int source, String language, String country, int author, boolean return_tags) {
-        Hashtable retHash = new Hashtable();
-        retHash.put("source", Integer.valueOf(source));
-        retHash.put("language", language);
-        retHash.put("country", country);
-        retHash.put("author", Integer.valueOf(author));
-        retHash.put("return_tags", Boolean.toString(return_tags));      //If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-        return retHash;
-    }
-
-
-    /**
-     * returns a fuill drug monograph formatted as HTML page, with all headings (= keys returned by get_drug) implemented as anchors.
-     *
-     * @param pkeye4 primary key.
-     * @param css    CSS style sheet used to format the retunred HTML page. Details not finalized yet.
-     * @return base64 encoded HTML page
-     */
-    @Deprecated
-    public Base64 get_drug_html(int pkeye4, Base64 css) { //returns base64
-        return new Base64();
-    }
-
-
-    /**
-     * returns all available products for a given drug as identified by pkey and constrained by tags
-     *
-     * @param pkey primary key of a drug.
-     * @param tags see [tags].
-     * @return list of structs containing the following minimum keys:
-     * brandname : string
-     * form : string. (tablets, capsules, ...)
-     * strength : string. Brief human readable format
-     * package_size : string. Brief human readable format
-     * subsidies : string. Brief human readable format
-     * manufacturer : string. Company name
-     */
-    @Deprecated
-    public Vector list_products(int pkey, Hashtable tags) {
-        return new Vector();
-    }
-
-    /**
-     * returns product specific information for a given drug as identified by pkey and constrained by tags, including available package sizes and strengths, manufacturers, prices and available subsidies as well as legal / subsidy access restrictions.
-     *
-     * @param pkey primary key of a specific drug product
-     * @param tags see [tags]
-     * @return returns the same struct as get_drug(), but with the following additional keys:
-     * form : integer. Primary key of drug forms tablets, capsules, syrup ...)
-     * form_str : string. Drug form in clear text
-     * units: struct. Key (string) is the generic ingredient, value (string) is the SI unit for the strength (mg, ml ...)
-     * strength : struct. Key (string) is the generic ingredient, value (Real) is the strength in units as stated above
-     * pkg_units : string
-     * pkg_size : real
-     * subsidies : struct. Key is name of subsidy, value is character:
-     * y=yes
-     * n=no
-     * c=conditional
-     * subsidy_conditions : struct. Key is name of subsidy, value is a string (conditions in human readable text)
-     * subsidy_gap : struct. Key is name of subsidy, value (Real ) is th amount
-     * brand_price_premium : struct. Key is applicability (all, pensioners ), value (Real) is the price
-     * prices : struct. Key is price category (retail, wholesale, subsidized), value (Real) is the price
-     * currency : string. Currency the stated price / gap / premium is based on
-     */
-    @Deprecated
-    public Hashtable get_product(int pkey, Hashtable tags) {
-        return new Hashtable();
-    }
-
-
-    /**
-     * returns the Consumer Product Information formatted as HTML, base64 encoded
-     *
-     * @param pkey primary key of a drug product.
-     * @param css  CSS style sheet used to format the returned HTML page. Details not finalized yet.
-     * @return base64 encoded HTML page
-     */
-    @Deprecated
-    public Base64 get_product_CPI(int pkey, Base64 css) {
-        return new Base64();
-    }
-
-    /**
-     * returns an array of structs describing the possible interactions between any two drugs contained in drugs. Information used for interaction checking constrained by tags.
-     *
-     * @param drugs array of integers. Primary keys of drugs
-     * @param tags  see [tags].
-     * @return array of structs with the following minimum keys:
-     * affecting_drug : integer. Primary Key
-     * affected_drug : integer. Primary key.
-     * effect : string. Single character:
-     * a = augments
-     * i = inhibits
-     * n = no effect
-     * c = conflicting evidence
-     * clinical_effect : boolean. If false, the effect has no bearing on clinical situations
-     * significance : integer. Clinical significance graded 1-3, 1=mild, 2=moderate, 3=severe
-     * evidence : integer. Level of evidence graded 1-3, 1=poor, 2=fair, 3=good
-     * reference : integer. Primary key of reference
-     */
-    @Deprecated
-    public Vector list_interactions(Vector drugs, Hashtable tags) {
-        return new Vector();
-    }
-
-
-    /**
-     * List all conditions and their codes / coding systems known to drugref, constrained by searchexpr as welll as by tags. Searchexpr accepts % as wildcard.
-     */
-    @Deprecated
-    public Vector list_conditions(String searchexpr, Hashtable tags) {
-        return new Vector();
-    }
-
-    /**
-     * @param indication : integer. Primary key.
-     */
-    @Deprecated
-    public Vector list_drugs_for_indication(int indication, Hashtable tags) {
-        return new Vector();
-    }
-
-
-    /**
-     * List all references this drugref database is based on.
-     *
-     * @param tags see [tags].
-     * @return array of structs with following minimum keys:
-     * name : string. short name of reference source
-     * full title : string.
-     * authors : string
-     * publ_year : string
-     */
-    @Deprecated
-    public Vector list_references(Hashtable tags) {
-        return new Vector();
-    }
-    //////DRUGREF Second Gen API
 
     public static void removeNullFromVector(Vector v) {
         while (v != null && v.contains(null)) {

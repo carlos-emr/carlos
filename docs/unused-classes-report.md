@@ -303,7 +303,6 @@ Job classes not configured in any scheduler, Spring job context, or database `Os
 | `DefaultCustomFilter` | `src/main/java/io/github/carlos_emr/carlos/model/DefaultCustomFilter.java` |
 | `RxAllergyData` | `src/main/java/io/github/carlos_emr/carlos/prescript/data/RxAllergyData.java` |
 | `ShowAllSorter` | `src/main/java/io/github/carlos_emr/carlos/prescript/util/ShowAllSorter.java` |
-| `TimingOutCallback` | `src/main/java/io/github/carlos_emr/carlos/prescript/util/TimingOutCallback.java` |
 | `RptDrugRecord` | `src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptDrugRecord.java` |
 | `CookieSecurity` | `src/main/java/io/github/carlos_emr/carlos/sec/CookieSecurity.java` |
 | `StJoesTokenManager` | `src/main/java/io/github/carlos_emr/carlos/sec/token/StJoesTokenManager.java` |
