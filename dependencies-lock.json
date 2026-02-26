@@ -1145,14 +1145,6 @@
     "optional" : false,
     "integrity" : "sha512:6Fmqe/AyJdrN0EPGf5OeklDj4iPvAxoMtncXl0Ni6d8r0dnXBOe1LnQIIw8B2Ba6t+wadF2c8v6ybr2DmAJsfg=="
   }, {
-    "groupId" : "net.sf.ehcache",
-    "artifactId" : "ehcache",
-    "version" : "2.10.9.2",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:jS/pp1UkHNV2rZTiwbhz3IExY9W7mT4/Z30Bkms9clWW54rE0xCBNv9fhFvidgaL2gSr69RHvzgeCxb8EMmJDw=="
-  }, {
     "groupId" : "net.sf.jasperreports",
     "artifactId" : "jasperreports",
     "version" : "6.21.5",
@@ -2424,14 +2416,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:AkbDVS+qgte0R+rPe1cQILycewP3qJaWnHbGwZgUdrXod+LDqQTTlbhiq2ayzVHy+83jfJQPktnLU8veoEuUBQ=="
-  }, {
-    "groupId" : "org.ehcache",
-    "artifactId" : "ehcache",
-    "version" : "3.10.8",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:3ur7pjtP8I8mchqpuFgsSG1KEq04icPerbUsqGzXEhJVD/1x9878jlhUP9ART0jMCG7DwXMJHqelwvmaORmJPg=="
   }, {
     "groupId" : "org.freemarker",
     "artifactId" : "freemarker",
