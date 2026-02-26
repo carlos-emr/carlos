@@ -76,7 +76,7 @@ public class EctConEditInstitutions2Action extends ActionSupport {
                         int instId = Integer.parseInt(institutions[i]);
                         institutionDao.remove(instId);
                         LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request),
-                                LogConst.DELETE, "institution", String.valueOf(instId), null, null);
+                                LogConst.DELETE, "institution id=" + instId);
                     } catch (NumberFormatException e) {
                         MiscUtils.getLogger().warn("Invalid institution ID: {}", Encode.forJava(institutions[i]), e);
                     }

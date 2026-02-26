@@ -22,7 +22,7 @@
  */
 package io.github.carlos_emr.carlos.test.examples;
 
-import io.github.carlos_emr.carlos.test.base.CarlosDaoTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -51,7 +51,7 @@ import java.util.List;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Transactional
 @Rollback
-class DemographicDaoModernTest extends CarlosDaoTestBase {
+class DemographicDaoModernTest extends CarlosTestBase {
 
     @Autowired
     private DemographicDao demographicDao;
@@ -276,14 +276,4 @@ class DemographicDaoModernTest extends CarlosDaoTestBase {
         }
     }
 
-    @Override
-    protected String[] cleanableTables() {
-        return new String[] { "demographic", "demographicExt" };
-    }
-
-    @Override
-    protected String getTestDataFile() {
-        // Can return path to test data XML if needed
-        return null;
-    }
 }

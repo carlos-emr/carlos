@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+set -e
 
 # Script to manage building and deploying the CARLOS EMR application to Tomcat
 # This script supports the following operations:
@@ -453,14 +454,13 @@ for arg in "$@"; do
       done
       # Run the build and deploy process, passing in whether or not to run tests and compile JSPs.
       build_and_deploy "$run_tests" "$compile_jsps" "$dev_mode" "$clean_mode" "$skip_checks"
-      # Exit after successful build to prevent help menu from showing
-      exit 0
+      # Exit after build to prevent help menu from showing; propagate build/test exit code
+      exit $?
       ;;
     jspc)
       # Compile JSPs only without deployment.
       echo "Compiling JSPs..."
-      # Skip modern tests to use default lock file
-      mvn package -Pjspc -DskipModernTests=true
+      mvn package -Pjspc -DskipModernTests=true -DskipLegacyTests=true
       ;;
     docs)
       # Generate all documentation and build static site.
