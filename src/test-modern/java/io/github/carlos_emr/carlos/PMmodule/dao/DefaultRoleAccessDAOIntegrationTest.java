@@ -148,7 +148,7 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get all default role accesses")
-        void shouldGetAll() {
+        void shouldGetAll_whenQueried() {
             List<DefaultRoleAccess> results = defaultRoleAccessDAO.getDefaultRoleAccesses();
 
             assertThat(results)
@@ -167,7 +167,7 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return all default role access records")
-        void shouldReturnAllRecords() {
+        void shouldReturnAllRecords_whenFindAllCalled() {
             // When
             List<DefaultRoleAccess> results = defaultRoleAccessDAO.findAll();
 
@@ -182,7 +182,7 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return same count as getDefaultRoleAccesses")
-        void shouldReturnSameCountAsGetDefaultRoleAccesses() {
+        void shouldReturnSameCount_asGetDefaultRoleAccesses() {
             // When
             List<DefaultRoleAccess> findAllResults = defaultRoleAccessDAO.findAll();
             List<DefaultRoleAccess> getResults = defaultRoleAccessDAO.getDefaultRoleAccesses();
@@ -292,7 +292,7 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("update")
         @DisplayName("should update existing role access")
-        void shouldUpdateExistingRoleAccess() {
+        void shouldUpdateExistingRoleAccess_whenChangesOccur() {
             // Given
             DefaultRoleAccess dra = createDefaultRoleAccess(testRoleId1, testAccessTypeId1);
             hibernateTemplate.flush();

@@ -209,7 +209,7 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find restrictions for specific program")
-        void shouldFindByProgram() {
+        void shouldFindRestrictions_byProgram() {
             // When
             Collection<ProgramClientRestriction> results = programClientRestrictionDAO.findForProgram(testProgramId1);
 
@@ -486,7 +486,7 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("update")
         @DisplayName("should update existing restriction")
-        void shouldUpdateExistingRestriction() {
+        void shouldUpdateExistingRestriction_whenChangesApplied() {
             // Given - Create a restriction
             ProgramClientRestriction pcr = createRestriction(testProgramId1, testDemoNo1, true);
             hibernateTemplate.flush();

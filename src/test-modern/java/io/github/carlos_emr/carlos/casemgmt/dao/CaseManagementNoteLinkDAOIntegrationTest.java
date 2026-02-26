@@ -170,7 +170,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return links in descending order by ID")
-        void shouldReturnLinksInDescOrder() {
+        void shouldReturnLinks_inDescOrder() {
             // Given
             CaseManagementNoteLink link1 = createLink(1, 100L, 1001L);
             entityManager.flush();
@@ -196,7 +196,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should filter by all three params and return in desc order")
-        void shouldFilterAndReturnDescOrder() {
+        void shouldFilterAndReturn_inDescOrder() {
             // Given
             CaseManagementNoteLink link1 = createLink(1, 100L, 1001L, "A");
             entityManager.flush();
@@ -227,7 +227,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get links by note ID")
-        void shouldGetLinksByNoteId() {
+        void shouldGetLinks_byNoteId() {
             // Given
             CaseManagementNoteLink link1 = createLink(1, 100L, 5555L);
             CaseManagementNoteLink link2 = createLink(2, 200L, 5555L);

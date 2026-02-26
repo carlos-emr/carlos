@@ -286,7 +286,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get program providers by provider number")
-        void shouldGetByProviderNo() {
+        void shouldGetProviders_byProviderNo() {
             createProgramProvider(testProviderNo1, testProgramId1);
             createProgramProvider(testProviderNo1, testProgramId2);
             createProgramProvider(testProviderNo2, testProgramId1);
@@ -302,7 +302,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get program providers by program ID")
-        void shouldGetByProgramId() {
+        void shouldGetProviders_byProgramId() {
             createProgramProvider(testProviderNo1, testProgramId1);
             createProgramProvider(testProviderNo2, testProgramId1);
             createProgramProvider(testProviderNo1, testProgramId2);
@@ -1181,7 +1181,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should not include other providers' facilities")
-        void shouldNotIncludeOtherProvidersFacilities() {
+        void shouldNotIncludeOtherProvidersFacilities_whenFilteringByProvider() {
             // Given
             createProgramProvider(testProviderNo1, testProgramId1);
             createProgramProvider(testProviderNo2, testProgramId2);

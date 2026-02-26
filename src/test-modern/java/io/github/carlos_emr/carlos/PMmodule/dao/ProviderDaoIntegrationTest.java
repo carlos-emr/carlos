@@ -1348,7 +1348,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return distinct provider numbers and types")
-        void shouldReturnDistinctProviderNumbersAndTypes() {
+        void shouldReturnDistinctProviderNumbersAndTypes_whenQueried() {
             // When
             List<Object[]> results = providerDao.getDistinctProviders();
 

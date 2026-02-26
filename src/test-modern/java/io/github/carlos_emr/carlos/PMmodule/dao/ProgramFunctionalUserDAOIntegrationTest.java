@@ -148,7 +148,7 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get all functional users by program")
-        void shouldGetByProgram() {
+        void shouldGetFunctionalUsers_byProgram() {
             List<FunctionalUserType> results = programFunctionalUserDAO.getFunctionalUsers(testProgramId1);
             assertThat(results).hasSize(2);
         }
@@ -156,7 +156,7 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get functional user type by ID")
-        void shouldGetUserTypeById() {
+        void shouldGetUserType_byId() {
             FunctionalUserType result = programFunctionalUserDAO.getFunctionalUserType(testUserTypeId1);
             assertThat(result).isNotNull();
             assertThat(result.getName()).isEqualTo("Admin");
@@ -165,7 +165,7 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get all functional user types")
-        void shouldGetAllUserTypes() {
+        void shouldGetAllUserTypes_whenQueried() {
             List<FunctionalUserType> results = programFunctionalUserDAO.getFunctionalUserTypes();
             assertThat(results)
                 .isNotEmpty()
@@ -389,7 +389,7 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("update")
         @DisplayName("should update existing functional user type name")
-        void shouldUpdateExistingFunctionalUserType() {
+        void shouldUpdateExistingFunctionalUserType_whenChangesProvided() {
             // Given
             FunctionalUserType fut = createFunctionalUserType("OldName");
             hibernateTemplate.flush();

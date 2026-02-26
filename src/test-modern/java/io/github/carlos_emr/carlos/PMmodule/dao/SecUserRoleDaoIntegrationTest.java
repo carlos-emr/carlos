@@ -135,7 +135,7 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get roles by provider number")
-        void shouldGetRolesByProviderNo() {
+        void shouldGetRoles_byProviderNo() {
             // When
             List<SecUserRole> results = secUserRoleDao.getUserRoles(uniquePrefix + "001");
 
@@ -147,7 +147,7 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get roles by role name")
-        void shouldGetRolesByRoleName() {
+        void shouldGetRoles_byRoleName() {
             // When
             List<SecUserRole> results = secUserRoleDao.getSecUserRolesByRoleName("doctor");
 

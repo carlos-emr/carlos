@@ -363,7 +363,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         @Test
         @Tag("query")
         @DisplayName("should filter by demographic and signed status")
-        void shouldFilterByDemographicAndSignedStatus() {
+        void shouldFilter_byDemographicAndSignedStatus() {
             // Given
             CaseManagementNote unsigned1 = createNoteWithSignedStatus("111", false);
             CaseManagementNote signed1 = createNoteWithSignedStatus("111", true);
@@ -499,7 +499,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         @Test
         @Tag("read")
         @DisplayName("should get most recent notes by appointment number")
-        void shouldGetMostRecentNotesByAppointmentNo() {
+        void shouldGetMostRecentNotes_byAppointmentNo() {
             // Given
             CaseManagementNote note1 = createNote("111", "Appointment note");
             note1.setAppointmentNo(12345);

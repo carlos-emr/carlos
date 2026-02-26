@@ -145,7 +145,7 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get all statuses by program")
-        void shouldGetByProgram() {
+        void shouldGetStatuses_byProgram() {
             List<ProgramClientStatus> results = programClientStatusDAO.getProgramClientStatuses(testProgramId1);
             assertThat(results)
                 .hasSize(2)
@@ -155,7 +155,7 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get status by ID")
-        void shouldGetById() {
+        void shouldGetStatus_byId() {
             ProgramClientStatus result = programClientStatusDAO.getProgramClientStatus(String.valueOf(testStatusId1));
             assertThat(result).isNotNull();
             assertThat(result.getName()).isEqualTo("Active");
@@ -196,7 +196,7 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("update")
         @DisplayName("should update existing client status name")
-        void shouldUpdateExistingClientStatusName() {
+        void shouldUpdateExistingClientStatusName_whenChangesApplied() {
             // Given
             ProgramClientStatus status = createClientStatus(testProgramId1, "Temporary");
             hibernateTemplate.flush();

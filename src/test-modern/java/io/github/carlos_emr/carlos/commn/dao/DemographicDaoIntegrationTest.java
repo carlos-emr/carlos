@@ -22,6 +22,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl.DemographicCriterion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -55,6 +56,9 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private DemographicDao demographicDao;
+
+    @Autowired
+    private DemographicDaoImpl demographicDaoImpl;
 
     private Demographic demo1, demo2, demo3, demo4;
     private String uniquePrefix;
@@ -483,6 +487,117 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
             Calendar cal = Calendar.getInstance();
             cal.add(Calendar.DAY_OF_MONTH, -days);
             return cal.getTime();
+        }
+    }
+
+    /**
+     * Tests for {@code findByCriterion(DemographicCriterion)} - multi-parameter search
+     * with 7-8 positional HQL parameters depending on whether HIN is provided.
+     *
+     * <p>This is a critical method for Hibernate 6 migration because it uses
+     * 7 parameters (?0-?6) without HIN and 8 parameters (?0-?7) with HIN.</p>
+     */
+    @Nested
+    @DisplayName("findByCriterion (7-8 params: HQL positional)")
+    class FindByCriterion {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find demographic by criterion without HIN (7 params)")
+        void shouldFindDemographic_byCriterionWithoutHin() {
+            // Given - demo1: John Smith, ON, 1980-01-15, M, AC
+            hibernateTemplate.flush();
+
+            DemographicCriterion criterion = new DemographicCriterion(
+                "", "Smith", "John", "1980", "01", "15", "M", "AC");
+
+            // When
+            List<Demographic> results = demographicDaoImpl.findByCriterion(criterion);
+
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(Demographic::getDemographicNo)
+                .contains(demo1.getDemographicNo());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find demographic by criterion with HIN (8 params)")
+        void shouldFindDemographic_byCriterionWithHin() {
+            // Given - demo1: John Smith, HIN=uniquePrefix+"0", 1980-01-15, M, AC
+            hibernateTemplate.flush();
+
+            DemographicCriterion criterion = new DemographicCriterion(
+                uniquePrefix + "0", "Smith", "John", "1980", "01", "15", "M", "AC");
+
+            // When
+            List<Demographic> results = demographicDaoImpl.findByCriterion(criterion);
+
+            // Then
+            assertThat(results)
+                .hasSize(1)
+                .extracting(Demographic::getDemographicNo)
+                .containsExactly(demo1.getDemographicNo());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty when criterion matches no demographic")
+        void shouldReturnEmpty_whenCriterionMatchesNone() {
+            // Given - no demographic with these exact details
+            hibernateTemplate.flush();
+
+            DemographicCriterion criterion = new DemographicCriterion(
+                "", "Nonexistent", "Nobody", "2099", "12", "31", "F", "AC");
+
+            // When
+            List<Demographic> results = demographicDaoImpl.findByCriterion(criterion);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty when HIN criterion does not match")
+        void shouldReturnEmpty_whenHinCriterionDoesNotMatch() {
+            // Given - valid name/DOB but wrong HIN
+            hibernateTemplate.flush();
+
+            DemographicCriterion criterion = new DemographicCriterion(
+                "NONEXISTENT_HIN", "Smith", "John", "1980", "01", "15", "M", "AC");
+
+            // When
+            List<Demographic> results = demographicDaoImpl.findByCriterion(criterion);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should distinguish inactive from active demographics by status param")
+        void shouldDistinguishDemographics_byStatusParam() {
+            // Given - demo4 is inactive (IN)
+            hibernateTemplate.flush();
+
+            DemographicCriterion activeCriterion = new DemographicCriterion(
+                "", "Johnson", "Bob", "1980", "01", "15", "M", "AC");
+            DemographicCriterion inactiveCriterion = new DemographicCriterion(
+                "", "Johnson", "Bob", "1980", "01", "15", "M", "IN");
+
+            // When
+            List<Demographic> activeResults = demographicDaoImpl.findByCriterion(activeCriterion);
+            List<Demographic> inactiveResults = demographicDaoImpl.findByCriterion(inactiveCriterion);
+
+            // Then - only inactive criterion should match demo4
+            assertThat(activeResults)
+                .extracting(Demographic::getDemographicNo)
+                .doesNotContain(demo4.getDemographicNo());
+            assertThat(inactiveResults)
+                .extracting(Demographic::getDemographicNo)
+                .contains(demo4.getDemographicNo());
         }
     }
 }

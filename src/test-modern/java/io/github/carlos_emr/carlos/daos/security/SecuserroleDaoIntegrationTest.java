@@ -320,7 +320,7 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find all secuserroles")
-        void shouldFindAll() {
+        void shouldFindAll_whenQueried() {
             // Given
             createSecuserrole("P111", "doctor", "ORG1");
             createSecuserrole("P222", "nurse", "ORG2");

@@ -203,7 +203,7 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should get provider by id only")
-        void shouldGetById() {
+        void shouldGetProvider_byId() {
             // When
             SecProvider result = secProviderDao.findById(uniquePrefix + "01");
 
@@ -242,7 +242,7 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find providers by status")
-        void shouldFindByStatus() {
+        void shouldFindProviders_byStatus() {
             // When
             List results = secProviderDao.findByStatus("1");
 
@@ -1682,7 +1682,7 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should confirm findByExample, merge, attachDirty, attachClean accept wrong type in interface")
-        void shouldDocumentInterfaceDesignIssue() {
+        void shouldDocumentInterfaceDesignIssue_forIncorrectParameterTypes() {
             // This test documents that 4 methods in SecProviderDao accept SecProviderDao
             // (the interface) instead of SecProvider (the entity). Since SecProvider does
             // not implement SecProviderDao, these methods are impossible to call correctly
