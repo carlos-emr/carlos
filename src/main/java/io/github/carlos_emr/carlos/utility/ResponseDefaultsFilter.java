@@ -40,6 +40,27 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+/**
+ * Servlet filter that sets response defaults for encoding, caching, ETags, and security headers.
+ *
+ * <p>Applied to all requests ({@code /*}) via {@code web.xml}. Configurable via init-params:
+ * <ul>
+ *   <li>{@code setEncoding} / {@code encoding} — force UTF-8 on requests and responses (default: true)</li>
+ *   <li>{@code setNoCache} / {@code noCacheEndings} — disable caching for dynamic resources (default: .jsp, .json, .jsf)</li>
+ *   <li>{@code forceStrongETag} — strip weak ETag prefixes ({@code W/}) for proxy compatibility (default: true)</li>
+ *   <li>{@code warnCharsetCacheChange} — log warnings when downstream code changes encoding or cache headers (default: false)</li>
+ * </ul>
+ *
+ * <p>Also sets security headers on every response:
+ * <ul>
+ *   <li>{@code X-Frame-Options: SAMEORIGIN} — clickjack protection (replaces the removed ESAPI ClickjackFilter)</li>
+ *   <li>{@code X-Permitted-Cross-Domain-Policies: none} — blocks Flash/Acrobat cross-domain data loading</li>
+ *   <li>{@code Permissions-Policy: camera=(), microphone=(), geolocation=()} — restricts unused browser APIs</li>
+ * </ul>
+ *
+ * @since 2012 (OSCAR McMaster heritage; security headers added 2026-02-26)
+ * @see ResponseDefaultsFilterResponseWrapper
+ */
 public final class ResponseDefaultsFilter implements Filter {
     private static Logger logger = MiscUtils.getLogger();
     private boolean setEncoding = true;
@@ -52,6 +73,11 @@ public final class ResponseDefaultsFilter implements Filter {
     public ResponseDefaultsFilter() {
     }
 
+    /**
+     * Reads init-params from {@code web.xml} filter configuration.
+     *
+     * @param filterConfig FilterConfig the servlet container filter configuration
+     */
     public void init(FilterConfig filterConfig) {
         logger.info("Initialising " + ResponseDefaultsFilter.class.getSimpleName());
         String temp = filterConfig.getInitParameter("setEncoding");
@@ -85,10 +111,24 @@ public final class ResponseDefaultsFilter implements Filter {
         logger.info("warnCharsetCacheChange=" + this.warnCharsetCacheChange);
     }
 
+    /** {@inheritDoc} */
     public void destroy() {
         logger.info("shutdown " + ResponseDefaultsFilter.class.getSimpleName());
     }
 
+    /**
+     * Applies encoding, caching, and security header defaults, then delegates to the filter chain.
+     *
+     * <p>When {@code forceStrongETag} or {@code warnCharsetCacheChange} is enabled, the response
+     * is wrapped in a {@link ResponseDefaultsFilterResponseWrapper} to intercept downstream
+     * header modifications.
+     *
+     * @param originalRequest  ServletRequest the incoming request
+     * @param originalResponse ServletResponse the outgoing response
+     * @param chain            FilterChain the remaining filter chain
+     * @throws IOException      if an I/O error occurs during filtering
+     * @throws ServletException if the filter chain throws
+     */
     public void doFilter(ServletRequest originalRequest, ServletResponse originalResponse, FilterChain chain) throws IOException, ServletException {
         HttpServletRequest request = (HttpServletRequest) originalRequest;
         HttpServletResponse response = (HttpServletResponse) originalResponse;
@@ -109,6 +149,13 @@ public final class ResponseDefaultsFilter implements Filter {
         chain.doFilter(request, (ServletResponse) response);
     }
 
+    /**
+     * Disables caching for requests whose URI ends with a configured suffix
+     * (e.g. {@code .jsp}, {@code .do}).
+     *
+     * @param request  HttpServletRequest the current request (used for URI matching)
+     * @param response HttpServletResponse the response to set cache headers on
+     */
     private void setCaching(HttpServletRequest request, HttpServletResponse response) {
         String requestUri = request.getRequestURI();
         String[] arr$ = this.noCacheEndings;
@@ -141,6 +188,13 @@ public final class ResponseDefaultsFilter implements Filter {
         response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     }
 
+    /**
+     * Sets UTF-8 encoding on both request (if not already set) and response.
+     *
+     * @param request  HttpServletRequest the incoming request
+     * @param response HttpServletResponse the outgoing response
+     * @throws UnsupportedEncodingException if the configured encoding is not supported
+     */
     private void setEncoding(HttpServletRequest request, HttpServletResponse response) throws UnsupportedEncodingException {
         if (request.getCharacterEncoding() == null) {
             request.setCharacterEncoding(this.encoding);
