@@ -506,4 +506,9 @@
     <!-- Lookup DAO for LookupDao tests -->
     <bean id="lookupDao" class="io.github.carlos_emr.carlos.daos.LookupDaoImpl" autowire="byName" />
 
+    <!-- Population Report DAO for PopulationReportDao tests -->
+    <bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
+
 </beans>
