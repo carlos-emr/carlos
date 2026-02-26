@@ -66,16 +66,37 @@ import static org.assertj.core.api.Assertions.*;
 @Transactional
 public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
 
+    /**
+     * The DAO under test, autowired from the Spring test application context.
+     * Backed by {@link SecuserroleDaoImpl}, which extends {@code HibernateDaoSupport}
+     * and uses both HQL and Hibernate Criteria API for query operations.
+     */
     @Autowired
     private SecuserroleDao secuserroleDao;
 
+    /**
+     * JPA {@link EntityManager} for direct database verification in tests,
+     * bypassing the DAO layer to confirm actual persisted state.
+     */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
-    /** Flushes the Hibernate Session used by SecuserroleDaoImpl (HibernateDaoSupport). */
+    /**
+     * Flushes the Hibernate Session used by {@code SecuserroleDaoImpl} (HibernateDaoSupport).
+     * Required because {@code entityManager.flush()} only flushes the JPA context,
+     * not the standalone Hibernate Session used by HibernateDaoSupport-based DAOs.
+     */
     @Autowired
     private HibernateTemplate hibernateTemplate;
 
+    /**
+     * Creates and persists a {@link Secuserrole} with minimal required fields.
+     *
+     * @param providerNo String the provider number
+     * @param roleName   String the role name (e.g., "doctor", "nurse")
+     * @param orgcd      String the organization code
+     * @return Secuserrole the persisted entity with a generated ID
+     */
     private Secuserrole createSecuserrole(String providerNo, String roleName, String orgcd) {
         Secuserrole role = new Secuserrole();
         role.setProviderNo(providerNo);
@@ -85,6 +106,15 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         return role;
     }
 
+    /**
+     * Creates and persists a {@link Secuserrole} with an explicit active/inactive status.
+     *
+     * @param providerNo String the provider number
+     * @param roleName   String the role name
+     * @param orgcd      String the organization code
+     * @param activeyn   Integer the active status (1 = active, 0 = inactive)
+     * @return Secuserrole the persisted entity
+     */
     private Secuserrole createSecuserroleWithActive(String providerNo, String roleName,
                                                      String orgcd, Integer activeyn) {
         Secuserrole role = new Secuserrole();
@@ -96,7 +126,11 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         return role;
     }
 
-    /** Tests for CRUD persistence operations. */
+    /**
+     * Tests for CRUD persistence operations - covers {@code save()}, {@code saveAll()},
+     * {@code updateRoleName()}, {@code delete()}, {@code deleteById()}, {@code merge()},
+     * and {@code update()} methods of the {@link SecuserroleDao}.
+     */
     @Nested
     @DisplayName("CRUD persistence operations")
     class CrudOperations {
@@ -237,7 +271,11 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
-    /** Tests for query operations. */
+    /**
+     * Tests for query operations - covers {@code findById()}, {@code findByProviderNo()},
+     * {@code findByRoleName()}, {@code findByActiveyn()}, and {@code findAll()} methods
+     * that retrieve {@link Secuserrole} entities by various criteria.
+     */
     @Nested
     @DisplayName("Query operations")
     class QueryOperations {
@@ -346,7 +384,11 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
-    /** Tests for delete operations with single parameters. */
+    /**
+     * Tests for bulk delete operations - covers {@code deleteByOrgcd(String)} and
+     * {@code deleteByProviderNo(String)} HQL bulk deletes, plus {@code deleteById(Integer)}.
+     * Verifies correct row counts and zero returns for non-existent values.
+     */
     @Nested
     @DisplayName("Delete operations")
     class DeleteOperations {

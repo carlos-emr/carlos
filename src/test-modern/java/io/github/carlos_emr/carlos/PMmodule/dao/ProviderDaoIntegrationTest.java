@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
@@ -48,13 +49,14 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for PMmodule ProviderDao multi-parameter query methods.
+ * Integration tests for {@link ProviderDao} multi-parameter query methods.
  *
- * <p>These tests validate that HQL queries with multiple positional parameters
- * bind parameters correctly. Tests are designed to catch parameter index errors
- * during Hibernate migration.</p>
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover CRUD operations, name-based searches, active/inactive filtering,
+ * team queries, OHIP credential lookups, facility joins, and native SQL methods.</p>
  *
- * @since 2026-02-03
+ * @since 2026-02-26
  * @see ProviderDao
  */
 @DisplayName("PMmodule ProviderDao Integration Tests")
@@ -84,6 +86,16 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         hibernateTemplate.flush();
     }
 
+    /**
+     * Creates a new Provider with the specified attributes and persists it via HibernateTemplate.
+     *
+     * @param providerNo String the provider number (VARCHAR(6) constraint)
+     * @param firstName String the provider's first name
+     * @param lastName String the provider's last name
+     * @param status String the provider status ("1" for active, "0" for inactive)
+     * @param providerType String the provider type (e.g., "doctor", "nurse")
+     * @return Provider the persisted entity
+     */
     private Provider persistProvider(String providerNo, String firstName,
                                      String lastName, String status, String providerType) {
         Provider provider = new Provider();

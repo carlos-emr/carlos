@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026. CARLOS EMR Project. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,7 +16,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for CARLOS EMR Project
+ * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
@@ -39,13 +40,14 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for PMmodule SecUserRoleDao multi-parameter query methods.
+ * Integration tests for {@link SecUserRoleDao} multi-parameter query methods.
  *
- * <p>These tests validate that HQL queries with multiple positional parameters
- * bind parameters correctly. Tests are designed to catch parameter index errors
- * during Hibernate migration.</p>
+ * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
+ * Tests cover role lookups by name and provider, admin role checks, save operations
+ * with automatic lastUpdateDate, and incremental synchronization queries.</p>
  *
- * @since 2026-02-03
+ * @since 2026-02-26
  * @see SecUserRoleDao
  */
 @DisplayName("PMmodule SecUserRoleDao Integration Tests")
@@ -67,6 +69,7 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void setUp() {
+        // Extract 3-char prefix from nanosecond timestamp to ensure unique provider_no values per test run
         uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 3);
 
         // Create test user roles using HibernateTemplate (same as DAO uses)
@@ -81,6 +84,10 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
         hibernateTemplate.flush();
     }
 
+    /**
+     * Tests for {@code findByRoleNameAndProviderNo(String roleName, String providerNo)} -
+     * finds SecUserRole records matching both role name and provider number.
+     */
     @Nested
     @DisplayName("findByRoleNameAndProviderNo (2 params)")
     class FindByRoleNameAndProviderNo {
@@ -128,6 +135,10 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for single-parameter query methods as baseline coverage, including
+     * {@code getUserRoles(String)} and {@code getSecUserRolesByRoleName(String)}.
+     */
     @Nested
     @DisplayName("Single parameter queries (baseline)")
     class SingleParamQueries {

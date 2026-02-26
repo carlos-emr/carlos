@@ -81,7 +81,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void setUp() {
-        // Use short prefix to fit provider_no VARCHAR(6) constraint
+        // Generate short unique prefix from nanosecond timestamp to fit provider_no VARCHAR(6) constraint
         String uniquePrefix = String.valueOf(System.nanoTime() % 10000);
 
         // Create parent Provider records (provider_no is VARCHAR(6))
@@ -219,6 +219,13 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         return pp;
     }
 
+    /**
+     * Creates a new ProgramTeam with the given name and program association, then persists it.
+     *
+     * @param name String the team name
+     * @param programId Integer the program ID this team belongs to
+     * @return ProgramTeam the persisted entity with generated ID
+     */
     private ProgramTeam createProgramTeam(String name, Integer programId) {
         ProgramTeam team = new ProgramTeam();
         team.setName(name);
@@ -231,6 +238,10 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
     // Existing test classes (preserved as-is)
     // =========================================================================
 
+    /**
+     * Tests for {@code getProgramProviderByProviderProgramId(String providerNo, Long programId)} -
+     * finds program providers matching both provider number and program ID.
+     */
     @Nested
     @DisplayName("getProgramProviderByProviderProgramId (2 params)")
     class GetByProviderProgramId {
@@ -267,6 +278,10 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for {@code getProgramProvider(String providerNo, Long programId)} - returns a single
+     * ProgramProvider matching both provider number and program ID.
+     */
     @Nested
     @DisplayName("getProgramProvider (2 params)")
     class GetProgramProviderTwoParams {
@@ -298,6 +313,10 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for {@code getProgramProvider(String providerNo, Long programId, Long roleId)} -
+     * returns a single ProgramProvider matching provider, program, and role.
+     */
     @Nested
     @DisplayName("getProgramProvider (3 params)")
     class GetProgramProviderThreeParams {
@@ -330,6 +349,10 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /**
+     * Tests for single-parameter query methods as baseline coverage, including
+     * {@code getProgramProviderByProviderNo(String)} and {@code getProgramProviders(Long)}.
+     */
     @Nested
     @DisplayName("Single parameter queries (baseline)")
     class SingleParamQueries {

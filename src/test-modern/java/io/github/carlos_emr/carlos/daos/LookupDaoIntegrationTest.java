@@ -87,28 +87,42 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Transactional
 public class LookupDaoIntegrationTest extends CarlosTestBase {
 
+    /** Native SQL to insert a row into the {@code app_lookuptable} definition table. */
     private static final String INSERT_LOOKUP_TABLE =
         "INSERT INTO app_lookuptable (tableId, table_name, description, activeyn, readonly, istree, treecode_length, moduleid) VALUES (:tid, :tname, :desc, :active, :ro, :tree, :tcl, :mid)";
 
+    /** Native SQL to insert a field definition into {@code app_lookuptable_fields}. */
     private static final String INSERT_FIELD =
         "INSERT INTO app_lookuptable_fields (tableid, fieldname, fielddesc, fieldtype, edityn, lookuptable, fieldsql, fieldindex, autoyn, uniqueyn, genericidx, fieldlength) VALUES (:tid, :fname, :fdesc, :ftype, :edit, :lt, :fsql, :fidx, :auto, :uniq, :gidx, :flen)";
 
+    /** Native SQL to insert an organization code into {@code lst_orgcd}. */
     private static final String INSERT_ORG =
         "INSERT INTO lst_orgcd (code, description, activeyn, orderbyindex, codetree, fullCode, codeCsv) VALUES (:code, :desc, :active, :idx, :tree, :full, :csv)";
 
+    /** The DAO under test, autowired from the Spring test application context. */
     @Autowired
     private LookupDao lookupDao;
 
+    /** Thread-safe sequence counter for generating unique tableId values across tests. */
     private static final AtomicInteger SEQ = new AtomicInteger(0);
 
     /**
-     * Generate a short unique tableId that fits within column width constraints.
+     * Generates a short unique tableId that fits within column width constraints.
      * Format: prefix + 4-digit sequence (e.g. "LA0001"), max 6 chars.
+     *
+     * @param prefix String the 2-character prefix identifying the test context
+     * @return String the unique tableId (e.g., "LA0001")
      */
     private String nextTableId(String prefix) {
         return prefix + String.format("%04d", SEQ.incrementAndGet());
     }
 
+    /**
+     * Inserts a lookup table definition with default settings (non-tree, active, editable).
+     *
+     * @param tableId   String the unique table identifier
+     * @param tableName String the backing data table name referenced in dynamic SQL
+     */
     private void insertLookupTableDef(String tableId, String tableName) {
         hibernateTemplate.execute(session -> {
             session.createNativeQuery(INSERT_LOOKUP_TABLE)
@@ -125,6 +139,14 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         });
     }
 
+    /**
+     * Inserts a lookup table definition with explicit tree configuration.
+     *
+     * @param tableId        String the unique table identifier
+     * @param tableName      String the backing data table name
+     * @param isTree         boolean whether this table uses hierarchical tree structure
+     * @param treeCodeLength int the length of tree code segments (0 if not a tree)
+     */
     private void insertLookupTableDefWithTree(String tableId, String tableName, boolean isTree, int treeCodeLength) {
         hibernateTemplate.execute(session -> {
             session.createNativeQuery(INSERT_LOOKUP_TABLE)
@@ -141,10 +163,29 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         });
     }
 
+    /**
+     * Inserts a field definition with default settings (type "S", not auto-increment, no lookup).
+     *
+     * @param tableId    String the parent table identifier
+     * @param fieldName  String the field name
+     * @param fieldIndex int the display order index
+     * @param genericIdx int the generic index used for column mapping (1=code, 2=desc, 3=active, etc.)
+     */
     private void insertField(String tableId, String fieldName, int fieldIndex, int genericIdx) {
         insertFieldFull(tableId, fieldName, fieldIndex, genericIdx, "S", false, "");
     }
 
+    /**
+     * Inserts a field definition with all configurable attributes.
+     *
+     * @param tableId       String the parent table identifier
+     * @param fieldName     String the field name
+     * @param fieldIndex    int the display order index
+     * @param genericIdx    int the generic index for column mapping
+     * @param fieldType     String the field data type ("S"=String, "D"=Date, "I"=Integer)
+     * @param autoIncrement boolean whether the field auto-increments
+     * @param lookupTable   String the reference lookup table name, or empty string if none
+     */
     private void insertFieldFull(String tableId, String fieldName, int fieldIndex, int genericIdx,
                                   String fieldType, boolean autoIncrement, String lookupTable) {
         hibernateTemplate.execute(session -> {
@@ -166,10 +207,29 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         });
     }
 
+    /**
+     * Inserts an organization code with default settings (active, order index 0).
+     *
+     * @param code        String the organization code (primary key)
+     * @param description String the organization description
+     * @param fullcode    String the full hierarchical code path
+     * @param codecsv     String the comma-separated code hierarchy for LIKE queries
+     */
     private void insertOrgCode(String code, String description, String fullcode, String codecsv) {
         insertOrgCodeFull(code, description, 1, 0, code, fullcode, codecsv);
     }
 
+    /**
+     * Inserts an organization code with all configurable attributes.
+     *
+     * @param code        String the organization code (primary key)
+     * @param description String the organization description
+     * @param active      int whether the org is active (1) or inactive (0)
+     * @param orderIdx    int the display ordering index
+     * @param codetree    String the tree-structure code path
+     * @param fullcode    String the full hierarchical code path
+     * @param codecsv     String the comma-separated code hierarchy
+     */
     private void insertOrgCodeFull(String code, String description, int active, int orderIdx,
                                     String codetree, String fullcode, String codecsv) {
         hibernateTemplate.execute(session -> {
@@ -1073,6 +1133,11 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     // Additional GetLookupTableDef edge cases
     // =========================================================================
 
+    /**
+     * Tests for {@code GetLookupTableDef(String)} edge cases - verifies behavior with
+     * empty string IDs, formula-based computed properties (hasActive, hasDisplayOrder),
+     * and module name resolution from the {@code lst_field_category} table.
+     */
     @Nested
     @DisplayName("GetLookupTableDef edge cases")
     class GetLookupTableDefEdgeCases {
@@ -1194,6 +1259,10 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     // LoadFieldDefList edge cases
     // =========================================================================
 
+    /**
+     * Tests for {@code LoadFieldDefList(String)} edge cases - verifies empty results
+     * for non-existent tableIds, single-field tables, and field type/attribute preservation.
+     */
     @Nested
     @DisplayName("LoadFieldDefList edge cases")
     class LoadFieldDefListEdgeCases {
@@ -1270,6 +1339,11 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     // LookupTableDefValue tree configuration tests
     // =========================================================================
 
+    /**
+     * Tests for tree-structured lookup table configuration - verifies that
+     * {@code isTree} and {@code treeCodeLength} properties are correctly loaded
+     * from the {@code app_lookuptable} definition.
+     */
     @Nested
     @DisplayName("Tree-structured lookup tables")
     class TreeLookupTableTests {
@@ -1315,6 +1389,11 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     // LstOrgcd entity tests (supporting inOrg and SaveAsOrgCode)
     // =========================================================================
 
+    /**
+     * Tests for {@code LstOrgcd} entity seeding and retrieval - verifies native SQL
+     * insertion, HQL querying by codecsv pattern, status updates, and the
+     * {@code updateOrgStatus} HQL pattern used in production.
+     */
     @Nested
     @DisplayName("LstOrgcd entity seeding and retrieval")
     class LstOrgcdEntityTests {
