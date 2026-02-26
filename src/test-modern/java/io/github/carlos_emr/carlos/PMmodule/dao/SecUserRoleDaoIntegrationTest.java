@@ -347,6 +347,12 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
      * <p>The {@code getRecordsAddedAndUpdatedSinceTime()} implementation queries for
      * provider numbers from SecUserRole records whose {@code lastUpdateDate} is after
      * the given date. This is used for incremental synchronization.</p>
+     *
+     * <p><b>Note:</b> Records created via {@code hibernateTemplate.save()} in
+     * {@code @BeforeEach} do NOT have {@code lastUpdateDate} set (it is null).
+     * Only records created via the DAO's {@code save()} method have this field
+     * automatically populated. Tests in this class create records through the DAO
+     * to ensure {@code lastUpdateDate} is set.</p>
      */
     @Nested
     @DisplayName("getRecordsAddedAndUpdatedSinceTime() operations")
@@ -354,24 +360,27 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
 
         /**
          * Verifies that {@code getRecordsAddedAndUpdatedSinceTime()} returns
-         * provider numbers for records updated after the given date.
+         * provider numbers for records saved via the DAO (which sets lastUpdateDate).
          */
         @Test
         @Tag("read")
         @Tag("query")
-        @DisplayName("should return provider numbers for records updated after date")
-        void shouldReturnProviderNumbers_forRecordsUpdatedAfterDate() {
-            // Given - records created in @BeforeEach have lastUpdateDate set to now
-            // by the DAO's save() method. Use a date in the past to find them.
+        @DisplayName("should return provider numbers for records saved via DAO after date")
+        void shouldReturnProviderNumbers_forRecordsSavedViaDaoAfterDate() {
+            // Given - save a record through the DAO (which sets lastUpdateDate)
             Calendar cal = Calendar.getInstance();
             cal.set(2020, Calendar.JANUARY, 1);
             Date pastDate = cal.getTime();
 
+            SecUserRole daoSavedRole = new SecUserRole("daoRole", uniquePrefix + "015");
+            secUserRoleDao.save(daoSavedRole);
+            hibernateTemplate.flush();
+
             // When
             List<String> providerNos = secUserRoleDao.getRecordsAddedAndUpdatedSinceTime(pastDate);
 
-            // Then - should include providers from @BeforeEach setup
-            assertThat(providerNos).isNotEmpty();
+            // Then - should include the DAO-saved provider
+            assertThat(providerNos).contains(uniquePrefix + "015");
         }
 
         /**
@@ -383,7 +392,12 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return empty list when no records updated after future date")
         void shouldReturnEmptyList_whenNoRecordsUpdatedAfterFutureDate() {
-            // Given - use a date far in the future
+            // Given - save a record via the DAO so it has lastUpdateDate set
+            SecUserRole role = new SecUserRole("futureTest", uniquePrefix + "016");
+            secUserRoleDao.save(role);
+            hibernateTemplate.flush();
+
+            // Use a date far in the future
             Calendar cal = Calendar.getInstance();
             cal.set(2099, Calendar.DECEMBER, 31);
             Date futureDate = cal.getTime();
@@ -404,11 +418,15 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should only return providers with roles updated after threshold")
         void shouldOnlyReturnProviders_withRolesUpdatedAfterThreshold() {
-            // Given - create a new role after recording a timestamp
+            // Given - save an initial record via the DAO
+            SecUserRole earlyRole = new SecUserRole("earlyRole", uniquePrefix + "018");
+            secUserRoleDao.save(earlyRole);
             hibernateTemplate.flush();
+
+            // Record the threshold time
             Date threshold = new Date();
 
-            // Create a new role that will have lastUpdateDate after the threshold
+            // Create a new role after the threshold
             SecUserRole newRole = new SecUserRole("therapist", uniquePrefix + "020");
             secUserRoleDao.save(newRole);
             hibernateTemplate.flush();
