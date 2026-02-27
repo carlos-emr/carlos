@@ -31,8 +31,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -59,9 +57,6 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
     @Autowired
     @Qualifier("CaseManagementNoteLinkDAO")
     private CaseManagementNoteLinkDAO caseManagementNoteLinkDAO;
-
-    @PersistenceContext(unitName = "entityManagerFactory")
-    private EntityManager entityManager;
 
     /**
      * Creates and persists a {@link CaseManagementNoteLink} with the given parameters.
@@ -116,8 +111,8 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
             CaseManagementNoteLink match2 = createLink(1, 100L, 1002L);
             CaseManagementNoteLink wrongTable = createLink(2, 100L, 1003L);  // Different tableName
             CaseManagementNoteLink wrongId = createLink(1, 200L, 1004L);     // Different tableId
-            // Flush JPA context to sync pending writes to the database before querying
-            entityManager.flush();
+            // Flush Hibernate session to sync HibernateDaoSupport writes to the database before querying
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNoteLink> results = caseManagementNoteLinkDAO.getLinkByTableId(1, 100L);
@@ -136,7 +131,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         void shouldReturnEmptyList_whenNoMatches() {
             // Given
             createLink(1, 100L, 1001L);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When - Search for different table/id combination
             List<CaseManagementNoteLink> results = caseManagementNoteLinkDAO.getLinkByTableId(99, 999L);
@@ -163,7 +158,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
             CaseManagementNoteLink wrongOther = createLink(1, 100L, 1002L, "OTHER2");  // Different otherId
             CaseManagementNoteLink wrongTable = createLink(2, 100L, 1003L, "OTHER1");  // Different tableName
             CaseManagementNoteLink wrongId = createLink(1, 200L, 1004L, "OTHER1");     // Different tableId
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNoteLink> results = caseManagementNoteLinkDAO
@@ -182,7 +177,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenOtherIdDoesntMatch() {
             // Given
             createLink(1, 100L, 1001L, "EXISTING");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNoteLink> results = caseManagementNoteLinkDAO
@@ -207,11 +202,11 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         void shouldReturnLinks_inDescOrder() {
             // Given - flush between each insert to guarantee sequential ID generation
             CaseManagementNoteLink link1 = createLink(1, 100L, 1001L);
-            entityManager.flush();
+            hibernateTemplate.flush();
             CaseManagementNoteLink link2 = createLink(1, 100L, 1002L);
-            entityManager.flush();
+            hibernateTemplate.flush();
             CaseManagementNoteLink link3 = createLink(1, 100L, 1003L);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNoteLink> results = caseManagementNoteLinkDAO.getLinkByTableIdDesc(1, 100L);
@@ -237,11 +232,11 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         void shouldFilterAndReturn_inDescOrder() {
             // Given - flush between each insert to guarantee sequential ID generation for ordering tests
             CaseManagementNoteLink link1 = createLink(1, 100L, 1001L, "A");
-            entityManager.flush();
+            hibernateTemplate.flush();
             CaseManagementNoteLink link2 = createLink(1, 100L, 1002L, "A");
-            entityManager.flush();
+            hibernateTemplate.flush();
             CaseManagementNoteLink differentOther = createLink(1, 100L, 1003L, "B");
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNoteLink> results = caseManagementNoteLinkDAO
@@ -274,7 +269,7 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
             CaseManagementNoteLink link1 = createLink(1, 100L, 5555L);
             CaseManagementNoteLink link2 = createLink(2, 200L, 5555L);
             CaseManagementNoteLink differentNote = createLink(1, 100L, 6666L);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // When
             List<CaseManagementNoteLink> results = caseManagementNoteLinkDAO.getLinkByNote(5555L);

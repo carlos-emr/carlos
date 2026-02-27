@@ -251,9 +251,9 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         }
     }
 
-    /** Tests for searchDemographicNotes (3 params). */
+    /** Tests for searchDemographicNotes (2 params: demographic_no, searchString). */
     @Nested
-    @DisplayName("searchDemographicNotes (3 params)")
+    @DisplayName("searchDemographicNotes (2 params: demographic_no, searchString)")
     class SearchDemographicNotes {
 
         @Test

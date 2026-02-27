@@ -429,7 +429,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
             List<ProgramProvider> results = programProviderDAO.getAllProgramProviders();
 
             // Then
-            assertThat(results).isNotNull();
+            assertThat(results).isEmpty();
         }
     }
 
@@ -538,10 +538,10 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
                 .getProgramProvidersByProviderAndFacility(testProviderNo1, testFacilityId1);
 
             // Then - should include both facility1 program and null facility program
-            assertThat(results).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(results).hasSizeGreaterThanOrEqualTo(2);
             assertThat(results)
                 .extracting(ProgramProvider::getProgramId)
-                .contains(testProgramId1);
+                .contains(testProgramId1, noFacilityProgramId);
         }
 
         @Test

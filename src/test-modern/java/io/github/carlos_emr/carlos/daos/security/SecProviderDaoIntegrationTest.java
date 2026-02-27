@@ -1614,8 +1614,8 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("update")
-        @DisplayName("should update multiple fields simultaneously")
-        void shouldUpdateMultipleFields_simultaneously() {
+        @DisplayName("should update multiple fields when saving existing provider")
+        void shouldUpdateMultipleFields_whenSavingExistingProvider() {
             // Given
             SecProvider existing = secProviderDao.findById(uniquePrefix + "01");
             existing.setFirstName("ModifiedFirst");

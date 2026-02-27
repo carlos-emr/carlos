@@ -242,6 +242,8 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             // Given
             Secuserrole role = createSecuserrole("P400", "doctor", "ORG1");
             hibernateTemplate.flush();
+            // Evict so the entity is actually detached before the merge test
+            hibernateTemplate.evict(role);
 
             // When
             role.setRoleName("merged_role");
@@ -691,22 +693,26 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         @Tag("update")
         @DisplayName("should update lastUpdateDate when attaching dirty entity")
         void shouldUpdateLastUpdateDate_whenAttachingDirtyEntity() {
-            // Given
-            Secuserrole role = createSecuserrole("AD200", "nurse", "ORG1");
+            // Given - set a fixed past baseline date before saving so we can verify it was updated
+            java.util.Date baseline = new java.util.Date(946684800000L); // 2000-01-01
+            Secuserrole role = new Secuserrole();
+            role.setProviderNo("AD200");
+            role.setRoleName("nurse");
+            role.setOrgcd("ORG1");
+            role.setLastUpdateDate(baseline);
+            secuserroleDao.save(role);
             hibernateTemplate.flush();
-            Date originalDate = role.getLastUpdateDate();
+            hibernateTemplate.evict(role);
 
             // When - modify and re-attach
             role.setRoleName("specialist");
             secuserroleDao.attachDirty(role);
             hibernateTemplate.flush();
 
-            // Then
-            assertThat(role.getLastUpdateDate()).isNotNull();
-            // The lastUpdateDate should be set (may be same or later than original)
+            // Then - lastUpdateDate must have been updated past the baseline
             Secuserrole found = secuserroleDao.findById(role.getId());
             assertThat(found.getRoleName()).isEqualTo("specialist");
-            assertThat(found.getLastUpdateDate()).isNotNull();
+            assertThat(found.getLastUpdateDate()).isAfter(baseline);
         }
     }
 

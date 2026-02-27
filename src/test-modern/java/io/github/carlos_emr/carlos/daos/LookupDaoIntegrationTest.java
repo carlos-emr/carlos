@@ -710,24 +710,21 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should throw SQLException when table definition has no field definitions and insert attempted")
-        void shouldThrowException_whenNoFieldDefinitionsForInsert() {
-            // Given - table def exists but no fields defined
+        @DisplayName("should throw StringIndexOutOfBoundsException from SaveCodeValue when field list is empty")
+        void shouldThrowStringIndexOutOfBounds_whenFieldListIsEmpty() {
+            // InsertCodeValue builds phs="" with empty field list, then calls
+            // phs.substring(0, phs.length()-1) = phs.substring(0,-1) which throws
+            // StringIndexOutOfBoundsException (LookupDaoImpl.InsertCodeValue line ~491)
             String tableId = nextTableId("SV");
             insertLookupTableDef(tableId, "save_test_table");
             hibernateTemplate.flush();
 
-            LookupTableDefValue tableDef = lookupDao.GetLookupTableDef(tableId);
-            @SuppressWarnings("unchecked")
-            List<FieldDefValue> emptyFields = lookupDao.LoadFieldDefList(tableId);
+            LookupCodeValue codeValue = new LookupCodeValue();
+            codeValue.setPrefix(tableId);
 
-            // When/Then - InsertCodeValue will build malformed SQL with zero fields
-            // The idFieldVal will be empty string, so GetCode will return null (code is ""),
-            // then the DB execute will fail on malformed SQL
-            assertThat(emptyFields).isEmpty();
-            // With empty field list, InsertCodeValue would produce "insert into save_test_table() values ()"
-            // which is technically valid in some DBs but semantically incorrect.
-            // In H2 this will succeed (no-op row) or fail depending on table constraints.
+            // When/Then
+            assertThatThrownBy(() -> lookupDao.SaveCodeValue(true, codeValue))
+                .isInstanceOf(StringIndexOutOfBoundsException.class);
         }
 
         @Test
@@ -1162,7 +1159,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should handle empty string tableId gracefully")
-        void shouldHandleEmptyStringTableId_gracefully() {
+        void shouldReturnNull_whenTableIdIsEmpty() {
             // Given - empty string tableId that won't match any record
 
             // When
@@ -1351,7 +1348,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should load tree configuration properties correctly")
-        void shouldLoadTreeConfig_correctly() {
+        void shouldLoadTreeConfig_whenTreeIsEnabled() {
             // Given - a tree-configured lookup table
             String tableId = nextTableId("TR");
             insertLookupTableDefWithTree(tableId, "tree_test_table", true, 8);
@@ -1557,7 +1554,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should handle missing generic indices by providing null placeholders")
-        void shouldDocumentNullPlaceholderBehavior_forMissingIndices() {
+        void shouldReturnOnlyDefinedFields_whenSomeIndicesAreMissing() {
             // Given - table with only code(1) and description(2) fields
             // Missing indices 3-17 will get "null fieldN" placeholder in SQL
             String tableId = nextTableId("SP");

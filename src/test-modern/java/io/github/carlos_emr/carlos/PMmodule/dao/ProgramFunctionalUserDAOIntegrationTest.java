@@ -301,6 +301,8 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
         void shouldThrow_whenIdIsZeroOrNegative() {
             assertThatThrownBy(() -> programFunctionalUserDAO.deleteFunctionalUserType(0L))
                 .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> programFunctionalUserDAO.deleteFunctionalUserType(-1L))
+                .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
@@ -344,6 +346,8 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
         @DisplayName("should throw exception for zero or negative ID")
         void shouldThrow_whenIdIsZeroOrNegative() {
             assertThatThrownBy(() -> programFunctionalUserDAO.deleteFunctionalUser(0L))
+                .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> programFunctionalUserDAO.deleteFunctionalUser(-1L))
                 .isInstanceOf(IllegalArgumentException.class);
         }
     }

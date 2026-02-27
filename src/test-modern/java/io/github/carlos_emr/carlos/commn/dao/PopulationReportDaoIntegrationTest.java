@@ -70,12 +70,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       refactored to accept an injected {@link DataSource}.</li>
  * </ul>
  *
- * <p><b>Required bean definition</b> (not yet in {@code test-context-full.xml}):</p>
- * <pre>{@code
- * <bean id="populationReportDao"
- *       class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl"
- *       autowire="byName" />
- * }</pre>
+ * <p><b>Bean definition</b>: Registered in {@code test-context-full.xml} as
+ * {@code populationReportDao} with {@code sessionFactory} property injection.</p>
  *
  * <p><b>Note on {@code getUsages()}</b>: The HQL constant {@code HQL_GET_USAGES} contains
  * {@code "from ?1 a"}, attempting to parameterize the entity <em>name</em> (table name) with a

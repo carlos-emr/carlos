@@ -360,17 +360,18 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return Object[] pairs when DefaultRoleAccess ID matches AccessType ID")
         void shouldReturnObjectArrayPairs_whenIdsMatch() {
-            // Given - We need a DefaultRoleAccess whose ID happens to equal an AccessType ID.
-            // The query joins on a.id = b.Id (DefaultRoleAccess PK = AccessType PK).
-            // This is a fairly unusual join. We can verify it works by checking if any
-            // results are returned, or if none match, verify empty return.
+            // Given - The query joins on a.id = b.Id (DefaultRoleAccess PK = AccessType PK).
+            // Compute the expected count deterministically from all persisted records.
+            List<DefaultRoleAccess> allDra = defaultRoleAccessDAO.findAll();
+            long expectedMatchCount = allDra.stream()
+                .filter(dra -> hibernateTemplate.get(AccessType.class, dra.getId()) != null)
+                .count();
 
             // When
             List<Object[]> results = defaultRoleAccessDAO.findAllRolesAndAccessTypes();
 
-            // Then - Each result should be an Object[] with 2 elements
-            // Results may or may not exist depending on whether any DRA id == AccessType id
-            assertThat(results).isNotNull();
+            // Then - result count must match deterministic expected count
+            assertThat(results).hasSize((int) expectedMatchCount);
             for (Object[] pair : results) {
                 assertThat(pair).hasSize(2);
                 assertThat(pair[0]).isInstanceOf(DefaultRoleAccess.class);
