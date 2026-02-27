@@ -80,6 +80,7 @@ public class EmailConfigDaoImpl extends AbstractDaoImpl<EmailConfig> implements 
      * @param senderEmail String the sender email address to search for
      * @return EmailConfig the matching active email configuration, or null if no match is found
      */
+    @Override
     @Transactional(readOnly = true)
     public EmailConfig findActiveEmailConfig(String senderEmail) {
         Query query = entityManager.createQuery("SELECT e FROM EmailConfig e WHERE e.senderEmail = ?1 AND e.active = true");
