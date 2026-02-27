@@ -879,6 +879,10 @@ public class RxDrugData {
                     for (String indexStr : warningIndices) {
                         try {
                             int index = Integer.parseInt(indexStr);
+                            if (index < 0 || index >= allergies.length) {
+                                MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: warning index '{}' out of bounds (size={})", indexStr, allergies.length);
+                                continue;
+                            }
                             foundWarnings.add(allergies[index]);
                         } catch (NumberFormatException e) {
                             MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: invalid warning index '{}' from DrugRef", indexStr);
@@ -891,6 +895,10 @@ public class RxDrugData {
                     for (String indexStr : missingIndices) {
                         try {
                             int index = Integer.parseInt(indexStr);
+                            if (index < 0 || index >= allergies.length) {
+                                MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: missing index '{}' out of bounds (size={})", indexStr, allergies.length);
+                                continue;
+                            }
                             missing.add(allergies[index]);
                         } catch (NumberFormatException e) {
                             MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: invalid missing index '{}' from DrugRef", indexStr);

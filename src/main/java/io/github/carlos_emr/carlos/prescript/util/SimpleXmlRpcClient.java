@@ -81,6 +81,7 @@ public class SimpleXmlRpcClient {
      * Creates a client for the given XML-RPC endpoint.
      *
      * @param serverUrl String the full URL of the XML-RPC server
+     * @since 2026-02-26
      */
     public SimpleXmlRpcClient(String serverUrl) {
         this.serverUrl = serverUrl;
@@ -90,10 +91,11 @@ public class SimpleXmlRpcClient {
      * Executes an XML-RPC method call.
      *
      * @param methodName String the remote method name
-     * @param params     Vector of parameters to pass (String, Integer, Boolean, Double, Vector, Hashtable)
+     * @param params     Vector of parameters to pass (String, Integer, Boolean, Double, Date, byte[], Vector, Hashtable)
      * @return Object the deserialized response value, or null if the server returns an empty params section
      * @throws XmlRpcFaultException if the server returns an XML-RPC fault
      * @throws Exception            if a network or parsing error occurs
+     * @since 2026-02-26
      */
     public Object execute(String methodName, Vector params) throws Exception {
         String requestXml = buildRequest(methodName, params);
@@ -136,8 +138,9 @@ public class SimpleXmlRpcClient {
 
     /**
      * Recursively serializes a Java value into an XML-RPC {@code <value>} element.
-     * Maps Java types to XML-RPC types: String, Integer, Boolean, Double, Vector (array),
-     * and Hashtable (struct). Null and unrecognized types are serialized as empty/toString strings.
+     * Maps Java types to XML-RPC types: String, Integer, Boolean, Double, Date (dateTime.iso8601),
+     * byte[] (base64), Vector (array), and Hashtable (struct).
+     * Null and unrecognized types are serialized as empty/toString strings.
      */
     @SuppressWarnings("unchecked")
     private void serializeValue(StringBuilder sb, Object value) {
@@ -152,6 +155,12 @@ public class SimpleXmlRpcClient {
             sb.append("<boolean>").append(b ? "1" : "0").append("</boolean>");
         } else if (value instanceof Double d) {
             sb.append("<double>").append(d).append("</double>");
+        } else if (value instanceof Date date) {
+            // Serialize as dateTime.iso8601 using XML-RPC spec format (yyyyMMddTHH:mm:ss)
+            LocalDateTime ldt = LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault());
+            sb.append("<dateTime.iso8601>").append(DATETIME_FORMATTERS[0].format(ldt)).append("</dateTime.iso8601>");
+        } else if (value instanceof byte[] bytes) {
+            sb.append("<base64>").append(Base64.getEncoder().encodeToString(bytes)).append("</base64>");
         } else if (value instanceof Vector v) {
             sb.append("<array><data>");
             for (int i = 0; i < v.size(); i++) {

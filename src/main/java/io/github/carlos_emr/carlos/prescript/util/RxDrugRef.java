@@ -102,6 +102,7 @@ public class RxDrugRef {
      * @param boolVal Boolean whether to include additional product details in the response
      * @return Hashtable&lt;String, Object&gt; drug data keyed by field name, or null if not found
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Hashtable<String, Object> getDrugByDIN(String DIN, Boolean boolVal) throws Exception {
         Vector params = new Vector();
@@ -122,6 +123,7 @@ public class RxDrugRef {
      * @param drug String the drug name or partial name to search for
      * @return Vector of Hashtables each containing {@code code} and {@code text} entries,
      *         or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector atc(String drug) {
         Vector params = new Vector();
@@ -135,6 +137,7 @@ public class RxDrugRef {
      *
      * @param din String the Drug Identification Number to resolve to ATC codes
      * @return Vector of ATC code strings, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector atcFromDIN(String din) {
         Vector params = new Vector();
@@ -150,6 +153,7 @@ public class RxDrugRef {
      * @param drug String the brand name or partial brand name to search for
      * @return Vector of Hashtables each containing {@code code} and {@code text} entries,
      *         or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector atcFromBrand(String drug) {
         Vector params = new Vector();
@@ -165,6 +169,7 @@ public class RxDrugRef {
      * @param code String the ATC code or code prefix to look up
      * @return Vector of Hashtables each containing {@code code} and {@code text} entries,
      *         or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector atc2text(String code) {
         Vector params = new Vector();
@@ -178,6 +183,7 @@ public class RxDrugRef {
      *
      * @param atclist Vector of String ATC codes representing the current drug regimen
      * @return Vector of interaction result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector interaction(Vector atclist) {
         return interaction(atclist, 1);
@@ -190,6 +196,7 @@ public class RxDrugRef {
      * @param atclist              Vector of String ATC codes representing the current drug regimen
      * @param minimum_significance int interactions with significance below this value are excluded
      * @return Vector of interaction result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector interaction(Vector atclist, int minimum_significance) {
         Vector params = new Vector();
@@ -204,6 +211,7 @@ public class RxDrugRef {
      * @param regionalIdentifierList List of String regional drug identifiers for the drug regimen
      * @param minimum_significance   int interactions with significance below this value are excluded
      * @return Vector of interaction result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector interactionByRegionalIdentifier(List regionalIdentifierList, int minimum_significance) {
         Vector params = new Vector();
@@ -219,6 +227,7 @@ public class RxDrugRef {
      * @param boolVal Boolean whether to include additional product details in the response
      * @return Hashtable of drug field names to values, or null if not found
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Hashtable getDrug(String pKey, Boolean boolVal) throws Exception {
         Vector params = new Vector();
@@ -238,6 +247,7 @@ public class RxDrugRef {
      * @param boolVal Boolean whether to include additional product details in the response
      * @return Hashtable of drug field names to values, or null if not found
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Hashtable getDrug2(String pKey, Boolean boolVal) throws Exception {
         Vector params = new Vector();
@@ -256,6 +266,7 @@ public class RxDrugRef {
      * @param pKey String the DrugRef primary key identifying the drug record
      * @return Hashtable of form field names to values, or null if not found
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Hashtable getDrugForm(String pKey) throws Exception {
         Vector params = new Vector();
@@ -277,6 +288,7 @@ public class RxDrugRef {
      * @param provider     String the provider submitting the suggestion
      * @return Vector of response values from the DrugRef service
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector suggestAlias(String alias, String aliasComment, String id, String name, String provider) throws Exception {
         Vector params = new Vector();
@@ -294,6 +306,7 @@ public class RxDrugRef {
      * @param pKey String the DrugRef primary key identifying the drug record
      * @return Hashtable of generic name field names to values, or null if not found
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Hashtable getGenericName(String pKey) throws Exception {
         Vector params = new Vector();
@@ -311,6 +324,7 @@ public class RxDrugRef {
      *
      * @param drug String the drug name or partial name to resolve to ATC codes
      * @return Vector of ATC code strings, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector drug2atclist(String drug) {
         Vector params = new Vector();
@@ -323,6 +337,7 @@ public class RxDrugRef {
      *
      * @param druglist Vector of String drug names to resolve to ATC codes
      * @return Vector of ATC code strings, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector druglist2atclist(Vector druglist) {
         Vector params = new Vector();
@@ -336,6 +351,7 @@ public class RxDrugRef {
      * @param druglist             Vector of String drug names representing the current drug regimen
      * @param minimum_significance int interactions with significance below this value are excluded
      * @return Vector of interaction result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector interaction_by_drugnames(Vector druglist, int minimum_significance) {
         Vector params = new Vector();
@@ -351,6 +367,7 @@ public class RxDrugRef {
      * @param searchStr String the drug name or partial name to search for
      * @return Vector of search result Hashtables, each containing name, id, and category fields
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector list_drug_element(String searchStr) throws Exception {
         Vector params = new Vector();
@@ -397,6 +414,7 @@ public class RxDrugRef {
      *
      * @return String the server's response message describing the update result
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public String updateDB() throws Exception {
         Vector params = new Vector();
@@ -408,6 +426,7 @@ public class RxDrugRef {
      *
      * @return String ISO timestamp of the last database update
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public String getLastUpdateTime() throws Exception {
         Vector params = new Vector();
@@ -421,6 +440,7 @@ public class RxDrugRef {
      * @param searchStr String the drug name or partial name to search for
      * @return Vector of search result Hashtables, each containing name, id, and category fields
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector list_drug_element2(String searchStr) throws Exception {
         Vector params = new Vector();
@@ -437,6 +457,7 @@ public class RxDrugRef {
      *                          (prefix search); if false, both-side wildcard matching is used
      * @return Vector of search result Hashtables, each containing name, id, and category fields
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector list_drug_element3(String searchStr, boolean rightWildcardOnly) throws Exception {
         Vector params = new Vector();
@@ -457,6 +478,7 @@ public class RxDrugRef {
      * @param searchRoute String the route of administration to filter results by (e.g., "oral")
      * @return Vector of search result Hashtables, each containing name, id, and category fields
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector list_drug_element_route(String searchStr, String searchRoute) throws Exception {
         Vector params = new Vector();
@@ -471,6 +493,7 @@ public class RxDrugRef {
      * @param drugRefId String the DrugRef element identifier
      * @return Vector of brand product Hashtables, each containing name and product details
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector list_brands_from_element(String drugRefId) throws Exception {
         Vector params = new Vector();
@@ -483,6 +506,7 @@ public class RxDrugRef {
      *
      * @param drugRefId String the DrugRef identifier for the drug
      * @return Vector of drug information page entries, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector getDrugInfoPage(String drugRefId) {
         Vector params = new Vector();
@@ -497,6 +521,7 @@ public class RxDrugRef {
      * @param searchStr String the drug name or partial name to search for
      * @param catVec    Vector of Integer category codes to restrict results to
      * @return Vector of search result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector list_search_element_select_categories(String searchStr, Vector catVec) {
         return list_search_element_select_categories(searchStr, catVec, false);
@@ -511,6 +536,7 @@ public class RxDrugRef {
      * @param wildcardRightOnly boolean if true, only right-side wildcard matching is applied;
      *                          if false, both-side wildcard matching is used
      * @return Vector of search result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector list_search_element_select_categories(String searchStr, Vector catVec, boolean wildcardRightOnly) {
         Vector params = new Vector();
@@ -528,6 +554,7 @@ public class RxDrugRef {
      *
      * @param classVec Vector of drug class identifiers to look up
      * @return Vector of drug Hashtables for the specified classes, or null if unavailable
+     * @since 2026-02-26
      */
     public Vector list_drug_class(Vector classVec) {
         Vector params = new Vector();
@@ -540,6 +567,7 @@ public class RxDrugRef {
      *
      * @param drugRefId String the DrugRef identifier for the reference drug
      * @return Vector of Hashtables for drugs with the same active ingredient, or null if unavailable
+     * @since 2026-02-26
      */
     public Vector getAISameByDrugCode(String drugRefId) {
         Vector params = new Vector();
@@ -552,6 +580,7 @@ public class RxDrugRef {
      *
      * @param drugCode String the DrugRef drug code to look up forms for
      * @return Vector of form Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector getFormFromDrugCode(String drugCode) {
         Vector params = new Vector();
@@ -563,6 +592,7 @@ public class RxDrugRef {
      * Returns all distinct dosage forms available in the drug reference database.
      *
      * @return Vector of String form names, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector getDistinctForms() {
         Vector params = new Vector();
@@ -574,6 +604,7 @@ public class RxDrugRef {
      *
      * @param drugCode String the DrugRef drug code to look up routes for
      * @return Vector of route Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector getRouteFromDrugCode(String drugCode) {
         Vector params = new Vector();
@@ -586,6 +617,7 @@ public class RxDrugRef {
      *
      * @param drugCode String the DrugRef drug code to look up strengths for
      * @return Vector of strength Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector getStrengths(String drugCode) {
         Vector params = new Vector();
@@ -598,6 +630,7 @@ public class RxDrugRef {
      *
      * @param drugRefId String the DrugRef identifier for the drug product
      * @return Vector of product data Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector getProductData(String drugRefId) {
         Vector params = new Vector();
@@ -610,6 +643,7 @@ public class RxDrugRef {
      *
      * @param drugRefId String the DrugRef element identifier
      * @return String the generic name, or null if not found or service is unavailable
+     * @since 2026-02-26
      */
     public String getGenericNamefromId(String drugRefId) {
         Vector params = new Vector();
@@ -689,6 +723,7 @@ public class RxDrugRef {
      * since XML-RPC arrays do not support null elements.
      *
      * @param v Vector to remove null entries from; no-op if null or already contains no nulls
+     * @since 2026-02-26
      */
     public static void removeNullFromVector(Vector v) {
         while (v != null && v.contains(null)) {
@@ -705,6 +740,7 @@ public class RxDrugRef {
      * @param drugs Vector of drug identifiers (ATC codes or drug names) to check for interactions
      * @return Vector of interaction result Hashtables; empty Vector if no interactions found
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector getInteractions(Vector drugs) throws Exception {
         removeNullFromVector(drugs);
@@ -737,6 +773,7 @@ public class RxDrugRef {
      * @param allergies Vector of allergy identifiers (e.g., ATC codes or allergen names) to check against
      * @return Vector of allergy warning Hashtables, or null if the service is unavailable
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector getAlergyWarnings(String drugs, Vector allergies) throws Exception {
         Vector params = new Vector();
@@ -751,6 +788,7 @@ public class RxDrugRef {
      * @param allergies Vector of allergy identifiers to resolve to allergy classes
      * @return Vector of allergy class Hashtables, or null if the service is unavailable
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector getAllergyClasses(Vector allergies) throws Exception {
         Vector params = new Vector();
@@ -765,6 +803,7 @@ public class RxDrugRef {
      * @param din String the Drug Identification Number to look up the inactive date for
      * @return Vector containing the inactive date record, or null if the service is unavailable
      * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector getInactiveDate(String din) throws Exception {
         Vector params = new Vector();
