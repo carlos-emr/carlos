@@ -36,9 +36,11 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Agency;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class AgencyDaoImpl extends AbstractHibernateDao implements AgencyDao {
 
     private Logger log = MiscUtils.getLogger();

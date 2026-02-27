@@ -38,8 +38,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
+@Transactional
 public class SecroleDaoImpl extends AbstractHibernateDao implements SecroleDao {
 
     private Logger logger = MiscUtils.getLogger();

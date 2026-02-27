@@ -53,11 +53,13 @@ import io.github.carlos_emr.carlos.commn.model.Stay;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.EncounterUtil.EncounterType;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+@Transactional
 public class PopulationReportDaoImpl extends AbstractHibernateDao implements PopulationReportDao {
 
 
