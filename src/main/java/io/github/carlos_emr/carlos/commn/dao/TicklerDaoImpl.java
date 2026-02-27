@@ -499,19 +499,19 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
             includeServiceEndDateClause = true;
         }
 
-        if (filter.getProgramId() == null || "".equals(filter.getProgramId()) || "All Programs".equals(filter.getProgramId())) {
+        if (filter.getProgramId() == null || filter.getProgramId().isEmpty() || "All Programs".equals(filter.getProgramId())) {
             includeProgramClause = false;
         }
-        if (filter.getProvider() == null || "All Providers".equals(filter.getProvider()) || "".equals(filter.getProvider())) {
+        if (filter.getProvider() == null || "All Providers".equals(filter.getProvider()) || filter.getProvider().isEmpty()) {
             includeProviderClause = false;
         }
-        if (filter.getAssignee() == null || "All Providers".equals(filter.getAssignee()) || "".equals(filter.getAssignee())) {
+        if (filter.getAssignee() == null || "All Providers".equals(filter.getAssignee()) || filter.getAssignee().isEmpty()) {
             includeAssigneeClause = false;
         }
         if (filter.getClient() == null || "All Clients".equals(filter.getClient())) {
             includeClientClause = false;
         }
-        if (filter.getDemographicNo() == null || "".equals(filter.getDemographicNo()) || "All Clients".equalsIgnoreCase(filter.getDemographicNo())) {
+        if (filter.getDemographicNo() == null || filter.getDemographicNo().isEmpty() || "All Clients".equalsIgnoreCase(filter.getDemographicNo())) {
             includeDemographicClause = false;
         }
         if ("".equals(filter.getStatus()) || "Z".equals(filter.getStatus())) {
