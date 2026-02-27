@@ -921,7 +921,7 @@
             var ajaxOptions = {
                 method: 'get',
                 parameters: data,
-                evalScripts: true,
+                // Note: evalScripts is intentionally omitted to prevent execution of any scripts
                 onSuccess: function (transport) {
                     focusFirstDocLab();
                 }
