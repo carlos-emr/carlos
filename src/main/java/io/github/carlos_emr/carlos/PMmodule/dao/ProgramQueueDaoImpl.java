@@ -37,7 +37,10 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQueueDao {
 
     private Logger log = MiscUtils.getLogger();
@@ -63,8 +66,8 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
             throw new IllegalArgumentException();
         }
 
-        String queryStr = " FROM ProgramQueue q WHERE q.ProgramId=?0 ORDER BY  q.Id  ";
-        List results = getHibernateTemplate().find(queryStr, programId);
+        String queryStr = " FROM ProgramQueue q WHERE q.ProgramId=?1 ORDER BY  q.Id  ";
+        List results = HqlQueryHelper.find(currentSession(), queryStr, programId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramQueue: programId=" + programId + ", # of results=" + results.size());
@@ -79,8 +82,8 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
             throw new IllegalArgumentException();
         }
 
-        List results = this.getHibernateTemplate().find(
-                "from ProgramQueue pq where pq.ProgramId = ?0 and pq.Status = 'active' order by pq.ReferralDate",
+        List results = HqlQueryHelper.find(currentSession(),
+                "from ProgramQueue pq where pq.ProgramId = ?1 and pq.Status = 'active' order by pq.ReferralDate",
                 Long.valueOf(programId));
 
         if (log.isDebugEnabled()) {
@@ -114,9 +117,8 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
         }
 
         ProgramQueue result = null;
-        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?0 and pq.ClientId = ?1";
-        Object[] params = new Object[]{Long.valueOf(programId), Long.valueOf(clientId)};
-        List results = this.getHibernateTemplate().find(sSQL, params);
+        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?1 and pq.ClientId = ?2";
+        List results = HqlQueryHelper.find(currentSession(), sSQL, Long.valueOf(programId), Long.valueOf(clientId));
 
         if (!results.isEmpty()) {
             result = (ProgramQueue) results.get(0);
@@ -140,9 +142,8 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
 
         ProgramQueue result = null;
 
-        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?0 and pq.ClientId = ?1 and pq.Status='active'";
-        Object[] params = new Object[]{programId, demographicNo};
-        List results = this.getHibernateTemplate().find(sSQL, params);
+        String sSQL = "from ProgramQueue pq where pq.ProgramId = ?1 and pq.ClientId = ?2 and pq.Status='active'";
+        List results = HqlQueryHelper.find(currentSession(), sSQL, programId, demographicNo);
         if (!results.isEmpty()) {
             result = (ProgramQueue) results.get(0);
         }
