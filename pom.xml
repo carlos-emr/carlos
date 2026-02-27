@@ -599,15 +599,6 @@
         </dependency>
 
 
-        <!-- apache xmlrpc -->
-        <dependency>
-            <groupId>xmlrpc</groupId>
-            <artifactId>xmlrpc</artifactId>
-            <version>1.2-b1</version>
-        </dependency>
-
-        <!-- apache xmlrpc -->
-
         <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0 in 2026) -->
         <dependency>
             <groupId>org.kie</groupId>
