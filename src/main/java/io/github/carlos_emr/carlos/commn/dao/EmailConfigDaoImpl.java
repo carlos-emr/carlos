@@ -54,7 +54,8 @@ public class EmailConfigDaoImpl extends AbstractDaoImpl<EmailConfig> implements 
      *                    (senderEmail, emailType, emailProvider)
      * @return EmailConfig the matching active email configuration, or null if no match is found
      */
-    @Transactional
+    @Override
+    @Transactional(readOnly = true)
     public EmailConfig findActiveEmailConfig(EmailConfig emailConfig) {
         Query query = entityManager.createQuery("SELECT e FROM EmailConfig e WHERE e.senderEmail = ?1 AND e.emailType = ?2 AND e.emailProvider = ?3 AND e.active = true");
 
@@ -98,6 +99,7 @@ public class EmailConfigDaoImpl extends AbstractDaoImpl<EmailConfig> implements 
      * @return EmailConfig the matching active email configuration, or null if no active config exists with this ID
      * @since 2026-02-25
      */
+    @Override
     @Transactional(readOnly = true)
     public EmailConfig findActiveEmailConfigById(int id) {
         Query query = entityManager.createQuery("SELECT e FROM EmailConfig e WHERE e.id = ?1 AND e.active = true");

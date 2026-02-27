@@ -308,7 +308,7 @@
                                                     class="alert-link">${ receiverName }</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
-                                                <li>${invalidEmail}</li>
+                                                <li><c:out value="${invalidEmail}"/></li>
                                             </c:forEach>
                                         </ul>
                                     </c:when>
@@ -318,7 +318,7 @@
                                                                 class="alert-link">${ receiverName }</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
-                                                <li>${invalidEmail}</li>
+                                                <li><c:out value="${invalidEmail}"/></li>
                                             </c:forEach>
                                         </ul>
                                     </c:when>
