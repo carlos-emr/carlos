@@ -154,21 +154,16 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
 
     /**
      * Sets the search filter for message filtering.
-     * 
-     * <p>This method attempts to prevent SQL injection by replacing single quotes,
-     * though the implementation has a bug - replaceAll() returns a new string
-     * rather than modifying in place, so the sanitization doesn't actually work.</p>
-     * 
+     *
+     * <p>Single quotes in the filter string are escaped to prevent SQL injection.</p>
+     *
      * @param filter String search filter to apply, null to clear filter
      */
     public void setFilter(String filter) {
         if (filter == null || filter.equals("")) {
             this.filter = null;
         } else {
-            // BUG: This line doesn't actually sanitize the filter
-            // replaceAll() returns a new string, it doesn't modify in place
-            // Should be: filter = filter.replaceAll("'", "''");
-            filter.replaceAll("'", "''");
+            filter = filter.replaceAll("'", "''");
             this.filter = filter;
         }
     }

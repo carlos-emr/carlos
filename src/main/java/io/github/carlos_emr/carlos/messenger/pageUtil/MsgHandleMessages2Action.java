@@ -163,22 +163,18 @@ public class MsgHandleMessages2Action extends ActionSupport {
         }
 
         // Determine which operation to perform based on request parameters
-        java.util.Enumeration enumeration = request.getParameterNames();
-        while (enumeration.hasMoreElements()) {
-            String param = ((String) enumeration.nextElement());
-            if (param.equals("delete")) {
-                delete = "Delete";
-            } else if (param.equals("reply")) {
-                reply = "Reply";
-            } else if (param.equals("replyAll")) {
-                replyAll = "reply All";
-            } else if (param.equals("forward")) {
-                forward = "Forward";
-            }
+        if (request.getParameter("delete") != null) {
+            delete = "Delete";
+        } else if (request.getParameter("reply") != null) {
+            reply = "Reply";
+        } else if (request.getParameter("replyAll") != null) {
+            replyAll = "reply All";
+        } else if (request.getParameter("forward") != null) {
+            forward = "Forward";
         }
 
         // Process delete operation
-        if (delete.compareToIgnoreCase("Delete") == 0) {
+        if ("Delete".equalsIgnoreCase(delete)) {
             // Soft delete the message
             messagingManager.deleteMessage(loggedInInfo, Integer.parseInt(messageNo));
 
