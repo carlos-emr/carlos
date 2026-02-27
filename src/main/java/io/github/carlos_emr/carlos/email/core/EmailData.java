@@ -72,10 +72,7 @@ public class EmailData {
     }
 
     /**
-     * Gets the ID of the email configuration selected by the user.
-     *
-     * @return Integer the email config ID, or null if not set
-     * @since 2026-02-25
+     * Returns the ID of the email configuration selected by the user.
      */
     public Integer getSenderConfigId() {
         return senderConfigId;
@@ -93,10 +90,8 @@ public class EmailData {
 
     /**
      * Sets the ID of the email configuration from a string value.
-     * Convenience method for parsing request parameters.
      *
-     * @param senderConfigId String the email config ID; null, empty, or non-numeric values are stored as null
-     * @since 2026-02-25
+     * @param senderConfigId the email config ID; null, empty, or non-numeric values are stored as null
      */
     public void setSenderConfigId(String senderConfigId) {
         if (StringUtils.isNullOrEmpty(senderConfigId)) {
