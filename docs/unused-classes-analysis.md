@@ -524,7 +524,6 @@ src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgCreateMessageBea
 src/main/java/io/github/carlos_emr/carlos/model/DefaultCustomFilter.java
 src/main/java/io/github/carlos_emr/carlos/prescript/data/RxAllergyData.java
 src/main/java/io/github/carlos_emr/carlos/prescript/util/ShowAllSorter.java
-src/main/java/io/github/carlos_emr/carlos/prescript/util/TimingOutCallback.java
 src/main/java/io/github/carlos_emr/carlos/report/data/VisitReportData.java
 src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptDrugRecord.java
 src/main/java/io/github/carlos_emr/carlos/services/ProviderManagerTickler.java

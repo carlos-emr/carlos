@@ -3369,14 +3369,6 @@
     "optional" : false,
     "integrity" : "sha512:VNEJBiNJfoEnCyr2MyaGVuiFXh7c4iF4hkMQOVFqORup+NjbPCGgteUcf3y2ctY+vne+dXCLdgsG85lIaWDyYQ=="
   }, {
-    "groupId" : "xmlrpc",
-    "artifactId" : "xmlrpc",
-    "version" : "1.2-b1",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:p6wjZ3yxfDzjJS0+e8sWufQ8v/eLq0tCC2YBWsxZoyXOvo0TqEJ1I4VbFCX8p9SNcKOiBt4d7gP20oQXk6/t8A=="
-  }, {
     "groupId" : "xom",
     "artifactId" : "xom",
     "version" : "1.3.9",

@@ -31,9 +31,12 @@
 
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -42,6 +45,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
 public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements CaseManagementIssueDAO {
@@ -51,35 +55,45 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no) {
-        return (List<CaseManagementIssue>) this.getHibernateTemplate().find(
-                "from CaseManagementIssue cmi where cmi.demographic_no = ?0",
-                new Object[]{Integer.valueOf(demographic_no)});
+        return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                "from CaseManagementIssue cmi where cmi.demographic_no = ?1",
+                Integer.valueOf(demographic_no));
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographicOrderActive(Integer demographic_no, Boolean resolved) {
-        return (List<CaseManagementIssue>) getHibernateTemplate().find(
-                "from CaseManagementIssue cmi where cmi.demographic_no = ?0 "
-                        + (resolved != null ? " and cmi.resolved=" + resolved : "") + " order by cmi.resolved",
-                new Object[]{demographic_no});
+        if (resolved != null) {
+            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                    "from CaseManagementIssue cmi where cmi.demographic_no = ?1 and cmi.resolved = ?2 order by cmi.resolved",
+                    demographic_no, resolved);
+        } else {
+            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                    "from CaseManagementIssue cmi where cmi.demographic_no = ?1 order by cmi.resolved",
+                    demographic_no);
+        }
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
-        return (List<CaseManagementIssue>) getHibernateTemplate().find(
-                "from CaseManagementIssue cmi where cmi.notes.id = ?0 "
-                        + (resolved != null ? " and cmi.resolved=" + resolved : "") + " order by cmi.resolved",
-                new Object[]{noteId});
+        if (resolved != null) {
+            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
+                    noteId, resolved);
+        } else {
+            return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 order by cmi.resolved",
+                    noteId);
+        }
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public Issue getIssueByCmnId(Integer cmnIssueId) {
-        List<Issue> result = (List<Issue>) getHibernateTemplate().find(
-                "select issue from CaseManagementIssue cmi where cmi.id = ?0",
-                new Object[]{Long.valueOf(cmnIssueId)});
+        List<Issue> result = (List<Issue>) HqlQueryHelper.find(currentSession(),
+                "select issue from CaseManagementIssue cmi where cmi.id = ?1",
+                Long.valueOf(cmnIssueId));
         if (result.size() > 0)
             return result.get(0);
         return null;
@@ -88,9 +102,9 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
     @Override
     public CaseManagementIssue getIssuebyId(String demo, String id) {
         @SuppressWarnings("unchecked")
-        List<CaseManagementIssue> list = (List<CaseManagementIssue>) this.getHibernateTemplate().find(
-                "from CaseManagementIssue cmi where cmi.issue_id = ?0 and demographic_no = ?1",
-                new Object[]{Long.parseLong(id), Integer.valueOf(demo)});
+        List<CaseManagementIssue> list = (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                "from CaseManagementIssue cmi where cmi.issue_id = ?1 and demographic_no = ?2",
+                Long.parseLong(id), Integer.valueOf(demo));
         if (list != null && list.size() == 1)
             return list.get(0);
 
@@ -100,9 +114,9 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
     @Override
     public CaseManagementIssue getIssuebyIssueCode(String demo, String issueCode) {
         @SuppressWarnings("unchecked")
-        List<CaseManagementIssue> list = (List<CaseManagementIssue>) this.getHibernateTemplate().find(
-                "select cmi from CaseManagementIssue cmi, Issue issue where cmi.issue_id=issue.id and issue.code = ?0 and cmi.demographic_no = ?1",
-                new Object[]{issueCode, Integer.valueOf(demo)});
+        List<CaseManagementIssue> list = (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                "select cmi from CaseManagementIssue cmi, Issue issue where cmi.issue_id=issue.id and issue.code = ?1 and cmi.demographic_no = ?2",
+                issueCode, Integer.valueOf(demo));
 
         if (list.size() > 1) {
             log.error("Expected 1 result got more : " + list.size() + "(" + demo + "," + issueCode + ")");
@@ -151,17 +165,20 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
     @SuppressWarnings("unchecked")
     @Override
     public List<Integer> getIssuesByProgramsSince(Date date, List<Program> programs) {
-        StringBuilder sb = new StringBuilder();
-        int i = 0;
-        for (Program p : programs) {
-            if (i++ > 0)
-                sb.append(",");
-            sb.append(p.getId());
+        if (programs == null || programs.isEmpty()) {
+            return new ArrayList<Integer>();
         }
-        List<Integer> results = (List<Integer>) this.getHibernateTemplate().find(
-                "select distinct cmi.demographic_no from CaseManagementIssue cmi where cmi.update_date > ?0 and program_id in ("
-                        + sb.toString() + ")",
-                new Object[]{date});
+
+        List<Integer> programIds = new ArrayList<Integer>();
+        for (Program p : programs) {
+            programIds.add(p.getId());
+        }
+
+        String hql = "select distinct cmi.demographic_no from CaseManagementIssue cmi where cmi.update_date > :updateDate and program_id in (:programIds)";
+        Map<String, Object> params = new HashMap<>();
+        params.put("updateDate", date);
+        params.put("programIds", programIds);
+        List<Integer> results = (List<Integer>) HqlQueryHelper.find(currentSession(), hql, params);
 
         return results;
     }
@@ -169,9 +186,9 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographicSince(String demographic_no, Date date) {
-        return (List<CaseManagementIssue>) this.getHibernateTemplate().find(
-                "from CaseManagementIssue cmi where cmi.demographic_no = ?0 and cmi.update_date > ?1",
-                new Object[]{Integer.valueOf(demographic_no), date});
+        return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                "from CaseManagementIssue cmi where cmi.demographic_no = ?1 and cmi.update_date > ?2",
+                Integer.valueOf(demographic_no), date);
     }
 
 }

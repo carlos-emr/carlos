@@ -59,9 +59,9 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
     }
 
     /**
-     * Sorted by lastname,firstname
+    /**
+     * Retrieves a list of ProfessionalSpecialist entities with a non-null eDataUrl, sorted by lastname and firstname.
      */
-    @Override
     public List<ProfessionalSpecialist> findByEDataUrlNotNull() {
         Query query = entityManager.createQuery("select x from ProfessionalSpecialist x where x.deleted = false and x.eDataUrl is not null order by x.lastName,x.firstName");
 
@@ -72,6 +72,9 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
     }
 
     @Override
+    /**
+     * Retrieves a list of ProfessionalSpecialist entities by their full name.
+     */
     public List<ProfessionalSpecialist> findByFullName(String lastName, String firstName) {
         Query query = entityManager.createQuery("select x from ProfessionalSpecialist x WHERE x.deleted = false and x.lastName like ?1 and x.firstName like ?2 order by x.lastName");
         query.setParameter(1, "%" + lastName + "%");
@@ -93,6 +96,9 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
     }
 
     @Override
+    /**
+     * Retrieves a list of ProfessionalSpecialist by specialty type.
+     */
     public List<ProfessionalSpecialist> findBySpecialty(String specialty) {
         Query query = entityManager.createQuery("select x from ProfessionalSpecialist x WHERE x.deleted = false and x.specialtyType like ?1 order by x.lastName");
         query.setParameter(1, "%" + specialty + "%");
@@ -109,6 +115,9 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
     }
 
     @Override
+    /**
+     * Retrieves a list of ProfessionalSpecialist entities by referral number.
+     */
     public List<ProfessionalSpecialist> findByReferralNo(String referralNo) {
         if (StringUtils.isBlank(referralNo)) {
             return null;
@@ -165,6 +174,19 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
     }
 
     @Override
+    /**
+     * Retrieves a list of ProfessionalSpecialist entities based on the provided full name, specialty, and address.
+     *
+     * This method constructs a dynamic SQL query to filter ProfessionalSpecialist records that match the given
+     * last name and first name, while optionally including filters for specialty and address. It also considers
+     * whether to include hidden records based on the showHidden parameter. The results are ordered by last name.
+     *
+     * @param lastName the last name of the professional specialist to search for
+     * @param firstName the first name of the professional specialist to search for
+     * @param specialty the specialty type to filter by (optional)
+     * @param address the street address to filter by (optional)
+     * @param showHidden flag indicating whether to include hidden records
+     */
     public List<ProfessionalSpecialist> findByFullNameAndSpecialtyAndAddress(String lastName, String firstName, String specialty, String address, Boolean showHidden) {
         String sql = "select x from ProfessionalSpecialist x WHERE x.deleted = false AND (x.lastName like ?1 and x.firstName like ?2) ";
         int paramIndex = 3;
@@ -200,6 +222,9 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
     }
 
     @Override
+    /**
+     * Retrieves a list of ProfessionalSpecialist entities by the specified service name.
+     */
     public List<ProfessionalSpecialist> findByService(String serviceName) {
         Query query = entityManager.createQuery("select x from ProfessionalSpecialist x, ConsultationServices cs, ServiceSpecialists ss WHERE x.deleted = false and x.id = ss.id.specId and ss.id.serviceId = cs.serviceId and cs.serviceDesc = ?1");
         query.setParameter(1, serviceName);
@@ -212,6 +237,9 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
     }
 
     @Override
+    /**
+     * Retrieves a list of ProfessionalSpecialist entities by the given service ID.
+     */
     public List<ProfessionalSpecialist> findByServiceId(Integer serviceId) {
         Query query = entityManager.createQuery("select x from ProfessionalSpecialist x, ServiceSpecialists ss WHERE x.deleted = false and x.id = ss.id.specId and ss.id.serviceId = ?1");
         query.setParameter(1, serviceId);
