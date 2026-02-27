@@ -49,8 +49,8 @@ Before starting, verify application and database are ready by running these chec
 1. **Application Check**: Run `curl -sI http://localhost:8080/oscar/index.jsp | head -1`
    - Expected: `HTTP/1.1 200` (if you get connection refused or 000, the app server isn't running)
 
-2. **Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='openodoc' LIMIT 1;"`
-   - Expected: Shows `openodoc` user exists
+2. **Database Check**: Run `mysql -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='carlosdoc' LIMIT 1;"`
+   - Expected: Shows `carlosdoc` user exists
 
 **If checks fail**: Run `server start` to start Tomcat, or check `server log` for errors.
 
@@ -59,7 +59,7 @@ Before starting, verify application and database are ready by running these chec
 Follow the 7-step workflow defined in `docs/ui-tests/test-1/test-1-EXECUTION.md`:
 
 1. **Login Page** - Navigate and screenshot login form
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025) and screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026) and screenshot
 3. **Patient Search** - Click Search menu and screenshot
 4. **Search "FAKE-G"** - Type "FAKE-G" and **press Enter to submit**, screenshot results (verify patient 182 visible)
 5. **Patient #182** - Click patient 182 and screenshot demographic record

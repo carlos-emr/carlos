@@ -33,7 +33,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.model.enumerator.CppCode;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.NoteTo1;
 
@@ -64,7 +64,7 @@ import static org.mockito.Mockito.*;
  *
  * @since 2026-02-09
  * @see NoteManager
- * @see OpenOUnitTestBase
+ * @see CarlosUnitTestBase
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -73,7 +73,7 @@ import static org.mockito.Mockito.*;
 @Tag("fast")
 @Tag("manager")
 @Tag("note")
-public class NoteManagerUnitTest extends OpenOUnitTestBase {
+public class NoteManagerUnitTest extends CarlosUnitTestBase {
 
     // NoteManager's @Autowired dependencies
     @Mock

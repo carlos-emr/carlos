@@ -6,11 +6,11 @@ This namespace contains slash commands for CARLOS EMR developer workflow automat
 
 | Command | Description |
 |---------|-------------|
-| `/openo-dev:resetsql-developer` | Reset dev database data and reload development.sql with FAKE name patch |
+| `/carlos-dev:resetsql-developer` | Reset dev database data and reload development.sql with FAKE name patch |
 
 ## Command Details
 
-### `/openo-dev:resetsql-developer`
+### `/carlos-dev:resetsql-developer`
 
 Resets the developer database to a clean state by:
 1. Truncating all data tables (schema preserved)
@@ -28,8 +28,8 @@ Resets the developer database to a clean state by:
 - FAKE patch is idempotent
 
 **Login after reset:**
-- Username: `openodoc`
-- Password: `openo2025`
+- Username: `carlosdoc`
+- Password: `carlos2026`
 
 ## Adding New Commands
 

@@ -51,7 +51,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
+<fmt:setBundle basename="oscarResources"/>
 
 <%
     PropertyDao dao = (PropertyDao) SpringUtils.getBean(PropertyDao.class);
@@ -67,94 +67,61 @@
 
     if (!consultRequestEnabled && !consultResponseEnabled) consultRequestEnabled = true;
 %>
+<!DOCTYPE html>
 <html>
-
-
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.title"/>
-        </title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.title"/></title>
     </head>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/encounterStyles.css">
-    <body class="BodyStyle" vlink="#0000FF">
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Consultation</td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td class="Header"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.title"/>
-                        </td>
-                        <td></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr style="vertical-align: top">
-            <td class="MainTableLeftColumn">
+    <body>
+    <div class="container-fluid">
+        <div class="page-header-bar">
+            <h5 class="page-header-title">
+                <fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.title"/>
+            </h5>
+        </div>
+
+        <div class="row">
+            <div class="col-md-3 consult-sidebar">
                 <%
                     EctConTitlebar titlebar = new EctConTitlebar(request);
                     out.print(titlebar.estBar(request));
                 %>
-            </td>
-            <td class="MainTableRightColumn">
-                <table cellpadding="0" cellspacing="2"
-                       style="border-collapse: collapse" bordercolor="#111111" width="100%"
-                       height="100%">
+            </div>
 
-                    <tr>
-                        <td>&nbsp;</td>
-                    </tr>
-                    <%
-                        String updated = (String) request.getAttribute("ENABLE_REQUEST_RESPONSE_UPDATED");
-                        if (updated != null) { %>
-                    <tr>
-                        <td><font color="red"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.msgUpdated"/></font>
-                        </td>
-                    </tr>
-                    <%}%>
-                    <tr>
-                        <td>
-                            <table>
-                                <form action="${pageContext.request.contextPath}/oscarEncounter/EnableConRequestResponse.do" method="post">
-                                    <tr>
-                                        <td>
-                                            <input type="checkbox"
-                                                   name="consultRequestEnabled" value="true" <%=consultRequestEnabled ? "checked" : "" %>/>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.enableRequest"/>
-                                            <br/>
-                                            <input type="checkbox"
-                                                   name="consultResponseEnabled" value="true" <%=consultResponseEnabled ? "checked" : "" %>/>
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.enableResponse"/>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>&nbsp;</td>
-                                    </tr>
-                                    <tr>
-                                        <td><input type="submit"
-                                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.btnUpdate"/>"/>
-                                        </td>
-                                    </tr>
-                                </form>
-                            </table>
-                        </td>
-                    </tr>
+            <div class="col-md-9">
+                <%
+                    String updated = (String) request.getAttribute("ENABLE_REQUEST_RESPONSE_UPDATED");
+                    if (updated != null) {
+                %>
+                <div class="alert alert-success">
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.msgUpdated"/>
+                </div>
+                <% } %>
 
-                    <tr height="100%">
-                        <td></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
+                <form action="${pageContext.request.contextPath}/oscarEncounter/EnableConRequestResponse.do" method="post">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox"
+                                   name="consultRequestEnabled" value="true" id="reqEnabled" <%=consultRequestEnabled ? "checked" : "" %>/>
+                            <label class="form-check-label" for="reqEnabled">
+                                <fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.enableRequest"/>
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox"
+                                   name="consultResponseEnabled" value="true" id="respEnabled" <%=consultResponseEnabled ? "checked" : "" %>/>
+                            <label class="form-check-label" for="respEnabled">
+                                <fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.enableResponse"/>
+                            </label>
+                        </div>
+                    </div>
+                    <input type="submit" class="btn btn-primary"
+                           value="<fmt:message key="oscarEncounter.oscarConsultationRequest.config.EnableRequestResponse.btnUpdate"/>"/>
+                </form>
+            </div>
+        </div>
+    </div>
     </body>
 </html>

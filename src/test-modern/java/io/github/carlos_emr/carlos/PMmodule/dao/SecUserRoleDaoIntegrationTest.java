@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -52,7 +52,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("pmmodule")
 @Tag("security")
 @Transactional
-public class SecUserRoleDaoIntegrationTest extends OpenOTestBase {
+public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     @Qualifier("pmSecUserRoleDao")

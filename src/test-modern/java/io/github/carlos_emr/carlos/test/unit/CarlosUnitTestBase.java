@@ -5,19 +5,21 @@
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for
- * Magenta Health
- * Toronto, Ontario, Canada
+ *
+ * Originally written for Magenta Health, Toronto, Ontario, Canada.
+ * Now maintained by the CARLOS EMR Project.
+ * https://github.com/carlos-emr/carlos
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.test.unit;
 
@@ -45,7 +47,7 @@ import static org.mockito.Mockito.mockStatic;
  *
  * <p><b>Usage Pattern:</b></p>
  * <pre>
- * public class MyServiceUnitTest extends OpenOUnitTestBase {
+ * public class MyServiceUnitTest extends CarlosUnitTestBase {
  *     &#64;Mock
  *     private SomeDao mockDao;
  *
@@ -73,12 +75,12 @@ import static org.mockito.Mockito.mockStatic;
  *   <li>Proper cleanup to prevent test pollution</li>
  * </ul>
  *
- * @since 2025-01-17
+ * @since 2025-09-19
  * @see SpringUtils
  */
 @Tag("unit")
 @Tag("fast")
-public abstract class OpenOUnitTestBase {
+public abstract class CarlosUnitTestBase {
 
     /**
      * MockedStatic instance for SpringUtils that will be closed after each test.
@@ -122,7 +124,7 @@ public abstract class OpenOUnitTestBase {
                 return mock;
             });
 
-        // Note: SpringUtils only has getBean(Class) method, not getBean(String, Class)
+        // Note: SpringUtils has getBean(Class) and getBean(String) overloads; only Class-based lookup is mocked here
 
         // Pre-register OscarLogDao mock - required because LogAction's static field
         // initializer calls SpringUtils.getBean(OscarLogDao.class) when the class is loaded

@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.model.ClientReferral;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,7 +52,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
+public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ClientReferralDAO clientReferralDAO;
