@@ -29,7 +29,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
+import java.util.Date;
 import java.util.Hashtable;
 import java.util.Vector;
 
@@ -59,6 +64,16 @@ public class SimpleXmlRpcClient {
             .proxy(ProxySelector.getDefault())
             .connectTimeout(Duration.ofSeconds(30))
             .build();
+
+    /**
+     * Date-time formatters for XML-RPC {@code dateTime.iso8601} parsing.
+     * Tried in order: XML-RPC spec format first, then standard ISO 8601.
+     * {@link DateTimeFormatter} is thread-safe (immutable).
+     */
+    private static final DateTimeFormatter[] DATETIME_FORMATTERS = {
+            DateTimeFormatter.ofPattern("yyyyMMdd'T'HH:mm:ss"),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+    };
 
     private final String serverUrl;
 
@@ -221,8 +236,15 @@ public class SimpleXmlRpcClient {
      * Handles all XML-RPC 1.0 types: string, int/i4, boolean, double, dateTime.iso8601,
      * base64, array, and struct. A bare {@code <value>text</value>} without a type tag
      * is treated as a string per the XML-RPC specification.
+     *
+     * <p>{@code dateTime.iso8601} values are parsed to {@link java.util.Date} to match
+     * the legacy {@code xmlrpc:xmlrpc:1.2-b1} library behavior that callers depend on
+     * (e.g., {@code DrugrefUtil.convertLocalDS} casts these fields to {@link Date}).</p>
+     *
+     * @throws XmlRpcFaultException if a numeric or date value cannot be parsed
+     * @throws Exception            if nested array or struct parsing fails
      */
-    private Object parseValue(Node valueNode) {
+    private Object parseValue(Node valueNode) throws Exception {
         Element child = getFirstChildElement(valueNode);
         if (child == null) {
             // bare <value>text</value> — treat as string per XML-RPC spec
@@ -234,10 +256,22 @@ public class SimpleXmlRpcClient {
 
         return switch (tag) {
             case "string" -> text;
-            case "int", "i4" -> Integer.parseInt(text);
+            case "int", "i4" -> {
+                try {
+                    yield Integer.parseInt(text);
+                } catch (NumberFormatException e) {
+                    throw new XmlRpcFaultException(0, "Invalid <" + tag + "> value: '" + text + "'");
+                }
+            }
             case "boolean" -> "1".equals(text);
-            case "double" -> Double.parseDouble(text);
-            case "dateTime.iso8601" -> text;
+            case "double" -> {
+                try {
+                    yield Double.parseDouble(text);
+                } catch (NumberFormatException e) {
+                    throw new XmlRpcFaultException(0, "Invalid <double> value: '" + text + "'");
+                }
+            }
+            case "dateTime.iso8601" -> parseDateTimeIso8601(text);
             case "base64" -> Base64.getDecoder().decode(text);
             case "array" -> parseArray(child);
             case "struct" -> parseStruct(child);
@@ -245,8 +279,35 @@ public class SimpleXmlRpcClient {
         };
     }
 
+    /**
+     * Parses an XML-RPC {@code dateTime.iso8601} value into a {@link java.util.Date}.
+     * Matches the legacy {@code xmlrpc:xmlrpc:1.2-b1} library behavior so callers
+     * that cast the result to {@link Date} (e.g., {@code DrugrefUtil.convertLocalDS})
+     * continue to work correctly.
+     *
+     * <p>Tries XML-RPC spec format ({@code yyyyMMddTHH:mm:ss}) first, then standard
+     * ISO 8601 ({@code yyyy-MM-dd'T'HH:mm:ss}). {@link DateTimeFormatter} instances
+     * are thread-safe (reused from the class-level constant).</p>
+     *
+     * @param text String the raw {@code dateTime.iso8601} text from the server response
+     * @return Date the parsed date value in the system default time zone
+     * @throws XmlRpcFaultException if the value cannot be parsed by any known format
+     * @since 2026-02-27
+     */
+    private static Date parseDateTimeIso8601(String text) throws XmlRpcFaultException {
+        for (DateTimeFormatter fmt : DATETIME_FORMATTERS) {
+            try {
+                LocalDateTime ldt = LocalDateTime.parse(text, fmt);
+                return Date.from(ldt.atZone(ZoneId.systemDefault()).toInstant());
+            } catch (DateTimeParseException ignored) {
+                // try next format
+            }
+        }
+        throw new XmlRpcFaultException(0, "Cannot parse dateTime.iso8601 value: '" + text + "'");
+    }
+
     /** Parses an XML-RPC {@code <array>} element into a {@link Vector}. */
-    private Vector<Object> parseArray(Element arrayElem) {
+    private Vector<Object> parseArray(Element arrayElem) throws Exception {
         Vector<Object> vec = new Vector<>();
         NodeList dataNodes = arrayElem.getElementsByTagName("data");
         if (dataNodes.getLength() > 0) {
@@ -261,7 +322,7 @@ public class SimpleXmlRpcClient {
     }
 
     /** Parses an XML-RPC {@code <struct>} element into a {@link Hashtable}. */
-    private Hashtable<String, Object> parseStruct(Element structElem) {
+    private Hashtable<String, Object> parseStruct(Element structElem) throws Exception {
         Hashtable<String, Object> ht = new Hashtable<>();
         for (Node n = structElem.getFirstChild(); n != null; n = n.getNextSibling()) {
             if (n.getNodeType() == Node.ELEMENT_NODE && "member".equals(n.getNodeName())) {

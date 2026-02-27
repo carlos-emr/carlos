@@ -832,6 +832,21 @@ public class RxDrugData {
         return getAllergyWarnings(atcCode, allerg, null);
     }
 
+    /**
+     * Returns allergy warnings for the given drug ATC code against the patient's allergy list.
+     * Calls the DrugRef XML-RPC service to identify which of the provided allergies are
+     * triggered by the specified drug. Optionally collects allergies that could not be
+     * matched by the service into the {@code missing} list.
+     *
+     * @param atcCode  String the ATC code of the drug to check for allergy warnings
+     * @param allergies Allergy[] array of patient allergies to check against; must not be null
+     * @param missing  List&lt;Allergy&gt; optional list to collect allergies that could not be
+     *                 matched by the DrugRef service; pass null to discard missing results
+     * @return Allergy[] array of allergies that triggered warnings for the specified drug;
+     *         empty array if no warnings are found
+     * @throws Exception if the drug reference service call fails
+     * @since 2026-02-26
+     */
     public Allergy[] getAllergyWarnings(String atcCode, Allergy[] allergies, List<Allergy> missing) throws Exception {
         List<Map<String, String>> allergyDataList = new ArrayList<>();
         for (int i = 0; i < allergies.length; i++) {
@@ -862,17 +877,24 @@ public class RxDrugData {
                 List<String> warningIndices = (List<String>) warningData.get("warnings");
                 if (warningIndices != null) {
                     for (String indexStr : warningIndices) {
-                        int index = Integer.parseInt(indexStr);
-                        foundWarnings.add(allergies[index]);
-                        MiscUtils.getLogger().debug(indexStr);
+                        try {
+                            int index = Integer.parseInt(indexStr);
+                            foundWarnings.add(allergies[index]);
+                        } catch (NumberFormatException e) {
+                            MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: invalid warning index '{}' from DrugRef", indexStr);
+                        }
                     }
                 }
 
                 List<String> missingIndices = (List<String>) warningData.get("missing");
                 if (missingIndices != null && missing != null) {
                     for (String indexStr : missingIndices) {
-                        int index = Integer.parseInt(indexStr);
-                        missing.add(allergies[index]);
+                        try {
+                            int index = Integer.parseInt(indexStr);
+                            missing.add(allergies[index]);
+                        } catch (NumberFormatException e) {
+                            MiscUtils.getLogger().warn("RxDrugData.getAllergyWarnings: invalid missing index '{}' from DrugRef", indexStr);
+                        }
                     }
                 }
             }

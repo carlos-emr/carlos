@@ -33,6 +33,7 @@ import org.xml.sax.SAXParseException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.Date;
 import java.util.Hashtable;
 import java.util.Vector;
 
@@ -207,6 +208,54 @@ class SimpleXmlRpcClientTest {
         Object result = client.execute("atc", new Vector());
 
         assertThat(result).isEqualTo("aspirin");
+    }
+
+    // -------------------------------------------------------------------------
+    // dateTime.iso8601 deserialization (regression guard for DrugrefUtil cast)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("should return Date when response contains dateTime.iso8601 in XML-RPC spec format")
+    void shouldReturnDate_whenResponseContainsDateTimeIso8601SpecFormat() throws Exception {
+        // XML-RPC spec format: yyyyMMddTHH:mm:ss
+        String dateResponse = "<?xml version=\"1.0\"?>"
+                + "<methodResponse><params><param><value>"
+                + "<dateTime.iso8601>20260226T14:30:00</dateTime.iso8601>"
+                + "</value></param></params></methodResponse>";
+        serveXml(dateResponse);
+
+        Object result = client.execute("getLastUpdateTime", new Vector());
+
+        assertThat(result).isInstanceOf(Date.class);
+    }
+
+    @Test
+    @DisplayName("should return Date when response contains dateTime.iso8601 in ISO 8601 format")
+    void shouldReturnDate_whenResponseContainsDateTimeIso8601IsoFormat() throws Exception {
+        // ISO 8601 proper format: yyyy-MM-dd'T'HH:mm:ss
+        String dateResponse = "<?xml version=\"1.0\"?>"
+                + "<methodResponse><params><param><value>"
+                + "<dateTime.iso8601>2026-02-26T14:30:00</dateTime.iso8601>"
+                + "</value></param></params></methodResponse>";
+        serveXml(dateResponse);
+
+        Object result = client.execute("getLastUpdateTime", new Vector());
+
+        assertThat(result).isInstanceOf(Date.class);
+    }
+
+    @Test
+    @DisplayName("should throw XmlRpcFaultException when response contains malformed integer value")
+    void shouldThrowXmlRpcFaultException_whenResponseContainsMalformedInteger() {
+        String badIntResponse = "<?xml version=\"1.0\"?>"
+                + "<methodResponse><params><param><value>"
+                + "<int>N/A</int>"
+                + "</value></param></params></methodResponse>";
+        serveXml(badIntResponse);
+
+        assertThatThrownBy(() -> client.execute("test", new Vector()))
+                .isInstanceOf(XmlRpcFaultException.class)
+                .hasMessageContaining("N/A");
     }
 
     // -------------------------------------------------------------------------

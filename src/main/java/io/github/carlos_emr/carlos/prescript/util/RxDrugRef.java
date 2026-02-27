@@ -28,7 +28,6 @@ package io.github.carlos_emr.carlos.prescript.util;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
@@ -80,6 +79,7 @@ public class RxDrugRef {
      * Used for testing and for overriding the configured URL at runtime.
      *
      * @param url String the full URL of the DrugRef XML-RPC server
+     * @since 2026-02-26
      */
     public RxDrugRef(String url) {
         server_url = url;
@@ -89,6 +89,7 @@ public class RxDrugRef {
      * Returns the DrugRef server URL in use by this instance.
      *
      * @return String the configured DrugRef XML-RPC server URL, or null if not set
+     * @since 2026-02-26
      */
     public String getDrugRefURL() {
         return server_url;
@@ -720,10 +721,10 @@ public class RxDrugRef {
             if (holbrook instanceof Vector) {
                 vec = (Vector) holbrook;
             }
-            Enumeration e = ((Hashtable) obj).keys();
-            while (e.hasMoreElements()) {
-                String s = (String) e.nextElement();
-                MiscUtils.getLogger().debug(s + " " + ((Hashtable) obj).get(s) + " " + ((Hashtable) obj).get(s).getClass().getName());
+            // Log only key names — not values, which may contain PHI (medication context).
+            // Avoid calling .getClass() on values that may be null.
+            if (logger.isDebugEnabled()) {
+                logger.debug("DrugRef interaction sources returned: {}", ((Hashtable<?, ?>) obj).keySet());
             }
         }
         return vec;
