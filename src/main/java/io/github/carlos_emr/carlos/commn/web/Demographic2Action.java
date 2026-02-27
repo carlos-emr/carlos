@@ -38,7 +38,6 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicArchive;
 import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
