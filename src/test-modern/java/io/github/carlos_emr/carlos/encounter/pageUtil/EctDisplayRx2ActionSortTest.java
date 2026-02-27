@@ -7,18 +7,17 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for the medication sort logic in {@link EctDisplayRx2Action}.
+ * Unit tests for the medication stable-partition logic in {@link EctDisplayRx2Action}.
  *
  * <p>Verifies that active medications (current and not archived, or long-term)
- * are sorted above non-active medications, and that relative order within
- * each group is preserved by the stable sort.</p>
+ * are placed above non-active medications, and that relative order within
+ * each group is preserved.</p>
  *
  * @since 2026-02-25
  */
@@ -27,9 +26,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("fast")
 @Tag("encounter")
 public class EctDisplayRx2ActionSortTest {
-
-    private static final Comparator<Prescription> ACTIVE_FIRST =
-        EctDisplayRx2Action.ACTIVE_FIRST;
 
     private static Date daysFromNow(int days) {
         Calendar cal = Calendar.getInstance();
@@ -70,7 +66,7 @@ public class EctDisplayRx2ActionSortTest {
         Prescription expired2 = expiredDrug(1);
 
         List<Prescription> drugs = new ArrayList<>(List.of(expired1, active1, expired2));
-        drugs.sort(ACTIVE_FIRST);
+        EctDisplayRx2Action.stablePartitionActiveFirst(drugs);
 
         assertThat(drugs).containsExactly(active1, expired1, expired2);
     }
@@ -82,7 +78,7 @@ public class EctDisplayRx2ActionSortTest {
         Prescription longTerm = longTermDrug(2);
 
         List<Prescription> drugs = new ArrayList<>(List.of(expired, longTerm));
-        drugs.sort(ACTIVE_FIRST);
+        EctDisplayRx2Action.stablePartitionActiveFirst(drugs);
 
         assertThat(drugs).containsExactly(longTerm, expired);
     }
@@ -96,7 +92,7 @@ public class EctDisplayRx2ActionSortTest {
         Prescription expired2 = expiredDrug(3);
 
         List<Prescription> drugs = new ArrayList<>(List.of(active1, expired1, active2, expired2));
-        drugs.sort(ACTIVE_FIRST);
+        EctDisplayRx2Action.stablePartitionActiveFirst(drugs);
 
         assertThat(drugs).containsExactly(active1, active2, expired1, expired2);
     }
@@ -109,7 +105,7 @@ public class EctDisplayRx2ActionSortTest {
         Prescription a3 = activeDrug(1);
 
         List<Prescription> drugs = new ArrayList<>(List.of(a1, a2, a3));
-        drugs.sort(ACTIVE_FIRST);
+        EctDisplayRx2Action.stablePartitionActiveFirst(drugs);
 
         assertThat(drugs).containsExactly(a1, a2, a3);
     }
@@ -122,7 +118,7 @@ public class EctDisplayRx2ActionSortTest {
         Prescription e3 = expiredDrug(1);
 
         List<Prescription> drugs = new ArrayList<>(List.of(e1, e2, e3));
-        drugs.sort(ACTIVE_FIRST);
+        EctDisplayRx2Action.stablePartitionActiveFirst(drugs);
 
         assertThat(drugs).containsExactly(e1, e2, e3);
     }
@@ -131,7 +127,7 @@ public class EctDisplayRx2ActionSortTest {
     @DisplayName("Empty list should not throw")
     void shouldHandleEmptyList_whenNoDrugsPresent() {
         List<Prescription> drugs = new ArrayList<>();
-        drugs.sort(ACTIVE_FIRST);
+        EctDisplayRx2Action.stablePartitionActiveFirst(drugs);
 
         assertThat(drugs).isEmpty();
     }
@@ -143,7 +139,7 @@ public class EctDisplayRx2ActionSortTest {
         Prescription active = activeDrug(2);
 
         List<Prescription> drugs = new ArrayList<>(List.of(archived, active));
-        drugs.sort(ACTIVE_FIRST);
+        EctDisplayRx2Action.stablePartitionActiveFirst(drugs);
 
         assertThat(drugs).containsExactly(active, archived);
     }
@@ -157,7 +153,7 @@ public class EctDisplayRx2ActionSortTest {
         Prescription archived = archivedDrug(2);
 
         List<Prescription> drugs = new ArrayList<>(List.of(expired, longTerm, active, archived));
-        drugs.sort(ACTIVE_FIRST);
+        EctDisplayRx2Action.stablePartitionActiveFirst(drugs);
 
         // longTerm and active are both "active" — should come first, in original relative order
         assertThat(drugs.indexOf(longTerm)).isLessThan(drugs.indexOf(expired));
