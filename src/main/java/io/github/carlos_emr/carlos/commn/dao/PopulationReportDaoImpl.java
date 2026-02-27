@@ -194,7 +194,7 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
 
         query.append(")");
 
-        return ((Long) ((List<?>) HqlQueryHelper.find(currentSession(), query.toString())).get(0)).intValue();
+        return ((Long) HqlQueryHelper.find(currentSession(), query.toString()).get(0)).intValue();
     }
 
     @Override
