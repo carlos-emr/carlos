@@ -234,7 +234,8 @@
                 //     }
                 // });
                 var savedPageLength = localStorage.getItem('ticklerPageLength');
-                var initialPageLength = savedPageLength ? parseInt(savedPageLength) : 50;
+                var parsedPageLength = savedPageLength ? parseInt(savedPageLength, 10) : 50;
+                var initialPageLength = [25, 50, 75, 100].indexOf(parsedPageLength) !== -1 ? parsedPageLength : 50;
 
                 ticklerResultsTable = jQuery("#ticklerResults").DataTable({
                     serverSide: true,
@@ -724,12 +725,12 @@
                     <div class="form-group">
                         <label for="xml_vdate">From</label>
                         <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
-                               value="<%=xml_vdate%>">
+                               value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_vdate)%>">
                     </div>
                     <div class="form-group">
                         <label for="xml_appointment_date">To</label>
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
-                               value="<%=xml_appointment_date%>">
+                               value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_appointment_date)%>">
                     </div>
 
                     <div class="form-group">

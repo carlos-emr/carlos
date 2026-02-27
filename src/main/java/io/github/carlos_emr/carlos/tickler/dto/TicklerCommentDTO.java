@@ -104,12 +104,15 @@ public class TicklerCommentDTO implements Serializable {
     }
 
     /**
-     * Checks whether the comment's update date is today.
+     * Checks whether the comment's update date falls on the same calendar day
+     * as the provided reference date. Callers should pass a pre-computed
+     * reference to avoid creating a new {@link Date} instance per comment.
      *
-     * @return boolean true if the update date is today
+     * @param referenceDate Date the date to compare against (typically today)
+     * @return boolean true if the update date is the same calendar day as referenceDate
      */
-    public boolean isUpdateDateToday() {
-        return updateDate != null && DateUtils.isSameDay(updateDate, new Date());
+    public boolean isSameDayAs(Date referenceDate) {
+        return updateDate != null && referenceDate != null && DateUtils.isSameDay(updateDate, referenceDate);
     }
 
     public Integer getId() {

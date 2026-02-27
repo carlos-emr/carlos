@@ -74,6 +74,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
+import org.owasp.encoder.Encode;
 
 @Service
 public class TicklerManagerImpl implements TicklerManager {
@@ -796,7 +797,7 @@ public class TicklerManagerImpl implements TicklerManager {
         if (filter.getDemographicNo() != null && !filter.getDemographicNo().isEmpty()
                 && !"All Clients".equalsIgnoreCase(filter.getDemographicNo())) {
             LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.getTicklerDTOs",
-                    "demographicNo=" + filter.getDemographicNo());
+                    "demographicNo=" + Encode.forJava(filter.getDemographicNo()));
         }
 
         return result;

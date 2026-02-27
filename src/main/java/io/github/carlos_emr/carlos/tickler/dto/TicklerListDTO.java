@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Locale;
 
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 
 /**
  * Lightweight data transfer object for tickler list display, optimized for
@@ -144,10 +145,11 @@ public class TicklerListDTO implements Serializable {
     }
 
     /**
-     * Returns a localized description of the tickler status.
+     * Returns a localized description of the tickler status using the same
+     * resource bundle keys as {@link Tickler#getStatusDesc(Locale)}.
      *
-     * @param locale Locale the locale for status description
-     * @return String the localized status description
+     * @param locale Locale the locale for status description; may be null (falls back to default locale)
+     * @return String the localized status description, or empty string if status is null
      */
     public String getStatusDesc(Locale locale) {
         if (status == null) {
@@ -155,11 +157,11 @@ public class TicklerListDTO implements Serializable {
         }
         switch (status) {
             case A:
-                return "Active";
+                return LocaleUtils.getMessage(locale, "tickler.ticklerMain.stActive");
             case C:
-                return "Complete";
+                return LocaleUtils.getMessage(locale, "tickler.ticklerMain.stComplete");
             case D:
-                return "Deleted";
+                return LocaleUtils.getMessage(locale, "tickler.ticklerMain.stDeleted");
             default:
                 return status.name();
         }

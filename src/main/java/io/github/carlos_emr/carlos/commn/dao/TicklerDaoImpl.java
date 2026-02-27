@@ -420,6 +420,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
      * @param offset int the starting position for pagination
      * @param limit int the maximum number of results, or &lt;= 0 for no limit
      * @return List of TicklerListDTO matching the filter criteria
+     * @since 2026-02-27
      */
     @SuppressWarnings("unchecked")
     @Override
@@ -451,6 +452,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
      *
      * @param filter CustomFilter the filter criteria
      * @return List of TicklerListDTO matching the filter criteria
+     * @since 2026-02-27
      */
     @Override
     public List<TicklerListDTO> getTicklerDTOs(CustomFilter filter) {
@@ -514,13 +516,13 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         if (filter.getDemographicNo() == null || filter.getDemographicNo().isEmpty() || "All Clients".equalsIgnoreCase(filter.getDemographicNo())) {
             includeDemographicClause = false;
         }
-        if ("".equals(filter.getStatus()) || "Z".equals(filter.getStatus())) {
+        if (filter.getStatus() == null || filter.getStatus().isEmpty() || "Z".equals(filter.getStatus())) {
             includeStatusClause = false;
         }
-        if (filter.getPriority() == null || "".equals(filter.getPriority())) {
+        if (filter.getPriority() == null || filter.getPriority().isEmpty()) {
             includePriorityClause = false;
         }
-        if (filter.getMrp() == null || "All Providers".equals(filter.getMrp()) || "".equals(filter.getMrp())) {
+        if (filter.getMrp() == null || "All Providers".equals(filter.getMrp()) || filter.getMrp().isEmpty()) {
             includeMRPClause = false;
         }
         if (filter.getMessage() == null || filter.getMessage().trim().isEmpty()) {
@@ -562,7 +564,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
             paramIndex = appendInClause(sb, paramList, "t.taskAssignedTo", filter.getAssignees(), paramIndex);
         }
 
-        if (includeProgramClause) {
+        if (includeProgramClause && isValidIntegerFilter(filter.getProgramId())) {
             sb.append(" AND t.programId = ?");
             sb.append(paramIndex++);
             paramList.add(Integer.valueOf(filter.getProgramId()));
@@ -577,15 +579,16 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
             sb.append(paramIndex++);
             paramList.add(convertPriority(filter.getPriority()));
         }
-        if (includeClientClause && isValidIntegerFilter(filter.getClient())) {
-            sb.append(" AND t.demographicNo = ?");
-            sb.append(paramIndex++);
-            paramList.add(Integer.parseInt(filter.getClient()));
-        }
+        // Both client and demographicNo filter on the same column (t.demographicNo).
+        // Prefer demographicNo when both are set to avoid contradictory conditions.
         if (includeDemographicClause && isValidIntegerFilter(filter.getDemographicNo())) {
             sb.append(" AND t.demographicNo = ?");
             sb.append(paramIndex++);
             paramList.add(Integer.parseInt(filter.getDemographicNo()));
+        } else if (includeClientClause && isValidIntegerFilter(filter.getClient())) {
+            sb.append(" AND t.demographicNo = ?");
+            sb.append(paramIndex++);
+            paramList.add(Integer.parseInt(filter.getClient()));
         }
         if (includeMessage) {
             sb.append(" AND t.message = ?");

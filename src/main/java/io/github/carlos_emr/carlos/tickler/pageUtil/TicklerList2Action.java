@@ -35,8 +35,10 @@ package io.github.carlos_emr.carlos.tickler.pageUtil;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
@@ -77,6 +79,7 @@ public class TicklerList2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final int MAX_PAGE_SIZE = 500;
     private static final String DATE_FORMAT_PATTERN = "yyyy-MM-dd";
+    private static final String TIME_FORMAT_PATTERN = "HH:mm";
 
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -89,6 +92,11 @@ public class TicklerList2Action extends ActionSupport {
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
+
+        if (loggedInInfo == null) {
+            writeJsonError(response, HttpServletResponse.SC_UNAUTHORIZED, "Session expired");
+            return null;
+        }
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", null)) {
             writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "Access denied");
@@ -115,14 +123,17 @@ public class TicklerList2Action extends ActionSupport {
             List<Map<String, Object>> rows = new ArrayList<>();
             Map<String, List<Map<String, Object>>> commentsMap = new HashMap<>();
             SimpleDateFormat dateFormat = new SimpleDateFormat(DATE_FORMAT_PATTERN);
+            SimpleDateFormat timeFormat = new SimpleDateFormat(TIME_FORMAT_PATTERN);
+            Locale locale = request.getLocale();
+            Date today = new Date();
 
             int ticklerWarnDays = getTicklerWarnDays();
 
             for (TicklerListDTO dto : ticklerDTOs) {
-                rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat));
+                rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat, locale));
 
                 if (dto.getComments() != null && !dto.getComments().isEmpty()) {
-                    commentsMap.put(String.valueOf(dto.getId()), buildCommentsArray(dto.getComments(), dateFormat));
+                    commentsMap.put(String.valueOf(dto.getId()), buildCommentsArray(dto.getComments(), dateFormat, timeFormat, today));
                 }
             }
 
@@ -199,16 +210,17 @@ public class TicklerList2Action extends ActionSupport {
      * @param dto TicklerListDTO the tickler data
      * @param warnDays int the number of days to consider a tickler as warning
      * @param dateFormat SimpleDateFormat thread-local date formatter
+     * @param locale Locale the request locale for status description i18n
      * @return Map containing the tickler row data
      */
-    private Map<String, Object> buildTicklerRow(TicklerListDTO dto, int warnDays, SimpleDateFormat dateFormat) {
+    private Map<String, Object> buildTicklerRow(TicklerListDTO dto, int warnDays, SimpleDateFormat dateFormat, Locale locale) {
         Map<String, Object> row = new HashMap<>();
         row.put("id", dto.getId());
         row.put("message", dto.getMessage() != null ? dto.getMessage() : "");
         row.put("serviceDate", dto.getServiceDate() != null ? dateFormat.format(dto.getServiceDate()) : "");
         row.put("createDate", dto.getCreateDate() != null ? dateFormat.format(dto.getCreateDate()) : "");
         row.put("status", dto.getStatus() != null ? dto.getStatus().name() : "");
-        row.put("statusDesc", dto.getStatusDesc(null));
+        row.put("statusDesc", dto.getStatusDesc(locale));
         row.put("priority", dto.getPriority() != null ? dto.getPriority().name() : "Normal");
         row.put("demographicNo", dto.getDemographicNo());
         row.put("demographicName", dto.getDemographicFormattedName());
@@ -233,21 +245,33 @@ public class TicklerList2Action extends ActionSupport {
     }
 
     /**
-     * Builds a list of comment maps for JSON serialization.
+     * Builds a list of comment maps for JSON serialization. When a comment was
+     * made today, the updateDate field contains only the time (HH:mm) to match
+     * the previous JSP rendering behaviour. For older comments the date (yyyy-MM-dd)
+     * is returned. The raw isToday flag is also included so the client can
+     * apply further formatting if needed.
      *
      * @param comments List of TicklerCommentDTO
-     * @param dateFormat SimpleDateFormat thread-local date formatter
+     * @param dateFormat SimpleDateFormat date-only formatter (yyyy-MM-dd)
+     * @param timeFormat SimpleDateFormat time-only formatter (HH:mm)
+     * @param today Date pre-computed reference point for today comparisons
      * @return List of maps containing comment data
      */
-    private List<Map<String, Object>> buildCommentsArray(List<TicklerCommentDTO> comments, SimpleDateFormat dateFormat) {
+    private List<Map<String, Object>> buildCommentsArray(List<TicklerCommentDTO> comments, SimpleDateFormat dateFormat, SimpleDateFormat timeFormat, Date today) {
         List<Map<String, Object>> result = new ArrayList<>();
         for (TicklerCommentDTO comment : comments) {
             Map<String, Object> map = new HashMap<>();
             map.put("id", comment.getId());
             map.put("message", comment.getMessage() != null ? comment.getMessage() : "");
-            map.put("updateDate", comment.getUpdateDate() != null ? dateFormat.format(comment.getUpdateDate()) : "");
+            boolean isToday = comment.isSameDayAs(today);
+            if (comment.getUpdateDate() != null) {
+                // Show time for today's comments, date for older comments (matches old JSP behaviour)
+                map.put("updateDate", isToday ? timeFormat.format(comment.getUpdateDate()) : dateFormat.format(comment.getUpdateDate()));
+            } else {
+                map.put("updateDate", "");
+            }
             map.put("providerName", comment.getProviderFormattedName());
-            map.put("isToday", comment.isUpdateDateToday());
+            map.put("isToday", isToday);
             result.add(map);
         }
         return result;
@@ -281,23 +305,24 @@ public class TicklerList2Action extends ActionSupport {
      * @return boolean true if the tickler should show a warning
      */
     private boolean isWarning(TicklerListDTO dto, int warnDays) {
-        if (dto.getServiceDate() == null) {
+        if (dto.getServiceDate() == null || warnDays <= 0) {
             return false;
         }
         long now = System.currentTimeMillis();
         long serviceTime = dto.getServiceDate().getTime();
         long diffDays = (now - serviceTime) / (1000L * 60 * 60 * 24);
-        return diffDays >= 0 && diffDays <= warnDays;
+        // Warn when tickler is overdue by at least warnDays (service date is in the past by >= warnDays)
+        return diffDays >= warnDays;
     }
 
     /**
-     * Gets the tickler warning days from properties, defaulting to 0.
+     * Gets the tickler warning period from properties, defaulting to 0 (disabled).
      *
      * @return int the number of days for warning threshold
      */
     private int getTicklerWarnDays() {
         try {
-            String val = OscarProperties.getInstance().getProperty("tickler_warn_days", "0");
+            String val = OscarProperties.getInstance().getProperty("tickler_warn_period", "0");
             return Integer.parseInt(val);
         } catch (Exception e) {
             return 0;
