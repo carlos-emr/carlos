@@ -101,7 +101,7 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
     @Override
     public int getCurrentAndHistoricalPopulationSize(int numYears) {
 
-        return ((Long) ((List<?>) HqlQueryHelper.find(currentSession(), HQL_CURRENT_HISTORICAL_POP_SIZE, DateTimeFormatUtils.getPast(numYears))).get(0)).intValue();
+        return ((Long) HqlQueryHelper.find(currentSession(), HQL_CURRENT_HISTORICAL_POP_SIZE, DateTimeFormatUtils.getPast(numYears)).get(0)).intValue();
     }
 
     @Override
