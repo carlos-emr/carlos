@@ -207,9 +207,10 @@ public class EctDisplayRx2Action extends EctDisplayAction {
      *
      * <p><b>Note:</b> This method does not filter archived long-term drugs — it will
      * return {@code true} for a drug that is long-term even if archived. In
-     * {@link #getInfo}, archived drugs are pre-filtered before sort and display.
-     * If moving this to a utility class, additional checks (e.g. {@code !drug.isArchived()})
-     * would be needed for standalone use.</p>
+     * {@link #getInfo}, archived drugs are filtered during iteration <em>after</em>
+     * the {@code uniqueDrugs.sort(ACTIVE_FIRST)} call and are therefore not displayed.
+     * If using this method in other contexts, additional checks (for example,
+     * {@code !drug.isArchived()}) may be required to exclude archived items.</p>
      *
      * @param drug Prescription the prescription to evaluate
      * @return boolean {@code true} if the drug is considered active
