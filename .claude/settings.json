@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/validate-sql-safety.py",
+            "command": "python3 $CLAUDE_PROJECT_DIR/temp-claude/validate-sql-safety.py",
             "timeout": 5
           }
         ]
