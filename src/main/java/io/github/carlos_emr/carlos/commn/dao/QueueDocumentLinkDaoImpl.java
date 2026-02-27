@@ -60,6 +60,9 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
         return queues;
     }
     @Override
+    /**
+     * Retrieves a list of active QueueDocumentLink objects from the database.
+     */
     public List<QueueDocumentLink> getActiveQueueDocLink() {
         Query query = entityManager.createNativeQuery(
                 "SELECT q.* FROM queue_document_link q LEFT JOIN document d ON q.document_id = d.document_no " +
