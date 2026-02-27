@@ -275,7 +275,7 @@ public class ClientReferralDAOImpl extends AbstractHibernateDao implements Clien
 
     @SuppressWarnings("unchecked")
     public List<ClientReferral> search(ClientReferral referral) {
-        if (referral != null && referral.getProgramId().longValue() > 0) {
+        if (referral != null && referral.getProgramId() != null && referral.getProgramId() > 0) {
             return (List<ClientReferral>) HqlQueryHelper.find(currentSession(),
                     "from ClientReferral cr where cr.ProgramId = ?1", referral.getProgramId());
         }
