@@ -72,11 +72,7 @@ CLASS_NAME_PATTERNS = [
 
 
 def strip_line_comment(line: str) -> str:
-    """Strip trailing // single-line comment from a Java line.
-
-    Uses a simple heuristic: find // where the number of double-quote
-    characters before it is even (meaning we are not inside a string literal).
-    """
+    """Strip trailing // single-line comment from a Java line."""
     idx = line.find('//')
     if idx == -1:
         return line
@@ -107,14 +103,8 @@ def is_comment_line(line: str) -> bool:
 
 
 def is_in_string_literal_context(line: str) -> bool:
-    """Check if the line contains parameter placeholders inside string literals.
-
-    Strips trailing // comments before analysis to prevent comment-based bypasses
-    where an attacker could add // :id on the same line as an unsafe concatenation.
-    Named parameters (:word) are only matched when inside double-quoted string literals,
-    not when they appear in comments, variable names, or other non-string contexts.
-    """
     # Strip trailing // comments first (prevents comment-based bypasses)
+    """Check if the line contains parameter placeholders inside string literals."""
     stripped = strip_line_comment(line)
 
     # Check for positional parameter in string concatenation: "?" + ...
@@ -134,7 +124,7 @@ def is_in_string_literal_context(line: str) -> bool:
 
 
 def has_param_placeholder_in_context(match_text: str, line: str) -> bool:
-    """Check if the match or its line contains parameter placeholder patterns."""
+    """Check for parameter placeholder patterns in the given match and line."""
     combined = match_text + " " + line
     for pattern in PARAM_PLACEHOLDER_PATTERNS:
         if pattern.search(combined):
@@ -143,7 +133,7 @@ def has_param_placeholder_in_context(match_text: str, line: str) -> bool:
 
 
 def has_class_name_insertion(match_text: str, line: str) -> bool:
-    """Check if the match involves entity/class name insertion (safe)."""
+    """Check if the match involves entity/class name insertion."""
     combined = match_text + " " + line
     for pattern in CLASS_NAME_PATTERNS:
         if pattern.search(combined):
@@ -152,7 +142,14 @@ def has_class_name_insertion(match_text: str, line: str) -> bool:
 
 
 def is_query_builder_variable(match_text: str) -> bool:
-    """Check if the concatenated variable is a known query-builder variable name."""
+    """Check if the concatenated variable is a known query-builder variable name.
+    
+    This function uses a regular expression to find variable names in the  provided
+    `match_text` that are concatenated with strings. It checks  each found variable
+    name against a predefined set of known query-builder  variable names defined by
+    QUERY_BUILDER_VARS. If a match is found,  the function returns True; otherwise,
+    it returns False.
+    """
     var_matches = re.findall(r'(\w+)\s*\+\s*["\']|["\']\s*\+\s*(\w+)', match_text)
     for groups in var_matches:
         for var_name in groups:
@@ -162,7 +159,7 @@ def is_query_builder_variable(match_text: str) -> bool:
 
 
 def has_parameterized_usage(content: str) -> bool:
-    """Check if the content shows parameterized query usage patterns."""
+    """Check for parameterized query usage patterns in the content."""
     indicators = [
         r'\.setParameter\s*\(',
         r'paramList\.add\s*\(',
@@ -179,21 +176,25 @@ def has_parameterized_usage(content: str) -> bool:
 
 
 def is_safe_pattern(match_text: str, line: str, content: str) -> bool:
-    """
-    Determine if a flagged match is actually a safe pattern.
-
-    Returns True if the match represents safe dynamic query building
-    (not actual SQL injection), False if it remains suspicious.
-
-    Security notes:
-    - is_query_builder_variable is never used alone: requires combined parameter
-      placeholder evidence to prevent variable-name-based bypasses.
-    - is_in_string_literal_context strips // comments before checking to prevent
-      a comment like // :id from whitelisting an unsafe concatenation on the same line.
-    - File-wide parameterized usage signals (setParameter elsewhere in the file) only
-      contribute when the current line itself has parameter placeholder evidence.
-    """
     # 1. Check if in a comment
+    """Determine if a flagged match is actually a safe pattern.
+    
+    This function evaluates whether a given match represents safe dynamic query
+    building,  indicating it is not susceptible to SQL injection. It performs
+    several checks, including  verifying if the match is within a comment,
+    assessing for parameter placeholder concatenation,  and ensuring that any
+    query-builder variables are used in a safe context. The function also
+    considers the presence of parameterized queries in the overall content to make
+    a determination.
+    
+    Args:
+        match_text (str): The text to be evaluated for safety.
+        line (str): The line of code containing the match.
+        content (str): The full content being analyzed for parameterized usage.
+    
+    Returns:
+        bool: True if the match is considered safe, False otherwise.
+    """
     if is_comment_line(line):
         return True
 
@@ -235,7 +236,7 @@ def is_safe_pattern(match_text: str, line: str, content: str) -> bool:
 # ---------------------------------------------------------------------------
 
 def get_file_content_from_input(tool_input: dict) -> tuple[str, str]:
-    """Extract file path and content from tool input."""
+    """Extracts file path and content from tool input."""
     file_path = tool_input.get("file_path", "")
 
     # For Write tool, content is in 'content' field
@@ -246,28 +247,18 @@ def get_file_content_from_input(tool_input: dict) -> tuple[str, str]:
 
 
 def check_sql_injection_patterns(content: str) -> list[str]:
-    """
-    Check Java content for SQL injection vulnerabilities.
-
-    Detects unsafe patterns while allowing safe dynamic query building.
-
-    Unsafe patterns:
-    - "SELECT * FROM users WHERE id = " + userId
-    - "SELECT * FROM " + tableName + " WHERE ..."
-    - String.format("SELECT * FROM users WHERE id = %s", id)
-    - "INSERT INTO table VALUES ('" + value + "')"
-    - executeQuery("SELECT ... " + variable)
-    - createQuery("SELECT ... " + variable)
-    - "... = '" + variable + "'" (quote-sandwich injection)
-
-    Safe patterns (allowlisted):
-    - query.setParameter("id", userId)
-    - PreparedStatement with ? placeholders
-    - query = query + " and t.field = ?" + paramIndex++
-    - .append("field = :").append(paramName)
-    - "FROM " + modelClass.getSimpleName() + " WHERE ..."
-    - Named parameters (:paramName)
-    - Positional parameters (?1, ?2)
+    """def check_sql_injection_patterns(content: str) -> list[str]:
+    
+    Check Java content for SQL injection vulnerabilities.  This function analyzes
+    the provided Java content for unsafe SQL patterns  that may lead to SQL
+    injection vulnerabilities. It identifies various  patterns such as string
+    concatenation, usage of String.format, and  direct variable inclusion in SQL
+    queries. The function also checks for  known safe patterns to avoid false
+    positives, ensuring that only  potentially dangerous constructs are flagged as
+    issues.
+    
+    Args:
+        content (str): The Java content to be analyzed for SQL injection patterns.
     """
     issues = []
 
