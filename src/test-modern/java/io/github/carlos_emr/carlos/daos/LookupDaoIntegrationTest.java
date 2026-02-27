@@ -54,8 +54,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * <p>{@code LookupDaoImpl} uses two distinct data-access strategies:</p>
  * <ul>
  *   <li><b>HibernateTemplate (HQL)</b>: {@code GetLookupTableDef}, {@code LoadFieldDefList},
- *       {@code inOrg}, and {@code updateOrgStatus}. These participate in the Spring-managed
- *       transaction and are fully testable with the H2 in-memory database.</li>
+ *       and {@code inOrg}. These participate in the Spring-managed transaction and are fully
+ *       testable with the H2 in-memory database. ({@code updateOrgStatus} is private and called
+ *       indirectly by {@code SaveAsOrgCode}.)</li>
  *   <li><b>Raw JDBC via {@code DBPreparedHandler}</b>: {@code LoadCodeList}, {@code GetCode},
  *       {@code GetCodeFieldValues}, {@code SaveCodeValue} (insert/update), and
  *       {@code getCountOfActiveClient}. These use {@code DbConnectionFilter.getThreadLocalDbConnection()},

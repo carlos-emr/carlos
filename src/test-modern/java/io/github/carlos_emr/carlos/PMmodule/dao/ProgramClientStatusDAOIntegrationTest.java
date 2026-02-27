@@ -225,16 +225,18 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
 
     /**
      * Tests for {@code clientStatusNameExists(Integer programId, String statusName)} - checks
-     * whether a status name already exists for a given program. Uses native Hibernate Session
-     * with positional parameters.
+     * whether a status name already exists for a given program.
      *
-     * <p>NOTE: This method calls {@code sessionFactory.getCurrentSession()} and closes the session
-     * after query execution. In a {@code @Transactional} test, this closes the Spring-managed
-     * session, which may prevent further Hibernate operations in the same test.</p>
+     * <p>Disabled because {@code ProgramClientStatusDAOImpl} declares a public
+     * {@code sessionFactory} field that shadows the parent {@code HibernateDaoSupport} field
+     * but is never injected by Spring — see {@code @Disabled} annotation below.</p>
      */
     @Nested
     @DisplayName("clientStatusNameExists")
-    @Disabled("Production bug: ProgramClientStatusDAOImpl.sessionFactory field is never assigned - clientStatusNameExists() throws NullPointerException. Enable when fixed.")
+    @Disabled("Production bug: ProgramClientStatusDAOImpl declares a public 'sessionFactory' field "
+        + "that shadows the parent HibernateDaoSupport field but is never injected by Spring. "
+        + "clientStatusNameExists() throws NullPointerException at sessionFactory.getCurrentSession(). "
+        + "Fix: remove the shadowing field declaration so the parent's injected sessionFactory is used.")
     class ClientStatusNameExists {
 
         @Test

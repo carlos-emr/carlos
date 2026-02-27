@@ -44,7 +44,7 @@ import static org.assertj.core.api.Assertions.*;
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *
- * <p>This test class validates all 28 public methods of the SecProviderDao interface.
+ * <p>This test class validates the public methods of the SecProviderDao interface.
  * The DAO uses Hibernate Criteria API and HQL as its primary query mechanisms,
  * making thorough testing critical for future Criteria API to JPA migration.</p>
  *

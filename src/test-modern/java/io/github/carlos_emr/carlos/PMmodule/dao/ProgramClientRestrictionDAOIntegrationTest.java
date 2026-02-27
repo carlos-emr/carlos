@@ -89,6 +89,8 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
         createRestriction(testProgramId2, testDemoNo1, true);
         // Restriction for program1, demo1 (disabled - should NOT be found)
         createRestriction(testProgramId1, testDemoNo1, false);
+
+        hibernateTemplate.flush();
     }
 
     /**

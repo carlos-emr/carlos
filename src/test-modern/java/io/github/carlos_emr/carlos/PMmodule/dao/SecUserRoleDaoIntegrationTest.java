@@ -434,8 +434,9 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
             secUserRoleDao.save(earlyRole);
             hibernateTemplate.flush();
 
-            // Record the threshold time
-            Date threshold = new Date();
+            // Record the threshold time (subtract 1ms so records saved exactly at this
+            // instant are NOT included — the query uses strict "after" comparison)
+            Date threshold = new Date(System.currentTimeMillis() - 1);
 
             // Create a new role after the threshold
             SecUserRole newRole = new SecUserRole("therapist", uniquePrefix + "020");
@@ -445,8 +446,49 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
             // When
             List<String> providerNos = secUserRoleDao.getRecordsAddedAndUpdatedSinceTime(threshold);
 
-            // Then - should include the newly created provider
+            // Then - should include the newly created provider but not the earlier one
             assertThat(providerNos).contains(uniquePrefix + "020");
+            assertThat(providerNos).doesNotContain(uniquePrefix + "018");
+        }
+    }
+
+    /**
+     * Tests for {@link SecUserRoleDao#find(Long id)} - direct primary key lookup via
+     * {@code HibernateTemplate.get(SecUserRole.class, id)}.
+     */
+    @Nested
+    @DisplayName("find(Long id)")
+    class FindById {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return role when valid ID is provided")
+        void shouldReturnRole_whenValidIdProvided() {
+            // Given - save a role via the DAO so its ID is assigned
+            SecUserRole role = new SecUserRole("findTest", uniquePrefix + "050");
+            secUserRoleDao.save(role);
+            hibernateTemplate.flush();
+            Long savedId = role.getId();
+
+            // When
+            SecUserRole found = secUserRoleDao.find(savedId);
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(savedId);
+            assertThat(found.getRoleName()).isEqualTo("findTest");
+            assertThat(found.getProviderNo()).isEqualTo(uniquePrefix + "050");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when ID does not exist")
+        void shouldReturnNull_whenIdNotFound() {
+            // When
+            SecUserRole found = secUserRoleDao.find(Long.MAX_VALUE);
+
+            // Then
+            assertThat(found).isNull();
         }
     }
 

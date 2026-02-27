@@ -100,9 +100,9 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
     /**
      * Counter for generating unique program IDs across test methods.
-     * Starts at 90000 to avoid collision with production-seeded data.
+     * Seeded from the current nanosecond timestamp to avoid inter-run collisions.
      */
-    private int programIdCounter = 90000;
+    private int programIdCounter = (int) (System.nanoTime() % 100000);
 
     // =====================================================================
     // Helper methods for creating test data
@@ -520,8 +520,11 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return array of length 3 representing LOW/MEDIUM/HIGH usage buckets")
         @Tag("read")
-        @Disabled("HQL_GET_USAGES contains 'from ?1 a' which is invalid HQL - "
-                + "entity names cannot be parameterized. Requires DAO refactoring to fix.")
+        @Disabled("HQL_GET_USAGES has two defects: (1) 'from ?1 a' attempts to parameterize the "
+                + "entity name, which HQL does not support — only column values can be parameterized; "
+                + "(2) getUsages() calls getHibernateTemplate().find(HQL_GET_USAGES, start) passing "
+                + "only 1 argument, but HQL_GET_USAGES has two positional params (?1 in FROM, ?2 in "
+                + "WHERE), so ?2 would be unbound even if ?1 were fixed. Requires DAO refactoring.")
         void shouldReturnThreeElementArray_whenCalled() {
             // Given
             // KNOWN DEFECT: The HQL constant HQL_GET_USAGES uses "from ?1 a" to parameterize

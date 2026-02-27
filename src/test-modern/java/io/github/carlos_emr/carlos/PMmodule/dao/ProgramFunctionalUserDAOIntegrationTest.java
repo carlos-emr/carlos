@@ -176,8 +176,10 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should get all functional users by program")
+        @DisplayName("should get functional user types linked to program")
         void shouldGetFunctionalUsers_byProgram() {
+            // Note: getFunctionalUsers(Long programId) returns List<FunctionalUserType> —
+            // the user types associated with the program, not ProgramFunctionalUser records.
             List<FunctionalUserType> results = programFunctionalUserDAO.getFunctionalUsers(testProgramId1);
             assertThat(results).hasSize(2);
         }

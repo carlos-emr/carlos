@@ -456,7 +456,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
      *
      * <p>This method uses SQL injection-prone string concatenation to build a query that
      * finds active providers with non-empty OHIP numbers on the same team as the given
-     * provider. PR #89 rewrites this to use named parameters.</p>
+     * provider. The string-concatenated HQL is a known security and migration risk.</p>
      */
     @Nested
     @DisplayName("getCurrentTeamProviders (1 param: providerNo)")
@@ -525,7 +525,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
      * <p>This method uses {@code IN (?0)} for an array parameter and {@code ?1} for the
      * practitioner number. The current implementation has a known bug: Hibernate 5 cannot
      * bind a String[] to a single positional parameter for an IN clause, causing a ClassCastException.
-     * PR #89 fixes this by converting to a named parameter with proper list binding.</p>
+     * Fix requires converting to a named parameter with proper list binding.</p>
      */
     @Nested
     @DisplayName("getProviderByPractitionerNo (2 params: types[], practitionerNo)")
@@ -544,7 +544,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // When/Then — IN (?0) with String[] fails: Hibernate tries to cast
             // String[] to String when binding the positional parameter.
-            // This documents the pre-change bug that PR #89 fixes.
+            // This documents the known ClassCastException bug in the current implementation.
             assertThatThrownBy(() ->
                 providerDao.getProviderByPractitionerNo(new String[]{"MSP"}, "PRAC12345")
             ).isInstanceOf(ClassCastException.class);
@@ -565,8 +565,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
      * Tests for getActiveProviders(String facilityId, String programId).
      *
      * <p>This method has three branches: programId-based (ProgramProvider subquery),
-     * facilityId-based (Program subquery), and null/null (all active). PR #89 converts
-     * the positional parameters from ?0 to ?1.</p>
+     * facilityId-based (Program subquery), and null/null (all active). Uses positional
+     * parameters that require renaming from ?0 to ?1 for Hibernate 6 compatibility.</p>
      */
     @Nested
     @DisplayName("getActiveProviders (2 params: facilityId, programId)")
