@@ -78,6 +78,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -336,8 +337,10 @@
                         if (hinDemo.getVer() != null && !hinDemo.getVer().equals("66")) {
 
         %>
-        ***<font color='red'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.msgDuplicatedHIN"/></font>
-        ***<br><br><a href=# onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></b></a>
+        <font color='red'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicupdatearecord.msgDuplicatedHINError"/></font><br>
+        <fmt:message key="demographic.msgDuplicatedHINDetail"/>
+        <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(hinDemo.getDemographicNo().toString()) %>&displaymode=edit&dboperation=search_detail"><%= Encode.forHtml(hinDemo.getLastName() + ", " + hinDemo.getFirstName()) %></a><br><br>
+        <a href="#" onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></b></a>
         <%
                             return;
                         }
