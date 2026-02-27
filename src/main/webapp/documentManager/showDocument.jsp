@@ -191,6 +191,45 @@
     request.setAttribute("mrpProviderName", mrpProviderName);
     request.setAttribute("demoName", demoName);
 %>
+<%
+    // Tickler alert: load pending ticklers for the linked patient
+    String tickler_note = "";
+    Integer demoI = 0;
+    Integer numTickler = 0;
+    boolean isLinkedToDemographic = demographicID != null && !demographicID.isEmpty()
+                                    && !demographicID.equals("-1") && !demographicID.equalsIgnoreCase("null");
+    if (isLinkedToDemographic) {
+        try {
+            demoI = Integer.parseInt(demographicID);
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid demographicID in showDocument: " + demographicID, e);
+        }
+    }
+
+    LocalDate nearFuture = LocalDate.now().plusWeeks(6);
+    DateTimeFormatter dtFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    String strDate = nearFuture.format(dtFormatter);
+
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+
+    if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic) {
+        // Note: tickler_note is intentionally raw HTML. All dynamic values MUST remain encoded using OWASP Encoder methods.
+        String tlinkf = "\n <a class=\"alert-link\" href='" + request.getContextPath() + "/tickler/ticklerEdit.jsp?tickler_no=";
+        List<String> notes = new java.util.ArrayList<>();
+        List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
+        for (Tickler t : ticklers) {
+            if (t.getMessage() != null && !t.getMessage().trim().isEmpty()) {
+                notes.add(tlinkf + Encode.forUriComponent(String.valueOf(t.getId())) + "' target='_blank'>" + Encode.forHtml(t.getMessage()) + "</a>");
+            }
+        }
+        numTickler = notes.size();
+        tickler_note = String.join(", ", notes);
+    }
+
+    // Lab macro: load provider's configured macros for document acknowledgment
+    UserProperty labMacroProp = userPropertyDAO.getProp(providerNo, UserProperty.LAB_MACRO_JSON);
+%>
 
 <fmt:setBundle basename="oscarResources"/>
 
@@ -355,6 +394,35 @@
         <input type="submit" id="ackBtn_<%=docId%>"
                value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
         <input type="button" value="Comment" onclick="addDocComment('<%=docId%>','<%=providerNo%>')"/>
+        <%
+            if (labMacroProp != null && !StringUtils.isEmpty(labMacroProp.getValue())) {
+        %>
+        <div class="dropdown d-inline-block">
+            <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false">Macros</button>
+            <ul class="dropdown-menu">
+                <%
+                    try {
+                        ObjectMapper macroMapper = new ObjectMapper();
+                        JsonNode macros = macroMapper.readTree(labMacroProp.getValue());
+                        if (macros != null && macros.isArray()) {
+                            for (int mx = 0; mx < macros.size(); mx++) {
+                                JsonNode macro = macros.get(mx);
+                                String macroName = macro.get("name").asText();
+                                boolean closeOnSuccess = macro.has("closeOnSuccess") && macro.get("closeOnSuccess").asBoolean();
+                %>
+                <li><a class="dropdown-item" href="javascript:void(0);"
+                       onclick="runDocMacro('<%=Encode.forJavaScript(macroName)%>','acknowledgeForm_<%=Encode.forJavaScript(docId)%>',<%=closeOnSuccess%>)"><%=Encode.forHtml(macroName)%></a></li>
+                <%
+                            }
+                        }
+                    } catch (Exception e) {
+                        MiscUtils.getLogger().warn("Invalid JSON for lab macros in document viewer", e);
+                    }
+                %>
+            </ul>
+        </div>
+        <% } %>
         <%}%>
         <input type="button" id="fwdBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnForward"/>"
                onClick="ForwardSelectedRows(<%=docId%> + ':DOC', null, null);">
@@ -416,6 +484,20 @@
             <%}%>
         </select>
     </form>
+    <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
+        <% if (numTickler > 0 && isLinkedToDemographic) { %>
+        <table style="width:100%;">
+            <tr>
+                <td class="alert alert-info alert-dismissible fade show">
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <strong>INFO</strong> The following <%=numTickler%>
+                    <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a>
+                    are marked pending: <%=tickler_note%>
+                </td>
+            </tr>
+        </table>
+        <% } %>
+    </security:oscarSec>
     <table class="docTable">
         <tr>
             <td valign="top" class="pdfPreviewColumn">
@@ -849,6 +931,44 @@
     }
 
     jQuery(setupProviderAutoCompletion());
+
+    // Macro support: check if document is linked to patient, then apply macro
+    function runDocMacro(name, formid, closeOnSuccess) {
+        var url = '<%=request.getContextPath()%>/documentManager/inboxManage.do';
+        var data = 'method=isDocumentLinkedToDemographic&docId=<%= Encode.forJavaScript(docId) %>';
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: data
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(json) {
+            if (json != null) {
+                var success = json.isLinkedToDemographic;
+                var demoid = '';
+                if (success) {
+                    demoid = json.demoId;
+                }
+                runDocMacroInternal(name, formid, closeOnSuccess, demoid);
+            }
+        });
+    }
+
+    function runDocMacroInternal(name, formid, closeOnSuccess, demographicNo) {
+        var url = '<%=request.getContextPath()%>' + '/oscarMDS/RunMacro.do?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
+        var formEl = document.getElementById(formid);
+        var data = new URLSearchParams(new FormData(formEl)).toString();
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: data
+        })
+        .then(function() {
+            if (closeOnSuccess) {
+                window.close();
+            }
+        });
+    }
 
 
 </script>
