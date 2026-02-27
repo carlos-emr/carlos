@@ -650,7 +650,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // When - query by facilityId (triggers Program subquery branch)
-            List<Provider> results = providerDao.getActiveProviders(String.valueOf(facilityId), null);
+            List<Provider> results = providerDao.getActiveProviders(String.valueOf(facilityId), (String) null);
 
             // Then
             assertThat(results)

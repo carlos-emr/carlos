@@ -523,8 +523,9 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Disabled("HQL_GET_USAGES has two defects: (1) 'from ?1 a' attempts to parameterize the "
                 + "entity name, which HQL does not support — only column values can be parameterized; "
                 + "(2) getUsages() calls getHibernateTemplate().find(HQL_GET_USAGES, start) passing "
-                + "only 1 argument, but HQL_GET_USAGES has two positional params (?1 in FROM, ?2 in "
-                + "WHERE), so ?2 would be unbound even if ?1 were fixed. Requires DAO refactoring.")
+                + "only 1 argument. HibernateTemplate.find(String, Object) binds a single argument "
+                + "to ?0, so the HQL params ?1 (FROM clause) and ?2 (WHERE clause) are both unbound "
+                + "even if defect (1) were fixed. Requires DAO refactoring.")
         void shouldReturnThreeElementArray_whenCalled() {
             // Given
             // KNOWN DEFECT: The HQL constant HQL_GET_USAGES uses "from ?1 a" to parameterize
@@ -1267,6 +1268,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
     class InterfaceConstants {
 
         @Test
+        @Tag("read")
         @DisplayName("should define LOW as index 0")
         void shouldDefineLow_asIndexZero() {
             // Then
@@ -1274,6 +1276,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("read")
         @DisplayName("should define MEDIUM as index 1")
         void shouldDefineMedium_asIndexOne() {
             // Then
@@ -1281,6 +1284,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("read")
         @DisplayName("should define HIGH as index 2")
         void shouldDefineHigh_asIndexTwo() {
             // Then

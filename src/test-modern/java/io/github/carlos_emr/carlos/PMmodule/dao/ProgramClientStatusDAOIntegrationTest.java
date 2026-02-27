@@ -228,15 +228,18 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
      * whether a status name already exists for a given program.
      *
      * <p>Disabled because {@code ProgramClientStatusDAOImpl} declares a public
-     * {@code sessionFactory} field that shadows the parent {@code HibernateDaoSupport} field
-     * but is never injected by Spring — see {@code @Disabled} annotation below.</p>
+     * {@code sessionFactory} field with no {@code @Autowired} annotation. Spring never injects
+     * it, so the field remains {@code null} at runtime — see {@code @Disabled} annotation
+     * below.</p>
      */
     @Nested
     @DisplayName("clientStatusNameExists")
     @Disabled("Production bug: ProgramClientStatusDAOImpl declares a public 'sessionFactory' field "
-        + "that shadows the parent HibernateDaoSupport field but is never injected by Spring. "
-        + "clientStatusNameExists() throws NullPointerException at sessionFactory.getCurrentSession(). "
-        + "Fix: remove the shadowing field declaration so the parent's injected sessionFactory is used.")
+        + "with no @Autowired annotation. Spring never injects it (the parent HibernateDaoSupport "
+        + "receives the session factory correctly via its own setSessionFactory() wiring), so this "
+        + "field remains null. clientStatusNameExists() reads it directly, causing NullPointerException "
+        + "at sessionFactory.getCurrentSession(). Fix: remove the public field and use "
+        + "getHibernateTemplate().getSessionFactory() instead.")
     class ClientStatusNameExists {
 
         @Test
