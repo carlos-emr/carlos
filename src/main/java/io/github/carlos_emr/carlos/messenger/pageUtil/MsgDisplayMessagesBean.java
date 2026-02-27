@@ -163,7 +163,6 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
         if (filter == null || filter.equals("")) {
             this.filter = null;
         } else {
-            filter = filter.replaceAll("'", "''");
             this.filter = filter;
         }
     }
