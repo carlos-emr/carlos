@@ -180,7 +180,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
         } 
         // Process reply or reply all operations
-        else if (reply.equalsIgnoreCase("Reply") || (replyAll.equalsIgnoreCase("reply All"))) {
+        else if ("Reply".equalsIgnoreCase(reply) || "reply All".equalsIgnoreCase(replyAll)) {
 
             // Retrieve original message and format for quoting
             StringBuilder theSendMessage = new StringBuilder();
@@ -219,7 +219,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
         } 
         // Process forward operation
-        else if (forward.equals("Forward")) {
+        else if ("Forward".equalsIgnoreCase(forward)) {
             // Prepare subject with "Fwd:" prefix
             StringBuilder subject = new StringBuilder("Fwd:");
             String themessage = new String();

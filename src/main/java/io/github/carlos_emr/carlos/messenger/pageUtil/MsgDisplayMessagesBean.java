@@ -155,12 +155,13 @@ public class MsgDisplayMessagesBean implements java.io.Serializable {
     /**
      * Sets the search filter for message filtering.
      *
-     * <p>Single quotes in the filter string are escaped to prevent SQL injection.</p>
+     * <p>SQL injection prevention is handled downstream via parameterized queries
+     * in {@link #getSQLSearchFilterParameterized(String[])}.</p>
      *
      * @param filter String search filter to apply, null to clear filter
      */
     public void setFilter(String filter) {
-        if (filter == null || filter.equals("")) {
+        if (filter == null || filter.isEmpty()) {
             this.filter = null;
         } else {
             this.filter = filter;
