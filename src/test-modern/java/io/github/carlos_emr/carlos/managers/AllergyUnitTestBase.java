@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Facility;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -34,16 +34,16 @@ import java.util.Date;
 /**
  * Base class for Allergy-related unit tests providing common mocks and test data builders.
  *
- * <p>Extends OpenOUnitTestBase and adds Allergy-specific test infrastructure
+ * <p>Extends CarlosUnitTestBase and adds Allergy-specific test infrastructure
  * including commonly used mocks, helper methods, and test data builders.</p>
  *
  * @since 2026-02-09
- * @see OpenOUnitTestBase
+ * @see CarlosUnitTestBase
  */
 @Tag("unit")
 @Tag("fast")
 @Tag("allergy")
-public abstract class AllergyUnitTestBase extends OpenOUnitTestBase {
+public abstract class AllergyUnitTestBase extends CarlosUnitTestBase {
 
     protected SecurityInfoManager mockSecurityInfoManager;
     protected LoggedInInfo mockLoggedInInfo;

@@ -112,7 +112,6 @@
     </div>
 
     <form name="serviceform" method="post" action="billingReportControl.jsp">
-        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
         <div class="form-inline" style="margin-bottom:10px;">
             <label class="radio-inline">
                 <input type="radio" name="reportAction" value="unbilled" checked> Unbilled

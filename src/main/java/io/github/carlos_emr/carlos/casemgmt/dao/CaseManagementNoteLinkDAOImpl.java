@@ -36,6 +36,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
 public class CaseManagementNoteLinkDAOImpl extends HibernateDaoSupport implements CaseManagementNoteLinkDAO {
@@ -49,40 +50,36 @@ public class CaseManagementNoteLinkDAOImpl extends HibernateDaoSupport implement
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableId(Integer tableName, Long tableId) {
-        Object[] param = {tableName, tableId};
-        String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?0 and cLink.tableId = ?1 order by cLink.id";
-        return (List<CaseManagementNoteLink>) this.getHibernateTemplate().find(hql, param);
+        String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?1 and cLink.tableId = ?2 order by cLink.id";
+        return (List<CaseManagementNoteLink>) HqlQueryHelper.find(currentSession(), hql, tableName, tableId);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableId(Integer tableName, Long tableId, String otherId) {
-        Object[] param = {tableName, tableId, otherId};
-        String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?0 and cLink.tableId = ?1 and cLink.otherId=?2 order by cLink.id";
-        return (List<CaseManagementNoteLink>) this.getHibernateTemplate().find(hql, param);
+        String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?1 and cLink.tableId = ?2 and cLink.otherId=?3 order by cLink.id";
+        return (List<CaseManagementNoteLink>) HqlQueryHelper.find(currentSession(), hql, tableName, tableId, otherId);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableIdDesc(Integer tableName, Long tableId) {
-        Object[] param = {tableName, tableId};
-        String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?0 and cLink.tableId = ?1 order by cLink.id desc";
-        return (List<CaseManagementNoteLink>) this.getHibernateTemplate().find(hql, param);
+        String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?1 and cLink.tableId = ?2 order by cLink.id desc";
+        return (List<CaseManagementNoteLink>) HqlQueryHelper.find(currentSession(), hql, tableName, tableId);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByTableIdDesc(Integer tableName, Long tableId, String otherId) {
-        Object[] param = {tableName, tableId, otherId};
-        String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?0 and cLink.tableId = ?1 and cLink.otherId=?2 order by cLink.id desc";
-        return (List<CaseManagementNoteLink>) this.getHibernateTemplate().find(hql, param);
+        String hql = "from CaseManagementNoteLink cLink where cLink.tableName = ?1 and cLink.tableId = ?2 and cLink.otherId=?3 order by cLink.id desc";
+        return (List<CaseManagementNoteLink>) HqlQueryHelper.find(currentSession(), hql, tableName, tableId, otherId);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNoteLink> getLinkByNote(Long noteId) {
-        String hql = "from CaseManagementNoteLink cLink where cLink.noteId = ?0 order by cLink.id";
-        return (List<CaseManagementNoteLink>) this.getHibernateTemplate().find(hql, noteId);
+        String hql = "from CaseManagementNoteLink cLink where cLink.noteId = ?1 order by cLink.id";
+        return (List<CaseManagementNoteLink>) HqlQueryHelper.find(currentSession(), hql, noteId);
     }
 
     @Override

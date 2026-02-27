@@ -71,7 +71,7 @@ mysql -h db -uroot -ppassword oscar -e "SELECT provider_no, first_name, last_nam
 After successful execution:
 - Patient records are reloaded with fresh demo data
 - All patient names are prefixed with "FAKE-"
-- Login credentials remain: `openodoc` / `openo2025`
+- Login credentials remain: `carlosdoc` / `carlos2026`
 - Application should function normally with test data
 
 ## Troubleshooting

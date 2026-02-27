@@ -1,13 +1,24 @@
 /**
  * Copyright (c) 2025. Magenta Health. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
  *
- * OpenO Test Framework Base Class
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
- * Foundation class for all OpenO EMR test suites providing common
- * test infrastructure and utilities.
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * @author yingbull
- * @since 2025-09-15
+ * Now maintained by the CARLOS EMR Project.
+ * https://github.com/carlos-emr/carlos
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.test.base;
 
@@ -26,17 +37,15 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.TestPropertySource;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.mockito.MockitoAnnotations;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
 /**
- * Base test class for OpenO EMR that handles the SpringUtils anti-pattern
+ * Base test class for CARLOS EMR that handles the SpringUtils anti-pattern
  * and provides modern JUnit 5 testing capabilities while maintaining
  * compatibility with legacy code patterns.
  *
@@ -60,8 +69,7 @@ import java.lang.reflect.Method;
  *
  * @see SpringUtils
  * @see SpringExtension
- * @author yingbull
- * @since 2025-09-15
+ * @since 2025-09-19
  */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = {
@@ -71,10 +79,10 @@ import java.lang.reflect.Method;
 @Transactional
 @Rollback
 @TestPropertySource(locations = "classpath:test.properties")
-public abstract class OpenOTestBase {
+public abstract class CarlosTestBase {
 
     /** Logger instance for test debugging and information */
-    protected static final Logger logger = LogManager.getLogger(OpenOTestBase.class);
+    protected static final Logger logger = LogManager.getLogger(CarlosTestBase.class);
 
     /** Spring application context for the test */
     @Autowired
@@ -83,11 +91,12 @@ public abstract class OpenOTestBase {
     /**
      * HibernateTemplate for flushing the standalone Hibernate Session.
      *
-     * <p>During the Hibernate→JPA migration, legacy HibernateDaoSupport DAOs write
-     * through the standalone Hibernate Session while modern DAOs use the JPA
-     * EntityManager. These are separate persistence contexts sharing the same JDBC
-     * Connection. Calling {@code entityManager.flush()} does NOT flush the Hibernate
-     * Session. Tests that persist data through HibernateDaoSupport DAOs must call
+     * <p>CARLOS EMR uses a permanent mixed-persistence architecture: legacy
+     * {@code HibernateDaoSupport} DAOs write through the standalone Hibernate
+     * Session while modern DAOs use the JPA {@code EntityManager}. These are
+     * separate persistence contexts sharing the same JDBC Connection.
+     * Calling {@code entityManager.flush()} does NOT flush the Hibernate Session.
+     * Tests that persist data through {@code HibernateDaoSupport} DAOs must call
      * {@code hibernateTemplate.flush()} to push those writes to the database before
      * verification queries.</p>
      */
@@ -136,13 +145,17 @@ public abstract class OpenOTestBase {
     }
 
     /**
-     * Capture the application context for static initialization.
+     * Captures the application context injected by Spring's {@code @Autowired}
+     * setter injection and initialises the static {@code SpringUtils} bean factory.
      *
-     * <p>This method is called by Spring during context initialization.
-     * We store the context statically to enable SpringUtils initialization
-     * for all test instances.
+     * <p>Called by Spring's dependency-injection mechanism during test context
+     * initialization. The {@code @BeforeAll} guard in {@link #initializeSpringUtils()}
+     * is a safety net: if {@code setApplicationContext} has already fired on a prior
+     * test-class instance in the same JVM run, {@code staticContext} will already be
+     * non-null and {@code @BeforeAll} can complete initialization without waiting for
+     * setter injection on the new instance.</p>
      *
-     * @param context the Spring application context
+     * @param context the Spring application context injected by Spring
      */
     @Autowired
     public void setApplicationContext(ApplicationContext context) {
@@ -160,7 +173,6 @@ public abstract class OpenOTestBase {
      * <ul>
      *   <li>Stores test metadata for logging</li>
      *   <li>Initializes Mockito annotations</li>
-     *   <li>Sets up LoggedInInfo for security context</li>
      * </ul>
      *
      * @param testInfo JUnit 5 test information
@@ -179,19 +191,12 @@ public abstract class OpenOTestBase {
     }
 
     /**
-     * Create a mock LoggedInInfo for testing.
-     *
-     * <p>LoggedInInfo represents the security context containing the
-     * currently logged-in user's information. Override this method
-     * to customize the security context for specific test scenarios.
-     *
-     * <p><b>Implementation Note:</b>
-     * The actual implementation depends on how LoggedInInfo is stored
-     * (session, ThreadLocal, etc.) in your application.
+     * No-op hook for subclasses that need a test {@code LoggedInInfo} in the
+     * security context. Override this method when the code under test calls
+     * {@code LoggedInInfo.getLoggedInInfoFromSession(request)}.
      */
     protected void setUpLoggedInInfo() {
-        // This would typically set up a test LoggedInInfo in session or ThreadLocal
-        // Based on how your LoggedInInfo.getLoggedInInfoFromSession() works
+        // No-op by default — override in subclasses that require a security context.
     }
 
     /**

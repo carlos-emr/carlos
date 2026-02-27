@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.tickler;
 
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -38,7 +38,7 @@ import java.util.Date;
 /**
  * Base class for Tickler-related unit tests providing common mocks and utilities.
  *
- * <p>This class extends OpenOUnitTestBase and adds Tickler-specific test infrastructure
+ * <p>This class extends CarlosUnitTestBase and adds Tickler-specific test infrastructure
  * including commonly used mocks, helper methods, and test data builders. It serves as
  * the foundation for all Tickler unit tests, enabling consistent test patterns across
  * DAO, Manager, and validation layers.</p>
@@ -52,12 +52,12 @@ import java.util.Date;
  * </ul>
  *
  * @since 2025-01-17
- * @see OpenOUnitTestBase
+ * @see CarlosUnitTestBase
  */
 @Tag("unit")
 @Tag("fast")
 @Tag("tickler")
-public abstract class TicklerUnitTestBase extends OpenOUnitTestBase {
+public abstract class TicklerUnitTestBase extends CarlosUnitTestBase {
 
     // Common mocks that most Tickler tests will need
     @Mock

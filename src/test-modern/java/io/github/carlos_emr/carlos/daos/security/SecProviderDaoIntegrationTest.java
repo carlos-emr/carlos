@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.daos.security;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("security")
 @Transactional
-public class SecProviderDaoIntegrationTest extends OpenOTestBase {
+public class SecProviderDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private SecProviderDao secProviderDao;
@@ -154,6 +154,33 @@ public class SecProviderDaoIntegrationTest extends OpenOTestBase {
             // Then
             assertThat(result).isNotNull();
             assertThat(result.getFirstName()).isEqualTo("John");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find providers by last name via findByProperty path")
+        @SuppressWarnings("unchecked")
+        void shouldFindProviders_byLastName() {
+            List<SecProvider> results = secProviderDao.findByLastName("Smith");
+
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(SecProvider::getProviderNo)
+                .contains(uniquePrefix + "01")
+                .doesNotContain(uniquePrefix + "02", uniquePrefix + "03");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return all providers via findAll")
+        @SuppressWarnings("unchecked")
+        void shouldReturnAllProviders_viaFindAll() {
+            List<SecProvider> results = secProviderDao.findAll();
+
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(SecProvider::getProviderNo)
+                .contains(uniquePrefix + "01", uniquePrefix + "02", uniquePrefix + "03");
         }
 
         @Test

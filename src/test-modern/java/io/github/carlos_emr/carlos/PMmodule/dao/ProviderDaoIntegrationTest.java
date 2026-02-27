@@ -20,8 +20,9 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -50,7 +51,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class ProviderDaoIntegrationTest extends OpenOTestBase {
+public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProviderDao providerDao;
@@ -421,6 +422,176 @@ public class ProviderDaoIntegrationTest extends OpenOTestBase {
             assertThat(inactiveOnly)
                 .extracting(Provider::getProviderNo)
                 .contains("T004");
+        }
+    }
+
+    /**
+     * Tests for getCurrentTeamProviders(String providerNo).
+     *
+     * <p>This method uses SQL injection-prone string concatenation to build a query that
+     * finds active providers with non-empty OHIP numbers on the same team as the given
+     * provider. PR #89 rewrites this to use named parameters.</p>
+     */
+    @Nested
+    @DisplayName("getCurrentTeamProviders (1 param: providerNo)")
+    class GetCurrentTeamProviders {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return team providers with non-empty OHIP numbers")
+        void shouldReturnTeamProviders_withNonEmptyOhip() {
+            // Given — set up two providers on same team with OHIP, one without, one on different team
+            Provider withOhip1 = persistProvider("TM001", "Team", "One", "1", "doctor");
+            withOhip1.setTeam("TeamA");
+            withOhip1.setOhipNo("OH001");
+            hibernateTemplate.update(withOhip1);
+
+            Provider withOhip2 = persistProvider("TM002", "Team", "Two", "1", "doctor");
+            withOhip2.setTeam("TeamA");
+            withOhip2.setOhipNo("OH002");
+            hibernateTemplate.update(withOhip2);
+
+            Provider noOhip = persistProvider("TM003", "No", "Ohip", "1", "doctor");
+            noOhip.setTeam("TeamA");
+            // OhipNo is null/empty — should be excluded
+            hibernateTemplate.update(noOhip);
+
+            Provider diffTeam = persistProvider("TM004", "Diff", "Team", "1", "doctor");
+            diffTeam.setTeam("TeamB");
+            diffTeam.setOhipNo("OH004");
+            hibernateTemplate.update(diffTeam);
+            hibernateTemplate.flush();
+
+            // When
+            List<Provider> results = providerDao.getCurrentTeamProviders("TM001");
+
+            // Then — same-team + OHIP providers returned; different team excluded
+            assertThat(results)
+                .extracting(Provider::getProviderNo)
+                .contains("TM001", "TM002")
+                .doesNotContain("TM003", "TM004");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should include requesting provider when only team member")
+        void shouldIncludeRequestingProvider_whenOnlyTeamMember() {
+            // Given — solo provider on a unique team
+            Provider solo = persistProvider("TM010", "Solo", "Provider", "1", "doctor");
+            solo.setTeam("UniqTeam");
+            solo.setOhipNo("OHSOLO");
+            hibernateTemplate.update(solo);
+            hibernateTemplate.flush();
+
+            // When
+            List<Provider> results = providerDao.getCurrentTeamProviders("TM010");
+
+            // Then — the requesting provider should be found
+            assertThat(results)
+                .extracting(Provider::getProviderNo)
+                .contains("TM010");
+        }
+    }
+
+    /**
+     * Tests for getProviderByPractitionerNo(String[] practitionerNoTypes, String practitionerNo).
+     *
+     * <p>PR #89 fixed the pre-existing bug where {@code IN (?0)} with a {@code String[]}
+     * caused a ClassCastException. The fix converts to a named parameter with proper list
+     * binding ({@code IN (:types)} + {@code setParameterList}), so the method now works
+     * correctly.</p>
+     */
+    @Nested
+    @DisplayName("getProviderByPractitionerNo (2 params: types[], practitionerNo)")
+    class GetProviderByPractitionerNoArray {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return provider when types array and practitioner number match")
+        void shouldThrowClassCastException_whenArrayPassedToPositionalParam() {
+            // Given
+            Provider prov = persistProvider("PN001", "Pract", "Test", "1", "doctor");
+            prov.setPractitionerNo("PRAC12345");
+            prov.setPractitionerNoType("MSP");
+            hibernateTemplate.update(prov);
+            hibernateTemplate.flush();
+
+            // When — PR #89 fixed IN (?0) with String[] by switching to named param binding;
+            // the method now returns the correct result instead of throwing ClassCastException.
+            Provider result = providerDao.getProviderByPractitionerNo(new String[]{"MSP"}, "PRAC12345");
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getProviderNo()).isEqualTo("PN001");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw IllegalArgumentException when types array is null")
+        void shouldThrowIllegalArgumentException_whenTypesArrayIsNull() {
+            // When/Then — null types array triggers the guard clause
+            assertThatThrownBy(() ->
+                providerDao.getProviderByPractitionerNo((String[]) null, "PRAC12345")
+            ).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    /**
+     * Tests for getActiveProviders(String facilityId, String programId).
+     *
+     * <p>This method has three branches: programId-based (ProgramProvider subquery),
+     * facilityId-based (Program subquery), and null/null (all active). PR #89 converts
+     * the positional parameters from ?0 to ?1.</p>
+     */
+    @Nested
+    @DisplayName("getActiveProviders (2 params: facilityId, programId)")
+    class GetActiveProvidersByFacilityAndProgram {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return active providers for specific program")
+        void shouldReturnActiveProviders_forSpecificProgram() {
+            // Given — create Program first (FK constraint from program_provider)
+            io.github.carlos_emr.carlos.PMmodule.model.Program program =
+                new io.github.carlos_emr.carlos.PMmodule.model.Program();
+            program.setName("Test Program");
+            program.setType("community");
+            program.setProgramStatus("active");
+            hibernateTemplate.save(program);
+            hibernateTemplate.flush();
+            Integer programId = program.getId();
+
+            // Create a provider and link via ProgramProvider
+            Provider progProv = persistProvider("PP001", "Prog", "Prov", "1", "doctor");
+            hibernateTemplate.flush();
+
+            ProgramProvider pp = new ProgramProvider();
+            pp.setProgramId(programId.longValue());
+            pp.setProviderNo("PP001");
+            hibernateTemplate.save(pp);
+            hibernateTemplate.flush();
+
+            // When — query by programId (triggers ProgramProvider subquery)
+            List<Provider> results = providerDao.getActiveProviders(null, String.valueOf(programId));
+
+            // Then
+            assertThat(results)
+                .extracting(Provider::getProviderNo)
+                .contains("PP001");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return all active providers when both params are null")
+        void shouldReturnAllActiveProviders_whenBothParamsAreNull() {
+            // When — null/null triggers the all-active branch
+            List<Provider> results = providerDao.getActiveProviders((String) null, (String) null);
+
+            // Then — should include active providers from @BeforeEach (T001, T002, T003)
+            assertThat(results)
+                .extracting(Provider::getProviderNo)
+                .contains("T001", "T002", "T003")
+                .doesNotContain("T004"); // T004 is inactive
         }
     }
 }

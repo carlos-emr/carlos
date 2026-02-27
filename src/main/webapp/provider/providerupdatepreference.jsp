@@ -115,7 +115,8 @@
             try {
                 // Validate tickler provider number if provided (but don't save yet)
                 String ticklerforproviderno = request.getParameter("ticklerforproviderno");
-                if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()) {
+                if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()
+                        && !"null".equalsIgnoreCase(ticklerforproviderno.trim())) {
                     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
                     if (!providerDao.providerExists(ticklerforproviderno.trim())) {
                         String correlationId = UUID.randomUUID().toString();
@@ -135,7 +136,8 @@
                     ProviderPropertyAction.updateOrCreateProviderProperties(request);
 
                     // Save tickler provider number after other preferences succeed
-                    if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()) {
+                    if (ticklerforproviderno != null && !ticklerforproviderno.trim().isEmpty()
+                            && !"null".equalsIgnoreCase(ticklerforproviderno.trim())) {
                         UserPropertyDAO propDao = SpringUtils.getBean(UserPropertyDAO.class);
                         UserProperty prop = propDao.getProp(curUser_providerno, UserProperty.PROVIDER_FOR_TICKLER_WARNING);
                         if (prop == null) {

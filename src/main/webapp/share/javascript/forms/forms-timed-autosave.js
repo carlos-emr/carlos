@@ -1,6 +1,6 @@
 class FormsTimedAutosave {
 
-    constructor(formId, autosaveInterval, saveEndpointUrl, csrfToken, validationMethod, validationFailedMessage, messageDivName, promptSaveOnClose = false) {
+    constructor(formId, autosaveInterval, saveEndpointUrl, validationMethod, validationFailedMessage, messageDivName, promptSaveOnClose = false) {
         let formElement = document.getElementById(formId);
         if (!formElement) {
             console.error(`FormsTimedAutosave: formElement \'${formId}\' does not exist`)
@@ -9,7 +9,6 @@ class FormsTimedAutosave {
         this.idleTime = 0;
         this.changed = false;
         this.saveEndpointUrl = saveEndpointUrl;
-        this.csrfToken = csrfToken;
         this.messageDivName = messageDivName;
         this.validationMethod = validationMethod;
         this.validationFailedMessage = validationFailedMessage;
@@ -68,7 +67,6 @@ class FormsTimedAutosave {
         httpRequest.addEventListener('error', onSendRequestErrorEvent);
 
         httpRequest.open('POST', this.saveEndpointUrl);
-        httpRequest.setRequestHeader(this.csrfToken['name'], this.csrfToken['value']);
         httpRequest.send(formData);
     }
 

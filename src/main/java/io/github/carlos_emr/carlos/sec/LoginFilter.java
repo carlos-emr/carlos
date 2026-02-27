@@ -161,7 +161,10 @@ public class LoginFilter implements Filter {
             "/loginResource",
             "/css/font/Roboto",
 		"/csrfguard",
-		"/mfa/"
+		"/mfa/",
+		// Heartbeat endpoint must be reachable without an active session so windows
+		// can detect server-side logout/timeout even after the session has been destroyed
+		"/status/sessionHeartbeat.jsp"
     };
 
     /**
@@ -204,7 +207,10 @@ public class LoginFilter implements Filter {
             "/css/bootstrap",
             "/css/Roboto.css",
             "/loginResource",
-            "/css/font/Roboto"
+            "/css/font/Roboto",
+            // Heartbeat polling must not extend the inactivity timer, otherwise
+            // background heartbeats would prevent legitimate session timeouts
+            "/status/sessionHeartbeat.jsp"
     };
 
     /**
@@ -231,6 +237,12 @@ public class LoginFilter implements Filter {
      */
     public void init(FilterConfig config) throws ServletException {
         logger.info("Starting Filter : " + getClass().getSimpleName());
+        String limitProp = OscarProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
+        if (limitProp == null || limitProp.trim().isEmpty()) {
+            logger.warn("INACTIVITY_LIMIT_MINS not configured, using default: 60 minutes");
+        } else {
+            logger.info("INACTIVITY_LIMIT_MINS configured: {} minutes", limitProp.trim());
+        }
     }
 
     /**
@@ -281,6 +293,9 @@ public class LoginFilter implements Filter {
         String contextPath = httpRequest.getContextPath();
         String requestURI = httpRequest.getRequestURI();
         String InActivityLimitInMins = OscarProperties.getInstance().getProperty("INACTIVITY_LIMIT_MINS");
+        if (InActivityLimitInMins == null || InActivityLimitInMins.trim().isEmpty()) {
+            InActivityLimitInMins = "60";
+        }
 
         // Handle token-based authentication (for API/service requests)
         SecurityTokenManager stm = SecurityTokenManager.getInstance();

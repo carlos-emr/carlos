@@ -41,6 +41,10 @@
         <!-- Override mvel2 transitive dependency: 2.4.x references java.lang.Compiler (removed in JDK 16) -->
         <mvel2.version>2.5.2.Final</mvel2.version>
         <struts.devMode>false</struts.devMode>
+        <!-- Suppress Struts 6.x com.opensymphony.xwork2.* deprecation warnings by default.
+             These are expected and harmless (WW-5494); packages remain functional until Struts 7.x.
+             CI can restore visibility with: mvn ... -Dmaven.compiler.showDeprecation=true -->
+        <maven.compiler.showDeprecation>false</maven.compiler.showDeprecation>
         <!-- Test properties -->
         <skipModernTests>false</skipModernTests>
         <skipLegacyTests>false</skipLegacyTests>
@@ -184,6 +188,13 @@
                 <artifactId>xalan</artifactId>
                 <version>2.7.3</version>
             </dependency>
+            <!-- Xalan 2.7.3 requires its companion serializer artifact (provides
+                 org.apache.xml.serializer.OutputPropertiesFactory used by Struts 6.x) -->
+            <dependency>
+                <groupId>xalan</groupId>
+                <artifactId>serializer</artifactId>
+                <version>2.7.3</version>
+            </dependency>
             <!-- Override transitive org.hl7.fhir.core from hapi-fhir-structures-dstu3 to fix:
                  - CVE-2024-45294 (XXE in XSLT transforms)
                  - CVE-2024-51132 (XXE via crafted XML entities) -->
@@ -276,6 +287,13 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
+        </dependency>
+        <!-- SLF4J 2.x to Log4j2 bridge: routes SLF4J calls (used by CSRFGuard 4.x,
+             HAPI FHIR, and other libraries) to the Log4j2 backend -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j2-impl</artifactId>
+            <version>${log4j2.version}</version>
         </dependency>
 
         <!-- commons -->
@@ -448,9 +466,15 @@
             <artifactId>spring-orm</artifactId>
             <version>5.3.39</version>
         </dependency>
-        <!-- spring-webmvc removed: no DispatcherServlet, no @Controller annotations, no Spring MVC.
-             Replaced with spring-web which provides WebApplicationContext used by CXF and Struts.
-             Eliminates CVE alerts on spring-webmvc (path traversal, DoS). -->
+        <!-- spring-webmvc not used in production (no DispatcherServlet, no @Controller annotations).
+             Kept at test scope only for MockMvcBuilders in CarlosWebTestBase.
+             Production code uses spring-web which provides WebApplicationContext for CXF and Struts. -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+            <version>5.3.39</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
@@ -536,6 +560,12 @@
             <groupId>org.glassfish.web</groupId>
             <artifactId>javax.servlet.jsp.jstl</artifactId>
             <version>1.2.5</version>
+        </dependency>
+        <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
+             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts 6.x. -->
+        <dependency>
+            <groupId>xalan</groupId>
+            <artifactId>serializer</artifactId>
         </dependency>
 
         <!-- XMLBeans for AR2005 and CKD - using existing 3.1.0 version below -->
@@ -1086,7 +1116,17 @@
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard</artifactId>
-            <version>3.1.0</version>
+            <version>4.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard-extension-session</artifactId>
+            <version>4.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.owasp</groupId>
+            <artifactId>csrfguard-jsp-tags</artifactId>
+            <version>4.5.0</version>
         </dependency>
         
         <!-- OWASP ESAPI for ClickjackFilter -->
@@ -1415,6 +1455,11 @@
                 <configuration>
                     <source>21</source>
                     <target>21</target>
+                    <!-- Suppress Struts 6.x com.opensymphony.xwork2.* deprecation warnings.
+                         These are expected and harmless (see WW-5494); packages remain
+                         fully functional until Struts 7.x / Jakarta EE migration.
+                         Override via: mvn ... -Dmaven.compiler.showDeprecation=true -->
+                    <showDeprecation>${maven.compiler.showDeprecation}</showDeprecation>
                 </configuration>
             </plugin>
 
@@ -1605,6 +1650,11 @@
                         </goals>
                         <configuration>
                             <skip>${skipModernTests}</skip>
+                            <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
+                                 so forks are completely isolated and safe to run in parallel.
+                                 Legacy tests use a real MariaDB and must remain sequential. -->
+                            <forkCount>2</forkCount>
+                            <reuseForks>true</reuseForks>
                             <testSourceDirectory>src/test-modern/java</testSourceDirectory>
                             <reportsDirectory>${project.build.directory}/surefire-reports-modern</reportsDirectory>
                             <testClassesDirectory>${project.build.directory}/test-classes</testClassesDirectory>

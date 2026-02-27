@@ -51,8 +51,6 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-<%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
-
 <%@ page
         import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.providers.data.ProviderData, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
@@ -167,7 +165,6 @@
 <!DOCTYPE HTML>
 
 <html>
-<script src="${pageContext.request.contextPath}/csrfguard"></script>
 <head>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>Edit Document</title>
@@ -284,7 +281,6 @@
     <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditHtml.do" method="POST"
                        enctype="multipart/form-data" class="form"
                        onsubmit="return submitUpload(this);">
-    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
     <input type="hidden" name="function"
            value="<%=Encode.forHtmlAttribute(formdata.getFunction())%>" size="20"/>
     <input type="hidden" name="functionId"

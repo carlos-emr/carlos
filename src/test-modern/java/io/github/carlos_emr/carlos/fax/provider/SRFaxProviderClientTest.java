@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.fax.provider;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
 @Tag("fax")
 @Tag("srfax")
 @DisplayName("SRFaxProviderClient Unit Tests")
-class SRFaxProviderClientTest extends OpenOUnitTestBase {
+class SRFaxProviderClientTest extends CarlosUnitTestBase {
 
     private SRFaxProviderClient client;
 

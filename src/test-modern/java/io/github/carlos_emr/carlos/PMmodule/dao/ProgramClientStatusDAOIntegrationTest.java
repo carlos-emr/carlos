@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientStatus;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +48,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class ProgramClientStatusDAOIntegrationTest extends OpenOTestBase {
+public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProgramClientStatusDAO programClientStatusDAO;
@@ -129,6 +129,68 @@ public class ProgramClientStatusDAOIntegrationTest extends OpenOTestBase {
         void shouldThrow_whenStatusIdInvalid() {
             assertThatThrownBy(() -> programClientStatusDAO.getAllClientsInStatus(testProgramId1, null))
                 .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("clientStatusNameExists (2 params)")
+    class ClientStatusNameExists {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return true when both program and name match")
+        void shouldReturnTrue_whenBothProgramAndNameMatch() {
+            boolean result = programClientStatusDAO.clientStatusNameExists(testProgramId1, "Active");
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return false when name does not match")
+        void shouldReturnFalse_whenNameDoesNotMatch() {
+            boolean result = programClientStatusDAO.clientStatusNameExists(testProgramId1, "NonExistent");
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return false when name exists only for different program")
+        void shouldReturnFalse_whenNameExistsOnlyForDifferentProgram() {
+            // "Pending" exists under testProgramId1, not testProgramId2
+            boolean result = programClientStatusDAO.clientStatusNameExists(testProgramId2, "Pending");
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception when program ID is null")
+        void shouldThrow_whenProgramIdIsNull() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(null, "Active"))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception when program ID is zero")
+        void shouldThrow_whenProgramIdIsZero() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(0, "Active"))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception when status name is null")
+        void shouldThrow_whenStatusNameIsNull() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(testProgramId1, null))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception when status name is empty")
+        void shouldThrow_whenStatusNameIsEmpty() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(testProgramId1, ""))
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 
