@@ -59,11 +59,12 @@ public class QueueDocumentLinkDaoImpl extends AbstractDaoImpl<QueueDocumentLink>
         List<QueueDocumentLink> queues = query.getResultList();
         return queues;
     }
-
     @Override
     public List<QueueDocumentLink> getActiveQueueDocLink() {
         Query query = entityManager.createNativeQuery(
-                "SELECT q.* FROM queue_document_link q LEFT JOIN document d ON q.document_id = d.document_no WHERE q.status = ?1 ORDER BY d.updatedatetime IS NULL, d.updatedatetime ASC, q.document_id ASC, q.id ASC",
+                "SELECT q.* FROM queue_document_link q LEFT JOIN document d ON q.document_id = d.document_no " +
+                "WHERE q.status = ?1 " +
+                "ORDER BY CASE WHEN d.updatedatetime IS NULL THEN 1 ELSE 0 END, d.updatedatetime ASC",
                 QueueDocumentLink.class);
         query.setParameter(1, "A");
 
