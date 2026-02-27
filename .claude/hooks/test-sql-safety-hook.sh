@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# Test script for the improved SQL safety hook.
+# Test script for the SQL safety hook.
 # Sends simulated Edit/Write JSON payloads and verifies exit codes.
 #
-# Usage: bash temp-claude/test-sql-safety-hook.sh
+# Usage: bash .claude/hooks/test-sql-safety-hook.sh
 #
 # Exit codes from hook:
 #   0 = allowed (safe or not applicable)
@@ -29,9 +29,10 @@ run_test() {
     local json_payload="$3"
     TOTAL=$((TOTAL + 1))
 
-    # Run the hook, capture exit code, suppress stderr
+    # Run the hook, capture exit code and stderr output for diagnostics
     set +e
-    echo "$json_payload" | python3 "$HOOK" 2>/dev/null
+    local hook_output
+    hook_output=$(echo "$json_payload" | python3 "$HOOK" 2>&1)
     actual_exit=$?
     set -e
 
@@ -40,6 +41,10 @@ run_test() {
         PASS=$((PASS + 1))
     else
         echo -e "  ${RED}FAIL${NC}: $description (expected=$expected_exit, got=$actual_exit)"
+        if [ -n "$hook_output" ]; then
+            echo -e "    Hook output:"
+            echo "$hook_output" | sed 's/^/      /'
+        fi
         FAIL=$((FAIL + 1))
     fi
 }
@@ -197,7 +202,7 @@ run_test "TP-2: String.format SQL injection" 2 '{
   }
 }'
 
-# Test TP-3: Quoted value injection
+# Test TP-3: Quoted value injection (quote-sandwich pattern)
 # Note: Single quotes in JSON content require special bash escaping
 run_test "TP-3: Quoted value injection" 2 '{"tool_name":"Edit","tool_input":{"file_path":"/path/to/UnsafeDao.java","new_string":"String sql = \"SELECT * FROM patients WHERE name = '"'"'\" + patientName + \"'"'"'\";" }}'
 
@@ -225,6 +230,17 @@ run_test "TP-6: WHERE clause direct value injection" 2 '{
   "tool_input": {
     "file_path": "/path/to/UnsafeDao.java",
     "new_string": "String condition = \"WHERE status = \" + userStatus;\nString sql = \"SELECT * FROM orders \" + condition;"
+  }
+}'
+
+# Test TP-7: Mixed safe setParameter and unsafe concatenation in same file
+# A single setParameter elsewhere in the file must NOT whitelist an unsafe concat.
+# This tests the critical case: file-wide bypass must NOT fire.
+run_test "TP-7: Mixed safe setParameter and unsafe concat should be blocked" 2 '{
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/path/to/MixedDao.java",
+    "new_string": "Query q = entityManager.createQuery(\"SELECT u FROM User u WHERE u.id = :id\");\nq.setParameter(\"id\", userId);\nString sql = \"SELECT * FROM users WHERE name = '"'"'\" + userName + \"'"'"'\";"
   }
 }'
 
