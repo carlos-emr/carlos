@@ -512,18 +512,11 @@
             <version>6.3.9</version>
         </dependency>
 
-        <!-- Spring Cache Support with EhCache 2.x -->
+        <!-- Spring Context Support (provides JavaMailSenderImpl for email) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context-support</artifactId>
             <version>5.3.39</version>
-        </dependency>
-
-        <!-- EhCache 2.x for Spring Cache -->
-        <dependency>
-            <groupId>net.sf.ehcache</groupId>
-            <artifactId>ehcache</artifactId>
-            <version>2.10.9.2</version>
         </dependency>
 
         <!-- hibernate / sql -->
