@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
@@ -302,7 +303,7 @@ public class EmailNoteUtil {
     }
 
     private void addSentByLine(StringBuilder noteBuilder) {
-        String dateTime = DateUtils.format(SENT_DATE_FORMAT, emailLog.getTimestamp(), null);
+        String dateTime = DateUtils.format(SENT_DATE_FORMAT, emailLog.getTimestamp(), Locale.ENGLISH);
         String displayName = resolveProviderDisplayName();
         noteBuilder.append("\n\n[Sent on ").append(dateTime);
         if (!displayName.isBlank()) {
