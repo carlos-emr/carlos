@@ -234,12 +234,17 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
      */
     @Nested
     @DisplayName("clientStatusNameExists")
-    @Disabled("Production bug: ProgramClientStatusDAOImpl declares a public 'sessionFactory' field "
-        + "with no @Autowired annotation. Spring never injects it (the parent HibernateDaoSupport "
-        + "receives the session factory correctly via its own setSessionFactory() wiring), so this "
-        + "field remains null. clientStatusNameExists() reads it directly, causing NullPointerException "
-        + "at sessionFactory.getCurrentSession(). Fix: remove the public field and use "
-        + "getHibernateTemplate().getSessionFactory() instead.")
+    @Disabled("Production bug — two independent defects: "
+        + "(1) ProgramClientStatusDAOImpl declares a public 'sessionFactory' field with no "
+        + "@Autowired annotation. Spring never injects it, so the field remains null. "
+        + "clientStatusNameExists() reads it directly, causing NullPointerException at "
+        + "sessionFactory.getCurrentSession(). "
+        + "(2) The HQL uses 1-based positional parameters (?1, ?2) via session.createQuery(), "
+        + "a legacy Hibernate API that Hibernate 6 removes entirely. Even after fixing defect (1), "
+        + "the HQL must be rewritten to use 0-based (?0, ?1) or named (:programId, :statusName) "
+        + "parameters. "
+        + "Fix: remove the public sessionFactory field; replace session.createQuery() with "
+        + "getHibernateTemplate() and update positional parameter indices.")
     class ClientStatusNameExists {
 
         @Test

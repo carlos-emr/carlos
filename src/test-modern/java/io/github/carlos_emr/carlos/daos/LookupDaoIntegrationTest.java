@@ -1009,9 +1009,13 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @Disabled("Requires MySQL stored procedures - not supported in H2. " +
-                  "DBPreparedHandler.procExecute() builds a JDBC CallableStatement " +
-                  "'{call procName(?,?)}' which requires a real MySQL/MariaDB backend.")
+        @Disabled("Two blockers: (1) Requires MySQL stored procedures — H2 does not support "
+                + "MySQL-style CALL syntax. DBPreparedHandler.procExecute() builds a JDBC "
+                + "CallableStatement '{call procName(?,?)}' which requires a real MySQL/MariaDB "
+                + "backend. (2) procExecute() obtains its connection from "
+                + "DbConnectionFilter.getThreadLocalDbConnection(), a servlet-filter thread-local "
+                + "that is not populated in the Spring test context — the same limitation that "
+                + "disables the PopulationReportDao JDBC methods.")
         @DisplayName("should call stored procedure via DBPreparedHandler")
         void shouldCallStoredProcedure_viaDbPreparedHandler() throws SQLException {
             // This test documents that runProcedure delegates to DBPreparedHandler.procExecute()
@@ -1022,8 +1026,9 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @Disabled("Requires MySQL stored procedures - not supported in H2. " +
-                  "DBPreparedHandler.procExecute() builds a JDBC CallableStatement.")
+        @Disabled("Two blockers: (1) H2 does not support MySQL stored procedures. "
+                + "(2) procExecute() uses DbConnectionFilter.getThreadLocalDbConnection(), "
+                + "a servlet-filter thread-local unavailable in the Spring test context.")
         @DisplayName("should handle null params array in stored procedure call")
         void shouldHandleNullParams_inStoredProcedureCall() throws SQLException {
             // DBPreparedHandler.procExecute() handles null params by not adding parameter placeholders
@@ -1032,8 +1037,9 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @Disabled("Requires MySQL stored procedures - not supported in H2. " +
-                  "DBPreparedHandler.procExecute() builds a JDBC CallableStatement.")
+        @Disabled("Two blockers: (1) H2 does not support MySQL stored procedures. "
+                + "(2) procExecute() uses DbConnectionFilter.getThreadLocalDbConnection(), "
+                + "a servlet-filter thread-local unavailable in the Spring test context.")
         @DisplayName("should handle empty params array in stored procedure call")
         void shouldHandleEmptyParams_inStoredProcedureCall() throws SQLException {
             // Empty array: procExecute builds "{call test_proc}" with no params

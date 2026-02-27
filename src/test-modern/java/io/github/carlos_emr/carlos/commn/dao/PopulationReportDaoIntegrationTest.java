@@ -58,10 +58,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>This DAO uses two distinct persistence mechanisms:</p>
  * <ul>
  *   <li><b>HibernateTemplate HQL methods</b> (6 methods): {@code getCurrentPopulationSize},
- *       {@code getCurrentAndHistoricalPopulationSize}, {@code getUsages}, {@code getMortalities},
- *       {@code getPrevalence}, and {@code getIncidence}. These query the {@code Admission},
- *       {@code Program}, {@code Demographic}, and {@code CaseManagementIssue} entities via HQL
- *       and are fully testable in the Spring test context.</li>
+ *       {@code getCurrentAndHistoricalPopulationSize}, {@code getMortalities},
+ *       {@code getPrevalence}, and {@code getIncidence} are fully testable in the Spring test
+ *       context. {@code getUsages} is documented but disabled due to a known HQL defect —
+ *       see the note below.</li>
  *   <li><b>Raw JDBC methods</b> (7 methods): All {@code getCaseManagementNoteCount*} and
  *       {@code getCaseManagementNoteTotalUnique*} methods. These obtain a JDBC {@link Connection}
  *       from {@link DbConnectionFilter#getThreadLocalDbConnection()}, a servlet filter
