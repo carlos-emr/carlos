@@ -35,10 +35,11 @@ package io.github.carlos_emr.carlos.daos.security;
 import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 
 import io.github.carlos_emr.carlos.model.security.Secobjectname;
-
+import org.springframework.transaction.annotation.Transactional;
 /**
  * @author jackson
  */
+@Transactional
 public class SecObjectNameDaoImpl extends AbstractHibernateDao implements SecObjectNameDao {
 
     @Override
