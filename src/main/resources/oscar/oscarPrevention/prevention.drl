@@ -71,7 +71,7 @@
 //   Adolescent (12-18 years): MenC-C, HPV (3 doses)
 //   Adult:                    dTap (10-year booster), Td (10-year repeat), Flu (annual 65+)
 //   Women's health:           HPV-CERVIX (5-year cycle, 25-69), PAP (3-year cycle, 25-69),
-//                              MAM (2-year cycle, 50-69)
+//                              MAM (2-year cycle, 40-74)
 //   Colorectal screening:     FOBT/FIT (2-year cycle, 50-74), Colonoscopy (10-year)
 //   General wellness:         Smoking assessment (13+), BMD (65+), PHV (annual),
 //                              Annual Physical (annual), Obesity screening (annual)
@@ -809,19 +809,19 @@ end
 
 // --------------------------------------------------------------------------
 // MAM: Mammogram breast cancer screening (5 rules + 1 debug)
-// Canadian guideline: Mammography every 2 years, ages 50-69
+// Canadian guideline (ON/BC): Mammography every 2 years, ages 40-74
 // Rule 1: REMINDER at 22-24 months (coming due in next 2 months)
 // Rule 2: WARNING at >24 months (overdue)
 // Rule 3: WARNING if no mammogram records exist (new patient in age range)
 // Rule 4: WARNING when past next scheduled date (any age, female)
-// "MAM debug": Informational reminder showing months since last mammogram (18-69)
+// "MAM debug": Informational reminder showing months since last mammogram (18-74)
 // Exclusions: isPreventionNever(), isNextDateSet(), isInelligible()
 // --------------------------------------------------------------------------
 rule "MAM 1"
     when
         prev : Prevention()
-        eval( prev.getAgeInYears() >= 50 )
-        eval( prev.getAgeInYears() < 70 )
+        eval( prev.getAgeInYears() >= 40 )
+        eval( prev.getAgeInYears() <= 74 )
         eval( prev.isFemale() )
         eval( prev.getHowManyMonthsSinceLast("MAM") >= 22 )
         eval( prev.getHowManyMonthsSinceLast("MAM") <= 24 )
@@ -836,8 +836,8 @@ end
 rule "MAM 2"
     when
         prev : Prevention()
-        eval( prev.getAgeInYears() >= 50 )
-        eval( prev.getAgeInYears() < 70 )
+        eval( prev.getAgeInYears() >= 40 )
+        eval( prev.getAgeInYears() <= 74 )
         eval( prev.isFemale() )
         eval( prev.getHowManyMonthsSinceLast("MAM") > 24 )
         eval( !prev.isPreventionNever("MAM") )
@@ -851,8 +851,8 @@ end
 rule "MAM 3"
     when
         prev : Prevention()
-        eval( prev.getAgeInYears() >= 50 )
-        eval( prev.getAgeInYears() < 70 )
+        eval( prev.getAgeInYears() >= 40 )
+        eval( prev.getAgeInYears() <= 74 )
         eval( prev.isFemale() )
         eval( prev.getHowManyMonthsSinceLast("MAM") == -1 )
         eval( !prev.isInelligible("MAM") )
@@ -877,7 +877,7 @@ rule "MAM debug"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >= 18 )
-        eval( prev.getAgeInYears() < 70 )
+        eval( prev.getAgeInYears() <= 74 )
         eval( prev.isFemale() )
         eval( prev.getHowManyMonthsSinceLast("MAM") != -1 )
         eval( !prev.isInelligible("MAM") )

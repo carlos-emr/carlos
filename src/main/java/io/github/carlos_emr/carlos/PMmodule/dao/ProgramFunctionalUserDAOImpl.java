@@ -38,9 +38,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.FunctionalUserType;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramFunctionalUser;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+@Transactional
 public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements ProgramFunctionalUserDAO {
 
     private static Logger log = MiscUtils.getLogger();
@@ -54,7 +57,7 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
     @Override
     public List<FunctionalUserType> getFunctionalUserTypes() {
         String sSQL = "from FunctionalUserType";
-        List<FunctionalUserType> results = (List<FunctionalUserType>) this.getHibernateTemplate().find(sSQL);
+        List<FunctionalUserType> results = (List<FunctionalUserType>) HqlQueryHelper.find(currentSession(), sSQL);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUserTypes: # of results=" + results.size());
@@ -109,8 +112,8 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from ProgramFunctionalUser pfu where pfu.ProgramId = ?0";
-        List<FunctionalUserType> results = (List<FunctionalUserType>) this.getHibernateTemplate().find(sSQL, programId);
+        String sSQL = "from ProgramFunctionalUser pfu where pfu.ProgramId = ?1";
+        List<FunctionalUserType> results = (List<FunctionalUserType>) HqlQueryHelper.find(currentSession(), sSQL, programId);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUsers: programId=" + programId + ",# of results=" + results.size());
@@ -181,9 +184,9 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
 
         Long result = null;
 
-        String sSQL = "select pfu.ProgramId from ProgramFunctionalUser pfu where pfu.ProgramId = ?0 and pfu.UserTypeId = ?1";
+        String sSQL = "select pfu.ProgramId from ProgramFunctionalUser pfu where pfu.ProgramId = ?1 and pfu.UserTypeId = ?2";
         @SuppressWarnings("unchecked")
-        List<Long> results = (List<Long>) this.getHibernateTemplate().find(sSQL, new Object[]{programId, userTypeId});
+        List<Long> results = (List<Long>) HqlQueryHelper.find(currentSession(), sSQL, programId, userTypeId);
 
         if (!results.isEmpty()) {
             result = results.get(0);

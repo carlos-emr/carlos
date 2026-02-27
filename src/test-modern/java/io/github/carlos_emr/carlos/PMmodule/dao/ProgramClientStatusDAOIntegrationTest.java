@@ -111,6 +111,68 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
      * {@code getProgramClientStatuses(Integer)} and {@code getProgramClientStatus(String)}.
      */
     @Nested
+    @DisplayName("clientStatusNameExists (2 params)")
+    class ClientStatusNameExists {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return true when both program and name match")
+        void shouldReturnTrue_whenBothProgramAndNameMatch() {
+            boolean result = programClientStatusDAO.clientStatusNameExists(testProgramId1, "Active");
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return false when name does not match")
+        void shouldReturnFalse_whenNameDoesNotMatch() {
+            boolean result = programClientStatusDAO.clientStatusNameExists(testProgramId1, "NonExistent");
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return false when name exists only for different program")
+        void shouldReturnFalse_whenNameExistsOnlyForDifferentProgram() {
+            // "Pending" exists under testProgramId1, not testProgramId2
+            boolean result = programClientStatusDAO.clientStatusNameExists(testProgramId2, "Pending");
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception when program ID is null")
+        void shouldThrow_whenProgramIdIsNull() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(null, "Active"))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception when program ID is zero")
+        void shouldThrow_whenProgramIdIsZero() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(0, "Active"))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception when status name is null")
+        void shouldThrow_whenStatusNameIsNull() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(testProgramId1, null))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should throw exception when status name is empty")
+        void shouldThrow_whenStatusNameIsEmpty() {
+            assertThatThrownBy(() -> programClientStatusDAO.clientStatusNameExists(testProgramId1, ""))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Nested
     @DisplayName("Single parameter queries (baseline)")
     class SingleParamQueries {
 
