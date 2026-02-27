@@ -838,8 +838,7 @@ function HideSpin() {
 	})
 
 	/**
-	 * Disables resizing on all textarea elements to prevent content from being
-	 * truncated during PDF generation.
+	 * Disables resizing on all textarea elements.
 	 */
 	function disableTextareaResize() {
 		if (document.getElementById("eform-disable-textarea-resize")) {
@@ -852,6 +851,9 @@ function HideSpin() {
 		document.head.appendChild(style);
 	}
 
+	/**
+	 * Handles the visibility of the remote email button based on email privilege.
+	 */
 	function handleEmailPrivilege() {
 		// Get the value of the element with ID 'hasEmailPrivilege'
 		const hasEmailPrivilege = document.getElementById('hasEmailPrivilege');
