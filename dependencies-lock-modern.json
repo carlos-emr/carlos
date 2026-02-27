@@ -2425,6 +2425,14 @@
     "optional" : false,
     "integrity" : "sha512:AkbDVS+qgte0R+rPe1cQILycewP3qJaWnHbGwZgUdrXod+LDqQTTlbhiq2ayzVHy+83jfJQPktnLU8veoEuUBQ=="
   }, {
+    "groupId" : "org.ehcache",
+    "artifactId" : "ehcache",
+    "version" : "3.10.8",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:3ur7pjtP8I8mchqpuFgsSG1KEq04icPerbUsqGzXEhJVD/1x9878jlhUP9ART0jMCG7DwXMJHqelwvmaORmJPg=="
+  }, {
     "groupId" : "org.freemarker",
     "artifactId" : "freemarker",
     "version" : "2.3.33",
