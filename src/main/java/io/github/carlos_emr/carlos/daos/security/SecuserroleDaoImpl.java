@@ -215,25 +215,25 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         logger.debug("finding Secuserrole instance by example");
         try {
             // Build HQL dynamically using only known property names (no user input)
-            String hql = "from Secuserrole s where 1=1";
+            StringBuilder hql = new StringBuilder("from Secuserrole s where 1=1");
             Map<String, Object> params = new HashMap<>();
             if (instance.getProviderNo() != null) {
-                hql += " and s.providerNo = :providerNo";
+                hql.append(" and s.providerNo = :providerNo");
                 params.put("providerNo", instance.getProviderNo());
             }
             if (instance.getRoleName() != null) {
-                hql += " and s.roleName = :roleName";
+                hql.append(" and s.roleName = :roleName");
                 params.put("roleName", instance.getRoleName());
             }
             if (instance.getOrgcd() != null) {
-                hql += " and s.orgcd = :orgcd";
+                hql.append(" and s.orgcd = :orgcd");
                 params.put("orgcd", instance.getOrgcd());
             }
             if (instance.getActiveyn() != null) {
-                hql += " and s.activeyn = :activeyn";
+                hql.append(" and s.activeyn = :activeyn");
                 params.put("activeyn", instance.getActiveyn());
             }
-            List results = HqlQueryHelper.find(currentSession(), hql, params);
+            List results = HqlQueryHelper.find(currentSession(), hql.toString(), params);
             logger.debug("find by example successful, result size: "
                     + results.size());
             return results;
