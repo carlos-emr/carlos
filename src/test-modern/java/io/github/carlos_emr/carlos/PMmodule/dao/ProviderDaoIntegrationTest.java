@@ -1044,9 +1044,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
     /**
      * Tests for getProviderByPractitionerNo(String type, String no).
      *
-     * <p>This two-param overload delegates to the three-param array version, which
-     * has a known ClassCastException bug. The test documents that the delegation
-     * propagates the bug.</p>
+     * <p>This two-param overload delegates to the three-param array version. PR #89
+     * fixed the ClassCastException in the array version, so delegation now works
+     * correctly.</p>
      */
     @Nested
     @DisplayName("getProviderByPractitionerNo (2 params: type, practitionerNo)")
@@ -1054,8 +1054,8 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should throw ClassCastException because it delegates to array version")
-        void shouldThrowClassCastException_whenDelegatingToArrayVersion() {
+        @DisplayName("should return provider when type and practitioner number match")
+        void shouldReturnProvider_whenTypeAndPractitionerNoMatch() {
             // Given
             Provider prov = persistProvider("PN002", "Prac", "Two", "1", "doctor");
             prov.setPractitionerNo("PRAC999");
@@ -1063,10 +1063,13 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.update(prov);
             hibernateTemplate.flush();
 
-            // When/Then - two-param delegates to array version which has the IN (?0) bug
-            assertThatThrownBy(() ->
-                providerDao.getProviderByPractitionerNo("MSP", "PRAC999")
-            ).isInstanceOf(ClassCastException.class);
+            // When — PR #89 fixed the ClassCastException in the delegated array version;
+            // the 2-param overload now returns the correct result.
+            Provider result = providerDao.getProviderByPractitionerNo("MSP", "PRAC999");
+
+            // Then
+            assertThat(result).isNotNull();
+            assertThat(result.getProviderNo()).isEqualTo("PN002");
         }
 
         @Test

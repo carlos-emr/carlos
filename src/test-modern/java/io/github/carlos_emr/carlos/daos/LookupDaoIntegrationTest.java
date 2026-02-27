@@ -826,35 +826,36 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     // =========================================================================
 
     /**
-     * Tests for {@code inOrg} LIKE-based query ({@code like %?0}).
+     * Tests for {@link LookupDao#inOrg(String, String)} LIKE-based hierarchy check.
      *
      * <p>{@code LstOrgcd} uses {@code generator class="native"} with a String ID,
      * so test data is seeded via native SQL (same pattern as LookupTableDefValue).</p>
      *
-     * <p><b>Known issue:</b> The production HQL {@code like %?0} embeds the {@code %}
-     * wildcard outside the parameter value. This is non-standard HQL and may fail
-     * during Hibernate 6 migration. The test documents current behavior.</p>
+     * <p>The implementation was fixed to embed the {@code %} wildcard inside the
+     * parameter value ({@code "%" + org1}) rather than in the HQL string, making
+     * it valid HQL that Hibernate can parse and execute correctly.</p>
      */
     @Nested
-    @DisplayName("inOrg (LIKE ?0 --- org hierarchy check)")
+    @DisplayName("inOrg (org hierarchy check)")
     class InOrg {
 
         @Test
         @Tag("query")
-        @DisplayName("should exercise inOrg LIKE parameter binding")
+        @DisplayName("should return true when org2 is within org1 hierarchy")
         void shouldExerciseInOrg_withLikeParameterBinding() {
             // Given — org hierarchy: PARENT > CHILD
+            // PARENT fullcode = "PARENT", CHILD fullcode = "PARENTCHILD"
             insertOrgCode("PARENT", "Parent Org", "PARENT", "PARENT,");
             insertOrgCode("CHILD", "Child Org", "PARENTCHILD", "PARENT,CHILD,");
             hibernateTemplate.flush();
 
-            // When/Then — The production HQL `like %?0` has a syntax issue:
-            // the % wildcard is outside the parameter value, which is non-standard.
-            // Hibernate's HQL parser rejects the bare `%` token before the parameter.
-            // Hibernate 5's ExceptionConverterImpl.convert() wraps QueryException as
-            // IllegalArgumentException (JPA convention) rather than HibernateQueryException.
-            assertThatThrownBy(() -> lookupDao.inOrg("PARENT", "CHILD"))
-                .isInstanceOf(IllegalArgumentException.class);
+            // When — the fixed implementation uses HqlQueryHelper with "%" + orgCode
+            // as the parameter value, which is valid HQL and executes without error.
+            // "PARENTCHILD".indexOf("PARENT") >= 0 → true (CHILD is within PARENT).
+            boolean result = lookupDao.inOrg("PARENT", "CHILD");
+
+            // Then
+            assertThat(result).isTrue();
         }
     }
 
