@@ -162,8 +162,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
 
     @Override
     public Site getByLocation(String location) {
-        Query query = this.entityManager.createQuery("select s from Site s where s.name=?");
-        query.setParameter(0, location);
+        Query query = this.entityManager.createQuery("select s from Site s where s.name=?1");
+        query.setParameter(1, location);
 
         @SuppressWarnings("unchecked")
         List<Site> rs = query.getResultList();
@@ -245,8 +245,8 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
     @Override
     public Long site_searchmygroupcount(String myGroupNo, String siteName) {
         Query query = entityManager.createNativeQuery("select count(provider_no) from mygroup where mygroup_no=:groupno  and provider_no in (select ps.provider_no from providersite ps inner join site s on ps.site_id = s.site_id where s.name = :sitename)");
-        query.setParameter(1, myGroupNo);
-        query.setParameter(2, siteName);
+        query.setParameter("groupno", myGroupNo);
+        query.setParameter("sitename", siteName);
 
         Long result = ((BigInteger) query.getSingleResult()).longValue();
         return result;

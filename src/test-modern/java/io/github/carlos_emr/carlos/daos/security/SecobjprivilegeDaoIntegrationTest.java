@@ -536,30 +536,58 @@ public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
-    /*
-     * Methods intentionally NOT tested due to raw session management:
+    /**
+     * Tests for the {@link SecobjprivilegeDao#update(Secobjprivilege)} method.
      *
-     * - update(Secobjprivilege): Uses sessionFactory.getCurrentSession() and calls
-     *   session.close() in a finally block. This conflicts with Spring @Transactional
-     *   test management, which expects to control the session lifecycle. Calling
-     *   session.close() within a Spring-managed transaction results in
-     *   SessionException or TransactionException.
+     * <p>The {@code update()} implementation uses {@code HqlQueryHelper.bulkUpdate()}
+     * with the HQL: {@code update Secobjprivilege set providerNo = ?1 where
+     * objectname_code = ?2 and privilege_code = ?3 and roleusergroup = ?4}.
+     * It returns the count of rows updated, or 0 if {@code providerNo} is null
+     * (early-return guard that routes the caller to {@code save()} instead).</p>
      *
-     * - findByProperty(String, Object): Same raw session pattern with session.close()
-     *   in the finally block. Would cause the same session lifecycle conflicts.
-     *
-     * - getFunctions(String): Delegates directly to findByProperty(), inheriting
-     *   the same raw session issue.
-     *
-     * - getByRoles(List<String>): Uses sessionFactory.getCurrentSession() without
-     *   closing, but does not use HibernateTemplate. May behave unpredictably
-     *   when the session is managed by Spring's transaction infrastructure.
-     *
-     * - getAccessDesc(String): Queries the Secprivilege entity which may not be
-     *   available in the test persistence context.
-     *
-     * These methods would need to be refactored to use HibernateTemplate (or
-     * the session without explicit close()) before they can be reliably
-     * integration-tested within Spring's transactional test framework.
+     * <p>Note: {@code findByProperty()}, {@code getFunctions()}, {@code getByRoles()},
+     * and {@code getAccessDesc()} are not tested here. {@code getAccessDesc()} requires
+     * the {@code Secprivilege} entity which is not mapped in the test persistence unit.</p>
      */
+    @Nested
+    @DisplayName("update() operations")
+    class UpdateOperations {
+
+        @Test
+        @Tag("update")
+        @DisplayName("should return zero when providerNo is null (routes to save)")
+        void shouldReturnZero_whenProviderNoIsNull() {
+            Secobjprivilege instance = new Secobjprivilege("nullRole", "_obj", "r", 1, null);
+
+            int result = secobjprivilegeDao.update(instance);
+
+            assertThat(result).isEqualTo(0);
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update providerNo and return row count when record exists")
+        void shouldUpdateProviderNo_whenRecordExists() {
+            // Given - persist a record with an initial providerNo
+            createAndSavePrivilege("updateRole", "_updateObj", "w", 1, "111111");
+
+            // When - update providerNo via the composite key
+            Secobjprivilege toUpdate = new Secobjprivilege("updateRole", "_updateObj", "w", 1, "222222");
+            int rowsUpdated = secobjprivilegeDao.update(toUpdate);
+
+            // Then - exactly one row updated
+            assertThat(rowsUpdated).isEqualTo(1);
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should return zero when no matching record exists")
+        void shouldReturnZero_whenNoMatchingRecord() {
+            Secobjprivilege instance = new Secobjprivilege("nonExistentRole", "_obj", "r", 1, "999999");
+
+            int result = secobjprivilegeDao.update(instance);
+
+            assertThat(result).isEqualTo(0);
+        }
+    }
 }
