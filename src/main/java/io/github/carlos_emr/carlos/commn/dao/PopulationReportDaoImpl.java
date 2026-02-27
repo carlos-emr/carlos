@@ -95,7 +95,7 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
 
     public int getCurrentPopulationSize() {
 
-        return ((Long) ((List<?>) HqlQueryHelper.find(currentSession(), HQL_CURRENT_POP_SIZE)).get(0)).intValue();
+        return ((Long) HqlQueryHelper.find(currentSession(), HQL_CURRENT_POP_SIZE).get(0)).intValue();
     }
 
     @Override
