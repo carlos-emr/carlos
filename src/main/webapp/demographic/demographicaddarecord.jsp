@@ -252,7 +252,7 @@
                     if (demographics.size() > 0) {
                         Demographic dupDemo = demographics.get(0);
             %>
-            <font color='red'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.msgDuplicatedHINError"/></font><br>
+            <span style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.msgDuplicatedHINError"/></span><br>
             <fmt:message key="demographic.msgDuplicatedHINDetail"/>
             <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(dupDemo.getDemographicNo().toString()) %>&displaymode=edit&dboperation=search_detail"><%= Encode.forHtml(dupDemo.getLastName() + ", " + dupDemo.getFirstName()) %></a><br><br>
             <a href="#" onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></b></a>
