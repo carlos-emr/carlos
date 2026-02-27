@@ -6,11 +6,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
+import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
+import io.github.carlos_emr.carlos.commn.dao.ProviderExtDao;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMUtil;
@@ -58,10 +62,12 @@ public class EmailNoteUtil {
     private LoggedInInfo loggedInInfo;
     private String DATE_FORMAT = "yyyy.MM.dd";
     private String TIME_FORMAT = "hh:mm a";
+    private static final String SENT_DATE_FORMAT = "dd-MMM-yyyy H:mm";
 
     private CommonLabResultData commonLabResultData;
     private EformDataManager eFormDataManager = SpringUtils.getBean(EformDataManager.class);
     private FormsManager formsManager = SpringUtils.getBean(FormsManager.class);
+    private ProviderExtDao providerExtDao = SpringUtils.getBean(ProviderExtDao.class);
 
     /**
      * Private default constructor to prevent instantiation without required parameters.
@@ -119,6 +125,7 @@ public class EmailNoteUtil {
         addAttachments(emailLog, noteBuilder);
         addEncryptedBody(emailLog, noteBuilder);
         addTechnicalInformation(emailLog, noteBuilder);
+        addSentByLine(noteBuilder);
         addInternalComment(emailLog, noteBuilder);
         return noteBuilder.toString();
     }
@@ -292,6 +299,27 @@ public class EmailNoteUtil {
 
         noteBuilder.append("\n\n").append("***Internal Comment***").append("\n\n");
         noteBuilder.append(emailLog.getInternalComment());
+    }
+
+    private void addSentByLine(StringBuilder noteBuilder) {
+        String dateTime = DateUtils.format(SENT_DATE_FORMAT, emailLog.getTimestamp(), null);
+        String displayName = resolveProviderDisplayName();
+        noteBuilder.append("\n\n[Sent on ").append(dateTime);
+        if (!displayName.isBlank()) {
+            noteBuilder.append(" by ").append(displayName);
+        }
+        noteBuilder.append("]");
+    }
+
+    private String resolveProviderDisplayName() {
+        Provider provider = loggedInInfo.getLoggedInProvider();
+        if (provider == null) return "";
+        ProviderExt pe = providerExtDao.find(provider.getProviderNo());
+        return Optional.ofNullable(pe)
+            .map(ProviderExt::getSignature)
+            .filter(sig -> !sig.isBlank())
+            .map(String::trim)
+            .orElseGet(provider::getFullName);
     }
 
     private String getRecipientEmail() {
