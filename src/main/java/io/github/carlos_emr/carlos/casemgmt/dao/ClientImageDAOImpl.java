@@ -63,11 +63,14 @@ public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientIm
     public void saveClientImage(ClientImage clientImage) {
         ClientImage existing = getClientImage(clientImage.getDemographic_no());
         if (existing != null) {
+            // Update the managed instance so Hibernate tracks the change correctly
             existing.setImage_data(clientImage.getImage_data());
             existing.setImage_type(clientImage.getImage_type());
             existing.setUpdate_date(new Date());
+            currentSession().saveOrUpdate(existing);
+        } else {
+            currentSession().saveOrUpdate(clientImage);
         }
-        currentSession().saveOrUpdate(clientImage);
 
         // update cache
         dataCache.remove(clientImage.getDemographic_no());

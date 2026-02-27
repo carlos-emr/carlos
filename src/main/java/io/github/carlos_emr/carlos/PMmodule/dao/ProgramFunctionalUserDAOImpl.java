@@ -156,10 +156,10 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
 
     @Override
     /**
-     * Retrieves the functional user ID based on the provided program and user type IDs.
+     * Retrieves the primary key (Id) of the ProgramFunctionalUser record matching the given program and user type.
      *
      * This method first validates the input parameters to ensure they are not null and greater than zero.
-     * It then constructs a SQL query to fetch the ProgramId from the ProgramFunctionalUser table using
+     * It then constructs an HQL query to fetch the entity Id from the ProgramFunctionalUser table using
      * the specified programId and userTypeId. If results are found, the first result is returned.
      * Debug logging is performed to trace the input parameters and the result.
      *
@@ -176,7 +176,7 @@ public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implement
 
         Long result = null;
 
-        String sSQL = "select pfu.ProgramId from ProgramFunctionalUser pfu where pfu.ProgramId = ?1 and pfu.UserTypeId = ?2";
+        String sSQL = "select pfu.Id from ProgramFunctionalUser pfu where pfu.ProgramId = ?1 and pfu.UserTypeId = ?2";
         @SuppressWarnings("unchecked")
         List<Long> results = (List<Long>) HqlQueryHelper.find(currentSession(), sSQL, programId, userTypeId);
 

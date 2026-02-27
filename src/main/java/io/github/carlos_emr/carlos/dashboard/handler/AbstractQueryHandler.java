@@ -34,8 +34,10 @@ import org.apache.logging.log4j.Logger;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.hibernate.query.NativeQuery;
-import org.hibernate.transform.AliasToEntityMapResultTransformer;
 import io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateXML.RangeType;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 import io.github.carlos_emr.carlos.dashboard.query.DrillDownAction;
@@ -83,7 +85,14 @@ public abstract class AbstractQueryHandler extends AbstractHibernateDao {
         try (Session session = getSessionFactory().openSession()) {
             tx = session.beginTransaction();
             NativeQuery<?> sqlQuery = session.createNativeQuery(query);
-            List<?> results = sqlQuery.setResultTransformer(AliasToEntityMapResultTransformer.INSTANCE).getResultList();
+            // Replace deprecated setResultTransformer (removed in Hibernate 6) with setTupleTransformer
+            List<?> results = sqlQuery.setTupleTransformer((tuple, aliases) -> {
+                Map<String, Object> map = new LinkedHashMap<>(aliases.length);
+                for (int i = 0; i < aliases.length; i++) {
+                    map.put(aliases[i], tuple[i]);
+                }
+                return map;
+            }).getResultList();
 
             //TODO work on method to detect and exclude demographic files that are
             // defined in the securityInfoManager object.

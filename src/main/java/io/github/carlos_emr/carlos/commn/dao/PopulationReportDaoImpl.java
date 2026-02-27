@@ -75,11 +75,8 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
     "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
     "(a.dischargeDate is null or a.dischargeDate > ?1)";
 
-    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from ?1 a where " +
-    "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and " +
-    "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
-    "(a.dischargeDate is null or a.dischargeDate > ?2) " +
-    "order by a.clientId, a.admissionDate";
+    // Entity name cannot be parameterized in HQL — hardcode Admission and use single ?1 for date
+    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from Admission a where a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and (a.dischargeDate is null or a.dischargeDate > ?1) order by a.clientId, a.admissionDate";
 
     private static final String HQL_GET_MORTALITIES = "select count(distinct a.clientId) from Admission a where " +
      "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'community' and lower(p.name) = 'deceased') and " +
@@ -165,38 +162,18 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
 
     @Override
     public int getPrevalence(SortedSet<String> icd10Codes) {
-
-        StringBuilder query = new StringBuilder(HQL_GET_PREVALENCE).append("(");
-
-        for (String icd10Code : icd10Codes) {
-            query.append("'").append(icd10Code).append("'");
-
-            if (!icd10Codes.last().equals(icd10Code)) {
-                query.append(",");
-            }
-        }
-
-        query.append(")");
-
-        return ((Long) HqlQueryHelper.find(currentSession(), query.toString()).get(0)).intValue();
+        Map<String, Object> params = new HashMap<>();
+        params.put("codes", icd10Codes);
+        String hql = HQL_GET_PREVALENCE + "(:codes)";
+        return ((Long) HqlQueryHelper.find(currentSession(), hql, params).get(0)).intValue();
     }
 
     @Override
     public int getIncidence(SortedSet<String> icd10Codes) {
-
-        StringBuilder query = new StringBuilder(HQL_GET_INCIDENCE).append("(");
-
-        for (String icd10Code : icd10Codes) {
-            query.append("'").append(icd10Code).append("'");
-
-            if (!icd10Codes.last().equals(icd10Code)) {
-                query.append(",");
-            }
-        }
-
-        query.append(")");
-
-        return ((Long) HqlQueryHelper.find(currentSession(), query.toString()).get(0)).intValue();
+        Map<String, Object> params = new HashMap<>();
+        params.put("codes", icd10Codes);
+        String hql = HQL_GET_INCIDENCE + "(:codes)";
+        return ((Long) HqlQueryHelper.find(currentSession(), hql, params).get(0)).intValue();
     }
 
     @Override
