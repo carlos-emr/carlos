@@ -73,6 +73,7 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 
 @Service
 public class TicklerManagerImpl implements TicklerManager {
@@ -769,6 +770,54 @@ public class TicklerManagerImpl implements TicklerManager {
         }
 
         return ticklers;
+    }
+
+    /**
+     * Retrieves a paginated list of lightweight tickler DTOs optimized for
+     * server-side DataTables display. Uses JPQL projection to avoid eager loading
+     * of full entity graphs, then batch-loads comments and links.
+     *
+     * <p>Logs the access when filtering by a specific demographic number.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context for authorization
+     * @param filter CustomFilter the filter criteria (status, provider, assignee, dates, etc.)
+     * @param offset int the zero-based starting row index for pagination
+     * @param limit int the maximum number of ticklers to return
+     * @return List&lt;TicklerListDTO&gt; list of tickler DTOs with comments and links populated
+     * @throws RuntimeException if the user lacks read privilege on _tickler
+     * @since 2026-02-27
+     */
+    @Override
+    public List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter, int offset, int limit) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+
+        List<TicklerListDTO> result = ticklerDao.getTicklerDTOs(filter, offset, limit);
+
+        if (filter.getDemographicNo() != null && !filter.getDemographicNo().isEmpty()
+                && !"All Clients".equalsIgnoreCase(filter.getDemographicNo())) {
+            LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.getTicklerDTOs",
+                    "demographicNo=" + filter.getDemographicNo());
+        }
+
+        return result;
+    }
+
+    /**
+     * Retrieves all tickler DTOs matching the given filter without pagination.
+     * Uses JPQL projection to avoid eager loading, then batch-loads comments
+     * and links.
+     *
+     * @param loggedInInfo LoggedInInfo the logged-in user context for authorization
+     * @param filter CustomFilter the filter criteria (status, provider, assignee, dates, etc.)
+     * @return List&lt;TicklerListDTO&gt; list of all matching tickler DTOs with comments and links populated
+     * @throws RuntimeException if the user lacks read privilege on _tickler
+     * @since 2026-02-27
+     */
+    @Override
+    public List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter) {
+        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
+
+        return ticklerDao.getTicklerDTOs(filter);
     }
 
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
