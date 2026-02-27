@@ -455,17 +455,17 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             
             sqlCommand.append("and casemgmt_issue_notes.id=casemgmt_issue.id and casemgmt_issue_notes.note_id=casemgmt_note.note_id");
             
-            SQLQuery query = session.createSQLQuery(sqlCommand.toString());
+            NativeQuery<?> query = session.createNativeQuery(sqlCommand.toString());
             query.setParameter("demographicNo", demographic_no);
-            
+
             if (issueCodes != null && issueCodes.length > 0) {
                 query.setParameterList("issueCodes", issueCodes);
             }
-            
+
             @SuppressWarnings("unchecked")
-            List<Integer> ids = query.list();
-            for (Integer id : ids)
-                notes.add(getNote(id.longValue()));
+            List<?> ids = query.list();
+            for (Object id : ids)
+                notes.add(getNote(((Number) id).longValue()));
         } finally {
             //session.close();
         }

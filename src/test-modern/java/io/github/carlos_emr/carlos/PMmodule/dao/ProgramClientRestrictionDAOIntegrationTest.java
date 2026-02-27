@@ -393,10 +393,11 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
         @DisplayName("should find restrictions for client in programs matching facility")
         void shouldFindRestrictions_whenProgramMatchesFacility() {
             // Given - Create programs with specific facility IDs using native SQL
-            // because Program is HBM-mapped and hbm2ddl creates the table
+            // because Program is HBM-mapped and hbm2ddl creates the table.
+            // All primitive boolean fields must be provided (Hibernate cannot assign NULL to primitive).
             int facilityId = 42;
             entityManager.createNativeQuery(
-                "INSERT INTO program (id, name, type, facilityId) VALUES (?1, ?2, ?3, ?4)")
+                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, ?4, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
                 .setParameter(1, testProgramId1)
                 .setParameter(2, "TestProgram1")
                 .setParameter(3, "community")
@@ -421,9 +422,11 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should include restrictions for programs with null facilityId")
         void shouldIncludeRestrictions_whenProgramHasNullFacility() {
-            // Given - Create a program with null facilityId
+            // Given - Create a program with null facilityId.
+            // facilityId is Integer (nullable) so NULL is valid.
+            // All primitive boolean fields must be provided (Hibernate cannot assign NULL to primitive).
             entityManager.createNativeQuery(
-                "INSERT INTO program (id, name, type, facilityId) VALUES (?1, ?2, ?3, NULL)")
+                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, NULL, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
                 .setParameter(1, testProgramId1)
                 .setParameter(2, "NullFacilityProg")
                 .setParameter(3, "community")

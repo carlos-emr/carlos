@@ -434,9 +434,13 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
             secUserRoleDao.save(earlyRole);
             hibernateTemplate.flush();
 
-            // Set threshold to 1ms after earlyRole's recorded timestamp, guaranteeing it
-            // is excluded regardless of clock resolution or H2 sub-millisecond flush speed.
-            Date threshold = new Date(earlyRole.getLastUpdateDate().getTime() + 1);
+            // Force earlyRole's timestamp to epoch so the threshold can cleanly separate
+            // it from newRole even when both saves happen within the same millisecond.
+            // We bypass the DAO here (which always overwrites lastUpdateDate) and flush
+            // the override directly through HibernateTemplate.
+            earlyRole.setLastUpdateDate(new Date(0));
+            hibernateTemplate.flush();
+            Date threshold = new Date(1);
 
             // Create a new role after the threshold
             SecUserRole newRole = new SecUserRole("therapist", uniquePrefix + "020");

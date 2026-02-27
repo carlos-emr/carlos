@@ -257,7 +257,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
                     "FROM  Provider p where p.Status='1' ORDER BY p.LastName");
         } else {
             rs = (List<Provider>) getHibernateTemplate().find(
-                    "FROM  Provider p where p.Status='1' AND p.ProviderNo > -1 ORDER BY p.LastName");
+                    "FROM  Provider p where p.Status='1' AND p.ProviderNo NOT LIKE '-%' ORDER BY p.LastName");
         }
 
         if (log.isDebugEnabled()) {

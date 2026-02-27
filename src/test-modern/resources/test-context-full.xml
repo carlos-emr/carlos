@@ -163,6 +163,8 @@
                 <!-- PMmodule additional mappings -->
                 <value>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</value>
+                <!-- Lookup / organization code mappings for LIKE-semantics tests -->
+                <value>com/quatro/model/LstOrgcd.hbm.xml</value>
             </list>
         </property>
         <property name="jpaVendorAdapter">
@@ -280,6 +282,8 @@
                 <!-- Lookup DAO entity mappings -->
                 <value>com/quatro/model/LookupTableDefValue.hbm.xml</value>
                 <value>com/quatro/model/FieldDefValue.hbm.xml</value>
+                <!-- Lookup / organization code mappings for LIKE-semantics tests -->
+                <value>com/quatro/model/LstOrgcd.hbm.xml</value>
             </list>
         </property>
         <property name="hibernateProperties">

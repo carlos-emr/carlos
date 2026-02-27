@@ -1082,11 +1082,14 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // This is a SQL injection vulnerability that should be fixed during
             // the EntityManager migration.
 
-            // When/Then - The method will fail because 'admission' and 'program_queue'
-            // tables don't exist in the H2 test schema, but the important thing is
-            // documenting the concatenation pattern.
-            assertThatThrownBy(() -> lookupDao.getCountOfActiveClient("ORG001"))
-                .isInstanceOf(SQLException.class);
+            // When/Then - DbConnectionFilter does obtain a connection in the Spring test
+            // context, so SQL is executed. The injected payload causes a syntax error
+            // in H2 (embedded semicolons in string literals break multi-statement parsing),
+            // resulting in a JdbcSQLSyntaxErrorException (extends java.sql.SQLException).
+            // This confirms the SQL injection risk: the orgCd value is concatenated
+            // directly into the query string.
+            assertThatThrownBy(() -> lookupDao.getCountOfActiveClient("'; DROP TABLE admission; --"))
+                .isInstanceOf(java.sql.SQLException.class);
         }
     }
 

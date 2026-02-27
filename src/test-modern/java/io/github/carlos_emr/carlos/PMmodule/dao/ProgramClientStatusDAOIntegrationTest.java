@@ -23,9 +23,9 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientStatus;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -226,25 +226,9 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
     /**
      * Tests for {@code clientStatusNameExists(Integer programId, String statusName)} - checks
      * whether a status name already exists for a given program.
-     *
-     * <p>Disabled because {@code ProgramClientStatusDAOImpl} declares a public
-     * {@code sessionFactory} field with no {@code @Autowired} annotation. Spring never injects
-     * it, so the field remains {@code null} at runtime — see {@code @Disabled} annotation
-     * below.</p>
      */
     @Nested
     @DisplayName("clientStatusNameExists")
-    @Disabled("Production bug — two independent defects: "
-        + "(1) ProgramClientStatusDAOImpl declares a public 'sessionFactory' field with no "
-        + "@Autowired annotation. Spring never injects it, so the field remains null. "
-        + "clientStatusNameExists() reads it directly, causing NullPointerException at "
-        + "sessionFactory.getCurrentSession(). "
-        + "(2) The HQL uses 1-based positional parameters (?1, ?2) via session.createQuery(), "
-        + "a legacy Hibernate API that Hibernate 6 removes entirely. Even after fixing defect (1), "
-        + "the HQL must be rewritten to use 0-based (?0, ?1) or named (:programId, :statusName) "
-        + "parameters. "
-        + "Fix: remove the public sessionFactory field; replace session.createQuery() with "
-        + "getHibernateTemplate() and update positional parameter indices.")
     class ClientStatusNameExists {
 
         @Test
@@ -365,9 +349,10 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
             // Given - Create required parent entities for Admission's eager relationships
             int programIdForAdmission = testProgramId1;
 
-            // Insert a Program record via native SQL since Program is HBM-mapped
+            // Insert a Program record via native SQL since Program is HBM-mapped.
+            // All primitive boolean fields must be provided (Hibernate cannot assign NULL to primitive).
             entityManager.createNativeQuery(
-                "INSERT INTO program (id, name, type) VALUES (?1, ?2, ?3)")
+                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
                 .setParameter(1, programIdForAdmission)
                 .setParameter(2, "TestProg")
                 .setParameter(3, "community")
@@ -386,12 +371,21 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
                 .setParameter(8, "AC")
                 .executeUpdate();
 
+            // Create a ProgramTeam to satisfy the FK constraint: admission.team_id → program_team.team_id.
+            // In H2 (with hbm2ddl), this FK is enforced; MySQL may not enforce it in older schemas.
+            ProgramTeam team = new ProgramTeam();
+            team.setProgramId(programIdForAdmission);
+            team.setName("TestTeam");
+            hibernateTemplate.save(team);
+            hibernateTemplate.flush();
+            Integer teamId = team.getId();
+
             entityManager.flush();
 
-            // Create an Admission with status='current' matching our program and status(teamId)
+            // Create an Admission with status='current' matching our program and team (status ID)
             Admission admission = new Admission();
             admission.setProgramId(programIdForAdmission);
-            admission.setTeamId(testStatusId1);
+            admission.setTeamId(teamId);
             admission.setAdmissionStatus("current");
             admission.setProviderNo("999");
             admission.setClientId(7777);
@@ -399,9 +393,9 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
             entityManager.persist(admission);
             entityManager.flush();
 
-            // When
+            // When - getAllClientsInStatus filters by teamId (the ProgramClientStatus-like concept)
             List<Admission> results = programClientStatusDAO.getAllClientsInStatus(
-                programIdForAdmission, testStatusId1);
+                programIdForAdmission, teamId);
 
             // Then
             assertThat(results)
@@ -409,7 +403,7 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
                 .first()
                 .satisfies(a -> {
                     assertThat(a.getProgramId()).isEqualTo(programIdForAdmission);
-                    assertThat(a.getTeamId()).isEqualTo(testStatusId1);
+                    assertThat(a.getTeamId()).isEqualTo(teamId);
                     assertThat(a.getAdmissionStatus()).isEqualTo("current");
                 });
         }
@@ -421,7 +415,7 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
             // Given - Create parent records
             int programIdForAdmission = testProgramId2;
             entityManager.createNativeQuery(
-                "INSERT INTO program (id, name, type) VALUES (?1, ?2, ?3)")
+                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
                 .setParameter(1, programIdForAdmission)
                 .setParameter(2, "TestProg2")
                 .setParameter(3, "community")
@@ -439,12 +433,20 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
                 .setParameter(8, "AC")
                 .executeUpdate();
 
+            // Create a ProgramTeam to satisfy the FK constraint: admission.team_id → program_team.team_id.
+            ProgramTeam team = new ProgramTeam();
+            team.setProgramId(programIdForAdmission);
+            team.setName("TestTeam2");
+            hibernateTemplate.save(team);
+            hibernateTemplate.flush();
+            Integer teamId = team.getId();
+
             entityManager.flush();
 
             // Create a discharged admission (should NOT be returned)
             Admission discharged = new Admission();
             discharged.setProgramId(programIdForAdmission);
-            discharged.setTeamId(testStatusId1);
+            discharged.setTeamId(teamId);
             discharged.setAdmissionStatus("discharged");
             discharged.setProviderNo("999");
             discharged.setClientId(7778);
@@ -454,7 +456,7 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
 
             // When
             List<Admission> results = programClientStatusDAO.getAllClientsInStatus(
-                programIdForAdmission, testStatusId1);
+                programIdForAdmission, teamId);
 
             // Then - discharged admissions should not be included
             assertThat(results).isEmpty();

@@ -30,12 +30,9 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Query;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientStatus;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -46,7 +43,6 @@ import org.hibernate.SessionFactory;
 public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements ProgramClientStatusDAO {
 
     private Logger log = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
 
     @Autowired
     public void setSessionFactoryOverride(SessionFactory sessionFactory) {
@@ -86,24 +82,16 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
             throw new IllegalArgumentException();
         }
 
-        // Session session = getSession();
-        Session session = sessionFactory.getCurrentSession();
-        List teams = new ArrayList();
-        try {
-            Query query = session.createQuery("select pt.id from ProgramClientStatus pt where pt.programId = ?1 and pt.name = ?2");
-            query.setLong(1, programId.longValue());
-            query.setString(2, statusName);
+        List<?> results = getSessionFactory().getCurrentSession()
+                .createQuery("select pt.id from ProgramClientStatus pt where pt.programId = :programId and pt.name = :statusName")
+                .setParameter("programId", programId)
+                .setParameter("statusName", statusName)
+                .list();
 
-            teams = query.list();
-
-            if (log.isDebugEnabled()) {
-                log.debug("teamNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !teams.isEmpty());
-            }
-        } finally {
-            //releaseSession(session);
-            session.close();
+        if (log.isDebugEnabled()) {
+            log.debug("teamNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !results.isEmpty());
         }
-        return !teams.isEmpty();
+        return !results.isEmpty();
     }
 
     public List<Admission> getAllClientsInStatus(Integer programId, Integer statusId) {

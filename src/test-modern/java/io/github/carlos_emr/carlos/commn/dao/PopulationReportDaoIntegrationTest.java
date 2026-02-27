@@ -507,10 +507,8 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
     /**
      * Tests for {@link PopulationReportDao#getUsages(int)}.
      *
-     * <p><b>Known defect</b>: The HQL constant {@code HQL_GET_USAGES} uses {@code "from ?1 a"},
-     * which attempts to parameterize the entity name. HQL does not support parameterized entity
-     * names -- only column values can be parameterized. This will cause a Hibernate parse error
-     * at runtime. The test documents this known issue.</p>
+     * <p>Returns a 3-element array with counts for LOW, MEDIUM, and HIGH usage buckets
+     * representing Admission records grouped by service duration.</p>
      */
     @Nested
     @DisplayName("getUsages()")
@@ -520,19 +518,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return array of length 3 representing LOW/MEDIUM/HIGH usage buckets")
         @Tag("read")
-        @Disabled("HQL_GET_USAGES has two defects: (1) 'from ?1 a' attempts to parameterize the "
-                + "entity name, which HQL does not support — only column values can be parameterized; "
-                + "(2) getUsages() calls getHibernateTemplate().find(HQL_GET_USAGES, start) passing "
-                + "only 1 argument. HibernateTemplate.find(String, Object) binds a single argument "
-                + "to ?0, so the HQL params ?1 (FROM clause) and ?2 (WHERE clause) are both unbound "
-                + "even if defect (1) were fixed. Requires DAO refactoring.")
         void shouldReturnThreeElementArray_whenCalled() {
-            // Given
-            // KNOWN DEFECT: The HQL constant HQL_GET_USAGES uses "from ?1 a" to parameterize
-            // the entity name. HQL positional parameters (?N) can only bind column values,
-            // not entity/table names. This causes an org.hibernate.QueryException at runtime.
-            // A fix would require string concatenation of the entity name (with validation).
-
             // When
             int[] usages = populationReportDao.getUsages(1);
 

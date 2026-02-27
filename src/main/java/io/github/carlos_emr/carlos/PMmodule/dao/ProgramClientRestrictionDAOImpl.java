@@ -113,6 +113,7 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     private ProgramClientRestriction setRelationships(ProgramClientRestriction pcr) {
+        if (pcr == null) return null;
         pcr.setClient(demographicDao.getDemographic("" + pcr.getDemographicNo()));
         pcr.setProgram(programDao.getProgram(pcr.getProgramId()));
         pcr.setProvider(providerDao.getProvider(pcr.getProviderNo()));
