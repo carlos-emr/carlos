@@ -35,29 +35,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Criteria;
-import org.hibernate.Session;
-import org.hibernate.criterion.Expression;
 import io.github.carlos_emr.carlos.PMmodule.model.ClientReferral;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.hibernate.SessionFactory;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class ClientReferralDAOImpl extends HibernateDaoSupport implements ClientReferralDAO {
+public class ClientReferralDAOImpl extends AbstractHibernateDao implements ClientReferralDAO {
 
     private Logger log = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
-
-    @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
-    }
 
     public List<ClientReferral> getReferrals() {
         @SuppressWarnings("unchecked")
@@ -262,7 +251,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
             throw new IllegalArgumentException();
         }
 
-        ClientReferral result = this.getHibernateTemplate().get(ClientReferral.class, id);
+        ClientReferral result = currentSession().get(ClientReferral.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getClientReferral: id=" + id + ",found=" + (result != null));
@@ -276,7 +265,7 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().saveOrUpdate(referral);
+        currentSession().saveOrUpdate(referral);
 
         if (log.isDebugEnabled()) {
             log.debug("saveClientReferral: id=" + referral.getId());
@@ -286,14 +275,11 @@ public class ClientReferralDAOImpl extends HibernateDaoSupport implements Client
 
     @SuppressWarnings("unchecked")
     public List<ClientReferral> search(ClientReferral referral) {
-        Session session = getSessionFactory().getCurrentSession();
-        Criteria criteria = session.createCriteria(ClientReferral.class);
-
         if (referral != null && referral.getProgramId().longValue() > 0) {
-            criteria.add(Expression.eq("ProgramId", referral.getProgramId()));
+            return (List<ClientReferral>) HqlQueryHelper.find(currentSession(),
+                    "from ClientReferral cr where cr.ProgramId = ?1", referral.getProgramId());
         }
-
-        return criteria.list();
+        return (List<ClientReferral>) HqlQueryHelper.find(currentSession(), "from ClientReferral");
     }
 
     public List<ClientReferral> getClientReferralsByProgram(int programId) {

@@ -71,7 +71,7 @@ public final class HqlQueryHelper {
         try {
             Query<?> query = session.createQuery(hql);
             bindPositionalParams(query, params);
-            return query.list();
+            return query.getResultList();
         } catch (HibernateException e) {
             throw SessionFactoryUtils.convertHibernateAccessException(e);
         }
@@ -99,7 +99,7 @@ public final class HqlQueryHelper {
             if (maxResults >= 0) {
                 query.setMaxResults(maxResults);
             }
-            return query.list();
+            return query.getResultList();
         } catch (HibernateException e) {
             throw SessionFactoryUtils.convertHibernateAccessException(e);
         }
@@ -123,7 +123,7 @@ public final class HqlQueryHelper {
         try {
             Query<?> query = session.createQuery(hql);
             bindNamedParams(query, namedParams);
-            return query.list();
+            return query.getResultList();
         } catch (HibernateException e) {
             throw SessionFactoryUtils.convertHibernateAccessException(e);
         }
@@ -150,7 +150,7 @@ public final class HqlQueryHelper {
             if (maxResults >= 0) {
                 query.setMaxResults(maxResults);
             }
-            return query.list();
+            return query.getResultList();
         } catch (HibernateException e) {
             throw SessionFactoryUtils.convertHibernateAccessException(e);
         }
@@ -230,7 +230,7 @@ public final class HqlQueryHelper {
             if (maxResults >= 0) {
                 query.setMaxResults(maxResults);
             }
-            return query.list();
+            return query.getResultList();
         } catch (HibernateException e) {
             throw SessionFactoryUtils.convertHibernateAccessException(e);
         }

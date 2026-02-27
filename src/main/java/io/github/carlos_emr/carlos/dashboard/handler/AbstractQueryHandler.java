@@ -31,7 +31,11 @@ package io.github.carlos_emr.carlos.dashboard.handler;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.*;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.query.NativeQuery;
+import org.hibernate.transform.AliasToEntityMapResultTransformer;
 import io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateXML.RangeType;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 import io.github.carlos_emr.carlos.dashboard.query.DrillDownAction;
@@ -40,19 +44,13 @@ import io.github.carlos_emr.carlos.dashboard.query.RangeInterface;
 import io.github.carlos_emr.carlos.dashboard.query.RangeInterface.Limit;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
-public abstract class AbstractQueryHandler extends HibernateDaoSupport {
+public abstract class AbstractQueryHandler extends AbstractHibernateDao {
 
     private static Logger logger = MiscUtils.getLogger();
-
-    @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
-    }
 
     private static final String PLACE_HOLDER_PATTERN = "(\\$){1}(\\{){1}( )*##( )*(\\}){1}";
     private static final String COMMENT_BLOCK_PATTERN = "/\\*(?:.|[\\n\\r])*?\\*/";
@@ -84,8 +82,8 @@ public abstract class AbstractQueryHandler extends HibernateDaoSupport {
         Transaction tx = null;
         try (Session session = getSessionFactory().openSession()) {
             tx = session.beginTransaction();
-            SQLQuery sqlQuery = session.createSQLQuery(query);
-            List<?> results = sqlQuery.setResultTransformer(Criteria.ALIAS_TO_ENTITY_MAP).list();
+            NativeQuery<?> sqlQuery = session.createNativeQuery(query);
+            List<?> results = sqlQuery.setResultTransformer(AliasToEntityMapResultTransformer.INSTANCE).getResultList();
 
             //TODO work on method to detect and exclude demographic files that are
             // defined in the securityInfoManager object.

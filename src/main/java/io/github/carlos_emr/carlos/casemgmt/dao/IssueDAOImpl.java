@@ -41,19 +41,19 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
+public class IssueDAOImpl extends AbstractHibernateDao implements IssueDAO {
     private static Logger logger = MiscUtils.getLogger();
 
     @Override
     public Issue getIssue(Long id) {
-        return getHibernateTemplate().get(Issue.class, id);
+        return currentSession().get(Issue.class, id);
     }
 
     @Override
@@ -94,13 +94,13 @@ public class IssueDAOImpl extends HibernateDaoSupport implements IssueDAO {
 
     @Override
     public void saveIssue(Issue issue) {
-        this.getHibernateTemplate().saveOrUpdate(issue);
+        currentSession().saveOrUpdate(issue);
     }
 
     @Deprecated
     @Override
     public void delete(Long issueId) {
-        this.getHibernateTemplate().delete(getIssue(issueId));
+        currentSession().delete(getIssue(issueId));
     }
 
     @SuppressWarnings("unchecked")

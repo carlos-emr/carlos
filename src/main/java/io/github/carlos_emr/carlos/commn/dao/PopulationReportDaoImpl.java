@@ -53,11 +53,12 @@ import io.github.carlos_emr.carlos.commn.model.Stay;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.EncounterUtil.EncounterType;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
-public class PopulationReportDaoImpl extends HibernateDaoSupport implements PopulationReportDao {
+public class PopulationReportDaoImpl extends AbstractHibernateDao implements PopulationReportDao {
 
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -94,13 +95,13 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
 
     public int getCurrentPopulationSize() {
 
-        return ((Long) getHibernateTemplate().find(HQL_CURRENT_POP_SIZE).iterator().next()).intValue();
+        return ((Long) ((List<?>) HqlQueryHelper.find(currentSession(), HQL_CURRENT_POP_SIZE)).get(0)).intValue();
     }
 
     @Override
     public int getCurrentAndHistoricalPopulationSize(int numYears) {
 
-        return ((Long) getHibernateTemplate().find(HQL_CURRENT_HISTORICAL_POP_SIZE, DateTimeFormatUtils.getPast(numYears)).iterator().next()).intValue();
+        return ((Long) ((List<?>) HqlQueryHelper.find(currentSession(), HQL_CURRENT_HISTORICAL_POP_SIZE, DateTimeFormatUtils.getPast(numYears))).get(0)).intValue();
     }
 
     @Override
@@ -114,7 +115,7 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
         Date end = instant.getTime();
         Date start = DateTimeFormatUtils.getPast(instant, numYears);
 
-        for (Object o : getHibernateTemplate().find(HQL_GET_USAGES, start)) {
+        for (Object o : HqlQueryHelper.find(currentSession(), HQL_GET_USAGES, start)) {
             Object[] tuple = (Object[]) o;
 
             Integer clientId = (Integer) tuple[0];
@@ -157,7 +158,7 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
     @Override
     public int getMortalities(int numYears) {
 
-        return ((Long) getHibernateTemplate().find(HQL_GET_MORTALITIES, new Object[]{DateTimeFormatUtils.getPast(numYears)}).iterator().next()).intValue();
+        return ((Long) ((List<?>) HqlQueryHelper.find(currentSession(), HQL_GET_MORTALITIES, DateTimeFormatUtils.getPast(numYears))).get(0)).intValue();
     }
 
     @Override
@@ -175,7 +176,7 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
 
         query.append(")");
 
-        return ((Long) getHibernateTemplate().find(query.toString()).iterator().next()).intValue();
+        return ((Long) ((List<?>) HqlQueryHelper.find(currentSession(), query.toString())).get(0)).intValue();
     }
 
     @Override
@@ -193,7 +194,7 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
 
         query.append(")");
 
-        return ((Long) getHibernateTemplate().find(query.toString()).iterator().next()).intValue();
+        return ((Long) ((List<?>) HqlQueryHelper.find(currentSession(), query.toString())).get(0)).intValue();
     }
 
     @Override

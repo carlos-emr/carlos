@@ -39,7 +39,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.QueueCache;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
  * add/remove items as appropriate.
  */
 @Transactional
-public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientImageDAO {
+public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientImageDAO {
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -67,7 +67,7 @@ public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientIma
             existing.setImage_type(clientImage.getImage_type());
             existing.setUpdate_date(new Date());
         }
-        getHibernateTemplate().saveOrUpdate(clientImage);
+        currentSession().saveOrUpdate(clientImage);
 
         // update cache
         dataCache.remove(clientImage.getDemographic_no());

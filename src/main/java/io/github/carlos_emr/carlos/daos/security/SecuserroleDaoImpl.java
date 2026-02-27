@@ -37,12 +37,9 @@ import java.util.Map;
 import org.apache.logging.log4j.Logger;
 import org.hibernate.LockMode;
 import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.criterion.Example;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.StaffForm;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
-import org.springframework.beans.factory.annotation.Autowired;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,15 +57,8 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
  * @see Secuserrole
  */
 @Transactional
-public class SecuserroleDaoImpl extends HibernateDaoSupport implements SecuserroleDao {
+public class SecuserroleDaoImpl extends AbstractHibernateDao implements SecuserroleDao {
     private static final Logger logger = MiscUtils.getLogger();
-    // property constants
-    public SessionFactory sessionFactory;
-
-    @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
-    }
 
     @Override
     public void saveAll(List list) {
@@ -117,11 +107,11 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
 
     @Override
     public void updateRoleName(Integer id, String roleName) {
-        Secuserrole sur = this.getHibernateTemplate().get(Secuserrole.class, id);
+        Secuserrole sur = currentSession().get(Secuserrole.class, id);
         if (sur != null) {
             sur.setRoleName(roleName);
             sur.setLastUpdateDate(new Date());
-            this.getHibernateTemplate().update(sur);
+            currentSession().update(sur);
         }
     }
 
@@ -222,14 +212,28 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
 
     @Override
     public List findByExample(Secuserrole instance) {
-        // Session session = getSession();
-        Session session = currentSession();
         logger.debug("finding Secuserrole instance by example");
         try {
-            List results = session.createCriteria(
-                            Secuserrole.class).add(
-                            Example.create(instance))
-                    .list();
+            // Build HQL dynamically using only known property names (no user input)
+            String hql = "from Secuserrole s where 1=1";
+            Map<String, Object> params = new HashMap<>();
+            if (instance.getProviderNo() != null) {
+                hql += " and s.providerNo = :providerNo";
+                params.put("providerNo", instance.getProviderNo());
+            }
+            if (instance.getRoleName() != null) {
+                hql += " and s.roleName = :roleName";
+                params.put("roleName", instance.getRoleName());
+            }
+            if (instance.getOrgcd() != null) {
+                hql += " and s.orgcd = :orgcd";
+                params.put("orgcd", instance.getOrgcd());
+            }
+            if (instance.getActiveyn() != null) {
+                hql += " and s.activeyn = :activeyn";
+                params.put("activeyn", instance.getActiveyn());
+            }
+            List results = HqlQueryHelper.find(currentSession(), hql, params);
             logger.debug("find by example successful, result size: "
                     + results.size());
             return results;
@@ -237,9 +241,6 @@ public class SecuserroleDaoImpl extends HibernateDaoSupport implements Secuserro
             logger.error("find by example failed", re);
             throw re;
         }
-        // finally {
-        // this.releaseSession(session);
-        // }
     }
 
     @Override

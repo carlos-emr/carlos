@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.daos;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
  * leave the code here so it compiles. what ever...
  */
 @Transactional
-public class ProviderDAOImpl extends HibernateDaoSupport implements ProviderDAO {
+public class ProviderDAOImpl extends AbstractHibernateDao implements ProviderDAO {
 
     @SuppressWarnings("unchecked")
     public List<Provider> getProviders() {
@@ -52,7 +52,7 @@ public class ProviderDAOImpl extends HibernateDaoSupport implements ProviderDAO 
     }
 
     public Provider getProvider(String provider_no) {
-        return getHibernateTemplate().get(Provider.class, provider_no);
+        return currentSession().get(Provider.class, provider_no);
     }
 
     @SuppressWarnings("unchecked")
