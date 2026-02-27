@@ -158,7 +158,7 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
     @Override
     public int getMortalities(int numYears) {
 
-        return ((Long) ((List<?>) HqlQueryHelper.find(currentSession(), HQL_GET_MORTALITIES, DateTimeFormatUtils.getPast(numYears))).get(0)).intValue();
+        return ((Long) HqlQueryHelper.find(currentSession(), HQL_GET_MORTALITIES, DateTimeFormatUtils.getPast(numYears)).get(0)).intValue();
     }
 
     @Override
