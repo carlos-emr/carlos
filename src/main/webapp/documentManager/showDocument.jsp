@@ -297,6 +297,7 @@
         </script>
 
         <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
         <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
 
@@ -315,6 +316,8 @@
                 src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
+        <script type="text/javascript"
+                src="${pageContext.servletContext.contextPath}/js/documentDescriptionTypeahead.js"></script>
 
         <script type="text/javascript">
 
@@ -1071,6 +1074,7 @@
     }
 
     setupProviderAutoCompletion();
+    setupDocDescriptionTypeahead('<%= Encode.forJavaScript(docId) %>');
 
     // Macro support: check if document is linked to patient, then apply macro
     function runDocMacro(name, formid, closeOnSuccess) {
