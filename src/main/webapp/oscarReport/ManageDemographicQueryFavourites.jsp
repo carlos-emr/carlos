@@ -56,11 +56,8 @@
 
 <html>
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
         <title>Manage Saved Demographic Queries</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
     </head>
 
     <body>

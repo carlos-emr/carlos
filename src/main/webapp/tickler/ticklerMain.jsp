@@ -166,21 +166,14 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.title"/> Manager</title>
 
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"
-                type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
-                type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"
-                type="text/javascript"></script>
+        <%@ include file="/includes/global-head.jspf" %>
+        <script type="text/javascript"
+                src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.css"
               rel="stylesheet" type="text/css"/>
         <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/css/print.css"/>
-        <link rel="stylesheet" type="text/css"
-              href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
-              type="text/css"/>
 
         <style>
 
