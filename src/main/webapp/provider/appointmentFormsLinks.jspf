@@ -45,6 +45,11 @@
 			String escapedLinkUrl=quickLink.getUrl();
 			escapedLinkUrl=escapedLinkUrl.replaceAll("\\$\\{contextPath\\}", request.getContextPath());
 			escapedLinkUrl=escapedLinkUrl.replaceAll("\\$\\{demographicId\\}", String.valueOf(demographic_no));
+			escapedLinkUrl=escapedLinkUrl.replaceAll("\$\{appointmentId\}", String.valueOf(appointment_no));
+			escapedLinkUrl=escapedLinkUrl.replaceAll("\$\{providerId\}", String.valueOf(providerPreference.getProviderNo()));
+			escapedLinkUrl=escapedLinkUrl.replaceAll("\$\{providerOhip\}", StringUtils.trimToEmpty(provider.getOhipNo()));
+			escapedLinkUrl=escapedLinkUrl.replaceAll("\$\{demographicHin\}", StringUtils.trimToEmpty(demographic.getHin()));
+			escapedLinkUrl=escapedLinkUrl.replaceAll("\$\{demographicVer\}", StringUtils.trimToEmpty(demographic.getVer()));
 			escapedLinkUrl=StringEscapeUtils.escapeHtml4(escapedLinkUrl);
 			
 			String escapedLinkName=StringEscapeUtils.escapeHtml4(quickLink.getName());
