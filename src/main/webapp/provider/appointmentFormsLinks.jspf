@@ -11,6 +11,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider"%>
 <%@page import="io.github.carlos_emr.carlos.daos.ProviderDAO"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
+<%@page import="org.owasp.encoder.Encode"%>
 
 <%
 	LoggedInInfo loggedInInfo3=LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -75,8 +76,7 @@
 			if (linkUrl == null) {
 				linkUrl = "";
 			}
-			// Unescape any HTML entities stored in the URL (e.g. &amp; → &) before substitution,
-			// then re-escape for HTML output after — prevents double-encoding.
+			// Unescape any HTML entities stored in the URL (e.g. &amp; → &) before substitution.
 			linkUrl = StringEscapeUtils.unescapeHtml4(linkUrl);
 
 			// Split "$" + "{...}" to prevent JSP EL parser from misidentifying these as EL expressions
@@ -92,17 +92,22 @@
 			escapedLinkUrl = escapedLinkUrl.replaceAll("\\$\\{providerOhip\\}", Matcher.quoteReplacement(provider != null ? StringUtils.trimToEmpty(provider.getOhipNo()) : ""));
 			escapedLinkUrl = escapedLinkUrl.replaceAll("\\$\\{demographicHin\\}", Matcher.quoteReplacement(demographic != null ? StringUtils.trimToEmpty(demographic.getHin()) : ""));
 			escapedLinkUrl = escapedLinkUrl.replaceAll("\\$\\{demographicVer\\}", Matcher.quoteReplacement(demographic != null ? StringUtils.trimToEmpty(demographic.getVer()) : ""));
-			escapedLinkUrl = StringEscapeUtils.escapeHtml4(escapedLinkUrl);
+			// Encode for JavaScript string inside HTML attribute context: hex-encodes JS special chars
+			// (e.g. " -> \x22, ' -> \x27) so they cannot break out of the JS string even after HTML
+			// attribute parsing. escapeHtml4() is NOT safe here because the browser decodes &quot; back
+			// to " before the JavaScript engine sees it, enabling JS string breakout (XSS).
+			String jsEncodedLinkUrl = Encode.forJavaScriptAttribute(escapedLinkUrl);
 
-			String escapedLinkName=StringEscapeUtils.escapeHtml4(quickLink.getName());
+			// Title attribute values use HTML attribute encoding (also encodes single quotes).
+			String escapedLinkName = Encode.forHtmlAttribute(quickLink.getName());
 			if (hinExposed) {
-				String warningTitle=StringEscapeUtils.escapeHtml4("WARNING-The health number is exposed in " + quickLink.getName());
+				String warningTitle = Encode.forHtmlAttribute("WARNING-The health number is exposed in " + quickLink.getName());
 				%>
-				|<a href="javascript:void(0)" onClick='popupPage2("<%=escapedLinkUrl%>")' title='<%=warningTitle%>' style='background-color:red;color:white;'><%=trimmedEscapedLinkName%></a>
+				|<a href="javascript:void(0)" onClick='popupPage2("<%=jsEncodedLinkUrl%>")' title='<%=warningTitle%>' style='background-color:red;color:white;'><%=trimmedEscapedLinkName%></a>
 				<%
 			} else {
 				%>
-				|<a href="javascript:void(0)" onClick='popupPage2("<%=escapedLinkUrl%>")' title='<%=escapedLinkName%>'><%=trimmedEscapedLinkName%></a>
+				|<a href="javascript:void(0)" onClick='popupPage2("<%=jsEncodedLinkUrl%>")' title='<%=escapedLinkName%>'><%=trimmedEscapedLinkName%></a>
 				<%
 			}
 		}
