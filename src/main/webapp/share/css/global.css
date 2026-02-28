@@ -58,6 +58,7 @@ a {
 }
 
 a:hover {
+    color: #28619a;
     color: color-mix(in srgb, var(--carlos-link) 75%, black);
 }
 
