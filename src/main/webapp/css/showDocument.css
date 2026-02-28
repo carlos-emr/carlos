@@ -116,10 +116,28 @@ div.content fieldset table tr td ul li a {
     margin-left: 5px;
 }
 
-ul.ui-menu {
+.autocomplete {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
     max-height: 400px;
     max-width: 260px;
-    overflow-y: scroll;
-    overflow-wrap: anywhere;
+    overflow-y: auto;
     overflow-x: hidden;
+    overflow-wrap: anywhere;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.autocomplete .ac-item {
+    padding: 4px 8px;
+    cursor: pointer;
+    word-break: break-word;
+}
+
+.autocomplete .ac-item:hover,
+.autocomplete .ac-item:focus {
+    background-color: #e8f0fe;
 }

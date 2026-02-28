@@ -288,17 +288,15 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <c:if test="${param.inWindow eq 'true'}">
-    <html>
-    <head>
-        <script type="text/javascript">
-            const ctx = "${pageContext.servletContext.contextPath}";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title><fmt:message key="global.Document"/></title>
+    <script type="text/javascript">
+        const ctx = "${pageContext.servletContext.contextPath}";
         </script>
 
-        <link rel="stylesheet" type="text/css"
-              href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css"/>
-        <link rel="stylesheet" type="text/css"
-              href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"/>
-        <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css"/>
+        <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/showDocument.css">
         <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
 
@@ -312,20 +310,13 @@
                 src="${pageContext.servletContext.contextPath}/share/calendar/calendar-setup.js"></script>
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
-              href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
-        <!-- jquery -->
+              href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1">
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
-
-        <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
-        <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/js/demographicProviderAutocomplete.js"></script>
 
         <script type="text/javascript">
-            jQuery.noConflict();
 
             function renderCalendar(id, inputFieldId) {
                 Calendar.setup({inputField: inputFieldId, ifFormat: "%Y-%m-%d", showsTime: false, button: id});
@@ -369,7 +360,8 @@
 
 
             function rotate90(id) {
-                jQuery("#rotate90btn_" + id).attr('disabled', 'disabled');
+                var btn = document.getElementById('rotate90btn_' + id);
+                if (btn) btn.disabled = true;
 
                 fetch(contextpath + "/documentManager/SplitDocument.do", {
                     method: 'POST',
@@ -379,12 +371,13 @@
                     body: "method=rotate90&document=" + encodeURIComponent(id)
                 })
                 .then(function(response) {
-                    jQuery("#rotate90btn_" + id).removeAttr('disabled');
-                    jQuery("#docImg_" + id).attr('src', contextpath + "/documentManager/ManageDocument.do?method=showPage&doc_no=" + encodeURIComponent(id) + "&page=1&rand=" + (new Date().getTime()));
+                    if (btn) btn.disabled = false;
+                    var img = document.getElementById('docImg_' + id);
+                    if (img) img.src = contextpath + "/documentManager/ManageDocument.do?method=showPage&doc_no=" + encodeURIComponent(id) + "&page=1&rand=" + (new Date().getTime());
                 })
                 .catch(function(error) {
                     console.error('Error:', error);
-                    jQuery("#rotate90btn_" + id).removeAttr('disabled');
+                    if (btn) btn.disabled = false;
                 });
             }
 
@@ -437,12 +430,12 @@
     <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<%=ackFunc%>" method="post"
           action="javascript:void(0);">
 
-        <input type="hidden" name="segmentID" value="<%= docId%>"/>
-        <input type="hidden" name="multiID" value="<%= docId%>"/>
-        <input type="hidden" name="providerNo" value="<%= providerNo%>"/>
-        <input type="hidden" name="status" value="A" id="status_<%=docId%>"/>
-        <input type="hidden" name="labType" value="DOC"/>
-        <input type="hidden" name="ajaxcall" value="yes"/>
+        <input type="hidden" name="segmentID" value="<%= docId%>">
+        <input type="hidden" name="multiID" value="<%= docId%>">
+        <input type="hidden" name="providerNo" value="<%= providerNo%>">
+        <input type="hidden" name="status" value="A" id="status_<%=docId%>">
+        <input type="hidden" name="labType" value="DOC">
+        <input type="hidden" name="ajaxcall" value="yes">
         <input type="hidden" name="comment" id="comment_<%=docId%>" value="<%=Encode.forHtmlAttribute(docCommentTxt)%>">
         <%
             if (labMacroProp != null && !StringUtils.isEmpty(labMacroProp.getValue())) {
@@ -476,7 +469,7 @@
         <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !ackedOrFiled) {%>
         <input type="submit" class="btn btn-outline-primary btn-sm" id="ackBtn_<%=docId%>"
                value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
-        <input type="button" class="btn btn-outline-secondary btn-sm" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>" onclick="addDocComment('<%=Encode.forJavaScript(docId)%>','<%=Encode.forJavaScript(providerNo)%>')"/>
+        <input type="button" class="btn btn-outline-secondary btn-sm" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>" onclick="addDocComment('<%=Encode.forJavaScript(docId)%>','<%=Encode.forJavaScript(providerNo)%>')">
 
         <%}%>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="fwdBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnForward"/>"
@@ -497,7 +490,7 @@
 
         %>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="msgBtn_<%=docId%>" value="<fmt:message key="showDocument.btnMsg"/>"
-               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=Encode.forJavaScript(docId)%>')" <%=btnDisabled %>/>
+               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=Encode.forJavaScript(docId)%>')" <%=btnDisabled %>>
 
         <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<%=docId%>" value="Tickler" onclick="handleDocSave('<%=docId%>','addTickler')"/-->
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=docId%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ticklerAdd.jsp?', 'Tickler','<%=docId%>')" <%=btnDisabled %>>
@@ -606,7 +599,7 @@
                         <tr>
                             <td><fmt:message key="inboxmanager.document.NumberOfPages"/></td>
                             <td>
-                                <input id="shownPage_<%=docId %>" type="hidden" value="1"/>
+                                <input id="shownPage_<%=docId %>" type="hidden" value="1">
                                 <%if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
                                 <span id="viewedPage_<%=docId%>"
                                       class="<%= numOfPage > 1 ? "multiPage" : "singlePage" %>">1</span>&nbsp; of
@@ -630,17 +623,17 @@
                                 </oscar:oscarPropertiesCheck>
                                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
                                     <input onclick="split('<%=docId%>','${e:forJavaScript(demoName)}')"
-                                           type="button" class=" btn btn-light btn-sm" value="<fmt:message key="inboxmanager.document.split"/>"/>
+                                           type="button" class=" btn btn-light btn-sm" value="<fmt:message key="inboxmanager.document.split"/>">
                                     <input id="rotate180btn_<%=docId %>" onclick="rotate180('<%=docId %>')"
                                            type="button" class=" btn btn-light btn-sm"
-                                           value="<fmt:message key="inboxmanager.document.rotate180"/>"/>
+                                           value="<fmt:message key="inboxmanager.document.rotate180"/>">
                                     <input id="rotate90btn_<%=docId %>" onclick="rotate90('<%=docId %>')"
                                             type="button" class=" btn btn-light btn-sm"
-                                           value="<fmt:message key="inboxmanager.document.rotate90"/>"/>
+                                           value="<fmt:message key="inboxmanager.document.rotate90"/>">
                                     <% if (numOfPage > 1) { %><input id="removeFirstPagebtn_<%=docId %>"
                                             onclick="removeFirstPage('<%=docId %>')"
                                             type="button" class=" btn btn-light btn-sm"
-                                            value="<fmt:message key="inboxmanager.document.removeFirstPage"/>"/><% } %>
+                                            value="<fmt:message key="inboxmanager.document.removeFirstPage"/>"><% } %>
                                 </div>
                             </td>
                         </tr>
@@ -648,12 +641,12 @@
                     </table>
 
                     <form id="forms_<%=docId%>" method="post" onsubmit="return updateDocument('forms_<%=docId%>');">
-                        <input type="hidden" name="method" value="documentUpdateAjax"/>
-                        <input type="hidden" name="documentId" value="<%=docId%>"/>
-                        <input type="hidden" name="providerNo" value="<%= providerNo%>"/>
-                        <input type="hidden" name="curPage_<%=docId%>" id="curPage_<%=docId%>" value="1"/>
+                        <input type="hidden" name="method" value="documentUpdateAjax">
+                        <input type="hidden" name="documentId" value="<%=docId%>">
+                        <input type="hidden" name="providerNo" value="<%= providerNo%>">
+                        <input type="hidden" name="curPage_<%=docId%>" id="curPage_<%=docId%>" value="1">
                         <input type="hidden" name="totalPage_<%=docId%>" id="totalPage_<%=docId%>"
-                               value="<%=numOfPage%>"/>
+                               value="<%=numOfPage%>">
                         <input type="hidden" name="displayDocumentAs_<%=docId%>" id="displayDocumentAs_<%=docId%>"
                                value="<%=Encode.forHtmlAttribute(displayDocumentAs)%>">
                         <table>
@@ -682,7 +675,7 @@
                                 <td><input id="docDesc_<%=docId%>" type="text" name="documentDescription"
                                            value="<%=Encode.forHtmlAttribute(curdoc.getDescription())%>"
                                            onfocus="this.select(); this.setAttribute('data-original-value', this.value)"
-                                           onblur="if (this.value.trim() === '') this.value = this.getAttribute('data-original-value')"/></td>
+                                           onblur="if (this.value.trim() === '') this.value = this.getAttribute('data-original-value')"></td>
                             </tr>
                             <tr>
                                 <td><fmt:message key="inboxmanager.document.ObservationDateMsg"/></td>
@@ -693,7 +686,7 @@
                                        onmouseover="renderCalendar(this.id,'observationDate<%=docId%>' );"
                                        href="javascript:void(0);">
                                         <img class="calendar-image" title="Calendar"
-                                             src="<%=request.getContextPath()%>/images/cal.gif" alt="Calendar"/>
+                                             src="<%=request.getContextPath()%>/images/cal.gif" alt="Calendar">
                                     </a>
                                 </td>
                             </tr>
@@ -701,30 +694,30 @@
                                 <td><fmt:message key="inboxmanager.document.DemographicMsg"/></td>
                                 <td><%
                                     if (!demographicID.equals("-1")) {%>
-                                    <input id="saved<%=docId%>" type="hidden" name="saved" value="true"/>
+                                    <input id="saved<%=docId%>" type="hidden" name="saved" value="true">
                                     <input type="hidden" value="<%=Encode.forHtmlAttribute(demographicID)%>" name="demog"
-                                           id="demofind<%=docId%>"/>
+                                           id="demofind<%=docId%>">
                                     <input type="hidden" name="demofindName" value="${e:forHtmlAttribute(demoName)}"
-                                           id="demofindName<%=docId%>"/>
+                                           id="demofindName<%=docId%>">
                                     <e:forHtmlContent value='${demoName}' /><e:forHtmlContent value='${mrpProviderName}' /><%} else {%>
-                                    <input id="saved<%=docId%>" type="hidden" name="saved" value="false"/>
+                                    <input id="saved<%=docId%>" type="hidden" name="saved" value="false">
                                     <input type="hidden" name="demog" value="<%=Encode.forHtmlAttribute(demographicID)%>"
-                                           id="demofind<%=docId%>"/>
+                                           id="demofind<%=docId%>">
                                     <input type="hidden" name="demofindName" value="${e:forHtmlAttribute(demoName)}"
-                                           id="demofindName<%=docId%>"/>
+                                           id="demofindName<%=docId%>">
 
                                     <input type="checkbox" id="activeOnly<%=docId%>" name="activeOnly" checked="checked"
                                            value="true" onclick="setupDemoAutoCompletion()"><fmt:message key="showDocument.lblActiveOnly"/><br>
                                     <input type="text" id="autocompletedemo<%=docId%>"
                                            onchange="checkSave('<%=Encode.forJavaScript(docId)%>');" name="demographicKeyword"
-                                           placeholder="Search Demographic"/>
+                                           placeholder="Search Demographic">
                                     <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
 
                                     <%}%>
                                     <input type="button" class=" btn btn-light btn-sm" id="createNewDemo" value="<fmt:message key="dms.incomingDocs.createNewDemographic"/>"
-                                           onclick="popup(700,960,'${pageContext.servletContext.contextPath}/demographic/demographicaddarecordhtm.jsp','demographic')"/>
+                                           onclick="popup(700,960,'${pageContext.servletContext.contextPath}/demographic/demographicaddarecordhtm.jsp','demographic')">
 
-                                    <input id="saved_<%=docId%>" type="hidden" name="saved" value="false"/>
+                                    <input id="saved_<%=docId%>" type="hidden" name="saved" value="false">
                                     <br><input id="mrp_<%=docId%>" style="display: none;" type="checkbox"
                                                onclick="sendMRP(this)" name="demoLink">
                                     <a id="mrp_fail_<%=docId%>"
@@ -735,9 +728,9 @@
                             <tr>
                                 <td style="vertical-align: top;"><fmt:message key="inboxmanager.document.FlagProviderMsg"/></td>
                                 <td>
-                                    <input type="hidden" name="provi" id="provfind<%=docId%>"/>
+                                    <input type="hidden" name="provi" id="provfind<%=docId%>">
                                     <input type="text" id="autocompleteprov<%=docId%>" name="demographicKeyword"
-                                           placeholder="Search Provider"/>
+                                           placeholder="Search Provider">
                                     <div id="autocomplete_choicesprov<%=docId%>" class="autocomplete"></div>
 
 
@@ -748,16 +741,16 @@
                                 <td style="width: 30%; text-align: left;"><a id="saveSucessMsg_<%=docId%>"
                                                                             style="display:none;color:blue;"><fmt:message key="inboxmanager.document.SuccessfullySavedMsg"/></a></td>
                                 <td style="width: 30%; text-align: left;"><%if(demographicID.equals("-1")){%>
-                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" disabled id="save<%=docId%>" value="<fmt:message key="global.btnSave"/>"/>
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" disabled id="save<%=docId%>" value="<fmt:message key="global.btnSave"/>">
                                     <input type="button" class=" btn btn-light btn-sm" name="save" id="saveNext<%=docId%>"
                                            onclick="saveNext(<%=docId%>)" disabled
-                                           value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'/>
+                                           value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'>
                                         <%}
             else{%>
-                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" id="save<%=docId%>" value="<fmt:message key="global.btnSave"/>"/>
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" id="save<%=docId%>" value="<fmt:message key="global.btnSave"/>">
                                     <input type="button" class=" btn btn-light btn-sm" name="save" onclick="saveNext(<%=docId%>)"
                                            id="saveNext<%=docId%>"
-                                           value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'/>
+                                           value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'>
 
                                         <%}%>
 
@@ -889,13 +882,13 @@
                         }
                     %>
                     <form name="reassignForm_<%=docId%>" id="reassignForm_<%=docId%>" method="post">
-                        <input type="hidden" name="flaggedLabs" value="<%=Encode.forHtmlAttribute(docId)%>"/>
-                        <input type="hidden" name="selectedProviders" value=""/>
-                        <input type="hidden" name="labType" value="DOC"/>
-                        <input type="hidden" name="labType<%=Encode.forHtmlAttribute(docId)%>DOC" value="imNotNull"/>
-                        <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>"/>
-                        <input type="hidden" name="favorites" value=""/>
-                        <input type="hidden" name="ajax" value="yes"/>
+                        <input type="hidden" name="flaggedLabs" value="<%=Encode.forHtmlAttribute(docId)%>">
+                        <input type="hidden" name="selectedProviders" value="">
+                        <input type="hidden" name="labType" value="DOC">
+                        <input type="hidden" name="labType<%=Encode.forHtmlAttribute(docId)%>DOC" value="imNotNull">
+                        <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>">
+                        <input type="hidden" name="favorites" value="">
+                        <input type="hidden" name="ajax" value="yes">
                     </form>
                 </fieldset>
             </td>
@@ -919,76 +912,130 @@
         showPDF('<%=docId%>', contextpath);
     }
 
-    var tmp;
-
     function setupDemoAutoCompletion() {
-        if (jQuery("#autocompletedemo<%=docId%>")) {
+        var inputEl = document.getElementById('autocompletedemo<%=docId%>');
+        var dropdownEl = document.getElementById('autocomplete_choices<%=docId%>');
+        var activeOnlyEl = document.getElementById('activeOnly<%=docId%>');
+        if (!inputEl || !dropdownEl) return;
 
-            var url;
-            if (jQuery("#activeOnly<%=docId%>").is(":checked")) {
-                url = "${pageContext.servletContext.contextPath}/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=" + jQuery("#activeOnly<%=docId%>").val();
-            } else {
-                url = "${pageContext.servletContext.contextPath}/demographic/SearchDemographic.do?jqueryJSON=true";
+        inputEl.setAttribute('autocomplete', 'off');
+        var abortCtrl = null;
+
+        inputEl.addEventListener('input', function () {
+            var term = inputEl.value.trim();
+            if (term.length < 2) {
+                dropdownEl.innerHTML = '';
+                dropdownEl.style.display = 'none';
+                return;
             }
-
-            jQuery("#autocompletedemo<%=docId%>").autocomplete({
-                source: url,
-                minLength: 2,
-
-                focus: function (event, ui) {
-                    jQuery("#autocompletedemo<%=docId%>").val(ui.item.label);
-                    return false;
-                },
-                select: function (event, ui) {
-                    jQuery("#autocompletedemo<%=docId%>").val(ui.item.label);
-                    jQuery("#demofind<%=docId%>").val(ui.item.value);
-                    jQuery("#demofindName<%=docId%>").val(ui.item.formattedName);
-                    selectedDemos.push(ui.item.label);
-                    console.log(ui.item.providerNo);
-                    if (ui.item.providerNo != undefined && ui.item.providerNo != null && ui.item.providerNo != "" && ui.item.providerNo != "null") {
-                        addDocToList(ui.item.providerNo, ui.item.provider + " (MRP)", "<%=docId%>");
+            var activeOnly = activeOnlyEl ? activeOnlyEl.checked : true;
+            var url = '${pageContext.servletContext.contextPath}/demographic/SearchDemographic.do?jqueryJSON=true&activeOnly=' + activeOnly + '&term=' + encodeURIComponent(term);
+            if (abortCtrl) { abortCtrl.abort(); }
+            abortCtrl = new AbortController();
+            fetch(url, { signal: abortCtrl.signal })
+                .then(function (r) { return r.json(); })
+                .then(function (items) {
+                    dropdownEl.innerHTML = '';
+                    if (!items || items.length === 0) {
+                        dropdownEl.style.display = 'none';
+                        return;
                     }
+                    items.forEach(function (item) {
+                        var div = document.createElement('div');
+                        div.className = 'ac-item';
+                        div.textContent = item.label;
+                        div.addEventListener('mousedown', function (e) {
+                            e.preventDefault();
+                            inputEl.value = item.label;
+                            document.getElementById('demofind<%=docId%>').value = item.value;
+                            document.getElementById('demofindName<%=docId%>').value = item.formattedName;
+                            selectedDemos.push(item.label);
+                            console.log(item.providerNo);
+                            if (item.providerNo !== undefined && item.providerNo !== null && item.providerNo !== '' && item.providerNo !== 'null') {
+                                addDocToList(item.providerNo, item.provider + ' (MRP)', '<%=docId%>');
+                            }
+                            // enable Save button whenever a selection is made
+                            document.getElementById('save<%=docId%>').disabled = false;
+                            document.getElementById('saveNext<%=docId%>').disabled = false;
+                            document.getElementById('msgBtn_<%=docId%>').disabled = false;
+                            document.getElementById('mainTickler_<%=docId%>').disabled = false;
+                            document.getElementById('mainEchart_<%=docId%>').disabled = false;
+                            document.getElementById('mainMaster_<%=docId%>').disabled = false;
+                            document.getElementById('mainApptHistory_<%=docId%>').disabled = false;
+                            dropdownEl.innerHTML = '';
+                            dropdownEl.style.display = 'none';
+                        });
+                        dropdownEl.appendChild(div);
+                    });
+                    dropdownEl.style.display = 'block';
+                })
+                .catch(function () {});
+        });
 
-                    //enable Save button whenever a selection is made
-                    jQuery('#save<%=docId%>').removeAttr('disabled');
-                    jQuery('#saveNext<%=docId%>').removeAttr('disabled');
-
-                    jQuery('#msgBtn_<%=docId%>').removeAttr('disabled');
-                    jQuery('#mainTickler_<%=docId%>').removeAttr('disabled');
-                    jQuery('#mainEchart_<%=docId%>').removeAttr('disabled');
-                    jQuery('#mainMaster_<%=docId%>').removeAttr('disabled');
-                    jQuery('#mainApptHistory_<%=docId%>').removeAttr('disabled');
-                    return false;
-                }
-            });
-        }
-    }
-
-
-    jQuery(setupDemoAutoCompletion());
-
-    function setupProviderAutoCompletion() {
-        var url = "${pageContext.servletContext.contextPath}/provider/SearchProvider.do?method=labSearch";
-
-        jQuery("#autocompleteprov<%=docId%>").autocomplete({
-            source: url,
-            minLength: 2,
-
-            focus: function (event, ui) {
-                jQuery("#autocompleteprov<%=docId%>").val(ui.item.label);
-                return false;
-            },
-            select: function (event, ui) {
-                jQuery("#autocompleteprov<%=docId%>").val("");
-                jQuery("#provfind<%=docId%>").val(ui.item.value);
-                addDocToList(ui.item.value, ui.item.label, "<%=docId%>");
-
-                return false;
-            }
+        inputEl.addEventListener('blur', function () {
+            setTimeout(function () {
+                dropdownEl.innerHTML = '';
+                dropdownEl.style.display = 'none';
+            }, 200);
         });
     }
 
-    jQuery(setupProviderAutoCompletion());
+    setupDemoAutoCompletion();
+
+    function setupProviderAutoCompletion() {
+        var inputEl = document.getElementById('autocompleteprov<%=docId%>');
+        var dropdownEl = document.getElementById('autocomplete_choicesprov<%=docId%>');
+        if (!inputEl || !dropdownEl) return;
+
+        inputEl.setAttribute('autocomplete', 'off');
+        var baseUrl = '${pageContext.servletContext.contextPath}/provider/SearchProvider.do?method=labSearch';
+        var abortCtrl = null;
+
+        inputEl.addEventListener('input', function () {
+            var term = inputEl.value.trim();
+            if (term.length < 2) {
+                dropdownEl.innerHTML = '';
+                dropdownEl.style.display = 'none';
+                return;
+            }
+            if (abortCtrl) { abortCtrl.abort(); }
+            abortCtrl = new AbortController();
+            fetch(baseUrl + '&term=' + encodeURIComponent(term), { signal: abortCtrl.signal })
+                .then(function (r) { return r.json(); })
+                .then(function (items) {
+                    dropdownEl.innerHTML = '';
+                    if (!items || items.length === 0) {
+                        dropdownEl.style.display = 'none';
+                        return;
+                    }
+                    items.forEach(function (item) {
+                        var div = document.createElement('div');
+                        div.className = 'ac-item';
+                        div.textContent = item.label;
+                        div.addEventListener('mousedown', function (e) {
+                            e.preventDefault();
+                            inputEl.value = '';
+                            document.getElementById('provfind<%=docId%>').value = item.value;
+                            addDocToList(item.value, item.label, '<%=docId%>');
+                            dropdownEl.innerHTML = '';
+                            dropdownEl.style.display = 'none';
+                        });
+                        dropdownEl.appendChild(div);
+                    });
+                    dropdownEl.style.display = 'block';
+                })
+                .catch(function () {});
+        });
+
+        inputEl.addEventListener('blur', function () {
+            setTimeout(function () {
+                dropdownEl.innerHTML = '';
+                dropdownEl.style.display = 'none';
+            }, 200);
+        });
+    }
+
+    setupProviderAutoCompletion();
 
     // Macro support: check if document is linked to patient, then apply macro
     function runDocMacro(name, formid, closeOnSuccess) {
