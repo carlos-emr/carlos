@@ -1,0 +1,13 @@
+carlos (yyy-x,x) RELEASED; urgency=low
+
+  * Release of carlosprogram  
+  * build xxx
+  *
+  * carlos recent changes
+  * 
+  * outstanding issues with war (known) 
+  *   translations are incomplete
+  *   Admin restart buttons are not hooked up
+  *
+
+ -- Peter Hutten-Czapski <phc@srpc.ca>  releasedate
