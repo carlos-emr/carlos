@@ -411,7 +411,7 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
 
             // Then - demo1 has enabled restrictions in program1 which matches facilityId
             assertThat(results)
-                .isNotEmpty()
+                .hasSize(1)
                 .allSatisfy(pcr -> {
                     assertThat(pcr.getDemographicNo()).isEqualTo(testDemoNo1);
                     assertThat(pcr.isEnabled()).isTrue();
@@ -441,10 +441,11 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
 
             // Then - Should find restrictions for programs with null facilityId
             assertThat(results)
-                .isNotEmpty()
+                .hasSize(1)
                 .allSatisfy(pcr -> {
                     assertThat(pcr.getDemographicNo()).isEqualTo(testDemoNo1);
                     assertThat(pcr.isEnabled()).isTrue();
+                    assertThat(pcr.getProgramId()).isEqualTo(testProgramId1);
                 });
         }
 

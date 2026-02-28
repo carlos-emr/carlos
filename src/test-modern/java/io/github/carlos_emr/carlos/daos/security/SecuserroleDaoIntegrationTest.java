@@ -790,19 +790,23 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
         @Tag("update")
         @DisplayName("should set lastUpdateDate when updating role name")
         void shouldSetLastUpdateDate_whenUpdatingRoleName() {
-            // Given
+            // Given - set a known past baseline date before calling updateRoleName
+            Date baseline = new Date(946684800000L); // 2000-01-01 as a fixed past baseline
             Secuserrole role = createSecuserrole("URN01", "doctor", "ORG1");
+            role.setLastUpdateDate(baseline);
+            hibernateTemplate.update(role);
             hibernateTemplate.flush();
+            hibernateTemplate.clear();
 
             // When
             secuserroleDao.updateRoleName(role.getId(), "surgeon");
             hibernateTemplate.flush();
             hibernateTemplate.clear();
 
-            // Then
+            // Then - lastUpdateDate should be refreshed to a time after our baseline
             Secuserrole found = secuserroleDao.findById(role.getId());
             assertThat(found.getRoleName()).isEqualTo("surgeon");
-            assertThat(found.getLastUpdateDate()).isNotNull();
+            assertThat(found.getLastUpdateDate()).isAfter(baseline);
         }
     }
 

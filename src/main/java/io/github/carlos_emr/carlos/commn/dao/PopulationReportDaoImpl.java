@@ -85,12 +85,12 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
     private static final String HQL_GET_PREVALENCE = "select count(cmi) from CaseManagementIssue cmi where cmi.resolved = false and " +
     "cmi.demographic_no in (select distinct a.clientId from Admission a where a.programId in (select p.id from Program p where " +
     "lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where " +
-    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in ";
+    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in (:codes)";
 
     private static final String HQL_GET_INCIDENCE = "select count(cmi) from CaseManagementIssue cmi where " +
     "cmi.demographic_no in (select distinct a.clientId from Admission a where a.programId in (select p.id from Program p where " +
     "lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where " +
-    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in ";
+    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in (:codes)";
 
     public int getCurrentPopulationSize() {
         Long count = (Long) getSessionFactory().getCurrentSession()
@@ -173,42 +173,26 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
 
     @Override
     public int getPrevalence(SortedSet<String> icd10Codes) {
-
-        StringBuilder query = new StringBuilder(HQL_GET_PREVALENCE).append("(");
-
-        for (String icd10Code : icd10Codes) {
-            query.append("'").append(icd10Code).append("'");
-
-            if (!icd10Codes.last().equals(icd10Code)) {
-                query.append(",");
-            }
+        if (icd10Codes == null || icd10Codes.isEmpty()) {
+            return 0;
         }
 
-        query.append(")");
-
         Long count = (Long) getSessionFactory().getCurrentSession()
-            .createQuery(query.toString())
+            .createQuery(HQL_GET_PREVALENCE)
+            .setParameterList("codes", icd10Codes)
             .uniqueResult();
         return count != null ? count.intValue() : 0;
     }
 
     @Override
     public int getIncidence(SortedSet<String> icd10Codes) {
-
-        StringBuilder query = new StringBuilder(HQL_GET_INCIDENCE).append("(");
-
-        for (String icd10Code : icd10Codes) {
-            query.append("'").append(icd10Code).append("'");
-
-            if (!icd10Codes.last().equals(icd10Code)) {
-                query.append(",");
-            }
+        if (icd10Codes == null || icd10Codes.isEmpty()) {
+            return 0;
         }
 
-        query.append(")");
-
         Long count = (Long) getSessionFactory().getCurrentSession()
-            .createQuery(query.toString())
+            .createQuery(HQL_GET_INCIDENCE)
+            .setParameterList("codes", icd10Codes)
             .uniqueResult();
         return count != null ? count.intValue() : 0;
     }

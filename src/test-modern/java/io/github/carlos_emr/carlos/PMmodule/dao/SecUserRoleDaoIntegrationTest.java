@@ -312,7 +312,7 @@ public class SecUserRoleDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist new user role and set lastUpdateDate")
-        void shouldPersistNewUserRole_andSetLastUpdateDate() {
+        void shouldSetLastUpdateDate_whenPersistingNewUserRole() {
             // Given
             SecUserRole role = new SecUserRole("tester", uniquePrefix + "010");
 
