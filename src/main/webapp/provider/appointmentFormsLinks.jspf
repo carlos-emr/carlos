@@ -32,6 +32,7 @@
 				demographic = demographicDao.getDemographic(demographic_no);
 			} catch (Exception e) {
 				// demographic_no invalid or not found — leave demographic null
+				org.apache.commons.logging.LogFactory.getLog("appointmentFormsLinks").debug("Could not load demographic: " + demographic_no, e);
 			}
 		}
 
@@ -48,9 +49,20 @@
 			for (String formNameTemp : formNamesList)
 			{
 				String trimmedEscapedLinkName=StringEscapeUtils.escapeHtml4(AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, formNameTemp));
-				String escapedLinkName=StringEscapeUtils.escapeHtml4(formNameTemp);
+				// Build the full URL as a Java string, then encode for the JS-in-HTML-attribute context.
+				// escapeHtml4() is NOT safe here: the browser decodes &quot; → " before the JS engine
+				// sees it, enabling JS string breakout (XSS). Encode.forJavaScriptAttribute() hex-encodes
+				// JS special chars so they survive HTML attribute parsing intact.
+				String formUrl = request.getContextPath() + "/form/forwardshortcutname.do?formname="
+						+ java.net.URLEncoder.encode(formNameTemp, "UTF-8")
+						+ "&demographic_no=" + (demographic_no != null ? demographic_no : "")
+						+ "&appointmentNo=" + (appointment_no != null ? appointment_no : "");
+				String jsEncodedFormUrl = Encode.forJavaScriptAttribute(formUrl);
+				// Encode.forHtmlAttribute() also encodes single quotes (escapeHtml4 does not),
+				// preventing attribute breakout when the title is single-quote-delimited.
+				String encodedFormTitle = Encode.forHtmlAttribute(formNameTemp);
 				%>
-					|<a href=# onClick='popupPage2("<%= request.getContextPath() %>/form/forwardshortcutname.do?formname=<%=escapedLinkName%>&amp;demographic_no=<%=demographic_no%>&amp;appointmentNo=<%=appointment_no%>")' title='<%=escapedLinkName%>'><%=trimmedEscapedLinkName%></a>
+					|<a href="javascript:void(0)" onClick='popupPage2("<%=jsEncodedFormUrl%>")' title='<%=encodedFormTitle%>'><%=trimmedEscapedLinkName%></a>
 				<%
 			}
 
@@ -60,9 +72,14 @@
 				Integer eFormIdTemp = eFormLink.getAppointmentScreenEForm();
 				EForm eForm=AppointmentProviderAdminDayUIBean.getEForms(eFormIdTemp);
 				String trimmedEscapedLinkName=StringEscapeUtils.escapeHtml4(AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, eForm.getFormName()));
-				String escapedLinkName=StringEscapeUtils.escapeHtml4(eForm.getFormName());
+				// Same JS-in-HTML-attribute encoding fix as forms above.
+				String eformUrl = request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + eFormIdTemp
+						+ "&demographic_no=" + (demographic_no != null ? demographic_no : "")
+						+ "&appointment=" + (appointment_no != null ? appointment_no : "");
+				String jsEncodedEformUrl = Encode.forJavaScriptAttribute(eformUrl);
+				String encodedEformTitle = Encode.forHtmlAttribute(eForm.getFormName());
 				%>
-					|<a href=# onClick='popupPage2("<%=request.getContextPath()%>/eform/efmformadd_data.jsp?fid=<%=eFormIdTemp%>&amp;demographic_no=<%=demographic_no%>&amp;appointment=<%=appointment_no%>")' title='<%=escapedLinkName%>'><%=trimmedEscapedLinkName%></a>
+					|<a href="javascript:void(0)" onClick='popupPage2("<%=jsEncodedEformUrl%>")' title='<%=encodedEformTitle%>'><%=trimmedEscapedLinkName%></a>
 				<%
 			}
 		}
