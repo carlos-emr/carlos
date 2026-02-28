@@ -2289,6 +2289,7 @@
                                                             <jsp:include page="appointmentFormsLinks.jspf">
                                                                 <jsp:param name="demographic_no" value="${appointment.demographicNo}"/>
                                                                 <jsp:param name="appointment_no" value="${appointment.id}"/>
+                                                                <jsp:param name="skipFormsAndEforms" value="true"/>
                                                             </jsp:include>
                                                         </c:if>
 
