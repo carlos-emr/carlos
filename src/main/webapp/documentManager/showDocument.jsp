@@ -82,15 +82,14 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 
 <%@ page import="java.text.SimpleDateFormat"%>
 <%@ page import="java.time.LocalDate" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.apache.commons.lang.StringEscapeUtils"%>
-<%@ page import="org.apache.commons.lang.StringUtils" %>
+<%@ page import="org.apache.commons.lang3.StringEscapeUtils"%>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.owasp.encoder.Encode"%>
 <%@ page import="org.springframework.web.context.WebApplicationContext"%>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils"%>
@@ -108,7 +107,7 @@
 
     LoggedInInfo loggedInInfo=LoggedInInfo.getLoggedInInfoFromSession(request);
     String providerNo = loggedInInfo.getLoggedInProviderNo();
-    UserProperty uProp = userPropertyDAO.getProp(providerNo, UserProperty.LAB_ACK_COMMENT);                        
+    UserProperty uProp = userPropertyDAO.getProp(providerNo, UserProperty.LAB_ACK_COMMENT);
     boolean skipComment = false;
 
     if (uProp != null && uProp.getValue().equalsIgnoreCase("yes")) {
@@ -123,7 +122,7 @@
 
     String demoName = request.getParameter("demoName");
     String documentNo = request.getParameter("segmentID");
-    
+
     String inQueue = request.getParameter("inQueue");
 
     boolean inQueueB = false;
@@ -148,7 +147,7 @@
     String mrpProviderName = "";
     if ((demographicID != null) && !demographicID.isEmpty() && !demographicID.equals("-1")) {
         DemographicDao demographicDao = (DemographicDao)SpringUtils.getBean(DemographicDao.class);
-        Demographic demographic = demographicDao.getDemographic(demographicID);  
+        Demographic demographic = demographicDao.getDemographic(demographicID);
 				demoName = demographic.getLastName()+","+demographic.getFirstName();
         mrpProviderName = demographic.getProviderNo() == null || demographic.getProviderNo().isEmpty() ? "Unknown" : providerDao.getProviderNameLastFirst(demographic.getProviderNo());
         mrpProviderName = " (MRP: " + mrpProviderName + ")";
@@ -390,12 +389,8 @@
         <input type="hidden" name="labType" value="DOC"/>
         <input type="hidden" name="ajaxcall" value="yes"/>
         <input type="hidden" name="comment" id="comment_<%=docId%>" value="<%=docCommentTxt%>">
-        <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !ackedOrFiled) {%>
-        <input type="submit" id="ackBtn_<%=docId%>"
-               value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
-        <input type="button" value="Comment" onclick="addDocComment('<%=docId%>','<%=providerNo%>')"/>
         <%
-            if (labMacroProp != null && !StringUtils.isEmpty(labMacroProp.getValue())) {
+            if (!StringUtils.isEmpty(labMacroProp.getValue())) {
         %>
         <div class="dropdown d-inline-block">
             <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button"
@@ -423,16 +418,21 @@
             </ul>
         </div>
         <% } %>
+        <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !ackedOrFiled) {%>
+        <input type="submit" class="btn btn-outline-primary btn-sm" id="ackBtn_<%=docId%>"
+               value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
+        <input type="button" class="btn btn-outline-secondary btn-sm" value="Comment" onclick="addDocComment('<%=docId%>','<%=providerNo%>')"/>
+
         <%}%>
-        <input type="button" id="fwdBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnForward"/>"
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="fwdBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnForward"/>"
                onClick="ForwardSelectedRows(<%=docId%> + ':DOC', null, null);">
         <%if (!ackedOrFiled) { %>
-        <input type="button" id="fileBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnFile"/>"
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="fileBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnFile"/>"
                onclick="fileDoc('<%=docId%>');">
         <%} %>
-        <input type="button" id="closeBtn_<%=docId%>" value=" <fmt:message key="global.btnClose"/> "
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="closeBtn_<%=docId%>" value=" <fmt:message key="global.btnClose"/> "
                onClick="window.close()">
-        <input type="button" id="printBtn_<%=docId%>" value=" <fmt:message key="global.btnPrint"/> "
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="printBtn_<%=docId%>" value=" <fmt:message key="global.btnPrint"/> "
                onClick="popup(700,960,'<%=url2%>','file download')">
         <%
             String btnDisabled = "disabled";
@@ -441,11 +441,11 @@
             }
 
         %>
-        <input type="button" id="msgBtn_<%=docId%>" value="Msg"
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="msgBtn_<%=docId%>" value="Msg"
                onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=docId%>')" <%=btnDisabled %>/>
 
-        <!--input type="button" id="ticklerBtn_<%=docId%>" value="Tickler" onclick="handleDocSave('<%=docId%>','addTickler')"/-->
-        <input type="button" id="mainTickler_<%=docId%>" value="Tickler" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ticklerAdd.jsp?', 'Tickler','<%=docId%>')" <%=btnDisabled %>>
+        <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<%=docId%>" value="Tickler" onclick="handleDocSave('<%=docId%>','addTickler')"/-->
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=docId%>" value="Tickler" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ticklerAdd.jsp?', 'Tickler','<%=docId%>')" <%=btnDisabled %>>
         <%
                                                             String refileBtnVisibility = "";
                                                             for (Hashtable ht : queues) {
@@ -461,18 +461,19 @@
                                                             }
                                                         %>
 
-        <input type="button" id="mainEchart_<%=docId%>"
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainEchart_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/oscarEncounter/IncomingEncounter.do?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=docId%>')" <%=btnDisabled %>>
-        <input type="button" id="mainMaster_<%=docId%>" value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainMaster_<%=docId%>" value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
                onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/demographiccontrol.jsp?displaymode=edit&dboperation=search_detail&demographic_no=','master','<%=docId%>')" <%=btnDisabled %>>
-        <input type="button" id="mainApptHistory_<%=docId%>"
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainApptHistory_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnApptHist"/>"
                onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/demographiccontrol.jsp?orderby=appttime&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25&demographic_no=','ApptHist','<%=docId%>')" <%=btnDisabled %>>
 
-        <input type="button" id="refileDoc_<%=docId%>"
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="refileDoc_<%=docId%>"
                value="<fmt:message key="oscarEncounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<%=docId%>');" <%=refileBtnVisibility%> >
-        <select id="queueList_<%=docId%>" name="queueList"
+
+        <select id="queueList_<%=docId%>" class="btn btn-outline-secondary btn-sm"" name="queueList"
                 onchange="handleQueueListChange(this, document.getElementById('refileDoc_<%=docId%>'), '<%=docCurrentFiledQueue%>')">
             <%
                 for (Hashtable ht : queues) {
@@ -483,6 +484,7 @@
             </option>
             <%}%>
         </select>
+
     </form>
     <security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
         <% if (numTickler > 0 && isLinkedToDemographic) { %>
@@ -573,16 +575,17 @@
                                 </oscar:oscarPropertiesCheck>
                                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
                                     <input onclick="split('<%=docId%>','${e:forJavaScript(demoName)}')"
-                                           type="button" value="<fmt:message key="inboxmanager.document.split"/>"/>
+                                           type="button" class=" btn btn-light btn-sm" value="<fmt:message key="inboxmanager.document.split"/>"/>
                                     <input id="rotate180btn_<%=docId %>" onclick="rotate180('<%=docId %>')"
-                                           type="button"
+                                           type="button" class=" btn btn-light btn-sm"
                                            value="<fmt:message key="inboxmanager.document.rotate180"/>"/>
-                                    <input id="rotate90btn_<%=docId %>" onclick="rotate90('<%=docId %>')" type="button"
+                                    <input id="rotate90btn_<%=docId %>" onclick="rotate90('<%=docId %>')"
+                                            type="button" class=" btn btn-light btn-sm"
                                            value="<fmt:message key="inboxmanager.document.rotate90"/>"/>
                                     <% if (numOfPage > 1) { %><input id="removeFirstPagebtn_<%=docId %>"
-                                                                     onclick="removeFirstPage('<%=docId %>')"
-                                                                     type="button"
-                                                                     value="<fmt:message key="inboxmanager.document.removeFirstPage"/>"/><% } %>
+                                            onclick="removeFirstPage('<%=docId %>')"
+                                            type="button" class=" btn btn-light btn-sm"
+                                            value="<fmt:message key="inboxmanager.document.removeFirstPage"/>"/><% } %>
                                 </div>
                             </td>
                         </tr>
@@ -663,7 +666,7 @@
                                     <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
 
                                     <%}%>
-                                    <input type="button" id="createNewDemo" value="Create New Demographic"
+                                    <input type="button" class=" btn btn-light btn-sm" id="createNewDemo" value="Create New Demographic"
                                            onclick="popup(700,960,'${pageContext.servletContext.contextPath}/demographic/demographicaddarecordhtm.jsp','demographic')"/>
 
                                     <input id="saved_<%=docId%>" type="hidden" name="saved" value="false"/>
@@ -690,14 +693,14 @@
                                 <td width="30%" colspan="1" align="left"><a id="saveSucessMsg_<%=docId%>"
                                                                             style="display:none;color:blue;"><fmt:message key="inboxmanager.document.SuccessfullySavedMsg"/></a></td>
                                 <td width="30%" colspan="1" align="left"><%if(demographicID.equals("-1")){%>
-                                    <input type="submit" name="save" disabled id="save<%=docId%>" value="Save"/>
-                                    <input type="button" name="save" id="saveNext<%=docId%>"
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" disabled id="save<%=docId%>" value="Save"/>
+                                    <input type="button" class=" btn btn-light btn-sm" name="save" id="saveNext<%=docId%>"
                                            onclick="saveNext(<%=docId%>)" disabled
                                            value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'/>
                                         <%}
             else{%>
-                                    <input type="submit" name="save" id="save<%=docId%>" value="Save"/>
-                                    <input type="button" name="save" onclick="saveNext(<%=docId%>)"
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" id="save<%=docId%>" value="Save"/>
+                                    <input type="button" class=" btn btn-light btn-sm" name="save" onclick="saveNext(<%=docId%>)"
                                            id="saveNext<%=docId%>"
                                            value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'/>
 
