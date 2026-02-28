@@ -98,11 +98,11 @@
 			if (hinExposed) {
 				String warningTitle=StringEscapeUtils.escapeHtml4("WARNING-The health number is exposed in " + quickLink.getName());
 				%>
-				|<a href=# onClick='popupPage2("<%=escapedLinkUrl%>")' title='<%=warningTitle%>' style='background-color:red;color:white;'><%=trimmedEscapedLinkName%></a>
+				|<a href="javascript:void(0)" onClick='popupPage2("<%=escapedLinkUrl%>")' title='<%=warningTitle%>' style='background-color:red;color:white;'><%=trimmedEscapedLinkName%></a>
 				<%
 			} else {
 				%>
-				|<a href=# onClick='popupPage2("<%=escapedLinkUrl%>")' title='<%=escapedLinkName%>'><%=trimmedEscapedLinkName%></a>
+				|<a href="javascript:void(0)" onClick='popupPage2("<%=escapedLinkUrl%>")' title='<%=escapedLinkName%>'><%=trimmedEscapedLinkName%></a>
 				<%
 			}
 		}
