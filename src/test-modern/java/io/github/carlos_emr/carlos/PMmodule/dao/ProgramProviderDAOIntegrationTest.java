@@ -47,7 +47,7 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link ProgramProviderDAO} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover simple queries, multi-parameter queries, subquery JOINs, LEFT JOINs,
  * 3-way JOINs, cache-evicting writes, loop deletes, and boolean domain checks.</p>
@@ -415,8 +415,8 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
             // When
             List<ProgramProvider> results = programProviderDAO.getAllProgramProviders();
 
-            // Then
-            assertThat(results).hasSizeGreaterThanOrEqualTo(3);
+            // Then - setUp creates no ProgramProviders; exactly 3 are created above
+            assertThat(results).hasSize(3);
         }
 
         @Test
@@ -487,7 +487,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
 
     /**
      * Tests for {@link ProgramProviderDAO#getProgramProvidersByProviderAndFacility(String, Integer)}.
-     * Uses a subquery JOIN: pp.ProgramId in (select s.id from Program s where s.facilityId=?1 or s.facilityId is null).
+     * Uses named parameters: pp.ProviderNo = :providerNo and s.facilityId = :facilityId or s.facilityId is null.
      */
     @Nested
     @DisplayName("getProgramProvidersByProviderAndFacility (subquery JOIN)")
@@ -527,7 +527,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
                 .executeUpdate();
             hibernateTemplate.flush();
 
-            Long noFacilityProgramId = (long) noFacilityProgram.getId();
+            long noFacilityProgramId = (long) noFacilityProgram.getId();
             createProgramProvider(testProviderNo1, noFacilityProgramId);
             createProgramProvider(testProviderNo1, testProgramId1);
             hibernateTemplate.flush();
@@ -1071,7 +1071,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
 
     /**
      * Tests for {@link ProgramProviderDAO#getProgramDomainByFacility(String, Integer)}.
-     * Uses a subquery: pp.ProgramId in (select s.id from Program s where s.facilityId=?1 or s.facilityId is null).
+     * Uses named parameters: pp.ProviderNo = :providerNo and s.facilityId = :facilityId or s.facilityId is null.
      */
     @Nested
     @DisplayName("getProgramDomainByFacility (subquery)")
@@ -1192,7 +1192,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
     /**
      * Tests for {@link ProgramProviderDAO#getFacilitiesInProgramDomain(String)}.
      * 3-way JOIN: select distinct f from Facility f, Program p, ProgramProvider pp
-     * where pp.ProgramId = p.id and f.id = p.facilityId and pp.ProviderNo = ?0.
+     * where pp.ProgramId = p.id and f.id = p.facilityId and pp.ProviderNo = ?1.
      * Returns List of Facility entities.
      */
     @Nested

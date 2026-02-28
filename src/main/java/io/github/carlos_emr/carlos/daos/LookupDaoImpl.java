@@ -57,12 +57,15 @@ import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 import io.github.carlos_emr.carlos.model.LstOrgcd;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utils.Utility;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
 public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
+
+    private static Logger log = MiscUtils.getLogger();
 
     /*
      * Column property mappings defined by the generic idx
@@ -548,10 +551,15 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
         programId = "P" + programId.substring(programId.length() - 7);
         String fullCode = "P" + program.getId();
 
-        String facilityId = "0000000" + String.valueOf(program.getFacilityId());
+        int facilityIdValue = program.getFacilityId() != null ? program.getFacilityId() : 0;
+        String facilityId = "0000000" + facilityIdValue;
         facilityId = "F" + facilityId.substring(facilityId.length() - 7);
 
-        LookupCodeValue fcd = GetCode("ORG", "F" + program.getFacilityId());
+        LookupCodeValue fcd = GetCode("ORG", "F" + facilityIdValue);
+        if (fcd == null) {
+            log.warn("SaveAsOrgCode: no ORG entry for facility F{}; skipping program {} ({})", facilityIdValue, program.getId(), program.getName());
+            return;
+        }
         fullCode = fcd.getBuf1() + fullCode;
 
         boolean isNew = false;

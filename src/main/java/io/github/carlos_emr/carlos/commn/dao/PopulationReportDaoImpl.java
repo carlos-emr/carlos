@@ -93,8 +93,10 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
     "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in ";
 
     public int getCurrentPopulationSize() {
-
-        return ((Long) getHibernateTemplate().find(HQL_CURRENT_POP_SIZE).iterator().next()).intValue();
+        Long count = (Long) getSessionFactory().getCurrentSession()
+            .createQuery(HQL_CURRENT_POP_SIZE)
+            .uniqueResult();
+        return count != null ? count.intValue() : 0;
     }
 
     @Override
@@ -103,7 +105,7 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
             .createQuery(HQL_CURRENT_HISTORICAL_POP_SIZE)
             .setParameter("cutoff", DateTimeFormatUtils.getPast(numYears))
             .uniqueResult();
-        return count.intValue();
+        return count != null ? count.intValue() : 0;
     }
 
     @Override
@@ -166,7 +168,7 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
             .createQuery(HQL_GET_MORTALITIES)
             .setParameter("cutoff", DateTimeFormatUtils.getPast(numYears))
             .uniqueResult();
-        return count.intValue();
+        return count != null ? count.intValue() : 0;
     }
 
     @Override
@@ -184,7 +186,10 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
 
         query.append(")");
 
-        return ((Long) getHibernateTemplate().find(query.toString()).iterator().next()).intValue();
+        Long count = (Long) getSessionFactory().getCurrentSession()
+            .createQuery(query.toString())
+            .uniqueResult();
+        return count != null ? count.intValue() : 0;
     }
 
     @Override
@@ -202,7 +207,10 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
 
         query.append(")");
 
-        return ((Long) getHibernateTemplate().find(query.toString()).iterator().next()).intValue();
+        Long count = (Long) getSessionFactory().getCurrentSession()
+            .createQuery(query.toString())
+            .uniqueResult();
+        return count != null ? count.intValue() : 0;
     }
 
     @Override

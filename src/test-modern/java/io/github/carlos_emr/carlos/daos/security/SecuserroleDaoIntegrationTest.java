@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link SecuserroleDao} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *

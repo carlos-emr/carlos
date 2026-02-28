@@ -90,7 +90,7 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
                 programId, statusName);
 
         if (log.isDebugEnabled()) {
-            log.debug("teamNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !results.isEmpty());
+            log.debug("clientStatusNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !results.isEmpty());
         }
         return !results.isEmpty();
     }
@@ -108,7 +108,7 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
         List<Admission> results = (List<Admission>) HqlQueryHelper.find(currentSession(), sSQL, programId, statusId);
 
         if (log.isDebugEnabled()) {
-            log.debug("getAdmissionsInTeam: programId= " + programId + ",statusId=" + statusId + ",# results=" + results.size());
+            log.debug("getAllClientsInStatus: programId= " + programId + ",statusId=" + statusId + ",# results=" + results.size());
         }
 
         return results;

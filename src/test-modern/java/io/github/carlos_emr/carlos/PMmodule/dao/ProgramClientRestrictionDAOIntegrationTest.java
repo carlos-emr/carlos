@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link ProgramClientRestrictionDAO} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations, multi-parameter searches, facility-based subqueries,
  * and the N+1 relationship enrichment pattern.</p>
@@ -415,6 +415,7 @@ public class ProgramClientRestrictionDAOIntegrationTest extends CarlosTestBase {
                 .allSatisfy(pcr -> {
                     assertThat(pcr.getDemographicNo()).isEqualTo(testDemoNo1);
                     assertThat(pcr.isEnabled()).isTrue();
+                    assertThat(pcr.getProgramId()).isEqualTo(testProgramId1); // verify facilityId filter
                 });
         }
 

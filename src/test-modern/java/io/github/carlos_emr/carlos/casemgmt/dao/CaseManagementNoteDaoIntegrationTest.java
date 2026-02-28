@@ -21,11 +21,14 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -42,7 +45,7 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link CaseManagementNoteDAO} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *
@@ -176,6 +179,17 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             // Then
             assertThat(result).isNotNull();
         }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when note ID does not exist")
+        void shouldReturnNull_whenNoteIdDoesNotExist() {
+            // When -- Long.MAX_VALUE is guaranteed not to exist in the test database
+            CaseManagementNote result = caseManagementNoteDAO.getNote(Long.MAX_VALUE);
+
+            // Then -- HibernateTemplate.get() returns null for unknown IDs; no NPE should be thrown
+            assertThat(result).isNull();
+        }
     }
 
     /** Tests for getCaseManagementNoteByProgramIdAndObservationDate (3 params). */
@@ -251,9 +265,9 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         }
     }
 
-    /** Tests for searchDemographicNotes (2 params: demographic_no, searchString). */
+    /** Tests for searchDemographicNotes (2 method params; HQL binds demographic_no to ?1 and ?2, searchString to ?3). */
     @Nested
-    @DisplayName("searchDemographicNotes (2 params: demographic_no, searchString)")
+    @DisplayName("searchDemographicNotes (demographic_no → ?1+?2, searchString → ?3)")
     class SearchDemographicNotes {
 
         @Test
@@ -1216,12 +1230,12 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
         private Issue issue1;
         private CaseManagementIssue cmi1;
-        private static final String DEMO_NO = "20300";
+        private static final int DEMO_NO = 20300;
 
         @BeforeEach
         void setUp() {
             issue1 = createIssue("FNDIC001", "FindByCode Issue 1");
-            cmi1 = createCaseManagementIssue(DEMO_NO, issue1);
+            cmi1 = createCaseManagementIssue(String.valueOf(DEMO_NO), issue1);
             hibernateTemplate.flush();
         }
 
@@ -1230,13 +1244,13 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         @DisplayName("should find notes by demographic and issue code")
         void shouldFindNotes_byDemographicAndIssueCode() {
             // Given - note linked to issue with known code
-            CaseManagementNote note = createNoteWithIssue(DEMO_NO, "Found by code",
+            CaseManagementNote note = createNoteWithIssue(String.valueOf(DEMO_NO), "Found by code",
                 createDate(2024, 7, 1), cmi1);
             hibernateTemplate.flush();
 
             // When
             Collection<CaseManagementNote> results = caseManagementNoteDAO
-                .findNotesByDemographicAndIssueCode(Integer.valueOf(DEMO_NO),
+                .findNotesByDemographicAndIssueCode(DEMO_NO,
                     new String[]{"FNDIC001"});
 
             // Then
@@ -1251,7 +1265,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         @DisplayName("should return empty when demographic does not match")
         void shouldReturnEmpty_whenDemographicDoesNotMatch() {
             // Given - note for different demographic
-            CaseManagementNote note = createNoteWithIssue(DEMO_NO, "Wrong demo note",
+            CaseManagementNote note = createNoteWithIssue(String.valueOf(DEMO_NO), "Wrong demo note",
                 createDate(2024, 7, 1), cmi1);
             hibernateTemplate.flush();
 
@@ -1269,11 +1283,11 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
         @DisplayName("should de-duplicate notes with same UUID keeping most recent")
         void shouldDeduplicateByUuid_keepingMostRecent() {
             // Given - two revisions of the same note (same UUID)
-            CaseManagementNote olderVersion = createNoteWithIssue(DEMO_NO, "Old version",
+            CaseManagementNote olderVersion = createNoteWithIssue(String.valueOf(DEMO_NO), "Old version",
                 createDate(2024, 7, 1), cmi1);
             String sharedUuid = olderVersion.getUuid();
 
-            CaseManagementNote newerVersion = createNote(DEMO_NO, "New version",
+            CaseManagementNote newerVersion = createNote(String.valueOf(DEMO_NO), "New version",
                 createDate(2024, 7, 10));
             newerVersion.setUuid(sharedUuid);
             newerVersion.getIssues().add(cmi1);
@@ -1282,7 +1296,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
             // When
             Collection<CaseManagementNote> results = caseManagementNoteDAO
-                .findNotesByDemographicAndIssueCode(Integer.valueOf(DEMO_NO),
+                .findNotesByDemographicAndIssueCode(DEMO_NO,
                     new String[]{"FNDIC001"});
 
             // Then - only one note per UUID, and it should be the newer one
@@ -1368,6 +1382,197 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
             // Then
             assertThat(count).isEqualTo(0);
+        }
+    }
+
+    /**
+     * Tests for search(CaseManagementSearchBean).
+     *
+     * <p>This method uses the deprecated Hibernate 5.x {@code session.createCriteria()} and
+     * {@code Expression.*} Criteria API. Both are removed in Hibernate 6 (compile-time break).
+     * These tests document the existing behavior and surface the H6 migration requirement.</p>
+     */
+    @Nested
+    @DisplayName("search(CaseManagementSearchBean) - Criteria API")
+    class Search {
+
+        @Test
+        @Tag("search")
+        @DisplayName("should return notes matching demographic and update date range")
+        void shouldReturnNotes_matchingDemographicAndUpdateDateRange() {
+            // Given - note within range, one outside range, one wrong demographic
+            CaseManagementNote match = createNote("80001", "In range note", createDate(2024, 6, 15));
+            CaseManagementNote wrongDemo = createNote("80002", "Wrong demo note", createDate(2024, 6, 15));
+            CaseManagementNote outsideRange = createNote("80001", "Old note", createDate(2023, 1, 1));
+            hibernateTemplate.flush();
+
+            // When
+            CaseManagementSearchBean searchBean = new CaseManagementSearchBean("80001");
+            searchBean.setSearchStartDate("2024-01-01");
+            searchBean.setSearchEndDate("2024-12-31");
+            List<CaseManagementNote> results = caseManagementNoteDAO.search(searchBean);
+
+            // Then
+            assertThat(results)
+                .isNotNull()
+                .extracting(CaseManagementNote::getId)
+                .contains(match.getId())
+                .doesNotContain(wrongDemo.getId(), outsideRange.getId());
+        }
+
+        @Test
+        @Tag("search")
+        @DisplayName("should return empty list when no notes match date range for demographic")
+        void shouldReturnEmptyList_whenNoNotesMatchDateRange() {
+            // Given - note outside the search range
+            createNote("80003", "Out of range note", createDate(2023, 1, 1));
+            hibernateTemplate.flush();
+
+            // When
+            CaseManagementSearchBean searchBean = new CaseManagementSearchBean("80003");
+            searchBean.setSearchStartDate("2024-01-01");
+            searchBean.setSearchEndDate("2024-12-31");
+            List<CaseManagementNote> results = caseManagementNoteDAO.search(searchBean);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for getNotesByFacilitySince(Date, List&lt;Program&gt;).
+     *
+     * <p>Returns distinct demographic IDs for notes in the given programs updated after
+     * the cutoff date, locked=false, at their most recent revision per UUID.</p>
+     */
+    @Nested
+    @DisplayName("getNotesByFacilitySince (2 params: date, programs)")
+    class GetNotesByFacilitySince {
+
+        /** Builds a note with all required fields set (program_no included) without persisting. */
+        private CaseManagementNote buildNote(String demoNo, String content, Date updateDate, String programNo) {
+            CaseManagementNote note = new CaseManagementNote();
+            note.setDemographic_no(demoNo);
+            note.setNote(content);
+            note.setProviderNo("999998");
+            note.setUuid(UUID.randomUUID().toString());
+            note.setUpdate_date(updateDate);
+            note.setObservation_date(updateDate);
+            note.setSigned(false);
+            note.setArchived(false);
+            note.setLocked(false);
+            note.setProgram_no(programNo);
+            return note;
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return demographics with recent unlocked notes in given programs")
+        void shouldReturnDemographics_withRecentUnlockedNotesInPrograms() {
+            // Given — create notes with program_no set before save so update_date is preserved
+            // (updateNote() overrides update_date with new Date(), so we set program_no before saving)
+            CaseManagementNote recentNote = buildNote("90001", "Recent facility note", daysFromNow(-2), "88001");
+            caseManagementNoteDAO.saveNote(recentNote);
+
+            CaseManagementNote oldNote = buildNote("90002", "Old facility note", daysFromNow(-30), "88001");
+            caseManagementNoteDAO.saveNote(oldNote);
+
+            CaseManagementNote otherProgramNote = buildNote("90003", "Other program note", daysFromNow(-2), "99999");
+            caseManagementNoteDAO.saveNote(otherProgramNote);
+            hibernateTemplate.flush();
+
+            // A Program stub with ID 88001 (method only calls getId() to build the IN clause)
+            Program program = new Program();
+            program.setId(88001);
+
+            // When
+            List<Integer> results = caseManagementNoteDAO
+                .getNotesByFacilitySince(daysFromNow(-5), List.of(program));
+
+            // Then - only the recent note's demographic should be returned
+            assertThat(results)
+                .contains(90001)
+                .doesNotContain(90002, 90003);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when programs list is empty")
+        void shouldReturnEmptyList_whenProgramsIsEmpty() {
+            // When
+            List<Integer> results = caseManagementNoteDAO
+                .getNotesByFacilitySince(daysFromNow(-1), List.of());
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for getNotesByDemographicDateRange(String, Date, Date).
+     *
+     * <p><b>NOTE: Disabled — the named query "mostRecentDateRange" is not defined in
+     * casemgmt_note.hbm.xml.</b> Calling this method always throws
+     * {@code MappingException: Named query not known: mostRecentDateRange}.
+     * These tests are disabled to document the broken method and require a fix
+     * (add the missing named query) before enabling.</p>
+     */
+    @Nested
+    @DisplayName("getNotesByDemographicDateRange (3 params: demographic_no, startDate, endDate)")
+    class GetNotesByDemographicDateRange {
+
+        @Test
+        @Disabled("Named query 'mostRecentDateRange' is not defined in casemgmt_note.hbm.xml — method always throws MappingException")
+        @Tag("query")
+        @DisplayName("should return notes within date range for demographic")
+        void shouldReturnNotes_withinDateRangeForDemographic() {
+            // Given
+            CaseManagementNote match = createNote("91001", "In range note", createDate(2024, 6, 15));
+            CaseManagementNote beforeRange = createNote("91001", "Before range", createDate(2023, 12, 31));
+            hibernateTemplate.flush();
+
+            // When
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographicDateRange("91001",
+                    createDate(2024, 1, 1), createDate(2024, 12, 31));
+
+            // Then
+            assertThat(results)
+                .extracting(CaseManagementNote::getId)
+                .contains(match.getId())
+                .doesNotContain(beforeRange.getId());
+        }
+    }
+
+    /**
+     * Tests for getNotesByDemographicLimit(String, Integer, Integer).
+     *
+     * <p><b>NOTE: Disabled — the SQL query uses MySQL-specific {@code HIGH_PRIORITY}
+     * keyword not supported by H2.</b> The query also references the {@code secRole} and
+     * {@code program} tables via correlated subqueries. Enable after migrating to
+     * standard SQL compatible with both H2 and MySQL.</p>
+     */
+    @Nested
+    @DisplayName("getNotesByDemographicLimit (3 params: demographic_no, offset, numToReturn)")
+    class GetNotesByDemographicLimit {
+
+        @Test
+        @Disabled("Uses MySQL-specific HIGH_PRIORITY keyword incompatible with H2 — requires SQL migration")
+        @Tag("query")
+        @DisplayName("should return paginated notes for demographic")
+        void shouldReturnPaginatedNotes_forDemographic() {
+            // Given - create 5 notes for same demographic
+            for (int i = 0; i < 5; i++) {
+                createNote("92001", "Note " + i);
+            }
+            hibernateTemplate.flush();
+
+            // When - offset=0, return 3
+            List<CaseManagementNote> results = caseManagementNoteDAO
+                .getNotesByDemographicLimit("92001", 0, 3);
+
+            // Then
+            assertThat(results).hasSize(3);
         }
     }
 }

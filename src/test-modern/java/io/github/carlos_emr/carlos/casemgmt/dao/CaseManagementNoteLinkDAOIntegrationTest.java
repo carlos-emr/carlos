@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link CaseManagementNoteLinkDAO} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations, multi-parameter searches, and edge cases including
  * ascending/descending ordering, three-parameter filtering with otherId, and
@@ -329,9 +329,9 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         @DisplayName("should return last link ordered by ID ascending")
         void shouldReturnLastLink_orderedByIdAscending() {
             // Given - flush between inserts to guarantee sequential ID generation
-            CaseManagementNoteLink first = createLink(3, 300L, 3001L);
+            createLink(3, 300L, 3001L);
             hibernateTemplate.flush();
-            CaseManagementNoteLink second = createLink(3, 300L, 3002L);
+            createLink(3, 300L, 3002L);
             hibernateTemplate.flush();
             CaseManagementNoteLink third = createLink(3, 300L, 3003L);
             hibernateTemplate.flush();
@@ -432,9 +432,9 @@ public class CaseManagementNoteLinkDAOIntegrationTest extends CarlosTestBase {
         void shouldReturnLastLink_forGivenNoteId() {
             // Given - flush between inserts to guarantee sequential ID generation;
             // multiple links pointing to same note
-            CaseManagementNoteLink first = createLink(1, 100L, 7777L);
+            createLink(1, 100L, 7777L);
             hibernateTemplate.flush();
-            CaseManagementNoteLink second = createLink(2, 200L, 7777L);
+            createLink(2, 200L, 7777L);
             hibernateTemplate.flush();
             CaseManagementNoteLink third = createLink(3, 300L, 7777L);
             hibernateTemplate.flush();

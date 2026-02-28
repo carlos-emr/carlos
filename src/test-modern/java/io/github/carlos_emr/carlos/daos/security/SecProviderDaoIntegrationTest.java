@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link SecProviderDao} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *
@@ -105,7 +105,8 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
     @BeforeEach
     void setUp() {
         // Derive a 4-char prefix from nanoTime to avoid collisions across parallel runs
-        uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 4);
+        String nanoStr = String.valueOf(System.nanoTime());
+        uniquePrefix = nanoStr.substring(nanoStr.length() - 4);
 
         // Create test providers with unique IDs (providerNo must fit VARCHAR(6): 4-char prefix + 2-char suffix)
         createProvider(uniquePrefix + "01", "John", "Smith", "1");  // Active
@@ -1571,7 +1572,7 @@ public class SecProviderDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should match provider case-insensitively for lastName query")
         @SuppressWarnings("unchecked")
-        void shouldBeCaseSensitive_forPropertyMatching() {
+        void shouldMatchCaseInsensitively_forLastNameQuery() {
             // When - VARCHAR comparison is case-insensitive by default in both H2 and MySQL.
             // "smith" matches "Smith" because the database collation is case-insensitive.
             List<SecProvider> results = secProviderDao.findByLastName("smith");

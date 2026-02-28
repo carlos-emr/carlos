@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link DefaultRoleAccessDAO} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *
@@ -360,12 +360,19 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return Object[] pairs when DefaultRoleAccess ID matches AccessType ID")
         void shouldReturnObjectArrayPairs_whenIdsMatch() {
-            // Given - The query joins on a.id = b.Id (DefaultRoleAccess PK = AccessType PK).
+            // Given - The outer @BeforeEach creates 2 AccessType rows (IDs 1, 2) and 3
+            // DefaultRoleAccess rows (IDs 1, 2, 3) via H2 auto-increment. DRA IDs 1 and 2
+            // therefore match AccessType IDs 1 and 2, guaranteeing the JOIN fires.
             // Compute the expected count deterministically from all persisted records.
             List<DefaultRoleAccess> allDra = defaultRoleAccessDAO.findAll();
             long expectedMatchCount = allDra.stream()
                 .filter(dra -> hibernateTemplate.get(AccessType.class, dra.getId()) != null)
                 .count();
+
+            // Guard: outer setUp always creates matching pairs, so this can never be vacuous.
+            assertThat(expectedMatchCount)
+                .as("outer setUp must produce at least one DefaultRoleAccess/AccessType ID match")
+                .isGreaterThanOrEqualTo(1);
 
             // When
             List<Object[]> results = defaultRoleAccessDAO.findAllRolesAndAccessTypes();

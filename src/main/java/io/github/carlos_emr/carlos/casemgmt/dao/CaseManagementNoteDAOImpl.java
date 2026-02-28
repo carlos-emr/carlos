@@ -141,7 +141,11 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @Override
     public CaseManagementNote getNote(Long id) {
         CaseManagementNote note = this.getHibernateTemplate().get(CaseManagementNote.class, id);
-        getHibernateTemplate().initialize(note.getIssues());
+        // HibernateTemplate.get() returns null when no record exists for the given id;
+        // guard prevents NPE on lazy-collection initialization for deleted or missing notes
+        if (note != null) {
+            getHibernateTemplate().initialize(note.getIssues());
+        }
         return note;
     }
 
@@ -411,8 +415,13 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
 
             @SuppressWarnings("unchecked")
             List<?> ids = query.list();
-            for (Object id : ids)
-                notes.add(getNote(((Number) id).longValue()));
+            for (Object id : ids) {
+                if (id instanceof Number) {
+                    notes.add(getNote(((Number) id).longValue()));
+                } else {
+                    log.warn("findNotesByDemographicAndIssueCode: unexpected non-Number id type: {}", id == null ? "null" : id.getClass().getName());
+                }
+            }
         } finally {
             //session.close();
         }

@@ -60,8 +60,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li><b>HibernateTemplate HQL methods</b> (6 methods): {@code getCurrentPopulationSize},
  *       {@code getCurrentAndHistoricalPopulationSize}, {@code getMortalities},
  *       {@code getPrevalence}, and {@code getIncidence} are fully testable in the Spring test
- *       context. {@code getUsages} is documented but disabled due to a known HQL defect —
- *       see the note below.</li>
+ *       context. {@code getUsages} is fully testable — the prior HQL defect has been fixed.</li>
  *   <li><b>Raw JDBC methods</b> (7 methods): All {@code getCaseManagementNoteCount*} and
  *       {@code getCaseManagementNoteTotalUnique*} methods. These obtain a JDBC {@link Connection}
  *       from {@link DbConnectionFilter#getThreadLocalDbConnection()}, a servlet filter
@@ -73,10 +72,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p><b>Bean definition</b>: Registered in {@code test-context-full.xml} as
  * {@code populationReportDao} with {@code sessionFactory} property injection.</p>
  *
- * <p><b>Note on {@code getUsages()}</b>: The HQL constant {@code HQL_GET_USAGES} contains
- * {@code "from ?1 a"}, attempting to parameterize the entity <em>name</em> (table name) with a
- * positional parameter. HQL does not support parameterized entity names, so this method will
- * throw a Hibernate parse error at runtime. The test documents this known defect.</p>
+ * <p><b>Note on {@code getUsages()}</b>: The HQL constant {@code HQL_GET_USAGES} previously
+ * contained {@code "from ?1 a"}, attempting to parameterize the entity <em>name</em> with a
+ * positional parameter. This defect has been fixed — {@code HQL_GET_USAGES} now uses valid HQL:
+ * {@code "select a.clientId, a.admissionDate, a.dischargeDate from Admission a where ..."}.
+ * The {@code getUsages()} test is enabled and exercises the corrected implementation.</p>
  *
  * @since 2026-02-26
  * @see PopulationReportDao
@@ -107,6 +107,11 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
     // =====================================================================
     // Helper methods for creating test data
     // =====================================================================
+
+    /**
+     * Note: Test data is created inline within each test method rather than in
+     * {@code @BeforeEach} to keep each test fully self-contained and avoid shared-state issues.
+     */
 
     /**
      * Creates an active service program via HibernateTemplate (Program is HBM-mapped).

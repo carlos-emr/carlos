@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link DemographicDao} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *
@@ -72,7 +72,8 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
     @BeforeEach
     void setUp() {
         // Generate a 10-character nano-time prefix to ensure HIN uniqueness across parallel test runs
-        uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 10);
+        String nanoStr = String.valueOf(System.nanoTime());
+        uniquePrefix = nanoStr.substring(nanoStr.length() - 10);
 
         // Create a mix of demographics: 3 active (different provinces/names) and 1 inactive
         demo1 = createDemographic("John", "Smith", "ON", uniquePrefix + "0", "AC");
@@ -443,14 +444,14 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
     }
 
     /**
-     * Tests for additional single-parameter (?0) query methods in {@link DemographicDao}.
+     * Tests for additional single-parameter (?1) query methods in {@link DemographicDao}.
      *
      * <p>These methods each use a single positional HQL parameter for filtering:
      * chart number lookup, year-of-birth filtering, health number search, exact name
      * matching, date-based additions, and active-after-date filtering.</p>
      */
     @Nested
-    @DisplayName("Additional ?0 parameter queries")
+    @DisplayName("Additional ?1 parameter queries")
     class AdditionalParameterQueries {
 
         @Test
@@ -573,7 +574,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
      * with 7-8 positional HQL parameters depending on whether HIN is provided.
      *
      * <p>This is a critical method for Hibernate 6 migration because it uses
-     * 7 parameters (?0-?6) without HIN and 8 parameters (?0-?7) with HIN.</p>
+     * 7 parameters (?1-?7) without HIN and 8 parameters (?1-?8) with HIN.</p>
      */
     @Nested
     @DisplayName("findByCriterion (7-8 params: HQL positional)")
@@ -605,7 +606,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find demographic by criterion with HIN (8 params)")
         void shouldFindDemographic_byCriterionWithHin() {
             // Given - demo1: John Smith, HIN=uniquePrefix+"0", 1980-01-15, M, AC
-            // When HIN is non-empty, findByCriterion uses 8 positional params (?0-?7) instead of 7
+            // When HIN is non-empty, findByCriterion uses 8 positional params (?1-?8) instead of 7
             hibernateTemplate.flush();
 
             DemographicCriterion criterion = new DemographicCriterion(

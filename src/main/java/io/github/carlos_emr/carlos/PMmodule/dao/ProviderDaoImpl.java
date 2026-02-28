@@ -294,11 +294,14 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     }
 
     /**
-     * Add loggedininfo to excluded logged in providers.
-     * Usefull when setting personal preferrences.
+     * Returns all billable providers in BC, excluding the currently logged-in provider.
      *
-     * @param loggedInInfo
-     * @return
+     * <p>Billable providers are those with at least one of: OHIP number, RMA number,
+     * billing number, or HSO number, and with active status.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the session context of the currently logged-in provider to exclude
+     * @return List&lt;Provider&gt; list of active billable BC providers excluding the logged-in provider,
+     *         ordered by last name
      */
     @Override
     public List<Provider> getBillableProvidersInBC(LoggedInInfo loggedInInfo) {
@@ -369,7 +372,6 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     public List<Provider> search(String name) {
         boolean isOracle = OscarProperties.getInstance().getDbType().equals(
                 "oracle");
-        // Session session = getSession();
         Session session = currentSession();
 
         Criteria c = session.createCriteria(Provider.class);
@@ -387,8 +389,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
         try {
             results = c.list();
         } finally {
-            // this.releaseSession(session);
-            //session.close();
+            // no-op: currentSession() lifecycle managed by Spring transaction
         }
 
         if (log.isDebugEnabled()) {
@@ -456,7 +457,6 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<Integer> getFacilityIds(String provider_no) {
-        // Session session = getSession();
         Session session = currentSession();
         try {
             SQLQuery query = session.createSQLQuery(
@@ -465,8 +465,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
             List<Integer> results = query.list();
             return results;
         } finally {
-            // this.releaseSession(session);
-            //session.close();
+            // no-op: currentSession() lifecycle managed by Spring transaction
         }
     }
 
@@ -614,7 +613,6 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     @NativeSql({"provider", "providersite"})
     @Override
     public List<String> getActiveTeamsViaSites(String providerNo) {
-        // Session session = getSession();
         Session session = currentSession();
         try {
             // providersite is not mapped in hibernate - this can be rewritten w.o.
@@ -625,8 +623,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
                             + "') order by team ");
             return query.list();
         } finally {
-            // this.releaseSession(session);
-            //session.close();
+            // no-op: currentSession() lifecycle managed by Spring transaction
         }
     }
 
@@ -693,7 +690,6 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
         }
 
-        // Session session = this.getSession();
         Session session = currentSession();
         try {
             Query q = session.createQuery(sqlCommand);
@@ -709,8 +705,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
             q.setMaxResults(itemsToReturn);
             return (q.list());
         } finally {
-            // this.releaseSession(session);
-            //session.close();
+            // no-op: currentSession() lifecycle managed by Spring transaction
         }
     }
 
@@ -725,7 +720,6 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
         sqlCommand += " ORDER BY x.LastName,x.FirstName";
 
-        // Session session = this.getSession();
         Session session = currentSession();
         try {
             Query q = session.createQuery(sqlCommand);
@@ -739,15 +733,13 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
             q.setMaxResults(itemsToReturn);
             return (q.list());
         } finally {
-            // this.releaseSession(session);
-            //session.close();
+            // no-op: currentSession() lifecycle managed by Spring transaction
         }
     }
 
     @NativeSql({"provider", "appointment"})
     @Override
     public List<String> getProviderNosWithAppointmentsOnDate(Date appointmentDate) {
-        // Session session = getSession();
         Session session = currentSession();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         try {
@@ -758,8 +750,7 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
             return query.list();
         } finally {
-            // this.releaseSession(session);
-            //session.close();
+            // no-op: currentSession() lifecycle managed by Spring transaction
         }
     }
 
@@ -773,15 +764,12 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
      */
     @Override
     public List<Provider> getProvidersByIds(List<String> providerNumbers) {
-        // Session session = getSession();
         Session session = currentSession();
         String sql = "FROM Provider p WHERE p.ProviderNo IN (:providerNumbers)";
         Query query = session.createQuery(sql);
         query.setParameterList("providerNumbers", providerNumbers);
 
-        List<Provider> providers = query.list();
-        //session.close();
-        return providers;
+        return query.list();
     }
 
     /**

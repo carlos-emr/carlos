@@ -41,12 +41,13 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Integration tests for {@link LookupDao} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations, multi-parameter searches, and edge cases.</p>
  *
@@ -804,7 +805,7 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should throw SQLException from SaveCodeValue(LookupCodeValue) when table def is missing")
+        @DisplayName("should throw NullPointerException from SaveCodeValue(LookupCodeValue) when table def is missing")
         void shouldThrowNpe_whenTableDefIsMissingForCodeValueOverload() {
             // Given - LookupCodeValue with a prefix that has no table definition
             LookupCodeValue codeValue = new LookupCodeValue();
@@ -880,11 +881,10 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should throw NullPointerException when facility org-code does not exist")
-        void shouldThrowNpe_whenFacilityOrgCodeDoesNotExist() {
+        @DisplayName("should return early without throwing when facility org-code does not exist")
+        void shouldReturnEarly_whenFacilityOrgCodeDoesNotExist() {
             // Given - Program referencing a facility with no org-code entry
-            // GetCode("ORG", "F999") will return null (no ORG table def or no data),
-            // then fcd.getBuf1() will throw NPE
+            // GetCode("ORG", "F999") returns null; the null guard logs a warning and returns early
             io.github.carlos_emr.carlos.PMmodule.model.Program program =
                 new io.github.carlos_emr.carlos.PMmodule.model.Program();
             program.setId(100);
@@ -893,9 +893,9 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             program.setProgramStatus("active");
             program.setLastUpdateUser("admin");
 
-            // When/Then - GetCode returns null for the facility, causing NPE
-            assertThatThrownBy(() -> lookupDao.SaveAsOrgCode(program))
-                .isInstanceOf(NullPointerException.class);
+            // When/Then - no exception thrown; method logs a warning and exits early
+            assertThatCode(() -> lookupDao.SaveAsOrgCode(program))
+                .doesNotThrowAnyException();
         }
     }
 

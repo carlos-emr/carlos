@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link ProgramFunctionalUserDAO} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations for both ProgramFunctionalUser and FunctionalUserType
  * entities, multi-parameter lookups, and input validation.</p>

@@ -42,7 +42,18 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
+ * DAO implementation for managing {@link ProgramClientRestriction} records.
  *
+ * <p>Provides methods to find, save, and manage restrictions that control
+ * client access to specific programs. Restrictions may be scoped by program,
+ * client (demographic), or facility, and can be enabled or disabled.</p>
+ *
+ * <p>Each retrieved restriction is hydrated with its related {@code client},
+ * {@code program}, and {@code provider} objects via {@code setRelationships()}.</p>
+ *
+ * @since 2005-05-28
+ * @see ProgramClientRestrictionDAO
+ * @see ProgramClientRestriction
  */
 @Transactional
 public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport implements ProgramClientRestrictionDAO {

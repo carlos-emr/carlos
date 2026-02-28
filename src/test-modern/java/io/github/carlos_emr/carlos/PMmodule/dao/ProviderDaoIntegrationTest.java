@@ -51,7 +51,7 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link ProviderDao} multi-parameter query methods.
  *
- * <p>These tests validate HQL queries with positional parameters (?0, ?1, ...)
+ * <p>These tests validate HQL queries with positional parameters (?1, ?2, ...)
  * bind correctly, ensuring safe migration to Hibernate 6 named parameter syntax.
  * Tests cover CRUD operations, name-based searches, active/inactive filtering,
  * team queries, OHIP credential lookups, facility joins, and native SQL methods.</p>
@@ -454,9 +454,9 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
     /**
      * Tests for getCurrentTeamProviders(String providerNo).
      *
-     * <p>This method uses SQL injection-prone string concatenation to build a query that
-     * finds active providers with non-empty OHIP numbers on the same team as the given
-     * provider. The string-concatenated HQL is a known security and migration risk.</p>
+     * <p>This method uses parameterized HQL via {@code HqlQueryHelper.find()} to find
+     * active providers with non-empty OHIP numbers on the same team as the given provider.
+     * Parameters are bound via {@code ?1} and {@code ?2} positional syntax.</p>
      */
     @Nested
     @DisplayName("getCurrentTeamProviders (1 param: providerNo)")
@@ -641,7 +641,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.save(program);
             hibernateTemplate.flush();
 
-            Provider facProv = persistProvider("FP001", "Fac", "Prov", "1", "doctor");
+            persistProvider("FP001", "Fac", "Prov", "1", "doctor");
             hibernateTemplate.flush();
 
             ProgramProvider pp = new ProgramProvider();
@@ -763,7 +763,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should include system providers when filter is false")
         void shouldIncludeSystemProviders_whenFilterIsFalse() {
             // Given - create a system provider (negative provider_no)
-            Provider sysProvider = persistProvider("-1", "System", "Provider", "1", "doctor");
+            persistProvider("-1", "System", "Provider", "1", "doctor");
             hibernateTemplate.flush();
 
             // When
@@ -780,13 +780,13 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should exclude system providers when filter is true")
         void shouldExcludeSystemProviders_whenFilterIsTrue() {
             // Given - create a system provider (negative provider_no)
-            Provider sysProvider = persistProvider("-1", "System", "Provider", "1", "doctor");
+            persistProvider("-1", "System", "Provider", "1", "doctor");
             hibernateTemplate.flush();
 
             // When
             List<Provider> results = providerDao.getActiveProviders(true);
 
-            // Then - system provider excluded (provider_no > -1)
+            // Then - system provider excluded (ProviderNo NOT LIKE '-%')
             assertThat(results)
                 .extracting(Provider::getProviderNo)
                 .doesNotContain("-1")
