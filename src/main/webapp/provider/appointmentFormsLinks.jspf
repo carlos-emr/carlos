@@ -1,9 +1,15 @@
 <%@page import="io.github.carlos_emr.carlos.web.AppointmentProviderAdminDayUIBean"%>
 <%@page import="java.util.Collection, java.util.Collections, java.util.List, java.util.ArrayList"%>
 <%@page import="org.apache.commons.text.StringEscapeUtils"%>
+<%@page import="org.apache.commons.lang3.StringUtils"%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference"%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.EForm"%>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic"%>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao"%>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Provider"%>
+<%@page import="io.github.carlos_emr.carlos.daos.ProviderDAO"%>
+<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 
 <%
 	LoggedInInfo loggedInInfo3=LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -12,10 +18,24 @@
 	String appointment_no = request.getParameter("appointment_no");
 	if (providerPreference!=null)
 	{
+		// Load provider and demographic for quick link placeholder substitution
+		DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+		ProviderDAO providerDAO = SpringUtils.getBean(ProviderDAO.class);
+
+		Demographic demographic = null;
+		if (demographic_no != null && !demographic_no.isEmpty()) {
+			demographic = demographicDao.getDemographic(demographic_no);
+		}
+
+		Provider provider = null;
+		if (providerPreference.getProviderNo() != null) {
+			provider = providerDAO.getProvider(providerPreference.getProviderNo());
+		}
+
 		Collection<String> formNames=providerPreference.getAppointmentScreenForms();
 		List<String>formNamesList = new ArrayList<String>(formNames);
 		Collections.sort(formNamesList);
-		
+
 		for (String formNameTemp : formNamesList)
 		{
 			String trimmedEscapedLinkName=StringEscapeUtils.escapeHtml4(AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, formNameTemp));
@@ -24,7 +44,7 @@
 				|<a href=# onClick='popupPage2("<%= request.getContextPath() %>/form/forwardshortcutname.do?formname=<%=escapedLinkName%>&amp;demographic_no=<%=demographic_no%>&amp;appointmentNo=<%=appointment_no%>")' title='<%=escapedLinkName%>'><%=trimmedEscapedLinkName%></a>
 			<%
 		}
-		
+
 		Collection<ProviderPreference.EformLink> eFormLinks = providerPreference.getAppointmentScreenEForms();
 		for (ProviderPreference.EformLink eFormLink : eFormLinks)
 		{
@@ -41,21 +61,32 @@
 		for (ProviderPreference.QuickLink quickLink : quickLinks)
 		{
 			String trimmedEscapedLinkName=StringEscapeUtils.escapeHtml4(AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, quickLink.getName()));
-			
-			String escapedLinkUrl=quickLink.getUrl();
+
+			// Check before substitution whether HIN or version code will appear in the URL
+			String linkUrl=quickLink.getUrl();
+			boolean hinExposed = linkUrl.contains("${demographicHin}") || linkUrl.contains("${demographicVer}");
+
+			String escapedLinkUrl=linkUrl;
 			escapedLinkUrl=escapedLinkUrl.replaceAll("\\$\\{contextPath\\}", request.getContextPath());
 			escapedLinkUrl=escapedLinkUrl.replaceAll("\\$\\{demographicId\\}", String.valueOf(demographic_no));
-			escapedLinkUrl=escapedLinkUrl.replaceAll("\$\{appointmentId\}", String.valueOf(appointment_no));
-			escapedLinkUrl=escapedLinkUrl.replaceAll("\$\{providerId\}", String.valueOf(providerPreference.getProviderNo()));
-			escapedLinkUrl=escapedLinkUrl.replaceAll("\$\{providerOhip\}", StringUtils.trimToEmpty(provider.getOhipNo()));
-			escapedLinkUrl=escapedLinkUrl.replaceAll("\$\{demographicHin\}", StringUtils.trimToEmpty(demographic.getHin()));
-			escapedLinkUrl=escapedLinkUrl.replaceAll("\$\{demographicVer\}", StringUtils.trimToEmpty(demographic.getVer()));
+			escapedLinkUrl=escapedLinkUrl.replaceAll("\\$\\{appointmentId\\}", String.valueOf(appointment_no));
+			escapedLinkUrl=escapedLinkUrl.replaceAll("\\$\\{providerId\\}", String.valueOf(providerPreference.getProviderNo()));
+			escapedLinkUrl=escapedLinkUrl.replaceAll("\\$\\{providerOhip\\}", provider != null ? StringUtils.trimToEmpty(provider.getOhipNo()) : "");
+			escapedLinkUrl=escapedLinkUrl.replaceAll("\\$\\{demographicHin\\}", demographic != null ? StringUtils.trimToEmpty(demographic.getHin()) : "");
+			escapedLinkUrl=escapedLinkUrl.replaceAll("\\$\\{demographicVer\\}", demographic != null ? StringUtils.trimToEmpty(demographic.getVer()) : "");
 			escapedLinkUrl=StringEscapeUtils.escapeHtml4(escapedLinkUrl);
-			
+
 			String escapedLinkName=StringEscapeUtils.escapeHtml4(quickLink.getName());
-			%>
+			if (hinExposed) {
+				String warningTitle=StringEscapeUtils.escapeHtml4("WARNING-The health number is exposed in " + quickLink.getName());
+				%>
+				|<a href=# onClick='popupPage2("<%=escapedLinkUrl%>")' title='<%=warningTitle%>' style='background-color:red;color:white;'><%=trimmedEscapedLinkName%></a>
+				<%
+			} else {
+				%>
 				|<a href=# onClick='popupPage2("<%=escapedLinkUrl%>")' title='<%=escapedLinkName%>'><%=trimmedEscapedLinkName%></a>
-			<%
+				<%
+			}
 		}
 	}
 %>
