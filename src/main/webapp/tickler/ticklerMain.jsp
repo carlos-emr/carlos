@@ -871,7 +871,7 @@
                     <td class="<%=cellColour%>">
                         <a href="javascript:void(0)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.editTickler"/>"
                            onClick="window.open('<%= request.getContextPath() %>/tickler/ticklerEdit.jsp?tickler_no=<%=tickler.getId()%>', 'edit_tickler', 'width=800, height=650')">
-                            <span class="glyphicon glyphicon-pencil"></span>
+                            <span class="fas fa-pencil-alt"></span>
                         </a>
                     </td>
                     <td class="<%=cellColour%>"><a href="javascript:void(0)"
@@ -905,37 +905,37 @@
                         %>
                         <a title="View attachment"
                            href="javascript:reportWindow('SegmentDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
+                                class="fas fa-paperclip"></i></a>
                         <%
                         } else if (LabResultData.isCML(type)) {
                         %>
                         <a title="View attachment"
                            href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ON/CMLDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
+                                class="fas fa-paperclip"></i></a>
                         <%
                         } else if (LabResultData.isHL7TEXT(type)) {
                         %>
                         <a title="View attachment"
                            href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/ALL/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
+                                class="fas fa-paperclip"></i></a>
                         <%
                         } else if (LabResultData.isDocument(type)) {
                         %>
                         <a title="View attachment"
                            href="javascript:reportWindow('<%=request.getContextPath()%>/documentManager/ManageDocument.do?method=display&doc_no=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
+                                class="fas fa-paperclip"></i></a>
                         <%
                         } else if (LabResultData.isHRM(type)) {
                         %>
                         <a title="View attachment"
                            href="javascript:reportWindow('<%=request.getContextPath()%>/hospitalReportManager/Display.do?id=<%=tl.getTableId()%>&segmentID=<%=tl.getTableId()%>')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
+                                class="fas fa-paperclip"></i></a>
                         <%
                         } else {
                         %>
                         <a title="View attachment"
                            href="javascript:reportWindow('<%= request.getContextPath() %>/lab/CA/BC/labDisplay.jsp?segmentID=<%=tl.getTableId()%>&providerNo=<%=user_no%>&searchProviderNo=<%=user_no%>&status=')"><i
-                                class="glyphicon glyphicon-paperclip"></i></a>
+                                class="fas fa-paperclip"></i></a>
                         <%
                             }
                         %>
@@ -949,7 +949,7 @@
                         <a href="javascript:void(0)" class="noteDialogLink"
                            onClick="openNoteDialog('<%=demo.getDemographicNo() %>','<%=tickler.getId() %>')"
                            title="Add Encounter Note">
-                            <span class="glyphicon glyphicon-comment"></span>
+                            <span class="fas fa-comment"></span>
                         </a>
                     </td>
                     <td><%=tickler.getId()%>
