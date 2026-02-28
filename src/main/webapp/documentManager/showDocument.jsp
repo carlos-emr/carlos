@@ -95,7 +95,7 @@
         - Ticklers: io.github.carlos_emr.carlos.managers.TicklerManager
         - Macros: Jackson ObjectMapper for JSON parsing
         - Security: OWASP Encoder, SecurityInfoManager
-        - UI: Bootstrap 5, jQuery UI, showDocument.js, oscarMDSIndex.js
+        - UI: Bootstrap 5, showDocument.js, oscarMDSIndex.js (jQuery UI removed)
 
     @since 2003 (Macro and Tickler improvements 2026-02)
 --%>
@@ -906,6 +906,41 @@
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 <script type="text/javascript" src="showDocument.js"></script>
 <script type="text/javascript">
+    /**
+     * Override removeLink for the single-document popup view.
+     *
+     * oscarMDSIndex.js defines removeLink() to post the unlink request and then call
+     * updateDocLabData(), which updates inbox navigation counters using the global
+     * docType hashtable. That hashtable is only initialised in the inbox list view
+     * (documentsInQueues.jsp) and is undefined in this popup context, causing:
+     *   ReferenceError: docType is not defined (checkType -> updateDocLabData -> removeLink)
+     *
+     * In the single-document popup no inbox state needs to be updated, so this
+     * override simply POSTs the unlink request and removes the DOM element.
+     *
+     * @param {string} docTypeStr - Document type string, e.g. 'DOC'
+     * @param {string} docId - The document ID
+     * @param {string} providerNo - The provider number to unlink
+     * @param {HTMLElement} e - The clicked anchor element
+     */
+    function removeLink(docTypeStr, docId, providerNo, e) {
+        var data = new URLSearchParams({
+            method: 'removeLinkFromDocument',
+            docType: docTypeStr,
+            docId: docId,
+            providerNo: providerNo
+        });
+        fetch(contextpath + '/documentManager/ManageDocument.do', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: data.toString()
+        }).catch(function(error) {
+            console.error('Error removing provider link:', error);
+        });
+        if (e && e.parentNode) {
+            e.parentNode.remove();
+        }
+    }
 
     var displayDocAsEl = document.getElementById('displayDocumentAs_<%=docId%>');
     if (displayDocAsEl && displayDocAsEl.value == "<%=UserProperty.PDF%>") {
