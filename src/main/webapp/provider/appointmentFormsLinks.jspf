@@ -71,6 +71,10 @@
 			{
 				Integer eFormIdTemp = eFormLink.getAppointmentScreenEForm();
 				EForm eForm=AppointmentProviderAdminDayUIBean.getEForms(eFormIdTemp);
+				if (eForm == null) {
+					org.apache.commons.logging.LogFactory.getLog("appointmentFormsLinks").debug("EForm not found for ID: " + eFormIdTemp);
+					continue;
+				}
 				String trimmedEscapedLinkName=StringEscapeUtils.escapeHtml4(AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, eForm.getFormName()));
 				// Same JS-in-HTML-attribute encoding fix as forms above.
 				String eformUrl = request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + eFormIdTemp
