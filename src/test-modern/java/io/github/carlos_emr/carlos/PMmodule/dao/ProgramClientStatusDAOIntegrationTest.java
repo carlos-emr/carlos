@@ -314,20 +314,101 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
      * Admission entities filtered by programId, teamId (mapped from statusId), and
      * admissionStatus='current'.
      *
-     * <p>NOTE: The Admission entity has {@code @ManyToOne(fetch = EAGER)} relationships to
-     * Program, ProgramTeam, ProgramClientStatus, and Demographic. A {@code @PostLoad} callback
-     * calls {@code program.getName()} and {@code program.getType()}, requiring a valid
-     * Program parent record.</p>
+     * <p>Parent records (Program, Demographic, ProgramTeam) required by Admission's eager
+     * relationships are created in {@link #setUpAdmissionFixtures()}, which runs after the
+     * outer {@code setUp()} to ensure proper FK ordering.</p>
      */
     @Nested
     @DisplayName("getAllClientsInStatus (enabled)")
     class GetAllClientsInStatusEnabled {
 
+        private Integer sharedTeamId1;
+        private Integer sharedTeamId2;
+        private int sharedDemoNo1;
+        private int sharedDemoNo2;
+
+        /**
+         * Creates required parent records for Admission's eager relationships before each test.
+         *
+         * <p>The Admission entity has {@code @ManyToOne(fetch = EAGER)} relationships to
+         * Program, ProgramTeam, ProgramClientStatus, and Demographic. A {@code @PostLoad}
+         * callback calls {@code program.getName()} and {@code program.getType()}, requiring
+         * a valid Program parent record.</p>
+         *
+         * <p>This method runs after the outer {@code setUp()}, which creates ProgramClientStatus
+         * records, ensuring Program rows exist before any child Admission entities are persisted.</p>
+         */
+        @BeforeEach
+        void setUpAdmissionFixtures() {
+            // Derive unique demographic IDs from program IDs to avoid conflicts across test runs
+            sharedDemoNo1 = testProgramId1 + 5000;
+            sharedDemoNo2 = testProgramId2 + 5000;
+
+            // Insert Program records via native SQL since Program is HBM-mapped.
+            // All primitive boolean fields must be provided (Hibernate cannot assign NULL to primitive).
+            entityManager.createNativeQuery(
+                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
+                .setParameter(1, testProgramId1)
+                .setParameter(2, "TestProg")
+                .setParameter(3, "community")
+                .executeUpdate();
+
+            entityManager.createNativeQuery(
+                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
+                .setParameter(1, testProgramId2)
+                .setParameter(2, "TestProg2")
+                .setParameter(3, "community")
+                .executeUpdate();
+
+            // Insert Demographic records for the client_id FK
+            entityManager.createNativeQuery(
+                "INSERT INTO demographic (demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, patient_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+                .setParameter(1, sharedDemoNo1)
+                .setParameter(2, "TestLast")
+                .setParameter(3, "TestFirst")
+                .setParameter(4, "M")
+                .setParameter(5, "1990")
+                .setParameter(6, "01")
+                .setParameter(7, "15")
+                .setParameter(8, "AC")
+                .executeUpdate();
+
+            entityManager.createNativeQuery(
+                "INSERT INTO demographic (demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, patient_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
+                .setParameter(1, sharedDemoNo2)
+                .setParameter(2, "Discharged")
+                .setParameter(3, "Patient")
+                .setParameter(4, "F")
+                .setParameter(5, "1985")
+                .setParameter(6, "06")
+                .setParameter(7, "20")
+                .setParameter(8, "AC")
+                .executeUpdate();
+
+            // Create ProgramTeam instances to satisfy the FK constraint: admission.team_id → program_team.team_id.
+            // In H2 (with hbm2ddl), this FK is enforced; MySQL may not enforce it in older schemas.
+            ProgramTeam team1 = new ProgramTeam();
+            team1.setProgramId(testProgramId1);
+            team1.setName("TestTeam");
+            hibernateTemplate.save(team1);
+
+            ProgramTeam team2 = new ProgramTeam();
+            team2.setProgramId(testProgramId2);
+            team2.setName("TestTeam2");
+            hibernateTemplate.save(team2);
+
+            hibernateTemplate.flush();
+            sharedTeamId1 = team1.getId();
+            sharedTeamId2 = team2.getId();
+
+            entityManager.flush();
+        }
+
         @Test
         @Tag("query")
         @DisplayName("should return empty when no admissions exist")
         void shouldReturnEmpty_whenNoAdmissionsExist() {
-            // Given
+            // Given - setUpAdmissionFixtures created Program/Demographic/ProgramTeam, but no Admissions
             hibernateTemplate.flush();
 
             // When
@@ -342,64 +423,28 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should return admissions matching program and status")
         void shouldReturnAdmissions_whenMatchingProgramAndStatus() {
-            // Given - Create required parent entities for Admission's eager relationships
-            int programIdForAdmission = testProgramId1;
-
-            // Insert a Program record via native SQL since Program is HBM-mapped.
-            // All primitive boolean fields must be provided (Hibernate cannot assign NULL to primitive).
-            entityManager.createNativeQuery(
-                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
-                .setParameter(1, programIdForAdmission)
-                .setParameter(2, "TestProg")
-                .setParameter(3, "community")
-                .executeUpdate();
-
-            // Insert a Demographic record for the client_id FK
-            entityManager.createNativeQuery(
-                "INSERT INTO demographic (demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, patient_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
-                .setParameter(1, 7777)
-                .setParameter(2, "TestLast")
-                .setParameter(3, "TestFirst")
-                .setParameter(4, "M")
-                .setParameter(5, "1990")
-                .setParameter(6, "01")
-                .setParameter(7, "15")
-                .setParameter(8, "AC")
-                .executeUpdate();
-
-            // Create a ProgramTeam to satisfy the FK constraint: admission.team_id → program_team.team_id.
-            // In H2 (with hbm2ddl), this FK is enforced; MySQL may not enforce it in older schemas.
-            ProgramTeam team = new ProgramTeam();
-            team.setProgramId(programIdForAdmission);
-            team.setName("TestTeam");
-            hibernateTemplate.save(team);
-            hibernateTemplate.flush();
-            Integer teamId = team.getId();
-
-            entityManager.flush();
-
-            // Create an Admission with status='current' matching our program and team (status ID)
+            // Given - Create an Admission with status='current' matching our program and team
             Admission admission = new Admission();
-            admission.setProgramId(programIdForAdmission);
-            admission.setTeamId(teamId);
+            admission.setProgramId(testProgramId1);
+            admission.setTeamId(sharedTeamId1);
             admission.setAdmissionStatus("current");
             admission.setProviderNo("999");
-            admission.setClientId(7777);
+            admission.setClientId(sharedDemoNo1);
             admission.setAdmissionDate(new Date());
             entityManager.persist(admission);
             entityManager.flush();
 
             // When - getAllClientsInStatus filters by teamId (the ProgramClientStatus-like concept)
             List<Admission> results = programClientStatusDAO.getAllClientsInStatus(
-                programIdForAdmission, teamId);
+                testProgramId1, sharedTeamId1);
 
             // Then
             assertThat(results)
                 .hasSize(1)
                 .first()
                 .satisfies(a -> {
-                    assertThat(a.getProgramId()).isEqualTo(programIdForAdmission);
-                    assertThat(a.getTeamId()).isEqualTo(teamId);
+                    assertThat(a.getProgramId()).isEqualTo(testProgramId1);
+                    assertThat(a.getTeamId()).isEqualTo(sharedTeamId1);
                     assertThat(a.getAdmissionStatus()).isEqualTo("current");
                 });
         }
@@ -408,51 +453,20 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should not return discharged admissions")
         void shouldNotReturnDischarged_whenStatusIsDischarged() {
-            // Given - Create parent records
-            int programIdForAdmission = testProgramId2;
-            entityManager.createNativeQuery(
-                "INSERT INTO program (id, name, type, facilityId, userDefined, holdingTank, allowBatchAdmission, allowBatchDischarge, hic, transgender, firstNation, alcohol, physicalHealth, mentalHealth, housing, enableOCAN) VALUES (?1, ?2, ?3, 0, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE)")
-                .setParameter(1, programIdForAdmission)
-                .setParameter(2, "TestProg2")
-                .setParameter(3, "community")
-                .executeUpdate();
-
-            entityManager.createNativeQuery(
-                "INSERT INTO demographic (demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, patient_status) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)")
-                .setParameter(1, 7778)
-                .setParameter(2, "Discharged")
-                .setParameter(3, "Patient")
-                .setParameter(4, "F")
-                .setParameter(5, "1985")
-                .setParameter(6, "06")
-                .setParameter(7, "20")
-                .setParameter(8, "AC")
-                .executeUpdate();
-
-            // Create a ProgramTeam to satisfy the FK constraint: admission.team_id → program_team.team_id.
-            ProgramTeam team = new ProgramTeam();
-            team.setProgramId(programIdForAdmission);
-            team.setName("TestTeam2");
-            hibernateTemplate.save(team);
-            hibernateTemplate.flush();
-            Integer teamId = team.getId();
-
-            entityManager.flush();
-
-            // Create a discharged admission (should NOT be returned)
+            // Given - Create a discharged admission (should NOT be returned)
             Admission discharged = new Admission();
-            discharged.setProgramId(programIdForAdmission);
-            discharged.setTeamId(teamId);
+            discharged.setProgramId(testProgramId2);
+            discharged.setTeamId(sharedTeamId2);
             discharged.setAdmissionStatus("discharged");
             discharged.setProviderNo("999");
-            discharged.setClientId(7778);
+            discharged.setClientId(sharedDemoNo2);
             discharged.setAdmissionDate(new Date());
             entityManager.persist(discharged);
             entityManager.flush();
 
             // When
             List<Admission> results = programClientStatusDAO.getAllClientsInStatus(
-                programIdForAdmission, teamId);
+                testProgramId2, sharedTeamId2);
 
             // Then - discharged admissions should not be included
             assertThat(results).isEmpty();
