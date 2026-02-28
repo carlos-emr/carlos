@@ -28,6 +28,77 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ================================================================================
+    showDocument.jsp
+    ================================================================================
+    Purpose:
+        Document viewer and management interface for the CARLOS EMR document inbox.
+        Renders incoming documents (image or PDF) alongside assignment tools, patient
+        linking, and provider routing. Supports multi-format display, acknowledgement
+        workflows, lab macro quick-actions, and tickler (follow-up reminder) alerts.
+
+    Key Features:
+        - Multi-format document display: image page navigation and inline PDF rendering
+        - Document acknowledgement with optional comment dialog
+        - Lab macro dropdown: one-click pre-configured acknowledgement templates
+        - Tickler alert banner: shows pending ticklers for linked patient
+        - Patient (demographic) search and assignment with MRP auto-population
+        - Provider routing: flag document to multiple providers with removal support
+        - Document metadata editing: type, description, observation date
+        - Queue management: refile to configured incoming document queues
+        - Appointment history panel for linked patient
+        - Document splitting, rotation, and first-page deletion tools
+        - OWASP XSS encoding for all user inputs and database outputs
+        - CSRF protection via OWASP CSRFGuard 4.5 auto-injected tokens
+        - Bootstrap 5 components for dropdowns and alert banners
+
+    Architecture:
+        - Included by inboxManage.jsp and other document inbox entry points
+        - Document data loaded via EDocUtil and IncomingDocUtil
+        - Acknowledgement status from AcknowledgementData (lab-style status tracking)
+        - Lab macros loaded from UserProperty.LAB_MACRO_JSON (JSON array)
+        - Tickler alerts fetched via TicklerManager.search_tickler()
+        - Provider routing via ProviderInboxRoutingDao
+        - Appointment history via OscarAppointmentDao
+
+    Lab Macro Integration:
+        - Loads provider's configured macros from UserProperty.LAB_MACRO_JSON
+        - Renders macro names as dropdown items in Bootstrap 5 dropdown
+        - Clicking a macro calls runDocMacro() which verifies demographic link,
+          then invokes /oscarMDS/RunMacro.do with macro name and patient context
+        - Supports closeOnSuccess flag to auto-close popup on success
+
+    Tickler Alert Integration:
+        - Requires "_tickler" READ privilege (SecurityInfoManager check)
+        - Queries ticklers for linked patient within a 6-week window
+        - Displays dismissible Bootstrap 5 alert-info banner with count and links
+        - Each tickler message links to ticklerEdit.jsp for quick review
+
+    Parameters:
+        @param segmentID   String the document ID to display
+        @param demoName    String optional patient name hint (overridden from DB if linked)
+        @param inQueue     String optional queue indicator flag
+        @param inWindow    String if "true", renders full HTML page wrapper (html/head/body)
+
+    Security:
+        - Requires "_edoc" READ privilege via security:oscarSec tag
+        - Requires "_tickler" READ privilege for the tickler alert panel
+        - All JSP outputs escaped with OWASP Encoder for XSS prevention
+        - Audit logging via LogAction for all document views
+        - CSRF tokens auto-injected by CSRFGuard 4.5 filter
+
+    Dependencies:
+        - Document utilities: io.github.carlos_emr.carlos.documentManager.EDocUtil
+        - Inbox routing: io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao
+        - User properties: io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO
+        - Ticklers: io.github.carlos_emr.carlos.managers.TicklerManager
+        - Macros: Jackson ObjectMapper for JSON parsing
+        - Security: OWASP Encoder, SecurityInfoManager
+        - UI: Bootstrap 5, jQuery UI, showDocument.js, oscarMDSIndex.js
+
+    @since 2003 (Macro and Tickler improvements 2026-02)
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -53,32 +124,16 @@
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.IncomingDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
-<%@ page import="io.github.carlos_emr.carlos.log.*" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -158,9 +213,9 @@
     String docId = curdoc.getDocId();
     String ackFunc;
     if(skipComment) {
-      ackFunc = "updateStatus('acknowledgeForm_" + docId + "'," + inQueueB + ");";
+      ackFunc = "updateStatus('acknowledgeForm_" + Encode.forJavaScript(docId) + "'," + inQueueB + ");";
     } else {
-      ackFunc = "getDocComment('" + docId + "','" + providerNo + "'," + inQueueB + ");";
+      ackFunc = "getDocComment('" + Encode.forJavaScript(docId) + "','" + Encode.forJavaScript(providerNo) + "'," + inQueueB + ");";
     }
 
     int slash = 0;
@@ -259,7 +314,7 @@
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.servletContext.contextPath}/share/calendar/calendar.css" title="win2k-cold-1"/>
         <!-- jquery -->
-        <script language="javascript" type="text/javascript"
+        <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/share/javascript/Oscar.js"></script>
 
         <script type="text/javascript"
@@ -388,13 +443,13 @@
         <input type="hidden" name="status" value="A" id="status_<%=docId%>"/>
         <input type="hidden" name="labType" value="DOC"/>
         <input type="hidden" name="ajaxcall" value="yes"/>
-        <input type="hidden" name="comment" id="comment_<%=docId%>" value="<%=docCommentTxt%>">
+        <input type="hidden" name="comment" id="comment_<%=docId%>" value="<%=Encode.forHtmlAttribute(docCommentTxt)%>">
         <%
-            if (!StringUtils.isEmpty(labMacroProp.getValue())) {
+            if (labMacroProp != null && !StringUtils.isEmpty(labMacroProp.getValue())) {
         %>
         <div class="dropdown d-inline-block">
             <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button"
-                    data-bs-toggle="dropdown" aria-expanded="false">Macros</button>
+                    data-bs-toggle="dropdown" aria-expanded="false"><fmt:message key="showDocument.btnMacros"/></button>
             <ul class="dropdown-menu">
                 <%
                     try {
@@ -421,7 +476,7 @@
         <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !ackedOrFiled) {%>
         <input type="submit" class="btn btn-outline-primary btn-sm" id="ackBtn_<%=docId%>"
                value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
-        <input type="button" class="btn btn-outline-secondary btn-sm" value="Comment" onclick="addDocComment('<%=docId%>','<%=providerNo%>')"/>
+        <input type="button" class="btn btn-outline-secondary btn-sm" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>" onclick="addDocComment('<%=Encode.forJavaScript(docId)%>','<%=Encode.forJavaScript(providerNo)%>')"/>
 
         <%}%>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="fwdBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnForward"/>"
@@ -441,11 +496,11 @@
             }
 
         %>
-        <input type="button" class="btn btn-outline-secondary btn-sm" id="msgBtn_<%=docId%>" value="Msg"
-               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=docId%>')" <%=btnDisabled %>/>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="msgBtn_<%=docId%>" value="<fmt:message key="showDocument.btnMsg"/>"
+               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=Encode.forJavaScript(docId)%>')" <%=btnDisabled %>/>
 
         <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<%=docId%>" value="Tickler" onclick="handleDocSave('<%=docId%>','addTickler')"/-->
-        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=docId%>" value="Tickler" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ticklerAdd.jsp?', 'Tickler','<%=docId%>')" <%=btnDisabled %>>
+        <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=docId%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ticklerAdd.jsp?', 'Tickler','<%=docId%>')" <%=btnDisabled %>>
         <%
                                                             String refileBtnVisibility = "";
                                                             for (Hashtable ht : queues) {
@@ -473,14 +528,14 @@
         <input type="button" class="btn btn-outline-secondary btn-sm" id="refileDoc_<%=docId%>"
                value="<fmt:message key="oscarEncounter.noteBrowser.msgRefile"/>" onclick="refileDoc('<%=docId%>');" <%=refileBtnVisibility%> >
 
-        <select id="queueList_<%=docId%>" class="btn btn-outline-secondary btn-sm"" name="queueList"
+        <select id="queueList_<%=docId%>" class="btn btn-outline-secondary btn-sm" name="queueList"
                 onchange="handleQueueListChange(this, document.getElementById('refileDoc_<%=docId%>'), '<%=docCurrentFiledQueue%>')">
             <%
                 for (Hashtable ht : queues) {
                     int id = (Integer) ht.get("id");
                     String qName = (String) ht.get("queue");
             %>
-            <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><%= qName%>
+            <option value="<%=Encode.forHtmlAttribute(String.valueOf(id))%>" <%=((id == queueId) ? " selected" : "")%>><%=Encode.forHtml(qName)%>
             </option>
             <%}%>
         </select>
@@ -492,9 +547,9 @@
             <tr>
                 <td class="alert alert-info alert-dismissible fade show">
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    <strong>INFO</strong> The following <%=numTickler%>
-                    <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a>
-                    are marked pending: <%=tickler_note%>
+                    <strong><fmt:message key="showDocument.ticklerAlertLabel"/></strong> <fmt:message key="showDocument.ticklerAlertFollowing"/> <%=numTickler%>
+                    <a class="alert-link" href="javascript:void(0);" onclick="popup(450, 1200, '<%=Encode.forJavaScript(request.getContextPath())%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')"><fmt:message key="showDocument.ticklerAlertLink"/></a>
+                    <fmt:message key="showDocument.ticklerAlertPending"/>: <%=tickler_note%>
                 </td>
             </tr>
         </table>
@@ -502,17 +557,17 @@
     </security:oscarSec>
     <table class="docTable">
         <tr>
-            <td valign="top" class="pdfPreviewColumn">
+            <td class="pdfPreviewColumn" style="vertical-align: top;">
                 <div style="text-align: right;font-weight: bold">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
                     <a id="firstP_<%=docId%>" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<%=docId%>','<%=cp%>');">First</a>
+                       onclick="firstPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.first"/></a>
                     <a id="prevP_<%=docId%>" style="display: none;" href="javascript:void(0);"
-                       onclick="prevPage('<%=docId%>','<%=cp%>');">Prev</a>
+                       onclick="prevPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.previous"/></a>
                     <a id="nextP_<%=docId%>" href="javascript:void(0);"
-                       onclick="nextPage('<%=docId%>','<%=cp%>');">Next</a>
+                       onclick="nextPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.next"/></a>
                     <a id="lastP_<%=docId%>" href="javascript:void(0);"
-                       onclick="lastPage('<%=docId%>','<%=cp%>');">Last</a>
+                       onclick="lastPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.last"/></a>
                     <%} %>
                 </div>
                 <% if (displayDocumentAs.equals(UserProperty.IMAGE)) { %>
@@ -524,28 +579,28 @@
                 <div style="text-align: right;font-weight: bold">
                     <% if (numOfPage > 1 && displayDocumentAs.equals(UserProperty.IMAGE)) {%>
                     <a id="firstP2_<%=docId%>" style="display: none;" href="javascript:void(0);"
-                       onclick="firstPage('<%=docId%>','<%=cp%>');">First</a>
+                       onclick="firstPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.first"/></a>
                     <a id="prevP2_<%=docId%>" style="display: none;" href="javascript:void(0);"
-                       onclick="prevPage('<%=docId%>','<%=cp%>');">Prev</a>
-                    <a id="nextP2_<%=docId%>" href="javascript:void(0);" onclick="nextPage('<%=docId%>','<%=cp%>');">Next</a>
-                    <a id="lastP2_<%=docId%>" href="javascript:void(0);" onclick="lastPage('<%=docId%>','<%=cp%>');">Last</a>
+                       onclick="prevPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.previous"/></a>
+                    <a id="nextP2_<%=docId%>" href="javascript:void(0);" onclick="nextPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.next"/></a>
+                    <a id="lastP2_<%=docId%>" href="javascript:void(0);" onclick="lastPage('<%=docId%>','<%=cp%>');"><fmt:message key="dms.incomingDocs.last"/></a>
                     <%} %>
                 </div>
             </td>
 
-            <td valign="top" class="pdfAssignmentToolsColumn">
+            <td class="pdfAssignmentToolsColumn" style="vertical-align: top;">
                 <fieldset>
                     <legend><fmt:message key="inboxmanager.document.PatientMsg"/><span
                             id="assignedPId_<%=docId%>"><e:forHtmlContent value='${demoName}' /></span></legend>
                     <table>
                         <tr>
                             <td><fmt:message key="inboxmanager.document.DocumentUploaded"/></td>
-                            <td><%=curdoc.getDateTimeStamp()%>
+                            <td><%=Encode.forHtml(curdoc.getDateTimeStamp())%>
                             </td>
                         </tr>
                         <tr>
                             <td><fmt:message key="inboxmanager.document.ContentType"/></td>
-                            <td><%=contentType%>
+                            <td><%=Encode.forHtml(contentType)%>
                             </td>
                         </tr>
                         <tr>
@@ -600,11 +655,11 @@
                         <input type="hidden" name="totalPage_<%=docId%>" id="totalPage_<%=docId%>"
                                value="<%=numOfPage%>"/>
                         <input type="hidden" name="displayDocumentAs_<%=docId%>" id="displayDocumentAs_<%=docId%>"
-                               value="<%=displayDocumentAs%>">
-                        <table border="0">
+                               value="<%=Encode.forHtmlAttribute(displayDocumentAs)%>">
+                        <table>
                             <tr>
                                 <td><fmt:message key="dms.documentReport.msgCreator"/>:</td>
-                                <td><%=curdoc.getCreatorName()%>
+                                <td><%=Encode.forHtml(curdoc.getCreatorName())%>
                                 </td>
                             </tr>
                             <tr>
@@ -616,7 +671,7 @@
                                             for (int j = 0; j < doctypes.size(); j++) {
                                                 String doctype = (String) doctypes.get(j);
                                         %>
-                                        <option value="<%= doctype%>" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><%= doctype%>
+                                        <option value="<%=Encode.forHtmlAttribute(doctype)%>" <%=(curdoc.getType().equals(doctype)) ? " selected" : ""%>><%=Encode.forHtml(doctype)%>
                                         </option>
                                         <%}%>
                                     </select>
@@ -625,7 +680,7 @@
                             <tr>
                                 <td><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
                                 <td><input id="docDesc_<%=docId%>" type="text" name="documentDescription"
-                                           value="<%=curdoc.getDescription()%>"
+                                           value="<%=Encode.forHtmlAttribute(curdoc.getDescription())%>"
                                            onfocus="this.select(); this.setAttribute('data-original-value', this.value)"
                                            onblur="if (this.value.trim() === '') this.value = this.getAttribute('data-original-value')"/></td>
                             </tr>
@@ -633,7 +688,7 @@
                                 <td><fmt:message key="inboxmanager.document.ObservationDateMsg"/></td>
                                 <td id="observation-calendar">
                                     <input class="input-field" id="observationDate<%=docId%>" name="observationDate"
-                                           type="text" value="<%=curdoc.getObservationDate()%>">
+                                           type="text" value="<%=Encode.forHtmlAttribute(curdoc.getObservationDate())%>">
                                     <a class="calendar-icon" id="obsdate<%=docId%>"
                                        onmouseover="renderCalendar(this.id,'observationDate<%=docId%>' );"
                                        href="javascript:void(0);">
@@ -647,26 +702,26 @@
                                 <td><%
                                     if (!demographicID.equals("-1")) {%>
                                     <input id="saved<%=docId%>" type="hidden" name="saved" value="true"/>
-                                    <input type="hidden" value="<%=demographicID%>" name="demog"
+                                    <input type="hidden" value="<%=Encode.forHtmlAttribute(demographicID)%>" name="demog"
                                            id="demofind<%=docId%>"/>
                                     <input type="hidden" name="demofindName" value="${e:forHtmlAttribute(demoName)}"
                                            id="demofindName<%=docId%>"/>
                                     <e:forHtmlContent value='${demoName}' /><e:forHtmlContent value='${mrpProviderName}' /><%} else {%>
                                     <input id="saved<%=docId%>" type="hidden" name="saved" value="false"/>
-                                    <input type="hidden" name="demog" value="<%=demographicID%>"
+                                    <input type="hidden" name="demog" value="<%=Encode.forHtmlAttribute(demographicID)%>"
                                            id="demofind<%=docId%>"/>
                                     <input type="hidden" name="demofindName" value="${e:forHtmlAttribute(demoName)}"
                                            id="demofindName<%=docId%>"/>
 
                                     <input type="checkbox" id="activeOnly<%=docId%>" name="activeOnly" checked="checked"
-                                           value="true" onclick="setupDemoAutoCompletion()">Active Only<br>
+                                           value="true" onclick="setupDemoAutoCompletion()"><fmt:message key="showDocument.lblActiveOnly"/><br>
                                     <input type="text" id="autocompletedemo<%=docId%>"
-                                           onchange="checkSave('<%=docId%>');" name="demographicKeyword"
+                                           onchange="checkSave('<%=Encode.forJavaScript(docId)%>');" name="demographicKeyword"
                                            placeholder="Search Demographic"/>
                                     <div id="autocomplete_choices<%=docId%>" class="autocomplete"></div>
 
                                     <%}%>
-                                    <input type="button" class=" btn btn-light btn-sm" id="createNewDemo" value="Create New Demographic"
+                                    <input type="button" class=" btn btn-light btn-sm" id="createNewDemo" value="<fmt:message key="dms.incomingDocs.createNewDemographic"/>"
                                            onclick="popup(700,960,'${pageContext.servletContext.contextPath}/demographic/demographicaddarecordhtm.jsp','demographic')"/>
 
                                     <input id="saved_<%=docId%>" type="hidden" name="saved" value="false"/>
@@ -678,7 +733,7 @@
                             </tr>
 
                             <tr>
-                                <td valign="top"><fmt:message key="inboxmanager.document.FlagProviderMsg"/></td>
+                                <td style="vertical-align: top;"><fmt:message key="inboxmanager.document.FlagProviderMsg"/></td>
                                 <td>
                                     <input type="hidden" name="provi" id="provfind<%=docId%>"/>
                                     <input type="text" id="autocompleteprov<%=docId%>" name="demographicKeyword"
@@ -690,16 +745,16 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td width="30%" colspan="1" align="left"><a id="saveSucessMsg_<%=docId%>"
+                                <td style="width: 30%; text-align: left;"><a id="saveSucessMsg_<%=docId%>"
                                                                             style="display:none;color:blue;"><fmt:message key="inboxmanager.document.SuccessfullySavedMsg"/></a></td>
-                                <td width="30%" colspan="1" align="left"><%if(demographicID.equals("-1")){%>
-                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" disabled id="save<%=docId%>" value="Save"/>
+                                <td style="width: 30%; text-align: left;"><%if(demographicID.equals("-1")){%>
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" disabled id="save<%=docId%>" value="<fmt:message key="global.btnSave"/>"/>
                                     <input type="button" class=" btn btn-light btn-sm" name="save" id="saveNext<%=docId%>"
                                            onclick="saveNext(<%=docId%>)" disabled
                                            value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'/>
                                         <%}
             else{%>
-                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" id="save<%=docId%>" value="Save"/>
+                                    <input type="submit" class=" btn btn-primary btn-sm" name="save" id="save<%=docId%>" value="<fmt:message key="global.btnSave"/>"/>
                                     <input type="button" class=" btn btn-light btn-sm" name="save" onclick="saveNext(<%=docId%>)"
                                            id="saveNext<%=docId%>"
                                            value='<fmt:message key="inboxmanager.document.SaveAndNext"/>'/>
@@ -725,8 +780,8 @@
 
                                                 if (!s.equals("0") && !s.equals("null") && !pItem.getStatus().equals("X")) {
                                         %>
-                                        <li><%=s%><a href="#"
-                                                     onclick="removeLink('DOC', '<%=docId %>', '<%=pItem.getProviderNo() %>', this);return false;"><fmt:message key="inboxmanager.document.RemoveLinkedProviderMsg"/></a></li>
+                                        <li><%=Encode.forHtml(s)%><a href="#"
+                                                     onclick="removeLink('DOC', '<%=Encode.forJavaScript(docId)%>', '<%=Encode.forJavaScript(pItem.getProviderNo())%>', this);return false;"><fmt:message key="inboxmanager.document.RemoveLinkedProviderMsg"/></a></li>
                                         <%
                                                 }
                                             }
@@ -744,37 +799,37 @@
 
                     if (ackList.size() > 0) {%>
                 <fieldset>
-                    <table width="100%" height="20" cellpadding="2" cellspacing="2">
+                    <table style="width: 100%;">
                         <tr>
-                            <td align="center" bgcolor="white">
+                            <td style="text-align: center; background-color: white;">
                                 <div class="FieldData">
-                                    <!--center-->
                                     <% for (int i = 0; i < ackList.size(); i++) {
                                         ReportStatus report = (ReportStatus) ackList.get(i); %>
-                                    <%= report.getProviderName() %> :
+                                    <%=Encode.forHtml(report.getProviderName())%> :
 
                                     <% String ackStatus = report.getStatus();
+                                        String ackStatusKey;
                                         if (ackStatus.equals("A")) {
-                                            ackStatus = "Acknowledged";
+                                            ackStatusKey = "showDocument.statusAcknowledged";
                                         } else if (ackStatus.equals("F")) {
-                                            ackStatus = "Filed but not Acknowledged";
+                                            ackStatusKey = "showDocument.statusFiledNotAck";
                                         } else {
-                                            ackStatus = "Not Acknowledged";
+                                            ackStatusKey = "showDocument.statusNotAck";
                                         }
+                                        pageContext.setAttribute("ackStatusKey", ackStatusKey);
                                     %>
-                                    <font color="red"><%= ackStatus %>
-                                    </font>
-                                    <span id="timestamp_<%=docId + "_" + report.getOscarProviderNo()%>"><%= report.getTimestamp() == null ? "&nbsp;" : report.getTimestamp() + "&nbsp;"%></span>,
-                                    comment: <span
-                                        id="comment_<%=docId + "_" + report.getOscarProviderNo()%>"><%=report.getComment() == null || report.getComment().equals("") ? "no comment" : report.getComment()%></span>
+                                    <span style="color: red;"><fmt:message key="${ackStatusKey}"/>
+                                    </span>
+                                    <span id="timestamp_<%=Encode.forHtml(docId + "_" + report.getOscarProviderNo())%>"><%= report.getTimestamp() == null ? "&nbsp;" : Encode.forHtml(report.getTimestamp()) + "&nbsp;"%></span>,
+                                    <fmt:message key="inboxmanager.document.Comment"/> <span
+                                        id="comment_<%=Encode.forHtml(docId + "_" + report.getOscarProviderNo())%>"><% if (report.getComment() == null || report.getComment().isEmpty()) { %><fmt:message key="showDocument.noComment"/><% } else { %><%=Encode.forHtml(report.getComment())%><% } %></span>
 
                                     <br>
                                     <% }
                                         if (ackList.size() == 0) {
-                                    %><font color="red">N/A</font><%
+                                    %><span style="color: red;"><fmt:message key="showDocument.msgNA"/></span><%
                                     }
                                 %>
-                                    <!--/center-->
                                 </div>
                             </td>
                         </tr>
@@ -798,11 +853,11 @@
                             if (appointmentList != null && appointmentList.size() > 0) {
                     %>
 
-                    <table bgcolor="#c0c0c0" align="center" valign="top">
-                        <tr bgcolor="#ccccff">
+                    <table style="background-color: #c0c0c0; margin: 0 auto;">
+                        <tr style="background-color: #ccccff;">
                             <th colspan="4"><fmt:message key="appointment.addappointment.msgOverview"/></th>
                         </tr>
-                        <tr bgcolor="#ccccff">
+                        <tr style="background-color: #ccccff;">
                             <th><fmt:message key="Appointment.formDate"/></th>
                             <th><fmt:message key="Appointment.formStartTime"/></th>
                             <th><fmt:message key="appointment.addappointment.msgProvider"/></th>
@@ -816,12 +871,12 @@
                                     HighlightUserAppt = true;
                                 }
                         %>
-                        <tr bgcolor="<%=HighlightUserAppt == false ? "#FFFFFF" : "#CCFFCC"%>">
-                            <td><%=ConversionUtils.toDateString(a.getAppointmentDate())%>
+                        <tr style="background-color: <%=HighlightUserAppt == false ? "#FFFFFF" : "#CCFFCC"%>;">
+                            <td><%=Encode.forHtml(ConversionUtils.toDateString(a.getAppointmentDate()))%>
                             </td>
-                            <td><%=ConversionUtils.toTimeString(a.getStartTime())%>
+                            <td><%=Encode.forHtml(ConversionUtils.toTimeString(a.getStartTime()))%>
                             </td>
-                            <td><%=prov == null ? "N/A" : prov.getFormattedName()%>
+                            <td><% if (prov == null) { %><fmt:message key="showDocument.msgNA"/><% } else { %><%=Encode.forHtml(prov.getFormattedName())%><% } %>
                             </td>
                             <td><% if (a.getStatus() == null) {%>
                                 "" <% } else if (a.getStatus().startsWith("N")) {%><fmt:message key="oscar.appt.ApptStatusData.msgNoShow"/><% } else if (a.getStatus().startsWith("C")) {%><fmt:message key="oscar.appt.ApptStatusData.msgCanceled"/> <%}%>
@@ -834,11 +889,11 @@
                         }
                     %>
                     <form name="reassignForm_<%=docId%>" id="reassignForm_<%=docId%>" method="post">
-                        <input type="hidden" name="flaggedLabs" value="<%= docId%>"/>
+                        <input type="hidden" name="flaggedLabs" value="<%=Encode.forHtmlAttribute(docId)%>"/>
                         <input type="hidden" name="selectedProviders" value=""/>
                         <input type="hidden" name="labType" value="DOC"/>
-                        <input type="hidden" name="labType<%= docId%>DOC" value="imNotNull"/>
-                        <input type="hidden" name="providerNo" value="<%= providerNo%>"/>
+                        <input type="hidden" name="labType<%=Encode.forHtmlAttribute(docId)%>DOC" value="imNotNull"/>
+                        <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>"/>
                         <input type="hidden" name="favorites" value=""/>
                         <input type="hidden" name="ajax" value="yes"/>
                     </form>
@@ -848,7 +903,7 @@
 
         <tr>
             <td colspan="2">
-                <hr width="100%" color="red">
+                <hr style="width: 100%; border-color: red;">
             </td>
         </tr>
     </table>
