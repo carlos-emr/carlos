@@ -471,7 +471,8 @@ public final class Login2Action extends ActionSupport {
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();
                 json.put("success", false);
-                json.put("error", "Database connection error:" + e.getMessage() + ".");
+                json.put("error", "Unable to process login at this time. Please try again.");
+                logger.error("Database connection error during login", e);
                 response.setContentType("application/json");
                 response.getWriter().write(json.toString());
                 return null;

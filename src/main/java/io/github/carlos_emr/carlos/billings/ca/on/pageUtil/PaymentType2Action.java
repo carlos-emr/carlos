@@ -185,7 +185,7 @@ public class PaymentType2Action extends ActionSupport {
         }
 
         response.setCharacterEncoding("utf-8");
-        response.setContentType("text/html;charset=UTF-8");
+        response.setContentType("application/json");
         try {
             response.getWriter().print(ret);
             response.getWriter().flush();

@@ -58,6 +58,7 @@ import javax.servlet.http.HttpServletResponse;
  *   <li>{@code X-Frame-Options: SAMEORIGIN} — clickjack protection (replaces the removed ESAPI ClickjackFilter)</li>
  *   <li>{@code X-Permitted-Cross-Domain-Policies: none} — blocks Flash/Acrobat cross-domain data loading</li>
  *   <li>{@code Permissions-Policy: camera=(), microphone=(), geolocation=()} — restricts unused browser APIs</li>
+ *   <li>{@code X-Content-Type-Options: nosniff} — prevents MIME type sniffing attacks</li>
  * </ul>
  *
  * @since 2012 (OSCAR McMaster heritage; security headers added 2026-02-26)
@@ -121,6 +122,12 @@ public final class ResponseDefaultsFilter implements Filter {
     /**
      * Applies encoding, caching, and security header defaults, then delegates to the filter chain.
      *
+     * <p>Security headers are set both before and after {@code chain.doFilter}. The pre-chain
+     * call guarantees headers are present on all responses including those where the response
+     * body is flushed by the downstream action (e.g. JSON API responses). The post-chain call
+     * (guarded by {@code !isCommitted()}) overrides any downstream code that may have changed
+     * the security headers, providing defense-in-depth.
+     *
      * <p>When {@code forceStrongETag} or {@code warnCharsetCacheChange} is enabled, the response
      * is wrapped in a {@link ResponseDefaultsFilterResponseWrapper} to intercept downstream
      * header modifications.
@@ -149,6 +156,13 @@ public final class ResponseDefaultsFilter implements Filter {
         }
 
         chain.doFilter(request, (ServletResponse) response);
+
+        // Re-apply security headers after the chain to override any downstream changes.
+        // The committed check is required because headers cannot be sent after the
+        // response body has already been flushed to the client.
+        if (!response.isCommitted()) {
+            setSecurityHeaders(response);
+        }
     }
 
     /**
@@ -188,6 +202,9 @@ public final class ResponseDefaultsFilter implements Filter {
 
         // Restrict browser features not used by this application
         response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+
+        // Prevent MIME type sniffing (defense-in-depth for content-type handling)
+        response.setHeader("X-Content-Type-Options", "nosniff");
     }
 
     /**
