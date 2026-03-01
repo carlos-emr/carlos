@@ -9,6 +9,7 @@
 <%@page import="io.github.carlos_emr.carlos.daos.ProviderDAO"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 <%@page import="org.owasp.encoder.Encode"%>
+<%@page import="java.net.URLEncoder"%>
 
 <%
 	LoggedInInfo loggedInInfo3=LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -47,11 +48,11 @@
 			{
 				String trimmedLinkName = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, formNameTemp);
 				String url = request.getContextPath()
-						+ "/form/forwardshortcutname.do?formname=" + formNameTemp
-						+ "&demographic_no=" + (demographic_no != null ? demographic_no : "")
-						+ "&appointmentNo=" + (appointment_no != null ? appointment_no : "");
+						+ "/form/forwardshortcutname.do?formname=" + URLEncoder.encode(formNameTemp, "UTF-8")
+						+ "&demographic_no=" + (demographic_no != null ? URLEncoder.encode(demographic_no, "UTF-8") : "")
+						+ "&appointmentNo=" + (appointment_no != null ? URLEncoder.encode(appointment_no, "UTF-8") : "");
 				%>
-					|<a href=# onClick='popupPage2("<%=Encode.forHtmlAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(formNameTemp)%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+					|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(formNameTemp)%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
 				<%
 			}
 
@@ -69,7 +70,7 @@
 						+ "&demographic_no=" + (demographic_no != null ? demographic_no : "")
 						+ "&appointment=" + (appointment_no != null ? appointment_no : "");
 				%>
-					|<a href=# onClick='popupPage2("<%=Encode.forHtmlAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(eForm.getFormName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+					|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(eForm.getFormName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
 				<%
 			}
 		}
@@ -92,18 +93,18 @@
 			url = url.replace("${demographicId}", demographic_no != null ? demographic_no : "");
 			url = url.replace("${appointmentId}", appointment_no != null ? appointment_no : "");
 			url = url.replace("${providerId}", providerPreference.getProviderNo() != null ? providerPreference.getProviderNo() : "");
-			url = url.replace("${providerOhip}", provider != null && provider.getOhipNo() != null ? provider.getOhipNo().trim() : "");
-			url = url.replace("${demographicHin}", demographic != null && demographic.getHin() != null ? demographic.getHin().trim() : "");
-			url = url.replace("${demographicVer}", demographic != null && demographic.getVer() != null ? demographic.getVer().trim() : "");
+			url = url.replace("${providerOhip}", provider != null && provider.getOhipNo() != null ? URLEncoder.encode(provider.getOhipNo().trim(), "UTF-8") : "");
+			url = url.replace("${demographicHin}", demographic != null && demographic.getHin() != null ? URLEncoder.encode(demographic.getHin().trim(), "UTF-8") : "");
+			url = url.replace("${demographicVer}", demographic != null && demographic.getVer() != null ? URLEncoder.encode(demographic.getVer().trim(), "UTF-8") : "");
 
 			if (hinExposed) {
 				String warningTitle = "WARNING-The health number is exposed in " + quickLink.getName();
 				%>
-				|<a href=# onClick='popupPage2("<%=Encode.forHtmlAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(warningTitle)%>' style='background-color:red;color:white;'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+				|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(warningTitle)%>' style='background-color:red;color:white;'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
 				<%
 			} else {
 				%>
-				|<a href=# onClick='popupPage2("<%=Encode.forHtmlAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(quickLink.getName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+				|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(quickLink.getName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
 				<%
 			}
 		}
