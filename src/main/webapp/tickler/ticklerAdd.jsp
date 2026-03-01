@@ -196,6 +196,12 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.title"/></title>
 
         <script>
+        // i18n messages for JavaScript (rendered server-side by JSP/JSTL)
+        const i18nQuickPickFrom = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.quickPickFrom"/>';
+        const i18nQuickPickReset = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.quickPickReset"/>';
+        const i18nQuickPickTooltip = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.quickPickBtnTooltip"/>';
+        const i18nSelectPreference = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.selectPreference"/>';
+
         function pasteMessageText() {
             let selectedIdx = document.serviceform.suggestedText.selectedIndex;
             document.getElementById("ticklerMessage").value = document.serviceform.suggestedText.options[selectedIdx].text;
@@ -283,7 +289,7 @@
                 if (totalDays) parts.push(totalDays + 'd');
                 if (parts.length === 0) parts.push('0d');
 
-                display.innerHTML = "From " + baseDate.toISOString().split('T')[0] + ":&nbsp;&nbsp;&nbsp;&nbsp;<strong>" + parts.join(' ') + "</strong>";
+                display.innerHTML = i18nQuickPickFrom + " " + baseDate.toISOString().split('T')[0] + ":&nbsp;&nbsp;&nbsp;&nbsp;<strong>" + parts.join(' ') + "</strong>";
             }
 
             function resetTotals() {
@@ -298,7 +304,7 @@
                 rowOptions.forEach(opt => {
                     const btn = document.createElement('button');
                     btn.textContent = opt.label;
-                    btn.title = 'Click to add. Shift+Click or Right-click to subtract.';
+                    btn.title = i18nQuickPickTooltip;
 
                     const handleOffset = (delta) => {
                         if (baseDate === null) {
@@ -311,7 +317,7 @@
                             baseDate = localDate;
                             resetTotals();
                             dateInput.value = localDate.toISOString().split('T')[0];
-                            display.innerHTML = 'Reset to today: <strong>0d</strong>';
+                            display.innerHTML = i18nQuickPickReset + ': <strong>0d</strong>';
                             return;
                         }
 
@@ -340,7 +346,7 @@
                             resetTotals();
                             const today = new Date();
                             dateInput.value = today.toISOString().split('T')[0];
-                            display.innerHTML = 'Reset to today: <strong>0d</strong>';
+                            display.innerHTML = i18nQuickPickReset + ': <strong>0d</strong>';
                         } else {
                             // Subtract the value for this button
                             const multiplier = opt.years || opt.months || opt.weeks || opt.days || 0;
@@ -436,7 +442,7 @@
                 }
                 <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
                 else if (document.serviceform.site.value == "none" || document.serviceform.site.value == "0") {
-                    document.getElementById("error").insertAdjacentText("beforeend", "Must assign task to a provider.");
+                    document.getElementById("error").insertAdjacentText("beforeend", '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgMustAssignProvider"/>');
                     document.getElementById("error").style.display = 'block';
                     return false;
                 }
@@ -492,7 +498,7 @@
     <table>
         <tr style="background-color: black">
             <td style="text-align:left; padding:10px; font-weight: 900; height:40px; font-size: large; font-family: arial, sans-serif; color: white">
-                Add <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgTickler"/></td>
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.titleHeading"/></td>
         </tr>
     </table>
 
@@ -539,7 +545,7 @@
                     <td style="width: 65%;">
 
                         <div class="input-group">
-                            <input type="text" class="form-control" name="keyword" placeholder="Search Demographic"
+                            <input type="text" class="form-control" name="keyword" placeholder="<fmt:message key='tickler.ticklerAdd.phSearchDemographic'/>"
                                    size="25" value="<%=Encode.forHtmlAttribute(demoName)%>">
                             <input type="submit" name="Submit" class="btn btn-outline-secondary"
                                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSearch"/>">
@@ -604,12 +610,15 @@
 
                             <%
                             String taskToName = "";
+                            boolean taskToIsMRP = false;
 
                             if(defaultTaskAssignee.equals("mrp")) {
                                 taskToName = "Preference set to MRP, attach a patient.";
+                                taskToIsMRP = true;
                             }
                             if(!taskTo.isEmpty()) {
                                 taskToName = providerDao.getProviderNameLastFirst(taskTo);
+                                taskToIsMRP = false;
                             }
                             Site site = null;
                             for (int i=0; i<sites.size(); i++) {
@@ -632,7 +641,7 @@
 
                         <div id="selectWrapper">
                             <select id="site" class="form-select" name="site" onchange="changeSite(this)">
-                                <option value="none" style="background-color: white">---select clinic---</option>
+                                <option value="none" style="background-color: white"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.selectClinic"/></option>
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
                                 %>
@@ -644,14 +653,14 @@
 
                             <select name="task_assigned_to" id="task_assigned_to" class="form-select"></select>
 
-                            <h4 id="preferenceLink" style="display:none"><small><a href="#" onclick="toggleWrappers()">[preference]</a></small>
+                            <h4 id="preferenceLink" style="display:none"><small><a href="#" onclick="toggleWrappers()"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.linkPreference"/></a></small>
                             </h4>
                         </div>
 
                         <div id="nameWrapper" style="display:none">
-                            <h4><%=Encode.forHtml(taskToName)%> <small><a href="#" onclick="toggleWrappers()">[change]</a></small></h4>
+                            <h4><% if (taskToIsMRP) { %><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgPreferenceMRP"/><% } else { %><%=Encode.forHtml(taskToName)%><% } %> <small><a href="#" onclick="toggleWrappers()"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.linkChange"/></a></small></h4>
                             <input type="hidden" id="taskToBin" value="<%=Encode.forHtmlAttribute(taskTo)%>">
-                            <input type="hidden" id="taskToNameBin" value="<%=Encode.forHtmlAttribute(taskToName)%>">
+                            <input type="hidden" id="taskToNameBin" value="<% if (taskToIsMRP) { %><fmt:message key='tickler.ticklerAdd.msgPreferenceMRP'/><% } else { %><%=Encode.forHtmlAttribute(taskToName)%><% } %>">
                         </div>
                         <script>
                             document.getElementById("site").value = '<%= site==null?"none":site.getSiteId() %>';
@@ -684,7 +693,7 @@
 
                             var selSite = document.getElementById('site');
                             var optSite = document.createElement('option');
-                            optSite.appendChild(document.createTextNode("** preference **"));
+                            optSite.appendChild(document.createTextNode(i18nSelectPreference));
                             optSite.value = newItemKey;
                             optSite.setAttribute('selected', 'selected');
                             selSite.appendChild(optSite);
