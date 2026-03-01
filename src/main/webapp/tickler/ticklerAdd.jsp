@@ -457,8 +457,8 @@
         }
         </script>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
-              type="text/css">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet">
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js"></script>
         <style media="all">
             .tickler-label {
                 color: #003366;
@@ -491,13 +491,12 @@
     <body onload="setfocus();initResize()">
     <table>
         <tr style="background-color: black">
-            <td class="table-condensed"
-                style="text-align:left; padding:10px; font-weight: 900; height:40px; font-size: large; font-family: arial, sans-serif; color: white">
+            <td style="text-align:left; padding:10px; font-weight: 900; height:40px; font-size: large; font-family: arial, sans-serif; color: white">
                 Add <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgTickler"/></td>
         </tr>
     </table>
 
-    <div class="container-fluid well">
+    <div class="container-fluid p-3">
         <%
             String searchMode = request.getParameter("search_mode");
             if (searchMode == null || searchMode.isEmpty()) {
@@ -529,10 +528,10 @@
             <input type="hidden" name="remarks" value="">
             <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
             <input type="hidden" name="updateParent" value="<%=Encode.forHtmlAttribute(updateParent)%>">
-            <table class="table-condensed">
+            <table class="table table-sm">
                 <tr>
                     <td colspan="2">
-                        <div id="error" class="alert alert-error" style="display:none;"></div>
+                        <div id="error" class="alert alert-danger" style="display:none;" role="alert"></div>
                     </td>
                 </tr>
                 <tr>
@@ -542,10 +541,8 @@
                         <div class="input-group">
                             <input type="text" class="form-control" name="keyword" placeholder="Search Demographic"
                                    size="25" value="<%=Encode.forHtmlAttribute(demoName)%>">
-                            <span class="input-group-btn">
-                                <input type="submit" name="Submit" class="btn btn-default"
-                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSearch"/>">
-                            </span>
+                            <input type="submit" name="Submit" class="btn btn-outline-secondary"
+                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSearch"/>">
                         </div>
 
                     </td>
@@ -557,7 +554,7 @@
             <input type="hidden" name="updateParent" value="<%=Encode.forHtmlAttribute(updateParent)%>">
             <input type="hidden" name="user_no" value="<%=Encode.forHtmlAttribute(user_no)%>">
             <input type="hidden" name="writeToEncounter" value="<%=Encode.forHtmlAttribute(writeToEncounter.toString())%>">
-            <table class="table-condensed">
+            <table class="table table-sm">
 
                 <tr>
                     <td style="width: 35%;" class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formChartNo"/>:</td>
@@ -578,7 +575,7 @@
                 <tr>
                     <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.Priority"/>:</td>
                     <td>
-                        <select name="priority" class="form-control">
+                        <select name="priority" class="form-select">
                             <option value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.high"/>" <%=priority.equals("High")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.high"/>
                             <option value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.normal"/>" <%=priority.equals("Normal")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.normal"/>
                             <option value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.low"/>" <%=priority.equals("Low")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.low"/>
@@ -634,7 +631,7 @@
                         </script>
 
                         <div id="selectWrapper">
-                            <select id="site" class="form-control" name="site" onchange="changeSite(this)">
+                            <select id="site" class="form-select" name="site" onchange="changeSite(this)">
                                 <option value="none" style="background-color: white">---select clinic---</option>
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
@@ -645,7 +642,7 @@
                                 <% } %>
                             </select>
 
-                            <select name="task_assigned_to" id="task_assigned_to" class="form-control"></select>
+                            <select name="task_assigned_to" id="task_assigned_to" class="form-select"></select>
 
                             <h4 id="preferenceLink" style="display:none"><small><a href="#" onclick="toggleWrappers()">[preference]</a></small>
                             </h4>
@@ -699,7 +696,7 @@
                         } else {
                         %>
 
-                        <select name="task_assigned_to" class="form-control">
+                        <select name="task_assigned_to" class="form-select">
                             <% String proFirst = "";
                                 String proLast = "";
                                 String proOHIP = "";
@@ -727,7 +724,7 @@
                 <tr>
                     <td class="tickler-label"><a href="#" onclick="openBrWindow('./ticklerSuggestedText.jsp','','width=680,height=400')" style="font-weight:bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</td>
                     <td>
-                        <select name="suggestedText" class="form-control" onchange="pasteMessageText()">
+                        <select name="suggestedText" class="form-select" onchange="pasteMessageText()">
                             <option value="">---</option>
                             <%
                                 TicklerTextSuggestDao ticklerTextSuggestDao = SpringUtils.getBean(TicklerTextSuggestDao.class);
