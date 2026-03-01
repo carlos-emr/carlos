@@ -29,9 +29,33 @@
 
 --%>
 
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="java.util.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -126,12 +150,7 @@
 
 
 %>
-<%@ page import="java.util.*, io.github.carlos_emr.*" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -148,186 +167,361 @@
     String xml_vdate = request.getParameter("xml_vdate") == null ? "" : request.getParameter("xml_vdate");
     String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay) : request.getParameter("xml_appointment_date");
 %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
-
-<%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
-<%@ page import="org.owasp.encoder.Encode" %>
 <!DOCTYPE html>
 <html>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.title"/></title>
 
-        <script language="JavaScript">
+        <script>
+        function pasteMessageText() {
+            let selectedIdx = document.serviceform.suggestedText.selectedIndex;
+            document.getElementById("ticklerMessage").value = document.serviceform.suggestedText.options[selectedIdx].text;
 
-            // Add options 1 to 10 for days, weeks, months, and years
-            function addQuickPick() {
-                const quickPickDiv = document.getElementById('quickPickDateOptions');
-                for (let i = 0; i < 40; i++) {
-                    const linkButton = document.createElement('a');
-                    linkButton.href = '#';
-                    switch (Math.floor(i / 10)) {
-                        case 0:
-                            linkButton.innerText = (i % 10) + 1 + "d";
-                            linkButton.onclick = function () {
-                                addTime((i % 10) + 1, "days");
-                            };
-                            break;//1 through 10 days
-                        case 1:
-                            linkButton.innerText = (i % 10) + 1 + "w";
-                            linkButton.onclick = function () {
-                                addTime(((i % 10) + 1) * 7, "days");
-                            };
-                            break;//1 through 10 weeks
-                        case 2:
-                            linkButton.innerText = (i % 10) + 1 + "m";
-                            linkButton.onclick = function () {
-                                addTime((i % 10) + 1, "months");
-                            };
-                            break;//1 through 10 months
-                        case 3:
-                            linkButton.innerText = (i % 10) + 1 + "y";
-                            linkButton.onclick = function () {
-                                addTime(((i % 10) + 1) * 12, "months");
-                            };
-                            break;//1 through 10 years
-                    }
-                    quickPickDiv.appendChild(linkButton);
-                }
+        }
+
+        function addQuickPick() {
+
+            const dateInput = document.querySelector('input[name="xml_appointment_date"]');
+            const container = document.getElementById('quickPickDateOptions');
+            if (!dateInput || !container) return;
+
+            container.innerHTML = ''; // Clear existing buttons
+
+
+            const optionsByRow = [
+                // Years row
+                [{
+                        label: '1y',
+                        years: 1
+                    },
+                    {
+                        label: '2y',
+                        years: 2
+                    },
+                    {
+                        label: '3y',
+                        years: 3
+                    },
+                    {
+                        label: '5y',
+                        years: 5
+                    },
+                    {
+                        label: '10y',
+                        years: 10
+                    },
+                ],
+                // Months row
+                [{
+                        label: '1m',
+                        months: 1
+                    },
+                    {
+                        label: '2m',
+                        months: 2
+                    },
+                    {
+                        label: '3m',
+                        months: 3
+                    },
+                    {
+                        label: '6m',
+                        months: 6
+                    },
+                ],
+                // Weeks row
+                [{
+                        label: '1w',
+                        weeks: 1
+                    },
+                    {
+                        label: '2w',
+                        weeks: 2
+                    },
+                    {
+                        label: '3w',
+                        weeks: 3
+                    },
+                    {
+                        label: '',
+                        weeks: 0
+                    },
+                    // ],
+                    // Days row
+                    // [
+                    {
+                        label: '1d',
+                        days: 1
+                    },
+                    {
+                        label: '2d',
+                        days: 2
+                    },
+                    {
+                        label: '3d',
+                        days: 3
+                    },
+                    {
+                        label: '',
+                        days: 0
+                    },
+                    {
+                        label: 'Clear',
+                        isClear: true
+                    },
+                ],
+                // Clear row
+                // [
+                //    { label: 'Clear', isClear: true },
+                //]
+            ];
+
+            let baseDate = null;
+            // Accumulate all added offsets here, by type
+            let totalYears = 0;
+            let totalMonths = 0;
+            let totalWeeks = 0;
+            let totalDays = 0;
+
+            const display = document.createElement('div');
+            display.style.margin = '5px 0';
+            display.style.fontSize = '0.9em';
+            display.style.color = '#336';
+            display.innerHTML = '&nbsp;'; // Reserve vertical space
+            display.style.minHeight = '1.5em'; // Adjust height to match expected line height
+            container.parentNode.insertBefore(display, container);
+
+            function parseDateInput() {
+                const val = dateInput.value;
+                const d = new Date(val);
+                return isNaN(d) ? new Date() : d;
+            }
+            baseDate = parseDateInput();
+
+            function updateDisplayAndDate() {
+                if (!baseDate) return;
+
+                // Calculate total days from weeks + days
+                const daysFromWeeks = totalWeeks * 7;
+                let date = new Date(baseDate);
+
+                // Add years
+                date.setFullYear(date.getFullYear() + totalYears);
+                // Add months
+                date.setMonth(date.getMonth() + totalMonths);
+                // Add weeks and days
+                date.setDate(date.getDate() + daysFromWeeks + totalDays);
+
+                dateInput.value = date.toISOString().split('T')[0];
+
+                // Build display string for total offset
+                const parts = [];
+                if (totalYears) parts.push(totalYears + 'y');
+                if (totalMonths) parts.push(totalMonths + 'm');
+                if (totalWeeks) parts.push(totalWeeks + 'w');
+                if (totalDays) parts.push(totalDays + 'd');
+                if (parts.length === 0) parts.push('0d');
+
+                //display.textContent = `From ${baseDate.toISOString().split('T')[0]}:  ${parts.join(' ')}`;
+                display.innerHTML = `From ${baseDate.toISOString().split('T')[0]}:&nbsp;&nbsp;&nbsp;&nbsp;<strong>${parts.join(' ')}</strong>`;
+                display.innerHTML = "From " + baseDate.toISOString().split('T')[0] + ":&nbsp;&nbsp;&nbsp;&nbsp;<strong>" + parts.join(' ') + "</strong>";
+
             }
 
-            function addTime(num, type) {
-                let currentDate = new Date();
-                if (type === "months") {
-                    currentDate.setMonth(currentDate.getMonth() + num);
+            function resetTotals() {
+                totalYears = 0;
+                totalMonths = 0;
+                totalWeeks = 0;
+                totalDays = 0;
+            }
+
+            optionsByRow.forEach(rowOptions => {
+                const row = document.createElement('div');
+                rowOptions.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.textContent = opt.label;
+                    btn.title = 'Click to add. Shift+Click or Right-click to subtract.';
+
+                    const handleOffset = (delta) => {
+                        if (baseDate === null) {
+                            baseDate = parseDateInput();
+                            resetTotals();
+                        }
+                        if (opt.isClear) {
+                            const now = new Date();
+                            const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                            baseDate = localDate;
+                            resetTotals();
+                            dateInput.value = localDate.toISOString().split('T')[0];
+                            display.innerHTML = `Reset to today: <strong>0d</strong>`;
+                            return;
+                        }
+
+
+
+                        // Add or subtract from correct total
+                        const sign = delta < 0 ? -1 : 1;
+                        if (opt.years) totalYears += sign * Math.abs(delta);
+                        if (opt.months) totalMonths += sign * Math.abs(delta);
+                        if (opt.weeks) totalWeeks += sign * Math.abs(delta);
+                        if (opt.days) totalDays += sign * Math.abs(delta);
+
+                        updateDisplayAndDate();
+                    };
+
+                    btn.addEventListener('click', e => {
+                        e.preventDefault();
+                        const delta = e.shiftKey ? -1 : 1;
+                        // delta multiplied by the actual unit amount
+                        let multiplier = 0;
+                        if (opt.years) multiplier = opt.years;
+                        if (opt.months) multiplier = opt.months;
+                        if (opt.weeks) multiplier = opt.weeks;
+                        if (opt.days) multiplier = opt.days;
+                        handleOffset(delta * multiplier);
+                    });
+
+                    btn.addEventListener('contextmenu', e => {
+                        e.preventDefault();
+                        if (opt.isClear) {
+                            baseDate = null;
+                            resetTotals();
+                            const today = new Date();
+                            dateInput.value = today.toISOString().split('T')[0];
+                            display.innerHTML = `Reset to today: <strong>0d</strong>`;
+                        } else {
+                            // Subtract the value for this button
+                            let multiplier = 0;
+                            if (opt.years) multiplier = opt.years;
+                            if (opt.months) multiplier = opt.months;
+                            if (opt.weeks) multiplier = opt.weeks;
+                            if (opt.days) multiplier = opt.days;
+                            handleOffset(-1 * multiplier);
+                        }
+                    });
+
+
+                    row.appendChild(btn);
+                });
+                container.appendChild(row);
+            });
+        }
+
+        function popupPage(vheight, vwidth, varpage) { //open a new popup window
+            var page = "" + varpage;
+            windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
+            var popup = window.open(page, "attachment", windowprops);
+            if (popup != null) {
+                if (popup.opener == null) {
+                    popup.opener = self;
+                }
+            }
+        }
+
+        function selectprovider(s) {
+            if (self.location.href.lastIndexOf("&providerview=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
+            else a = self.location.href;
+            self.location.href = a + "&providerview=" + s.options[s.selectedIndex].value;
+        }
+
+        function openBrWindow(theURL, winName, features) {
+            window.open(theURL, winName, features);
+        }
+
+        function setfocus() {
+            this.focus();
+            document.ADDAPPT.keyword.focus();
+            document.ADDAPPT.keyword.select();
+            addQuickPick();
+        }
+
+        function initResize() {
+            window.addEventListener("resize", resizeTextMessage);
+            resizeTextMessage();
+        }
+
+        /****
+         *This function resizes the messageBox so that the overall browser window is filled.
+         ****/
+        function resizeTextMessage() {
+            const messageBox = document.getElementById("ticklerMessage");
+            //this formula checks for empty space at the bottom, less the 20 px that corresponds to the margin-bottom
+            const newHeight = messageBox.offsetHeight + window.innerHeight - document.body.clientHeight - 20;
+            //only resize if the new height will be greater than 50 pixels, the original default height.
+            if (newHeight > 50) messageBox.style.height = newHeight + "px";
+        }
+
+        function validate(form) {
+            validate(form, false);
+        }
+
+        function validate(form, writeToEncounter) {
+            if (validateDemoNo(form) < %= caisiEnabled ? "&& validateSelectedProgram()" : "" % > ) {
+                if (writeToEncounter) {
+                    form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?writeToEncounter=true";
                 } else {
-                    currentDate.setDate(currentDate.getDate() + num);
+                    form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?updateTicklerNav=true";
                 }
-                const year = currentDate.getFullYear();
-                const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-                const day = String(currentDate.getDate()).padStart(2, '0');
-                const newDate = year + "-" + month + "-" + day;
-                document.serviceform.xml_appointment_date.value = newDate;
+                form.submit();
             }
+        }
 
-            function popupPage(vheight, vwidth, varpage) { //open a new popup window
-                var page = "" + varpage;
-                windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
-                var popup = window.open(page, "attachment", windowprops);
-                if (popup != null) {
-                    if (popup.opener == null) {
-                        popup.opener = self;
-                    }
-                }
+        function validateSelectedProgram() {
+            if (document.serviceform.program_assigned_to.value === "none") {
+                document.getElementById("error").insertAdjacentText("beforeend", "<fmt:setBundle basename="
+                    oscarResources "/><fmt:message key="
+                    tickler.ticklerAdd.msgNoProgramSelected "/>");
+                document.getElementById("error").style.display = 'block';
+                return false;
             }
+            return true;
+        }
 
-            function selectprovider(s) {
-                if (self.location.href.lastIndexOf("&providerview=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
-                else a = self.location.href;
-                self.location.href = a + "&providerview=" + s.options[s.selectedIndex].value;
-            }
+        function IsDate(value) {
+            let dateWrapper = new Date(value);
+            return !isNaN(dateWrapper.getDate());
+        }
 
-            function openBrWindow(theURL, winName, features) {
-                window.open(theURL, winName, features);
-            }
-
-            function setfocus() {
-                this.focus();
-                document.ADDAPPT.keyword.focus();
-                document.ADDAPPT.keyword.select();
-                addQuickPick();
-            }
-
-            function initResize() {
-                window.addEventListener("resize", resizeTextMessage);
-                resizeTextMessage();
-            }
-
-            /****
-             *This function resizes the messageBox so that the overall browser window is filled.
-             ****/
-            function resizeTextMessage() {
-                const messageBox = document.getElementById("ticklerMessage");
-                //this formula checks for empty space at the bottom, less the 20 px that corresponds to the margin-bottom
-                const newHeight = messageBox.offsetHeight + window.innerHeight - document.body.clientHeight - 20;
-                //only resize if the new height will be greater than 50 pixels, the original default height.
-                if (newHeight > 50) messageBox.style.height = newHeight + "px";
-            }
-
-            function validate(form) {
-                validate(form, false);
-            }
-
-            function validate(form, writeToEncounter) {
-                if (validateDemoNo(form) <%=caisiEnabled?"&& validateSelectedProgram()":""%>) {
-                    if (writeToEncounter) {
-                        form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?writeToEncounter=true";
-                    } else {
-                        form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?updateTicklerNav=true";
-                    }
-                    form.submit();
-                }
-            }
-
-            function validateSelectedProgram() {
-                if (document.serviceform.program_assigned_to.value === "none") {
-                    document.getElementById("error").insertAdjacentText("beforeend", "<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgNoProgramSelected"/>");
+        function validateDemoNo() {
+            if (document.serviceform.demographic_no.value == "") {
+                document.getElementById("error").insertAdjacentText("beforeend", "<fmt:setBundle basename="
+                    oscarResources "/><fmt:message key="
+                    tickler.ticklerAdd.msgInvalidDemographic "/>");
+                document.getElementById("error").style.display = 'block';
+                return false;
+            } else {
+                if (document.serviceform.xml_appointment_date.value == "" || !IsDate(document.serviceform.xml_appointment_date.value)) {
+                    document.getElementById("error").insertAdjacentText("beforeend", "<fmt:setBundle basename="
+                        oscarResources "/><fmt:message key="
+                        tickler.ticklerAdd.msgMissingDate "/>");
                     document.getElementById("error").style.display = 'block';
                     return false;
-                }
-                return true;
-            }
-
-            function IsDate(value) {
-                let dateWrapper = new Date(value);
-                return !isNaN(dateWrapper.getDate());
-            }
-
-            function validateDemoNo() {
-                if (document.serviceform.demographic_no.value == "") {
-                    document.getElementById("error").insertAdjacentText("beforeend", "<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgInvalidDemographic"/>");
-                    document.getElementById("error").style.display = 'block';
-                    return false;
-                } else {
-                    if (document.serviceform.xml_appointment_date.value == "" || !IsDate(document.serviceform.xml_appointment_date.value)) {
-                        document.getElementById("error").insertAdjacentText("beforeend", "<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgMissingDate"/>");
-                        document.getElementById("error").style.display = 'block';
-                        return false;
-                    }
-                        <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
+                } <
+                %
+                if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) {
+                    % >
                     else if (document.serviceform.site.value == "none" || document.serviceform.site.value == "0") {
                         document.getElementById("error").insertAdjacentText("beforeend", "Must assign task to a providers.");
                         document.getElementById("error").style.display = 'block';
                         return false;
-                    }
-                        <% } %>
-                    else {
-                        return true;
-                    }
+                    } <
+                    %
+                } % >
+                else {
+                    return true;
                 }
             }
+        }
 
-            function refresh() {
-                var u = self.location.href;
-                if (u.lastIndexOf("view=1") > 0) {
-                    self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(eval(u.lastIndexOf("view=1") + 6));
-                } else {
-                    history.go(0);
-                }
+        function refresh() {
+            var u = self.location.href;
+            if (u.lastIndexOf("view=1") > 0) {
+                self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(eval(u.lastIndexOf("view=1") + 6));
+            } else {
+                history.go(0);
             }
-
-            //-->
+        }
         </script>
 
         <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
@@ -345,38 +539,20 @@
             * {
                 font-size: 12px !important;
             }
+          #quickPickDateOptions {
+            display: block !important;
+          }
+          #quickPickDateOptions > div {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 6px;
+          }
+         #quickPickDateOptions button {
+           font-size: 0.7em;
+           padding: 3px 6px;
+           cursor: pointer;
+          }
 
-            .grid {
-                display: grid;
-                grid-template-columns: repeat(10, 1fr);
-                grid-gap: 2px;
-                width: 270px;
-            }
-
-            .grid a, .today-button {
-                background-color: #E6E6FA;
-                text-align: center;
-                width: auto;
-                height: auto;
-                padding: 2px;
-                margin: 1px;
-                display: flex;
-                justify-content: center;
-                text-decoration: none;
-                color: black;
-                font-size: 11px !important;
-                border-radius: 3px;
-            }
-
-            .grid a:hover, .today-button:hover {
-                background-color: #EE82EE;
-                color: white;
-            }
-
-            .today-button {
-                width: 128px;
-                cursor: pointer;
-            }
         </style>
     </head>
 
@@ -473,13 +649,10 @@
                     <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formServiceDate"/></td>
                     <td><input type="date" class="form-control" name="xml_appointment_date"
                                value="<%=xml_appointment_date%>">
-                        <font color="#003366" size="1" face="Verdana, Arial, Helvetica, sans-serif">
-                            <!-- Today button placed before the grid -->
-                            <div id="todayButton" class="today-button" onclick="addTime(0, 'days')">Today</div>
                             <div id="quickPickDateOptions" class="grid">
                                 <!-- Quick pick will be added here using JavaScript -->
                             </div>
-                        </font></td>
+                        </td>
                 </tr>
                 <tr>
                     <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.Priority"/>:</td>
@@ -630,20 +803,38 @@
                         <input type="hidden" name="docId" value="<%=request.getParameter("docId")%>"/>
                     </td>
                 </tr>
+    <tr>
+      <td class="tickler-label"><a href="#" onclick="openBrWindow('./ticklerSuggestedText.jsp','','width=680,height=400')" style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</strong></font></td>
+      <td>
+          <select name="suggestedText" class="form-control" onchange="pasteMessageText()">
+              <option value="">---</option>
+              <%
+                  TicklerTextSuggestDao ticklerTextSuggestDao = SpringUtils.getBean(TicklerTextSuggestDao.class);
+                  for (TicklerTextSuggest tTextSuggest : ticklerTextSuggestDao.getActiveTicklerTextSuggests()) {
+              %>
+              <option><%=Encode.forHtmlContent(tTextSuggest.getSuggestedText())%></option>
+              <% } %>
+          </select>
+      </td>
+    </tr>
+
                 <tr>
                     <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formReminder"/>:</td>
-                    <td><textarea name="ticklerMessage" id="ticklerMessage" class="form-control"></textarea></td>
+                    <td><textarea name="ticklerMessage" id="ticklerMessage" class="form-control"></textarea>
+                        <INPUT TYPE="hidden" name="user_no" VALUE="<%=user_no%>">
+                        <input type="hidden" name="writeToEncounter" value="<%=writeToEncounter%>"/>
+                    </td>
                 </tr>
-                <INPUT TYPE="hidden" name="user_no" VALUE="<%=user_no%>">
-                <input type="hidden" name="writeToEncounter" value="<%=writeToEncounter%>"/>
                 <tr>
-
-                    <td><input type="button" name="Button" class="btn btn-primary"
+                    <td colspan="2"><input type="button" name="Button" class="btn btn-primary"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSubmit"/>"
                                onClick="event.preventDefault();validate(this.form);">
-
+                        <input type="button" name="Button" class="btn btn-secondary"
+                                value="<fmt:message key="tickler.ticklerAdd.btnWriteSubmit"/>"
+                                onClick="validate(this.form, true)">
                         <input type="button" name="Button" class="btn btn-danger"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnCancel"/>" onClick="window.close()">
+                               value="<fmt:message key="tickler.ticklerAdd.btnCancel"/>"
+                                onClick="window.close()">
                     </td>
                 </tr>
 
