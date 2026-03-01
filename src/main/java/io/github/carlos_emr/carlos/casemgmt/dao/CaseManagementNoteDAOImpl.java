@@ -141,7 +141,11 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @Override
     public CaseManagementNote getNote(Long id) {
         CaseManagementNote note = this.getHibernateTemplate().get(CaseManagementNote.class, id);
-        getHibernateTemplate().initialize(note.getIssues());
+        // HibernateTemplate.get() returns null when no record exists for the given id;
+        // guard prevents NPE on lazy-collection initialization for deleted or missing notes
+        if (note != null) {
+            getHibernateTemplate().initialize(note.getIssues());
+        }
         return note;
     }
 
@@ -402,17 +406,22 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             
             sqlCommand.append("and casemgmt_issue_notes.id=casemgmt_issue.id and casemgmt_issue_notes.note_id=casemgmt_note.note_id");
             
-            SQLQuery query = session.createSQLQuery(sqlCommand.toString());
+            NativeQuery<?> query = session.createNativeQuery(sqlCommand.toString());
             query.setParameter("demographicNo", demographic_no);
-            
+
             if (issueCodes != null && issueCodes.length > 0) {
                 query.setParameterList("issueCodes", issueCodes);
             }
-            
+
             @SuppressWarnings("unchecked")
-            List<Integer> ids = query.list();
-            for (Integer id : ids)
-                notes.add(getNote(id.longValue()));
+            List<?> ids = query.list();
+            for (Object id : ids) {
+                if (id instanceof Number) {
+                    notes.add(getNote(((Number) id).longValue()));
+                } else {
+                    log.warn("findNotesByDemographicAndIssueCode: unexpected non-Number id type: {}", id == null ? "null" : id.getClass().getName());
+                }
+            }
         } finally {
             //session.close();
         }

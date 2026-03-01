@@ -70,37 +70,42 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
     private static final String HQL_CURRENT_HISTORICAL_POP_SIZE = "select count(distinct a.clientId) from Admission a where " +
     "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and " +
     "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
-    "(a.dischargeDate is null or a.dischargeDate > ?1)";
+    "(a.dischargeDate is null or a.dischargeDate > :cutoff)";
 
-    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from ?1 a where " +
+    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from Admission a where " +
     "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and " +
     "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
-    "(a.dischargeDate is null or a.dischargeDate > ?2) " +
+    "(a.dischargeDate is null or a.dischargeDate > :cutoff) " +
     "order by a.clientId, a.admissionDate";
 
     private static final String HQL_GET_MORTALITIES = "select count(distinct a.clientId) from Admission a where " +
      "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'community' and lower(p.name) = 'deceased') and " +
-     "a.admissionDate > ?1 and a.dischargeDate is null";
+     "a.admissionDate > :cutoff and a.dischargeDate is null";
 
     private static final String HQL_GET_PREVALENCE = "select count(cmi) from CaseManagementIssue cmi where cmi.resolved = false and " +
     "cmi.demographic_no in (select distinct a.clientId from Admission a where a.programId in (select p.id from Program p where " +
     "lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where " +
-    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in ";
+    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in (:codes)";
 
     private static final String HQL_GET_INCIDENCE = "select count(cmi) from CaseManagementIssue cmi where " +
     "cmi.demographic_no in (select distinct a.clientId from Admission a where a.programId in (select p.id from Program p where " +
     "lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where " +
-    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in ";
+    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in (:codes)";
 
     public int getCurrentPopulationSize() {
-
-        return ((Long) getHibernateTemplate().find(HQL_CURRENT_POP_SIZE).iterator().next()).intValue();
+        Long count = (Long) getSessionFactory().getCurrentSession()
+            .createQuery(HQL_CURRENT_POP_SIZE)
+            .uniqueResult();
+        return count != null ? count.intValue() : 0;
     }
 
     @Override
     public int getCurrentAndHistoricalPopulationSize(int numYears) {
-
-        return ((Long) getHibernateTemplate().find(HQL_CURRENT_HISTORICAL_POP_SIZE, DateTimeFormatUtils.getPast(numYears)).iterator().next()).intValue();
+        Long count = (Long) getSessionFactory().getCurrentSession()
+            .createQuery(HQL_CURRENT_HISTORICAL_POP_SIZE)
+            .setParameter("cutoff", DateTimeFormatUtils.getPast(numYears))
+            .uniqueResult();
+        return count != null ? count.intValue() : 0;
     }
 
     @Override
@@ -114,7 +119,10 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
         Date end = instant.getTime();
         Date start = DateTimeFormatUtils.getPast(instant, numYears);
 
-        for (Object o : getHibernateTemplate().find(HQL_GET_USAGES, start)) {
+        for (Object o : getSessionFactory().getCurrentSession()
+                .createQuery(HQL_GET_USAGES)
+                .setParameter("cutoff", start)
+                .list()) {
             Object[] tuple = (Object[]) o;
 
             Integer clientId = (Integer) tuple[0];
@@ -156,44 +164,37 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
 
     @Override
     public int getMortalities(int numYears) {
-
-        return ((Long) getHibernateTemplate().find(HQL_GET_MORTALITIES, new Object[]{DateTimeFormatUtils.getPast(numYears)}).iterator().next()).intValue();
+        Long count = (Long) getSessionFactory().getCurrentSession()
+            .createQuery(HQL_GET_MORTALITIES)
+            .setParameter("cutoff", DateTimeFormatUtils.getPast(numYears))
+            .uniqueResult();
+        return count != null ? count.intValue() : 0;
     }
 
     @Override
     public int getPrevalence(SortedSet<String> icd10Codes) {
-
-        StringBuilder query = new StringBuilder(HQL_GET_PREVALENCE).append("(");
-
-        for (String icd10Code : icd10Codes) {
-            query.append("'").append(icd10Code).append("'");
-
-            if (!icd10Codes.last().equals(icd10Code)) {
-                query.append(",");
-            }
+        if (icd10Codes == null || icd10Codes.isEmpty()) {
+            return 0;
         }
 
-        query.append(")");
-
-        return ((Long) getHibernateTemplate().find(query.toString()).iterator().next()).intValue();
+        Long count = (Long) getSessionFactory().getCurrentSession()
+            .createQuery(HQL_GET_PREVALENCE)
+            .setParameterList("codes", icd10Codes)
+            .uniqueResult();
+        return count != null ? count.intValue() : 0;
     }
 
     @Override
     public int getIncidence(SortedSet<String> icd10Codes) {
-
-        StringBuilder query = new StringBuilder(HQL_GET_INCIDENCE).append("(");
-
-        for (String icd10Code : icd10Codes) {
-            query.append("'").append(icd10Code).append("'");
-
-            if (!icd10Codes.last().equals(icd10Code)) {
-                query.append(",");
-            }
+        if (icd10Codes == null || icd10Codes.isEmpty()) {
+            return 0;
         }
 
-        query.append(")");
-
-        return ((Long) getHibernateTemplate().find(query.toString()).iterator().next()).intValue();
+        Long count = (Long) getSessionFactory().getCurrentSession()
+            .createQuery(HQL_GET_INCIDENCE)
+            .setParameterList("codes", icd10Codes)
+            .uniqueResult();
+        return count != null ? count.intValue() : 0;
     }
 
     @Override
