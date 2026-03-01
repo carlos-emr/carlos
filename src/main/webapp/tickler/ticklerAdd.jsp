@@ -284,6 +284,14 @@
             }
             baseDate = parseDateInput();
 
+            // Reset base date if user manually edits the date field,
+            // so subsequent quick-pick clicks apply offsets from the new value.
+            dateInput.addEventListener('change', () => {
+                baseDate = parseDateInput();
+                resetTotals();
+                display.innerHTML = '&nbsp;';
+            });
+
             function updateDisplayAndDate() {
                 if (!baseDate) return;
 
@@ -652,7 +660,7 @@
 	while (iter.hasNext()) {
 		Provider p=iter.next();
 		if ("1".equals(p.getStatus())) {
-	%><option value='<%= Encode.forHtmlAttribute(p.getProviderNo()) %>'><%= Encode.forHtml(p.getLastName()) %>, <%= Encode.forHtml(p.getFirstName()) %></option><% }} %>";
+	%><option value='<%= Encode.forJavaScript(Encode.forHtmlAttribute(p.getProviderNo())) %>'><%= Encode.forJavaScript(Encode.forHtml(p.getLastName())) %>, <%= Encode.forJavaScript(Encode.forHtml(p.getFirstName())) %></option><% }} %>";
                             <%
                                 } %>
 
@@ -683,7 +691,8 @@
                         <div id="nameWrapper" style="display:none">
                             <h4><% if (taskToIsMRP) { %><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgPreferenceMRP"/><% } else { %><%=Encode.forHtml(taskToName)%><% } %> <small><a href="#" onclick="toggleWrappers()"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.linkChange"/></a></small></h4>
                             <input type="hidden" id="taskToBin" value="<%=Encode.forHtmlAttribute(taskTo)%>">
-                            <input type="hidden" id="taskToNameBin" value="<% if (taskToIsMRP) { %><fmt:message key='tickler.ticklerAdd.msgPreferenceMRP'/><% } else { %><%=Encode.forHtmlAttribute(taskToName)%><% } %>">
+                            <% String taskToNameBinValue = taskToIsMRP ? oscarBundle.getString("tickler.ticklerAdd.msgPreferenceMRP") : taskToName; %>
+                            <input type="hidden" id="taskToNameBin" value="<%=Encode.forHtmlAttribute(taskToNameBinValue)%>">
                         </div>
                         <script>
                             document.getElementById("site").value = '<%= site==null?"none":Encode.forJavaScript(site.getName()) %>';
@@ -710,7 +719,11 @@
                                 }
                             }
 
-                            _providers.push("<option value=\"" + taskToValue + "\" selected>" + taskToName + "</option>");
+                            const prefOption = document.createElement('option');
+                            prefOption.value = taskToValue;
+                            prefOption.textContent = taskToName;
+                            prefOption.selected = true;
+                            _providers.push(prefOption.outerHTML);
 
                             var newItemKey = _providers.length - 1;
 
