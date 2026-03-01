@@ -31,7 +31,6 @@
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -460,8 +459,8 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
         Session session = currentSession();
         try {
             SQLQuery query = session.createSQLQuery(
-                    "select facility_id from provider_facility,Facility where Facility.id=provider_facility.facility_id and Facility.disabled=0 and provider_no=\'"
-                            + provider_no + "\'");
+                    "select facility_id from provider_facility,Facility where Facility.id=provider_facility.facility_id and Facility.disabled=0 and provider_no=:providerNo");
+            query.setParameter("providerNo", provider_no);
             List<Integer> results = query.list();
             return results;
         } finally {
@@ -471,16 +470,15 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @Override
     public List<String> getProviderIds(int facilityId) {
-        // Session session = getSession();
         Session session = currentSession();
         try {
             SQLQuery query = session
-                    .createSQLQuery("select provider_no from provider_facility where facility_id=" + facilityId);
+                    .createSQLQuery("select provider_no from provider_facility where facility_id=:facilityId");
+            query.setParameter("facilityId", facilityId);
             List<String> results = query.list();
             return results;
         } finally {
-            // this.releaseSession(session);
-            //session.close();
+            // no-op: currentSession() lifecycle managed by Spring transaction
         }
 
     }
@@ -617,10 +615,9 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
         try {
             // providersite is not mapped in hibernate - this can be rewritten w.o.
             // subselect with a cross product IHMO
-            SQLQuery query = session.createSQLQuery(
-                    "select distinct team from provider p inner join providersite s on s.provider_no = p.provider_no " +
-                            " where s.site_id in (select site_id from providersite where provider_no = '" + providerNo
-                            + "') order by team ");
+            String sql = "select distinct team from provider p inner join providersite s on s.provider_no = p.provider_no where s.site_id in (select site_id from providersite where provider_no = :providerNo) order by team";
+            SQLQuery query = session.createSQLQuery(sql);
+            query.setParameter("providerNo", providerNo);
             return query.list();
         } finally {
             // no-op: currentSession() lifecycle managed by Spring transaction
@@ -741,13 +738,10 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     @Override
     public List<String> getProviderNosWithAppointmentsOnDate(Date appointmentDate) {
         Session session = currentSession();
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         try {
-            String sql = "SELECT p.provider_no FROM provider p WHERE p.provider_no IN (SELECT DISTINCT a.provider_no FROM appointment a WHERE a.appointment_date = '"
-                    + sdf.format(appointmentDate) + "') " +
-                    "AND p.Status='1'";
+            String sql = "SELECT p.provider_no FROM provider p WHERE p.provider_no IN (SELECT DISTINCT a.provider_no FROM appointment a WHERE a.appointment_date = :appointmentDate) AND p.Status='1'";
             SQLQuery query = session.createSQLQuery(sql);
-
+            query.setParameter("appointmentDate", new java.sql.Date(appointmentDate.getTime()));
             return query.list();
         } finally {
             // no-op: currentSession() lifecycle managed by Spring transaction
