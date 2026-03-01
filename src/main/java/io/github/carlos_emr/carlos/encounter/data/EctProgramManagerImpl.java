@@ -94,7 +94,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
                 // Check if program is null before accessing its methods
                 if (program == null) continue;
 
-                if (facilityId != null && program.getFacilityId() != facilityId.intValue()) continue;
+                if (facilityId != null && !Objects.equals(program.getFacilityId(), facilityId)) continue;
 
                 if (program.isActive())
                     pList.add(new LabelValueBean(program.getName(), program.getId().toString()));
@@ -125,7 +125,7 @@ public class EctProgramManagerImpl implements EctProgramManager {
             if (p != null && p.getProgramId() != null && p.getProgramId().longValue() > 0) {
                 Program program = programDao.getProgramForApptView(Integer.valueOf(p.getProgramId().intValue()));
                 if (program == null) continue;
-                if (facilityId != null && program.getFacilityId() != facilityId.intValue()) continue;
+                if (facilityId != null && !Objects.equals(program.getFacilityId(), facilityId)) continue;
 
                 if (program.isActive()) pList.add(new LabelValueBean(program.getName(), program.getId().toString()));
             }

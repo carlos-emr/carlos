@@ -94,6 +94,11 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
         program.setName(name);
         program.setType("community");
         program.setProgramStatus("active");
+        // Set facilityId explicitly to 0 (no facility) so that programs created here
+        // do not match the "s.facilityId is null" branch in getReferralsByFacility HQL.
+        // Program.facilityId was changed from primitive int (implicit default 0) to
+        // Integer (implicit default null) — restoring 0 preserves the original semantics.
+        program.setFacilityId(0);
         hibernateTemplate.save(program);
         return program;
     }

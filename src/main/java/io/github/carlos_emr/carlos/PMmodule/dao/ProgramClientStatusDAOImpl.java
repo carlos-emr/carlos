@@ -46,7 +46,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements ProgramClientStatusDAO {
 
     private Logger log = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
 
     @Autowired
     public void setSessionFactoryOverride(SessionFactory sessionFactory) {
@@ -86,14 +85,14 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
             throw new IllegalArgumentException();
         }
 
-        List teams = HqlQueryHelper.find(currentSession(),
+        List<?> results = HqlQueryHelper.find(currentSession(),
                 "from ProgramClientStatus pt where pt.programId = ?1 and pt.name = ?2",
                 programId, statusName);
 
         if (log.isDebugEnabled()) {
-            log.debug("teamNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !teams.isEmpty());
+            log.debug("clientStatusNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !results.isEmpty());
         }
-        return !teams.isEmpty();
+        return !results.isEmpty();
     }
 
     public List<Admission> getAllClientsInStatus(Integer programId, Integer statusId) {
@@ -109,7 +108,7 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
         List<Admission> results = (List<Admission>) HqlQueryHelper.find(currentSession(), sSQL, programId, statusId);
 
         if (log.isDebugEnabled()) {
-            log.debug("getAdmissionsInTeam: programId= " + programId + ",statusId=" + statusId + ",# results=" + results.size());
+            log.debug("getAllClientsInStatus: programId= " + programId + ",statusId=" + statusId + ",# results=" + results.size());
         }
 
         return results;
