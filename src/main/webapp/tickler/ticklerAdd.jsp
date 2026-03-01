@@ -82,6 +82,7 @@
 <%@ page import="java.util.Set" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%
@@ -195,12 +196,15 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.title"/></title>
 
+        <%
+            java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+        %>
         <script>
-        // i18n messages for JavaScript (rendered server-side by JSP/JSTL)
-        const i18nQuickPickFrom = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.quickPickFrom"/>';
-        const i18nQuickPickReset = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.quickPickReset"/>';
-        const i18nQuickPickTooltip = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.quickPickBtnTooltip"/>';
-        const i18nSelectPreference = '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.selectPreference"/>';
+        // i18n messages for JavaScript — encoded via Encode.forJavaScript() to prevent XSS and broken JS strings
+        const i18nQuickPickFrom = '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.quickPickFrom"))%>';
+        const i18nQuickPickReset = '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.quickPickReset"))%>';
+        const i18nQuickPickTooltip = '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.quickPickBtnTooltip"))%>';
+        const i18nSelectPreference = '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.selectPreference"))%>';
 
         function pasteMessageText() {
             let selectedIdx = document.serviceform.suggestedText.selectedIndex;
@@ -564,8 +568,12 @@
 
                 <tr>
                     <td style="width: 35%;" class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formChartNo"/>:</td>
+                    <%
+                        String demoNoParam = request.getParameter("demographic_no");
+                        String demoNoValue = (bFirstDisp || demoNoParam == null || demoNoParam.isEmpty()) ? "" : Encode.forHtmlAttribute(demoNoParam);
+                    %>
                     <td style="width: 65%;"><span><input type="hidden" name="demographic_no"
-                                                 value="<%=bFirstDisp ? "" : request.getParameter("demographic_no").equals("") ? "" : Encode.forHtmlAttribute(request.getParameter("demographic_no"))%>"><%=Encode.forHtml(ChartNo)%></span>
+                                                 value="<%=demoNoValue%>"><%=Encode.forHtml(ChartNo)%></span>
                     </td>
                 </tr>
 
@@ -663,7 +671,7 @@
                             <input type="hidden" id="taskToNameBin" value="<% if (taskToIsMRP) { %><fmt:message key='tickler.ticklerAdd.msgPreferenceMRP'/><% } else { %><%=Encode.forHtmlAttribute(taskToName)%><% } %>">
                         </div>
                         <script>
-                            document.getElementById("site").value = '<%= site==null?"none":site.getSiteId() %>';
+                            document.getElementById("site").value = '<%= site==null?"none":Encode.forJavaScript(String.valueOf(site.getSiteId())) %>';
                             changeSite(document.getElementById("site"));
                         </script>
 
