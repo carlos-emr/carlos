@@ -413,7 +413,7 @@ public class ProgramClientStatusDAOIntegrationTest extends CarlosTestBase {
 
             // When
             List<Admission> results = programClientStatusDAO.getAllClientsInStatus(
-                testProgramId1, testStatusId1);
+                testProgramId1, sharedTeamId1);
 
             // Then
             assertThat(results).isEmpty();
