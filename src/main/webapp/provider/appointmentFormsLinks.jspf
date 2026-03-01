@@ -67,8 +67,8 @@
 				}
 				String trimmedLinkName = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, eForm.getFormName());
 				String url = request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + eFormIdTemp
-						+ "&demographic_no=" + (demographic_no != null ? demographic_no : "")
-						+ "&appointment=" + (appointment_no != null ? appointment_no : "");
+						+ "&demographic_no=" + (demographic_no != null ? URLEncoder.encode(demographic_no, "UTF-8") : "")
+						+ "&appointment=" + (appointment_no != null ? URLEncoder.encode(appointment_no, "UTF-8") : "");
 				%>
 					|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(eForm.getFormName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
 				<%
@@ -90,9 +90,9 @@
 
 			// Replace tokens using String.replace() (literal substitution, no regex needed)
 			url = url.replace("${contextPath}", request.getContextPath());
-			url = url.replace("${demographicId}", demographic_no != null ? demographic_no : "");
-			url = url.replace("${appointmentId}", appointment_no != null ? appointment_no : "");
-			url = url.replace("${providerId}", providerPreference.getProviderNo() != null ? providerPreference.getProviderNo() : "");
+			url = url.replace("${demographicId}", demographic_no != null ? Encode.forUriComponent(demographic_no) : "");
+			url = url.replace("${appointmentId}", appointment_no != null ? Encode.forUriComponent(appointment_no) : "");
+			url = url.replace("${providerId}", providerPreference.getProviderNo() != null ? Encode.forUriComponent(providerPreference.getProviderNo()) : "");
 			url = url.replace("${providerOhip}", provider != null && provider.getOhipNo() != null ? URLEncoder.encode(provider.getOhipNo().trim(), "UTF-8") : "");
 			url = url.replace("${demographicHin}", demographic != null && demographic.getHin() != null ? URLEncoder.encode(demographic.getHin().trim(), "UTF-8") : "");
 			url = url.replace("${demographicVer}", demographic != null && demographic.getVer() != null ? URLEncoder.encode(demographic.getVer().trim(), "UTF-8") : "");
