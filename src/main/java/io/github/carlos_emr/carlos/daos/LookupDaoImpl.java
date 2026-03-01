@@ -65,7 +65,7 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 @Transactional
 public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
 
-    private static Logger log = MiscUtils.getLogger();
+    private static final Logger log = MiscUtils.getLogger();
 
     /*
      * Column property mappings defined by the generic idx
