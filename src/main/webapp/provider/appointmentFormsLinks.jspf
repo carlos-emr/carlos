@@ -1,8 +1,5 @@
 <%@page import="io.github.carlos_emr.carlos.web.AppointmentProviderAdminDayUIBean"%>
 <%@page import="java.util.Collection, java.util.Collections, java.util.List, java.util.ArrayList"%>
-<%@page import="java.util.regex.Matcher"%>
-<%@page import="org.apache.commons.text.StringEscapeUtils"%>
-<%@page import="org.apache.commons.lang3.StringUtils"%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference"%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.EForm"%>
@@ -48,21 +45,13 @@
 
 			for (String formNameTemp : formNamesList)
 			{
-				String trimmedEscapedLinkName=StringEscapeUtils.escapeHtml4(AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, formNameTemp));
-				// Build the full URL as a Java string, then encode for the JS-in-HTML-attribute context.
-				// escapeHtml4() is NOT safe here: the browser decodes &quot; → " before the JS engine
-				// sees it, enabling JS string breakout (XSS). Encode.forJavaScriptAttribute() hex-encodes
-				// JS special chars so they survive HTML attribute parsing intact.
-				String formUrl = request.getContextPath() + "/form/forwardshortcutname.do?formname="
-						+ java.net.URLEncoder.encode(formNameTemp, "UTF-8")
+				String trimmedLinkName = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, formNameTemp);
+				String url = request.getContextPath()
+						+ "/form/forwardshortcutname.do?formname=" + formNameTemp
 						+ "&demographic_no=" + (demographic_no != null ? demographic_no : "")
 						+ "&appointmentNo=" + (appointment_no != null ? appointment_no : "");
-				String jsEncodedFormUrl = Encode.forJavaScriptAttribute(formUrl);
-				// Encode.forHtmlAttribute() also encodes single quotes (escapeHtml4 does not),
-				// preventing attribute breakout when the title is single-quote-delimited.
-				String encodedFormTitle = Encode.forHtmlAttribute(formNameTemp);
 				%>
-					|<a href="javascript:void(0)" onClick='popupPage2("<%=jsEncodedFormUrl%>")' title='<%=encodedFormTitle%>'><%=trimmedEscapedLinkName%></a>
+					|<a href=# onClick='popupPage2("<%=Encode.forHtmlAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(formNameTemp)%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
 				<%
 			}
 
@@ -75,15 +64,12 @@
 					org.apache.commons.logging.LogFactory.getLog("appointmentFormsLinks").debug("EForm not found for ID: " + eFormIdTemp);
 					continue;
 				}
-				String trimmedEscapedLinkName=StringEscapeUtils.escapeHtml4(AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, eForm.getFormName()));
-				// Same JS-in-HTML-attribute encoding fix as forms above.
-				String eformUrl = request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + eFormIdTemp
+				String trimmedLinkName = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, eForm.getFormName());
+				String url = request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + eFormIdTemp
 						+ "&demographic_no=" + (demographic_no != null ? demographic_no : "")
 						+ "&appointment=" + (appointment_no != null ? appointment_no : "");
-				String jsEncodedEformUrl = Encode.forJavaScriptAttribute(eformUrl);
-				String encodedEformTitle = Encode.forHtmlAttribute(eForm.getFormName());
 				%>
-					|<a href="javascript:void(0)" onClick='popupPage2("<%=jsEncodedEformUrl%>")' title='<%=encodedEformTitle%>'><%=trimmedEscapedLinkName%></a>
+					|<a href=# onClick='popupPage2("<%=Encode.forHtmlAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(eForm.getFormName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
 				<%
 			}
 		}
@@ -91,44 +77,33 @@
 		Collection<ProviderPreference.QuickLink> quickLinks=providerPreference.getAppointmentScreenQuickLinks();
 		for (ProviderPreference.QuickLink quickLink : quickLinks)
 		{
-			String trimmedEscapedLinkName=StringEscapeUtils.escapeHtml4(AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, quickLink.getName()));
+			String trimmedLinkName = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, quickLink.getName());
 
-			String linkUrl=quickLink.getUrl();
-			if (linkUrl == null) {
-				linkUrl = "";
+			String url = quickLink.getUrl();
+			if (url == null) {
+				url = "";
 			}
-			// Unescape any HTML entities stored in the URL (e.g. &amp; → &) before substitution.
-			linkUrl = StringEscapeUtils.unescapeHtml4(linkUrl);
 
-			// Split "$" + "{...}" to prevent JSP EL parser from misidentifying these as EL expressions
 			// Check before substitution whether HIN or version code will appear in the URL
-			boolean hinExposed = linkUrl.contains("$" + "{demographicHin}") || linkUrl.contains("$" + "{demographicVer}");
+			boolean hinExposed = url.contains("${demographicHin}") || url.contains("${demographicVer}");
 
-			String escapedLinkUrl = linkUrl;
-			// Use Matcher.quoteReplacement() so that $ or \ in substituted values are treated as literals
-			escapedLinkUrl = escapedLinkUrl.replaceAll("\\$\\{contextPath\\}", Matcher.quoteReplacement(request.getContextPath()));
-			escapedLinkUrl = escapedLinkUrl.replaceAll("\\$\\{demographicId\\}", Matcher.quoteReplacement(demographic_no != null ? demographic_no : ""));
-			escapedLinkUrl = escapedLinkUrl.replaceAll("\\$\\{appointmentId\\}", Matcher.quoteReplacement(appointment_no != null ? appointment_no : ""));
-			escapedLinkUrl = escapedLinkUrl.replaceAll("\\$\\{providerId\\}", Matcher.quoteReplacement(providerPreference.getProviderNo() != null ? providerPreference.getProviderNo() : ""));
-			escapedLinkUrl = escapedLinkUrl.replaceAll("\\$\\{providerOhip\\}", Matcher.quoteReplacement(provider != null ? StringUtils.trimToEmpty(provider.getOhipNo()) : ""));
-			escapedLinkUrl = escapedLinkUrl.replaceAll("\\$\\{demographicHin\\}", Matcher.quoteReplacement(demographic != null ? StringUtils.trimToEmpty(demographic.getHin()) : ""));
-			escapedLinkUrl = escapedLinkUrl.replaceAll("\\$\\{demographicVer\\}", Matcher.quoteReplacement(demographic != null ? StringUtils.trimToEmpty(demographic.getVer()) : ""));
-			// Encode for JavaScript string inside HTML attribute context: hex-encodes JS special chars
-			// (e.g. " -> \x22, ' -> \x27) so they cannot break out of the JS string even after HTML
-			// attribute parsing. escapeHtml4() is NOT safe here because the browser decodes &quot; back
-			// to " before the JavaScript engine sees it, enabling JS string breakout (XSS).
-			String jsEncodedLinkUrl = Encode.forJavaScriptAttribute(escapedLinkUrl);
+			// Replace tokens using String.replace() (literal substitution, no regex needed)
+			url = url.replace("${contextPath}", request.getContextPath());
+			url = url.replace("${demographicId}", demographic_no != null ? demographic_no : "");
+			url = url.replace("${appointmentId}", appointment_no != null ? appointment_no : "");
+			url = url.replace("${providerId}", providerPreference.getProviderNo() != null ? providerPreference.getProviderNo() : "");
+			url = url.replace("${providerOhip}", provider != null && provider.getOhipNo() != null ? provider.getOhipNo().trim() : "");
+			url = url.replace("${demographicHin}", demographic != null && demographic.getHin() != null ? demographic.getHin().trim() : "");
+			url = url.replace("${demographicVer}", demographic != null && demographic.getVer() != null ? demographic.getVer().trim() : "");
 
-			// Title attribute values use HTML attribute encoding (also encodes single quotes).
-			String escapedLinkName = Encode.forHtmlAttribute(quickLink.getName());
 			if (hinExposed) {
-				String warningTitle = Encode.forHtmlAttribute("WARNING-The health number is exposed in " + quickLink.getName());
+				String warningTitle = "WARNING-The health number is exposed in " + quickLink.getName();
 				%>
-				|<a href="javascript:void(0)" onClick='popupPage2("<%=jsEncodedLinkUrl%>")' title='<%=warningTitle%>' style='background-color:red;color:white;'><%=trimmedEscapedLinkName%></a>
+				|<a href=# onClick='popupPage2("<%=Encode.forHtmlAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(warningTitle)%>' style='background-color:red;color:white;'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
 				<%
 			} else {
 				%>
-				|<a href="javascript:void(0)" onClick='popupPage2("<%=jsEncodedLinkUrl%>")' title='<%=escapedLinkName%>'><%=trimmedEscapedLinkName%></a>
+				|<a href=# onClick='popupPage2("<%=Encode.forHtmlAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(quickLink.getName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
 				<%
 			}
 		}
