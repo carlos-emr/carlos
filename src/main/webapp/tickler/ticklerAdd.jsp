@@ -28,7 +28,33 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ticklerAdd.jsp - Add a new tickler reminder
 
+    Purpose:
+    Provides a form for creating new tickler reminders for a patient, with support
+    for quick-pick date selection, suggested text templates, and optional write-to-encounter.
+
+    Features:
+    - Accumulative quick-pick date selector (years, months, weeks, days offset)
+    - Suggested text templates for common tickler messages
+    - Write-to-encounter option for chart documentation
+    - Multisite and CAISI program provider assignment support
+    - Patient demographic search and selection
+
+    Parameters:
+    - demographic_no:       Patient demographic number
+    - xml_appointment_date: Initial service/appointment date (YYYY-MM-DD)
+    - taskTo:               Default task assignee provider number
+    - priority:             Tickler priority (High/Normal/Low)
+    - parentAjaxId:         Encounter navbar element ID for update notification
+    - updateParent:         Whether to update the parent encounter window (true/false)
+    - recall:               If present, marks this as a recall tickler
+    - docType:              Optional document type for linking
+    - docId:                Optional document ID for linking
+
+    @since CARLOS EMR 2026
+--%>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
@@ -37,21 +63,23 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
-<%@ page import="java.util.*" %>
+<%@ page import="java.util.ArrayList" %>
+<%@ page import="java.util.Calendar" %>
+<%@ page import="java.util.Collections" %>
+<%@ page import="java.util.GregorianCalendar" %>
+<%@ page import="java.util.Iterator" %>
+<%@ page import="java.util.List" %>
+<%@ page import="java.util.Set" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -77,7 +105,6 @@
     String strLimit2 = "5";
     if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
-//String providerview = request.getParameter("providerview")==null?"all":request.getParameter("providerview") ;
     boolean bFirstDisp = true; //this is the first time to display the window
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = (request.getParameter("bFirstDisp")).equals("true");
     String ChartNo;
@@ -111,7 +138,6 @@
         }
     }
 
-//Retrieve encounter id for updating encounter navbar if info this page changes anything
     String parentAjaxId;
     if (request.getParameter("parentAjaxId") != null)
         parentAjaxId = request.getParameter("parentAjaxId");
@@ -134,7 +160,7 @@
     UserPropertyDAO propertyDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
     UserProperty prop = propertyDao.getProp(user_no, "tickler_task_assignee");
 
-//don't over ride taskTo query param
+    //don't over ride taskTo query param
     if (request.getParameter("taskTo") == null) {
 
         if (prop != null) {
@@ -147,10 +173,7 @@
         }
 
     }
-
-
 %>
-
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -162,7 +185,6 @@
     int curYear = now.get(Calendar.YEAR);
     int curMonth = (now.get(Calendar.MONTH) + 1);
     int curDay = now.get(Calendar.DAY_OF_MONTH);
-
 %><%
     String xml_vdate = request.getParameter("xml_vdate") == null ? "" : request.getParameter("xml_vdate");
     String xml_appointment_date = request.getParameter("xml_appointment_date") == null ? MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay) : request.getParameter("xml_appointment_date");
@@ -177,7 +199,6 @@
         function pasteMessageText() {
             let selectedIdx = document.serviceform.suggestedText.selectedIndex;
             document.getElementById("ticklerMessage").value = document.serviceform.suggestedText.options[selectedIdx].text;
-
         }
 
         function addQuickPick() {
@@ -188,93 +209,32 @@
 
             container.innerHTML = ''; // Clear existing buttons
 
-
             const optionsByRow = [
                 // Years row
-                [{
-                        label: '1y',
-                        years: 1
-                    },
-                    {
-                        label: '2y',
-                        years: 2
-                    },
-                    {
-                        label: '3y',
-                        years: 3
-                    },
-                    {
-                        label: '5y',
-                        years: 5
-                    },
-                    {
-                        label: '10y',
-                        years: 10
-                    },
+                [
+                    { label: '1y', years: 1 },
+                    { label: '2y', years: 2 },
+                    { label: '3y', years: 3 },
+                    { label: '5y', years: 5 },
+                    { label: '10y', years: 10 },
                 ],
                 // Months row
-                [{
-                        label: '1m',
-                        months: 1
-                    },
-                    {
-                        label: '2m',
-                        months: 2
-                    },
-                    {
-                        label: '3m',
-                        months: 3
-                    },
-                    {
-                        label: '6m',
-                        months: 6
-                    },
+                [
+                    { label: '1m', months: 1 },
+                    { label: '2m', months: 2 },
+                    { label: '3m', months: 3 },
+                    { label: '6m', months: 6 },
                 ],
-                // Weeks row
-                [{
-                        label: '1w',
-                        weeks: 1
-                    },
-                    {
-                        label: '2w',
-                        weeks: 2
-                    },
-                    {
-                        label: '3w',
-                        weeks: 3
-                    },
-                    {
-                        label: '',
-                        weeks: 0
-                    },
-                    // ],
-                    // Days row
-                    // [
-                    {
-                        label: '1d',
-                        days: 1
-                    },
-                    {
-                        label: '2d',
-                        days: 2
-                    },
-                    {
-                        label: '3d',
-                        days: 3
-                    },
-                    {
-                        label: '',
-                        days: 0
-                    },
-                    {
-                        label: 'Clear',
-                        isClear: true
-                    },
+                // Weeks and Days row
+                [
+                    { label: '1w', weeks: 1 },
+                    { label: '2w', weeks: 2 },
+                    { label: '3w', weeks: 3 },
+                    { label: '1d', days: 1 },
+                    { label: '2d', days: 2 },
+                    { label: '3d', days: 3 },
+                    { label: 'Clear', isClear: true },
                 ],
-                // Clear row
-                // [
-                //    { label: 'Clear', isClear: true },
-                //]
             ];
 
             let baseDate = null;
@@ -323,10 +283,7 @@
                 if (totalDays) parts.push(totalDays + 'd');
                 if (parts.length === 0) parts.push('0d');
 
-                //display.textContent = `From ${baseDate.toISOString().split('T')[0]}:  ${parts.join(' ')}`;
-                display.innerHTML = `From ${baseDate.toISOString().split('T')[0]}:&nbsp;&nbsp;&nbsp;&nbsp;<strong>${parts.join(' ')}</strong>`;
                 display.innerHTML = "From " + baseDate.toISOString().split('T')[0] + ":&nbsp;&nbsp;&nbsp;&nbsp;<strong>" + parts.join(' ') + "</strong>";
-
             }
 
             function resetTotals() {
@@ -354,11 +311,9 @@
                             baseDate = localDate;
                             resetTotals();
                             dateInput.value = localDate.toISOString().split('T')[0];
-                            display.innerHTML = `Reset to today: <strong>0d</strong>`;
+                            display.innerHTML = 'Reset to today: <strong>0d</strong>';
                             return;
                         }
-
-
 
                         // Add or subtract from correct total
                         const sign = delta < 0 ? -1 : 1;
@@ -374,11 +329,7 @@
                         e.preventDefault();
                         const delta = e.shiftKey ? -1 : 1;
                         // delta multiplied by the actual unit amount
-                        let multiplier = 0;
-                        if (opt.years) multiplier = opt.years;
-                        if (opt.months) multiplier = opt.months;
-                        if (opt.weeks) multiplier = opt.weeks;
-                        if (opt.days) multiplier = opt.days;
+                        const multiplier = opt.years || opt.months || opt.weeks || opt.days || 0;
                         handleOffset(delta * multiplier);
                     });
 
@@ -389,18 +340,13 @@
                             resetTotals();
                             const today = new Date();
                             dateInput.value = today.toISOString().split('T')[0];
-                            display.innerHTML = `Reset to today: <strong>0d</strong>`;
+                            display.innerHTML = 'Reset to today: <strong>0d</strong>';
                         } else {
                             // Subtract the value for this button
-                            let multiplier = 0;
-                            if (opt.years) multiplier = opt.years;
-                            if (opt.months) multiplier = opt.months;
-                            if (opt.weeks) multiplier = opt.weeks;
-                            if (opt.days) multiplier = opt.days;
+                            const multiplier = opt.years || opt.months || opt.weeks || opt.days || 0;
                             handleOffset(-1 * multiplier);
                         }
                     });
-
 
                     row.appendChild(btn);
                 });
@@ -442,7 +388,7 @@
         }
 
         /****
-         *This function resizes the messageBox so that the overall browser window is filled.
+         * This function resizes the messageBox so that the overall browser window is filled.
          ****/
         function resizeTextMessage() {
             const messageBox = document.getElementById("ticklerMessage");
@@ -452,12 +398,8 @@
             if (newHeight > 50) messageBox.style.height = newHeight + "px";
         }
 
-        function validate(form) {
-            validate(form, false);
-        }
-
-        function validate(form, writeToEncounter) {
-            if (validateDemoNo(form) < %= caisiEnabled ? "&& validateSelectedProgram()" : "" % > ) {
+        function validate(form, writeToEncounter = false) {
+            if (validateDemoNo()<%= caisiEnabled ? " && validateSelectedProgram()" : "" %>) {
                 if (writeToEncounter) {
                     form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?writeToEncounter=true";
                 } else {
@@ -469,9 +411,7 @@
 
         function validateSelectedProgram() {
             if (document.serviceform.program_assigned_to.value === "none") {
-                document.getElementById("error").insertAdjacentText("beforeend", "<fmt:setBundle basename="
-                    oscarResources "/><fmt:message key="
-                    tickler.ticklerAdd.msgNoProgramSelected "/>");
+                document.getElementById("error").insertAdjacentText("beforeend", '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgNoProgramSelected"/>');
                 document.getElementById("error").style.display = 'block';
                 return false;
             }
@@ -485,29 +425,22 @@
 
         function validateDemoNo() {
             if (document.serviceform.demographic_no.value == "") {
-                document.getElementById("error").insertAdjacentText("beforeend", "<fmt:setBundle basename="
-                    oscarResources "/><fmt:message key="
-                    tickler.ticklerAdd.msgInvalidDemographic "/>");
+                document.getElementById("error").insertAdjacentText("beforeend", '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgInvalidDemographic"/>');
                 document.getElementById("error").style.display = 'block';
                 return false;
             } else {
                 if (document.serviceform.xml_appointment_date.value == "" || !IsDate(document.serviceform.xml_appointment_date.value)) {
-                    document.getElementById("error").insertAdjacentText("beforeend", "<fmt:setBundle basename="
-                        oscarResources "/><fmt:message key="
-                        tickler.ticklerAdd.msgMissingDate "/>");
+                    document.getElementById("error").insertAdjacentText("beforeend", '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgMissingDate"/>');
                     document.getElementById("error").style.display = 'block';
                     return false;
-                } <
-                %
-                if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) {
-                    % >
-                    else if (document.serviceform.site.value == "none" || document.serviceform.site.value == "0") {
-                        document.getElementById("error").insertAdjacentText("beforeend", "Must assign task to a providers.");
-                        document.getElementById("error").style.display = 'block';
-                        return false;
-                    } <
-                    %
-                } % >
+                }
+                <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
+                else if (document.serviceform.site.value == "none" || document.serviceform.site.value == "0") {
+                    document.getElementById("error").insertAdjacentText("beforeend", "Must assign task to a provider.");
+                    document.getElementById("error").style.display = 'block';
+                    return false;
+                }
+                <% } %>
                 else {
                     return true;
                 }
@@ -517,7 +450,7 @@
         function refresh() {
             var u = self.location.href;
             if (u.lastIndexOf("view=1") > 0) {
-                self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(eval(u.lastIndexOf("view=1") + 6));
+                self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(u.lastIndexOf("view=1") + 6);
             } else {
                 history.go(0);
             }
@@ -539,34 +472,63 @@
             * {
                 font-size: 12px !important;
             }
-          #quickPickDateOptions {
-            display: block !important;
-          }
-          #quickPickDateOptions > div {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 6px;
-          }
-         #quickPickDateOptions button {
-           font-size: 0.7em;
-           padding: 3px 6px;
-           cursor: pointer;
-          }
-
+            #quickPickDateOptions {
+                display: block !important;
+            }
+            #quickPickDateOptions > div {
+                display: flex;
+                gap: 6px;
+                margin-bottom: 6px;
+            }
+            #quickPickDateOptions button {
+                font-size: 0.7em;
+                padding: 3px 6px;
+                cursor: pointer;
+            }
         </style>
     </head>
 
-    <body onLoad="setfocus();initResize()">
+    <body onload="setfocus();initResize()">
     <table>
         <tr style="background-color: black">
             <td class="table-condensed"
-                style="text-align:left; padding:10px; font-weight: 900; height:40px;font-size:large;font-family:arial,sans-serif;color:white">
+                style="text-align:left; padding:10px; font-weight: 900; height:40px; font-size: large; font-family: arial, sans-serif; color: white">
                 Add <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgTickler"/></td>
         </tr>
     </table>
 
     <div class="container-fluid well">
+        <%
+            String searchMode = request.getParameter("search_mode");
+            if (searchMode == null || searchMode.isEmpty()) {
+                searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
+            }
+            ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no");
+        %>
         <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/appointment/appointmentcontrol.jsp">
+            <input type="hidden" name="orderby" value="last_name">
+            <input type="hidden" name="search_mode" value="<%=Encode.forHtmlAttribute(searchMode)%>">
+            <input type="hidden" name="originalpage" value="<%= request.getContextPath() %>/tickler/ticklerAdd.jsp">
+            <input type="hidden" name="limit1" value="0">
+            <input type="hidden" name="limit2" value="5">
+            <input type="hidden" name="displaymode" value="Search ">
+            <input type="hidden" name="appointment_date" value="2002-10-01">
+            <input type="hidden" name="status" value="t">
+            <input type="hidden" name="start_time" value="10:45">
+            <input type="hidden" name="type" value="">
+            <input type="hidden" name="duration" value="15">
+            <input type="hidden" name="end_time" value="10:59">
+            <input type="hidden" name="demographic_no" readonly value="">
+            <input type="hidden" name="location" tabindex="4" value="">
+            <input type="hidden" name="resources" tabindex="5" value="">
+            <input type="hidden" name="user_id" readonly value="oscardoc, doctor">
+            <input type="hidden" name="dboperation" value="search_demorecord">
+            <input type="hidden" name="createdatetime" readonly value="2002-10-1 17:53:50">
+            <input type="hidden" name="provider_no" value="115">
+            <input type="hidden" name="creator" value="oscardoc, doctor">
+            <input type="hidden" name="remarks" value="">
+            <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
+            <input type="hidden" name="updateParent" value="<%=Encode.forHtmlAttribute(updateParent)%>">
             <table class="table-condensed">
                 <tr>
                     <td colspan="2">
@@ -574,81 +536,40 @@
                     </td>
                 </tr>
                 <tr>
-                    <td width="35%" class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formDemoName"/>:</td>
-                    <td width="65%">
+                    <td style="width: 35%;" class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formDemoName"/>:</td>
+                    <td style="width: 65%;">
 
                         <div class="input-group">
                             <input type="text" class="form-control" name="keyword" placeholder="Search Demographic"
                                    size="25" value="<%=Encode.forHtmlAttribute(demoName)%>">
                             <span class="input-group-btn">
-                            <input type="submit" name="Submit" class="btn btn-default"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSearch"/>">
-                        </span>
+                                <input type="submit" name="Submit" class="btn btn-default"
+                                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSearch"/>">
+                            </span>
                         </div>
 
                     </td>
                 </tr>
-                <INPUT TYPE="hidden" name="orderby" VALUE="last_name">
-                <%
-                    String searchMode = request.getParameter("search_mode");
-                    if (searchMode == null || searchMode.isEmpty()) {
-                        searchMode = OscarProperties.getInstance().getProperty("default_search_mode", "search_name");
-                    }
-                %>
-                <INPUT TYPE="hidden" name="search_mode" VALUE="<%=searchMode%>">
-                <INPUT TYPE="hidden" name="originalpage" VALUE="<%= request.getContextPath() %>/tickler/ticklerAdd.jsp">
-                <INPUT TYPE="hidden" name="limit1" VALUE="0">
-                <INPUT TYPE="hidden" name="limit2" VALUE="5">
-                <!--input type="hidden" name="displaymode" value="TicklerSearch" -->
-                <INPUT TYPE="hidden" name="displaymode" VALUE="Search ">
-
-                <% ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no"); %>
-                <INPUT TYPE="hidden" name="appointment_date" VALUE="2002-10-01" WIDTH="25" HEIGHT="20" border="0"
-                       hspace="2">
-                <INPUT TYPE="hidden" name="status" VALUE="t" WIDTH="25" HEIGHT="20" border="0" hspace="2">
-                <INPUT TYPE="hidden" name="start_time" VALUE="10:45" WIDTH="25" HEIGHT="20" border="0"
-                       onChange="checkTimeTypeIn(this)">
-                <INPUT TYPE="hidden" name="type" VALUE="" WIDTH="25" HEIGHT="20" border="0" hspace="2">
-                <INPUT TYPE="hidden" name="duration" VALUE="15" WIDTH="25" HEIGHT="20" border="0" hspace="2">
-                <INPUT TYPE="hidden" name="end_time" VALUE="10:59" WIDTH="25" HEIGHT="20" border="0" hspace="2"
-                       onChange="checkTimeTypeIn(this)">
-
-
-                <input type="hidden" name="demographic_no" readonly value="" width="25" height="20" border="0"
-                       hspace="2">
-                <input type="hidden" name="location" tabindex="4" value="" width="25" height="20" border="0" hspace="2">
-                <input type="hidden" name="resources" tabindex="5" value="" width="25" height="20" border="0"
-                       hspace="2">
-                <INPUT TYPE="hidden" name="user_id" readonly VALUE='oscardoc, doctor' WIDTH="25" HEIGHT="20" border="0"
-                       hspace="2">
-                <INPUT TYPE="hidden" name="dboperation" VALUE="search_demorecord">
-                <INPUT TYPE="hidden" name="createdatetime" readonly VALUE="2002-10-1 17:53:50" WIDTH="25" HEIGHT="20"
-                       border="0" hspace="2">
-                <INPUT TYPE="hidden" name="provider_no" VALUE="115">
-                <INPUT TYPE="hidden" name="creator" VALUE="oscardoc, doctor">
-                <INPUT TYPE="hidden" name="remarks" VALUE="">
-                <input type="hidden" name="parentAjaxId" value="<%=parentAjaxId%>"/>
-                <input type="hidden" name="updateParent" value="<%=updateParent%>"/>
-
             </table>
         </form>
         <form name="serviceform" method="post">
+            <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
+            <input type="hidden" name="updateParent" value="<%=Encode.forHtmlAttribute(updateParent)%>">
+            <input type="hidden" name="user_no" value="<%=Encode.forHtmlAttribute(user_no)%>">
+            <input type="hidden" name="writeToEncounter" value="<%=Encode.forHtmlAttribute(writeToEncounter.toString())%>">
             <table class="table-condensed">
 
-                <input type="hidden" name="parentAjaxId" value="<%=parentAjaxId%>"/>
-                <input type="hidden" name="updateParent" value="<%=updateParent%>"/>
-
                 <tr>
-                    <td width="35%" class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formChartNo"/>:</td>
-                    <td width="65%"><span><INPUT TYPE="hidden" name="demographic_no"
-                                                 VALUE="<%=bFirstDisp?"":request.getParameter("demographic_no").equals("")?"":request.getParameter("demographic_no")%>"><%=ChartNo%></span>
+                    <td style="width: 35%;" class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formChartNo"/>:</td>
+                    <td style="width: 65%;"><span><input type="hidden" name="demographic_no"
+                                                 value="<%=bFirstDisp ? "" : request.getParameter("demographic_no").equals("") ? "" : Encode.forHtmlAttribute(request.getParameter("demographic_no"))%>"><%=Encode.forHtml(ChartNo)%></span>
                     </td>
                 </tr>
 
                 <tr>
                     <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formServiceDate"/></td>
                     <td><input type="date" class="form-control" name="xml_appointment_date"
-                               value="<%=xml_appointment_date%>">
+                               value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
                             <div id="quickPickDateOptions" class="grid">
                                 <!-- Quick pick will be added here using JavaScript -->
                             </div>
@@ -718,22 +639,22 @@
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
                                 %>
-                                <option value="<%=sites.get(i).getName()%>"
-                                        style="background-color:<%=sites.get(i).getBgColor()%>"><%=sites.get(i).getName()%>
+                                <option value="<%=Encode.forHtmlAttribute(sites.get(i).getName())%>"
+                                        style="background-color:<%=Encode.forCssString(sites.get(i).getBgColor())%>"><%=Encode.forHtmlContent(sites.get(i).getName())%>
                                 </option>
                                 <% } %>
                             </select>
 
                             <select name="task_assigned_to" id="task_assigned_to" class="form-control"></select>
 
-                            <h4 id="preferenceLink" style="display:none"><small><a href="#" onClick="toggleWrappers()">[preference]</a></small>
+                            <h4 id="preferenceLink" style="display:none"><small><a href="#" onclick="toggleWrappers()">[preference]</a></small>
                             </h4>
                         </div>
 
                         <div id="nameWrapper" style="display:none">
-                            <h4><%=taskToName%> <small><a href="#" onClick="toggleWrappers()">[change]</a></small></h4>
-                            <input type="hidden" id="taskToBin" value="<%=taskTo%>">
-                            <input type="hidden" id="taskToNameBin" value="<%=taskToName%>">
+                            <h4><%=Encode.forHtml(taskToName)%> <small><a href="#" onclick="toggleWrappers()">[change]</a></small></h4>
+                            <input type="hidden" id="taskToBin" value="<%=Encode.forHtmlAttribute(taskTo)%>">
+                            <input type="hidden" id="taskToNameBin" value="<%=Encode.forHtmlAttribute(taskToName)%>">
                         </div>
                         <script>
                             document.getElementById("site").value = '<%= site==null?"none":site.getSiteId() %>';
@@ -790,7 +711,7 @@
                                     proOHIP = p.getProviderNo();
 
                             %>
-                            <option value="<%=proOHIP%>" <%=taskTo.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtmlContent(proLast)%>
+                            <option value="<%=Encode.forHtmlAttribute(proOHIP)%>" <%=taskTo.equals(proOHIP) ? "selected" : ""%>><%=Encode.forHtmlContent(proLast)%>
                                 , <%=Encode.forHtmlContent(proFirst)%>
                             </option>
                             <%
@@ -799,42 +720,40 @@
                         </select>
                         <% } %>
 
-                        <input type="hidden" name="docType" value="<%=request.getParameter("docType")%>"/>
-                        <input type="hidden" name="docId" value="<%=request.getParameter("docId")%>"/>
+                        <input type="hidden" name="docType" value="<%=Encode.forHtmlAttribute(request.getParameter("docType") != null ? request.getParameter("docType") : "")%>">
+                        <input type="hidden" name="docId" value="<%=Encode.forHtmlAttribute(request.getParameter("docId") != null ? request.getParameter("docId") : "")%>">
                     </td>
                 </tr>
-    <tr>
-      <td class="tickler-label"><a href="#" onclick="openBrWindow('./ticklerSuggestedText.jsp','','width=680,height=400')" style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</strong></font></td>
-      <td>
-          <select name="suggestedText" class="form-control" onchange="pasteMessageText()">
-              <option value="">---</option>
-              <%
-                  TicklerTextSuggestDao ticklerTextSuggestDao = SpringUtils.getBean(TicklerTextSuggestDao.class);
-                  for (TicklerTextSuggest tTextSuggest : ticklerTextSuggestDao.getActiveTicklerTextSuggests()) {
-              %>
-              <option><%=Encode.forHtmlContent(tTextSuggest.getSuggestedText())%></option>
-              <% } %>
-          </select>
-      </td>
-    </tr>
+                <tr>
+                    <td class="tickler-label"><a href="#" onclick="openBrWindow('./ticklerSuggestedText.jsp','','width=680,height=400')" style="font-weight:bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</td>
+                    <td>
+                        <select name="suggestedText" class="form-control" onchange="pasteMessageText()">
+                            <option value="">---</option>
+                            <%
+                                TicklerTextSuggestDao ticklerTextSuggestDao = SpringUtils.getBean(TicklerTextSuggestDao.class);
+                                for (TicklerTextSuggest tTextSuggest : ticklerTextSuggestDao.getActiveTicklerTextSuggests()) {
+                            %>
+                            <option><%=Encode.forHtmlContent(tTextSuggest.getSuggestedText())%></option>
+                            <% } %>
+                        </select>
+                    </td>
+                </tr>
 
                 <tr>
                     <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.formReminder"/>:</td>
                     <td><textarea name="ticklerMessage" id="ticklerMessage" class="form-control"></textarea>
-                        <INPUT TYPE="hidden" name="user_no" VALUE="<%=user_no%>">
-                        <input type="hidden" name="writeToEncounter" value="<%=writeToEncounter%>"/>
                     </td>
                 </tr>
                 <tr>
                     <td colspan="2"><input type="button" name="Button" class="btn btn-primary"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSubmit"/>"
-                               onClick="event.preventDefault();validate(this.form);">
+                               onclick="validate(this.form);">
                         <input type="button" name="Button" class="btn btn-secondary"
-                                value="<fmt:message key="tickler.ticklerAdd.btnWriteSubmit"/>"
-                                onClick="validate(this.form, true)">
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnWriteSubmit"/>"
+                               onclick="validate(this.form, true)">
                         <input type="button" name="Button" class="btn btn-danger"
-                               value="<fmt:message key="tickler.ticklerAdd.btnCancel"/>"
-                                onClick="window.close()">
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnCancel"/>"
+                               onclick="window.close()">
                     </td>
                 </tr>
 
