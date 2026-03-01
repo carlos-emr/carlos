@@ -517,14 +517,10 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should include programs with null facilityId")
         void shouldIncludePrograms_withNullFacilityId() {
-            // Given - create a program with no facility (facilityId=0 which is default)
+            // Given - create a program with facilityId explicitly set to null
             Program noFacilityProgram = createProgram("No Facility Program");
-            // Set facilityId to null via direct SQL since the model uses primitive int
-            hibernateTemplate.flush();
-            hibernateTemplate.getSessionFactory().getCurrentSession()
-                .createQuery("update Program p set p.facilityId = null where p.id = :id")
-                .setParameter("id", noFacilityProgram.getId())
-                .executeUpdate();
+            noFacilityProgram.setFacilityId(null);
+            hibernateTemplate.saveOrUpdate(noFacilityProgram);
             hibernateTemplate.flush();
 
             long noFacilityProgramId = (long) noFacilityProgram.getId();
