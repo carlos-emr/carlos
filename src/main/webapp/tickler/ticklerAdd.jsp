@@ -262,9 +262,24 @@
             display.style.minHeight = '1.5em'; // Adjust height to match expected line height
             container.parentNode.insertBefore(display, container);
 
+            // Parse a YYYY-MM-DD string as local midnight (not UTC midnight)
+            function parseLocalDate(str) {
+                const parts = str.split('-').map(Number);
+                return new Date(parts[0], parts[1] - 1, parts[2]);
+            }
+
+            // Format a Date as YYYY-MM-DD using local date components (not UTC)
+            function formatLocalDate(date) {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return y + '-' + m + '-' + d;
+            }
+
             function parseDateInput() {
                 const val = dateInput.value;
-                const d = new Date(val);
+                if (!val) return new Date();
+                const d = parseLocalDate(val);
                 return isNaN(d) ? new Date() : d;
             }
             baseDate = parseDateInput();
@@ -283,7 +298,7 @@
                 // Add weeks and days
                 date.setDate(date.getDate() + daysFromWeeks + totalDays);
 
-                dateInput.value = date.toISOString().split('T')[0];
+                dateInput.value = formatLocalDate(date);
 
                 // Build display string for total offset
                 const parts = [];
@@ -293,7 +308,7 @@
                 if (totalDays) parts.push(totalDays + 'd');
                 if (parts.length === 0) parts.push('0d');
 
-                display.innerHTML = i18nQuickPickFrom + " " + baseDate.toISOString().split('T')[0] + ":&nbsp;&nbsp;&nbsp;&nbsp;<strong>" + parts.join(' ') + "</strong>";
+                display.innerHTML = i18nQuickPickFrom + " " + formatLocalDate(baseDate) + ":&nbsp;&nbsp;&nbsp;&nbsp;<strong>" + parts.join(' ') + "</strong>";
             }
 
             function resetTotals() {
@@ -320,7 +335,7 @@
                             const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                             baseDate = localDate;
                             resetTotals();
-                            dateInput.value = localDate.toISOString().split('T')[0];
+                            dateInput.value = formatLocalDate(localDate);
                             display.innerHTML = i18nQuickPickReset + ': <strong>0d</strong>';
                             return;
                         }
@@ -349,7 +364,7 @@
                             baseDate = null;
                             resetTotals();
                             const today = new Date();
-                            dateInput.value = today.toISOString().split('T')[0];
+                            dateInput.value = formatLocalDate(today);
                             display.innerHTML = i18nQuickPickReset + ': <strong>0d</strong>';
                         } else {
                             // Subtract the value for this button
@@ -421,7 +436,7 @@
 
         function validateSelectedProgram() {
             if (document.serviceform.program_assigned_to.value === "none") {
-                document.getElementById("error").insertAdjacentText("beforeend", '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgNoProgramSelected"/>');
+                document.getElementById("error").insertAdjacentText("beforeend", '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.msgNoProgramSelected"))%>');
                 document.getElementById("error").style.display = 'block';
                 return false;
             }
@@ -435,18 +450,18 @@
 
         function validateDemoNo() {
             if (document.serviceform.demographic_no.value == "") {
-                document.getElementById("error").insertAdjacentText("beforeend", '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgInvalidDemographic"/>');
+                document.getElementById("error").insertAdjacentText("beforeend", '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.msgInvalidDemographic"))%>');
                 document.getElementById("error").style.display = 'block';
                 return false;
             } else {
                 if (document.serviceform.xml_appointment_date.value == "" || !IsDate(document.serviceform.xml_appointment_date.value)) {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgMissingDate"/>');
+                    document.getElementById("error").insertAdjacentText("beforeend", '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.msgMissingDate"))%>');
                     document.getElementById("error").style.display = 'block';
                     return false;
                 }
                 <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
                 else if (document.serviceform.site.value == "none" || document.serviceform.site.value == "0") {
-                    document.getElementById("error").insertAdjacentText("beforeend", '<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.msgMustAssignProvider"/>');
+                    document.getElementById("error").insertAdjacentText("beforeend", '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider"))%>');
                     document.getElementById("error").style.display = 'block';
                     return false;
                 }
@@ -671,7 +686,7 @@
                             <input type="hidden" id="taskToNameBin" value="<% if (taskToIsMRP) { %><fmt:message key='tickler.ticklerAdd.msgPreferenceMRP'/><% } else { %><%=Encode.forHtmlAttribute(taskToName)%><% } %>">
                         </div>
                         <script>
-                            document.getElementById("site").value = '<%= site==null?"none":Encode.forJavaScript(String.valueOf(site.getSiteId())) %>';
+                            document.getElementById("site").value = '<%= site==null?"none":Encode.forJavaScript(site.getName()) %>';
                             changeSite(document.getElementById("site"));
                         </script>
 
