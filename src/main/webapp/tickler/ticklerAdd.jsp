@@ -387,17 +387,6 @@
             });
         }
 
-        function popupPage(vheight, vwidth, varpage) { //open a new popup window
-            var page = "" + varpage;
-            windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
-            var popup = window.open(page, "attachment", windowprops);
-            if (popup != null) {
-                if (popup.opener == null) {
-                    popup.opener = self;
-                }
-            }
-        }
-
         function selectprovider(s) {
             if (self.location.href.lastIndexOf("&providerview=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
             else a = self.location.href;
@@ -613,9 +602,9 @@
                     <td class="tickler-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.Priority"/>:</td>
                     <td>
                         <select name="priority" class="form-select">
-                            <option value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.high"/>" <%=priority.equals("High")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.high"/>
-                            <option value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.normal"/>" <%=priority.equals("Normal")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.normal"/>
-                            <option value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.low"/>" <%=priority.equals("Low")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.low"/>
+                            <option value="<%=Encode.forHtmlAttribute(oscarBundle.getString("tickler.ticklerMain.priority.high"))%>" <%=priority.equals("High")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.high"/></option>
+                            <option value="<%=Encode.forHtmlAttribute(oscarBundle.getString("tickler.ticklerMain.priority.normal"))%>" <%=priority.equals("Normal")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+                            <option value="<%=Encode.forHtmlAttribute(oscarBundle.getString("tickler.ticklerMain.priority.low"))%>" <%=priority.equals("Low")?"selected":""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
                     </td>
                 </tr>
@@ -629,11 +618,14 @@
                             String appNo = (String) session.getAttribute("cur_appointment_no");
                             String location = null;
                             if (appNo != null) {
-                                Appointment a = appointmentDao.find(Integer.parseInt(appNo));
-                                if (a != null) {
-                                    location = a.getLocation();
+                                try {
+                                    Appointment a = appointmentDao.find(Integer.parseInt(appNo));
+                                    if (a != null) {
+                                        location = a.getLocation();
+                                    }
+                                } catch (NumberFormatException e) {
+                                    // Malformed appointment number in session — skip location lookup
                                 }
-
                             }
                         %>
                         <script>
