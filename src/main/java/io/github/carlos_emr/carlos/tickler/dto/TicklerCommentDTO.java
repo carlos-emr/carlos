@@ -84,7 +84,9 @@ public class TicklerCommentDTO implements Serializable {
     /**
      * Returns the commenting provider's formatted name as "LastName, FirstName".
      *
-     * @return String the formatted provider name, or empty string if both names are null
+     * This method constructs a formatted name by checking if the providerLastName and providerFirstName are not null.
+     * If both names are null, it returns an empty string. Otherwise, it appends the last name followed by the first name,
+     * separated by a comma if both are present. The final formatted name is returned as a string.
      */
     public String getProviderFormattedName() {
         if (providerLastName == null && providerFirstName == null) {
@@ -104,17 +106,18 @@ public class TicklerCommentDTO implements Serializable {
     }
 
     /**
-     * Checks whether the comment's update date falls on the same calendar day
-     * as the provided reference date. Callers should pass a pre-computed
-     * reference to avoid creating a new {@link Date} instance per comment.
+     * Checks if the update date is the same calendar day as the provided reference date.
      *
-     * @param referenceDate Date the date to compare against (typically today)
-     * @return boolean true if the update date is the same calendar day as referenceDate
+     * @param referenceDate the date to compare against
+     * @return true if the update date is the same day as referenceDate
      */
     public boolean isSameDayAs(Date referenceDate) {
         return updateDate != null && referenceDate != null && DateUtils.isSameDay(updateDate, referenceDate);
     }
 
+    /**
+     * Returns the ID.
+     */
     public Integer getId() {
         return id;
     }
@@ -123,42 +126,72 @@ public class TicklerCommentDTO implements Serializable {
         this.id = id;
     }
 
+    /**
+     * Returns the tickler number.
+     */
     public Integer getTicklerNo() {
         return ticklerNo;
     }
 
+    /**
+     * Sets the tickler number.
+     */
     public void setTicklerNo(Integer ticklerNo) {
         this.ticklerNo = ticklerNo;
     }
 
+    /**
+     * Returns the message.
+     */
     public String getMessage() {
         return message;
     }
 
+    /**
+     * Sets the message to the specified value.
+     */
     public void setMessage(String message) {
         this.message = message;
     }
 
+    /**
+     * Returns the update date.
+     */
     public Date getUpdateDate() {
         return updateDate;
     }
 
+    /**
+     * Sets the update date.
+     */
     public void setUpdateDate(Date updateDate) {
         this.updateDate = updateDate;
     }
 
+    /**
+     * Returns the last name of the provider.
+     */
     public String getProviderLastName() {
         return providerLastName;
     }
 
+    /**
+     * Sets the provider's last name.
+     */
     public void setProviderLastName(String providerLastName) {
         this.providerLastName = providerLastName;
     }
 
+    /**
+     * Returns the first name of the provider.
+     */
     public String getProviderFirstName() {
         return providerFirstName;
     }
 
+    /**
+     * Sets the provider's first name.
+     */
     public void setProviderFirstName(String providerFirstName) {
         this.providerFirstName = providerFirstName;
     }
