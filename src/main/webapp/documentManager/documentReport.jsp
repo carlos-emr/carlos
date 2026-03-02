@@ -166,24 +166,14 @@
 
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentReport.msgDocuments"/> Manager</title>
 
-        <link rel="stylesheet" type="text/css"
-              href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
-              type="text/css"/>
+        <%@ include file="/includes/global-head.jspf" %>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.css"
               rel="stylesheet" type="text/css"/>
 
-
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"
-                type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
-                type="text/javascript"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"
                 type="text/javascript"></script>
         <script type="text/javascript"
                 src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
-
-        <script src="${pageContext.request.contextPath}/js/global.js" type="text/javascript"></script>
         <%
             CtlDocClassDao docClassDao = (CtlDocClassDao) SpringUtils.getBean(CtlDocClassDao.class);
             List<String> reportClasses = docClassDao.findUniqueReportClasses();
@@ -372,7 +362,6 @@
             }
 
         </style>
-        <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
 
     </head>
     <body>

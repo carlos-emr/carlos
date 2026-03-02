@@ -44,7 +44,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.cppPrefs"/></title>
 
@@ -53,10 +53,6 @@
               title="win2k-cold-1">
         <script src="<c:out value="${ctx}"/>/share/javascript/prototype.js" type="text/javascript"></script>
         <script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js" type="text/javascript"></script>
-        <script src="<c:out value="${ctx}"/>/js/jquery.js"></script>
-        <script>
-            jQuery.noConflict();
-        </script>
 
         <script type="text/javascript">
 

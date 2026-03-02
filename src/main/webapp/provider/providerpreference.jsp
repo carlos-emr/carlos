@@ -228,16 +228,9 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <%@ include file="/includes/global-head.jspf" %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>
     <title>Provider Preferences</title>
-
-    <!-- CARLOS global scripts -->
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-
-    <!-- Bootstrap 5 (local bundle) + FontAwesome (local bundle) -->
-    <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
     <style>
         /* ─── Colour palette matched to CARLOS schedule page ─── */
@@ -1352,8 +1345,6 @@
     </div>
 </div>
 
-<!-- Bootstrap 5 JS bundle (includes Popper for accordion) -->
-<script src="<%= request.getContextPath() %>/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js"></script>
 <!-- Prototype.js for Ajax auto-save (legacy dependency) -->
 <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
 

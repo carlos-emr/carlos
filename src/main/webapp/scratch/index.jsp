@@ -66,7 +66,7 @@
 <head>
 <title><fmt:setBundle basename="oscarResources"/><fmt:message key="ScratchPad.title"/></title>
 
-    <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-3.6.4.min.js"></script>
+    <%@ include file="/includes/global-head.jspf" %>
 
     <script type="text/javascript">
         let dirty = false;
@@ -313,8 +313,6 @@
 	        }
         }
     </script>
-    <link rel="stylesheet" type="text/css" href="<%=request.getContextPath()%>/library/bootstrap/5.0.2/css/bootstrap.min.css" />
-
     <style>
         :root * {
             font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;

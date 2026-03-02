@@ -152,21 +152,14 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.title"/> Manager</title>
 
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"
-                type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
-                type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"
-                type="text/javascript"></script>
+        <%@ include file="/includes/global-head.jspf" %>
+        <script type="text/javascript"
+                src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script type="text/javascript"
                 src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
         <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.css"
               rel="stylesheet" type="text/css"/>
         <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/css/print.css"/>
-        <link rel="stylesheet" type="text/css"
-              href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
-              type="text/css"/>
 
         <style>
 
@@ -277,7 +270,7 @@
                             data: 'id',
                             orderable: false,
                             render: function(data) {
-                                return '<a href="javascript:void(0)" title="Edit Tickler" onClick="window.open(\'' + ctx + '/tickler/ticklerEdit.jsp?tickler_no=' + encodeURIComponent(data) + '\', \'edit_tickler\', \'width=800, height=650\')"><span class="glyphicon glyphicon-pencil"></span></a>';
+                                return '<a href="javascript:void(0)" title="Edit Tickler" onClick="window.open(\'' + ctx + '/tickler/ticklerEdit.jsp?tickler_no=' + encodeURIComponent(data) + '\', \'edit_tickler\', \'width=800, height=650\')"><span class="fas fa-pencil-alt"></span></a>';
                             }
                         },
                         {
@@ -345,7 +338,7 @@
                             data: null,
                             orderable: false,
                             render: function(data) {
-                                return '<a href="javascript:void(0)" class="noteDialogLink noprint" onClick="openNoteDialog(\'' + escapeHtml(String(data.demographicNo)) + '\',\'' + escapeHtml(String(data.id)) + '\')" title="Add Encounter Note"><span class="glyphicon glyphicon-comment"></span></a>';
+                                return '<a href="javascript:void(0)" class="noteDialogLink noprint" onClick="openNoteDialog(\'' + escapeHtml(String(data.demographicNo)) + '\',\'' + escapeHtml(String(data.id)) + '\')" title="Add Encounter Note"><span class="fas fa-comment"></span></a>';
                             }
                         }
                     ],
@@ -418,7 +411,7 @@
                 } else {
                     url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/labDisplay.jsp?segmentID=' + tableId + '\')';
                 }
-                return ' <a title="View attachment" href="' + url + '"><i class="glyphicon glyphicon-paperclip"></i></a>';
+                return ' <a title="View attachment" href="' + url + '"><i class="fas fa-paperclip"></i></a>';
             }
 
             function openNoteDialog(demographicNo, ticklerNo) {
