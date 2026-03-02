@@ -1134,26 +1134,13 @@ CREATE INDEX IF NOT EXISTS `idx_tickler_task_assigned_to` ON `tickler` (`task_as
 -- Index for "created by" filter queries
 CREATE INDEX IF NOT EXISTS `idx_tickler_creator` ON `tickler` (`creator`);
 
--- database/mysql/updates/update-2026-02-10-fax-provider-type.sql
+-- PHC based on database/mysql/updates/update-2026-02-10-fax-provider-type.sql
 -- -----------------------------------------
--- Add provider transport selection for fax configuration.
--- This script is idempotent and can be run multiple times safely.
-
--- Check if column exists before adding
-SET @col_exists = 0;
-SELECT COUNT(*) INTO @col_exists 
-FROM information_schema.COLUMNS 
-WHERE TABLE_SCHEMA = DATABASE() 
-  AND TABLE_NAME = 'fax_config' 
-  AND COLUMN_NAME = 'providerType';
-
--- Add column only if it doesn't exist (positioned after 'download' column for schema consistency)
-SET @sql = IF(@col_exists = 0,
-    'ALTER TABLE `fax_config` ADD COLUMN `providerType` varchar(25) DEFAULT ''MIDDLEWARE'' AFTER `download`',
-    'SELECT ''Column providerType already exists in fax_config'' AS message');
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
+CALL add_column('fax_config', 'accountName', 'VARCHAR(55)');
+CALL add_column('fax_config', 'download', 'tinyint(1)');
+CALL add_column('fax_config', 'providerType', 'VARCHAR(25) DEFAULT "MIDDLEWARE"');
+CALL add_column('fax_config', 'gatewayName', 'VARCHAR(255)');
+CALL add_column('fax_config', 'faxReply', 'VARCHAR(10)');
 
 -- Backfill existing rows to preserve current middleware behavior.
 -- This is safe to run multiple times
