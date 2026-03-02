@@ -761,14 +761,6 @@
     "optional" : false,
     "integrity" : "sha512:xWCfL91yqy50YaA8hQBKR5QbiDkm+EZlMCv/81q6X6SNTOR6wkMUo7wt18cOH42CRWflAm/RdIWwbESZmUKvXw=="
   }, {
-    "groupId" : "commons-beanutils",
-    "artifactId" : "commons-beanutils",
-    "version" : "1.11.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:Q0hnBXlgG8EVHeLydBRjXE6gtLUwYdEWwJujGeLE+OkdDLBxOpZGaL1RiRBaweK2WQiBhQiAv1/yPMZAnycEIA=="
-  }, {
     "groupId" : "commons-cli",
     "artifactId" : "commons-cli",
     "version" : "1.0",
@@ -1184,14 +1176,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:ca20p4oj5BBunwnJKn4MHZda0xSkn0oGRy4iouwJyD/ALGtoSiAFW0auafzBGbFVtxCe9W4XBXnJpGLIg5uuUg=="
-  }, {
-    "groupId" : "org.apache-extras.beanshell",
-    "artifactId" : "bsh",
-    "version" : "2.0b6",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:o5MhqZqKYZpItldS9u5rjxHTso67BRCC7HCnCg1QQeg9FEN43xkZKePWVivV7kxPHMrbC6QgVVKdGIAKQdiuGA=="
   }, {
     "groupId" : "org.apache.activemq",
     "artifactId" : "activemq-broker",
@@ -1832,30 +1816,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:pToK7Wki1tHzfnjL3hbyqY29Q/cZgpOpYMdh4sbwrEVncKniHKZN1GCmYS0Lrp002Q7yGkqa6Ale1Gd6C1IJ6w=="
-  }, {
-    "groupId" : "org.apache.httpcomponents.client5",
-    "artifactId" : "httpclient5",
-    "version" : "5.4.4",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:co51vhEejFV8ZktO0k5qze3PcAvKD++mkVj0ELWre4EOlDcNqtlGcD78YBrfqMtLIJFt0LFXzbrN9twQXQ0WVA=="
-  }, {
-    "groupId" : "org.apache.httpcomponents.core5",
-    "artifactId" : "httpcore5-h2",
-    "version" : "5.3.4",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:/2pv+h9uSXQBF3jqj/tnccUsix7BYff0EffW4OwpiKNs88ljbalWIiqRqB8nGKIVvBdrZ4y275j/RLxs/kuA5w=="
-  }, {
-    "groupId" : "org.apache.httpcomponents.core5",
-    "artifactId" : "httpcore5",
-    "version" : "5.3.4",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:qJKzRYufep7g6LIhIWgJlKePcEmM4is8JkYlOIVrfwAOWAevqFPEwP7mOLypFIulsZpJW9kEnaICPwd6EdVnrA=="
   }, {
     "groupId" : "org.apache.httpcomponents",
     "artifactId" : "httpasyncclient",
@@ -2539,11 +2499,11 @@
   }, {
     "groupId" : "org.htmlunit",
     "artifactId" : "neko-htmlunit",
-    "version" : "4.11.0",
+    "version" : "4.14.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:uvQRoPYBGX/YDS57pgUsqYeRiZY4O8F2k+ewX+WHFxyub3b/nBU4MESZ5SgRkoAK7kkcCeJXH+wf34mboHBesA=="
+    "integrity" : "sha512:OLCO5gryoR4azU9MDwRn1XfAVeyHTApfKDvKAvThqL6tnmlA77dSusNd2gC1fToP5dhkHYpai+qUTFnINYV/VA=="
   }, {
     "groupId" : "org.jacorb",
     "artifactId" : "jacorb-omgapi",
@@ -2928,14 +2888,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:GXpPs+yzTQWsVVxqUQ5pr/yx5HbyTF6TWtUT7Nq/dLRaobDgsl2+kSJPxtt5WbJnfqWHbuSedIcmXiopxWDCHA=="
-  }, {
-    "groupId" : "org.owasp.antisamy",
-    "artifactId" : "antisamy",
-    "version" : "1.7.8",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:W/U79yPgCd0dlR3EZodKAOG+m8PjZn34fwrY+RNVBB99MkEy3qpw+/AL0cSLQmWnfuKG0BgzCY9OP561hxKeCQ=="
   }, {
     "groupId" : "org.owasp.encoder",
     "artifactId" : "encoder-jsp",
@@ -3360,13 +3312,5 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:VNEJBiNJfoEnCyr2MyaGVuiFXh7c4iF4hkMQOVFqORup+NjbPCGgteUcf3y2ctY+vne+dXCLdgsG85lIaWDyYQ=="
-  }, {
-    "groupId" : "xom",
-    "artifactId" : "xom",
-    "version" : "1.3.9",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:MfPKWjrFEDVNfION2VnHtUvm6MC60SLG4OazZgrOt6kYhYeT6hsQ08o2NWqudIHQcipDISgPf3QllrKptqJ89A=="
   } ]
 }

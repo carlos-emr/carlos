@@ -33,7 +33,23 @@
 			<dispatcher>REQUEST</dispatcher>
 			<dispatcher>ASYNC</dispatcher>
         </filter-mapping>
-        
+
+    <!-- ResponseDefaultsFilter MUST be before struts2. Struts2's StrutsPrepareAndExecuteFilter
+         does not call chain.doFilter() for requests it handles, so any filter after it in the
+         chain is never invoked for Struts action responses. Placing this filter first ensures
+         encoding, caching, and security headers are applied to ALL responses. -->
+    <filter>
+        <filter-name>ResponseDefaultsFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.utility.ResponseDefaultsFilter</filter-class>
+		<init-param>
+			<param-name>noCacheEndings</param-name>
+			<param-value>.jsp,.jsf,.json,.do</param-value>
+		</init-param>
+    </filter>
+    <filter-mapping>
+		<filter-name>ResponseDefaultsFilter</filter-name>
+		<url-pattern>/*</url-pattern>
+	</filter-mapping>
 
 	<filter>
 		<filter-name>struts2</filter-name>
@@ -53,18 +69,6 @@
             <filter-name>WebServiceSessionInvalidatingFilter</filter-name>
             <url-pattern>/ws/*</url-pattern>
     </filter-mapping>
-    <filter>
-        <filter-name>ResponseDefaultsFilter</filter-name>
-        <filter-class>io.github.carlos_emr.carlos.utility.ResponseDefaultsFilter</filter-class>
-		<init-param>
-			<param-name>noCacheEndings</param-name>
-			<param-value>.jsp,.jsf,.json,.do</param-value>
-		</init-param>
-    </filter>
-    <filter-mapping>
-		<filter-name>ResponseDefaultsFilter</filter-name>
-		<url-pattern>/*</url-pattern>
-	</filter-mapping>
 
 	<filter>
 		<filter-name>PrivacyStatementAppendingFilter</filter-name>

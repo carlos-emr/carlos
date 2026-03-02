@@ -460,13 +460,8 @@ public final class Login2Action extends ActionSupport {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
             logger.error("Error", e);
-            String newURL = request.getContextPath() + "/loginfailed.jsp";
-            if (e.getMessage() != null && e.getMessage().startsWith("java.lang.ClassNotFoundException")) {
-                newURL = newURL + "?errormsg=Database driver "
-                        + e.getMessage().substring(e.getMessage().indexOf(':') + 2) + " not found.";
-            } else {
-                newURL = newURL + "?errormsg=Database connection error: " + e.getMessage() + ".";
-            }
+            String newURL = request.getContextPath() + "/loginfailed.jsp"
+                    + "?errormsg=Unable to process login at this time. Please try again.";
 
             if (ajaxResponse) {
                 ObjectNode json = objectMapper.createObjectNode();

@@ -82,7 +82,7 @@ public class ResponseDefaultsFilterResponseWrapper extends HttpServletResponseWr
     public void setCharacterEncoding(String encoding) {
         super.setCharacterEncoding(encoding);
         if (this.warnCharsetCacheChange) {
-            warnWithStackTrace("Some one is switching the encoding on me! : " + encoding);
+            warnWithStackTrace("Someone is switching the encoding on me!: " +encoding);
         }
 
     }
@@ -91,7 +91,7 @@ public class ResponseDefaultsFilterResponseWrapper extends HttpServletResponseWr
     public void setContentType(String contentType) {
         super.setContentType(contentType);
         if (this.warnCharsetCacheChange && contentType.contains("charset")) {
-            warnWithStackTrace("Some one is switching the encoding on me! : " + contentType);
+            warnWithStackTrace("Someone is switching the encoding on me!: " +contentType);
         }
 
     }
@@ -110,9 +110,9 @@ public class ResponseDefaultsFilterResponseWrapper extends HttpServletResponseWr
         super.setHeader(key, value);
         if (this.warnCharsetCacheChange) {
             if ("Content-Type".equals(key) && value != null && value.contains("charset") && !value.contains("charset=UTF-8")) {
-                warnWithStackTrace("Some one is switching the encoding : " + value);
+                warnWithStackTrace("Someone is switching the encoding: " + value);
             } else if ("Cache-Control".equals(key)) {
-                warnWithStackTrace("Some one is setting the cache control. " + value);
+                warnWithStackTrace("Someone is setting the cache control: " + value);
             }
         }
 
