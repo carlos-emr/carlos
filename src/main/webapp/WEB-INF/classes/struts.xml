@@ -1491,6 +1491,8 @@
         <action name="tickler/AddTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.AddTickler2Action">
             <result name="close">/close.html</result>
         </action>
+        <action name="tickler/ListTicklers" class="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerList2Action"/>
+
         <action name="eform/uploadHtml" class="io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action">
             <result name="success">/eform/partials/upload.jsp</result>
             <result name="fail">/eform/partials/upload.jsp</result>

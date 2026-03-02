@@ -35,6 +35,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -1528,7 +1529,7 @@ public class ProgramManager2Action extends ActionSupport {
                 || (program1.isAlcohol() ^ program2.isAlcohol())
                 || (program1.isPhysicalHealth() ^ program2.isPhysicalHealth())
                 || (program1.isMentalHealth() ^ program2.isMentalHealth())
-                || (program1.getFacilityId() != program2.getFacilityId())
+                || (!Objects.equals(program1.getFacilityId(), program2.getFacilityId()))
                 || (program1.isHousing() ^ program2.isHousing()))
 
             changed = true;
