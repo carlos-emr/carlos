@@ -78,6 +78,9 @@ const parseSelector = selector => {
 };
 
 // Shout-out Angus Croll (https://goo.gl/pxwQGp)
+/**
+ * Returns the type of the given object as a lowercase string.
+ */
 const toType = object => {
   if (object === null || object === undefined) {
     return `${object}`;
@@ -85,16 +88,27 @@ const toType = object => {
   return Object.prototype.toString.call(object).match(/\s([a-z]+)/i)[1].toLowerCase();
 };
 
-/**
- * Public Util API
- */
 
+/**
+ * Generates a unique identifier by appending a random number to a given prefix.
+ */
 const getUID = prefix => {
   do {
     prefix += Math.floor(Math.random() * MAX_UID);
   } while (document.getElementById(prefix));
   return prefix;
 };
+/**
+ * Retrieves the total transition duration from a given element.
+ *
+ * This function checks if the provided element is valid and then retrieves its computed
+ * transition duration and delay using `window.getComputedStyle`. If multiple durations
+ * are defined, it takes the first one. The function returns the sum of the transition
+ * duration and delay, multiplied by a constant `MILLISECONDS_MULTIPLIER`, or 0 if no
+ * valid durations are found.
+ *
+ * @param {Element} element - The DOM element from which to retrieve the transition duration.
+ */
 const getTransitionDurationFromElement = element => {
   if (!element) {
     return 0;
@@ -118,9 +132,21 @@ const getTransitionDurationFromElement = element => {
   transitionDelay = transitionDelay.split(',')[0];
   return (Number.parseFloat(transitionDuration) + Number.parseFloat(transitionDelay)) * MILLISECONDS_MULTIPLIER;
 };
+/**
+ * Dispatches a TRANSITION_END event on the given element.
+ */
 const triggerTransitionEnd = element => {
   element.dispatchEvent(new Event(TRANSITION_END));
 };
+/**
+ * Checks if the provided object is a valid DOM element.
+ *
+ * The function first verifies that the input is an object and not null.
+ * If the object has a jQuery property, it extracts the first element from the jQuery object.
+ * Finally, it checks if the resulting object has a nodeType property, indicating it is a DOM element.
+ *
+ * @param {any} object - The object to be checked for being a DOM element.
+ */
 const isElement = object => {
   if (!object || typeof object !== 'object') {
     return false;
@@ -130,6 +156,16 @@ const isElement = object => {
   }
   return typeof object.nodeType !== 'undefined';
 };
+/**
+ * Retrieves a DOM element or a jQuery object from the provided input.
+ *
+ * The function checks if the input is a valid DOM element or a jQuery object.
+ * If it is a jQuery object, it returns the first element in the jQuery collection.
+ * If the input is a non-empty string, it uses `document.querySelector` with a parsed selector to find and return the corresponding DOM element.
+ * If neither condition is met, it returns null.
+ *
+ * @param {HTMLElement|jQuery|string} object - The input to retrieve the element from, which can be a DOM element, a jQuery object, or a selector string.
+ */
 const getElement = object => {
   // it's a jQuery object or a node element
   if (isElement(object)) {
@@ -140,6 +176,16 @@ const getElement = object => {
   }
   return null;
 };
+/**
+ * Determine if a given element is visible in the viewport.
+ *
+ * The function first checks if the element is valid and has any client rectangles. It then evaluates the element's visibility style.
+ * Special handling is provided for `details` elements to account for their closed state, ensuring that visibility is accurately assessed
+ * based on the presence of a `summary` element and its relationship to the `details` element.
+ *
+ * @param element - The DOM element to check for visibility.
+ * @returns A boolean indicating whether the element is visible.
+ */
 const isVisible = element => {
   if (!isElement(element) || element.getClientRects().length === 0) {
     return false;
@@ -161,6 +207,15 @@ const isVisible = element => {
   }
   return elementIsVisible;
 };
+/**
+ * Determines if a given element is disabled.
+ *
+ * This function checks if the provided element is valid and of the correct node type.
+ * It evaluates the element's class list for a 'disabled' class, checks the 'disabled' property,
+ * and finally inspects the 'disabled' attribute to ascertain if the element is considered disabled.
+ *
+ * @param {Element} element - The DOM element to check for the disabled state.
+ */
 const isDisabled = element => {
   if (!element || element.nodeType !== Node.ELEMENT_NODE) {
     return true;
@@ -173,6 +228,14 @@ const isDisabled = element => {
   }
   return element.hasAttribute('disabled') && element.getAttribute('disabled') !== 'false';
 };
+/**
+ * Find the shadow root of a given element.
+ *
+ * This function checks if the browser supports shadow DOM. If supported, it attempts to retrieve the shadow root of the provided element using getRootNode. If the element is not a shadow root, it recursively checks the parent nodes until it finds a shadow root or reaches the top of the DOM tree.
+ *
+ * @param element - The element from which to find the shadow root.
+ * @returns The shadow root of the element, or null if no shadow root is found or if shadow DOM is not supported.
+ */
 const findShadowRoot = element => {
   if (!document.documentElement.attachShadow) {
     return null;
@@ -196,16 +259,15 @@ const findShadowRoot = element => {
 const noop = () => {};
 
 /**
- * Trick to restart an element's animation
- *
+ * Restarts an element's animation.
  * @param {HTMLElement} element
- * @return void
- *
- * @see https://www.charistheo.io/blog/2021/02/restart-a-css-animation-with-javascript/#restarting-a-css-animation
  */
 const reflow = element => {
   element.offsetHeight; // eslint-disable-line no-unused-expressions
 };
+/**
+ * Retrieves the jQuery object if available and not disabled.
+ */
 const getjQuery = () => {
   if (window.jQuery && !document.body.hasAttribute('data-bs-no-jquery')) {
     return window.jQuery;
@@ -213,6 +275,9 @@ const getjQuery = () => {
   return null;
 };
 const DOMContentLoadedCallbacks = [];
+/**
+ * Registers a callback to be executed when the DOM content is fully loaded.
+ */
 const onDOMContentLoaded = callback => {
   if (document.readyState === 'loading') {
     // add listener on the first call when the document is in loading state
@@ -245,6 +310,9 @@ const defineJQueryPlugin = plugin => {
     }
   });
 };
+/**
+ * Executes a callback with provided arguments or returns a default value.
+ */
 const execute = (possibleCallback, args = [], defaultValue = possibleCallback) => {
   return typeof possibleCallback === 'function' ? possibleCallback(...args) : defaultValue;
 };
@@ -275,13 +343,18 @@ const executeAfterTransition = (callback, transitionElement, waitForTransition =
 };
 
 /**
- * Return the previous/next element of a list.
+ * Return the next or previous element of a list based on the active element.
  *
- * @param {array} list    The list of elements
- * @param activeElement   The active element
- * @param shouldGetNext   Choose to get next or previous element
- * @param isCycleAllowed
- * @return {Element|elem} The proper element
+ * This function determines the index of the activeElement in the provided list.
+ * If the activeElement is not found, it returns either the last or first element
+ * of the list based on the shouldGetNext and isCycleAllowed parameters. If the
+ * activeElement is found, it calculates the new index based on the direction
+ * specified and handles cycling through the list if isCycleAllowed is true.
+ *
+ * @param {array} list - The list of elements.
+ * @param activeElement - The active element.
+ * @param shouldGetNext - Choose to get next or previous element.
+ * @param isCycleAllowed - Indicates if cycling through the list is allowed.
  */
 const getNextActiveElement = (list, activeElement, shouldGetNext, isCycleAllowed) => {
   const listLength = list.length;
@@ -329,6 +402,9 @@ const nativeEvents = new Set(['click', 'dblclick', 'mouseup', 'mousedown', 'cont
 function makeEventUid(element, uid) {
   return uid && `${uid}::${uidEvent++}` || element.uidEvent || uidEvent++;
 }
+/**
+ * Retrieves or initializes the event registry for a given element.
+ */
 function getElementEvents(element) {
   const uid = makeEventUid(element);
   element.uidEvent = uid;
@@ -346,6 +422,19 @@ function bootstrapHandler(element, fn) {
     return fn.apply(element, [event]);
   };
 }
+/**
+ * Creates a delegation handler for event management.
+ *
+ * This function returns a handler that listens for events on a specified element and selector.
+ * It traverses the event target's ancestors to find a match with the provided selector.
+ * If a match is found, it hydrates the event object with the delegate target and invokes the
+ * provided function. If the handler is marked as one-off, it removes the event listener after
+ * the first invocation.
+ *
+ * @param {Element} element - The element to delegate events from.
+ * @param {string} selector - The selector to match the target elements.
+ * @param {Function} fn - The function to execute when the event is triggered.
+ */
 function bootstrapDelegationHandler(element, selector, fn) {
   return function handler(event) {
     const domElements = element.querySelectorAll(selector);
@@ -367,9 +456,15 @@ function bootstrapDelegationHandler(element, selector, fn) {
     }
   };
 }
+/**
+ * Finds an event in the events object that matches the given callable and delegationSelector.
+ */
 function findHandler(events, callable, delegationSelector = null) {
   return Object.values(events).find(event => event.callable === callable && event.delegationSelector === delegationSelector);
 }
+/**
+ * Normalizes event parameters for handling.
+ */
 function normalizeParameters(originalTypeEvent, handler, delegationFunction) {
   const isDelegated = typeof handler === 'string';
   // TODO: tooltip passes `false` instead of selector, so we need to check
@@ -380,6 +475,17 @@ function normalizeParameters(originalTypeEvent, handler, delegationFunction) {
   }
   return [isDelegated, callable, typeEvent];
 }
+/**
+ * Adds an event handler to a specified element with support for delegation and one-off execution.
+ *
+ * The function first validates the input parameters and normalizes them. If the event type is a custom event, it wraps the handler to prevent unwanted triggering from related targets. It then retrieves existing event handlers for the element, checks for duplicates, and either updates the existing handler or creates a new one. Finally, it registers the handler with the appropriate event type on the element.
+ *
+ * @param element - The DOM element to which the event handler will be added.
+ * @param originalTypeEvent - The type of the event (e.g., 'click', 'mouseenter').
+ * @param handler - The function to be executed when the event occurs.
+ * @param delegationFunction - A function used for event delegation.
+ * @param oneOff - A boolean indicating if the handler should be executed only once.
+ */
 function addHandler(element, originalTypeEvent, handler, delegationFunction, oneOff) {
   if (typeof originalTypeEvent !== 'string' || !element) {
     return;
@@ -389,6 +495,16 @@ function addHandler(element, originalTypeEvent, handler, delegationFunction, one
   // in case of mouseenter or mouseleave wrap the handler within a function that checks for its DOM position
   // this prevents the handler from being dispatched the same way as mouseover or mouseout does
   if (originalTypeEvent in customEvents) {
+    /**
+     * Wraps a function to handle events with specific target checks.
+     *
+     * This function returns a new function that invokes the original function `fn`
+     * only if the event's related target is not the delegate target or is not contained
+     * within the delegate target. This is useful for ensuring that the function is
+     * called only under certain event conditions, preventing unwanted executions.
+     *
+     * @param {Function} fn - The function to be wrapped and conditionally executed.
+     */
     const wrapFunction = fn => {
       return function (event) {
         if (!event.relatedTarget || event.relatedTarget !== event.delegateTarget && !event.delegateTarget.contains(event.relatedTarget)) {
@@ -414,6 +530,9 @@ function addHandler(element, originalTypeEvent, handler, delegationFunction, one
   handlers[uid] = fn;
   element.addEventListener(typeEvent, fn, isDelegated);
 }
+/**
+ * Removes an event handler from an element.
+ */
 function removeHandler(element, events, typeEvent, handler, delegationSelector) {
   const fn = findHandler(events[typeEvent], handler, delegationSelector);
   if (!fn) {
@@ -422,6 +541,9 @@ function removeHandler(element, events, typeEvent, handler, delegationSelector) 
   element.removeEventListener(typeEvent, fn, Boolean(delegationSelector));
   delete events[typeEvent][fn.uidEvent];
 }
+/**
+ * Removes event handlers associated with a specific namespace from an element.
+ */
 function removeNamespacedHandlers(element, events, typeEvent, namespace) {
   const storeElementEvent = events[typeEvent] || {};
   for (const [handlerKey, event] of Object.entries(storeElementEvent)) {
@@ -430,6 +552,9 @@ function removeNamespacedHandlers(element, events, typeEvent, namespace) {
     }
   }
 }
+/**
+ * Retrieves the native event name from a namespaced event.
+ */
 function getTypeEvent(event) {
   // allow to get the native events from namespaced events ('click.bs.button' --> 'click')
   event = event.replace(stripNameRegex, '');
@@ -505,6 +630,15 @@ const EventHandler = {
     return evt;
   }
 };
+/**
+ * Hydrates an object with properties from a metadata object.
+ *
+ * This function iterates over the entries of the `meta` object and attempts to assign each value to the corresponding key in the `obj`.
+ * If an error occurs during assignment, it defines a property on `obj` with a getter that returns the value from `meta`, ensuring that the property is configurable.
+ *
+ * @param {Object} obj - The object to be hydrated with properties.
+ * @param {Object} [meta={}] - An optional metadata object containing key-value pairs to assign to the object.
+ */
 function hydrateObj(obj, meta = {}) {
   for (const [key, value] of Object.entries(meta)) {
     try {
@@ -521,13 +655,18 @@ function hydrateObj(obj, meta = {}) {
   return obj;
 }
 
-/**
- * --------------------------------------------------------------------------
- * Bootstrap dom/manipulator.js
- * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
- * --------------------------------------------------------------------------
- */
 
+/**
+ * Normalize a given value to its appropriate JavaScript type.
+ *
+ * The function checks if the value is a string representation of a boolean, a number, or null.
+ * If the value is a string, it attempts to decode and parse it as JSON. If parsing fails,
+ * it returns the original value. This function handles various edge cases to ensure
+ * accurate type conversion.
+ *
+ * @param value - The value to be normalized, which can be a string, number, boolean, or null.
+ * @returns The normalized value, which can be a boolean, number, null, or the original value.
+ */
 function normalizeData(value) {
   if (value === 'true') {
     return true;
@@ -550,6 +689,9 @@ function normalizeData(value) {
     return value;
   }
 }
+/**
+ * Converts a camelCase string to a kebab-case string.
+ */
 function normalizeDataKey(key) {
   return key.replace(/[A-Z]/g, chr => `-${chr.toLowerCase()}`);
 }
@@ -601,12 +743,18 @@ class Config {
   static get NAME() {
     throw new Error('You have to implement the static method "NAME", for each component!');
   }
+  /**
+   * Merges and validates the configuration object.
+   */
   _getConfig(config) {
     config = this._mergeConfigObj(config);
     config = this._configAfterMerge(config);
     this._typeCheckConfig(config);
     return config;
   }
+  /**
+   * Returns the provided config object.
+   */
   _configAfterMerge(config) {
     return config;
   }
@@ -620,6 +768,17 @@ class Config {
       ...(typeof config === 'object' ? config : {})
     };
   }
+  /**
+   * Validates the types of properties in a configuration object against expected types.
+   *
+   * This function iterates over the entries of the configTypes object, checking each property's
+   * value type against the expected type defined in configTypes. If a property's type does not
+   * match the expected type, a TypeError is thrown with a descriptive message.
+   *
+   * @param {Object} config - The configuration object containing properties to validate.
+   * @param {Object} [configTypes=this.constructor.DefaultType] - An object defining the expected
+   * types for each property in the config.
+   */
   _typeCheckConfig(config, configTypes = this.constructor.DefaultType) {
     for (const [property, expectedTypes] of Object.entries(configTypes)) {
       const value = config[property];
@@ -662,6 +821,9 @@ class BaseComponent extends Config {
   }
 
   // Public
+  /**
+   * Disposes of the element and cleans up associated data.
+   */
   dispose() {
     Data.remove(this._element, this.constructor.DATA_KEY);
     EventHandler.off(this._element, this.constructor.EVENT_KEY);
@@ -672,6 +834,9 @@ class BaseComponent extends Config {
   _queueCallback(callback, element, isAnimated = true) {
     executeAfterTransition(callback, element, isAnimated);
   }
+  /**
+   * Merges and validates the configuration object.
+   */
   _getConfig(config) {
     config = this._mergeConfigObj(config, this._element);
     config = this._configAfterMerge(config);
@@ -680,6 +845,9 @@ class BaseComponent extends Config {
   }
 
   // Static
+  /**
+   * Retrieves an instance from the Data using the specified element.
+   */
   static getInstance(element) {
     return Data.get(getElement(element), this.DATA_KEY);
   }
@@ -695,18 +863,25 @@ class BaseComponent extends Config {
   static get EVENT_KEY() {
     return `.${this.DATA_KEY}`;
   }
+  /**
+   * Concatenates the given name with the EVENT_KEY.
+   */
   static eventName(name) {
     return `${name}${this.EVENT_KEY}`;
   }
 }
 
-/**
- * --------------------------------------------------------------------------
- * Bootstrap dom/selector-engine.js
- * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
- * --------------------------------------------------------------------------
- */
 
+/**
+ * Retrieve a valid selector from a given element.
+ *
+ * The function first attempts to get the selector from the element's 'data-bs-target' attribute.
+ * If that is not present or is invalid, it checks the 'href' attribute for a valid ID or class selector.
+ * It also handles cases where a full URL with an anchor is provided, ensuring the correct format is returned.
+ *
+ * @param element - The DOM element from which to retrieve the selector.
+ * @returns A string of valid selectors or null if no valid selector is found.
+ */
 const getSelector = element => {
   let selector = element.getAttribute('data-bs-target');
   if (!selector || selector === '#') {
@@ -789,13 +964,20 @@ const SelectorEngine = {
   }
 };
 
-/**
- * --------------------------------------------------------------------------
- * Bootstrap util/component-functions.js
- * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE)
- * --------------------------------------------------------------------------
- */
 
+/**
+ * Enables dismiss triggers for a specified component.
+ *
+ * This function sets up a click event listener on the document that listens for
+ * elements with a data attribute matching the component's name. When triggered,
+ * it checks if the element is an anchor or area tag, prevents the default action if so,
+ * and ensures the element is not disabled. It then retrieves the target element and
+ * invokes the specified method on the component instance, allowing for dynamic dismissal
+ * behavior.
+ *
+ * @param {Object} component - The component object that contains the necessary methods and properties.
+ * @param {string} [method='hide'] - The method to call on the component instance, defaults to 'hide'.
+ */
 const enableDismissTrigger = (component, method = 'hide') => {
   const clickEvent = `click.dismiss${component.EVENT_KEY}`;
   const name = component.NAME;
@@ -845,6 +1027,9 @@ class Alert extends BaseComponent {
   }
 
   // Public
+  /**
+   * Closes the element and triggers the close event.
+   */
   close() {
     const closeEvent = EventHandler.trigger(this._element, EVENT_CLOSE);
     if (closeEvent.defaultPrevented) {
@@ -856,6 +1041,9 @@ class Alert extends BaseComponent {
   }
 
   // Private
+  /**
+   * Removes the element and triggers the closed event.
+   */
   _destroyElement() {
     this._element.remove();
     EventHandler.trigger(this._element, EVENT_CLOSED);
@@ -863,6 +1051,15 @@ class Alert extends BaseComponent {
   }
 
   // Static
+  /**
+   * Initializes the jQuery interface for the Alert component.
+   *
+   * This method iterates over each element in the jQuery collection, retrieves or creates an instance of the Alert class,
+   * and checks if the provided config is a valid method name. If the config is not a string or is invalid, it throws a TypeError.
+   * If valid, it invokes the specified method on the Alert instance.
+   *
+   * @param {string} config - The method name to be called on the Alert instance.
+   */
   static jQueryInterface(config) {
     return this.each(function () {
       const data = Alert.getOrCreateInstance(this);
@@ -920,6 +1117,9 @@ class Button extends BaseComponent {
   }
 
   // Public
+  /**
+   * Toggles the active class and updates the `aria-pressed` attribute.
+   */
   toggle() {
     // Toggle class and sync the `aria-pressed` attribute with the return value of the `.toggle()` method
     this._element.setAttribute('aria-pressed', this._element.classList.toggle(CLASS_NAME_ACTIVE$3));
@@ -1016,11 +1216,17 @@ class Swipe extends Config {
   }
 
   // Public
+  /**
+   * Disposes of the event handler for the element.
+   */
   dispose() {
     EventHandler.off(this._element, EVENT_KEY$9);
   }
 
   // Private
+  /**
+   * Handles the start of a touch or pointer event.
+   */
   _start(event) {
     if (!this._supportPointerEvents) {
       this._deltaX = event.touches[0].clientX;
@@ -1030,6 +1236,9 @@ class Swipe extends Config {
       this._deltaX = event.clientX;
     }
   }
+  /**
+   * Handles the end of a touch event and executes the end callback.
+   */
   _end(event) {
     if (this._eventIsPointerPenTouch(event)) {
       this._deltaX = event.clientX - this._deltaX;
@@ -1037,6 +1246,9 @@ class Swipe extends Config {
     this._handleSwipe();
     execute(this._config.endCallback);
   }
+  /**
+   * Updates the horizontal delta based on touch event.
+   */
   _move(event) {
     this._deltaX = event.touches && event.touches.length > 1 ? 0 : event.touches[0].clientX - this._deltaX;
   }
@@ -1052,6 +1264,9 @@ class Swipe extends Config {
     }
     execute(direction > 0 ? this._config.rightCallback : this._config.leftCallback);
   }
+  /**
+   * Initializes event handlers based on pointer or touch support.
+   */
   _initEvents() {
     if (this._supportPointerEvents) {
       EventHandler.on(this._element, EVENT_POINTERDOWN, event => this._start(event));
@@ -1063,11 +1278,17 @@ class Swipe extends Config {
       EventHandler.on(this._element, EVENT_TOUCHEND, event => this._end(event));
     }
   }
+  /**
+   * Checks if the event is a pen or touch pointer event.
+   */
   _eventIsPointerPenTouch(event) {
     return this._supportPointerEvents && (event.pointerType === POINTER_TYPE_PEN || event.pointerType === POINTER_TYPE_TOUCH);
   }
 
   // Static
+  /**
+   * Checks if touch events are supported in the current environment.
+   */
   static isSupported() {
     return 'ontouchstart' in document.documentElement || navigator.maxTouchPoints > 0;
   }
@@ -1172,9 +1393,15 @@ class Carousel extends BaseComponent {
   }
 
   // Public
+  /**
+   * Advances to the next slide.
+   */
   next() {
     this._slide(ORDER_NEXT);
   }
+  /**
+   * Advances to the next item if the document and the element are visible.
+   */
   nextWhenVisible() {
     // FIXME TODO use `document.visibilityState`
     // Don't call next when the page isn't visible
@@ -1183,6 +1410,9 @@ class Carousel extends BaseComponent {
       this.next();
     }
   }
+  /**
+   * Moves to the previous slide.
+   */
   prev() {
     this._slide(ORDER_PREV);
   }
@@ -1192,11 +1422,22 @@ class Carousel extends BaseComponent {
     }
     this._clearInterval();
   }
+  /**
+   * Starts the cycle by clearing the previous interval and setting a new one.
+   */
   cycle() {
     this._clearInterval();
     this._updateInterval();
     this._interval = setInterval(() => this.nextWhenVisible(), this._config.interval);
   }
+  /**
+   * Enables the cycling behavior of the component if conditions are met.
+   *
+   * The function first checks if the configuration allows riding. If not, it exits early.
+   * If the component is currently sliding, it sets up an event listener for the sliding event
+   * to trigger the cycle method once the sliding is complete. If neither condition is true,
+   * it directly calls the cycle method to initiate cycling.
+   */
   _maybeEnableCycle() {
     if (!this._config.ride) {
       return;
@@ -1223,6 +1464,9 @@ class Carousel extends BaseComponent {
     const order = index > activeIndex ? ORDER_NEXT : ORDER_PREV;
     this._slide(order, items[index]);
   }
+  /**
+   * Disposes of the swipe helper and calls the superclass dispose method.
+   */
   dispose() {
     if (this._swipeHelper) {
       this._swipeHelper.dispose();
@@ -1235,6 +1479,14 @@ class Carousel extends BaseComponent {
     config.defaultInterval = config.interval;
     return config;
   }
+  /**
+   * Adds event listeners based on the configuration settings.
+   *
+   * This method sets up keyboard event handling if enabled in the configuration.
+   * It also adds mouse event listeners for pausing and resuming functionality
+   * when the pause configuration is set to 'hover'. Additionally, if touch
+   * support is enabled, it invokes the method to add touch event listeners.
+   */
   _addEventListeners() {
     if (this._config.keyboard) {
       EventHandler.on(this._element, EVENT_KEYDOWN$1, event => this._keydown(event));
@@ -1247,6 +1499,14 @@ class Carousel extends BaseComponent {
       this._addTouchEventListeners();
     }
   }
+  /**
+   * Adds touch event listeners to the carousel images.
+   *
+   * This function sets up event listeners for drag start events on images to prevent default behavior.
+   * It also defines a callback for touchend events that pauses the carousel if the configuration allows it,
+   * and restarts cycling after a timeout. Additionally, it initializes swipe handling with left and right
+   * swipe callbacks to navigate the carousel.
+   */
   _addTouchEventListeners() {
     for (const img of SelectorEngine.find(SELECTOR_ITEM_IMG, this._element)) {
       EventHandler.on(img, EVENT_DRAG_START, event => event.preventDefault());
@@ -1277,6 +1537,9 @@ class Carousel extends BaseComponent {
     };
     this._swipeHelper = new Swipe(this._element, swipeConfig);
   }
+  /**
+   * Handles keydown events to navigate based on specific key inputs.
+   */
   _keydown(event) {
     if (/input|textarea/i.test(event.target.tagName)) {
       return;
@@ -1290,6 +1553,9 @@ class Carousel extends BaseComponent {
   _getItemIndex(element) {
     return this._getItems().indexOf(element);
   }
+  /**
+   * Sets the active indicator element based on the provided index.
+   */
   _setActiveIndicatorElement(index) {
     if (!this._indicatorsElement) {
       return;
@@ -1311,6 +1577,17 @@ class Carousel extends BaseComponent {
     const elementInterval = Number.parseInt(element.getAttribute('data-bs-interval'), 10);
     this._config.interval = elementInterval || this._config.defaultInterval;
   }
+  /**
+   * Handles the sliding transition between elements in a carousel.
+   *
+   * The function checks if a slide is already in progress and retrieves the active element.
+   * It determines the next element to slide to and triggers a slide event. If the event is not prevented,
+   * it updates the active element and applies the necessary classes for the transition.
+   * Finally, it manages the completion of the slide and resumes cycling if applicable.
+   *
+   * @param order - The order of the slide transition, indicating next or previous.
+   * @param element - The element to slide to; if not provided, the next active element is determined.
+   */
   _slide(order, element = null) {
     if (this._isSliding) {
       return;
@@ -1322,6 +1599,9 @@ class Carousel extends BaseComponent {
       return;
     }
     const nextElementIndex = this._getItemIndex(nextElement);
+    /**
+     * Triggers an event with specified parameters.
+     */
     const triggerEvent = eventName => {
       return EventHandler.trigger(this._element, eventName, {
         relatedTarget: nextElement,
@@ -1350,6 +1630,9 @@ class Carousel extends BaseComponent {
     reflow(nextElement);
     activeElement.classList.add(directionalClassName);
     nextElement.classList.add(directionalClassName);
+    /**
+     * Updates class names for sliding elements and triggers a slide event.
+     */
     const completeCallBack = () => {
       nextElement.classList.remove(directionalClassName, orderClassName);
       nextElement.classList.add(CLASS_NAME_ACTIVE$2);
@@ -1362,12 +1645,21 @@ class Carousel extends BaseComponent {
       this.cycle();
     }
   }
+  /**
+   * Checks if the element is animated by verifying its class list.
+   */
   _isAnimated() {
     return this._element.classList.contains(CLASS_NAME_SLIDE);
   }
+  /**
+   * Retrieves the active item from the element.
+   */
   _getActive() {
     return SelectorEngine.findOne(SELECTOR_ACTIVE_ITEM, this._element);
   }
+  /**
+   * Retrieves items from the specified element using the SelectorEngine.
+   */
   _getItems() {
     return SelectorEngine.find(SELECTOR_ITEM, this._element);
   }
@@ -1377,12 +1669,30 @@ class Carousel extends BaseComponent {
       this._interval = null;
     }
   }
+  /**
+   * Converts a direction to an order based on the text directionality.
+   *
+   * This function checks if the text direction is right-to-left (RTL) using the isRTL() function.
+   * Depending on the direction provided (DIRECTION_LEFT or otherwise), it returns either ORDER_PREV or ORDER_NEXT.
+   * The logic is reversed if the text direction is RTL.
+   *
+   * @param {string} direction - The direction to convert, expected to be either DIRECTION_LEFT or DIRECTION_RIGHT.
+   */
   _directionToOrder(direction) {
     if (isRTL()) {
       return direction === DIRECTION_LEFT ? ORDER_PREV : ORDER_NEXT;
     }
     return direction === DIRECTION_LEFT ? ORDER_NEXT : ORDER_PREV;
   }
+  /**
+   * Determines the direction based on the order and text directionality.
+   *
+   * This function checks if the text direction is right-to-left (RTL) using the isRTL() function.
+   * Depending on the value of the order (ORDER_PREV), it returns either DIRECTION_LEFT or DIRECTION_RIGHT
+   * for RTL, and the opposite for left-to-right (LTR) text direction.
+   *
+   * @param {string} order - The order to determine the direction, expected to be either ORDER_PREV or another value.
+   */
   _orderToDirection(order) {
     if (isRTL()) {
       return order === ORDER_PREV ? DIRECTION_LEFT : DIRECTION_RIGHT;
@@ -1391,6 +1701,19 @@ class Carousel extends BaseComponent {
   }
 
   // Static
+  /**
+   * Initializes the jQuery interface for the Carousel component.
+   *
+   * This method allows for the configuration of the Carousel instance by either
+   * invoking a method based on the provided string or navigating to a specific
+   * slide if a number is provided. It retrieves or creates an instance of the
+   * Carousel using Carousel.getOrCreateInstance and handles method calls or
+   * slide transitions accordingly. If an invalid method name is provided,
+   * a TypeError is thrown.
+   *
+   * @param {Object|string|number} config - The configuration for the Carousel,
+   * which can be an object, a method name as a string, or a slide index as a number.
+   */
   static jQueryInterface(config) {
     return this.each(function () {
       const data = Carousel.getOrCreateInstance(this, config);
@@ -1524,6 +1847,9 @@ class Collapse extends BaseComponent {
   }
 
   // Public
+  /**
+   * Toggles the visibility of an element by showing or hiding it.
+   */
   toggle() {
     if (this._isShown()) {
       this.hide();
@@ -1531,6 +1857,15 @@ class Collapse extends BaseComponent {
       this.show();
     }
   }
+  /**
+   * Show the element by transitioning it into view.
+   *
+   * The function first checks if a transition is already in progress or if the element is already shown.
+   * It then retrieves active children elements, hides them if necessary, and triggers the show event.
+   * The element's dimension is adjusted to create a collapsing effect, and a callback is queued to finalize the transition.
+   *
+   * @returns {void}
+   */
   show() {
     if (this._isTransitioning || this._isShown()) {
       return;
@@ -1559,6 +1894,9 @@ class Collapse extends BaseComponent {
     this._element.style[dimension] = 0;
     this._addAriaAndCollapsedClass(this._triggerArray, true);
     this._isTransitioning = true;
+    /**
+     * Completes the transition by updating element classes and triggering an event.
+     */
     const complete = () => {
       this._isTransitioning = false;
       this._element.classList.remove(CLASS_NAME_COLLAPSING);
@@ -1571,6 +1909,14 @@ class Collapse extends BaseComponent {
     this._queueCallback(complete, this._element, true);
     this._element.style[dimension] = `${this._element[scrollSize]}px`;
   }
+  /**
+   * Hides the element by collapsing it.
+   *
+   * This function first checks if a transition is already in progress or if the element is not shown.
+   * If not, it triggers a hide event and sets the element's dimension to its current size.
+   * It then adds a collapsing class, removes the collapse and show classes, and updates ARIA attributes for triggers.
+   * Finally, it resets the dimension and queues a callback to finalize the transition.
+   */
   hide() {
     if (this._isTransitioning || !this._isShown()) {
       return;
@@ -1591,6 +1937,9 @@ class Collapse extends BaseComponent {
       }
     }
     this._isTransitioning = true;
+    /**
+     * Completes the transition by updating the element's classes and triggering an event.
+     */
     const complete = () => {
       this._isTransitioning = false;
       this._element.classList.remove(CLASS_NAME_COLLAPSING);
@@ -1600,19 +1949,35 @@ class Collapse extends BaseComponent {
     this._element.style[dimension] = '';
     this._queueCallback(complete, this._element, true);
   }
+  /**
+   * Checks if the specified element is shown.
+   */
   _isShown(element = this._element) {
     return element.classList.contains(CLASS_NAME_SHOW$7);
   }
 
   // Private
+  /**
+   * Processes the configuration object by coercing the toggle value and retrieving the parent element.
+   */
   _configAfterMerge(config) {
     config.toggle = Boolean(config.toggle); // Coerce string values
     config.parent = getElement(config.parent);
     return config;
   }
+  /**
+   * Returns the dimension based on the element's class.
+   */
   _getDimension() {
     return this._element.classList.contains(CLASS_NAME_HORIZONTAL) ? WIDTH : HEIGHT;
   }
+  /**
+   * Initializes child elements based on the configuration.
+   *
+   * This function checks if a parent configuration exists. If it does, it retrieves the first-level children
+   * using the _getFirstLevelChildren method. For each child element, it checks if a corresponding selected
+   * element exists and adds ARIA attributes and a collapsed class based on the visibility state of the selected element.
+   */
   _initializeChildren() {
     if (!this._config.parent) {
       return;
@@ -1625,11 +1990,17 @@ class Collapse extends BaseComponent {
       }
     }
   }
+  /**
+   * Retrieves first-level children elements that match the given selector.
+   */
   _getFirstLevelChildren(selector) {
     const children = SelectorEngine.find(CLASS_NAME_DEEPER_CHILDREN, this._config.parent);
     // remove children if greater depth
     return SelectorEngine.find(selector, this._config.parent).filter(element => !children.includes(element));
   }
+  /**
+   * Toggles the collapsed class and aria-expanded attribute for each element in the triggerArray.
+   */
   _addAriaAndCollapsedClass(triggerArray, isOpen) {
     if (!triggerArray.length) {
       return;
@@ -1772,9 +2143,20 @@ class Dropdown extends BaseComponent {
   }
 
   // Public
+  /**
+   * Toggles the visibility of an element.
+   */
   toggle() {
     return this._isShown() ? this.hide() : this.show();
   }
+  /**
+   * Displays the element if it is not disabled and not already shown.
+   *
+   * The function first checks if the element is disabled or already shown. If either condition is true, it exits early.
+   * It then triggers a show event and creates a popper for positioning. If the device is touch-enabled, it adds
+   * mouseover listeners to the body's immediate children to handle event delegation issues on iOS. Finally, it
+   * focuses the element, updates its ARIA attribute, and adds the show class to both the menu and the element.
+   */
   show() {
     if (isDisabled(this._element) || this._isShown()) {
       return;
@@ -1812,6 +2194,9 @@ class Dropdown extends BaseComponent {
     };
     this._completeHide(relatedTarget);
   }
+  /**
+   * Cleans up resources by destroying the popper instance and calling the superclass dispose method.
+   */
   dispose() {
     if (this._popper) {
       this._popper.destroy();
@@ -1826,6 +2211,15 @@ class Dropdown extends BaseComponent {
   }
 
   // Private
+  /**
+   * Hides the element and triggers the corresponding events.
+   *
+   * This function first triggers a hide event and checks if the default action is prevented.
+   * If not, it removes any extra mouseover listeners for touch-enabled devices, destroys the popper instance if it exists,
+   * and updates the class and aria attributes of the element and menu. Finally, it triggers a hidden event.
+   *
+   * @param {Element} relatedTarget - The element related to the hide event.
+   */
   _completeHide(relatedTarget) {
     const hideEvent = EventHandler.trigger(this._element, EVENT_HIDE$5, relatedTarget);
     if (hideEvent.defaultPrevented) {
@@ -1848,6 +2242,16 @@ class Dropdown extends BaseComponent {
     Manipulator.removeDataAttribute(this._menu, 'popper');
     EventHandler.trigger(this._element, EVENT_HIDDEN$5, relatedTarget);
   }
+  /**
+   * Retrieves and validates the configuration object.
+   *
+   * This method first calls the parent class's _getConfig method to obtain the initial configuration.
+   * It then checks if the 'reference' property is an object that does not meet the requirements for
+   * Popper virtual elements, specifically the presence of a getBoundingClientRect method.
+   * If the validation fails, a TypeError is thrown.
+   *
+   * @param {Object} config - The configuration object to retrieve and validate.
+   */
   _getConfig(config) {
     config = super._getConfig(config);
     if (typeof config.reference === 'object' && !isElement(config.reference) && typeof config.reference.getBoundingClientRect !== 'function') {
@@ -1856,6 +2260,14 @@ class Dropdown extends BaseComponent {
     }
     return config;
   }
+  /**
+   * Initializes a Popper instance for the dropdown menu.
+   *
+   * This function checks if the Popper library is available and throws an error if it is not.
+   * It determines the reference element based on the configuration provided, which can be the parent element,
+   * a specific element, or an object. Finally, it creates a Popper instance using the determined reference element
+   * and the menu element, applying the configuration obtained from the _getPopperConfig method.
+   */
   _createPopper() {
     if (typeof Popper === 'undefined') {
       throw new TypeError('Bootstrap\'s dropdowns require Popper (https://popper.js.org)');
@@ -1874,6 +2286,15 @@ class Dropdown extends BaseComponent {
   _isShown() {
     return this._menu.classList.contains(CLASS_NAME_SHOW$6);
   }
+  /**
+   * Determine the placement of a dropdown menu based on its parent element's classes.
+   *
+   * The function checks the class list of the parent dropdown to identify specific placement classes.
+   * It also evaluates a custom CSS property to adjust the placement for dropdowns that may be positioned at the top.
+   * The final placement is returned based on these conditions.
+   *
+   * @returns The determined placement for the dropdown menu.
+   */
   _getPlacement() {
     const parentDropdown = this._parent;
     if (parentDropdown.classList.contains(CLASS_NAME_DROPEND)) {
@@ -1896,9 +2317,22 @@ class Dropdown extends BaseComponent {
     }
     return isEnd ? PLACEMENT_BOTTOMEND : PLACEMENT_BOTTOM;
   }
+  /**
+   * Checks if the closest navbar element exists.
+   */
   _detectNavbar() {
     return this._element.closest(SELECTOR_NAVBAR) !== null;
   }
+  /**
+   * Retrieves the offset configuration.
+   *
+   * This function checks the type of the offset defined in the configuration.
+   * If the offset is a string, it splits the string by commas and converts
+   * each value to an integer. If the offset is a function, it returns a
+   * new function that calls the offset with the provided popperData and
+   * the current element. If the offset is neither, it returns the offset
+   * as is.
+   */
   _getOffset() {
     const {
       offset
@@ -1911,6 +2345,9 @@ class Dropdown extends BaseComponent {
     }
     return offset;
   }
+  /**
+   * Gets the Popper configuration based on the current settings.
+   */
   _getPopperConfig() {
     const defaultBsPopperConfig = {
       placement: this._getPlacement(),
@@ -1940,6 +2377,18 @@ class Dropdown extends BaseComponent {
       ...execute(this._config.popperConfig, [defaultBsPopperConfig])
     };
   }
+  /**
+   * Selects a menu item based on the provided key and target.
+   *
+   * This function retrieves all visible items from the menu and checks if any items are present.
+   * If the target is not among the visible items, it allows cycling through the items to focus
+   * on the last item when the key is equal to ARROW_UP_KEY. The function utilizes
+   * getNextActiveElement to determine the next item to focus on.
+   *
+   * @param {Object} params - The parameters for selecting the menu item.
+   * @param {string} params.key - The key that determines the navigation direction.
+   * @param {Element} params.target - The current target element to focus on.
+   */
   _selectMenuItem({
     key,
     target
@@ -1955,6 +2404,16 @@ class Dropdown extends BaseComponent {
   }
 
   // Static
+  /**
+   * Initializes the jQuery interface for the Dropdown component.
+   *
+   * This method iterates over each element in the jQuery collection, creating an instance of the Dropdown
+   * using the provided config. If the config is not a string, the function exits early. It checks if the
+   * specified method exists on the Dropdown instance and throws a TypeError if it does not, before invoking
+   * the method.
+   *
+   * @param {string|object} config - The configuration or method name to be executed on the Dropdown instance.
+   */
   static jQueryInterface(config) {
     return this.each(function () {
       const data = Dropdown.getOrCreateInstance(this, config);
@@ -1996,6 +2455,13 @@ class Dropdown extends BaseComponent {
       context._completeHide(relatedTarget);
     }
   }
+  /**
+   * Handles keydown events for dropdowns in the data API.
+   *
+   * This function checks if the key pressed is an UP, DOWN, or ESCAPE key, and determines if the event should be processed based on the target element. If the event is valid, it prevents the default action and manages the dropdown's visibility and menu item selection using the Dropdown instance. It also ensures that the focus is returned to the toggle button when the dropdown is hidden.
+   *
+   * @param event - The keydown event triggered by the user.
+   */
   static dataApiKeydownHandler(event) {
     // If not an UP | DOWN | ESCAPE key => not a dropdown command
     // If input/textarea && if key is other than ESCAPE => not a dropdown command
@@ -2104,6 +2570,9 @@ class Backdrop extends Config {
   }
 
   // Public
+  /**
+   * Displays an element and executes a callback after animation.
+   */
   show(callback) {
     if (!this._config.isVisible) {
       execute(callback);
@@ -2119,6 +2588,9 @@ class Backdrop extends Config {
       execute(callback);
     });
   }
+  /**
+   * Hides the element and executes the callback.
+   */
   hide(callback) {
     if (!this._config.isVisible) {
       execute(callback);
@@ -2130,6 +2602,9 @@ class Backdrop extends Config {
       execute(callback);
     });
   }
+  /**
+   * Disposes of the element by removing event listeners and the element itself.
+   */
   dispose() {
     if (!this._isAppended) {
       return;
@@ -2140,6 +2615,9 @@ class Backdrop extends Config {
   }
 
   // Private
+  /**
+   * Retrieves the backdrop element, creating it if it doesn't exist.
+   */
   _getElement() {
     if (!this._element) {
       const backdrop = document.createElement('div');
@@ -2151,11 +2629,17 @@ class Backdrop extends Config {
     }
     return this._element;
   }
+  /**
+   * Updates the rootElement of the config object.
+   */
   _configAfterMerge(config) {
     // use getElement() with the default "body" to get a fresh Element on each instantiation
     config.rootElement = getElement(config.rootElement);
     return config;
   }
+  /**
+   * Appends an element to the root and sets up a mouse down event handler.
+   */
   _append() {
     if (this._isAppended) {
       return;
@@ -2167,6 +2651,9 @@ class Backdrop extends Config {
     });
     this._isAppended = true;
   }
+  /**
+   * Emulates an animation by executing a callback after a transition.
+   */
   _emulateAnimation(callback) {
     executeAfterTransition(callback, this._getElement(), this._config.isAnimated);
   }
@@ -2237,6 +2724,9 @@ class FocusTrap extends Config {
     EventHandler.on(document, EVENT_KEYDOWN_TAB, event => this._handleKeydown(event));
     this._isActive = true;
   }
+  /**
+   * Deactivates the current instance and removes the event listener.
+   */
   deactivate() {
     if (!this._isActive) {
       return;
@@ -2262,6 +2752,9 @@ class FocusTrap extends Config {
       elements[0].focus();
     }
   }
+  /**
+   * Handles the keydown event for tab navigation.
+   */
   _handleKeydown(event) {
     if (event.key !== TAB_KEY) {
       return;
@@ -2297,11 +2790,17 @@ class ScrollBarHelper {
   }
 
   // Public
+  /**
+   * Calculates the difference between the window's inner width and the document's width.
+   */
   getWidth() {
     // https://developer.mozilla.org/en-US/docs/Web/API/Window/innerWidth#usage_notes
     const documentWidth = document.documentElement.clientWidth;
     return Math.abs(window.innerWidth - documentWidth);
   }
+  /**
+   * Hides the element by adjusting its padding and margin based on the scrollbar width.
+   */
   hide() {
     const width = this.getWidth();
     this._disableOverFlow();
@@ -2311,23 +2810,35 @@ class ScrollBarHelper {
     this._setElementAttributes(SELECTOR_FIXED_CONTENT, PROPERTY_PADDING, calculatedValue => calculatedValue + width);
     this._setElementAttributes(SELECTOR_STICKY_CONTENT, PROPERTY_MARGIN, calculatedValue => calculatedValue - width);
   }
+  /**
+   * Resets specific attributes of elements related to overflow, padding, and margin.
+   */
   reset() {
     this._resetElementAttributes(this._element, 'overflow');
     this._resetElementAttributes(this._element, PROPERTY_PADDING);
     this._resetElementAttributes(SELECTOR_FIXED_CONTENT, PROPERTY_PADDING);
     this._resetElementAttributes(SELECTOR_STICKY_CONTENT, PROPERTY_MARGIN);
   }
+  /**
+   * Checks if the width is greater than zero.
+   */
   isOverflowing() {
     return this.getWidth() > 0;
   }
 
   // Private
+  /**
+   * Disables overflow on the element by setting its overflow style to hidden.
+   */
   _disableOverFlow() {
     this._saveInitialAttribute(this._element, 'overflow');
     this._element.style.overflow = 'hidden';
   }
   _setElementAttributes(selector, styleProperty, callback) {
     const scrollbarWidth = this.getWidth();
+    /**
+     * Modifies the specified style property of an element based on a callback function.
+     */
     const manipulationCallBack = element => {
       if (element !== this._element && window.innerWidth > element.clientWidth + scrollbarWidth) {
         return;
@@ -2338,12 +2849,18 @@ class ScrollBarHelper {
     };
     this._applyManipulationCallback(selector, manipulationCallBack);
   }
+  /**
+   * Saves the initial value of a specified style property to a data attribute on the element.
+   */
   _saveInitialAttribute(element, styleProperty) {
     const actualValue = element.style.getPropertyValue(styleProperty);
     if (actualValue) {
       Manipulator.setDataAttribute(element, styleProperty, actualValue);
     }
   }
+  /**
+   * Resets the specified style property of elements matching the selector.
+   */
   _resetElementAttributes(selector, styleProperty) {
     const manipulationCallBack = element => {
       const value = Manipulator.getDataAttribute(element, styleProperty);
@@ -2357,6 +2874,16 @@ class ScrollBarHelper {
     };
     this._applyManipulationCallback(selector, manipulationCallBack);
   }
+  /**
+   * Applies a manipulation callback to a given selector or its matching elements.
+   *
+   * The function first checks if the provided selector is a single element using the isElement function.
+   * If it is, the callback is executed directly on that element. If not, it uses SelectorEngine to find
+   * all matching elements within the context of this._element and applies the callback to each of them.
+   *
+   * @param {string|Element} selector - The selector or element to which the callback will be applied.
+   * @param {Function} callBack - The function to be executed on each matching element.
+   */
   _applyManipulationCallback(selector, callBack) {
     if (isElement(selector)) {
       callBack(selector);
@@ -2445,6 +2972,16 @@ class Modal extends BaseComponent {
   toggle(relatedTarget) {
     return this._isShown ? this.hide() : this.show(relatedTarget);
   }
+  /**
+   * Displays the element if it is not already shown or transitioning.
+   *
+   * The function first checks if the element is currently shown or in a transition state.
+   * If not, it triggers a show event and checks if the event was prevented.
+   * If allowed, it updates the state, hides the scrollbar, adds an open class to the body,
+   * adjusts the dialog, and finally shows the backdrop before displaying the element.
+   *
+   * @param {Event} relatedTarget - The element that triggered the show event.
+   */
   show(relatedTarget) {
     if (this._isShown || this._isTransitioning) {
       return;
@@ -2476,6 +3013,9 @@ class Modal extends BaseComponent {
     this._element.classList.remove(CLASS_NAME_SHOW$4);
     this._queueCallback(() => this._hideModal(), this._element, this._isAnimated());
   }
+  /**
+   * Cleans up and disposes of resources used by the component.
+   */
   dispose() {
     EventHandler.off(window, EVENT_KEY$4);
     EventHandler.off(this._dialog, EVENT_KEY$4);
@@ -2483,11 +3023,17 @@ class Modal extends BaseComponent {
     this._focustrap.deactivate();
     super.dispose();
   }
+  /**
+   * Adjusts the dialog.
+   */
   handleUpdate() {
     this._adjustDialog();
   }
 
   // Private
+  /**
+   * Initializes a new Backdrop instance with visibility and animation settings.
+   */
   _initializeBackDrop() {
     return new Backdrop({
       isVisible: Boolean(this._config.backdrop),
@@ -2495,11 +3041,17 @@ class Modal extends BaseComponent {
       isAnimated: this._isAnimated()
     });
   }
+  /**
+   * Initializes a FocusTrap for the specified element.
+   */
   _initializeFocusTrap() {
     return new FocusTrap({
       trapElement: this._element
     });
   }
+  /**
+   * Displays the modal element and sets its accessibility attributes.
+   */
   _showElement(relatedTarget) {
     // try to append dynamic modal
     if (!document.body.contains(this._element)) {
@@ -2516,6 +3068,9 @@ class Modal extends BaseComponent {
     }
     reflow(this._element);
     this._element.classList.add(CLASS_NAME_SHOW$4);
+    /**
+     * Completes the transition by activating focus trap and triggering the shown event.
+     */
     const transitionComplete = () => {
       if (this._config.focus) {
         this._focustrap.activate();
@@ -2527,6 +3082,16 @@ class Modal extends BaseComponent {
     };
     this._queueCallback(transitionComplete, this._dialog, this._isAnimated());
   }
+  /**
+   * Adds event listeners for handling various user interactions with the element.
+   *
+   * This function sets up listeners for keyboard events to dismiss the dialog on ESC key press,
+   * window resize events to adjust the dialog if it is shown, and mouse down events to manage
+   * click interactions that may dismiss the dialog or trigger backdrop transitions based on
+   * the configuration settings.
+   *
+   * @returns {void}
+   */
   _addEventListeners() {
     EventHandler.on(this._element, EVENT_KEYDOWN_DISMISS$1, event => {
       if (event.key !== ESCAPE_KEY$1) {
@@ -2559,6 +3124,9 @@ class Modal extends BaseComponent {
       });
     });
   }
+  /**
+   * Hides the modal and resets related attributes and styles.
+   */
   _hideModal() {
     this._element.style.display = 'none';
     this._element.setAttribute('aria-hidden', true);
@@ -2575,6 +3143,13 @@ class Modal extends BaseComponent {
   _isAnimated() {
     return this._element.classList.contains(CLASS_NAME_FADE$3);
   }
+  /**
+   * Triggers the backdrop transition for the modal element.
+   *
+   * This function first checks if the hide event is prevented. If not, it evaluates whether the modal is overflowing
+   * and adjusts the overflow style accordingly. It adds a static class to the element, queues a callback to remove
+   * the class after the transition, and restores the original overflow style. Finally, it focuses on the modal element.
+   */
   _triggerBackdropTransition() {
     const hideEvent = EventHandler.trigger(this._element, EVENT_HIDE_PREVENTED$1);
     if (hideEvent.defaultPrevented) {
@@ -2616,12 +3191,26 @@ class Modal extends BaseComponent {
       this._element.style[property] = `${scrollbarWidth}px`;
     }
   }
+  /**
+   * Resets the padding of the element to default values.
+   */
   _resetAdjustments() {
     this._element.style.paddingLeft = '';
     this._element.style.paddingRight = '';
   }
 
   // Static
+  /**
+   * Initializes the jQuery interface for the modal.
+   *
+   * This method iterates over each element in the jQuery collection, creating or retrieving
+   * an instance of the Modal using the provided config. It checks if the config is a string
+   * and verifies that the corresponding method exists on the Modal instance before invoking it
+   * with the relatedTarget parameter. If the method does not exist, a TypeError is thrown.
+   *
+   * @param {Object} config - The configuration object or method name for the modal.
+   * @param {Element} relatedTarget - The related target element for the modal method.
+   */
   static jQueryInterface(config, relatedTarget) {
     return this.each(function () {
       const data = Modal.getOrCreateInstance(this, config);
@@ -2744,6 +3333,13 @@ class Offcanvas extends BaseComponent {
   toggle(relatedTarget) {
     return this._isShown ? this.hide() : this.show(relatedTarget);
   }
+  /**
+   * Displays the modal element if it is not already shown.
+   *
+   * The function first checks if the modal is currently displayed. If it is not, it triggers a show event and checks if the event was prevented. If not, it updates the modal's state, shows the backdrop, and manages the scroll behavior. It sets the appropriate ARIA attributes and class names, and finally, it queues a callback to activate focus trapping and finalize the display of the modal.
+   *
+   * @param {Event} relatedTarget - The element that triggered the modal display.
+   */
   show(relatedTarget) {
     if (this._isShown) {
       return;
@@ -2774,6 +3370,14 @@ class Offcanvas extends BaseComponent {
     };
     this._queueCallback(completeCallBack, this._element, true);
   }
+  /**
+   * Hides the element and triggers the necessary events.
+   *
+   * This function first checks if the element is currently shown. If it is not, the function exits early.
+   * It then triggers a hide event and checks if the event was prevented. If not, it deactivates the focus trap,
+   * blurs the element, and updates its visibility state. The element is marked as hiding, and the backdrop is hidden.
+   * A callback is queued to clean up the element's attributes and trigger a hidden event once the hiding transition is complete.
+   */
   hide() {
     if (!this._isShown) {
       return;
@@ -2787,6 +3391,9 @@ class Offcanvas extends BaseComponent {
     this._isShown = false;
     this._element.classList.add(CLASS_NAME_HIDING);
     this._backdrop.hide();
+    /**
+     * Finalizes the completion of a modal transition by resetting attributes and triggering an event.
+     */
     const completeCallback = () => {
       this._element.classList.remove(CLASS_NAME_SHOW$3, CLASS_NAME_HIDING);
       this._element.removeAttribute('aria-modal');
@@ -2798,6 +3405,9 @@ class Offcanvas extends BaseComponent {
     };
     this._queueCallback(completeCallback, this._element, true);
   }
+  /**
+   * Disposes of the backdrop and focus trap, then calls the superclass dispose method.
+   */
   dispose() {
     this._backdrop.dispose();
     this._focustrap.deactivate();
@@ -2824,11 +3434,22 @@ class Offcanvas extends BaseComponent {
       clickCallback: isVisible ? clickCallback : null
     });
   }
+  /**
+   * Initializes a FocusTrap for the specified element.
+   */
   _initializeFocusTrap() {
     return new FocusTrap({
       trapElement: this._element
     });
   }
+  /**
+   * Adds event listeners to the element for handling keyboard events.
+   *
+   * This function listens for the keydown event on the specified element.
+   * If the ESCAPE_KEY is pressed and keyboard interaction is enabled in the
+   * configuration, it triggers the hide method. If the keyboard interaction
+   * is not enabled, it triggers the EVENT_HIDE_PREVENTED event.
+   */
   _addEventListeners() {
     EventHandler.on(this._element, EVENT_KEYDOWN_DISMISS, event => {
       if (event.key !== ESCAPE_KEY) {
@@ -2843,6 +3464,15 @@ class Offcanvas extends BaseComponent {
   }
 
   // Static
+  /**
+   * Initializes the jQuery interface for the Offcanvas component.
+   *
+   * This method iterates over each element in the jQuery collection, creating or retrieving an instance of Offcanvas using the provided config.
+   * It checks if the config is a string and validates the method name before invoking it on the instance.
+   * If the method is not defined or is a private method, a TypeError is thrown.
+   *
+   * @param {string|Object} config - The configuration or method name to be executed on the Offcanvas instance.
+   */
   static jQueryInterface(config) {
     return this.each(function () {
       const data = Offcanvas.getOrCreateInstance(this, config);
@@ -2961,6 +3591,17 @@ const uriAttributes = new Set(['background', 'cite', 'href', 'itemtype', 'longde
  */
 // eslint-disable-next-line unicorn/better-regex
 const SAFE_URL_PATTERN = /^(?!javascript:)(?:[a-z0-9+.-]+:|[^&:/?#]*(?:[/?#]|$))/i;
+/**
+ * Determines if a given attribute is allowed based on a list of permitted attributes.
+ *
+ * The function first checks if the attribute's name is in the allowedAttributeList.
+ * If it is, it further checks if the attribute is a URI attribute and validates its value
+ * against a safe URL pattern. If the attribute is not found in the list, it checks if any
+ * regular expressions in the allowedAttributeList match the attribute name.
+ *
+ * @param {Element} attribute - The attribute element to be validated.
+ * @param {Array} allowedAttributeList - The list of allowed attribute names and regex patterns.
+ */
 const allowedAttribute = (attribute, allowedAttributeList) => {
   const attributeName = attribute.nodeName.toLowerCase();
   if (allowedAttributeList.includes(attributeName)) {
@@ -2973,6 +3614,19 @@ const allowedAttribute = (attribute, allowedAttributeList) => {
   // Check if a regular expression validates the attribute.
   return allowedAttributeList.filter(attributeRegex => attributeRegex instanceof RegExp).some(regex => regex.test(attributeName));
 };
+/**
+ * Sanitize HTML by removing disallowed elements and attributes.
+ *
+ * The function first checks if the input HTML is empty and returns it if so.
+ * If a sanitizeFunction is provided, it is called with the unsafeHtml.
+ * Otherwise, the function parses the HTML, removes elements not in the allowList,
+ * and filters attributes based on the allowed attributes for each element.
+ *
+ * @param unsafeHtml - The HTML string to be sanitized.
+ * @param allowList - An object defining allowed elements and their attributes.
+ * @param sanitizeFunction - An optional function to further sanitize the HTML.
+ * @returns The sanitized HTML string.
+ */
 function sanitizeHtml(unsafeHtml, allowList, sanitizeFunction) {
   if (!unsafeHtml.length) {
     return unsafeHtml;
@@ -3059,12 +3713,18 @@ class TemplateFactory extends Config {
   }
 
   // Public
+  /**
+   * Retrieves and resolves the content from the configuration.
+   */
   getContent() {
     return Object.values(this._config.content).map(config => this._resolvePossibleFunction(config)).filter(Boolean);
   }
   hasContent() {
     return this.getContent().length > 0;
   }
+  /**
+   * Updates the content in the configuration.
+   */
   changeContent(content) {
     this._checkContent(content);
     this._config.content = {
@@ -3092,6 +3752,9 @@ class TemplateFactory extends Config {
     super._typeCheckConfig(config);
     this._checkContent(config.content);
   }
+  /**
+   * Checks the content of the provided argument against the default content type.
+   */
   _checkContent(arg) {
     for (const [selector, content] of Object.entries(arg)) {
       super._typeCheckConfig({
@@ -3100,6 +3763,17 @@ class TemplateFactory extends Config {
       }, DefaultContentType);
     }
   }
+  /**
+   * Sets the content of a specified template element.
+   *
+   * This function locates a template element using the provided selector and updates its content based on the given input.
+   * It first resolves the content, handling cases where the content is a function, an HTML element, or plain text.
+   * If the content is not valid, the template element is removed. The function also considers the configuration for HTML sanitization.
+   *
+   * @param {HTMLElement} template - The template element in which to set the content.
+   * @param {string|Function|HTMLElement} content - The content to be set, which can be a string, a function returning a string, or an HTML element.
+   * @param {string} selector - The selector used to find the template element within the provided template.
+   */
   _setContent(template, content, selector) {
     const templateElement = SelectorEngine.findOne(selector, template);
     if (!templateElement) {
@@ -3120,12 +3794,21 @@ class TemplateFactory extends Config {
     }
     templateElement.textContent = content;
   }
+  /**
+   * Conditionally sanitizes the input argument based on the configuration.
+   */
   _maybeSanitize(arg) {
     return this._config.sanitize ? sanitizeHtml(arg, this._config.allowList, this._config.sanitizeFn) : arg;
   }
+  /**
+   * Resolves a possible function by executing it with the given argument and context.
+   */
   _resolvePossibleFunction(arg) {
     return execute(arg, [this]);
   }
+  /**
+   * Inserts an element into a template element based on configuration.
+   */
   _putElementInTemplate(element, templateElement) {
     if (this._config.html) {
       templateElement.innerHTML = '';
@@ -3256,15 +3939,32 @@ class Tooltip extends BaseComponent {
   }
 
   // Public
+  /**
+   * Enables the current context.
+   */
   enable() {
     this._isEnabled = true;
   }
+  /**
+   * Disables the current instance by setting _isEnabled to false.
+   */
   disable() {
     this._isEnabled = false;
   }
+  /**
+   * Toggles the enabled state.
+   */
   toggleEnabled() {
     this._isEnabled = !this._isEnabled;
   }
+  /**
+   * Toggles the state of the active trigger.
+   *
+   * This function checks if the component is enabled. If it is not, the function exits early.
+   * If the component is enabled, it toggles the click state of the active trigger.
+   * It then checks if the component is currently shown; if so, it calls the _leave method.
+   * Otherwise, it calls the _enter method to display the component.
+   */
   toggle() {
     if (!this._isEnabled) {
       return;
@@ -3276,6 +3976,9 @@ class Tooltip extends BaseComponent {
     }
     this._enter();
   }
+  /**
+   * Cleans up resources and event handlers associated with the instance.
+   */
   dispose() {
     clearTimeout(this._timeout);
     EventHandler.off(this._element.closest(SELECTOR_MODAL), EVENT_MODAL_HIDE, this._hideModalHandler);
@@ -3285,6 +3988,16 @@ class Tooltip extends BaseComponent {
     this._disposePopper();
     super.dispose();
   }
+  /**
+   * Displays the element with a tooltip if it is visible and enabled.
+   *
+   * The function first checks if the element is hidden or not enabled, throwing an error if it is hidden.
+   * It then triggers a show event and checks if the element is in the DOM. If the event is not prevented,
+   * it proceeds to set up the tooltip, appending it to the container if necessary, and creates a popper instance.
+   * Finally, it handles touch-enabled devices by adding mouseover listeners and triggers a shown event upon completion.
+   *
+   * @throws Error If the element is not visible.
+   */
   show() {
     if (this._element.style.display === 'none') {
       throw new Error('Please use show on visible elements');
@@ -3322,6 +4035,9 @@ class Tooltip extends BaseComponent {
         EventHandler.on(element, 'mouseover', noop);
       }
     }
+    /**
+     * Triggers an event and handles hover state.
+     */
     const complete = () => {
       EventHandler.trigger(this._element, this.constructor.eventName(EVENT_SHOWN$2));
       if (this._isHovered === false) {
@@ -3331,6 +4047,13 @@ class Tooltip extends BaseComponent {
     };
     this._queueCallback(complete, this.tip, this._isAnimated());
   }
+  /**
+   * Hides the tooltip element and cleans up associated event listeners.
+   *
+   * The function first checks if the tooltip is currently shown. If not, it exits early. It triggers a hide event and checks if it was prevented. If allowed, it removes the visible class from the tooltip element. For touch-enabled devices, it removes unnecessary mouseover listeners. It then resets the active triggers and sets the hover state to null. Finally, it defines a completion callback to dispose of the tooltip if no active triggers remain and triggers a hidden event.
+   *
+   * @returns {void}
+   */
   hide() {
     if (!this._isShown()) {
       return;
@@ -3366,6 +4089,9 @@ class Tooltip extends BaseComponent {
     };
     this._queueCallback(complete, this.tip, this._isAnimated());
   }
+  /**
+   * Updates the popper instance if it exists.
+   */
   update() {
     if (this._popper) {
       this._popper.update();
@@ -3373,9 +4099,15 @@ class Tooltip extends BaseComponent {
   }
 
   // Protected
+  /**
+   * Checks if there is a title present.
+   */
   _isWithContent() {
     return Boolean(this._getTitle());
   }
+  /**
+   * Retrieves the tip element, creating it if it doesn't exist.
+   */
   _getTipElement() {
     if (!this.tip) {
       this.tip = this._createTipElement(this._newContent || this._getContentForTemplate());
@@ -3399,6 +4131,9 @@ class Tooltip extends BaseComponent {
     }
     return tip;
   }
+  /**
+   * Sets the content and updates the display if shown.
+   */
   setContent(content) {
     this._newContent = content;
     if (this._isShown()) {
@@ -3425,6 +4160,9 @@ class Tooltip extends BaseComponent {
       [SELECTOR_TOOLTIP_INNER]: this._getTitle()
     };
   }
+  /**
+   * Retrieves the title from the configuration or element attribute.
+   */
   _getTitle() {
     return this._resolvePossibleFunction(this._config.title) || this._element.getAttribute('data-bs-original-title');
   }
@@ -3433,17 +4171,36 @@ class Tooltip extends BaseComponent {
   _initializeOnDelegatedTarget(event) {
     return this.constructor.getOrCreateInstance(event.delegateTarget, this._getDelegateConfig());
   }
+  /**
+   * Checks if the animation is enabled based on the configuration or the tip's class.
+   */
   _isAnimated() {
     return this._config.animation || this.tip && this.tip.classList.contains(CLASS_NAME_FADE$2);
   }
+  /**
+   * Checks if the tip is shown.
+   */
   _isShown() {
     return this.tip && this.tip.classList.contains(CLASS_NAME_SHOW$2);
   }
+  /**
+   * Creates a popper instance for the given tip element.
+   */
   _createPopper(tip) {
     const placement = execute(this._config.placement, [this, tip, this._element]);
     const attachment = AttachmentMap[placement.toUpperCase()];
     return Popper.createPopper(this._element, tip, this._getPopperConfig(attachment));
   }
+  /**
+   * Retrieves the offset configuration.
+   *
+   * This function checks the type of the offset defined in the configuration.
+   * If the offset is a string, it splits the string by commas and converts
+   * each value to an integer. If the offset is a function, it returns a
+   * new function that calls the offset with the provided popperData and
+   * the current element. If the offset is neither, it returns the offset
+   * as is.
+   */
   _getOffset() {
     const {
       offset
@@ -3456,9 +4213,15 @@ class Tooltip extends BaseComponent {
     }
     return offset;
   }
+  /**
+   * Resolves a possible function by executing it with the given argument and the element.
+   */
   _resolvePossibleFunction(arg) {
     return execute(arg, [this._element]);
   }
+  /**
+   * Returns the Popper configuration based on the specified attachment.
+   */
   _getPopperConfig(attachment) {
     const defaultBsPopperConfig = {
       placement: attachment,
@@ -3498,6 +4261,13 @@ class Tooltip extends BaseComponent {
       ...execute(this._config.popperConfig, [defaultBsPopperConfig])
     };
   }
+  /**
+   * Sets up event listeners based on the configured triggers.
+   *
+   * This function splits the configured trigger string into individual triggers and sets up event listeners for each.
+   * It handles 'click', 'hover', and 'focus' events, initializing the context for delegated targets and managing
+   * active triggers. Additionally, it sets up a handler to hide the modal when the modal hide event is triggered.
+   */
   _setListeners() {
     const triggers = this._config.trigger.split(' ');
     for (const trigger of triggers) {
@@ -3551,6 +4321,9 @@ class Tooltip extends BaseComponent {
       }
     }, this._config.delay.show);
   }
+  /**
+   * Handles the leave event by hiding the element if not hovered.
+   */
   _leave() {
     if (this._isWithActiveTrigger()) {
       return;
@@ -3562,6 +4335,9 @@ class Tooltip extends BaseComponent {
       }
     }, this._config.delay.hide);
   }
+  /**
+   * Sets a timeout for the specified handler.
+   */
   _setTimeout(handler, timeout) {
     clearTimeout(this._timeout);
     this._timeout = setTimeout(handler, timeout);
@@ -3569,6 +4345,16 @@ class Tooltip extends BaseComponent {
   _isWithActiveTrigger() {
     return Object.values(this._activeTrigger).includes(true);
   }
+  /**
+   * Merges and validates configuration settings.
+   *
+   * This function retrieves data attributes from the element, filters out any disallowed attributes,
+   * and merges them with the provided config object if it is valid. It then processes the merged
+   * configuration through additional methods for merging, post-processing, and type checking before
+   * returning the final configuration object.
+   *
+   * @param {Object} config - The configuration object to merge with data attributes.
+   */
   _getConfig(config) {
     const dataAttributes = Manipulator.getDataAttributes(this._element);
     for (const dataAttribute of Object.keys(dataAttributes)) {
@@ -3585,6 +4371,15 @@ class Tooltip extends BaseComponent {
     this._typeCheckConfig(config);
     return config;
   }
+  /**
+   * Configures the provided settings after merging with defaults.
+   *
+   * This function updates the `container` property of the config object to either the document body or a specific element retrieved by `getElement`.
+   * It also normalizes the `delay`, `title`, and `content` properties, converting them to appropriate types if they are provided as numbers.
+   * Finally, it returns the modified config object.
+   *
+   * @param {Object} config - The configuration object to be modified.
+   */
   _configAfterMerge(config) {
     config.container = config.container === false ? document.body : getElement(config.container);
     if (typeof config.delay === 'number') {
@@ -3601,6 +4396,9 @@ class Tooltip extends BaseComponent {
     }
     return config;
   }
+  /**
+   * Retrieves the delegate configuration by comparing it with default values.
+   */
   _getDelegateConfig() {
     const config = {};
     for (const [key, value] of Object.entries(this._config)) {
@@ -3616,6 +4414,9 @@ class Tooltip extends BaseComponent {
     // `Object.fromEntries(keysWithDifferentValues)`
     return config;
   }
+  /**
+   * Disposes of the popper and removes the tip element.
+   */
   _disposePopper() {
     if (this._popper) {
       this._popper.destroy();
@@ -3628,6 +4429,15 @@ class Tooltip extends BaseComponent {
   }
 
   // Static
+  /**
+   * Initializes the jQuery interface for Tooltip instances.
+   *
+   * This method iterates over each element in the jQuery collection, creating or retrieving a Tooltip instance
+   * based on the provided configuration. If the configuration is a string, it checks if the corresponding method
+   * exists on the Tooltip instance and invokes it. If the method does not exist, a TypeError is thrown.
+   *
+   * @param {string|Object} config - The configuration for the Tooltip instance or the method name to invoke.
+   */
   static jQueryInterface(config) {
     return this.each(function () {
       const data = Tooltip.getOrCreateInstance(this, config);
@@ -3693,22 +4503,41 @@ class Popover extends Tooltip {
   }
 
   // Overrides
+  /**
+   * Checks if there is a title or content present.
+   */
   _isWithContent() {
     return this._getTitle() || this._getContent();
   }
 
   // Private
+  /**
+   * Retrieves content for a template including title and content.
+   */
   _getContentForTemplate() {
     return {
       [SELECTOR_TITLE]: this._getTitle(),
       [SELECTOR_CONTENT]: this._getContent()
     };
   }
+  /**
+   * Retrieves the content by resolving a possible function.
+   */
   _getContent() {
     return this._resolvePossibleFunction(this._config.content);
   }
 
   // Static
+  /**
+   * Initializes the jQuery interface for the Popover component.
+   *
+   * This method iterates over each element in the jQuery collection, creating or retrieving
+   * an instance of the Popover using the provided config. If the config is not a string,
+   * the function exits early. If the config corresponds to a method that does not exist
+   * on the Popover instance, a TypeError is thrown.
+   *
+   * @param {string|Object} config - The configuration for the Popover or a method name to invoke.
+   */
   static jQueryInterface(config) {
     return this.each(function () {
       const data = Popover.getOrCreateInstance(this, config);
@@ -3809,6 +4638,9 @@ class ScrollSpy extends BaseComponent {
   }
 
   // Public
+  /**
+   * Refreshes the observer and reinitializes targets and observables.
+   */
   refresh() {
     this._initializeTargetsAndObservables();
     this._maybeEnableSmoothScroll();
@@ -3838,6 +4670,11 @@ class ScrollSpy extends BaseComponent {
     }
     return config;
   }
+  /**
+   * Enables smooth scrolling for target links if configured.
+   *
+   * This function checks if smooth scrolling is enabled in the configuration. If it is, it unregisters any previous click event listeners on the target and registers a new listener. When a target link is clicked, it prevents the default action, calculates the scroll position based on the target's offset, and scrolls to that position smoothly if supported. If not, it falls back to setting the scrollTop property directly.
+   */
   _maybeEnableSmoothScroll() {
     if (!this._config.smoothScroll) {
       return;
@@ -3864,6 +4701,9 @@ class ScrollSpy extends BaseComponent {
       }
     });
   }
+  /**
+   * Creates a new IntersectionObserver with specified options.
+   */
   _getNewObserver() {
     const options = {
       root: this._rootElement,
@@ -3875,7 +4715,13 @@ class ScrollSpy extends BaseComponent {
 
   // The logic of selection
   _observerCallback(entries) {
+    /**
+     * Retrieves the target link associated with the given entry's target ID.
+     */
     const targetElement = entry => this._targetLinks.get(`#${entry.target.id}`);
+    /**
+     * Activates the entry by updating scroll data and processing the target element.
+     */
     const activate = entry => {
       this._previousScrollData.visibleEntryTop = entry.target.offsetTop;
       this._process(targetElement(entry));
@@ -3906,6 +4752,14 @@ class ScrollSpy extends BaseComponent {
       }
     }
   }
+  /**
+   * Initializes target links and observable sections.
+   *
+   * This method populates the _targetLinks and _observableSections maps by finding target links
+   * based on the provided selector. It iterates through each link, ensuring that the anchor has
+   * a valid ID and is not disabled. For each valid anchor, it checks if the corresponding
+   * observable section is visible before adding them to the respective maps.
+   */
   _initializeTargetsAndObservables() {
     this._targetLinks = new Map();
     this._observableSections = new Map();
@@ -3924,6 +4778,9 @@ class ScrollSpy extends BaseComponent {
       }
     }
   }
+  /**
+   * Activates the specified target and updates the active class.
+   */
   _process(target) {
     if (this._activeTarget === target) {
       return;
@@ -3950,6 +4807,9 @@ class ScrollSpy extends BaseComponent {
       }
     }
   }
+  /**
+   * Removes the active class from the parent and its child nodes.
+   */
   _clearActiveClass(parent) {
     parent.classList.remove(CLASS_NAME_ACTIVE$1);
     const activeNodes = SelectorEngine.find(`${SELECTOR_TARGET_LINKS}.${CLASS_NAME_ACTIVE$1}`, parent);
@@ -4056,6 +4916,14 @@ class Tab extends BaseComponent {
   }
 
   // Public
+  /**
+   * Shows the current element and deactivates the active sibling if it exists.
+   *
+   * This function first checks if the current element is already active. If it is, the function exits early.
+   * If not, it searches for an active element within the same parent and triggers the appropriate hide and show events.
+   * If either event is prevented, the function returns without making any changes.
+   * Finally, it deactivates the previously active element and activates the current one.
+   */
   show() {
     // Shows this elem and deactivate the active sibling if exists
     const innerElem = this._element;
@@ -4079,6 +4947,17 @@ class Tab extends BaseComponent {
   }
 
   // Private
+  /**
+   * Activates the specified element and manages its state.
+   *
+   * This function checks if the element is valid, adds an active class, and activates the corresponding section
+   * using the SelectorEngine. It then defines a complete callback to update the element's attributes and trigger
+   * an event, depending on whether the element is a tab or not. The callback is queued for execution after a
+   * transition, if applicable.
+   *
+   * @param {HTMLElement} element - The element to activate.
+   * @param {HTMLElement} relatedElem - The related element that triggered the activation.
+   */
   _activate(element, relatedElem) {
     if (!element) {
       return;
@@ -4108,6 +4987,9 @@ class Tab extends BaseComponent {
     element.blur();
     this._deactivate(SelectorEngine.getElementFromSelector(element)); // Search and deactivate the shown section too
 
+    /**
+     * Handles the completion of a tab element by updating its attributes and triggering an event.
+     */
     const complete = () => {
       if (element.getAttribute('role') !== 'tab') {
         element.classList.remove(CLASS_NAME_SHOW$1);
@@ -4122,6 +5004,16 @@ class Tab extends BaseComponent {
     };
     this._queueCallback(complete, element, element.classList.contains(CLASS_NAME_FADE$1));
   }
+  /**
+   * Handles keyboard navigation for specific keys.
+   *
+   * This function listens for keydown events and checks if the pressed key is one of the specified navigation keys.
+   * If so, it prevents the default action and stops the event from propagating. It retrieves the child elements,
+   * determines the next active element based on the key pressed, and sets focus on that element while ensuring
+   * that the Tab instance is shown for the focused element.
+   *
+   * @param {KeyboardEvent} event - The keyboard event triggered by the keydown action.
+   */
   _keydown(event) {
     if (![ARROW_LEFT_KEY, ARROW_RIGHT_KEY, ARROW_UP_KEY, ARROW_DOWN_KEY, HOME_KEY, END_KEY].includes(event.key)) {
       return;
@@ -4143,19 +5035,31 @@ class Tab extends BaseComponent {
       Tab.getOrCreateInstance(nextActiveElement).show();
     }
   }
+  /**
+   * Retrieves a collection of inner elements from the parent.
+   */
   _getChildren() {
     // collection of inner elements
     return SelectorEngine.find(SELECTOR_INNER_ELEM, this._parent);
   }
+  /**
+   * Retrieves the active child element or null if none is active.
+   */
   _getActiveElem() {
     return this._getChildren().find(child => this._elemIsActive(child)) || null;
   }
+  /**
+   * Sets initial attributes on a parent element and its children.
+   */
   _setInitialAttributes(parent, children) {
     this._setAttributeIfNotExists(parent, 'role', 'tablist');
     for (const child of children) {
       this._setInitialAttributesOnChild(child);
     }
   }
+  /**
+   * Sets initial attributes on the child element.
+   */
   _setInitialAttributesOnChild(child) {
     child = this._getInnerElement(child);
     const isActive = this._elemIsActive(child);
@@ -4187,6 +5091,9 @@ class Tab extends BaseComponent {
     if (!outerElem.classList.contains(CLASS_DROPDOWN)) {
       return;
     }
+    /**
+     * Toggles a class on an element selected by the given selector.
+     */
     const toggle = (selector, className) => {
       const element = SelectorEngine.findOne(selector, outerElem);
       if (element) {
@@ -4197,26 +5104,48 @@ class Tab extends BaseComponent {
     toggle(SELECTOR_DROPDOWN_MENU, CLASS_NAME_SHOW$1);
     outerElem.setAttribute('aria-expanded', open);
   }
+  /**
+   * Sets an attribute on an element if it does not already exist.
+   */
   _setAttributeIfNotExists(element, attribute, value) {
     if (!element.hasAttribute(attribute)) {
       element.setAttribute(attribute, value);
     }
   }
+  /**
+   * Checks if the specified element is active.
+   */
   _elemIsActive(elem) {
     return elem.classList.contains(CLASS_NAME_ACTIVE);
   }
 
   // Try to get the inner element (usually the .nav-link)
+  /**
+   * Retrieves the inner element matching the selector.
+   */
   _getInnerElement(elem) {
     return elem.matches(SELECTOR_INNER_ELEM) ? elem : SelectorEngine.findOne(SELECTOR_INNER_ELEM, elem);
   }
 
   // Try to get the outer element (usually the .nav-item)
+  /**
+   * Retrieves the closest outer element matching the selector or returns the element itself.
+   */
   _getOuterElement(elem) {
     return elem.closest(SELECTOR_OUTER) || elem;
   }
 
   // Static
+  /**
+   * Initializes the jQuery interface for the Tab component.
+   *
+   * This method iterates over each element in the jQuery collection, retrieves or creates an instance of the Tab using
+   * Tab.getOrCreateInstance, and checks if the provided config is a valid method name. If the config is not a string,
+   * or if the method is undefined, private, or the constructor, a TypeError is thrown. Otherwise, the specified method
+   * is invoked on the Tab instance.
+   *
+   * @param {string} config - The method name to be called on the Tab instance.
+   */
   static jQueryInterface(config) {
     return this.each(function () {
       const data = Tab.getOrCreateInstance(this);
@@ -4331,6 +5260,9 @@ class Toast extends BaseComponent {
     if (this._config.animation) {
       this._element.classList.add(CLASS_NAME_FADE);
     }
+    /**
+     * Completes the showing process by removing the showing class and triggering the shown event.
+     */
     const complete = () => {
       this._element.classList.remove(CLASS_NAME_SHOWING);
       EventHandler.trigger(this._element, EVENT_SHOWN);
@@ -4341,6 +5273,13 @@ class Toast extends BaseComponent {
     this._element.classList.add(CLASS_NAME_SHOW, CLASS_NAME_SHOWING);
     this._queueCallback(complete, this._element, this._config.animation);
   }
+  /**
+   * Hides the element if it is currently shown.
+   *
+   * This function first checks if the element is visible using the isShown method. If it is not shown, the function exits early.
+   * It then triggers a hide event and checks if the event was prevented. If not, it proceeds to add a showing class to the element,
+   * and sets up a callback to complete the hiding process by adding a hide class and removing showing classes, followed by triggering a hidden event.
+   */
   hide() {
     if (!this.isShown()) {
       return;
@@ -4349,6 +5288,9 @@ class Toast extends BaseComponent {
     if (hideEvent.defaultPrevented) {
       return;
     }
+    /**
+     * Hides the element by updating its class list and triggering an event.
+     */
     const complete = () => {
       this._element.classList.add(CLASS_NAME_HIDE); // @deprecated
       this._element.classList.remove(CLASS_NAME_SHOWING, CLASS_NAME_SHOW);
@@ -4357,6 +5299,9 @@ class Toast extends BaseComponent {
     this._element.classList.add(CLASS_NAME_SHOWING);
     this._queueCallback(complete, this._element, this._config.animation);
   }
+  /**
+   * Disposes of the component, clearing timeout and removing the show class if displayed.
+   */
   dispose() {
     this._clearTimeout();
     if (this.isShown()) {
@@ -4364,12 +5309,22 @@ class Toast extends BaseComponent {
     }
     super.dispose();
   }
+  /**
+   * Checks if the element is shown by verifying its class list.
+   */
   isShown() {
     return this._element.classList.contains(CLASS_NAME_SHOW);
   }
 
   // Private
 
+  /**
+   * Schedules the hiding of an element based on user interaction and configuration.
+   *
+   * This function checks if autohide is enabled in the configuration. If autohide is not enabled, or if there is
+   * any mouse or keyboard interaction, the function exits early. If conditions are met, it sets a timeout to
+   * call the hide method after a specified delay from the configuration.
+   */
   _maybeScheduleHide() {
     if (!this._config.autohide) {
       return;
@@ -4381,6 +5336,16 @@ class Toast extends BaseComponent {
       this.hide();
     }, this._config.delay);
   }
+  /**
+   * Handles interaction events to manage mouse and keyboard interaction states.
+   *
+   * The function updates the interaction state based on the event type, distinguishing between mouse and keyboard events.
+   * If the interaction is active, it clears any existing timeout. If the interaction is not active, it checks the related target
+   * of the event to determine if it should schedule a hide operation.
+   *
+   * @param event - The event object representing the interaction event.
+   * @param isInteracting - A boolean indicating whether the interaction is currently active.
+   */
   _onInteraction(event, isInteracting) {
     switch (event.type) {
       case 'mouseover':
@@ -4406,18 +5371,27 @@ class Toast extends BaseComponent {
     }
     this._maybeScheduleHide();
   }
+  /**
+   * Sets up event listeners for mouse and focus interactions on the element.
+   */
   _setListeners() {
     EventHandler.on(this._element, EVENT_MOUSEOVER, event => this._onInteraction(event, true));
     EventHandler.on(this._element, EVENT_MOUSEOUT, event => this._onInteraction(event, false));
     EventHandler.on(this._element, EVENT_FOCUSIN, event => this._onInteraction(event, true));
     EventHandler.on(this._element, EVENT_FOCUSOUT, event => this._onInteraction(event, false));
   }
+  /**
+   * Clears the timeout and resets it to null.
+   */
   _clearTimeout() {
     clearTimeout(this._timeout);
     this._timeout = null;
   }
 
   // Static
+  /**
+   * jQuery interface for managing Toast instances.
+   */
   static jQueryInterface(config) {
     return this.each(function () {
       const data = Toast.getOrCreateInstance(this, config);
