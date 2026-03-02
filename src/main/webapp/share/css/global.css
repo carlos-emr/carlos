@@ -36,10 +36,8 @@
     --carlos-primary: #337ab7;
     --carlos-link: #337ab7;
     --carlos-text: #333;
-}
 
-/* Bootstrap 5 overrides — retheme via CARLOS variables */
-:root {
+    /* Bootstrap 5 overrides — retheme via CARLOS variables */
     --bs-primary: var(--carlos-primary);
     --bs-link-color: var(--carlos-link);
 }
