@@ -860,6 +860,7 @@
                 </div>
 
             </c:if>
+            <c:if test="${not empty param.demoview}">
             <div class="pull-left" style="margin-bottom:10px;">
                 <label for="ticklerview">Filter</label>
                 <select id="ticklerview" class="form-control" name="ticklerview">
@@ -868,6 +869,7 @@
                     <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
                 </select>
             </div>
+            </c:if>
         </form>
 
         <form name="ticklerform" method="post" action="dbTicklerMain.jsp">
