@@ -165,11 +165,6 @@ public interface TicklerManager {
 
     /**
      * Returns all tickler data as lightweight DTOs, limited to MAX_LIST_RETURN_SIZE.
-     *
-     * @param loggedInInfo LoggedInInfo the logged in user info
-     * @param filter CustomFilter the filter criteria
-     * @return List of TicklerListDTO matching the filter criteria
-     * @since 2026-02-27
      */
     List<TicklerListDTO> getTicklerDTOs(LoggedInInfo loggedInInfo, CustomFilter filter);
 }
