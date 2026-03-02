@@ -84,11 +84,7 @@ public interface TicklerDao extends AbstractDao<Tickler> {
     List<TicklerListDTO> getTicklerDTOs(CustomFilter filter, int offset, int limit);
 
     /**
-     * Returns all tickler data as lightweight DTOs, limited to MAX_LIST_RETURN_SIZE.
-     *
-     * @param filter CustomFilter the filter criteria
-     * @return List of TicklerListDTO matching the filter criteria
-     * @since 2026-02-27
+     * Returns all tickler data as lightweight DTOs.
      */
     List<TicklerListDTO> getTicklerDTOs(CustomFilter filter);
 }
