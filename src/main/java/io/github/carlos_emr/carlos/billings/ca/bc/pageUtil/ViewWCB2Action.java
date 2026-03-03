@@ -60,6 +60,7 @@ import io.github.carlos_emr.carlos.util.SqlUtils;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class ViewWCB2Action extends ActionSupport {
@@ -206,6 +207,7 @@ public class ViewWCB2Action extends ActionSupport {
         return demographic_no;
     }
 
+    @StrutsParameter
     public void setDemographic_no(String demographic_no) {
         this.demographic_no = demographic_no;
     }
@@ -214,6 +216,7 @@ public class ViewWCB2Action extends ActionSupport {
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
@@ -222,6 +225,7 @@ public class ViewWCB2Action extends ActionSupport {
         return formCreated;
     }
 
+    @StrutsParameter
     public void setFormCreated(String formCreated) {
         this.formCreated = formCreated;
     }
@@ -230,6 +234,7 @@ public class ViewWCB2Action extends ActionSupport {
         return formEdited;
     }
 
+    @StrutsParameter
     public void setFormEdited(String formEdited) {
         this.formEdited = formEdited;
     }
@@ -238,6 +243,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_reportype;
     }
 
+    @StrutsParameter
     public void setW_reportype(String w_reportype) {
         this.w_reportype = w_reportype;
     }
@@ -246,6 +252,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_fname;
     }
 
+    @StrutsParameter
     public void setW_fname(String w_fname) {
         this.w_fname = w_fname;
     }
@@ -254,6 +261,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_lname;
     }
 
+    @StrutsParameter
     public void setW_lname(String w_lname) {
         this.w_lname = w_lname;
     }
@@ -262,6 +270,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_mname;
     }
 
+    @StrutsParameter
     public void setW_mname(String w_mname) {
         this.w_mname = w_mname;
     }
@@ -270,6 +279,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_gender;
     }
 
+    @StrutsParameter
     public void setW_gender(String w_gender) {
         this.w_gender = w_gender;
     }
@@ -278,6 +288,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_dob;
     }
 
+    @StrutsParameter
     public void setW_dob(String w_dob) {
         this.w_dob = w_dob;
     }
@@ -286,6 +297,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_doi;
     }
 
+    @StrutsParameter
     public void setW_doi(String w_doi) {
         this.w_doi = w_doi;
     }
@@ -294,6 +306,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_address;
     }
 
+    @StrutsParameter
     public void setW_address(String w_address) {
         this.w_address = w_address;
     }
@@ -302,6 +315,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_city;
     }
 
+    @StrutsParameter
     public void setW_city(String w_city) {
         this.w_city = w_city;
     }
@@ -310,6 +324,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_postal;
     }
 
+    @StrutsParameter
     public void setW_postal(String w_postal) {
         this.w_postal = w_postal;
     }
@@ -318,6 +333,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_area;
     }
 
+    @StrutsParameter
     public void setW_area(String w_area) {
         this.w_area = w_area;
     }
@@ -326,6 +342,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_phone;
     }
 
+    @StrutsParameter
     public void setW_phone(String w_phone) {
         this.w_phone = w_phone;
     }
@@ -334,6 +351,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_phn;
     }
 
+    @StrutsParameter
     public void setW_phn(String w_phn) {
         this.w_phn = w_phn;
     }
@@ -342,6 +360,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_empname;
     }
 
+    @StrutsParameter
     public void setW_empname(String w_empname) {
         this.w_empname = w_empname;
     }
@@ -350,6 +369,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_emparea;
     }
 
+    @StrutsParameter
     public void setW_emparea(String w_emparea) {
         this.w_emparea = w_emparea;
     }
@@ -358,6 +378,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_empphone;
     }
 
+    @StrutsParameter
     public void setW_empphone(String w_empphone) {
         this.w_empphone = w_empphone;
     }
@@ -366,6 +387,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_wcbno;
     }
 
+    @StrutsParameter
     public void setW_wcbno(String w_wcbno) {
         this.w_wcbno = w_wcbno;
     }
@@ -374,6 +396,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_opaddress;
     }
 
+    @StrutsParameter
     public void setW_opaddress(String w_opaddress) {
         this.w_opaddress = w_opaddress;
     }
@@ -382,6 +405,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_opcity;
     }
 
+    @StrutsParameter
     public void setW_opcity(String w_opcity) {
         this.w_opcity = w_opcity;
     }
@@ -390,6 +414,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_rphysician;
     }
 
+    @StrutsParameter
     public void setW_rphysician(String w_rphysician) {
         this.w_rphysician = w_rphysician;
     }
@@ -398,6 +423,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_duration;
     }
 
+    @StrutsParameter
     public void setW_duration(String w_duration) {
         this.w_duration = w_duration;
     }
@@ -406,6 +432,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_ftreatment;
     }
 
+    @StrutsParameter
     public void setW_ftreatment(String w_ftreatment) {
         this.w_ftreatment = w_ftreatment;
     }
@@ -414,6 +441,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_problem;
     }
 
+    @StrutsParameter
     public void setW_problem(String w_problem) {
         this.w_problem = w_problem;
     }
@@ -422,6 +450,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_servicedate;
     }
 
+    @StrutsParameter
     public void setW_servicedate(String w_servicedate) {
         this.w_servicedate = w_servicedate;
     }
@@ -430,6 +459,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_diagnosis;
     }
 
+    @StrutsParameter
     public void setW_diagnosis(String w_diagnosis) {
         this.w_diagnosis = w_diagnosis;
     }
@@ -438,6 +468,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_icd9;
     }
 
+    @StrutsParameter
     public void setW_icd9(String w_icd9) {
         this.w_icd9 = w_icd9;
     }
@@ -446,6 +477,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_bp;
     }
 
+    @StrutsParameter
     public void setW_bp(String w_bp) {
         this.w_bp = w_bp;
     }
@@ -454,6 +486,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_side;
     }
 
+    @StrutsParameter
     public void setW_side(String w_side) {
         this.w_side = w_side;
     }
@@ -462,6 +495,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_noi;
     }
 
+    @StrutsParameter
     public void setW_noi(String w_noi) {
         this.w_noi = w_noi;
     }
@@ -470,6 +504,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_work;
     }
 
+    @StrutsParameter
     public void setW_work(String w_work) {
         this.w_work = w_work;
     }
@@ -478,6 +513,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_workdate;
     }
 
+    @StrutsParameter
     public void setW_workdate(String w_workdate) {
         this.w_workdate = w_workdate;
     }
@@ -486,6 +522,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_clinicinfo;
     }
 
+    @StrutsParameter
     public void setW_clinicinfo(String w_clinicinfo) {
         this.w_clinicinfo = w_clinicinfo;
     }
@@ -494,6 +531,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_capability;
     }
 
+    @StrutsParameter
     public void setW_capability(String w_capability) {
         this.w_capability = w_capability;
     }
@@ -502,6 +540,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_capreason;
     }
 
+    @StrutsParameter
     public void setW_capreason(String w_capreason) {
         this.w_capreason = w_capreason;
     }
@@ -510,6 +549,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_estimate;
     }
 
+    @StrutsParameter
     public void setW_estimate(String w_estimate) {
         this.w_estimate = w_estimate;
     }
@@ -518,6 +558,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_rehab;
     }
 
+    @StrutsParameter
     public void setW_rehab(String w_rehab) {
         this.w_rehab = w_rehab;
     }
@@ -526,6 +567,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_rehabtype;
     }
 
+    @StrutsParameter
     public void setW_rehabtype(String w_rehabtype) {
         this.w_rehabtype = w_rehabtype;
     }
@@ -534,6 +576,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_estimatedate;
     }
 
+    @StrutsParameter
     public void setW_estimatedate(String w_estimatedate) {
         this.w_estimatedate = w_estimatedate;
     }
@@ -542,6 +585,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_tofollow;
     }
 
+    @StrutsParameter
     public void setW_tofollow(String w_tofollow) {
         this.w_tofollow = w_tofollow;
     }
@@ -550,6 +594,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_payeeno;
     }
 
+    @StrutsParameter
     public void setW_payeeno(String w_payeeno) {
         this.w_payeeno = w_payeeno;
     }
@@ -558,6 +603,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_pracno;
     }
 
+    @StrutsParameter
     public void setW_pracno(String w_pracno) {
         this.w_pracno = w_pracno;
     }
@@ -566,6 +612,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_pracname;
     }
 
+    @StrutsParameter
     public void setW_pracname(String w_pracname) {
         this.w_pracname = w_pracname;
     }
@@ -574,6 +621,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_wcbadvisor;
     }
 
+    @StrutsParameter
     public void setW_wcbadvisor(String w_wcbadvisor) {
         this.w_wcbadvisor = w_wcbadvisor;
     }
@@ -582,6 +630,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_feeitem;
     }
 
+    @StrutsParameter
     public void setW_feeitem(String w_feeitem) {
         this.w_feeitem = w_feeitem;
     }
@@ -590,6 +639,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_extrafeeitem;
     }
 
+    @StrutsParameter
     public void setW_extrafeeitem(String w_extrafeeitem) {
         this.w_extrafeeitem = w_extrafeeitem;
     }
@@ -598,6 +648,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_servicelocation;
     }
 
+    @StrutsParameter
     public void setW_servicelocation(String w_servicelocation) {
         this.w_servicelocation = w_servicelocation;
     }
@@ -606,14 +657,17 @@ public class ViewWCB2Action extends ActionSupport {
         return formNeeded;
     }
 
+    @StrutsParameter
     public void setFormNeeded(String formNeeded) {
         this.formNeeded = formNeeded;
     }
 
+    @StrutsParameter(depth = 1)
     public List getInjuryLocations() {
         return injuryLocations;
     }
 
+    @StrutsParameter
     public void setInjuryLocations(List injuryLocations) {
         this.injuryLocations = injuryLocations;
     }
@@ -622,6 +676,7 @@ public class ViewWCB2Action extends ActionSupport {
         return demographic;
     }
 
+    @StrutsParameter
     public void setDemographic(String demographic) {
         this.demographic = demographic;
     }
@@ -630,6 +685,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_demographic;
     }
 
+    @StrutsParameter
     public void setW_demographic(String w_demographic) {
         this.w_demographic = w_demographic;
     }
@@ -638,6 +694,7 @@ public class ViewWCB2Action extends ActionSupport {
         return w_providerno;
     }
 
+    @StrutsParameter
     public void setW_providerno(String w_providerno) {
         this.w_providerno = w_providerno;
     }
@@ -646,6 +703,7 @@ public class ViewWCB2Action extends ActionSupport {
         return notBilled;
     }
 
+    @StrutsParameter
     public void setNotBilled(boolean notBilled) {
         this.notBilled = notBilled;
     }
@@ -654,6 +712,7 @@ public class ViewWCB2Action extends ActionSupport {
         return wcbFormId;
     }
 
+    @StrutsParameter
     public void setWcbFormId(String wcbFormId) {
         this.wcbFormId = wcbFormId;
     }
@@ -662,6 +721,7 @@ public class ViewWCB2Action extends ActionSupport {
         return doValidate;
     }
 
+    @StrutsParameter
     public void setDoValidate(boolean doValidate) {
         this.doValidate = doValidate;
     }

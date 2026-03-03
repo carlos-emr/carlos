@@ -31,6 +31,7 @@ import com.opensymphony.xwork2.ActionSupport;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -101,10 +102,12 @@ public class ClientImage2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    @StrutsParameter
     public void setClientImage(File clientImage) { 
         this.clientImage = clientImage; 
     }
 
+    @StrutsParameter
     public void setClientImageFileName(String name) { 
         this.clientImageFileName = name; 
     }

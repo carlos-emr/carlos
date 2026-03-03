@@ -77,6 +77,7 @@ import io.github.carlos_emr.OscarProperties;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class Contact2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -1326,28 +1327,34 @@ public class Contact2Action extends ActionSupport {
     private Contact contact;
     private ProfessionalContact pcontact;
 
+    @StrutsParameter(depth = 1)
     public Contact getContact() {
         return contact;
     }
 
+    @StrutsParameter
     public void setContact(Contact contact) {
         this.contact = contact;
     }
 
+    @StrutsParameter(depth = 1)
     public ProfessionalContact getPcontact() {
         return pcontact;
     }
 
+    @StrutsParameter
     public void setPcontact(ProfessionalContact pcontact) {
         this.pcontact = pcontact;
     }
 
     private PharmacyInfo pharmacyInfo;
 
+    @StrutsParameter(depth = 1)
     public PharmacyInfo getPharmacyInfo() {
         return pharmacyInfo;
     }
 
+    @StrutsParameter
     public void setPharmacyInfo(PharmacyInfo pharmacyInfo) {
         this.pharmacyInfo = pharmacyInfo;
     }

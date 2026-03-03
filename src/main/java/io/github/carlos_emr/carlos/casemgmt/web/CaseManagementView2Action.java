@@ -44,6 +44,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -1696,10 +1697,12 @@ public class CaseManagementView2Action extends ActionSupport {
     private int noteId;
     private String password;
 
+    @StrutsParameter(depth = 1)
     public EncounterWindow getEctWin() {
         return this.ectWin;
     }
 
+    @StrutsParameter
     public void setEctWin(EncounterWindow ectWin) {
         this.ectWin = ectWin;
     }
@@ -1708,6 +1711,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return password;
     }
 
+    @StrutsParameter
     public void setPassword(String password) {
         this.password = password;
     }
@@ -1716,6 +1720,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return note_sort;
     }
 
+    @StrutsParameter
     public void setNote_sort(String note_sort) {
         this.note_sort = note_sort;
     }
@@ -1724,14 +1729,17 @@ public class CaseManagementView2Action extends ActionSupport {
         return imageFile;
     }
 
+    @StrutsParameter
     public void setImageFile(File imageFile) {
         this.imageFile = imageFile;
     }
 
+    @StrutsParameter(depth = 1)
     public CaseManagementCPP getCpp() {
         return this.cpp;
     }
 
+    @StrutsParameter
     public void setCpp(CaseManagementCPP cpp) {
         this.cpp = cpp;
     }
@@ -1740,6 +1748,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return vlCountry;
     }
 
+    @StrutsParameter
     public void setVlCountry(String vlCountry) {
         this.vlCountry = vlCountry;
     }
@@ -1748,6 +1757,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return rootCompURL;
     }
 
+    @StrutsParameter
     public void setRootCompURL(String rootCompURL) {
         this.rootCompURL = rootCompURL;
     }
@@ -1756,6 +1766,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return demographicNo;
     }
 
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -1764,6 +1775,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return issues;
     }
 
+    @StrutsParameter
     public void setIssues(String[] issues) {
         this.issues = issues;
     }
@@ -1772,6 +1784,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return note_view;
     }
 
+    @StrutsParameter
     public void setNote_view(String note_view) {
         this.note_view = note_view;
     }
@@ -1780,6 +1793,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return tab;
     }
 
+    @StrutsParameter
     public void setTab(String tab) {
         this.tab = tab;
     }
@@ -1788,6 +1802,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return hideActiveIssue;
     }
 
+    @StrutsParameter
     public void setHideActiveIssue(String hideActiveIssue) {
         this.hideActiveIssue = hideActiveIssue;
     }
@@ -1796,6 +1811,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
@@ -1804,6 +1820,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return prescipt_view;
     }
 
+    @StrutsParameter
     public void setPrescipt_view(String prescipt_view) {
         this.prescipt_view = prescipt_view;
     }
@@ -1836,30 +1853,37 @@ public class CaseManagementView2Action extends ActionSupport {
         return searchText;
     }
 
+    @StrutsParameter
     public void setSearchEncounterType(String searchEncounterType) {
         this.searchEncounterType = searchEncounterType;
     }
 
+    @StrutsParameter
     public void setSearchEndDate(String searchEndDate) {
         this.searchEndDate = searchEndDate;
     }
 
+    @StrutsParameter
     public void setSearchProgramId(int searchProgramId) {
         this.searchProgramId = searchProgramId;
     }
 
+    @StrutsParameter
     public void setSearchProviderNo(String searchProviderNo) {
         this.searchProviderNo = searchProviderNo;
     }
 
+    @StrutsParameter
     public void setSearchRoleId(int searchRoleId) {
         this.searchRoleId = searchRoleId;
     }
 
+    @StrutsParameter
     public void setSearchStartDate(String searchStartDate) {
         this.searchStartDate = searchStartDate;
     }
 
+    @StrutsParameter
     public void setSearchText(String searchText) {
         this.searchText = searchText;
     }
@@ -1868,6 +1892,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return noteId;
     }
 
+    @StrutsParameter
     public void setNoteId(int noteId) {
         this.noteId = noteId;
     }
@@ -1876,6 +1901,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return this.filter_providers;
     }
 
+    @StrutsParameter
     public void setFilter_providers(String[] provs) {
         this.filter_providers = provs;
     }
@@ -1884,6 +1910,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return filter_provider;
     }
 
+    @StrutsParameter
     public void setFilter_provider(String filter_provider) {
         this.filter_provider = filter_provider;
     }
@@ -1892,6 +1919,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return filter_roles;
     }
 
+    @StrutsParameter
     public void setFilter_roles(String[] filter_roles) {
         this.filter_roles = filter_roles;
     }
@@ -1900,6 +1928,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return formId;
     }
 
+    @StrutsParameter
     public void setFormId(long formId) {
         this.formId = formId;
     }

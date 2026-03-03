@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -122,6 +123,7 @@ public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
         return this.groupName;
     }
 
+    @StrutsParameter
     public void setGroupName(String groupName) {
         this.groupName = groupName;
     }
@@ -132,6 +134,7 @@ public class EctDefineNewMeasurementGroup2Action extends ActionSupport {
         return this.styleSheet;
     }
 
+    @StrutsParameter
     public void setStyleSheet(String styleSheet) {
         this.styleSheet = styleSheet;
     }

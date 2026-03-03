@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for viewing PDF attachments stored directly in message records.
@@ -167,6 +168,7 @@ public class MsgViewPDFAttachment2Action extends ActionSupport {
      * 
      * @param str String the attachment/message ID
      */
+    @StrutsParameter
     public void setAttachId(String str) {
         this.attachId = str;
     }

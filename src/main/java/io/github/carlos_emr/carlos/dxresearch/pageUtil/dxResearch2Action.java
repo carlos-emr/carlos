@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.AbstractCodeSystemDao;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
 import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
@@ -195,6 +196,7 @@ public class dxResearch2Action extends ActionSupport {
         return demographicNo;
     }
 
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -203,6 +205,7 @@ public class dxResearch2Action extends ActionSupport {
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
@@ -211,6 +214,7 @@ public class dxResearch2Action extends ActionSupport {
         return xml_research1;
     }
 
+    @StrutsParameter
     public void setXml_research1(String xml_research1) {
         this.xml_research1 = xml_research1;
     }
@@ -219,6 +223,7 @@ public class dxResearch2Action extends ActionSupport {
         return xml_research2;
     }
 
+    @StrutsParameter
     public void setXml_research2(String xml_research2) {
         this.xml_research2 = xml_research2;
     }
@@ -227,6 +232,7 @@ public class dxResearch2Action extends ActionSupport {
         return xml_research3;
     }
 
+    @StrutsParameter
     public void setXml_research3(String xml_research3) {
         this.xml_research3 = xml_research3;
     }
@@ -235,6 +241,7 @@ public class dxResearch2Action extends ActionSupport {
         return xml_research4;
     }
 
+    @StrutsParameter
     public void setXml_research4(String xml_research4) {
         this.xml_research4 = xml_research4;
     }
@@ -243,6 +250,7 @@ public class dxResearch2Action extends ActionSupport {
         return xml_research5;
     }
 
+    @StrutsParameter
     public void setXml_research5(String xml_research5) {
         this.xml_research5 = xml_research5;
     }
@@ -251,6 +259,7 @@ public class dxResearch2Action extends ActionSupport {
         return quickList;
     }
 
+    @StrutsParameter
     public void setQuickList(String quickList) {
         this.quickList = quickList;
     }
@@ -259,6 +268,7 @@ public class dxResearch2Action extends ActionSupport {
         return quickListItems;
     }
 
+    @StrutsParameter
     public void setQuickListItems(String[] quickListItems) {
         this.quickListItems = quickListItems;
     }
@@ -267,6 +277,7 @@ public class dxResearch2Action extends ActionSupport {
         return forward;
     }
 
+    @StrutsParameter
     public void setForward(String forward) {
         this.forward = forward;
     }
@@ -275,6 +286,7 @@ public class dxResearch2Action extends ActionSupport {
         return curCodingSystem;
     }
 
+    @StrutsParameter
     public void setSelectedCodingSystem(String cs) {
         curCodingSystem = cs;
     }

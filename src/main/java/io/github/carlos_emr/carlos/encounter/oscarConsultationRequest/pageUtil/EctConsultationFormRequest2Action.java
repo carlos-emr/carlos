@@ -45,6 +45,7 @@ import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01;
 import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01.ObservationData;
 import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.RefI12;
@@ -734,6 +735,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(professionalSpecialistName));
     }
 
+    @StrutsParameter
     public void setProfessionalSpecialistName(String professionalSpecialistName) {
         this.professionalSpecialistName = professionalSpecialistName;
     }
@@ -742,6 +744,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(professionalSpecialistPhone));
     }
 
+    @StrutsParameter
     public void setProfessionalSpecialistPhone(String professionalSpecialistPhone) {
         this.professionalSpecialistPhone = professionalSpecialistPhone;
     }
@@ -750,6 +753,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(professionalSpecialistAddress));
     }
 
+    @StrutsParameter
     public void setProfessionalSpecialistAddress(String professionalSpecialistAddress) {
         this.professionalSpecialistAddress = professionalSpecialistAddress;
     }
@@ -758,6 +762,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eReferral;
     }
 
+    @StrutsParameter
     public void seteReferral(boolean eReferral) {
         this.eReferral = eReferral;
     }
@@ -766,6 +771,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eReferralService;
     }
 
+    @StrutsParameter
     public void seteReferralService(String eReferralService) {
         this.eReferralService = eReferralService;
     }
@@ -774,6 +780,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eReferralId;
     }
 
+    @StrutsParameter
     public void seteReferralId(String eReferralId) {
         this.eReferralId = eReferralId;
     }
@@ -782,6 +789,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(providerName));
     }
 
+    @StrutsParameter
     public void setProviderName(String providerName) {
         this.providerName = providerName;
     }
@@ -790,6 +798,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientAge));
     }
 
+    @StrutsParameter
     public void setPatientAge(String patientAge) {
         this.patientAge = patientAge;
     }
@@ -883,90 +892,112 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     }
 
 
+    @StrutsParameter
     public void setAllergies(String str) {
         allergies = str;
     }
 
+    @StrutsParameter
     public void setAppointmentDate(String str) {
         appointmentDate = str;
     }
 
+    @StrutsParameter
     public void setAppointmentHour(String str) {
         appointmentHour = str;
     }
 
+    @StrutsParameter
     public void setAppointmentMinute(String str) {
         appointmentMinute = str;
     }
 
+    @StrutsParameter
     public void setAppointmentNotes(String str) {
         appointmentNotes = str;
     }
 
+    @StrutsParameter
     public void setAppointmentPm(String str) {
         appointmentPm = str;
     }
 
+    @StrutsParameter
     public void setAppointmentTime(String str) {
         appointmentTime = str;
     }
 
+    @StrutsParameter
     public void setClinicalInformation(String str) {
         clinicalInformation = str;
     }
 
+    @StrutsParameter
     public void setConcurrentProblems(String str) {
         concurrentProblems = str;
     }
 
+    @StrutsParameter
     public void setCurrentMedications(String str) {
         currentMedications = str;
     }
 
+    @StrutsParameter
     public void setDemographicNo(String str) {
         demographicNo = str;
     }
 
+    @StrutsParameter
     public void setPatientWillBook(String str) {
         this.patientWillBook = str;
     }
 
+    @StrutsParameter
     public void setProviderNo(String str) {
         providerNo = str;
     }
 
+    @StrutsParameter
     public void setReasonForConsultation(String str) {
         reasonForConsultation = str;
     }
 
+    @StrutsParameter
     public void setReferalDate(String str) {
         referalDate = str;
     }
 
+    @StrutsParameter
     public void setRequestId(String str) {
         requestId = str;
     }
 
+    @StrutsParameter
     public void setSendTo(String str) {
         sendTo = str;
     }
 
+    @StrutsParameter
     public void setService(String str) {
         service = str;
     }
 
+    @StrutsParameter
     public void setSpecialist(String str) {
         specialist = str;
     }
 
+    @StrutsParameter
     public void setStatus(String str) {
         status = str;
     }
 
+    @StrutsParameter
     public void setSubmission(String str) {
         submission = str;
     }
 
+    @StrutsParameter
     public void setUrgency(String str) {
         urgency = str;
     }
@@ -979,6 +1010,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientAddress));
     }
 
+    @StrutsParameter
     public void setPatientAddress(String patientAddress) {
         this.patientAddress = patientAddress;
     }
@@ -987,6 +1019,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientPhone));
     }
 
+    @StrutsParameter
     public void setPatientPhone(String patientPhone) {
         this.patientPhone = patientPhone;
     }
@@ -995,6 +1028,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientWPhone));
     }
 
+    @StrutsParameter
     public void setPatientWPhone(String patientWPhone) {
         this.patientWPhone = patientWPhone;
     }
@@ -1003,10 +1037,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return StringUtils.trimToEmpty(patientCellPhone);
     }
 
+    @StrutsParameter
     public void setPatientCellPhone(String patientCellPhone) {
         this.patientCellPhone = patientCellPhone;
     }
 
+    @StrutsParameter
     public void setPatientEmail(String patientEmail) {
         this.patientEmail = patientEmail;
     }
@@ -1019,6 +1055,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientDOB));
     }
 
+    @StrutsParameter
     public void setPatientDOB(String patientDOB) {
         this.patientDOB = patientDOB;
     }
@@ -1027,6 +1064,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientSex));
     }
 
+    @StrutsParameter
     public void setPatientSex(String patientSex) {
         this.patientSex = patientSex;
     }
@@ -1035,6 +1073,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientHealthNum));
     }
 
+    @StrutsParameter
     public void setPatientHealthNum(String patientHealthNum) {
         this.patientHealthNum = patientHealthNum;
     }
@@ -1043,6 +1082,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientHealthCardVersionCode));
     }
 
+    @StrutsParameter
     public void setPatientHealthCardVersionCode(String patientHealthCardVersionCode) {
         this.patientHealthCardVersionCode = patientHealthCardVersionCode;
     }
@@ -1051,6 +1091,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientHealthCardType));
     }
 
+    @StrutsParameter
     public void setPatientHealthCardType(String patientHealthCardType) {
         this.patientHealthCardType = patientHealthCardType;
     }
@@ -1059,6 +1100,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return hl7TextMessageId;
     }
 
+    @StrutsParameter
     public void setHl7TextMessageId(Integer hl7TextMessageId) {
         this.hl7TextMessageId = hl7TextMessageId;
     }
@@ -1067,6 +1109,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return patientFirstName;
     }
 
+    @StrutsParameter
     public void setPatientFirstName(String patientFirstName) {
         this.patientFirstName = patientFirstName;
     }
@@ -1075,6 +1118,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return patientLastName;
     }
 
+    @StrutsParameter
     public void setPatientLastName(String patientLastName) {
         this.patientLastName = patientLastName;
     }
@@ -1115,6 +1159,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     /**
      * @param followUpDate the followUpDate to set
      */
+    @StrutsParameter
     public void setFollowUpDate(String followUpDate) {
         this.followUpDate = followUpDate;
     }
@@ -1126,6 +1171,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return siteName;
     }
 
+    @StrutsParameter
     public void setSiteName(String str) {
         this.siteName = str;
     }
@@ -1134,6 +1180,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return signatureImg;
     }
 
+    @StrutsParameter
     public void setSignatureImg(String signatureImg) {
         this.signatureImg = signatureImg;
     }
@@ -1142,6 +1189,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadName;
     }
 
+    @StrutsParameter
     public void setLetterheadName(String letterheadName) {
         this.letterheadName = letterheadName;
     }
@@ -1150,6 +1198,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadAddress;
     }
 
+    @StrutsParameter
     public void setLetterheadAddress(String letterheadAddress) {
         this.letterheadAddress = letterheadAddress;
     }
@@ -1158,6 +1207,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadPhone;
     }
 
+    @StrutsParameter
     public void setLetterheadPhone(String letterheadPhone) {
         this.letterheadPhone = letterheadPhone;
     }
@@ -1166,6 +1216,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadFax;
     }
 
+    @StrutsParameter
     public void setLetterheadFax(String letterheadFax) {
         this.letterheadFax = letterheadFax;
     }
@@ -1174,6 +1225,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return fdid;
     }
 
+    @StrutsParameter
     public void setFdid(Integer fdid) {
         this.fdid = fdid;
     }
@@ -1182,6 +1234,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return source;
     }
 
+    @StrutsParameter
     public void setSource(String source) {
         this.source = source;
     }
@@ -1190,6 +1243,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return appointmentInstructions;
     }
 
+    @StrutsParameter
     public void setAppointmentInstructions(String appointmentInstructions) {
         this.appointmentInstructions = appointmentInstructions;
     }
@@ -1198,6 +1252,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return appointmentInstructionsLabel;
     }
 
+    @StrutsParameter
     public void setAppointmentInstructionsLabel(String appointmentInstructionsLabel) {
         this.appointmentInstructionsLabel = appointmentInstructionsLabel;
     }
@@ -1209,6 +1264,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return docNo;
     }
 
+    @StrutsParameter
     public void setDocNo(String[] docNo) {
         this.docNo = docNo;
     }
@@ -1220,6 +1276,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return labNo;
     }
 
+    @StrutsParameter
     public void setLabNo(String[] labNo) {
         this.labNo = labNo;
     }
@@ -1231,6 +1288,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return formNo;
     }
 
+    @StrutsParameter
     public void setFormNo(String[] formNo) {
         this.formNo = formNo;
     }
@@ -1242,6 +1300,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eFormNo;
     }
 
+    @StrutsParameter
     public void seteFormNo(String[] eFormNo) {
         this.eFormNo = eFormNo;
     }
@@ -1253,6 +1312,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 		return hrmNo;
 	}
 	
+	@StrutsParameter
 	public void setHrmNo(String[] hrmNo) {
 		this.hrmNo = hrmNo;
 	}
@@ -1261,6 +1321,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 		return faxAccount;
 	}
 
+	@StrutsParameter
 	public void setFaxAccount(String faxAccount) {
 		this.faxAccount = faxAccount;
 	}

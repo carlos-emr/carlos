@@ -70,6 +70,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class FrmSetupForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();

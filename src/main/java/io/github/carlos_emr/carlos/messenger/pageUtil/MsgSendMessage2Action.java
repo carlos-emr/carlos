@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for sending messages to multiple healthcare providers.
@@ -209,6 +210,7 @@ public class MsgSendMessage2Action extends ActionSupport {
      * 
      * @param provider String[] array of provider IDs to receive the message
      */
+    @StrutsParameter
     public void setProvider(String[] provider) {
         this.provider = provider;
     }
@@ -227,6 +229,7 @@ public class MsgSendMessage2Action extends ActionSupport {
      * 
      * @param message String the message content to send
      */
+    @StrutsParameter
     public void setMessage(String message) {
         this.message = message;
     }
@@ -245,6 +248,7 @@ public class MsgSendMessage2Action extends ActionSupport {
      * 
      * @param subject String the subject line for the message
      */
+    @StrutsParameter
     public void setSubject(String subject) {
         this.subject = subject;
     }
@@ -263,6 +267,7 @@ public class MsgSendMessage2Action extends ActionSupport {
      * 
      * @param demographic_no String the patient demographic number to associate
      */
+    @StrutsParameter
     public void setDemographic_no(String demographic_no) {
         this.demographic_no = demographic_no;
     }

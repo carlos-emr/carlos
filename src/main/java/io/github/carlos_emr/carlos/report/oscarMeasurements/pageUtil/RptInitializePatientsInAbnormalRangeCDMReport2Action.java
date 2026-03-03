@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.Validations;
@@ -380,6 +381,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return patientSeenCheckbox;
     }
 
+    @StrutsParameter
     public void setPatientSeenCheckbox(String[] patientSeenCheckbox) {
         this.patientSeenCheckbox = patientSeenCheckbox;
     }
@@ -390,6 +392,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return startDateA;
     }
 
+    @StrutsParameter
     public void setStartDateA(String startDateA) {
         this.startDateA = startDateA;
     }
@@ -400,6 +403,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return endDateA;
     }
 
+    @StrutsParameter
     public void setEndDateA(String endDateA) {
         this.endDateA = endDateA;
     }
@@ -414,6 +418,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return abnormalCheckbox;
     }
 
+    @StrutsParameter
     public void setAbnormalCheckbox(String[] abnormalCheckbox) {
         this.abnormalCheckbox = abnormalCheckbox;
     }
@@ -424,6 +429,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return startDateC;
     }
 
+    @StrutsParameter
     public void setStartDateC(String[] startDateC) {
         this.startDateC = startDateC;
     }
@@ -434,6 +440,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return endDateC;
     }
 
+    @StrutsParameter
     public void setEndDateC(String[] endDateC) {
         this.endDateC = endDateC;
     }
@@ -444,6 +451,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return upperBound;
     }
 
+    @StrutsParameter
     public void setUpperBound(String[] upperBound) {
         this.upperBound = upperBound;
     }
@@ -454,6 +462,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
         return lowerBound;
     }
 
+    @StrutsParameter
     public void setLowerBound(String[] lowerBound) {
         this.lowerBound = lowerBound;
     }

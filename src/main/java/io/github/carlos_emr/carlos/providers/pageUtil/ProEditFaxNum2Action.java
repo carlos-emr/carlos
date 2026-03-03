@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.providers.data.ProviderFaxUpdater;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ProEditFaxNum2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -70,6 +71,7 @@ public class ProEditFaxNum2Action extends ActionSupport {
         return faxNumber;
     }
 
+    @StrutsParameter
     public void setFaxNumber(String faxNumber) {
         this.faxNumber = faxNumber;
     }

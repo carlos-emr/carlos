@@ -44,6 +44,7 @@ import java.util.List;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts 2 action for saving British Columbia billing preferences for a provider.
@@ -250,15 +251,18 @@ public class SaveBillingPreferences2Action
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
 
         this.providerNo = providerNo;
     }
 
+    @StrutsParameter
     public void setReferral(String referral) {
         this.referral = referral;
     }
 
+    @StrutsParameter
     public void setPayeeProviderNo(String payeeProviderNo) {
         this.payeeProviderNo = payeeProviderNo;
     }
@@ -275,6 +279,7 @@ public class SaveBillingPreferences2Action
         return gstNo;
     }
 
+    @StrutsParameter
     public void setGstNo(String gstNo) {
         this.gstNo = gstNo;
     }
@@ -283,6 +288,7 @@ public class SaveBillingPreferences2Action
         return useClinicGstNo;
     }
 
+    @StrutsParameter
     public void setUseClinicGstNo(boolean useClinicGstNo) {
         this.useClinicGstNo = useClinicGstNo;
     }
@@ -291,6 +297,7 @@ public class SaveBillingPreferences2Action
         return invoicePayeeInfo;
     }
 
+    @StrutsParameter
     public void setInvoicePayeeInfo(String invoicePayeeInfo) {
         this.invoicePayeeInfo = invoicePayeeInfo;
     }
@@ -299,6 +306,7 @@ public class SaveBillingPreferences2Action
         return invoicePayeeDisplayClinicInfo;
     }
 
+    @StrutsParameter
     public void setInvoicePayeeDisplayClinicInfo(boolean invoicePayeeDisplayClinicInfo) {
         this.invoicePayeeDisplayClinicInfo = invoicePayeeDisplayClinicInfo;
     }
@@ -307,6 +315,7 @@ public class SaveBillingPreferences2Action
         return defaultBillingForm;
     }
 
+    @StrutsParameter
     public void setDefaultBillingForm(String defaultBillingForm) {
         this.defaultBillingForm = defaultBillingForm;
     }
@@ -315,6 +324,7 @@ public class SaveBillingPreferences2Action
         return formCode;
     }
 
+    @StrutsParameter
     public void setFormCode(String formCode) {
         this.formCode = formCode;
     }
@@ -323,6 +333,7 @@ public class SaveBillingPreferences2Action
         return description;
     }
 
+    @StrutsParameter
     public void setDescription(String description) {
         this.description = description;
     }
@@ -331,6 +342,7 @@ public class SaveBillingPreferences2Action
         return defaultBillingProvider;
     }
 
+    @StrutsParameter
     public void setDefaultBillingProvider(String defaultBillingProvider) {
         this.defaultBillingProvider = defaultBillingProvider;
     }
@@ -339,6 +351,7 @@ public class SaveBillingPreferences2Action
         return defaultServiceLocation;
     }
 
+    @StrutsParameter
     public void setDefaultServiceLocation(String defaultServiceLocation) {
         this.defaultServiceLocation = defaultServiceLocation;
     }
@@ -347,6 +360,7 @@ public class SaveBillingPreferences2Action
         return autoPopulateRefer;
     }
 
+    @StrutsParameter
     public void setAutoPopulateRefer(boolean autoPopulateRefer) {
         this.autoPopulateRefer = autoPopulateRefer;
     }

@@ -45,6 +45,7 @@ import io.github.carlos_emr.OscarProperties;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class Episode2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -123,10 +124,12 @@ public class Episode2Action extends ActionSupport {
 
     private Episode episode;
 
+    @StrutsParameter(depth = 1)
     public Episode getEpisode() {
         return episode;
     }
 
+    @StrutsParameter
     public void setEpisode(Episode episode) {
         this.episode = episode;
     }

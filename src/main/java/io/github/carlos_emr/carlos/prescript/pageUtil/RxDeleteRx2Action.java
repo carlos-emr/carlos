@@ -65,6 +65,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts 2 action for managing prescription deletion and discontinuation operations.
@@ -519,6 +520,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
      *
      * @param RHS String comma-separated drug IDs
      */
+    @StrutsParameter
     public void setDrugList(String RHS) {
         this.drugList = RHS;
     }

@@ -39,6 +39,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class RptFluBilling2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -59,6 +60,7 @@ public class RptFluBilling2Action extends ActionSupport {
         return requestId;
     }
 
+    @StrutsParameter
     public void setRequestId(String id) {
         this.requestId = id;
     }

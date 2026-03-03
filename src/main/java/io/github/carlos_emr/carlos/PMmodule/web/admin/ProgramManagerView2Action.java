@@ -68,6 +68,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ProgramManagerView2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -595,6 +596,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         return radioRejectionReason;
     }
 
+    @StrutsParameter
     public void setRadioRejectionReason(String radioRejectionReason) {
         this.radioRejectionReason = radioRejectionReason;
     }
@@ -609,6 +611,7 @@ public class ProgramManagerView2Action extends ActionSupport {
     /**
      * @param tab The tab to set.
      */
+    @StrutsParameter
     public void setTab(String tab) {
         this.tab = tab;
     }
@@ -623,6 +626,7 @@ public class ProgramManagerView2Action extends ActionSupport {
     /**
      * @param subtab the subtab to set
      */
+    @StrutsParameter
     public void setSubtab(String subtab) {
         this.subtab = subtab;
     }
@@ -637,6 +641,7 @@ public class ProgramManagerView2Action extends ActionSupport {
     /**
      * @param clientId The clientId to set.
      */
+    @StrutsParameter
     public void setClientId(String clientId) {
         this.clientId = clientId;
     }
@@ -645,15 +650,18 @@ public class ProgramManagerView2Action extends ActionSupport {
         return queueId;
     }
 
+    @StrutsParameter
     public void setQueueId(String queueId) {
         this.queueId = queueId;
     }
 
 
+    @StrutsParameter(depth = 1)
     public ProgramClientRestriction getServiceRestriction() {
         return serviceRestriction;
     }
 
+    @StrutsParameter
     public void setServiceRestriction(ProgramClientRestriction serviceRestriction) {
         this.serviceRestriction = serviceRestriction;
     }
@@ -663,6 +671,7 @@ public class ProgramManagerView2Action extends ActionSupport {
         return vacancyOrTemplateId;
     }
 
+    @StrutsParameter
     public void setVacancyOrTemplateId(String vacancyOrTemplateId) {
         this.vacancyOrTemplateId = vacancyOrTemplateId;
     }

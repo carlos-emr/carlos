@@ -65,6 +65,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class BillingReProcessBill2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -708,6 +709,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billingmasterNo;
     }
 
+    @StrutsParameter
     public void setBillingmasterNo(String billingmasterNo) {
         this.billingmasterNo = billingmasterNo;
     }
@@ -716,6 +718,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return insurerCode;
     }
 
+    @StrutsParameter
     public void setInsurerCode(String insurerCode) {
         this.insurerCode = insurerCode;
     }
@@ -724,6 +727,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return provider_no;
     }
 
+    @StrutsParameter
     public void setProvider_no(String provider_no) {
         this.provider_no = provider_no;
     }
@@ -732,6 +736,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return demoNo;
     }
 
+    @StrutsParameter
     public void setDemoNo(String demoNo) {
         this.demoNo = demoNo;
     }
@@ -740,6 +745,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return dependentNo;
     }
 
+    @StrutsParameter
     public void setDependentNo(String dependentNo) {
         this.dependentNo = dependentNo;
     }
@@ -748,6 +754,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return afterHours;
     }
 
+    @StrutsParameter
     public void setAfterHours(String afterHours) {
         this.afterHours = afterHours;
     }
@@ -756,6 +763,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return status;
     }
 
+    @StrutsParameter
     public void setStatus(String status) {
         this.status = status;
     }
@@ -764,6 +772,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return submit;
     }
 
+    @StrutsParameter
     public void setSubmit(String submit) {
         this.submit = submit;
     }
@@ -772,6 +781,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billNumber;
     }
 
+    @StrutsParameter
     public void setBillNumber(String billNumber) {
         this.billNumber = billNumber;
     }
@@ -780,6 +790,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return locationVisit;
     }
 
+    @StrutsParameter
     public void setLocationVisit(String locationVisit) {
         this.locationVisit = locationVisit;
     }
@@ -788,6 +799,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return anatomicalArea;
     }
 
+    @StrutsParameter
     public void setAnatomicalArea(String anatomicalArea) {
         this.anatomicalArea = anatomicalArea;
     }
@@ -796,6 +808,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return newProgram;
     }
 
+    @StrutsParameter
     public void setNewProgram(String newProgram) {
         this.newProgram = newProgram;
     }
@@ -804,6 +817,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return service_code;
     }
 
+    @StrutsParameter
     public void setService_code(String service_code) {
         this.service_code = service_code;
     }
@@ -812,6 +826,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billing_unit;
     }
 
+    @StrutsParameter
     public void setBilling_unit(String billing_unit) {
         this.billing_unit = billing_unit;
     }
@@ -820,6 +835,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billing_amount;
     }
 
+    @StrutsParameter
     public void setBilling_amount(String billing_amount) {
         this.billing_amount = billing_amount;
     }
@@ -828,6 +844,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billingUnit;
     }
 
+    @StrutsParameter
     public void setBillingUnit(String billingUnit) {
         this.billingUnit = billingUnit;
     }
@@ -836,6 +853,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return billingAmount;
     }
 
+    @StrutsParameter
     public void setBillingAmount(String billingAmount) {
         this.billingAmount = billingAmount;
     }
@@ -844,6 +862,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return dx1;
     }
 
+    @StrutsParameter
     public void setDx1(String dx1) {
         this.dx1 = dx1;
     }
@@ -852,6 +871,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return dx2;
     }
 
+    @StrutsParameter
     public void setDx2(String dx2) {
         this.dx2 = dx2;
     }
@@ -860,6 +880,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return dx3;
     }
 
+    @StrutsParameter
     public void setDx3(String dx3) {
         this.dx3 = dx3;
     }
@@ -868,6 +889,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return paymentMode;
     }
 
+    @StrutsParameter
     public void setPaymentMode(String paymentMode) {
         this.paymentMode = paymentMode;
     }
@@ -876,6 +898,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return submissionCode;
     }
 
+    @StrutsParameter
     public void setSubmissionCode(String submissionCode) {
         this.submissionCode = submissionCode;
     }
@@ -884,6 +907,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return serviceDate;
     }
 
+    @StrutsParameter
     public void setServiceDate(String serviceDate) {
         this.serviceDate = serviceDate;
     }
@@ -892,6 +916,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return serviceToDay;
     }
 
+    @StrutsParameter
     public void setServiceToDay(String serviceToDay) {
         this.serviceToDay = serviceToDay;
     }
@@ -900,6 +925,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return serviceLocation;
     }
 
+    @StrutsParameter
     public void setServiceLocation(String serviceLocation) {
         this.serviceLocation = serviceLocation;
     }
@@ -908,6 +934,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return referalPracCD1;
     }
 
+    @StrutsParameter
     public void setReferalPracCD1(String referalPracCD1) {
         this.referalPracCD1 = referalPracCD1;
     }
@@ -916,6 +943,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return referalPrac1;
     }
 
+    @StrutsParameter
     public void setReferalPrac1(String referalPrac1) {
         this.referalPrac1 = referalPrac1;
     }
@@ -924,6 +952,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return referalPracCD2;
     }
 
+    @StrutsParameter
     public void setReferalPracCD2(String referalPracCD2) {
         this.referalPracCD2 = referalPracCD2;
     }
@@ -932,6 +961,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return referalPrac2;
     }
 
+    @StrutsParameter
     public void setReferalPrac2(String referalPrac2) {
         this.referalPrac2 = referalPrac2;
     }
@@ -940,6 +970,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return timeCallRec;
     }
 
+    @StrutsParameter
     public void setTimeCallRec(String timeCallRec) {
         this.timeCallRec = timeCallRec;
     }
@@ -948,6 +979,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return startTime;
     }
 
+    @StrutsParameter
     public void setStartTime(String startTime) {
         this.startTime = startTime;
     }
@@ -956,6 +988,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return finishTime;
     }
 
+    @StrutsParameter
     public void setFinishTime(String finishTime) {
         this.finishTime = finishTime;
     }
@@ -964,6 +997,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return correspondenceCode;
     }
 
+    @StrutsParameter
     public void setCorrespondenceCode(String correspondenceCode) {
         this.correspondenceCode = correspondenceCode;
     }
@@ -972,6 +1006,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return mvaClaim;
     }
 
+    @StrutsParameter
     public void setMvaClaim(String mvaClaim) {
         this.mvaClaim = mvaClaim;
     }
@@ -980,6 +1015,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return shortComment;
     }
 
+    @StrutsParameter
     public void setShortComment(String shortComment) {
         this.shortComment = shortComment;
     }
@@ -988,6 +1024,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return icbcClaim;
     }
 
+    @StrutsParameter
     public void setIcbcClaim(String icbcClaim) {
         this.icbcClaim = icbcClaim;
     }
@@ -996,6 +1033,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return facilityNum;
     }
 
+    @StrutsParameter
     public void setFacilityNum(String facilityNum) {
         this.facilityNum = facilityNum;
     }
@@ -1004,6 +1042,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return facilitySubNum;
     }
 
+    @StrutsParameter
     public void setFacilitySubNum(String facilitySubNum) {
         this.facilitySubNum = facilitySubNum;
     }
@@ -1012,6 +1051,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return notes;
     }
 
+    @StrutsParameter
     public void setNotes(String notes) {
         this.notes = notes;
     }
@@ -1020,6 +1060,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return dependent;
     }
 
+    @StrutsParameter
     public void setDependent(String dependent) {
         this.dependent = dependent;
     }
@@ -1028,6 +1069,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return messageNotes;
     }
 
+    @StrutsParameter
     public void setMessageNotes(String messageNotes) {
         this.messageNotes = messageNotes;
     }
@@ -1036,6 +1078,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return debitRequestSeqNum;
     }
 
+    @StrutsParameter
     public void setDebitRequestSeqNum(String debitRequestSeqNum) {
         this.debitRequestSeqNum = debitRequestSeqNum;
     }
@@ -1044,6 +1087,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return debitRequestDate;
     }
 
+    @StrutsParameter
     public void setDebitRequestDate(String debitRequestDate) {
         this.debitRequestDate = debitRequestDate;
     }
@@ -1052,6 +1096,7 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return adjAmount;
     }
 
+    @StrutsParameter
     public void setAdjAmount(String adjAmount) {
         this.adjAmount = adjAmount;
     }
@@ -1060,16 +1105,19 @@ public class BillingReProcessBill2Action extends ActionSupport {
         return adjType;
     }
 
+    @StrutsParameter
     public void setAdjType(String adjType) {
         this.adjType = adjType;
     }
 
     private BillingReProcessBill2Form form;
 
+    @StrutsParameter(depth = 1)
     public BillingReProcessBill2Form getForm() {
         return form;
     }
 
+    @StrutsParameter
     public void setForm(BillingReProcessBill2Form form) {
         this.form = form;
     }

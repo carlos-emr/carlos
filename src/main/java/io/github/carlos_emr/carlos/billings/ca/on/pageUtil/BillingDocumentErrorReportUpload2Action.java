@@ -34,6 +34,7 @@ import com.opensymphony.xwork2.ActionSupport;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.BatchEligibilityDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
 import io.github.carlos_emr.carlos.commn.model.BatchEligibility;
@@ -400,6 +401,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
         return file1;
     }
 
+    @StrutsParameter
     public void setFile1(File file1) {
         this.file1 = file1;
     }
@@ -408,6 +410,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
         return file1FileName;
     }
 
+    @StrutsParameter
     public void setFile1FileName(String file1FileName) {
         this.file1FileName = file1FileName;
     }
@@ -416,6 +419,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
         return file1ContentType;
     }
 
+    @StrutsParameter
     public void setFile1ContentType(String file1ContentType) {
         this.file1ContentType = file1ContentType;
     }
@@ -424,6 +428,7 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
         return filename;
     }
 
+    @StrutsParameter
     public void setFilename(String filename) {
         this.filename = filename;
     }

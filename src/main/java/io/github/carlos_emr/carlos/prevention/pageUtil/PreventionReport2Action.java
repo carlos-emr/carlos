@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class PreventionReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -144,6 +145,7 @@ public class PreventionReport2Action extends ActionSupport {
         return patientSet;
     }
 
+    @StrutsParameter
     public void setPatientSet(String patientSet) {
         this.patientSet = patientSet;
     }
@@ -152,6 +154,7 @@ public class PreventionReport2Action extends ActionSupport {
         return prevention;
     }
 
+    @StrutsParameter
     public void setPrevention(String prevention) {
         this.prevention = prevention;
     }
@@ -160,6 +163,7 @@ public class PreventionReport2Action extends ActionSupport {
         return asofDate;
     }
 
+    @StrutsParameter
     public void setAsofDate(String asofDate) {
         this.asofDate = asofDate;
     }

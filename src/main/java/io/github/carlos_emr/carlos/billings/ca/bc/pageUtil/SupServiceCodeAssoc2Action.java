@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO;
 
@@ -170,18 +171,22 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
         return actionMode;
     }
 
+    @StrutsParameter
     public void setActionMode(String actionMode) {
         this.actionMode = actionMode;
     }
 
+    @StrutsParameter
     public void setSecondaryCode(String secondaryCode) {
         this.secondaryCode = secondaryCode;
     }
 
+    @StrutsParameter
     public void setPrimaryCode(String primaryCode) {
         this.primaryCode = primaryCode;
     }
 
+    @StrutsParameter
     public void setId(String id) {
         this.id = id;
     }

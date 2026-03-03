@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementT
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctAddMeasurementType2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -160,6 +161,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
         return this.type;
     }
 
+    @StrutsParameter
     public void setType(String type) {
         this.type = type;
     }
@@ -169,6 +171,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
         return this.typeDesc;
     }
 
+    @StrutsParameter
     public void setTypeDesc(String typeDesc) {
         this.typeDesc = typeDesc;
     }
@@ -177,6 +180,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
         return this.typeDisplayName;
     }
 
+    @StrutsParameter
     public void setTypeDisplayName(String typeDisplayName) {
         this.typeDisplayName = typeDisplayName;
     }
@@ -185,6 +189,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
         return this.measuringInstrc;
     }
 
+    @StrutsParameter
     public void setMeasuringInstrc(String measuringInstrc) {
         this.measuringInstrc = measuringInstrc;
     }
@@ -193,6 +198,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
         return this.validation;
     }
 
+    @StrutsParameter
     public void setValidation(String validation) {
         this.validation = validation;
     }
