@@ -262,6 +262,7 @@
     pageContext.setAttribute("quickLinksList", quickLinkCollection);
     pageContext.setAttribute("formNamesList", formNamesList);
     pageContext.setAttribute("eFormsList", eFormIdCollection);
+    request.setAttribute("providerPreference", providerPreference);
 
     StringBuilder eformIds = new StringBuilder();
     for (ProviderPreference.EformLink eform : eFormIdCollection) {
@@ -2284,13 +2285,13 @@
                                                             <c:out value="${fn:substring(eform.eFormName, 0, truncateLimit)}"/>
                                                             </a>
                                                         </c:forEach>
-                                                        <c:forEach items="${quickLinksList}" var="quickLink">
-                                                            |<a href="javascript:void(0)" onClick='popupPage2("<c:out
-                                                                value="${quickLink.url}"/>")' title='<c:out
-                                                                value="${quickLink.name}"/>'>
-                                                            <c:out value="${fn:substring(quickLink.name, 0, truncateLimit)}"/>
-                                                            </a>
-                                                        </c:forEach>
+                                                        <c:if test="${not empty quickLinksList}">
+                                                            <jsp:include page="appointmentFormsLinks.jspf">
+                                                                <jsp:param name="demographic_no" value="${appointment.demographicNo}"/>
+                                                                <jsp:param name="appointment_no" value="${appointment.id}"/>
+                                                                <jsp:param name="skipFormsAndEforms" value="true"/>
+                                                            </jsp:include>
+                                                        </c:if>
 
                                                         <oscar:oscarPropertiesCheck
                                                                 property="appt_pregnancy" value="true"

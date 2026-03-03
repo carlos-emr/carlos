@@ -672,7 +672,7 @@
                             <td>URL</td>
                             <td>
                                 <input type="text" name="quickLinkUrl" class="pref-input" style="max-width:200px">
-                                <span class="hint">(tokens: ${contextPath} ${demographicId})</span>
+                                <span class="hint">(tokens: &#36;{contextPath} &#36;{demographicId} &#36;{appointmentId} &#36;{providerId} &#36;{providerOhip} &#36;{demographicHin} &#36;{demographicVer})</span>
                             </td>
                         </tr>
                         <tr>
