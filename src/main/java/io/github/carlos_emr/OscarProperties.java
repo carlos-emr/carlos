@@ -522,7 +522,7 @@ public class OscarProperties extends Properties {
     public String getFaxIncomingDirectory() {
         String faxIncoming = oscarProperties.getProperty("FAX_INCOMING_DIR");
 
-        if (faxIncoming == null) {
+        if (faxIncoming == null || faxIncoming.trim().isEmpty()) {
             // Prefer BASE_DOCUMENT_DIR — same pattern as DOCUMENT_DIR and EFORM_IMAGES_DIR.
             // This directory is already configured, writable by the app server, and outside the webroot.
             String baseDocDir = oscarProperties.getProperty("BASE_DOCUMENT_DIR");

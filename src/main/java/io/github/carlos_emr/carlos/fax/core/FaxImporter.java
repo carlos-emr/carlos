@@ -179,17 +179,19 @@ public class FaxImporter {
             return;
         }
 
-        Path resolvedDir = Paths.get(incomingDirPath.trim());
         try {
+            Path resolvedDir = Paths.get(incomingDirPath.trim());
             Files.createDirectories(resolvedDir);
             faxIncomingDir = resolvedDir;
             initialized = true;
             log.info("Fax incoming directory initialized: {}", faxIncomingDir);
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             // Log as error but do NOT throw — fax is optional and must not bring down the app.
+            // Catches IOException (permission/disk errors), InvalidPathException (bad path strings),
+            // and SecurityException (security manager rejection) to ensure startup is never blocked.
             log.error("FaxImporter: Cannot create fax incoming directory: {}. Fax import is disabled. "
                     + "Check permissions and disk space. Set FAX_INCOMING_DIR in carlos.properties "
-                    + "to a directory writable by the application server.", resolvedDir, e);
+                    + "to a directory writable by the application server.", incomingDirPath, e);
         }
     }
 
