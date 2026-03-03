@@ -3408,7 +3408,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     //TODO: update access model
-    @StrutsParameter
     public void setCPPMedicalHistory(CaseManagementCPP cpp, String providerNo, List accessRight) {
 
         if (caseManagementMgr.greaterEqualLevel(3, providerNo)) {
@@ -3443,7 +3442,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private Map<String, Object> mySessionMap;
 
     @Override
-    @StrutsParameter
     public void setSession(Map<String, Object> session) {
         this.mySessionMap = session;
     }

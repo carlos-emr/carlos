@@ -285,12 +285,10 @@ public class FacilityManager2Action extends ActionSupport {
         this.facility = facility;
     }
 
-    @StrutsParameter(depth = 1)
     public List<EForm> getRegistrationIntakeForms() {
         return registrationIntakeForms;
     }
 
-    @StrutsParameter
     public void setRegistrationIntakeForms(List<EForm> registrationIntakeForms) {
         this.registrationIntakeForms = registrationIntakeForms;
     }

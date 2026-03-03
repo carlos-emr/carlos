@@ -458,22 +458,18 @@ public class Download2Action extends ActionSupport {
 
     private List<DetailDataCustom> data = new ArrayList<DetailDataCustom>();
 
-    @StrutsParameter(depth = 1)
     public TypeListResult getTypeListResult() {
         return typeListResult;
     }
 
-    @StrutsParameter
     public void setTypeListResult(TypeListResult typeListResult) {
         this.typeListResult = typeListResult;
     }
 
-    @StrutsParameter(depth = 1)
     public Detail getDetail() {
         return detail;
     }
 
-    @StrutsParameter
     public void setDetail(Detail detail) {
         this.detail = detail;
     }
@@ -521,12 +517,10 @@ public class Download2Action extends ActionSupport {
     }
 
 
-    @StrutsParameter(depth = 1)
     public List<DetailDataCustom> getData() {
         return data;
     }
 
-    @StrutsParameter
     public void setData(List<DetailDataCustom> data) {
         this.data = data;
     }

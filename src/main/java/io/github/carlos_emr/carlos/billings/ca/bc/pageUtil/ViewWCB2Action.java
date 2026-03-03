@@ -726,7 +726,6 @@ public class ViewWCB2Action extends ActionSupport {
         this.doValidate = doValidate;
     }
 
-    @StrutsParameter
     public void setWCBForms(WCB wcb) {
 
         demographic_no = "" + wcb.getDemographic_no();

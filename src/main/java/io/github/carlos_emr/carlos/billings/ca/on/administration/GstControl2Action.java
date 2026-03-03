@@ -53,13 +53,11 @@ public class GstControl2Action extends ActionSupport implements ServletRequestAw
     private HttpServletRequest request;
     private HttpServletResponse response;
     @Override
-    @StrutsParameter
     public void setServletRequest(HttpServletRequest request) {
         this.request = request;
     }
 
     @Override
-    @StrutsParameter
     public void setServletResponse(HttpServletResponse response) {
         this.response = response;
     }

@@ -158,7 +158,6 @@ public class StaffManager2Action extends ActionSupport {
         return edit();
     }
 
-    @StrutsParameter
     public void setEditAttributes(HttpServletRequest request, Provider provider) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         request.setAttribute("id", provider.getProviderNo());

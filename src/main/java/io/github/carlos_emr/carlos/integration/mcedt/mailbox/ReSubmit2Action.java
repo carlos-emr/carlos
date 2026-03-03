@@ -144,22 +144,18 @@ public class ReSubmit2Action extends ActionSupport {
     private Detail detail;
     private String serviceIdSent;
 
-    @StrutsParameter(depth = 1)
     public TypeListResult getTypeListResult() {
         return typeListResult;
     }
 
-    @StrutsParameter
     public void setTypeListResult(TypeListResult typeListResult) {
         this.typeListResult = typeListResult;
     }
 
-    @StrutsParameter(depth = 1)
     public Detail getDetail() {
         return detail;
     }
 
-    @StrutsParameter
     public void setDetail(Detail detail) {
         this.detail = detail;
     }

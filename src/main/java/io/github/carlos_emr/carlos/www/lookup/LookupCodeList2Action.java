@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.services.LookupManager;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class LookupCodeList2Action extends ActionSupport {
@@ -68,22 +67,18 @@ public class LookupCodeList2Action extends ActionSupport {
 
     private List codes;
 
-    @StrutsParameter(depth = 1)
     public List getCodes() {
         return codes;
     }
 
-    @StrutsParameter
     public void setCodes(List codes) {
         this.codes = codes;
     }
 
-    @StrutsParameter(depth = 1)
     public LookupTableDefValue getTableDef() {
         return tableDef;
     }
 
-    @StrutsParameter
     public void setTableDef(LookupTableDefValue tableDef) {
         this.tableDef = tableDef;
     }

@@ -57,7 +57,7 @@ public class AddGroup2Action extends ActionSupport {
 
     private String groupName;
 
-    @StrutsParameter(depth = 1)
+    @StrutsParameter
     public java.lang.String getGroupName() {
         return groupName;
     }

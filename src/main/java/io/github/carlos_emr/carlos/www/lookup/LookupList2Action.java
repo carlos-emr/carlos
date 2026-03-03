@@ -99,12 +99,10 @@ public class LookupList2Action extends ActionSupport {
     String grandParentCode;
     LookupTableDefValue tableDef;
 
-    @StrutsParameter(depth = 1)
     public List getLookups() {
         return lookups;
     }
 
-    @StrutsParameter
     public void setLookups(List lookups) {
         this.lookups = lookups;
     }
@@ -154,12 +152,10 @@ public class LookupList2Action extends ActionSupport {
         this.tableId = tableId;
     }
 
-    @StrutsParameter(depth = 1)
     public LookupTableDefValue getTableDef() {
         return tableDef;
     }
 
-    @StrutsParameter
     public void setTableDef(LookupTableDefValue tableDef) {
         this.tableDef = tableDef;
     }

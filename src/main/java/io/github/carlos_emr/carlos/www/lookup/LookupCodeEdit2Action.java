@@ -206,7 +206,6 @@ public class LookupCodeEdit2Action extends ActionSupport {
         return errMsg;
     }
 
-    @StrutsParameter
     public void setErrMsg(String errMsg) {
         this.errMsg = errMsg;
     }

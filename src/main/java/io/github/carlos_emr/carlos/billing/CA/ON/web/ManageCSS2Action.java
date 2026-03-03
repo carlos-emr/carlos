@@ -140,12 +140,10 @@ public class ManageCSS2Action extends ActionSupport {
     private String editStyle = "-1";
     private String styleName = "";
 
-    @StrutsParameter(depth = 1)
     public List<CssStyle> getStyles() {
         return styles;
     }
 
-    @StrutsParameter
     public void setStyles(List<CssStyle> styles) {
         this.styles = styles;
     }
