@@ -43,8 +43,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.*;
+import com.lowagie.text.*;
+import com.lowagie.text.pdf.*;
 import org.apache.commons.io.FileUtils;
 
 import org.apache.logging.log4j.Logger;

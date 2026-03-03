@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.jobs;
 
 import java.io.FileNotFoundException;
+import java.awt.Color;
 import java.io.FileOutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -55,17 +56,15 @@ import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Chunk;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Element;
-import com.itextpdf.text.Font;
-import com.itextpdf.text.Font.FontFamily;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.Rectangle;
-import com.itextpdf.text.pdf.PdfWriter;
+import com.lowagie.text.Chunk;
+import com.lowagie.text.Document;
+import com.lowagie.text.DocumentException;
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.Rectangle;
+import com.lowagie.text.pdf.PdfWriter;
 
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
@@ -141,12 +140,12 @@ public class OscarOnCallClinic implements OscarRunnable {
         try {
             PdfWriter.getInstance(document, new FileOutputStream(DOCUMENTDIR + filename));
             Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
-            pageSize.setBackgroundColor(new BaseColor(0xCC, 0xCC, 0xFF));
+            pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
             document.setPageSize(pageSize);
             document.setMargins(36, 72, 108, 180);
             document.setMarginMirroringTopBottom(true);
             document.open();
-            Font headerFont = new Font(FontFamily.HELVETICA, 14);
+            Font headerFont = new Font(Font.HELVETICA, 14);
             Chunk chunkHeader = new Chunk("OSCAR ON CALL CLINIC", headerFont);
             chunkHeader.setUnderline(2f, -2f);
             Paragraph header = new Paragraph(chunkHeader);
@@ -157,7 +156,7 @@ public class OscarOnCallClinic implements OscarRunnable {
             document.add(Chunk.NEWLINE);
             document.add(Chunk.NEWLINE);
 
-            Font bodyFont = new Font(FontFamily.TIMES_ROMAN, 12);
+            Font bodyFont = new Font(Font.TIMES_ROMAN, 12);
             Chunk chunkAttn = new Chunk("ATTN: " + demographic.getProvider().getFormattedName(), bodyFont);
             Paragraph attnParagraph = new Paragraph(chunkAttn);
             attnParagraph.setAlignment(Element.ALIGN_LEFT);
@@ -166,7 +165,7 @@ public class OscarOnCallClinic implements OscarRunnable {
             document.add(Chunk.NEWLINE);
             document.add(Chunk.NEWLINE);
 
-            Font patientFont = new Font(FontFamily.HELVETICA, 12, Font.ITALIC, BaseColor.BLUE);
+            Font patientFont = new Font(Font.HELVETICA, 12, Font.ITALIC, Color.BLUE);
             Chunk patientChunk = new Chunk(demographic.getFormattedName(), patientFont);
             Paragraph body = new Paragraph();
             Chunk body1 = new Chunk("Your patient ", bodyFont);
@@ -200,12 +199,12 @@ public class OscarOnCallClinic implements OscarRunnable {
         try {
             PdfWriter.getInstance(document, new FileOutputStream(DOCUMENTDIR + filename));
             Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
-            pageSize.setBackgroundColor(new BaseColor(0xCC, 0xCC, 0xFF));
+            pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
             document.setPageSize(pageSize);
             document.setMargins(36, 72, 108, 180);
             document.setMarginMirroringTopBottom(true);
             document.open();
-            Font headerFont = new Font(FontFamily.HELVETICA, 14);
+            Font headerFont = new Font(Font.HELVETICA, 14);
             Chunk chunkHeader = new Chunk("OSCAR ON CALL CLINIC", headerFont);
             chunkHeader.setUnderline(2f, -2f);
             Paragraph header = new Paragraph(chunkHeader);
@@ -216,7 +215,7 @@ public class OscarOnCallClinic implements OscarRunnable {
             document.add(Chunk.NEWLINE);
             document.add(Chunk.NEWLINE);
             String reason = appointment.getReason() == null || "".equals(appointment.getReason()) ? "" : " for \"" + appointment.getReason() + "\"";
-            Font bodyFont = new Font(FontFamily.TIMES_ROMAN, 12);
+            Font bodyFont = new Font(Font.TIMES_ROMAN, 12);
             Chunk chunkAttn = new Chunk("ATTN: " + demographic.getProvider().getFormattedName(), bodyFont);
             Paragraph attnParagraph = new Paragraph(chunkAttn);
             attnParagraph.setAlignment(Element.ALIGN_LEFT);
@@ -225,7 +224,7 @@ public class OscarOnCallClinic implements OscarRunnable {
             document.add(Chunk.NEWLINE);
             document.add(Chunk.NEWLINE);
 
-            Font patientFont = new Font(FontFamily.HELVETICA, 12, Font.ITALIC, BaseColor.BLUE);
+            Font patientFont = new Font(Font.HELVETICA, 12, Font.ITALIC, Color.BLUE);
             Chunk patientChunk = new Chunk(demographic.getFormattedName(), patientFont);
             Paragraph body = new Paragraph();
             Chunk body1 = new Chunk("Your patient ", bodyFont);

@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.casemgmt.print;
 
 import java.io.IOException;
+import java.awt.Color;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -45,8 +46,8 @@ import javax.servlet.http.HttpServletRequest;
 
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.*;
+import com.lowagie.text.*;
+import com.lowagie.text.pdf.*;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
@@ -253,7 +254,7 @@ public class OscarChartPrinter {
 
         //Write title with top and bottom borders on p1
         cb = writer.getDirectContent();
-        cb.setColorStroke(new BaseColor(0, 0, 0));
+        cb.setColorStroke(new Color(0, 0, 0));
         cb.setLineWidth(0.5f);
 
         cb.moveTo(document.left(), document.top() - (font.getCalculatedLeading(LINESPACING) * 5f));

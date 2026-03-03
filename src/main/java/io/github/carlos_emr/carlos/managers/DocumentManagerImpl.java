@@ -44,7 +44,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
-import com.itextpdf.text.DocumentException;
+import com.lowagie.text.DocumentException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;

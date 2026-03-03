@@ -28,9 +28,9 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
-import com.itextpdf.text.Document;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfWriter;
+import com.lowagie.text.Document;
+import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfWriter;
 
 public class PromoTextStamper extends FooterSupport {
 

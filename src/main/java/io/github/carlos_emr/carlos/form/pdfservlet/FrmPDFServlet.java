@@ -59,20 +59,19 @@ import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 
-import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Element;
-import com.itextpdf.text.Font;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.Phrase;
-import com.itextpdf.text.Rectangle;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfImportedPage;
-import com.itextpdf.text.pdf.PdfReader;
-import com.itextpdf.text.pdf.PdfWriter;
+import com.lowagie.text.Document;
+import com.lowagie.text.DocumentException;
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.Rectangle;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.ColumnText;
+import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfImportedPage;
+import com.lowagie.text.pdf.PdfReader;
+import com.lowagie.text.pdf.PdfWriter;
 
 /**
  *
@@ -511,7 +510,7 @@ public class FrmPDFServlet extends HttpServlet {
                         if (cfgVal.length >= 9) {
                             Font font;
                             if (fontFlags == Font.BOLD) { // Hack to stop blue outline from bold text
-                                font = new Font(bf, Integer.parseInt(cfgVal[5].trim()), fontFlags, BaseColor.BLACK);
+                                font = new Font(bf, Integer.parseInt(cfgVal[5].trim()), fontFlags, Color.BLACK);
                             } else {
                                 font = new Font(bf, Integer.parseInt(cfgVal[5].trim()), fontFlags);
                             }
@@ -546,7 +545,7 @@ public class FrmPDFServlet extends HttpServlet {
                             float ury = Float.parseFloat(cfgVal[3].trim());
 
                             Rectangle rec = new Rectangle(llx, lly, urx, ury);
-                            rec.setBackgroundColor(BaseColor.WHITE);
+                            rec.setBackgroundColor(Color.WHITE);
                             cb.rectangle(rec);
 
                         } else if (tempName.toString().startsWith("__$line")) {

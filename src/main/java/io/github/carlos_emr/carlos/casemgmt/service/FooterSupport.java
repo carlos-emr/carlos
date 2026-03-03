@@ -28,8 +28,8 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.PdfPageEventHelper;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfPageEventHelper;
 
 public class FooterSupport extends PdfPageEventHelper {
 

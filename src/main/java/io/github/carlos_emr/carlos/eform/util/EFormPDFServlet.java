@@ -33,6 +33,7 @@
 package io.github.carlos_emr.carlos.eform.util;
 
 import java.io.ByteArrayOutputStream;
+import java.awt.Color;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -52,7 +53,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.itextpdf.text.*;
+import com.lowagie.text.*;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
@@ -67,12 +68,12 @@ import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
 import io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFPostValueProcessor;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfImportedPage;
-import com.itextpdf.text.pdf.PdfReader;
-import com.itextpdf.text.pdf.PdfWriter;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.ColumnText;
+import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfImportedPage;
+import com.lowagie.text.pdf.PdfReader;
+import com.lowagie.text.pdf.PdfWriter;
 
 /**
  *
@@ -630,7 +631,7 @@ public class EFormPDFServlet extends HttpServlet {
                 float ury = Float.parseFloat(cfgVal[3].trim());
 
                 Rectangle rec = new Rectangle(llx, lly, urx, ury);
-                rec.setBackgroundColor(BaseColor.WHITE);
+                rec.setBackgroundColor(Color.WHITE);
                 cb.rectangle(rec);
 
             } else if (temp.toString().startsWith("__$line")) {

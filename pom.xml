@@ -566,16 +566,11 @@
 
         <!-- XMLBeans for AR2005 and CKD - using existing 3.1.0 version below -->
 
-        <!-- itext -->
+        <!-- OpenPDF (LGPL/MPL licensed fork of iText, replaces AGPL iText 5.5.13.5) -->
         <dependency>
-            <groupId>com.itextpdf</groupId>
-            <artifactId>itextpdf</artifactId>
-            <version>5.5.13.5</version>
-        </dependency>
-        <dependency>
-            <groupId>com.itextpdf.tool</groupId>
-            <artifactId>xmlworker</artifactId>
-            <version>5.5.13.5</version>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>2.0.3</version>
         </dependency>
 
         <dependency>
@@ -1230,10 +1225,10 @@
             <version>33.5.0-jre</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.xhtmlrenderer/flying-saucer-pdf -->
+        <!-- Flying Saucer XHTML/CSS renderer (OpenPDF variant, replaces iText-backed artifact) -->
         <dependency>
             <groupId>org.xhtmlrenderer</groupId>
-            <artifactId>flying-saucer-pdf</artifactId>
+            <artifactId>flying-saucer-pdf-openpdf</artifactId>
             <version>9.13.3</version>
         </dependency>
 

@@ -103,11 +103,11 @@ public class PdfWriterFactory {
      * @param settings
      * @return PdfWriter
      */
-    public static com.itextpdf.text.pdf.PdfWriter newInstance(com.itextpdf.text.Document document, OutputStream stream, FontSettings settings) {
-        com.itextpdf.text.pdf.PdfWriter result;
+    public static com.lowagie.text.pdf.PdfWriter newInstance(com.lowagie.text.Document document, OutputStream stream, FontSettings settings) {
+        com.lowagie.text.pdf.PdfWriter result;
         try {
-            result = com.itextpdf.text.pdf.PdfWriter.getInstance(document, stream);
-        } catch (com.itextpdf.text.DocumentException e) {
+            result = com.lowagie.text.pdf.PdfWriter.getInstance(document, stream);
+        } catch (com.lowagie.text.DocumentException e) {
             MiscUtils.getLogger().error("Unable to create new PdfWriter instance", e);
             return null;
         }

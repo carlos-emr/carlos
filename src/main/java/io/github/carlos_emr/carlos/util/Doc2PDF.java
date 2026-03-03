@@ -53,10 +53,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Entities;
 import java.nio.charset.StandardCharsets;
 
-import com.itextpdf.text.Document;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.pdf.PdfWriter;
-import com.itextpdf.tool.xml.XMLWorkerHelper;
+import org.xhtmlrenderer.pdf.ITextRenderer;
 
 /**
  * @author root
@@ -67,7 +64,7 @@ public class Doc2PDF {
     private static Logger logger = MiscUtils.getLogger();
 
     /**
-     * Configure Jsoup document for XHTML output compatible with iText XMLWorkerHelper.
+     * Configure Jsoup document for XHTML output compatible with Flying Saucer PDF renderer.
      * This ensures consistent HTML cleaning across all PDF conversion methods.
      *
      * @param doc The Jsoup document to configure
@@ -77,7 +74,7 @@ public class Doc2PDF {
         doc.outputSettings()
             .syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml)
             .escapeMode(Entities.EscapeMode.xhtml)
-            .prettyPrint(false);  // Critical: prevents whitespace issues in iText XML parser
+            .prettyPrint(false);  // Critical: prevents whitespace issues in XML parser
     }
 
     /**
@@ -285,20 +282,17 @@ public class Doc2PDF {
     }
 
     public static String GetPDFBin(HttpServletResponse response, String docText) {
-        Document document = new Document(PageSize.A4, 36, 36, 36, 36);
         try {
+            ITextRenderer renderer = new ITextRenderer();
+            renderer.setDocumentFromString(docText);
+            renderer.layout();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(document, baos);
-            document.open();
-            InputStream is = new ByteArrayInputStream(docText.getBytes(StandardCharsets.UTF_8));
-            XMLWorkerHelper.getInstance().parseXHtml(writer, document, is);
-            document.close();
+            renderer.createPDF(baos);
             return (new String(Base64.encodeBase64(baos.toByteArray())));
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
         return null;
-
     }
 
     public static void PrintPDFFromBin(HttpServletResponse response, String docBin) {
@@ -351,14 +345,12 @@ public class Doc2PDF {
     }
 
     public static void PrintPDFFromHTMLString(HttpServletResponse response, String docText) {
-        Document document = new Document(PageSize.A4, 36, 36, 36, 36);
         try {
+            ITextRenderer renderer = new ITextRenderer();
+            renderer.setDocumentFromString(docText);
+            renderer.layout();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(document, baos);
-            document.open();
-            InputStream is = new ByteArrayInputStream(docText.getBytes(StandardCharsets.UTF_8));
-            XMLWorkerHelper.getInstance().parseXHtml(writer, document, is);
-            document.close();
+            renderer.createPDF(baos);
             byte[] binArray = baos.toByteArray();
             PrintPDFFromBytes(response, binArray);
         } catch (Exception e) {

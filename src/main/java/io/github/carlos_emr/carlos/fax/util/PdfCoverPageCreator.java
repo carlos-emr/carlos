@@ -33,15 +33,15 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.PdfWriter;
+import com.lowagie.text.*;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfWriter;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import com.itextpdf.text.pdf.PdfPCell;
-import com.itextpdf.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 

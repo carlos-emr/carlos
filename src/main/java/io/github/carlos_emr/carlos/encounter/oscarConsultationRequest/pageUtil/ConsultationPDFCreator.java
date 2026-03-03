@@ -15,8 +15,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.*;
+import com.lowagie.text.*;
+import com.lowagie.text.pdf.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;

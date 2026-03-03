@@ -29,7 +29,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
-import com.itextpdf.text.pdf.PdfReader;
+import com.lowagie.text.pdf.PdfReader;
 
 import ca.uhn.fhir.context.FhirContext;
 

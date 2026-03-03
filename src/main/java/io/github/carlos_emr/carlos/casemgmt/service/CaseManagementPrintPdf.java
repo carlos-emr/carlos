@@ -30,11 +30,12 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfWriter;
+import java.awt.Color;
+import com.lowagie.text.*;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.ColumnText;
+import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfWriter;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -176,7 +177,7 @@ public class CaseManagementPrintPdf {
 
         //Write title with top and bottom borders on p1
         cb = writer.getDirectContent();
-        cb.setColorStroke(BaseColor.BLACK);
+        cb.setColorStroke(Color.BLACK);
         cb.setLineWidth(0.5f);
 
         cb.moveTo(document.left(), document.top());
