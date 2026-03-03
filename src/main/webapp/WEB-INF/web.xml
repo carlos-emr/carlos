@@ -51,6 +51,16 @@
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
 
+    <!-- CSRFGuard MUST be ordered before struts2. StrutsPrepareAndExecuteFilter does not call
+         chain.doFilter() for requests it handles, so filters placed after it are never invoked
+         for Struts action (.do) responses. Placing CSRFGuard here ensures CSRF token validation
+         runs for all Struts action requests. The filter declaration remains in the CSRF section
+         below; only filter-mapping order determines chain position. -->
+    <filter-mapping>
+        <filter-name>CSRFGuard</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
 	<filter>
 		<filter-name>struts2</filter-name>
 		<filter-class>org.apache.struts2.dispatcher.filter.StrutsPrepareAndExecuteFilter</filter-class>
@@ -231,10 +241,8 @@
         <filter-name>CSRFGuard</filter-name>
         <filter-class>io.github.carlos_emr.carlos.app.CarlosCsrfGuardFilter</filter-class>
     </filter>
-    <filter-mapping>
-        <filter-name>CSRFGuard</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
+    <!-- filter-mapping for CSRFGuard is declared earlier in the file, before struts2,
+         so CSRF validation runs for all Struts action (.do) requests. -->
     <servlet>
         <servlet-name>CsrfServlet</servlet-name>
         <servlet-class>org.owasp.csrfguard.servlet.JavaScriptServlet</servlet-class>
