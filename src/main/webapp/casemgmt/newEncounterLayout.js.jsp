@@ -152,6 +152,11 @@
                 if (keydownHandler) { prevEl.removeEventListener('keydown', keydownHandler); }
             }
 
+            // Reset navigation state when switching to a different element so that
+            // mid-template state (e.g. SELECTED_PLACEHOLDER_TEXT) from the previous
+            // note does not carry over and affect the first keypress on the new note.
+            state = smartTmplVM.STATE.TRAVERSING;
+
             clickHandler = function (event) {
                 const value = event.target.value;
                 if (!value) {
@@ -179,7 +184,7 @@
 
                 // Walk forward to find closing '>'
                 let sectionEnd = sectionStart;
-                for (let i = sectionStart; i < value.length; ++i) {
+                for (let i = sectionStart; i < value.length - 1; ++i) {
                     if (value[i + 1] === smartTmplVM.TMPL_DELIM_START) {
                         return;
                     }
@@ -196,7 +201,7 @@
 
                 // Find the specific choice the user clicked on
                 let choiceStart = selection.start;
-                for (let i = selection.start; i >= sectionStart; --i) {
+                for (let i = selection.start; i > sectionStart; --i) {
                     if (value[i - 1] === smartTmplVM.TMPL_DELIM_START || value[i - 1] === smartTmplVM.TMPL_DELIM_CHOICE) {
                         choiceStart = i;
                         break;
@@ -204,7 +209,7 @@
                 }
 
                 let choiceEnd = choiceStart;
-                for (let i = choiceEnd; i <= sectionEnd; i++) {
+                for (let i = choiceEnd; i < sectionEnd; i++) {
                     if (value[i + 1] === smartTmplVM.TMPL_DELIM_END || value[i + 1] === smartTmplVM.TMPL_DELIM_CHOICE) {
                         choiceEnd = i;
                         break;
@@ -243,8 +248,11 @@
                     if (isHighlighting(el) && event.key === 'Enter') {
                         if (highlighted === smartTmplVM.TMPL_PLACEHOLDER_CHAR) {
                             state = smartTmplVM.STATE.SELECTED_PLACEHOLDER_TEXT;
-                        } else {
+                        } else if (isTemplateOptionSelection(value, selectionStart, selectionEnd)) {
                             state = smartTmplVM.STATE.SELECTED_OPTION_TEXT;
+                        } else {
+                            // Regular text selection — let Enter behave normally (insert newline)
+                            return;
                         }
                     } else {
                         state = smartTmplVM.STATE.TRAVERSING;
@@ -367,6 +375,20 @@
             return el.selectionStart !== el.selectionEnd;
         }
 
+        // Returns true only when the current selection is an option within a <opt1|opt2> block.
+        // Checks that the character immediately before selectionStart is '<' or '|', and the
+        // character immediately after selectionEnd is '|' or '>'.  This prevents Enter from
+        // being swallowed when the user has selected arbitrary (non-template) text.
+        function isTemplateOptionSelection(value, selectionStart, selectionEnd) {
+            if (selectionStart === selectionEnd) { return false; }
+            const left = value[selectionStart - 1];
+            const right = value[selectionEnd];
+            return (
+                (left === smartTmplVM.TMPL_DELIM_START || left === smartTmplVM.TMPL_DELIM_CHOICE) &&
+                (right === smartTmplVM.TMPL_DELIM_CHOICE || right === smartTmplVM.TMPL_DELIM_END)
+            );
+        }
+
         // Find the next '?' placeholder character at or after selectionEnd
         function findPlaceholderCharIndex(selectionEnd, value) {
             if (!value || !value.length) {
@@ -445,8 +467,10 @@
      *
      * Press '\' in the note textarea to open a floating search popup for
      * encounter note templates. Type to filter, Arrow keys to navigate,
-     * Enter to select, Escape to dismiss. Only shows actual templates
-     * (not calculators) from the autoCompList global.
+     * Enter to select, Escape to dismiss. Shows all entries from the
+     * autoCompList global (populated by ChartNotesAjax.jsp in the case-mgmt
+     * context, which contains templates only; other contexts such as the
+     * full encounter may also include calculators).
      *
      * Reuses existing ajaxInsertTemplate() for insertion and smartTmpl.init()
      * for tab-stop activation after template content is loaded.
@@ -523,9 +547,11 @@
             });
 
             searchInput.addEventListener('keydown', function (event) {
+                // Cap navigation to visible rows (renderList only shows up to 50 items)
+                var visibleCount = Math.min(filteredItems.length, 50);
                 if (event.key === 'ArrowDown') {
                     event.preventDefault();
-                    if (selectedIndex < filteredItems.length - 1) {
+                    if (selectedIndex < visibleCount - 1) {
                         selectedIndex++;
                         updateSelection(listEl);
                     }
@@ -537,7 +563,7 @@
                     }
                 } else if (event.key === 'Enter') {
                     event.preventDefault();
-                    if (filteredItems.length > 0 && selectedIndex < filteredItems.length) {
+                    if (visibleCount > 0 && selectedIndex < visibleCount) {
                         selectTemplate(filteredItems[selectedIndex]);
                     }
                 } else if (event.key === 'Escape') {
@@ -566,6 +592,8 @@
             }
 
             var limit = Math.min(filteredItems.length, 50);
+            // Clamp selectedIndex so it never references a row that doesn't exist
+            if (limit > 0 && selectedIndex > limit - 1) { selectedIndex = limit - 1; }
             for (var i = 0; i < limit; i++) {
                 var itemEl = document.createElement('div');
                 itemEl.textContent = filteredItems[i];
