@@ -145,7 +145,6 @@ public class Update2Action extends ActionSupport {
         this.resourceId = resourceId;
     }
 
-    @StrutsParameter(depth = 1)
     public File getContent() {
         return content;
     }

@@ -296,7 +296,6 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     private File file; // Uploaded file
     private boolean replace = true; // Flag for replacement
 
-    @StrutsParameter(depth = 1)
     public File getFile() {
         return file;
     }

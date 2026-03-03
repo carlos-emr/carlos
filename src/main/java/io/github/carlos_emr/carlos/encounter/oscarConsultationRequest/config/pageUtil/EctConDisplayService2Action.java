@@ -99,6 +99,7 @@ public class EctConDisplayService2Action extends ActionSupport {
         return specialists;
     }
 
+    @StrutsParameter
     public void setSpecialists(String str[]) {
         specialists = str;
     }

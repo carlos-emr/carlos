@@ -168,7 +168,6 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
     private BigDecimal updateAssistantFeesValue;
     private BigDecimal updateAnaesthetistFeesValue;
 
-    @StrutsParameter(depth = 1)
     public File getImportFile() {
         return importFile;
     }

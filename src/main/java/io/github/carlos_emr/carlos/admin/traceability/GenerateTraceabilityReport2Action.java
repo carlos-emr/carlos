@@ -102,7 +102,6 @@ public class GenerateTraceabilityReport2Action extends ActionSupport {
         return null;
     }
 
-    @StrutsParameter(depth = 1)
     public File getFile() {
         return file;
     }

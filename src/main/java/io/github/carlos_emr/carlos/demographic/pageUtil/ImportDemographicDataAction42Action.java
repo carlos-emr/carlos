@@ -4854,7 +4854,6 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
     private int timeshiftInDays;
     private String courseId;
 
-    @StrutsParameter(depth = 1)
     public File getImportFile() {
         return importFile;
     }

@@ -457,7 +457,6 @@ public class DocumentUpload2Action extends ActionSupport {
         this.source = source;
     }
 
-    @StrutsParameter(depth = 1)
     public File getDocFile() {
         return docFile;
     }
@@ -530,7 +529,6 @@ public class DocumentUpload2Action extends ActionSupport {
         this.html = html;
     }
 
-    @StrutsParameter(depth = 1)
     public File getFiledata() {
         return filedata;
     }

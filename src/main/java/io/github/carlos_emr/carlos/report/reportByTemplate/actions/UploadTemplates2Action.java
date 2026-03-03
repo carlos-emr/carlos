@@ -107,7 +107,6 @@ public class UploadTemplates2Action extends ActionSupport {
 
     private File templateFile;
 
-    @StrutsParameter(depth = 1)
     public File getTemplateFile() {
         return templateFile;
     }

@@ -313,7 +313,6 @@ public class AddEditHtml2Action extends ActionSupport {
         this.sourceFacility = sourceFacility;
     }
 
-    @StrutsParameter(depth = 1)
     public File getDocFile() {
         return docFile;
     }
@@ -395,7 +394,6 @@ public class AddEditHtml2Action extends ActionSupport {
         this.html = html;
     }
 
-    @StrutsParameter(depth = 1)
     public File getFiledata() {
         return filedata;
     }

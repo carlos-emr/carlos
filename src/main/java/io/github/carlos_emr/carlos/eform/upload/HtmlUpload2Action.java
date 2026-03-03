@@ -78,7 +78,6 @@ public class HtmlUpload2Action extends ActionSupport {
     private boolean patientIndependent;
     private String roleType;
 
-    @StrutsParameter(depth = 1)
     public File getFormHtml() {
         return formHtml;
     }

@@ -397,7 +397,6 @@ public class BillingDocumentErrorReportUpload2Action extends ActionSupport {
 
     private String filename; // Filename parameter from request
 
-    @StrutsParameter(depth = 1)
     public File getFile1() {
         return file1;
     }

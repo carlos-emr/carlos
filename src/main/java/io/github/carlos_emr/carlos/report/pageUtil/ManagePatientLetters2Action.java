@@ -136,7 +136,6 @@ public class ManagePatientLetters2Action extends ActionSupport {
 
     private File reportFile;
 
-    @StrutsParameter(depth = 1)
     public File getReportFile() {
         return reportFile;
     }

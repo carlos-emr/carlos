@@ -451,7 +451,6 @@ public class Upload2Action extends ActionSupport {
         this.resourceId = resourceId;
     }
 
-    @StrutsParameter(depth = 1)
     public File getAddUploadFile() {
         return addUploadFile;
     }

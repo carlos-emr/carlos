@@ -166,7 +166,6 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
     private File file;
     private String fileName; // Name of the uploaded file
 
-    @StrutsParameter(depth = 1)
     public File getFile() {
         return file;
     }

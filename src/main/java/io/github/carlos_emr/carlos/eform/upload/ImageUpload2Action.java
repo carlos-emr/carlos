@@ -129,7 +129,6 @@ public class ImageUpload2Action extends ActionSupport {
 
     private File image;
 
-    @StrutsParameter(depth = 1)
     public File getImage() {
         return image;
     }

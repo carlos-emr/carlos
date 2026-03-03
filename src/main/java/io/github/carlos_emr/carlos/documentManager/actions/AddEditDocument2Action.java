@@ -650,7 +650,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         this.sourceFacility = sourceFacility;
     }
 
-    @StrutsParameter(depth = 1)
     public File getDocFile() {
         return docFile;
     }
@@ -732,7 +731,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         this.html = html;
     }
 
-    @StrutsParameter(depth = 1)
     public File getFiledata() {
         return filedata;
     }

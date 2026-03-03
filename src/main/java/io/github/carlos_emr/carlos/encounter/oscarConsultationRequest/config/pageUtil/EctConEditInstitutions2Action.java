@@ -155,6 +155,7 @@ public class EctConEditInstitutions2Action extends ActionSupport {
         return institutions;
     }
 
+    @StrutsParameter
     public void setInstitutions(String str[]) {
         MiscUtils.getLogger().debug("setter institutions");
         institutions = str;

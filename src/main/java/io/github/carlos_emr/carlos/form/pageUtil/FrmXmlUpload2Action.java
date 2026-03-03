@@ -115,7 +115,6 @@ public class FrmXmlUpload2Action extends ActionSupport {
 
 
     // Setters and Getters for file upload properties
-    @StrutsParameter(depth = 1)
     public File getFile1() {
         return file1;
     }

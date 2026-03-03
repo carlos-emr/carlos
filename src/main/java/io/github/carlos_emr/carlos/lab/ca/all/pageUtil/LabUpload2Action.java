@@ -312,7 +312,6 @@ public class LabUpload2Action extends ActionSupport {
 
     private File importFile;
 
-    @StrutsParameter(depth = 1)
     public File getImportFile() {
         return importFile;
     }

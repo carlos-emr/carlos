@@ -1725,7 +1725,6 @@ public class CaseManagementView2Action extends ActionSupport {
         this.note_sort = note_sort;
     }
 
-    @StrutsParameter(depth = 1)
     public File getImageFile() {
         return imageFile;
     }

@@ -176,6 +176,7 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         return specialists;
     }
 
+    @StrutsParameter
     public void setSpecialists(String str[]) {
         MiscUtils.getLogger().debug("setter specialists");
         specialists = str;

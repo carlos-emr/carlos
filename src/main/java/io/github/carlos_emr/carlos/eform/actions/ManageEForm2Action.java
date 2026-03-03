@@ -103,7 +103,6 @@ public class ManageEForm2Action extends ActionSupport {
 
     private File zippedForm; // 接收上传的文件
 
-    @StrutsParameter(depth = 1)
     public File getZippedForm() {
         return zippedForm;
     }

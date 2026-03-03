@@ -127,7 +127,6 @@ public class HtmlEdit2Action extends ActionSupport {
     private boolean patientIndependent = false;
     private String roleType = "";
 
-    @StrutsParameter(depth = 1)
     public File getUploadFile() {
         return uploadFile;
     }
