@@ -1126,52 +1126,82 @@ public class ClientManager2Action extends ActionSupport {
     private Provider provider;
 
     @StrutsParameter(depth = 1)
+    /**
+     * Returns the ClientManagerFormBean view.
+     */
     public ClientManagerFormBean getView() {
         return view;
     }
 
     @StrutsParameter
+    /**
+     * Sets the view for the ClientManagerFormBean.
+     */
     public void setView(ClientManagerFormBean view) {
         this.view = view;
     }
 
     @StrutsParameter(depth = 1)
+    /**
+     * Returns the current admission.
+     */
     public Admission getAdmission() {
         return admission;
     }
 
     @StrutsParameter
+    /**
+     * Sets the admission object.
+     */
     public void setAdmission(Admission admission) {
         this.admission = admission;
     }
 
     @StrutsParameter(depth = 1)
+    /**
+     * Returns the current program.
+     */
     public Program getProgram() {
         return program;
     }
 
     @StrutsParameter
+    /**
+     * Sets the program.
+     */
     public void setProgram(Program program) {
         this.program = program;
     }
 
 
     @StrutsParameter(depth = 1)
+    /**
+     * Returns the client referral.
+     */
     public ClientReferral getReferral() {
         return referral;
     }
 
     @StrutsParameter
+    /**
+     * Sets the client referral.
+     */
     public void setReferral(ClientReferral referral) {
         this.referral = referral;
     }
 
     @StrutsParameter(depth = 1)
+    /**
+     * Returns the service restriction.
+     */
     public ProgramClientRestriction getServiceRestriction() {
         return serviceRestriction;
     }
 
     @StrutsParameter
+    /**
+     * Sets the service restriction.
+     */
     public void setServiceRestriction(ProgramClientRestriction serviceRestriction) {
         this.serviceRestriction = serviceRestriction;
     }
@@ -1181,16 +1211,25 @@ public class ClientManager2Action extends ActionSupport {
     }
 
     @StrutsParameter
+    /**
+     * Sets the service restriction length.
+     */
     public void setServiceRestrictionLength(Integer serviceRestrictionLength) {
         this.serviceRestrictionLength = serviceRestrictionLength;
     }
 
     @StrutsParameter(depth = 1)
+    /**
+     * Returns the CaisiFormInstance.
+     */
     public CaisiFormInstance getForm() {
         return form;
     }
 
     @StrutsParameter
+    /**
+     * Sets the form instance.
+     */
     public void setForm(CaisiFormInstance form) {
         this.form = form;
     }
@@ -1201,16 +1240,25 @@ public class ClientManager2Action extends ActionSupport {
     }
 
     @StrutsParameter
+    /**
+     * Sets the client demographic.
+     */
     public void setClient(Demographic client) {
         this.client = client;
     }
 
     @StrutsParameter(depth = 1)
+    /**
+     * Returns the current provider.
+     */
     public Provider getProvider() {
         return provider;
     }
 
     @StrutsParameter
+    /**
+     * Sets the provider.
+     */
     public void setProvider(Provider provider) {
         this.provider = provider;
     }
