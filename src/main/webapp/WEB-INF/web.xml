@@ -34,10 +34,10 @@
 			<dispatcher>ASYNC</dispatcher>
         </filter-mapping>
 
-    <!-- ResponseDefaultsFilter MUST be before struts2. Struts2's StrutsPrepareAndExecuteFilter
+    <!-- ResponseDefaultsFilter MUST be ordered before struts2. Struts2's StrutsPrepareAndExecuteFilter
          does not call chain.doFilter() for requests it handles, so any filter after it in the
-         chain is never invoked for Struts action responses. Placing this filter first ensures
-         encoding, caching, and security headers are applied to ALL responses. -->
+         chain is never invoked for Struts action responses. Ensuring this filter runs before
+         struts2 guarantees encoding, caching, and security headers are applied to Struts action responses. -->
     <filter>
         <filter-name>ResponseDefaultsFilter</filter-name>
         <filter-class>io.github.carlos_emr.carlos.utility.ResponseDefaultsFilter</filter-class>
