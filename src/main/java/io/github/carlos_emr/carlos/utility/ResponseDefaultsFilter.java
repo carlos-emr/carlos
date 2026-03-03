@@ -97,7 +97,10 @@ public final class ResponseDefaultsFilter implements Filter {
 
         temp = filterConfig.getInitParameter("noCacheEndings");
         if (temp != null) {
-            this.noCacheEndings = temp.split(",");
+            this.noCacheEndings = Arrays.stream(temp.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .toArray(String[]::new);
         }
 
         logger.info("setNoCache=" + this.setNoCache + ", noCacheEndings=" + Arrays.toString(this.noCacheEndings));
