@@ -99,6 +99,9 @@ public class AgencyManager2Action extends ActionSupport {
     private Agency agency;
 
     @StrutsParameter(depth = 1)
+    /**
+     * Returns the agency.
+     */
     public Agency getAgency() {
         return agency;
     }
