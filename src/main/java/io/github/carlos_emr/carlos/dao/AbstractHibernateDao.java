@@ -27,8 +27,8 @@ import org.springframework.beans.factory.annotation.Autowired;
  *
  * <p>Provides {@link #currentSession()} via an injected {@link SessionFactory},
  * matching the same method signature that {@code HibernateDaoSupport} offered.
- * This class has no dependency on {@code spring-orm-hibernate5}, which will
- * not exist in Hibernate 6.</p>
+ * This class has no dependency on the {@code org.springframework.orm.hibernate5}
+ * package, which will not exist when Spring drops Hibernate 5 support.</p>
  *
  * <p>Compatible with {@code autowire="byName"} in {@code applicationContext.xml}:
  * the {@link #setSessionFactory(SessionFactory)} setter matches the bean named
@@ -68,7 +68,8 @@ public abstract class AbstractHibernateDao {
      * Returns the current Hibernate {@link Session} bound to the active transaction.
      *
      * <p>Drop-in replacement for {@code HibernateDaoSupport.currentSession()}.
-     * Requires an active {@code @Transactional} context.</p>
+     * The session lifecycle is managed by Spring's transaction infrastructure
+     * — no explicit session close or {@code releaseSession()} call is needed.</p>
      *
      * @return the current transactional Session
      */

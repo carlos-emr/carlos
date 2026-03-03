@@ -22,7 +22,7 @@
 <hibernate-mapping package="io.github.carlos_emr.carlos.PMmodule.model">
 	<class name="io.github.carlos_emr.carlos.PMmodule.model.ProgramSignature" table="programSignature">
 		<id column="id" name="id" type="integer" unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property name="programId" type="integer" not-null="true"
 			length="10" />

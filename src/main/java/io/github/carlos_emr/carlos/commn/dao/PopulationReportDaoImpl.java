@@ -162,6 +162,9 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
 
     @Override
     public int getPrevalence(SortedSet<String> icd10Codes) {
+        if (icd10Codes == null || icd10Codes.isEmpty()) {
+            return 0;
+        }
         Map<String, Object> params = new HashMap<>();
         params.put("codes", icd10Codes);
         String hql = HQL_GET_PREVALENCE + "(:codes)";
@@ -170,6 +173,9 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
 
     @Override
     public int getIncidence(SortedSet<String> icd10Codes) {
+        if (icd10Codes == null || icd10Codes.isEmpty()) {
+            return 0;
+        }
         Map<String, Object> params = new HashMap<>();
         params.put("codes", icd10Codes);
         String hql = HQL_GET_INCIDENCE + "(:codes)";

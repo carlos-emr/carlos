@@ -69,7 +69,7 @@ public class BillingmasterDAO {
 
     public List<Billingmaster> getBillingMasterWithStatus(String billingmasterNo, String status) {
         log.debug("WHAT IS NULL ? " + billingmasterNo + "  status " + status + "   " + entityManager);
-        Query query = entityManager.createQuery("select b from Billingmaster b where b.billingNo = (:billingNo) and billingstatus = (:status)");
+        Query query = entityManager.createQuery("select b from Billingmaster b where b.billingNo = (:billingNo) and b.billingstatus = (:status)");
         query.setParameter("billingNo", Integer.parseInt(billingmasterNo));
         query.setParameter("status", status);
         List<Billingmaster> list = query.getResultList();
@@ -306,7 +306,7 @@ public class BillingmasterDAO {
     }
 
     public List<Object[]> getRecentReferralDoctors(Integer demographicNo) {
-        Query query = entityManager.createQuery("SELECT referralNo1, referralNo2 FROM Billingmaster WHERE demographic_no = ?1 AND (referralNo1!='' OR referralNo2!='') ORDER BY billingmasterNo DESC");
+        Query query = entityManager.createQuery("SELECT b.referralNo1, b.referralNo2 FROM Billingmaster b WHERE b.demographicNo = ?1 AND (b.referralNo1!='' OR b.referralNo2!='') ORDER BY b.billingmasterNo DESC");
         query.setParameter(1, demographicNo);
         return query.setMaxResults(3).getResultList();
     }

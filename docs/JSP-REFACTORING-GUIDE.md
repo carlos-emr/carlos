@@ -279,31 +279,43 @@ If JSTL cannot handle the logic, document why:
 | `<%= session.getAttribute("x") %>` | `${sessionScope.x}` |
 | `<%= obj.getProperty() %>` | `${obj.property}` |
 
-**SECURITY REQUIREMENT - OWASP Encoder for User Inputs:**
+**SECURITY REQUIREMENT - OWASP Encoder for All Output:**
 
-For user-provided data in JSPs, **continue using OWASP Encoder** as it provides context-aware encoding:
-
-| Context | REQUIRED Pattern | Purpose |
-|---------|-----------------|---------|
-| HTML body | `<%= Encode.forHtml(userInput) %>` | Prevents XSS in HTML content |
-| HTML attributes | `<%= Encode.forHtmlAttribute(userInput) %>` | Safe encoding for attribute values |
-| JavaScript | `<%= Encode.forJavaScript(userInput) %>` | Safe for JS string contexts |
-| CSS | `<%= Encode.forCssString(userInput) %>` | Safe for CSS values |
-| URLs | `<%= Encode.forUri(userInput) %>` | Safe for URL components |
-
-**When to use JSTL instead:**
-- `<c:out value="${x}"/>` is acceptable for **system-generated, non-user data**
-- `${fn:escapeXml(x)}` provides basic HTML escaping for **trusted data**
-
-**Example distinction:**
+**Taglib declaration** (add to taglib block at top of JSP):
 ```jsp
-<%-- User input - MUST use OWASP Encoder --%>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+```
+
+For **all** data displayed in JSPs, use OWASP Encoder with context-appropriate encoding. The `encoder-jsp` EL functions are the preferred approach — they are cleaner than scriptlets and provide better encoding than `<c:out>`:
+
+| Context | EL Function (Preferred) | Scriptlet Alternative |
+|---------|------------------------|----------------------|
+| HTML body | `${e:forHtml(value)}` | `<%= Encode.forHtml(value) %>` |
+| HTML attributes | `${e:forHtmlAttribute(value)}` | `<%= Encode.forHtmlAttribute(value) %>` |
+| JavaScript | `${e:forJavaScript(value)}` | `<%= Encode.forJavaScript(value) %>` |
+| CSS | `${e:forCssString(value)}` | `<%= Encode.forCssString(value) %>` |
+| URLs | `${e:forUriComponent(value)}` | `<%= Encode.forUriComponent(value) %>` |
+
+> **Why `${e:forHtml()}` over `<c:out>`?**
+> - `<c:out>` and `fn:escapeXml()` only do basic XML entity escaping (`<>&"'`)
+> - `${e:forHtml()}` uses OWASP Encoder which handles additional edge cases
+> - OWASP Encoder provides context-specific variants (HTML, JS, CSS, URL) — `<c:out>` does not
+> - `${e:forHtml()}` is a **drop-in replacement**: `<c:out value="${name}"/>` → `${e:forHtml(name)}`
+> - **`<c:out>` is legacy** — still acceptable in existing code, but use `${e:forHtml()}` for all new code
+
+**Example — preferred EL approach:**
+```jsp
+<%-- All data — use OWASP Encoder EL functions --%>
+<div>${e:forHtml(userEnteredName)}</div>
+<input value="${e:forHtmlAttribute(userEnteredAddress)}">
+<span>${e:forHtml(systemGeneratedId)}</span>
+```
+
+**Example — scriptlet approach (when already in scriptlet-heavy JSP):**
+```jsp
+<%-- Scriptlet context — use Encode.* static methods --%>
 <div><%= Encode.forHtml(userEnteredName) %></div>
 <input value="<%= Encode.forHtmlAttribute(userEnteredAddress) %>">
-
-<%-- System data - JSTL is acceptable --%>
-<c:out value="${systemGeneratedId}"/>
-<div>${applicationVersion}</div>
 ```
 
 ### Step 2.2: Replace Conditional Logic
@@ -375,19 +387,22 @@ For user-provided data in JSPs, **continue using OWASP Encoder** as it provides 
 
 ### Step 2.4: Handle HTML Attribute Encoding
 
-**For user input (REQUIRED - use OWASP Encoder):**
+**Preferred — OWASP Encoder EL functions (for all data):**
 ```jsp
-<%-- User-provided data - MUST use OWASP Encoder --%>
+<%-- OWASP Encoder EL — preferred for all attribute values --%>
+<input value="${e:forHtmlAttribute(userName)}">
+<div title="${e:forHtmlAttribute(userComment)}">
+<input value="${e:forHtmlAttribute(systemId)}">
+```
+
+**Scriptlet alternative (when in scriptlet-heavy JSP):**
+```jsp
+<%-- Scriptlet — use when already in scriptlet context --%>
 <input value="<%= Encode.forHtmlAttribute(userName) %>">
 <div title="<%= Encode.forHtmlAttribute(userComment) %>">
 ```
 
-**For system data (JSTL acceptable):**
-```jsp
-<%-- System-generated values - JSTL is acceptable --%>
-<input value="${fn:escapeXml(systemId)}">
-<input value="<c:out value='${applicationName}'/>">
-```
+> **Note**: `fn:escapeXml()` and `<c:out>` are legacy for attribute encoding. Prefer `${e:forHtmlAttribute()}` which provides proper HTML attribute encoding rather than basic XML escaping.
 
 ### Step 2.5: Set Context Path Variable
 
@@ -439,16 +454,19 @@ When embedding server values in JavaScript, use OWASP Encoder:
     // WRONG - XSS vulnerability
     var patientName = "${patientName}";
 
-    // CORRECT - Use OWASP Encoder with proper variable retrieval
-    var patientName = "<%= Encode.forJavaScript((String) pageContext.getAttribute(\"patientName\")) %>";
+    // CORRECT (EL) - Use OWASP Encoder EL function
+    var patientName = "${e:forJavaScript(patientName)}";
+
+    // CORRECT (Scriptlet) - Use Encode.forJavaScript in scriptlet-heavy JSPs
+    var patientName = "<%= Encode.forJavaScript((String) pageContext.getAttribute("patientName")) %>";
 </script>
 ```
 
-**Better approach** - use data attributes (recommended):
+**Better approach** - use data attributes with OWASP encoding (recommended):
 ```jsp
 <div id="appointmentData"
-     data-provider-no="${fn:escapeXml(providerNo)}"
-     data-date="${fn:escapeXml(appointmentDate)}">
+     data-provider-no="${e:forHtmlAttribute(providerNo)}"
+     data-date="${e:forHtmlAttribute(appointmentDate)}">
 </div>
 
 <script>

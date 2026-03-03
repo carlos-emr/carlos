@@ -296,7 +296,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         if (filter.getAssignee() == null || filter.getAssignee().equals("All Providers") || filter.getAssignee().equals("")) {
             includeAssigneeClause = false;
         }
-        if (filter.getClient() == null || filter.getClient().equals("All Clients")) {
+        if (filter.getClient() == null || filter.getClient().isEmpty() || filter.getClient().equals("All Clients")) {
             includeClientClause = false;
         }
         if (filter.getDemographicNo() == null || filter.getDemographicNo().equals("") || filter.getDemographicNo().equalsIgnoreCase("All Clients")) {

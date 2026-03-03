@@ -50,17 +50,13 @@ public class EmailConfigDaoImpl extends AbstractDaoImpl<EmailConfig> implements 
      * and email provider from the provided EmailConfig object. This method is used when multiple
      * criteria need to be satisfied to identify a specific email configuration.</p>
      *
-     * <p><strong>Note:</strong> The current query implementation appears to have a potential issue
-     * where it compares e.emailType twice (parameters 2 and 3) instead of comparing e.emailProvider
-     * for parameter 3. This is documented as-is and should be reviewed separately.</p>
-     *
      * @param emailConfig EmailConfig the email configuration object containing search criteria
      *                    (senderEmail, emailType, emailProvider)
      * @return EmailConfig the matching active email configuration, or null if no match is found
      */
     @Transactional
     public EmailConfig findActiveEmailConfig(EmailConfig emailConfig) {
-        Query query = entityManager.createQuery("SELECT e FROM EmailConfig e WHERE e.senderEmail = ?1 AND e.emailType = ?2 AND e.emailType = ?3 AND e.active = true");
+        Query query = entityManager.createQuery("SELECT e FROM EmailConfig e WHERE e.senderEmail = ?1 AND e.emailType = ?2 AND e.emailProvider = ?3 AND e.active = true");
 
         query.setParameter(1, emailConfig.getSenderEmail());
         query.setParameter(2, emailConfig.getEmailType());

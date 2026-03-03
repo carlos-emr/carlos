@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.LockMode;
+import org.hibernate.LockOptions;
 import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.StaffForm;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -63,7 +63,6 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public void saveAll(List list) {
         logger.debug("saving ALL Secuserrole instances");
-        // Session session = getSession();
         Session session = currentSession();
         try {
             for (int i = 0; i < list.size(); i++) {
@@ -76,21 +75,16 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
                 }
 
             }
-            // this.getHibernateTemplate().saveOrUpdateAll(list);
             logger.debug("save ALL successful");
         } catch (RuntimeException re) {
             logger.error("save ALL failed", re);
             throw re;
         }
-        // finally {
-        // this.releaseSession(session);
-        // }
     }
 
     @Override
     public void save(Secuserrole transientInstance) {
         logger.debug("saving Secuserrole instance");
-        // Session session = getSession();
         Session session = currentSession();
         try {
             transientInstance.setLastUpdateDate(new Date());
@@ -100,9 +94,6 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
             logger.error("save failed", re);
             throw re;
         }
-        // finally {
-        // this.releaseSession(session);
-        // }
     }
 
     @Override
@@ -118,7 +109,6 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public void delete(Secuserrole persistentInstance) {
         logger.debug("deleting Secuserrole instance");
-        // Session session = getSession();
         Session session = currentSession();
         try {
             session.delete(persistentInstance);
@@ -127,9 +117,6 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
             logger.error("delete failed", re);
             throw re;
         }
-        // finally {
-        // this.releaseSession(session);
-        // }
     }
 
     @Override
@@ -195,7 +182,6 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public Secuserrole findById(java.lang.Integer id) {
         logger.debug("getting Secuserrole instance with id: " + id);
-        // Session session = getSession();
         Session session = currentSession();
         try {
             Secuserrole instance = (Secuserrole) session.get(
@@ -205,9 +191,6 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
             logger.error("get failed", re);
             throw re;
         }
-        // finally {
-        // this.releaseSession(session);
-        // }
     }
 
     @Override
@@ -346,7 +329,6 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
     @Override
     public Secuserrole merge(Secuserrole detachedInstance) {
         logger.debug("merging Secuserrole instance");
-        // Session session = getSession();
         Session session = currentSession();
         try {
             detachedInstance.setLastUpdateDate(new Date());
@@ -358,15 +340,11 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
             logger.error("merge failed", re);
             throw re;
         }
-        // finally {
-        // this.releaseSession(session);
-        // }
     }
 
     @Override
     public void attachDirty(Secuserrole instance) {
         logger.debug("attaching dirty Secuserrole instance");
-        // Session session = getSession();
         Session session = currentSession();
         try {
             instance.setLastUpdateDate(new Date());
@@ -376,25 +354,18 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
             logger.error("attach failed", re);
             throw re;
         }
-        // finally {
-        // this.releaseSession(session);
-        // }
     }
 
     @Override
     public void attachClean(Secuserrole instance) {
         logger.debug("attaching clean Secuserrole instance");
-        // Session session = getSession();
         Session session = currentSession();
         try {
-            session.lock(instance, LockMode.NONE);
+            session.buildLockRequest(LockOptions.NONE).lock(instance);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);
             throw re;
         }
-        // finally {
-        // this.releaseSession(session);
-        // }
     }
 }

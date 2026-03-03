@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.util.persistence;
 
 import java.sql.Types;
 
+// H6-MIGRATE: Replace MySQL5Dialect with MySQLDialect (H6 generic replacement), update StandardBasicTypes/registerHibernateType API to SqlTypes
 import org.hibernate.dialect.MySQL5Dialect;
 import org.hibernate.type.StandardBasicTypes;
 

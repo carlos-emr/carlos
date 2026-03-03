@@ -23,7 +23,7 @@
 	<class name="io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction" table="program_client_restriction">
 		<meta attribute="sync-DAO">false</meta>
 		<id name="id" type="integer" column="id" unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property name="programId" column="program_id" type="integer"
 			not-null="false" length="10" />

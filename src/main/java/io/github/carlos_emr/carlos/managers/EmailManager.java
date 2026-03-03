@@ -169,6 +169,9 @@ public class EmailManager {
         }
 
         EmailConfig emailConfig = emailConfigDao.findActiveEmailConfig(emailData.getSender());
+        if (emailConfig == null) {
+            throw new IllegalArgumentException("No active email configuration found for sender: " + emailData.getSender());
+        }
         Demographic demographic = demographicManager.getDemographic(loggedInInfo, emailData.getDemographicNo());
         Provider provider = providerManager.getProvider(loggedInInfo, emailData.getProviderNo());
 

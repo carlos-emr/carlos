@@ -59,6 +59,7 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
     private Long testProgramId2;
     private Long testUserTypeId1;
     private Long testUserTypeId2;
+    private ProgramFunctionalUser testFunctionalUser1;
 
     @BeforeEach
     void setUp() {
@@ -73,7 +74,7 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
         testUserTypeId2 = userType2.getId();
 
         // Create test functional users
-        createFunctionalUser(testProgramId1, testUserTypeId1);
+        testFunctionalUser1 = createFunctionalUser(testProgramId1, testUserTypeId1);
         createFunctionalUser(testProgramId1, testUserTypeId2);
         createFunctionalUser(testProgramId2, testUserTypeId1);
 
@@ -105,7 +106,7 @@ public class ProgramFunctionalUserDAOIntegrationTest extends CarlosTestBase {
         void shouldFind_whenBothParamsMatch() {
             Long result = programFunctionalUserDAO.getFunctionalUserByUserType(testProgramId1, testUserTypeId1);
             assertThat(result).isNotNull();
-            assertThat(result).isEqualTo(testProgramId1);
+            assertThat(result).isEqualTo(testFunctionalUser1.getId());
         }
 
         @Test

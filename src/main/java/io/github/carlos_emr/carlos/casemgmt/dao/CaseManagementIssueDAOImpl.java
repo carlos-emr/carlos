@@ -103,7 +103,7 @@ public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements 
     public CaseManagementIssue getIssuebyId(String demo, String id) {
         @SuppressWarnings("unchecked")
         List<CaseManagementIssue> list = (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
-                "from CaseManagementIssue cmi where cmi.issue_id = ?1 and demographic_no = ?2",
+                "from CaseManagementIssue cmi where cmi.issue_id = ?1 and cmi.demographic_no = ?2",
                 Long.parseLong(id), Integer.valueOf(demo));
         if (list != null && list.size() == 1)
             return list.get(0);

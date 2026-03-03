@@ -22,7 +22,7 @@
 <hibernate-mapping package="io.github.carlos_emr.carlos.PMmodule.model">
 	<class name="io.github.carlos_emr.carlos.PMmodule.model.ProgramFunctionalUser" table="program_functional_user">
 		<id column="id" name="Id" type="java.lang.Long" unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property column="program_id" length="11" name="ProgramId"
 			not-null="false" type="java.lang.Long" />

@@ -24,7 +24,7 @@
 		<meta attribute="sync-DAO">false</meta>
 		<id name="id" type="integer" column="clientstatus_id"
 			unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property name="name" column="name" type="string" not-null="false"
 			length="255" />
