@@ -122,6 +122,9 @@ public class VacancyClientMatch2Action extends ActionSupport {
     }
 
     @StrutsParameter
+    /**
+     * Sets the vacancy.
+     */
     public void setVacancy(String vacancy) {
         this.vacancy = vacancy;
     }
@@ -131,6 +134,9 @@ public class VacancyClientMatch2Action extends ActionSupport {
     }
 
     @StrutsParameter
+    /**
+     * Sets the criteria list.
+     */
     public void setCriteriaList(List<String> criteriaList) {
         this.criteriaList = criteriaList;
     }
@@ -140,6 +146,9 @@ public class VacancyClientMatch2Action extends ActionSupport {
     }
 
     @StrutsParameter
+    /**
+     * Sets the program ID.
+     */
     public void setProgramId(int programId) {
         this.programId = programId;
     }
