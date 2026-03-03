@@ -39,7 +39,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import org.jboss.aerogear.security.otp.Totp;
+import dev.samstevens.totp.code.CodeVerifier;
+import dev.samstevens.totp.code.DefaultCodeGenerator;
+import dev.samstevens.totp.code.DefaultCodeVerifier;
+import dev.samstevens.totp.time.SystemTimeProvider;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils;
@@ -299,9 +302,9 @@ public final class Login2Action extends ActionSupport {
                 }
             }
             
-            Totp totp = new Totp(mfaSecret.toString());
-            
-            if (totp.verify(this.code)) {
+            CodeVerifier codeVerifier = new DefaultCodeVerifier(new DefaultCodeGenerator(), new SystemTimeProvider());
+
+            if (codeVerifier.isValidCode(mfaSecret.toString(), this.code)) {
                 if (this.mfaRegistrationFlow) {
                     Security security = cl.getSecurity();
                     LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
