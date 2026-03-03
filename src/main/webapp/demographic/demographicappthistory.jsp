@@ -44,7 +44,7 @@
     }
 %>
 <%@page import="io.github.carlos_emr.carlos.util.*" %>
-<%@page import="org.apache.commons.beanutils.BeanUtils" %>
+<%@page import="org.springframework.beans.BeanUtils" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
@@ -295,7 +295,7 @@
                                     appointmentArchive = (AppointmentArchive) obj;
                                     appointment = new Appointment();
 
-                                    BeanUtils.copyProperties(appointment, appointmentArchive);
+                                    BeanUtils.copyProperties(appointmentArchive, appointment);
                                     appointment.setId(appointmentArchive.getAppointmentNo());
 
                                     deleted = true;
