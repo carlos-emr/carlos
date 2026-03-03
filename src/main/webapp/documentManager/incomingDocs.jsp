@@ -257,13 +257,16 @@
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/autocomplete-min.js"></script>
 
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/demographicProviderAutocomplete.js"></script>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/js/documentDescriptionTypeahead.js"></script>
 
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
     <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
+    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css"/>
     <script type="text/javascript">
         var curPage =<%=pdfPageNumber%>;
         var totalPage =<%=numOfPage%>;
+        var ctx = '<%= request.getContextPath() %>';
 
         function popupPage(vheight, vwidth, varpage) {
             var page = "" + varpage;
@@ -674,6 +677,7 @@
 
         window.onload = function () {
             new Autocompleter.Local('docSubClass', 'docSubClass_list', docSubClassList);
+            setupDocDescriptionTypeahead(null);
         }
 
         var docSubClassList = [
