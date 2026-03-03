@@ -228,7 +228,6 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
     }
     private final Map values = new HashMap();
 
-    @StrutsParameter
     public void setValue(String key, Object value) {
         values.put(key, value);
     }

@@ -421,7 +421,6 @@ public class FrmForm2Action extends ActionSupport {
 
     private Map values = new HashMap();
 
-    @StrutsParameter
     public void setValue(String key, Object value) {
         values.put(key, value);
     }

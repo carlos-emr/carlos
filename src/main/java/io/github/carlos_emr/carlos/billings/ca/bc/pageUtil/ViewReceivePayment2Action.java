@@ -92,7 +92,6 @@ public class ViewReceivePayment2Action
         this.payment = payment;
     }
 
-    @StrutsParameter
     public void setPaymentMethodList(List paymentMethodList) {
         this.paymentMethodList = paymentMethodList;
     }
@@ -131,7 +130,6 @@ public class ViewReceivePayment2Action
         return paymentMethod;
     }
 
-    @StrutsParameter(depth = 1)
     public List getPaymentMethodList() {
         return paymentMethodList;
     }

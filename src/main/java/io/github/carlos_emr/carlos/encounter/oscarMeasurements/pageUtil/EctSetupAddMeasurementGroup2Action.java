@@ -91,7 +91,6 @@ public class EctSetupAddMeasurementGroup2Action extends ActionSupport {
 
     private final Map values = new HashMap();
 
-    @StrutsParameter
     public void setValue(String key, Object value) {
         values.put(key, value);
     }

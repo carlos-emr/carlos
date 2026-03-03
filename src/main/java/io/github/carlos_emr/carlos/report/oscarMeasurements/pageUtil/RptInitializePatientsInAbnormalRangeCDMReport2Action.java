@@ -367,7 +367,6 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
 
     private final Map values = new HashMap();
 
-    @StrutsParameter
     public void setValue(String key, Object value) {
         values.put(key, value);
     }

@@ -378,12 +378,10 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         return copiedTo;
     }
 
-    @StrutsParameter(depth = 1)
     public HttpServletRequest getRequest() {
         return request;
     }
 
-    @StrutsParameter
     public void setRequest(HttpServletRequest request) {
         this.request = request;
     }
