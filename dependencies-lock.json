@@ -825,6 +825,14 @@
     "optional" : false,
     "integrity" : "sha512:SJG9ApMssqix8zqwoSfQyCoKYy3w8qg+qH0/mla3puq7605fDHBupi4aqwvi78YyfYblOxF8zf3Jo39VIPgjeg=="
   }, {
+    "groupId" : "dev.samstevens.totp",
+    "artifactId" : "totp",
+    "version" : "1.7.1",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:0uxO6G1rgTNtOqDyqCzMSL4k7TBsjLJxlKpqTri9X7p0OV+ARwJtSjRmlzTpr1Kqc62LeydfJO5CmUkINGunpg=="
+  }, {
     "groupId" : "io.dropwizard.metrics",
     "artifactId" : "metrics-core",
     "version" : "3.1.5",
