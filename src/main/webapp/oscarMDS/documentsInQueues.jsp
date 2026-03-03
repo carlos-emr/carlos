@@ -326,15 +326,23 @@
         var queueID;
 
         function showDocInQueue(qid) {
-            $('docs').innerHTML = '';
+            var docsDiv = $('docs');
+            while (docsDiv.firstChild) {
+                docsDiv.removeChild(docsDiv.firstChild);
+            }
             var docs = queueDocNos[qid];
             nowChildId = 'docs';
             nowMultiple = 1;
             nowDocLabIds = new Array();
-            for (var i = docs.length - 1; i > -1; i--) {
+            for (var i = 0; i < docs.length; i++) {
                 var docid = docs[i];
+                var placeholderId = 'docPlaceholder_' + docid.replace(/ /g, '');
+                var placeholder = document.createElement('div');
+                placeholder.setAttribute('id', placeholderId);
+                docsDiv.appendChild(placeholder);
                 nowDocLabIds.push(docid);
             }
+            nowDocLabIds.reverse();
             queueID = qid;
             showFirstTime();
         }
@@ -884,7 +892,7 @@
 
         function showDocLab(childId, docNo, providerNo, searchProviderNo, status, demoName, inQueue) {//showhide is 0 = document currently hidden, 1=currently shown
             //create child element in docViews
-            docNo = docNo.replace(' ', '');//trim
+            docNo = docNo.replace(/ /g, '');//trim
             var type = checkType(docNo);
             //oscarLog('type'+type);
             //var div=childId;
@@ -909,15 +917,19 @@
             if (inQueue)
                 data += "&inQueue=" + inQueue;
             // oscarLog('url='+url+'+-+ \n data='+data+"----div:"+div);
-            new Ajax.Updater(div, url, {
+            var placeholder = $('docPlaceholder_' + docNo);
+            var ajaxOptions = {
                 method: 'get',
                 parameters: data,
-                insertion: Insertion.Bottom,
-                evalScripts: true,
+                // Note: evalScripts is intentionally omitted to prevent execution of any scripts
                 onSuccess: function (transport) {
                     focusFirstDocLab();
                 }
-            });
+            };
+            if (!placeholder) {
+                ajaxOptions.insertion = Insertion.Bottom;
+            }
+            new Ajax.Updater(placeholder || div, url, ajaxOptions);
 
         }
 

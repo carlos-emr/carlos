@@ -36,6 +36,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 
 public interface TicklerDao extends AbstractDao<Tickler> {
 
@@ -69,4 +70,25 @@ public interface TicklerDao extends AbstractDao<Tickler> {
     public List<Tickler> getTicklers(CustomFilter filter);
 
     public int getNumTicklers(CustomFilter filter);
+
+    /**
+     * Returns paginated tickler data as lightweight DTOs using JPQL constructor
+     * expression projection. Batch loads comments and links to avoid N+1 queries.
+     *
+     * @param filter CustomFilter the filter criteria
+     * @param offset int the starting position for pagination
+     * @param limit int the maximum number of results, or &lt;= 0 for no limit
+     * @return List of TicklerListDTO matching the filter criteria
+     * @since 2026-02-27
+     */
+    List<TicklerListDTO> getTicklerDTOs(CustomFilter filter, int offset, int limit);
+
+    /**
+     * Returns all tickler data as lightweight DTOs, limited to MAX_LIST_RETURN_SIZE.
+     *
+     * @param filter CustomFilter the filter criteria
+     * @return List of TicklerListDTO matching the filter criteria
+     * @since 2026-02-27
+     */
+    List<TicklerListDTO> getTicklerDTOs(CustomFilter filter);
 }

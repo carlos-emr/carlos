@@ -129,27 +129,12 @@
 %>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/Oscar.js"/>"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.title"/></title>
 
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"
-                type="text/javascript"></script>
-        <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js"
-                type="text/javascript"></script>
-        <link rel="stylesheet" type="text/css"
-              href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
-              type="text/css"/>
-
-        <script>
-            jQuery.noConflict();
-        </script>
-
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.request.contextPath}/demographic/searchdemographicstyle.css"/>
-        <link rel="stylesheet" type="text/css" media="all"
-              href="${pageContext.request.contextPath}/share/css/searchBox.css"/>
 
         <style> .deep {
             background-color: <%= deepColor %>;

@@ -73,34 +73,33 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
     private static final String HQL_CURRENT_HISTORICAL_POP_SIZE = "select count(distinct a.clientId) from Admission a where " +
     "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and " +
     "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
-    "(a.dischargeDate is null or a.dischargeDate > ?1)";
+    "(a.dischargeDate is null or a.dischargeDate > :cutoff)";
 
-    // Entity name cannot be parameterized in HQL — hardcode Admission and use single ?1 for date
-    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from Admission a where a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and (a.dischargeDate is null or a.dischargeDate > ?1) order by a.clientId, a.admissionDate";
+    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from Admission a where a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and (a.dischargeDate is null or a.dischargeDate > :cutoff) order by a.clientId, a.admissionDate";
 
     private static final String HQL_GET_MORTALITIES = "select count(distinct a.clientId) from Admission a where " +
      "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'community' and lower(p.name) = 'deceased') and " +
-     "a.admissionDate > ?1 and a.dischargeDate is null";
+     "a.admissionDate > :cutoff and a.dischargeDate is null";
 
     private static final String HQL_GET_PREVALENCE = "select count(cmi) from CaseManagementIssue cmi where cmi.resolved = false and " +
     "cmi.demographic_no in (select distinct a.clientId from Admission a where a.programId in (select p.id from Program p where " +
     "lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where " +
-    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in ";
+    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in (:codes)";
 
     private static final String HQL_GET_INCIDENCE = "select count(cmi) from CaseManagementIssue cmi where " +
     "cmi.demographic_no in (select distinct a.clientId from Admission a where a.programId in (select p.id from Program p where " +
     "lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where " +
-    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in ";
+    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in (:codes)";
 
     public int getCurrentPopulationSize() {
-
         return ((Long) HqlQueryHelper.find(currentSession(), HQL_CURRENT_POP_SIZE).get(0)).intValue();
     }
 
     @Override
     public int getCurrentAndHistoricalPopulationSize(int numYears) {
-
-        return ((Long) HqlQueryHelper.find(currentSession(), HQL_CURRENT_HISTORICAL_POP_SIZE, DateTimeFormatUtils.getPast(numYears)).get(0)).intValue();
+        Map<String, Object> params = new HashMap<>();
+        params.put("cutoff", DateTimeFormatUtils.getPast(numYears));
+        return ((Long) HqlQueryHelper.find(currentSession(), HQL_CURRENT_HISTORICAL_POP_SIZE, params).get(0)).intValue();
     }
 
     @Override
@@ -114,7 +113,9 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         Date end = instant.getTime();
         Date start = DateTimeFormatUtils.getPast(instant, numYears);
 
-        for (Object o : HqlQueryHelper.find(currentSession(), HQL_GET_USAGES, start)) {
+        Map<String, Object> usageParams = new HashMap<>();
+        usageParams.put("cutoff", start);
+        for (Object o : HqlQueryHelper.find(currentSession(), HQL_GET_USAGES, usageParams)) {
             Object[] tuple = (Object[]) o;
 
             Integer clientId = (Integer) tuple[0];
@@ -156,8 +157,9 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
 
     @Override
     public int getMortalities(int numYears) {
-
-        return ((Long) HqlQueryHelper.find(currentSession(), HQL_GET_MORTALITIES, DateTimeFormatUtils.getPast(numYears)).get(0)).intValue();
+        Map<String, Object> params = new HashMap<>();
+        params.put("cutoff", DateTimeFormatUtils.getPast(numYears));
+        return ((Long) HqlQueryHelper.find(currentSession(), HQL_GET_MORTALITIES, params).get(0)).intValue();
     }
 
     @Override
@@ -167,8 +169,7 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         }
         Map<String, Object> params = new HashMap<>();
         params.put("codes", icd10Codes);
-        String hql = HQL_GET_PREVALENCE + "(:codes)";
-        return ((Long) HqlQueryHelper.find(currentSession(), hql, params).get(0)).intValue();
+        return ((Long) HqlQueryHelper.find(currentSession(), HQL_GET_PREVALENCE, params).get(0)).intValue();
     }
 
     @Override
@@ -178,8 +179,7 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         }
         Map<String, Object> params = new HashMap<>();
         params.put("codes", icd10Codes);
-        String hql = HQL_GET_INCIDENCE + "(:codes)";
-        return ((Long) HqlQueryHelper.find(currentSession(), hql, params).get(0)).intValue();
+        return ((Long) HqlQueryHelper.find(currentSession(), HQL_GET_INCIDENCE, params).get(0)).intValue();
     }
 
     @Override

@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.util.LabelValueBean;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 public class ProgramManagerImpl implements ProgramManager {
 
@@ -366,7 +367,7 @@ public class ProgramManagerImpl implements ProgramManager {
 
         List<Program> results = new ArrayList<Program>();
         for (Program program : programs) {
-            if (program.getFacilityId() == loggedInInfo.getCurrentFacility().getId().intValue()) {
+            if (Objects.equals(program.getFacilityId(), loggedInInfo.getCurrentFacility().getId())) {
                 results.add(program);
             }
         }
@@ -463,7 +464,7 @@ public class ProgramManagerImpl implements ProgramManager {
         // check the providers facilities against the programs facilities
         Program program = getProgram(programId);
         if (program != null) {
-            return (program.getFacilityId() == loggedInInfo.getCurrentFacility().getId().intValue());
+            return Objects.equals(program.getFacilityId(), loggedInInfo.getCurrentFacility().getId());
         } else {
             return false;
         }

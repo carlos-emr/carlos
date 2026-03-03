@@ -78,7 +78,7 @@ public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements 
             throw new IllegalArgumentException();
         }
 
-        List results = HqlQueryHelper.find(currentSession(),
+        List<?> results = HqlQueryHelper.find(currentSession(),
                 "from ProgramClientStatus pt where pt.programId = ?1 and pt.name = ?2",
                 programId, statusName);
 

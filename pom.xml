@@ -1116,25 +1116,7 @@
             <version>4.5.0</version>
         </dependency>
         
-        <!-- OWASP ESAPI for ClickjackFilter -->
-        <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
-        <!-- https://mvnrepository.com/artifact/org.owasp.esapi/esapi -->
-        <dependency>
-            <groupId>org.owasp.esapi</groupId>
-            <artifactId>esapi</artifactId>
-            <version>2.6.2.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-lang</groupId>
-                    <artifactId>commons-lang</artifactId>
-                </exclusion>
-                <!-- CVE-2025-46392: Only used by ESAPI AccessControlRule classes, not by ClickjackFilter -->
-                <exclusion>
-                    <groupId>commons-configuration</groupId>
-                    <artifactId>commons-configuration</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        <!-- ESAPI removed: ClickjackFilter replaced by security headers in ResponseDefaultsFilter -->
 
         <!-- Apache Commons Exec - used by ExternalEDocConverter -->
         <dependency>

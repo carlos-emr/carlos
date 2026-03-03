@@ -28,8 +28,8 @@
 			not-null="false" type="java.lang.Long" />
 		<property column="user_type_id" name="UserTypeId" not-null="false"
 			type="long" />
-		<property column="provider_no" length="11" name="ProviderNo"
-			not-null="false" type="java.lang.Long" />
+		<property column="provider_no" length="6" name="ProviderNo"
+			not-null="false" type="java.lang.String" />
 		<many-to-one name="UserType"
 								 class="io.github.carlos_emr.carlos.PMmodule.model.FunctionalUserType" column="user_type_id"
 								 update="false" insert="false" lazy="false" />

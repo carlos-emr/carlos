@@ -274,11 +274,14 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     }
 
     /**
-     * Add loggedininfo to excluded logged in providers.
-     * Usefull when setting personal preferrences.
+     * Returns all billable providers in BC, excluding the currently logged-in provider.
      *
-     * @param loggedInInfo
-     * @return
+     * <p>Billable providers are those with at least one of: OHIP number, RMA number,
+     * billing number, or HSO number, and with active status.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the session context of the currently logged-in provider to exclude
+     * @return List&lt;Provider&gt; list of active billable BC providers excluding the logged-in provider,
+     *         ordered by last name
      */
     @Override
     public List<Provider> getBillableProvidersInBC(LoggedInInfo loggedInInfo) {
@@ -424,6 +427,9 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
 
     @SuppressWarnings("unchecked")
     @Override
+    /**
+     * Retrieves a list of provider IDs associated with the specified facility ID.
+     */
     public List<String> getProviderIds(int facilityId) {
         NativeQuery<?> query = currentSession().createNativeQuery(
                 "SELECT provider_no FROM provider_facility WHERE facility_id = :facilityId");
@@ -559,6 +565,9 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     @SuppressWarnings("unchecked")
     @NativeSql({"provider", "providersite"})
     @Override
+    /**
+     * Retrieves a list of active teams associated with a given provider number.
+     */
     public List<String> getActiveTeamsViaSites(String providerNo) {
         NativeQuery<?> query = currentSession().createNativeQuery(
                 "SELECT DISTINCT team FROM provider p INNER JOIN providersite s ON s.provider_no = p.provider_no WHERE s.site_id IN (SELECT site_id FROM providersite WHERE provider_no = :providerNo) ORDER BY team");
@@ -617,6 +626,18 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
 
     @SuppressWarnings("unchecked")
     @Override
+    /**
+     * Searches for providers by their names based on the given search string.
+     *
+     * This method constructs a SQL query to find providers whose last and optionally first names match the
+     * specified search string. If the search string contains a comma, it splits the string to extract the last
+     * and first names. The method then executes the query with pagination parameters defined by startIndex
+     * and itemsToReturn, returning a list of matching providers.
+     *
+     * @param searchString the string containing the last name and optionally the first name, separated by a comma
+     * @param startIndex the index of the first result to return
+     * @param itemsToReturn the maximum number of results to return
+     */
     public List<Provider> searchProviderByNamesString(String searchString, int startIndex, int itemsToReturn) {
         String sqlCommand = "select x from Provider x";
         if (searchString != null) {
@@ -644,6 +665,19 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
 
     @SuppressWarnings("unchecked")
     @Override
+    /**
+     * Searches for active providers based on the given search term.
+     *
+     * This method constructs a SQL query to retrieve providers whose status matches the specified
+     * active state. If a search term is provided, it filters the results based on the last or first
+     * name of the providers. The results are ordered by last name and first name, and pagination is
+     * applied using the startIndex and itemsToReturn parameters.
+     *
+     * @param term the search term to filter providers by their last or first name
+     * @param active the status of the providers to search for
+     * @param startIndex the index of the first result to return
+     * @param itemsToReturn the maximum number of results to return
+     */
     public List<Provider> search(String term, boolean active, int startIndex, int itemsToReturn) {
         String sqlCommand = "select x from Provider x WHERE x.Status = :status ";
 
@@ -666,6 +700,9 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
     @SuppressWarnings("unchecked")
     @NativeSql({"provider", "appointment"})
     @Override
+    /**
+     * Retrieves a list of provider numbers with appointments on the specified date.
+     */
     public List<String> getProviderNosWithAppointmentsOnDate(Date appointmentDate) {
         NativeQuery<?> query = currentSession().createNativeQuery(
                 "SELECT p.provider_no FROM provider p WHERE p.provider_no IN (SELECT DISTINCT a.provider_no FROM appointment a WHERE a.appointment_date = :appointmentDate) AND p.Status = '1'");

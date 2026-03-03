@@ -130,6 +130,8 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
     @Override
     public CaseManagementNote getNote(Long id) {
         CaseManagementNote note = currentSession().get(CaseManagementNote.class, id);
+        // currentSession().get() returns null when no record exists for the given id;
+        // guard prevents NPE on lazy-collection initialization for deleted or missing notes
         if (note != null) {
             Hibernate.initialize(note.getIssues());
         }
@@ -372,17 +374,22 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
             
             sqlCommand.append("and casemgmt_issue_notes.id=casemgmt_issue.id and casemgmt_issue_notes.note_id=casemgmt_note.note_id");
             
-            NativeQuery<Integer> query = session.createNativeQuery(sqlCommand.toString(), Integer.class);
+            NativeQuery<?> query = session.createNativeQuery(sqlCommand.toString());
             query.setParameter("demographicNo", demographic_no);
-            
+
             if (issueCodes != null && issueCodes.length > 0) {
                 query.setParameterList("issueCodes", issueCodes);
             }
-            
+
             @SuppressWarnings("unchecked")
-            List<Integer> ids = query.list();
-            for (Integer id : ids)
-                notes.add(getNote(id.longValue()));
+            List<?> ids = query.list();
+            for (Object id : ids) {
+                if (id instanceof Number) {
+                    notes.add(getNote(((Number) id).longValue()));
+                } else {
+                    log.warn("findNotesByDemographicAndIssueCode: unexpected non-Number id type: {}", id == null ? "null" : id.getClass().getName());
+                }
+            }
         } finally { }
 
         // make unique for uuid

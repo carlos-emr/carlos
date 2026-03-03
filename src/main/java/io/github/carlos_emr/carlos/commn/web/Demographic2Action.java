@@ -38,7 +38,6 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtArchiveDao;
-import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicArchive;
 import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -273,20 +272,20 @@ public class Demographic2Action extends ActionSupport {
 
         String firstName = request.getParameter("firstName");
         String lastName = request.getParameter("lastName");
-        String yearOfBirth = request.getParameter("yearOfBirth");
-        String monthOfBirth = request.getParameter("monthOfBirth");
-        String dayOfBirth = request.getParameter("dayOfBirth");
-
-        List<Demographic> duplicateList = demographicDao.getDemographicWithLastFirstDOBExact(lastName, firstName,
-                yearOfBirth, monthOfBirth, dayOfBirth);
-
         Map<String, Object> result = new HashMap<>();
-        result.put("hasDuplicates", !duplicateList.isEmpty());
+
+        if (firstName == null || firstName.trim().isEmpty()
+                || lastName == null || lastName.trim().isEmpty()) {
+            result.put("hasDuplicates", false);
+        } else {
+            result.put("hasDuplicates", demographicDao.existsByFirstAndLastName(
+                    firstName.trim(), lastName.trim()));
+        }
 
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try {
-            new ObjectMapper().writeValue(response.getWriter(), result);
+            objectMapper.writeValue(response.getWriter(), result);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error in checkForDuplicates", e);
         }

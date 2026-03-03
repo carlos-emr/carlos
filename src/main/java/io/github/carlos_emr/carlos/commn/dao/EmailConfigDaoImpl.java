@@ -54,7 +54,8 @@ public class EmailConfigDaoImpl extends AbstractDaoImpl<EmailConfig> implements 
      *                    (senderEmail, emailType, emailProvider)
      * @return EmailConfig the matching active email configuration, or null if no match is found
      */
-    @Transactional
+    @Override
+    @Transactional(readOnly = true)
     public EmailConfig findActiveEmailConfig(EmailConfig emailConfig) {
         Query query = entityManager.createQuery("SELECT e FROM EmailConfig e WHERE e.senderEmail = ?1 AND e.emailType = ?2 AND e.emailProvider = ?3 AND e.active = true");
 
@@ -79,9 +80,31 @@ public class EmailConfigDaoImpl extends AbstractDaoImpl<EmailConfig> implements 
      * @param senderEmail String the sender email address to search for
      * @return EmailConfig the matching active email configuration, or null if no match is found
      */
+    @Override
+    @Transactional(readOnly = true)
     public EmailConfig findActiveEmailConfig(String senderEmail) {
         Query query = entityManager.createQuery("SELECT e FROM EmailConfig e WHERE e.senderEmail = ?1 AND e.active = true");
         query.setParameter(1, senderEmail);
+        return getSingleResultOrNull(query);
+    }
+
+    /**
+     * Finds an active email configuration by its database ID.
+     *
+     * <p>Retrieves the email configuration matching the specified primary key, only if it is
+     * currently active. This method is used when the caller already knows the specific
+     * configuration ID (e.g., from a user-selected dropdown) and needs to verify it is
+     * still active before sending.</p>
+     *
+     * @param id int the primary key of the email configuration
+     * @return EmailConfig the matching active email configuration, or null if no active config exists with this ID
+     * @since 2026-02-25
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public EmailConfig findActiveEmailConfigById(int id) {
+        Query query = entityManager.createQuery("SELECT e FROM EmailConfig e WHERE e.id = ?1 AND e.active = true");
+        query.setParameter(1, id);
         return getSingleResultOrNull(query);
     }
 

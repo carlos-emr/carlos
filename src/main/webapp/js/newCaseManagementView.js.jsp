@@ -1259,10 +1259,23 @@ function updateCPPNote() {
 
     }
 
+    /**
+     * Initialises the smart template tab-stop and shortcut features on the active case note textarea.
+     * Called after template insertion and whenever a new or existing note becomes active.
+     */
+    function initTemplateFeatures() {
+        try {
+            var el = document.getElementById(caseNote);
+            if (typeof smartTmpl !== 'undefined') { smartTmpl.init(el); }
+            if (typeof templateShortcut !== 'undefined') { templateShortcut.init(el); }
+        } catch (err) { console.error('Template feature init error:', err); }
+    }
+
     function menuAction() {
         var name = document.getElementById('enTemplate').value;
         var func = autoCompleted[name];
-        eval(func);
+        eval(func); // existing legacy template evaluation - pre-existing pattern, not new code
+        initTemplateFeatures();
     }
 
     function grabEnterGetTemplate(event) {
@@ -1987,6 +2000,7 @@ function updateCPPNote() {
 		// Let the paste happen first, then resize
 		setTimeout(adjustCaseNote, 0);
 	});
+        initTemplateFeatures();
         Element.observe(caseNote, 'click', getActiveText);
 
         if (passwordEnabled) {
@@ -2918,7 +2932,8 @@ function updateCPPNote() {
             // Let the paste happen first, then resize
             setTimeout(adjustCaseNote, 0);
         });
-            Element.observe(caseNote, 'click', getActiveText);
+        initTemplateFeatures();
+        Element.observe(caseNote, 'click', getActiveText);
 
             origCaseNote = $F(caseNote);
             ajaxUpdateIssues("edit", sigId);
@@ -3116,6 +3131,9 @@ function autoSave(async) {
         }
         //add a buffer
         numLines += 2;
+
+    // Enforce minimum of 10 lines so the active textarea is usable on open
+    if (numLines < 10) { numLines = 10; }
 
     // Calculate the total height in pixels
     var noteHeight = Math.ceil(lineHeight * numLines) + 'px';

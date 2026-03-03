@@ -2386,6 +2386,20 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return (List<Demographic>) HqlQueryHelper.find(currentSession(), sql, (Object[]) params.toArray(new String[params.size()]));
     }
 
+    /**
+     * Checks whether a demographic record exists with the given first and last name.
+     *
+     * @param firstName String the patient's first name (exact match)
+     * @param lastName String the patient's last name (exact match)
+     * @return boolean true if at least one matching record exists, false otherwise
+     */
+    @Override
+    public boolean existsByFirstAndLastName(String firstName, String lastName) {
+        String sql = "SELECT COUNT(*) FROM Demographic WHERE FirstName = ?1 AND LastName = ?2";
+        Long count = (Long) HqlQueryHelper.find(currentSession(), sql, firstName, lastName).get(0);
+        return count > 0;
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public List<Demographic> getDemographicsByHealthNum(String hin) {

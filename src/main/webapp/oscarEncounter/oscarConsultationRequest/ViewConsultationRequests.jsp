@@ -199,10 +199,10 @@
 
 
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
         <title>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="ectViewConsultationRequests.title"/>
         </title>
-
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
