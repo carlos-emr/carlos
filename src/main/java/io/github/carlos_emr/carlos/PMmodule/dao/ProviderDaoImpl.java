@@ -469,6 +469,9 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
     }
 
     @Override
+    /**
+     * Retrieves a list of provider IDs associated with the specified facility ID.
+     */
     public List<String> getProviderIds(int facilityId) {
         Session session = currentSession();
         try {
@@ -610,6 +613,9 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @NativeSql({"provider", "providersite"})
     @Override
+    /**
+     * Retrieves a list of active teams associated with a given provider number.
+     */
     public List<String> getActiveTeamsViaSites(String providerNo) {
         Session session = currentSession();
         try {
@@ -675,6 +681,18 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @SuppressWarnings("unchecked")
     @Override
+    /**
+     * Searches for providers by their names based on the given search string.
+     *
+     * This method constructs a SQL query to find providers whose last and optionally first names match the
+     * specified search string. If the search string contains a comma, it splits the string to extract the last
+     * and first names. The method then executes the query with pagination parameters defined by startIndex
+     * and itemsToReturn, returning a list of matching providers.
+     *
+     * @param searchString the string containing the last name and optionally the first name, separated by a comma
+     * @param startIndex the index of the first result to return
+     * @param itemsToReturn the maximum number of results to return
+     */
     public List<Provider> searchProviderByNamesString(String searchString, int startIndex, int itemsToReturn) {
         String sqlCommand = "select x from Provider x";
         if (searchString != null) {
@@ -708,6 +726,19 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @SuppressWarnings("unchecked")
     @Override
+    /**
+     * Searches for active providers based on the given search term.
+     *
+     * This method constructs a SQL query to retrieve providers whose status matches the specified
+     * active state. If a search term is provided, it filters the results based on the last or first
+     * name of the providers. The results are ordered by last name and first name, and pagination is
+     * applied using the startIndex and itemsToReturn parameters.
+     *
+     * @param term the search term to filter providers by their last or first name
+     * @param active the status of the providers to search for
+     * @param startIndex the index of the first result to return
+     * @param itemsToReturn the maximum number of results to return
+     */
     public List<Provider> search(String term, boolean active, int startIndex, int itemsToReturn) {
         String sqlCommand = "select x from Provider x WHERE x.Status = :status ";
 
@@ -736,6 +767,9 @@ public class ProviderDaoImpl extends HibernateDaoSupport implements ProviderDao 
 
     @NativeSql({"provider", "appointment"})
     @Override
+    /**
+     * Retrieves a list of provider numbers with appointments on the specified date.
+     */
     public List<String> getProviderNosWithAppointmentsOnDate(Date appointmentDate) {
         Session session = currentSession();
         try {

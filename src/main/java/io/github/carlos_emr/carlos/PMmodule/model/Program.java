@@ -233,10 +233,16 @@ public class Program extends AbstractModel<Integer> {
         this.shelterId = shelterId;
     }
 
+    /**
+     * Returns the facility ID.
+     */
     public Integer getFacilityId() {
         return facilityId;
     }
 
+    /**
+     * Sets the facility ID.
+     */
     public void setFacilityId(Integer facilityId) {
         this.facilityId = facilityId;
     }
