@@ -247,24 +247,18 @@ public class DefaultRoleAccess2Action extends ActionSupport {
     private DefaultRoleAccess form;
 
     /**
-     * Gets the DefaultRoleAccess form object.
-     *
-     * @return DefaultRoleAccess the form object being edited or saved
+    /**
+     * Returns the DefaultRoleAccess form object.
      */
-    @StrutsParameter(depth = 1)
     public DefaultRoleAccess getForm() {
         return form;
     }
 
     /**
+    /**
      * Sets the DefaultRoleAccess form object.
-     * <p>
-     * Called by Struts 2 during form submission to populate the object
-     * with submitted form data, or called explicitly during edit operations.
-     *
-     * @param form DefaultRoleAccess the form object to set
+     * @param form the form object to set
      */
-    @StrutsParameter
     public void setForm(DefaultRoleAccess form) {
         this.form = form;
     }
