@@ -526,16 +526,16 @@ public class OscarProperties extends Properties {
             // Prefer BASE_DOCUMENT_DIR — same pattern as DOCUMENT_DIR and EFORM_IMAGES_DIR.
             // This directory is already configured, writable by the app server, and outside the webroot.
             String baseDocDir = oscarProperties.getProperty("BASE_DOCUMENT_DIR");
-            if (baseDocDir != null && !baseDocDir.isEmpty()) {
-                faxIncoming = Paths.get(baseDocDir, "fax-incoming").toString();
+            if (baseDocDir != null && !baseDocDir.trim().isEmpty()) {
+                faxIncoming = Paths.get(baseDocDir.trim(), "fax-incoming").toString();
             } else {
                 // Fall back to catalina.base only if BASE_DOCUMENT_DIR is not set.
                 // NOTE: On Debian/Ubuntu package installs, catalina.base = /var/lib/tomcat9,
                 // which is a system directory the Tomcat process may not have write access to.
                 // Set FAX_INCOMING_DIR or BASE_DOCUMENT_DIR in carlos.properties to avoid this.
                 String catalinaBase = System.getProperty("catalina.base");
-                if (catalinaBase != null && !catalinaBase.isEmpty()) {
-                    faxIncoming = Paths.get(catalinaBase, "fax-incoming").toString();
+                if (catalinaBase != null && !catalinaBase.trim().isEmpty()) {
+                    faxIncoming = Paths.get(catalinaBase.trim(), "fax-incoming").toString();
                 } else {
                     // Non-Tomcat environment (tests, standalone): use system temp
                     faxIncoming = Paths.get(System.getProperty("java.io.tmpdir"), "carlos-fax-incoming").toString();

@@ -90,8 +90,11 @@ import org.springframework.stereotype.Service;
  * <pre>
  * # carlos.properties
  * FAX_INCOMING_DIR=/path/to/fax/incoming  # Optional; defaults resolved by OscarProperties:
- *                                         #   1. ${catalina.base}/fax-incoming (Tomcat)
- *                                         #   2. ${java.io.tmpdir}/carlos-fax-incoming (non-Tomcat)
+ *                                         #   1. FAX_INCOMING_DIR (this property, if set)
+ *                                         #   2. BASE_DOCUMENT_DIR/fax-incoming (preferred default)
+ *                                         #   3. ${catalina.base}/fax-incoming (Tomcat fallback;
+ *                                         #      may be unwritable on Debian/Ubuntu package installs)
+ *                                         #   4. ${java.io.tmpdir}/carlos-fax-incoming (non-Tomcat)
  * DOCUMENT_DIR=/path/to/documents         # Required, final document storage location
  * </pre>
  *
@@ -131,6 +134,13 @@ public class FaxImporter {
      * the rest of CARLOS EMR from starting or functioning.
      */
     private boolean initialized = false;
+
+    /**
+     * Guards against repeated "not initialized" log warnings on every poll cycle.
+     * The actionable warning is already emitted once during {@link #initialize()}, so
+     * subsequent poll cycles only need to log it once more to remain visible.
+     */
+    private volatile boolean pollInitializationWarningLogged = false;
 
     @Autowired
     public FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
@@ -204,9 +214,12 @@ public class FaxImporter {
     public void poll() {
 
         if (!initialized) {
-            log.warn("FaxImporter is not initialized — fax directory configuration is missing or "
-                    + "unwritable. Skipping poll. Check startup log for details and set "
-                    + "BASE_DOCUMENT_DIR or FAX_INCOMING_DIR in carlos.properties.");
+            if (!pollInitializationWarningLogged) {
+                log.warn("FaxImporter is not initialized — fax directory configuration is missing or "
+                        + "unwritable. Skipping poll. Check startup log for details and set "
+                        + "BASE_DOCUMENT_DIR or FAX_INCOMING_DIR in carlos.properties.");
+                pollInitializationWarningLogged = true;
+            }
             return;
         }
 
