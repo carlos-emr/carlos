@@ -145,6 +145,21 @@ public class EctDisplayRx2ActionSortTest {
     }
 
     @Test
+    @DisplayName("Archived long-term drug should be classified as active per isActiveDrug semantics")
+    void shouldClassifyAsActive_whenDrugIsArchivedAndLongTerm() {
+        Prescription archivedLongTerm = longTermDrug(1);
+        archivedLongTerm.setArchived("true");
+        Prescription expired = expiredDrug(2);
+
+        List<Prescription> drugs = new ArrayList<>(List.of(expired, archivedLongTerm));
+        EctDisplayRx2Action.stablePartitionActiveFirst(drugs);
+
+        // Archived long-term drugs are "active" per isActiveDrug() — downstream
+        // filtering in getInfo() handles their removal from display.
+        assertThat(drugs).containsExactly(archivedLongTerm, expired);
+    }
+
+    @Test
     @DisplayName("Mixed active, long-term, and expired should group correctly")
     void shouldGroupCorrectly_whenAllTypesPresent() {
         Prescription expired = expiredDrug(5);
@@ -155,12 +170,8 @@ public class EctDisplayRx2ActionSortTest {
         List<Prescription> drugs = new ArrayList<>(List.of(expired, longTerm, active, archived));
         EctDisplayRx2Action.stablePartitionActiveFirst(drugs);
 
-        // longTerm and active are both "active" — should come first, in original relative order
-        assertThat(drugs.indexOf(longTerm)).isLessThan(drugs.indexOf(expired));
-        assertThat(drugs.indexOf(active)).isLessThan(drugs.indexOf(expired));
-        assertThat(drugs.indexOf(longTerm)).isLessThan(drugs.indexOf(archived));
-        assertThat(drugs.indexOf(active)).isLessThan(drugs.indexOf(archived));
-        // Relative order within active group preserved: longTerm came before active in input
-        assertThat(drugs.indexOf(longTerm)).isLessThan(drugs.indexOf(active));
+        // longTerm and active are both "active" — should come first, in original relative order.
+        // expired and archived are both "inactive" — should follow, also in original order.
+        assertThat(drugs).containsExactly(longTerm, active, expired, archived);
     }
 }

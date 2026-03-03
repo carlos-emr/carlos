@@ -80,10 +80,7 @@ public class EctDisplayRx2Action extends EctDisplayAction {
             CppPreferencesUIBean prefsBean = new CppPreferencesUIBean(loggedInInfo.getLoggedInProviderNo());
             prefsBean.loadValues();
 
-            // Single-pass stable partition: active prescriptions first, preserving
-            // relative order within each group. Calls isActiveDrug() exactly once per
-            // drug (O(n)) instead of O(n log n) times via a sort comparator, avoiding
-            // repeated GregorianCalendar allocations inside Prescription.isCurrent().
+            // Stable partition: active prescriptions first, preserving relative order.
             stablePartitionActiveFirst(uniqueDrugs);
 
             long now = System.currentTimeMillis();
