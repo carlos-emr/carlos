@@ -77,25 +77,16 @@
 
 <html>
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.title"/></title>
-
-        <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/searchBox.css">
-
-        <script src="${pageContext.request.contextPath}/js/global.js"></script>
-
-        <style type="text/css" media="print">
-            .searchBox { display: none; }
-        </style>
     </head>
     <body>
     <div class="container">
     <div class="searchBox">
 
-        <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
-            <h4 style="margin:0; font-size:18px; display:inline-block;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
                     <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
                 </svg>
                 &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.manageProvider.msgManageProvider"/>
@@ -104,7 +95,6 @@
             </div>
 
         <form name="form1" action="dbManageProvider.jsp" method="post">
-            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <table class="table table-hover table-condensed table-striped">
                 <thead>
                 <tr>

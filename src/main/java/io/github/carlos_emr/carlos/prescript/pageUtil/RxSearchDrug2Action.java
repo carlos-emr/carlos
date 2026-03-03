@@ -272,7 +272,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
 
         Hashtable<String, Vector<Hashtable<String, Object>>> d = new Hashtable<String, Vector<Hashtable<String, Object>>>();
         d.put("results", data);
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
 
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode jsonArray = (ObjectNode) mapper.valueToTree(d);

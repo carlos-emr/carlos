@@ -251,7 +251,7 @@ public class CihiExportPHC_VRS2Action extends ActionSupport {
         String tmpDir = properties.getProperty("TMP_DIR");
         if (!Util.checkDir(tmpDir)) {
             tmpDir = System.getProperty("java.io.tmpdir");
-            MiscUtils.getLogger().error("Error! Cannot write to TMP_DIR - Check oscar.properties or dir permissions. Using " + tmpDir);
+            MiscUtils.getLogger().error("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions. Using" + tmpDir);
         }
         tmpDir = Util.fixDirName(tmpDir);
 

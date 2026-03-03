@@ -719,7 +719,7 @@ public class LabManagerUnitTest extends LabUnitTestBase {
     /**
      * Tests that verify audit logging (LogAction) integration for all methods.
      *
-     * <p>While LogAction is mocked as a no-op by {@link io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase},
+     * <p>While LogAction is mocked as a no-op by {@link io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase},
      * these tests verify the manager correctly calls through to the security check and DAO
      * layer, confirming the expected call chain is intact.</p>
      */

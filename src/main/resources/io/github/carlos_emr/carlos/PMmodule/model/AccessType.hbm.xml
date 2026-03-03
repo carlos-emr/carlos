@@ -21,7 +21,6 @@
 	"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd" >
 <hibernate-mapping package="io.github.carlos_emr.carlos.PMmodule.model">
 	<class name="io.github.carlos_emr.carlos.PMmodule.model.AccessType" table="access_type">
-		<cache usage="read-only" />
 		<id column="access_id" name="Id" type="java.lang.Long"
 			unsaved-value="0">
 			<generator class="native" />

@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *
  * <p>This implementation uses the SRFax HTTP form-based API. The endpoint URL defaults to
  * {@link #DEFAULT_SRFAX_API_URL} but can be overridden via the {@code srfax.api.url} property
- * in oscar_mcmaster.properties. Credentials are mapped from fax config fields as follows:</p>
+ * in carlos.properties. Credentials are mapped from fax config fields as follows:</p>
  * <ul>
  *   <li><strong>access_id</strong>: {@link FaxConfig#getFaxUser()} (SRFax account number)</li>
  *   <li><strong>access_pwd</strong>: {@link FaxConfig#getFaxPasswd()} (SRFax account password)</li>
@@ -83,7 +83,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
     /**
      * Returns the SRFax API endpoint URL. Defaults to {@link #DEFAULT_SRFAX_API_URL} and
-     * can only be overridden via {@code srfax.api.url} in oscar_mcmaster.properties.
+     * can only be overridden via {@code srfax.api.url} in carlos.properties.
      *
      * <p>The override must point to an official srfax.com domain. Any other value is rejected
      * with a warning log and the default is used instead. This prevents SSRF or credential

@@ -33,14 +33,14 @@ Test 1 is a foundational smoke test that validates the most common workflow in C
 
 ### 1. Login (Step 1)
 - Navigate to http://localhost:8080/oscar/index.jsp
-- Enter credentials (openodoc / openo2025 / 2025)
+- Enter credentials (carlosdoc / carlos2026 / 2026)
 - Submit login form
 - **Expected**: Redirect to provider dashboard
 
 ### 2. Dashboard Verification (Step 2)
-- Verify page title: "Openodoc, D-Appointment Access"
+- Verify page title: "Carlosdoc, D-Appointment Access"
 - Check navigation menu displays all items
-- Confirm provider name shown: "doctor openodoc"
+- Confirm provider name shown: "doctor carlosdoc"
 - Verify appointment schedule visible
 - **Expected**: Full dashboard with all navigation options
 
@@ -77,7 +77,7 @@ server log
 ```
 
 ### Database Contains Test Data
-- Provider: openodoc (password: openo2025, PIN: 2025)
+- Provider: carlosdoc (password: carlos2026, PIN: 2026)
 - Patient ID 182: FAKE-Gaylord, FAKE-Branda
 - Patient ID 1: FAKE-Jacky, FAKE-Jones
 - Additional test patients with "FAKE-" prefix (IDs 1-49)
@@ -150,11 +150,11 @@ mvn test -Dgroups="quick-test"
 
 ### Provider Credentials
 ```
-Username: openodoc
-Password: openo2025
-PIN: 2025
+Username: carlosdoc
+Password: carlos2026
+PIN: 2026
 Provider No: 999998
-Name: doctor openodoc
+Name: doctor carlosdoc
 ```
 
 ### Test Patients
@@ -165,7 +165,7 @@ Name: doctor openodoc
 - DOB: 2009-03-05 (16 years old)
 - HIN: 2088617755 GC (ON)
 - Status: AC (Active), Rostered
-- MRP: openodoc, doctor
+- MRP: carlosdoc, doctor
 
 **Patient 2** (ID: 1):
 - Name: FAKE-Jacky, FAKE-Jones (MR)
@@ -173,7 +173,7 @@ Name: doctor openodoc
 - DOB: 1985-06-15 (40 years old)
 - HIN: 9876543225 AB (ON)
 - Status: AC (Active)
-- MRP: openodoc, doctor
+- MRP: carlosdoc, doctor
 
 ---
 
@@ -199,14 +199,14 @@ All screenshots saved to: `docs/ui-tests/test-1/screenshots/`
 ```bash
 # Check user exists and reset password if needed
 mysql -h db -uroot -ppassword oscar -e \
-  "SELECT user_name, pin, forcePasswordReset FROM security WHERE user_name='openodoc';"
+  "SELECT user_name, pin, forcePasswordReset FROM security WHERE user_name='carlosdoc';"
 
 # Reset password
 mysql -h db -uroot -ppassword oscar -e \
   "UPDATE security SET
-   password='{bcrypt}\$2b\$12\$9mdpjGHFmuVrW7uv7HlZter.6Gdqx.V/i.ba52e9VP6ZYnwJR6h96',
+   password='{bcrypt}\$2a\$12\$AiWd9O1jX9Lz//qvLIvNzuAFrmVEtvuVovnX.APkdH5420AX/NDNO',
    forcePasswordReset=0
-   WHERE user_name='openodoc';"
+   WHERE user_name='carlosdoc';"
 ```
 
 ### Search Returns No Results

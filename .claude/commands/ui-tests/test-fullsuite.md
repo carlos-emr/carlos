@@ -72,8 +72,8 @@ mysql -h db -uroot -ppassword oscar -e "SELECT 1;"
 # Expected: Returns 1
 
 # 3. Test user exists
-mysql -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='openodoc';"
-# Expected: openodoc
+mysql -h db -uroot -ppassword oscar -e "SELECT user_name FROM security WHERE user_name='carlosdoc';"
+# Expected: carlosdoc
 
 # 4. Test patients exist
 mysql -h db -uroot -ppassword oscar -e "SELECT demographic_no, last_name FROM demographic WHERE demographic_no IN (1, 182);"

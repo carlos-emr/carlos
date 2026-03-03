@@ -44,7 +44,7 @@
         - Support for time-based follow-up intervals (days, weeks, months, years)
         - Raw JSON editor toggle for advanced users who need direct data access
         - Full internationalization support (English, Portuguese Brazilian)
-        - CSRF token field included via ${_csrf} EL expression (renders empty unless Spring Security CSRF is active)
+        - CSRF protection provided by OWASP CSRFGuard (automatic token injection)
         - OWASP XSS encoding for all user-controlled data
         - Server-side JSON validation to prevent malformed data persistence
 
@@ -153,10 +153,8 @@ UserProperty up = upDao.getProp(curProviderNo, UserProperty.LAB_MACRO_JSON);
 <html>
 <head>
 
+<%@ include file="/includes/global-head.jspf" %>
 <title><fmt:message key="provider.labMacroPrefs.msgPrefs"/></title>
-
-<!-- Bootstrap -->
-<link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
 
 <script>
 // ============================================================================
@@ -323,7 +321,6 @@ function toggleMe(el){
 </div>
 
 <form name="labMacroPrefsForm" method="post" action="${pageContext.request.contextPath}/setProviderStaleDate.do" onsubmit="return assembleJSON();">
-<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 <input type="hidden" name="method" value="saveLabMacroPrefs">
 <div class="container mt-3">
 
@@ -411,10 +408,13 @@ if (submittedJSON == null && up != null && !StringUtils.isEmpty(up.getValue())) 
 
  <div class="form-group row" id="macro_<%=x%>">
     <div class="col-sm-2">
-        <label for="name_<%=x%>"><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" style="width:90px;" value="<%=Encode.forHtmlAttribute(name)%>">
+        <label for="name_<%=x%>"><fmt:message key="global.macro" /></label><br><input type="text" id="name_<%=x%>" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" value="<%=Encode.forHtmlAttribute(name)%>">
+    </div>
+    <div class="col-sm-3">
+        <label for="comment_<%=x%>"><fmt:message key="provider.appointmentprovideradminmonth.btnLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_<%=x%>" class="form-control form-control-sm" value="<%=Encode.forHtmlAttribute(comment)%>" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
     </div>
     <div class="col-sm-2">
-        <label for="comment_<%=x%>"><fmt:message key="caseload.msgLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_<%=x%>" class="form-control form-control-sm w-100" value="<%=Encode.forHtmlAttribute(comment)%>" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
+        <label for="message_<%=x%>"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_<%=x%>" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="<%=Encode.forHtmlAttribute(message)%>">
     </div>
     <div class="col-sm-2">
         <label for="ticklerTo_<%=x%>"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><br><select id="ticklerTo_<%=x%>" name="ticklerTo_<%=x%>" class="form-control form-control-sm w-100">
@@ -424,20 +424,16 @@ if (submittedJSON == null && up != null && !StringUtils.isEmpty(up.getValue())) 
             <%}%>
         </select>
     </div>
-    <div class="col-sm-2">
-        <label for="message_<%=x%>"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_<%=x%>" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="<%=Encode.forHtmlAttribute(message)%>">
-    </div>
     <div class="col-sm-3">
-        <label for="quantity_<%=x%>"><fmt:message key="tickler.ticklerMain.msgDate" /></label><br><input type="number" id="quantity_<%=x%>" class="form-control form-control-sm" style="width:50px;" value="<%=Encode.forHtmlAttribute(quantity)%>"><select id="timeUnits_<%=x%>" class="form-control form-control-sm" style="width:80px;">
+        <label for="quantity_<%=x%>"><fmt:message key="tickler.ticklerMain.msgDate" /></label><div style="display: flex;"><input type="number" id="quantity_<%=x%>" class="form-control form-control-sm" style="width:50px;" value="<%=Encode.forHtmlAttribute(quantity)%>"><select id="timeUnits_<%=x%>" class="form-control form-control-sm" style="width:80px;">
             <option value="1"<%=(timeUnits.equals("1") ? " selected=\"selected\"" : "")%>><fmt:message key="global.days" /></option>
             <option value="7"<%=(timeUnits.equals("7") ? " selected=\"selected\"" : "")%>><fmt:message key="global.weeks" /></option>
             <option value="30"<%=(timeUnits.equals("30") ? " selected=\"selected\"" : "")%>><fmt:message key="global.months" /></option>
             <option value="365"<%=(timeUnits.equals("365") ? " selected=\"selected\"" : "")%>><fmt:message key="global.years" /></option>
         </select>
+<input type="button" id="delete_<%=x%>" class="btn btn-link btn-sm" value="<fmt:message key="global.btnDelete" />" onclick="document.getElementById('macro_<%=x%>').style.display = 'none';"></div>
     </div>
-    <div class="col-sm-1">
-        <label>&nbsp;</label><br><input type="button" id="delete_<%=x%>" class="btn btn-link btn-sm" value="<fmt:message key="global.btnDelete" />" onclick="document.getElementById('macro_<%=x%>').style.display = 'none';">
-    </div>
+
  </div>
 
 <%
@@ -455,10 +451,13 @@ if (submittedJSON == null && up != null && !StringUtils.isEmpty(up.getValue())) 
 
  <div class="form-group row" id="macro_new">
     <div class="col-sm-2">
-        <label for="name_new"><fmt:message key="global.macro" /></label><br><input type="text" id="name_new" class="form-control form-control-sm" style="width:90px;" placeholder="<fmt:message key="name" />" value="">
+        <label for="name_new"><fmt:message key="global.macro" /></label><br><input type="text" id="name_new" class="form-control form-control-sm" placeholder="<fmt:message key="name" />" value="">
+    </div>
+    <div class="col-sm-3">
+        <label for="comment_new"><fmt:message key="provider.appointmentprovideradminmonth.btnLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_new" class="form-control form-control-sm" value="" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
     </div>
     <div class="col-sm-2">
-        <label for="comment_new"><fmt:message key="caseload.msgLab" />&nbsp;<fmt:message key="oscarMDS.segmentDisplay.btnComment" /></label><br><input type="text" id="comment_new" class="form-control form-control-sm w-100" value="" placeholder="<fmt:message key="oscarMDS.segmentDisplay.btnComment" />">
+        <label for="message_new"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_new" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="">
     </div>
     <div class="col-sm-2">
         <label for="ticklerTo_new"><fmt:message key="tickler.ticklerMain.msgAssignedTo" /></label><br><select id="ticklerTo_new" name="ticklerTo_new" class="form-control form-control-sm w-100">
@@ -468,23 +467,20 @@ if (submittedJSON == null && up != null && !StringUtils.isEmpty(up.getValue())) 
             <%}%>
         </select>
     </div>
-    <div class="col-sm-2">
-        <label for="message_new"><fmt:message key="global.tickler" /></label><br><input type="text" id="message_new" class="form-control form-control-sm w-100" placeholder="<fmt:message key="tickler.ticklerMain.msgMessage" />" value="">
-    </div>
     <div class="col-sm-3">
-        <label for="quantity_new"><fmt:message key="tickler.ticklerMain.msgDate" /></label><br><input type="number" id="quantity_new" class="form-control form-control-sm" style="width:50px;" value="0"><select id="timeUnits_new" class="form-control form-control-sm" style="width:80px;">
+        <label for="quantity_new"><fmt:message key="tickler.ticklerMain.msgDate" /></label><div style="display: flex;"><input type="number" id="quantity_new" class="form-control form-control-sm" style="width:50px;" value="0"><select id="timeUnits_new" class="form-control form-control-sm" style="width:80px;">
             <option value="1"><fmt:message key="global.days" /></option>
             <option value="7"><fmt:message key="global.weeks" /></option>
             <option value="30"><fmt:message key="global.months" /></option>
             <option value="365"><fmt:message key="global.years" /></option>
-        </select>
+        </select></div>
     </div>
 </div>
 
 <div class="form-group row mt-3">
     <div class="col-sm-5 offset-sm-1">
         <input type="submit" class="btn btn-primary" value="<fmt:message key="global.btnSave" />"/>
-        <input type="button" class="btn" value="<fmt:message key="global.btnClose" />" onclick="window.close();"/>
+        <input type="button" class="btn btn-secondary" value="<fmt:message key="global.btnClose" />" onclick="window.close();"/>
         <a href="javascript:void(0);" onclick="toggleMe(document.getElementById('raw'));" class="btn btn-link btn-sm"><fmt:message key="provider.labMacroPrefs.showJSON" /></a>
     </div>
 </div>

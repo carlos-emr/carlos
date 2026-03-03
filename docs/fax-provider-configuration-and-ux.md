@@ -29,7 +29,7 @@ introduced in CARLOS, with emphasis on SRFax behavior and admin configuration UX
 ## Configuration Expectations
 When provider type is `SRFAX`:
 - `faxUrl` is ignored for SRFax; the fixed API endpoint (`https://www.srfax.com/SRF_SecWebSvc.php`)
-  is used automatically. Override via `srfax.api.url` in oscar_mcmaster.properties if needed.
+  is used automatically. Override via `srfax.api.url` in carlos.properties if needed.
 - `faxUser` maps to `sFaxUserName`.
 - `faxPassword` maps to `sFaxPassword`.
 

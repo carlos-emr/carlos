@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.model.ClientReferral;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,7 +52,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("pmmodule")
 @Transactional
-public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
+public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ClientReferralDAO clientReferralDAO;
@@ -94,6 +94,11 @@ public class ClientReferralDAOIntegrationTest extends OpenOTestBase {
         program.setName(name);
         program.setType("community");
         program.setProgramStatus("active");
+        // Set facilityId explicitly to 0 (no facility) so that programs created here
+        // do not match the "s.facilityId is null" branch in getReferralsByFacility HQL.
+        // Program.facilityId was changed from primitive int (implicit default 0) to
+        // Integer (implicit default null) — restoring 0 preserves the original semantics.
+        program.setFacilityId(0);
         hibernateTemplate.save(program);
         return program;
     }

@@ -109,12 +109,9 @@
 %>
 <html>
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportdaysheet.title"/></title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<c:out value="${ctx}/share/javascript/prototype.js"/>"></script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
 
         <script language="JavaScript">
             function hideOnSource() {

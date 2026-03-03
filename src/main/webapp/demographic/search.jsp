@@ -52,7 +52,7 @@
 
 <html>
 <head>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+    <%@ include file="/includes/global-head.jspf" %>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.title"/></title>
 
     <script type="text/javascript">
@@ -65,12 +65,6 @@
             document.titlesearch.keyword.select();
         }
     </script>
-
-    <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js" type="text/javascript"></script>
-    <script src="${pageContext.request.contextPath}/library/bootstrap/3.0.0/js/bootstrap.min.js" type="text/javascript"></script>
-    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
-    <link href="${pageContext.request.contextPath}/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet" type="text/css"/>
-    <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/share/css/searchBox.css"/>
 </head>
     <body onload="setfocus()">
     <div class="container">
@@ -78,14 +72,13 @@
 
         <!-- <security:oscarSec roleName="<%=roleName$%>" objectName="_demographic.addnew" rights="r">  -->
         <div class="createNew">
-            <a href="demographicaddarecordhtm.jsp"><b><font size="+1"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></font></b></a>
+            <a class="action-link" href="demographicaddarecordhtm.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.btnCreateNew"/></a>
         </div>
         <!-- </security:oscarSec> -->
 
         <oscar:oscarPropertiesCheck
                 property="SHOW_FILE_IMPORT_SEARCH" value="yes">
-            &nbsp;&nbsp;&nbsp;<a href="demographicImport.jsp"><b><font
-            size="+1"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.importNewDemographic"/></font></b></a>
+            &nbsp;&nbsp;&nbsp;<a class="action-link" href="demographicImport.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.importNewDemographic"/></a>
         </oscar:oscarPropertiesCheck>
     </div>
     </body>

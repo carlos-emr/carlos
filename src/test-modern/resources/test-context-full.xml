@@ -163,6 +163,8 @@
                 <!-- PMmodule additional mappings -->
                 <value>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</value>
+                <!-- Lookup / organization code mappings for LIKE-semantics tests -->
+                <value>com/quatro/model/LstOrgcd.hbm.xml</value>
             </list>
         </property>
         <property name="jpaVendorAdapter">
@@ -277,6 +279,11 @@
                 <!-- PMmodule additional mappings -->
                 <value>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</value>
+                <!-- Lookup DAO entity mappings -->
+                <value>com/quatro/model/LookupTableDefValue.hbm.xml</value>
+                <value>com/quatro/model/FieldDefValue.hbm.xml</value>
+                <!-- Lookup / organization code mappings for LIKE-semantics tests -->
+                <value>com/quatro/model/LstOrgcd.hbm.xml</value>
             </list>
         </property>
         <property name="hibernateProperties">
@@ -496,5 +503,16 @@
     <bean id="professionalSpecialistDao" class="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDaoImpl" autowire="byName" />
     <bean id="consultDocsDao" class="io.github.carlos_emr.carlos.commn.dao.ConsultDocsDaoImpl" autowire="byName" />
     <bean id="consultResponseDocDao" class="io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDaoImpl" autowire="byName" />
+
+    <!-- PMmodule DAOs for ProgramTeamDAO tests -->
+    <bean id="programTeamDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramTeamDAOImpl" autowire="byName" />
+
+    <!-- Lookup DAO for LookupDao tests -->
+    <bean id="lookupDao" class="io.github.carlos_emr.carlos.daos.LookupDaoImpl" autowire="byName" />
+
+    <!-- Population Report DAO for PopulationReportDao tests -->
+    <bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
 
 </beans>

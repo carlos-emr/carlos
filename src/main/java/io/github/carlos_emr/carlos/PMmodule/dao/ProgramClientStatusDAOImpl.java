@@ -30,23 +30,22 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Query;
-import org.hibernate.Session;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientStatus;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.hibernate.SessionFactory;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
+import org.springframework.transaction.annotation.Transactional;
 
+@Transactional
 public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements ProgramClientStatusDAO {
 
     private Logger log = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
 
     @Autowired
     public void setSessionFactoryOverride(SessionFactory sessionFactory) {
@@ -54,8 +53,8 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
     }
 
     public List<ProgramClientStatus> getProgramClientStatuses(Integer programId) {
-        String sSQL = "from ProgramClientStatus pcs where pcs.programId=?0";
-        return (List<ProgramClientStatus>) this.getHibernateTemplate().find(sSQL, programId);
+        String sSQL = "from ProgramClientStatus pcs where pcs.programId=?1";
+        return (List<ProgramClientStatus>) HqlQueryHelper.find(currentSession(), sSQL, programId);
     }
 
     public void saveProgramClientStatus(ProgramClientStatus status) {
@@ -86,24 +85,14 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
             throw new IllegalArgumentException();
         }
 
-        // Session session = getSession();
-        Session session = sessionFactory.getCurrentSession();
-        List teams = new ArrayList();
-        try {
-            Query query = session.createQuery("select pt.id from ProgramClientStatus pt where pt.programId = ?1 and pt.name = ?2");
-            query.setLong(1, programId.longValue());
-            query.setString(2, statusName);
+        List<?> results = HqlQueryHelper.find(currentSession(),
+                "from ProgramClientStatus pt where pt.programId = ?1 and pt.name = ?2",
+                programId, statusName);
 
-            teams = query.list();
-
-            if (log.isDebugEnabled()) {
-                log.debug("teamNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !teams.isEmpty());
-            }
-        } finally {
-            //releaseSession(session);
-            session.close();
+        if (log.isDebugEnabled()) {
+            log.debug("clientStatusNameExists: programId = " + programId + ", statusName = " + statusName + ", result = " + !results.isEmpty());
         }
-        return !teams.isEmpty();
+        return !results.isEmpty();
     }
 
     public List<Admission> getAllClientsInStatus(Integer programId, Integer statusId) {
@@ -115,11 +104,11 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
             throw new IllegalArgumentException();
         }
 
-        String sSQL = "from Admission a where a.programId = ?0 and a.teamId = ?1 and a.admissionStatus='current'";
-        List<Admission> results = (List<Admission>) this.getHibernateTemplate().find(sSQL, new Object[]{programId, statusId});
+        String sSQL = "from Admission a where a.programId = ?1 and a.teamId = ?2 and a.admissionStatus='current'";
+        List<Admission> results = (List<Admission>) HqlQueryHelper.find(currentSession(), sSQL, programId, statusId);
 
         if (log.isDebugEnabled()) {
-            log.debug("getAdmissionsInTeam: programId= " + programId + ",statusId=" + statusId + ",# results=" + results.size());
+            log.debug("getAllClientsInStatus: programId= " + programId + ",statusId=" + statusId + ",# results=" + results.size());
         }
 
         return results;

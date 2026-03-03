@@ -262,6 +262,7 @@
     pageContext.setAttribute("quickLinksList", quickLinkCollection);
     pageContext.setAttribute("formNamesList", formNamesList);
     pageContext.setAttribute("eFormsList", eFormIdCollection);
+    request.setAttribute("providerPreference", providerPreference);
 
     StringBuilder eformIds = new StringBuilder();
     for (ProviderPreference.EformLink eform : eFormIdCollection) {
@@ -664,7 +665,6 @@
             }
         %>
 
-        <script src="${pageContext.request.contextPath}/csrfguard"></script>
     </head>
     <%
         if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isCaisiEnable()) {
@@ -887,6 +887,7 @@
     <input type="hidden" value="${ hideReason }" id="hideReason"/>
     <input type="hidden" value="${pageContext.servletContext.contextPath}" id="contextPath" />
 
+    <div id="fixedHeaderWrapper">
     <table id="firstTable" class="noprint">
         <tr>
 
@@ -1161,20 +1162,6 @@
 
         </tr>
     </table>
-
-    <script>
-        jQuery(document).ready(function () {
-            jQuery.get("<%=request.getContextPath()%>/SystemMessage.do?method=view", "html", function (data, textStatus) {
-                jQuery("#system_message").html(data);
-            });
-            jQuery.get("<%=request.getContextPath()%>/FacilityMessage.do?method=view", "html", function (data, textStatus) {
-                jQuery("#facility_message").html(data);
-            });
-        });
-    </script>
-
-    <div id="system_message"></div>
-    <div id="facility_message"></div>
 
     <table id="scheduleNavigation">
         <tr id="ivoryBar">
@@ -1493,6 +1480,22 @@
             </td>
         </tr>
     </table>
+    </div><!-- end fixedHeaderWrapper -->
+
+    <script>
+        jQuery(document).ready(function () {
+            jQuery.get("<%=request.getContextPath()%>/SystemMessage.do?method=view", "html", function (data, textStatus) {
+                jQuery("#system_message").html(data);
+            });
+            jQuery.get("<%=request.getContextPath()%>/FacilityMessage.do?method=view", "html", function (data, textStatus) {
+                jQuery("#facility_message").html(data);
+            });
+        });
+    </script>
+
+    <div id="system_message"></div>
+    <div id="facility_message"></div>
+
     <table id="scheduleTable" BGCOLOR="#C0C0C0">
 
         <tr>
@@ -2282,13 +2285,13 @@
                                                             <c:out value="${fn:substring(eform.eFormName, 0, truncateLimit)}"/>
                                                             </a>
                                                         </c:forEach>
-                                                        <c:forEach items="${quickLinksList}" var="quickLink">
-                                                            |<a href="javascript:void(0)" onClick='popupPage2("<c:out
-                                                                value="${quickLink.url}"/>")' title='<c:out
-                                                                value="${quickLink.name}"/>'>
-                                                            <c:out value="${fn:substring(quickLink.name, 0, truncateLimit)}"/>
-                                                            </a>
-                                                        </c:forEach>
+                                                        <c:if test="${not empty quickLinksList}">
+                                                            <jsp:include page="appointmentFormsLinks.jspf">
+                                                                <jsp:param name="demographic_no" value="${appointment.demographicNo}"/>
+                                                                <jsp:param name="appointment_no" value="${appointment.id}"/>
+                                                                <jsp:param name="skipFormsAndEforms" value="true"/>
+                                                            </jsp:include>
+                                                        </c:if>
 
                                                         <oscar:oscarPropertiesCheck
                                                                 property="appt_pregnancy" value="true"

@@ -166,6 +166,7 @@
     String encWinWidth = props.getOrDefault("encounterWindowWidth", "");
     String encWinHeight = props.getOrDefault("encounterWindowHeight", "");
     boolean encWinMax = "yes".equalsIgnoreCase(props.getOrDefault("encounterWindowMaximize", "no"));
+    boolean encOpenInTab = "yes".equalsIgnoreCase(props.getOrDefault(UserProperty.ENCOUNTER_OPEN_IN_TAB, "no"));
     String quickChartSize = props.getOrDefault("quickChartSize", "");
 
     // Contact info (used on prescriptions and consult letters)
@@ -227,17 +228,9 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <%@ include file="/includes/global-head.jspf" %>
     <c:set var="ctx" value="${pageContext.request.contextPath}"/>
     <title>Provider Preferences</title>
-
-    <!-- CARLOS global scripts -->
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
-
-    <!-- Bootstrap 5 (local bundle) + FontAwesome (local bundle) -->
-    <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
 
     <style>
         /* ─── Colour palette matched to CARLOS schedule page ─── */
@@ -679,7 +672,7 @@
                             <td>URL</td>
                             <td>
                                 <input type="text" name="quickLinkUrl" class="pref-input" style="max-width:200px">
-                                <span class="hint">(tokens: ${contextPath} ${demographicId})</span>
+                                <span class="hint">(tokens: &#36;{contextPath} &#36;{demographicId} &#36;{appointmentId} &#36;{providerId} &#36;{providerOhip} &#36;{demographicHin} &#36;{demographicVer})</span>
                             </td>
                         </tr>
                         <tr>
@@ -1017,6 +1010,13 @@
                 </div>
             </div>
             <div class="pref-row">
+                <div class="pref-label">Open in Tabs</div>
+                <div class="pref-value">
+                    <input type="checkbox" class="form-check-input" role="switch"
+                           name="encounter_open_in_tab" value="yes" <%=encOpenInTab ? "checked" : ""%>>
+                </div>
+            </div>
+            <div class="pref-row">
                 <div class="pref-label">Quick Chart Size <span class="hint">(px)</span></div>
                 <div class="pref-value">
                     <input type="text" name="quickChartSize"
@@ -1345,8 +1345,6 @@
     </div>
 </div>
 
-<!-- Bootstrap 5 JS bundle (includes Popper for accordion) -->
-<script src="<%= request.getContextPath() %>/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js"></script>
 <!-- Prototype.js for Ajax auto-save (legacy dependency) -->
 <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
 

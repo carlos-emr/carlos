@@ -120,11 +120,8 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.title"/></title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/searchBox.css">
 
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -179,16 +176,15 @@
     %>
     <div class="container">
     <div class="searchBox">
-    <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
-        <h4 style="margin:0; font-size:18px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
+    <div class="page-header-bar">
+        <h4 class="page-header-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
                 <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
             </svg>
             &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.msgTitle"/>
         </h4>
     </div>
     <form name='report'>
-        <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
         <table class="table table-sm table-striped" id="reportsTbl" style="width:100%">
             <%int j = 1; %>
             <tr>
@@ -280,38 +276,6 @@
                 <td width="300"><a
                         href="<%= request.getContextPath() %>/oscarPrevention/PreventionReporting.jsp" target="_blank"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnReport18n"/></a></td>
                 <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-            </tr>
-
-            <tr>
-                <td width="2"><%=j%>
-                    <%j++;%>
-                </td>
-                <td width="1"></td>
-                <td width="300"><a
-                        href="<%= request.getContextPath() %>/oscarReport/oscarMeasurements/SetupSelectCDMReport.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.chronicDiseaseManagement"/></a></td>
-                <td></td>
-                <td></td>
-                <td></td>
-            </tr>
-            <tr>
-                <td width="2"><%=j%>
-                    <%j++;%>
-                </td>
-                <td width="1"></td>
-                <td width="300"><a
-                        href="<%= request.getContextPath() %>/oscarWaitingList/SetupDisplayWaitingList.do?waitingListId="><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnWaiting"/></a></td>
-                <td></td>
-                <td></td>
-                <td></td>
-            </tr>
-
-            <tr>
-                <td width="2"><%=j%><%j++;%></td>
-                <td width="1"></td>
-                <td width="300"><a href="ClinicalReports.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="report.reportindex.btnClinicalReport"/> </a></td>
                 <td></td>
                 <td></td>
                 <td></td>

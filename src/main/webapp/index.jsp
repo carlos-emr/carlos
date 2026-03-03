@@ -52,15 +52,9 @@
 <html>
 
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
         <title>
-                <%--	    <c:choose>--%>
-                <%--	    	<c:when test="${ not empty LoginResourceBean.tabName }">--%>
-                <%--	    		<c:out value="${ LoginResourceBean.tabName }" />--%>
-                <%--	    	</c:when>--%>
-                <%--	    	<c:otherwise>--%>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.title"/>
-                <%--	    	</c:otherwise>--%>
-                <%--	    </c:choose>--%>
         </title>
 
         <link rel="icon" href="${pageContext.request.contextPath}/images/Oscar.ico"/>
@@ -618,7 +612,6 @@
                             - pin: "one-time-code" \u2014 signal browsers this is a session code, not a saveable credential
                         --%>
                         <form action="login.do" method="POST" name="loginForm">
-<input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
 
                             <div class="form-group ${ login_error }">
                                 <input type="text" name="username" id="username" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Logon.userName"/>"
@@ -744,5 +737,4 @@
     </footer>
 
     </body>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/csrfguard"></script>
 </html>

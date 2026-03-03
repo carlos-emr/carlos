@@ -126,7 +126,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
             retVal = "{\"success\":false}";
         }
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(retVal);
         response.getWriter().write(jsonObject.toString());
 
@@ -144,7 +144,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
             pharmacy.unlinkPharmacy(pharmId, demographicNo);
 
-            response.setContentType("text/x-json");
+            response.setContentType("application/json");
             String retVal = "{\"id\":\"" + pharmId + "\"}";
             ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(retVal);
             response.getWriter().write(jsonObject.toString());
@@ -167,7 +167,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         List<PharmacyInfo> pharmacyList;
         pharmacyList = pharmacyData.getPharmacyFromDemographic(demographicNo);
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectMapper mapper = new ObjectMapper();
         mapper.writeValue(response.getWriter(), pharmacyList);
 
@@ -179,7 +179,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         try {
             PharmacyInfo pharmacyInfo = pharmacy.addPharmacyToDemographic(request.getParameter("pharmId"), request.getParameter("demographicNo"), request.getParameter("preferredOrder"));
             ObjectMapper mapper = new ObjectMapper();
-            response.setContentType("text/x-json");
+            response.setContentType("application/json");
             mapper.writeValue(response.getWriter(), pharmacyInfo);
         } catch (Exception e) {
             MiscUtils.getLogger().error("ERROR SETTING PREFERRED ORDER", e);
@@ -211,7 +211,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         try {
-            response.setContentType("text/x-json");
+            response.setContentType("application/json");
             response.getWriter().write(jsonObject.toString());
         } catch (IOException e) {
             MiscUtils.getLogger().error("Cannot write response", e);
@@ -248,7 +248,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
         }
 
         try {
-            response.setContentType("text/x-json");
+            response.setContentType("application/json");
             ObjectMapper mapper = new ObjectMapper();
             mapper.writeValue(response.getWriter(), pharmacyInfo);
 
@@ -267,7 +267,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
         List<PharmacyInfo> pharmacyList = pharmacy.searchPharmacy(searchStr);
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectMapper mapper = new ObjectMapper();
 
         try {
@@ -286,7 +286,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
 
         RxPharmacyData pharmacy = new RxPharmacyData();
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectMapper mapper = new ObjectMapper();
 
         List<String> cityList = pharmacy.searchPharmacyCity(searchStr);

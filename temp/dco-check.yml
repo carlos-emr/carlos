@@ -1,0 +1,374 @@
+# GitHub Workflow: DCO (Developer Certificate of Origin) Check
+#
+# Description:
+# Verifies that all commits in a pull request include a valid Signed-off-by
+# line, as required by the Developer Certificate of Origin (DCO).
+# See https://developercertificate.org/
+#
+# This check can also pass if a PR author or authorized project contributor
+# posts a comment containing: "Confirming DCO sign off for all commits"
+# (case-insensitive). This serves as a manual retroactive DCO confirmation.
+#
+# This is a REQUIRED check — PRs cannot merge without it passing. Configure
+# this as a required status check in branch protection rules:
+#   Settings → Branches → Branch protection → Require status checks → "DCO"
+#
+# No third-party actions are used beyond actions/checkout. The check is
+# implemented as a shell script to minimize supply chain risk.
+#
+# License:
+# This GitHub Workflow file is part of the Carlos EMR project and is subject
+# to the licensing terms outlined in the repository's LICENSE file.
+
+name: DCO
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+      - experimental
+      - staging/*
+      - hotfix/*
+      - community/*/develop
+      - community/*/staging/*
+  issue_comment:
+    types: [created]
+
+jobs:
+  dco:
+    name: DCO Sign-Off
+    runs-on: ubuntu-latest
+    # Run on pull_request events always; on issue_comment only for PRs with
+    # the confirmation phrase from authorized users
+    if: >
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(fromJson('["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]'), github.event.comment.author_association) &&
+       contains(toLower(github.event.comment.body), 'confirming dco sign off for all commits'))
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Get PR details (issue_comment)
+        if: github.event_name == 'issue_comment'
+        id: pr_details
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.issue.pull_request.url }}
+        run: |
+          # Fetch PR metadata; fail fast on HTTP errors (-f flag)
+          pr_json=$(curl -sf -H "Authorization: token $GH_TOKEN" "$PR_URL") || {
+            echo "::error::Failed to fetch PR details from $PR_URL"
+            exit 1
+          }
+
+          base_sha=$(printf '%s' "$pr_json" | jq -r '.base.sha // empty')
+          head_sha=$(printf '%s' "$pr_json" | jq -r '.head.sha // empty')
+          pr_number=$(printf '%s' "$pr_json" | jq -r '.number // empty')
+
+          if [ -z "$base_sha" ] || [ -z "$head_sha" ] || [ -z "$pr_number" ]; then
+            echo "::error::Could not extract required fields from PR API response"
+            echo "base_sha=$base_sha head_sha=$head_sha pr_number=$pr_number"
+            exit 1
+          fi
+
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # For issue_comment events, github.ref is the default branch.
+          # We always do a full fetch, then explicitly fetch the PR head ref
+          # in the next step when needed.
+          fetch-depth: 0
+
+      - name: Fetch PR head ref (issue_comment)
+        if: github.event_name == 'issue_comment'
+        env:
+          HEAD_SHA: ${{ steps.pr_details.outputs.head_sha }}
+        run: |
+          # The checkout fetched the default branch history. For issue_comment
+          # triggers the PR head may not be reachable (especially for forks),
+          # so explicitly fetch the PR ref to ensure HEAD_SHA is available.
+          echo "Fetching PR head ref to ensure $HEAD_SHA is available..."
+          pr_number="${{ steps.pr_details.outputs.pr_number }}"
+          git fetch origin "pull/${pr_number}/head" || {
+            echo "::error::Failed to fetch PR head ref (pull/${pr_number}/head)"
+            exit 1
+          }
+
+          # Verify the SHA is now reachable
+          if ! git cat-file -e "$HEAD_SHA" 2>/dev/null; then
+            echo "::error::HEAD_SHA ($HEAD_SHA) is not reachable after fetch"
+            exit 1
+          fi
+
+      - name: Verify DCO sign-off on all commits
+        id: dco_check
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || steps.pr_details.outputs.base_sha }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || steps.pr_details.outputs.head_sha }}
+        run: |
+          echo "Checking commits ${BASE_SHA:0:7}..${HEAD_SHA:0:7} for DCO sign-off..."
+          echo ""
+
+          # Validate that both SHAs are reachable
+          if ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo "::error::BASE_SHA ($BASE_SHA) is not a valid git object"
+            exit 1
+          fi
+          if ! git cat-file -e "$HEAD_SHA" 2>/dev/null; then
+            echo "::error::HEAD_SHA ($HEAD_SHA) is not a valid git object"
+            exit 1
+          fi
+
+          commit_list=$(git rev-list "$BASE_SHA".."$HEAD_SHA") || {
+            echo "::error::git rev-list failed for range ${BASE_SHA}..${HEAD_SHA}"
+            exit 1
+          }
+
+          if [ -z "$commit_list" ]; then
+            echo "::error::No commits found in range ${BASE_SHA:0:7}..${HEAD_SHA:0:7}"
+            exit 1
+          fi
+
+          missing=()
+          total=0
+          passed=0
+
+          for sha in $commit_list; do
+            total=$((total + 1))
+            subject=$(git log -1 --format="%s" "$sha")
+            short=$(git log -1 --format="%h" "$sha")
+
+            # Check for Signed-off-by in the commit body
+            if git log -1 --format="%B" "$sha" | grep -qE "^Signed-off-by: .+ <.+>"; then
+              passed=$((passed + 1))
+            else
+              missing+=("$short $subject")
+            fi
+          done
+
+          echo "Checked $total commit(s): $passed passed, ${#missing[@]} missing sign-off"
+          echo ""
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "commits_missing=true" >> "$GITHUB_OUTPUT"
+            echo "missing_count=${#missing[@]}" >> "$GITHUB_OUTPUT"
+
+            # Save missing commits list for later steps
+            {
+              for entry in "${missing[@]}"; do
+                echo "$entry"
+              done
+            } > /tmp/missing_commits.txt
+          else
+            echo "commits_missing=false" >> "$GITHUB_OUTPUT"
+            echo "All commits have valid DCO sign-off."
+          fi
+
+      - name: Check for manual DCO confirmation comment
+        if: steps.dco_check.outputs.commits_missing == 'true'
+        id: manual_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || steps.pr_details.outputs.pr_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Commits missing sign-off detected. Checking for manual DCO confirmation..."
+          echo ""
+
+          # Fetch all comments on the PR
+          page=1
+          found="false"
+          confirming_user=""
+          confirming_association=""
+
+          while true; do
+            comments=$(curl -sf -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments?per_page=100&page=$page") || {
+              echo "::warning::Failed to fetch PR comments (page $page). Skipping manual confirmation check."
+              break
+            }
+
+            # Validate response is a JSON array (not an error object)
+            if ! printf '%s' "$comments" | jq -e 'type == "array"' > /dev/null 2>&1; then
+              echo "::warning::Unexpected API response (not an array). Skipping manual confirmation check."
+              break
+            fi
+
+            # Break if empty array (no more comments)
+            if [ "$(printf '%s' "$comments" | jq 'length')" = "0" ]; then
+              break
+            fi
+
+            # Search for confirmation phrase (case-insensitive)
+            while IFS= read -r line; do
+              body=$(printf '%s' "$line" | jq -r '.body')
+              author=$(printf '%s' "$line" | jq -r '.author')
+              association=$(printf '%s' "$line" | jq -r '.association')
+
+              # Case-insensitive check for the confirmation phrase
+              if printf '%s' "$body" | grep -qi "confirming dco sign off for all commits"; then
+                # Check if the author has an authorized association
+                if printf '%s' "$association" | grep -qE "^(OWNER|MEMBER|COLLABORATOR|CONTRIBUTOR)$"; then
+                  found="true"
+                  confirming_user="$author"
+                  confirming_association="$association"
+                  break
+                else
+                  echo "Found confirmation comment from $author, but their association ($association) is not authorized."
+                fi
+              fi
+            done <<< "$(printf '%s' "$comments" | jq -c '.[] | {body: .body, author: .user.login, association: .author_association}')"
+
+            if [ "$found" = "true" ]; then
+              break
+            fi
+
+            page=$((page + 1))
+          done
+
+          if [ "$found" = "true" ]; then
+            echo "manual_confirmed=true" >> "$GITHUB_OUTPUT"
+            echo "confirming_user=$confirming_user" >> "$GITHUB_OUTPUT"
+            echo "confirming_association=$confirming_association" >> "$GITHUB_OUTPUT"
+            echo ""
+            echo "✅ Manual DCO confirmation found!"
+            echo "   Confirmed by: $confirming_user (association: $confirming_association)"
+          else
+            echo "manual_confirmed=false" >> "$GITHUB_OUTPUT"
+            echo "No valid manual DCO confirmation comment found."
+          fi
+
+      - name: Report result
+        if: always() && steps.dco_check.outputs.commits_missing == 'true'
+        env:
+          MANUAL_CONFIRMED: ${{ steps.manual_check.outputs.manual_confirmed }}
+          CONFIRMING_USER: ${{ steps.manual_check.outputs.confirming_user }}
+          CONFIRMING_ASSOCIATION: ${{ steps.manual_check.outputs.confirming_association }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number || steps.pr_details.outputs.pr_number }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$MANUAL_CONFIRMED" = "true" ]; then
+            echo ""
+            echo "══════════════════════════════════════════════════════════"
+            echo "✅ DCO check PASSED via manual confirmation"
+            echo ""
+            echo "Some commits are missing Signed-off-by trailers, but"
+            echo "a manual DCO confirmation was provided by $CONFIRMING_USER"
+            echo "(association: $CONFIRMING_ASSOCIATION)."
+            echo "══════════════════════════════════════════════════════════"
+            exit 0
+          fi
+
+          # DCO check failed — print details to the workflow log
+          echo ""
+          echo "::error::The following commit(s) are missing a DCO sign-off (Signed-off-by line):"
+          echo ""
+          while IFS= read -r entry; do
+            echo "  - $entry"
+          done < /tmp/missing_commits.txt
+          echo ""
+          echo "──────────────────────────────────────────────────────────"
+          echo "All commits must include a Signed-off-by line certifying"
+          echo "you have the right to submit the code under the project's"
+          echo "open source license."
+          echo ""
+          echo "To add a sign-off to your most recent commit:"
+          echo "  git commit --amend -s --no-edit"
+          echo ""
+          echo "To add sign-offs to multiple commits:"
+          missing_count=$(wc -l < /tmp/missing_commits.txt)
+          echo "  git rebase --signoff HEAD~${missing_count}"
+          echo ""
+          echo "For new commits, always use the -s flag:"
+          echo "  git commit -s -m \"feat: your message\""
+          echo ""
+          echo "What is the DCO?"
+          echo "  https://developercertificate.org/"
+          echo ""
+          echo "See CONTRIBUTING.md for details."
+          echo "──────────────────────────────────────────────────────────"
+
+          # Post a helpful comment on the PR (only on pull_request events
+          # to avoid duplicate comments on every issue_comment re-trigger).
+          # Check for existing DCO failure comment to avoid duplicates.
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # Check if we already posted a DCO failure comment
+            existing=$(curl -sf -H "Authorization: token $GH_TOKEN" \
+              "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments?per_page=100" 2>/dev/null || echo "[]")
+
+            already_posted="false"
+            if printf '%s' "$existing" | jq -e 'type == "array"' > /dev/null 2>&1; then
+              if printf '%s' "$existing" | jq -e '[.[] | select(.user.login == "github-actions[bot]" and (.body | contains("DCO Check Failed")))] | length > 0' > /dev/null 2>&1; then
+                already_posted="true"
+              fi
+            fi
+
+            if [ "$already_posted" = "true" ]; then
+              echo ""
+              echo "A DCO failure comment already exists on this PR. Skipping duplicate comment."
+            else
+              # Build the missing commits bullet list
+              missing_list=""
+              while IFS= read -r entry; do
+                missing_list="$missing_list"$'\n'"- \`$entry\`"
+              done < /tmp/missing_commits.txt
+
+              # Build the full comment body and write to a temp file
+              {
+                echo "## ❌ DCO Check Failed"
+                echo ""
+                echo "The following commit(s) are missing a \`Signed-off-by\` line:"
+                echo "$missing_list"
+                echo ""
+                echo "### How to fix (preferred)"
+                echo ""
+                echo "Re-sign your commits by amending or rebasing:"
+                echo ""
+                echo '```bash'
+                echo "# Fix the most recent commit:"
+                echo "git commit --amend -s --no-edit"
+                echo "git push --force-with-lease"
+                echo ""
+                echo "# Fix multiple commits (replace N with the number of commits):"
+                echo "git rebase --signoff HEAD~N"
+                echo "git push --force-with-lease"
+                echo ""
+                echo "# For all new commits, always use the -s flag:"
+                echo 'git commit -s -m "feat: your message"'
+                echo '```'
+                echo ""
+                echo "### Alternate: Manual confirmation"
+                echo ""
+                echo "If you are the **PR author** or a **project contributor** (OWNER, MEMBER, COLLABORATOR, or CONTRIBUTOR), you can retroactively confirm DCO sign-off by posting a comment with the exact phrase:"
+                echo ""
+                echo "> Confirming DCO sign off for all commits"
+                echo ""
+                echo "This will re-trigger the DCO check and allow it to pass."
+                echo ""
+                echo "---"
+                echo '<sub>See <a href="https://developercertificate.org/">developercertificate.org</a> and <a href="https://github.com/carlos-emr/carlos/blob/develop/CONTRIBUTING.md">CONTRIBUTING.md</a> for more information about the DCO.</sub>'
+              } > /tmp/dco_comment.md
+
+              # Post the comment via the GitHub API
+              jq -n --rawfile body /tmp/dco_comment.md '{body: $body}' | \
+                curl -sf -X POST \
+                  -H "Authorization: token $GH_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments" \
+                  -d @- > /dev/null 2>&1 || echo "::warning::Failed to post DCO failure comment on PR"
+
+              echo ""
+              echo "A comment with instructions has been posted on the PR."
+            fi
+          fi
+
+          exit 1

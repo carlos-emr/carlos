@@ -68,7 +68,7 @@ public class CodeSearchService2Action extends ActionSupport {
                 results.add(new LabelValueBean(result.getDescription(), result.getCode()));
             }
         }
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ArrayNode jsonArray = objectMapper.valueToTree(results);
         response.getWriter().write(jsonArray.toString());
 

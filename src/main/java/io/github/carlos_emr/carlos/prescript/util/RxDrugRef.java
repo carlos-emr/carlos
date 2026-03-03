@@ -1,52 +1,33 @@
 /**
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- * <p>
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * <p>
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- * <p>
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
- 
- * <p>
- * Now maintained by the CARLOS EMR Project (2026+).
- * https://github.com/carlos-emr/carlos
- * CARLOS has no affiliation with OSCAR or McMaster University.
- */
-
-
-package io.github.carlos_emr.carlos.prescript.util;
-/*
- * DrugRef.java
  *
- * Created on September 19, 2003, 2:16 PM
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
+ * https://github.com/carlos-emr/carlos
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
-
+package io.github.carlos_emr.carlos.prescript.util;
 
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
-import org.apache.xmlrpc.Base64;
-import org.apache.xmlrpc.XmlRpcClient;
-import org.apache.xmlrpc.XmlRpcClientLite;
-import org.apache.xmlrpc.XmlRpcException;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
@@ -54,10 +35,20 @@ import java.util.Map;
 import java.util.Vector;
 
 /**
- * @author Jay
+ * Client-side interface to the DrugRef XML-RPC web service for drug database lookups.
+ *
+ * <p>Provides methods for ATC code resolution, drug-drug interaction checking, allergy
+ * warnings, DIN-based drug lookups, and drug reference database health verification.
+ * Web service calls are dispatched through {@link #callWebservice} (swallows all errors,
+ * returns null on failure) or {@link #callWebserviceLite} (propagates non-zero fault
+ * codes as exceptions).</p>
+ *
+ * <p>The DrugRef server URL is configured via the {@code drugref_url} property in
+ * {@link io.github.carlos_emr.OscarProperties}.</p>
+ *
+ * @since 2003-09-19
  */
 public class RxDrugRef {
-
 
     // DRUG CATEGORIES FOR THE DRUG REF SEARCH TABLE.
     public static int CAT_BRAND = 13;
@@ -72,153 +63,233 @@ public class RxDrugRef {
     private static final Logger logger = MiscUtils.getLogger();
 
     private String server_url = null;
-    //"http://localhost:8080/drugref2/DrugrefService";
-    // "http://www.hherb.com:8001";
-    //"http://24.141.82.168:8001";
-    //"http://192.168.42.3:8001";
 
     /**
-     * Creates a new instance of DrugRef
+     * Creates a new RxDrugRef instance using the DrugRef URL from application properties.
+     * The URL is read from the {@code drugref_url} key in {@link OscarProperties}.
+     *
+     * @since 2003-09-19
      */
     public RxDrugRef() {
         server_url = OscarProperties.getInstance().getProperty("drugref_url");
-        //server_url = System.getProperty("drugref_url");
-
     }
 
+    /**
+     * Creates a new RxDrugRef instance using an explicitly provided server URL.
+     * Used for testing and for overriding the configured URL at runtime.
+     *
+     * @param url String the full URL of the DrugRef XML-RPC server
+     * @since 2026-02-26
+     */
     public RxDrugRef(String url) {
         server_url = url;
     }
 
+    /**
+     * Returns the DrugRef server URL in use by this instance.
+     *
+     * @return String the configured DrugRef XML-RPC server URL, or null if not set
+     * @since 2026-02-26
+     */
     public String getDrugRefURL() {
         return server_url;
     }
 
+    /**
+     * Looks up a drug record by its Drug Identification Number (DIN).
+     *
+     * @param DIN     String the Drug Identification Number to look up
+     * @param boolVal Boolean whether to include additional product details in the response
+     * @return Hashtable&lt;String, Object&gt; drug data keyed by field name, or null if not found
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Hashtable<String, Object> getDrugByDIN(String DIN, Boolean boolVal) throws Exception {
         Vector params = new Vector();
         params.addElement(DIN);
         params.addElement(boolVal);
         Vector<Hashtable<String, Object>> vec = (Vector<Hashtable<String, Object>>) callWebserviceLite("get_drug_by_DIN", params);
-        Hashtable<String, Object> returnVal = vec.get(0);
-        return returnVal;
+        if (vec == null || vec.isEmpty()) {
+            return null;
+        }
+        return vec.get(0);
     }
 
     /**
-     * returns all matching ATC codes for a given (fraction of) a drug name.
-     * Search is case insensitive
-     * query = "select code, text from atc where text like '%s%%'"
-     * <p>
-     * <p>
-     * [{'code':'0', 'text':'None found'}]
+     * Returns all matching ATC codes for a given drug name fragment.
+     * Search is case-insensitive. Returns a list of {@code {'code': '...', 'text': '...'}} dicts,
+     * or {@code [{'code':'0', 'text':'None found'}]} when no results match.
+     *
+     * @param drug String the drug name or partial name to search for
+     * @return Vector of Hashtables each containing {@code code} and {@code text} entries,
+     *         or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector atc(String drug) {
         Vector params = new Vector();
         params.addElement(drug);
-        Vector vec = (Vector) callWebservice("atc", params);
-        return vec;
+        return (Vector) callWebservice("atc", params);
     }
 
     /**
-     * returns all matching ATC codes for a given Drug Identification Number.
-     * Search is case insensitive
+     * Returns all ATC codes associated with a given Drug Identification Number.
+     * Search is case-insensitive.
+     *
+     * @param din String the Drug Identification Number to resolve to ATC codes
+     * @return Vector of ATC code strings, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector atcFromDIN(String din) {
         Vector params = new Vector();
         params.addElement(din);
-        Vector vec = (Vector) callWebservice("get_atcs_by_din", params);
-        return vec;
+        return (Vector) callWebservice("get_atcs_by_din", params);
     }
 
-
     /**
-     * returns all matching ATC codes for a given (fraction of) a drug brand name.
-     * Search is case insensitive
-     * query = "select atc.atccode, pm.brandname from link_product_manufacturer pm, product p, generic_drug_name g, link_drug_atc atc
-     * where pm.id_product = p.id and p.id_drug = g.id_drug  and g.id_drug = atc.id_drug and pm.brandname like  '%s%%'"
-     * <p>
-     * [{'code':'0', 'text':'None found'}]
+     * Returns all matching ATC codes for a given brand name fragment.
+     * Search is case-insensitive. Returns a list of {@code {'code': '...', 'text': '...'}} dicts,
+     * or {@code [{'code':'0', 'text':'None found'}]} when no results match.
+     *
+     * @param drug String the brand name or partial brand name to search for
+     * @return Vector of Hashtables each containing {@code code} and {@code text} entries,
+     *         or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector atcFromBrand(String drug) {
         Vector params = new Vector();
         params.addElement(drug);
-        Vector vec = (Vector) callWebservice("atcFromBrand", params);
-        return vec;
+        return (Vector) callWebservice("atcFromBrand", params);
     }
 
-
     /**
-     * returns the English name of a drug that matches the stated ATC code
-     * query = "select code, text from atc where code like '%s%%'"
-     * <p>
-     * return [{'code':'0', 'text':'None found'}]
+     * Returns the English name of a drug matching the given ATC code prefix.
+     * Returns a list of {@code {'code': '...', 'text': '...'}} dicts,
+     * or {@code [{'code':'0', 'text':'None found'}]} when no results match.
+     *
+     * @param code String the ATC code or code prefix to look up
+     * @return Vector of Hashtables each containing {@code code} and {@code text} entries,
+     *         or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector atc2text(String code) {
         Vector params = new Vector();
         params.addElement(code);
-        Vector vec = (Vector) callWebservice("atc2text", params);
-
-        return vec;
+        return (Vector) callWebservice("atc2text", params);
     }
 
+    /**
+     * Returns drug-drug interactions for the given list of ATC codes at the default
+     * minimum significance level of 1.
+     *
+     * @param atclist Vector of String ATC codes representing the current drug regimen
+     * @return Vector of interaction result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector interaction(Vector atclist) {
         return interaction(atclist, 1);
     }
 
     /**
-     * returns a list of drug-drug interactions as list of "dicts"
-     * atclist : list of ATC codes
-     * minimum_significance: interactions below the stated significance level will be ignored
-     * <p>
-     * query = "select drug, effect, affected_drug, significance, evidence, reference from simple_interactions where drug = '%s' and affected_drug = '%s' and significance >= %d" %
+     * Returns drug-drug interactions for the given list of ATC codes above a minimum
+     * significance threshold.
+     *
+     * @param atclist              Vector of String ATC codes representing the current drug regimen
+     * @param minimum_significance int interactions with significance below this value are excluded
+     * @return Vector of interaction result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector interaction(Vector atclist, int minimum_significance) {
         Vector params = new Vector();
         params.addElement(atclist);
         params.addElement(Integer.valueOf(minimum_significance));
-        Vector vec = (Vector) callWebservice("interaction", params);
-        return vec;
+        return (Vector) callWebservice("interaction", params);
     }
 
+    /**
+     * Returns drug-drug interactions using regional drug identifiers instead of ATC codes.
+     *
+     * @param regionalIdentifierList List of String regional drug identifiers for the drug regimen
+     * @param minimum_significance   int interactions with significance below this value are excluded
+     * @return Vector of interaction result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector interactionByRegionalIdentifier(List regionalIdentifierList, int minimum_significance) {
         Vector params = new Vector();
         params.addElement(new Vector(regionalIdentifierList));
         params.addElement(Integer.valueOf(minimum_significance));
-        Vector vec = (Vector) callWebservice("interaction_by_regional_identifier", params);
-        return vec;
+        return (Vector) callWebservice("interaction_by_regional_identifier", params);
     }
 
-
+    /**
+     * Returns full drug record data for the given primary key.
+     *
+     * @param pKey    String the DrugRef primary key identifying the drug record
+     * @param boolVal Boolean whether to include additional product details in the response
+     * @return Hashtable of drug field names to values, or null if not found
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Hashtable getDrug(String pKey, Boolean boolVal) throws Exception {
         Vector params = new Vector();
         params.addElement(pKey);
         params.addElement(boolVal);
         Vector vec = (Vector) callWebserviceLite("get_drug", params);
-        Hashtable returnVal = (Hashtable) vec.get(0);
-        return returnVal;
+        if (vec == null || vec.isEmpty()) {
+            return null;
+        }
+        return (Hashtable) vec.get(0);
     }
 
+    /**
+     * Returns extended drug record data (version 2 API) for the given primary key.
+     *
+     * @param pKey    String the DrugRef primary key identifying the drug record
+     * @param boolVal Boolean whether to include additional product details in the response
+     * @return Hashtable of drug field names to values, or null if not found
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Hashtable getDrug2(String pKey, Boolean boolVal) throws Exception {
         Vector params = new Vector();
-        MiscUtils.getLogger().debug("Adding to params for get_drug_2 :" + pKey + " - " + boolVal);
         params.addElement(pKey);
         params.addElement(boolVal);
         Vector vec = (Vector) callWebserviceLite("get_drug_2", params);
-        Hashtable returnVal = (Hashtable) vec.get(0);
-        return returnVal;
+        if (vec == null || vec.isEmpty()) {
+            return null;
+        }
+        return (Hashtable) vec.get(0);
     }
 
+    /**
+     * Returns the dosage form data for the given drug primary key.
+     *
+     * @param pKey String the DrugRef primary key identifying the drug record
+     * @return Hashtable of form field names to values, or null if not found
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Hashtable getDrugForm(String pKey) throws Exception {
         Vector params = new Vector();
         params.addElement(pKey);
         Vector vec = (Vector) callWebserviceLite("get_form", params);
-        //if (vec == null || vec.isEmpty()){
-        //    return null;
-        //}
-        Hashtable returnVal = (Hashtable) vec.get(0);
-        return returnVal;
+        if (vec == null || vec.isEmpty()) {
+            return null;
+        }
+        return (Hashtable) vec.get(0);
     }
 
-
+    /**
+     * Submits a suggested alias (alternative name) for a drug to the DrugRef service.
+     *
+     * @param alias        String the suggested alias for the drug
+     * @param aliasComment String a comment or rationale for the suggested alias
+     * @param id           String the DrugRef identifier for the drug
+     * @param name         String the drug name associated with the suggestion
+     * @param provider     String the provider submitting the suggestion
+     * @return Vector of response values from the DrugRef service
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Vector suggestAlias(String alias, String aliasComment, String id, String name, String provider) throws Exception {
         Vector params = new Vector();
         params.addElement(alias);
@@ -226,83 +297,111 @@ public class RxDrugRef {
         params.addElement(id);
         params.addElement(name);
         params.addElement(provider);
-        Vector vec = (Vector) callWebserviceLite("suggestAlias", params);
-        return vec;
-    }
-
-
-    public Hashtable getGenericName(String pKey) throws Exception {
-        Vector params = new Vector();
-        params.addElement(pKey);
-
-        Vector vec = (Vector) callWebserviceLite("get_generic_name", params);
-        //  if (vec == null || vec.isEmpty()){
-
-        //     return null;
-        //  }
-        Hashtable returnVal = (Hashtable) vec.get(0);
-        return returnVal;
+        return (Vector) callWebserviceLite("suggestAlias", params);
     }
 
     /**
-     * Returns a list of atc codes without the drug
-     * uses function atc on the back end and strips the name
+     * Returns the generic name record for the given drug primary key.
+     *
+     * @param pKey String the DrugRef primary key identifying the drug record
+     * @return Hashtable of generic name field names to values, or null if not found
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
+    public Hashtable getGenericName(String pKey) throws Exception {
+        Vector params = new Vector();
+        params.addElement(pKey);
+        Vector vec = (Vector) callWebserviceLite("get_generic_name", params);
+        if (vec == null || vec.isEmpty()) {
+            return null;
+        }
+        return (Hashtable) vec.get(0);
+    }
+
+    /**
+     * Returns a list of ATC codes for the given drug name, with drug names stripped from results.
+     * Calls the {@code atc} function on the DrugRef backend and returns only the codes.
+     *
+     * @param drug String the drug name or partial name to resolve to ATC codes
+     * @return Vector of ATC code strings, or null if the service is unavailable
+     * @since 2026-02-26
      */
     public Vector drug2atclist(String drug) {
         Vector params = new Vector();
         params.addElement(drug);
-        Vector vec = (Vector) callWebservice("drug2atclist", params);
-        return vec;
+        return (Vector) callWebservice("drug2atclist", params);
     }
 
+    /**
+     * Returns a list of ATC codes for a list of drug names.
+     *
+     * @param druglist Vector of String drug names to resolve to ATC codes
+     * @return Vector of ATC code strings, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector druglist2atclist(Vector druglist) {
         Vector params = new Vector();
         params.addElement(druglist);
-        Vector vec = (Vector) callWebservice("druglist2atclist", params);
-        return vec;
+        return (Vector) callWebservice("druglist2atclist", params);
     }
 
-
+    /**
+     * Returns drug-drug interactions for a list of drug names above a minimum significance threshold.
+     *
+     * @param druglist             Vector of String drug names representing the current drug regimen
+     * @param minimum_significance int interactions with significance below this value are excluded
+     * @return Vector of interaction result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector interaction_by_drugnames(Vector druglist, int minimum_significance) {
         Vector params = new Vector();
         params.addElement(druglist);
         params.addElement(Integer.valueOf(minimum_significance));
-        Vector vec = (Vector) callWebservice("interaction_by_drugnames", params);
-        return vec;
+        return (Vector) callWebservice("interaction_by_drugnames", params);
     }
 
     /**
-     * returns all matching search element names, ids and categoeis for the given searchString
-     * Search is case insensitive
+     * Returns all matching drug search elements (names, IDs, categories) for the given
+     * search string. Search is case-insensitive.
+     *
+     * @param searchStr String the drug name or partial name to search for
+     * @return Vector of search result Hashtables, each containing name, id, and category fields
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector list_drug_element(String searchStr) throws Exception {
         Vector params = new Vector();
         params.addElement(searchStr);
-        Vector vec = (Vector) callWebserviceLite("list_search_element", params);
-        return vec;
+        return (Vector) callWebserviceLite("list_search_element", params);
     }
 
     /**
      * Verifies connectivity to the drug reference service and retrieves system metadata.
-     * <p>
-     * This method performs a health check by calling multiple web service endpoints to gather
-     * information about the connected drug database system. It retrieves the last database update
-     * timestamp, identifies the drug database type, and obtains the current database version.
+     *
+     * <p>Performs a health check by calling multiple web service endpoints to gather
+     * information about the connected drug database system. Retrieves the last database update
+     * timestamp, identifies the drug database type, and obtains the current database version.</p>
      *
      * @return Map&lt;String, String&gt; containing drug reference metadata with the following keys:
-     *         <ul>
-     *         <li>"lastUpdate" - ISO timestamp of the most recent database update</li>
-     *         <li>"drugDatabase" - String identifier of the drug database system in use</li>
-     *         <li>"version" - String version number of the drug reference database</li>
-     *         </ul>
-     * @throws Exception if the drug reference service is unavailable or if any web service call fails
+     *         {@code "lastUpdate"} — ISO timestamp of the most recent database update,
+     *         {@code "drugDatabase"} — identifier of the drug database system in use,
+     *         {@code "version"} — version number of the drug reference database
+     * @throws Exception if the drug reference service is unavailable or any web service call fails
      * @since 2026-01-21
      */
     public Map<String, String> verify() throws Exception {
         Vector params = new Vector();
         String lastUpdateTime = getLastUpdateTime();
-        String drugDatabase = callWebserviceLite("identify", params).toString();
-        String version = callWebserviceLite("version", params).toString();
+        Object identifyResult = callWebserviceLite("identify", params);
+        if (identifyResult == null) {
+            throw new Exception("DrugRef: 'identify' returned no result for server " + server_url);
+        }
+        String drugDatabase = identifyResult.toString();
+        Object versionResult = callWebserviceLite("version", params);
+        if (versionResult == null) {
+            throw new Exception("DrugRef: 'version' returned no result for server " + server_url);
+        }
+        String version = versionResult.toString();
         Map<String, String> verify = new HashMap<>();
         verify.put("lastUpdate", lastUpdateTime);
         verify.put("drugDatabase", drugDatabase);
@@ -310,517 +409,405 @@ public class RxDrugRef {
         return verify;
     }
 
+    /**
+     * Triggers a database update on the DrugRef server and returns the result message.
+     *
+     * @return String the server's response message describing the update result
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public String updateDB() throws Exception {
         Vector params = new Vector();
         return (String) callWebserviceLite("updateDB", params);
-
     }
 
+    /**
+     * Returns the timestamp of the most recent drug database update on the DrugRef server.
+     *
+     * @return String ISO timestamp of the last database update
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public String getLastUpdateTime() throws Exception {
         Vector params = new Vector();
-        String s = (String) callWebserviceLite("getLastUpdateTime", params);
-        return s;
+        return (String) callWebserviceLite("getLastUpdateTime", params);
     }
 
+    /**
+     * Returns all matching drug search elements using the version 2 search API.
+     * Search is case-insensitive.
+     *
+     * @param searchStr String the drug name or partial name to search for
+     * @return Vector of search result Hashtables, each containing name, id, and category fields
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Vector list_drug_element2(String searchStr) throws Exception {
         Vector params = new Vector();
         params.addElement(searchStr);
-        Vector vec = (Vector) callWebserviceLite("list_search_element2", params);
-        return vec;
+        return (Vector) callWebserviceLite("list_search_element2", params);
     }
 
+    /**
+     * Returns all matching drug search elements using the version 3 search API.
+     * Supports an optional right-wildcard-only mode for prefix-only matching.
+     *
+     * @param searchStr         String the drug name or partial name to search for
+     * @param rightWildcardOnly boolean if true, only right-side wildcard matching is applied
+     *                          (prefix search); if false, both-side wildcard matching is used
+     * @return Vector of search result Hashtables, each containing name, id, and category fields
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Vector list_drug_element3(String searchStr, boolean rightWildcardOnly) throws Exception {
         Vector params = new Vector();
         params.addElement(searchStr);
-        Vector<Hashtable> vec = null;
-        if (rightWildcardOnly) {
-            vec = (Vector) callWebserviceLite("list_search_element3_right", params);
-        } else {
-            vec = (Vector) callWebserviceLite("list_search_element3", params);
+        String method = rightWildcardOnly ? "list_search_element3_right" : "list_search_element3";
+        Vector vec = (Vector) callWebserviceLite(method, params);
+        if (vec == null) {
+            return new Vector<>();
         }
         return vec;
     }
 
     /**
-     * returns all matching search element names, ids and categoeis for the given searchString
-     * Search is limited by the given searchForm, and is case insensitive
+     * Returns all matching drug search elements filtered by route of administration.
+     * Search is case-insensitive.
+     *
+     * @param searchStr   String the drug name or partial name to search for
+     * @param searchRoute String the route of administration to filter results by (e.g., "oral")
+     * @return Vector of search result Hashtables, each containing name, id, and category fields
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
      */
     public Vector list_drug_element_route(String searchStr, String searchRoute) throws Exception {
         Vector params = new Vector();
         params.addElement(searchStr);
         params.addElement(searchRoute);
-        Vector vec = (Vector) callWebserviceLite("list_search_element_route", params);
-        return vec;
+        return (Vector) callWebserviceLite("list_search_element_route", params);
     }
 
-    @Deprecated
-    public Vector listComponents(String drugId) {
-        Vector params = new Vector();
-        params.addElement(drugId);
-        Vector vec = (Vector) callWebservice("getComponents", params);
-        return vec;
-
-    }
-
+    /**
+     * Returns all brand name products associated with the given DrugRef element ID.
+     *
+     * @param drugRefId String the DrugRef element identifier
+     * @return Vector of brand product Hashtables, each containing name and product details
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Vector list_brands_from_element(String drugRefId) throws Exception {
         Vector params = new Vector();
         params.addElement(drugRefId);
-        Vector vec = (Vector) callWebserviceLite("list_brands_from_element", params);
-        return vec;
+        return (Vector) callWebserviceLite("list_brands_from_element", params);
     }
 
+    /**
+     * Returns the drug information page data for the given DrugRef ID.
+     *
+     * @param drugRefId String the DrugRef identifier for the drug
+     * @return Vector of drug information page entries, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector getDrugInfoPage(String drugRefId) {
         Vector params = new Vector();
         params.addElement(drugRefId);
-        Vector vec = (Vector) callWebservice("getDrugInfoPage", params);
-        return vec;
+        return (Vector) callWebservice("getDrugInfoPage", params);
     }
 
+    /**
+     * Returns all matching drug search elements filtered by the given category list,
+     * using both-side wildcard matching.
+     *
+     * @param searchStr String the drug name or partial name to search for
+     * @param catVec    Vector of Integer category codes to restrict results to
+     * @return Vector of search result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector list_search_element_select_categories(String searchStr, Vector catVec) {
         return list_search_element_select_categories(searchStr, catVec, false);
     }
 
+    /**
+     * Returns all matching drug search elements filtered by the given category list,
+     * with optional right-wildcard-only matching mode.
+     *
+     * @param searchStr         String the drug name or partial name to search for
+     * @param catVec            Vector of Integer category codes to restrict results to
+     * @param wildcardRightOnly boolean if true, only right-side wildcard matching is applied;
+     *                          if false, both-side wildcard matching is used
+     * @return Vector of search result Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector list_search_element_select_categories(String searchStr, Vector catVec, boolean wildcardRightOnly) {
         Vector params = new Vector();
         params.addElement(searchStr);
         params.addElement(catVec);
-        Vector vec = null;
         if (wildcardRightOnly) {
-            vec = (Vector) callWebservice("list_search_element_select_categories_right", params);
+            return (Vector) callWebservice("list_search_element_select_categories_right", params);
         } else {
-            vec = (Vector) callWebservice("list_search_element_select_categories", params);
+            return (Vector) callWebservice("list_search_element_select_categories", params);
         }
-        return vec;
     }
 
-
+    /**
+     * Returns all drugs belonging to the given drug class categories.
+     *
+     * @param classVec Vector of drug class identifiers to look up
+     * @return Vector of drug Hashtables for the specified classes, or null if unavailable
+     * @since 2026-02-26
+     */
     public Vector list_drug_class(Vector classVec) {
         Vector params = new Vector();
         params.addElement(classVec);
-        Vector vec = (Vector) callWebservice("list_drug_class", params);
-        return vec;
+        return (Vector) callWebservice("list_drug_class", params);
     }
 
-
+    /**
+     * Returns all drugs sharing the same active ingredient as the given DrugRef ID.
+     *
+     * @param drugRefId String the DrugRef identifier for the reference drug
+     * @return Vector of Hashtables for drugs with the same active ingredient, or null if unavailable
+     * @since 2026-02-26
+     */
     public Vector getAISameByDrugCode(String drugRefId) {
         Vector params = new Vector();
         params.addElement(drugRefId);
-        Vector vec = (Vector) callWebservice("getAISameByDrugCode", params);
-        return vec;
+        return (Vector) callWebservice("getAISameByDrugCode", params);
     }
 
+    /**
+     * Returns the dosage form records associated with the given drug code.
+     *
+     * @param drugCode String the DrugRef drug code to look up forms for
+     * @return Vector of form Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector getFormFromDrugCode(String drugCode) {
         Vector params = new Vector();
         params.addElement(drugCode);
-        Vector vec = (Vector) callWebservice("getFormFromDrugCode", params);
-        return vec;
+        return (Vector) callWebservice("getFormFromDrugCode", params);
     }
 
-
+    /**
+     * Returns all distinct dosage forms available in the drug reference database.
+     *
+     * @return Vector of String form names, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector getDistinctForms() {
         Vector params = new Vector();
-        Vector vec = (Vector) callWebservice("getDistinctForms", params);
-        return vec;
+        return (Vector) callWebservice("getDistinctForms", params);
     }
 
+    /**
+     * Returns the routes of administration associated with the given drug code.
+     *
+     * @param drugCode String the DrugRef drug code to look up routes for
+     * @return Vector of route Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector getRouteFromDrugCode(String drugCode) {
         Vector params = new Vector();
         params.addElement(drugCode);
-        Vector vec = (Vector) callWebservice("getRouteFromDrugCode", params);
-        return vec;
+        return (Vector) callWebservice("getRouteFromDrugCode", params);
     }
 
+    /**
+     * Returns available strengths for the given drug code.
+     *
+     * @param drugCode String the DrugRef drug code to look up strengths for
+     * @return Vector of strength Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector getStrengths(String drugCode) {
         Vector params = new Vector();
         params.addElement(drugCode);
-        Vector vec = (Vector) callWebservice("getStrengths", params);
-        return vec;
+        return (Vector) callWebservice("getStrengths", params);
     }
 
-
+    /**
+     * Returns product data for the given DrugRef ID.
+     *
+     * @param drugRefId String the DrugRef identifier for the drug product
+     * @return Vector of product data Hashtables, or null if the service is unavailable
+     * @since 2026-02-26
+     */
     public Vector getProductData(String drugRefId) {
         Vector params = new Vector();
         params.addElement(drugRefId);
-        Vector vec = (Vector) callWebservice("getProductData", params);
-        return vec;
+        return (Vector) callWebservice("getProductData", params);
     }
 
-
+    /**
+     * Returns the generic name string for the given DrugRef element ID.
+     *
+     * @param drugRefId String the DrugRef element identifier
+     * @return String the generic name, or null if not found or service is unavailable
+     * @since 2026-02-26
+     */
     public String getGenericNamefromId(String drugRefId) {
         Vector params = new Vector();
         params.addElement(drugRefId);
         Vector vec = (Vector) callWebservice("getGenericNamefromId", params);
+        if (vec == null || vec.isEmpty()) {
+            return null;
+        }
         return vec.get(0).toString();
     }
 
+    /**
+     * Calls the DrugRef XML-RPC service, swallowing all errors and returning null on failure.
+     * Used by read-only query methods where returning null on failure is preferable to
+     * propagating an exception (e.g., interaction checks, ATC lookups, drug form queries).
+     *
+     * @param procedureName String the XML-RPC method name to call on the DrugRef server
+     * @param params        Vector of typed parameters to pass to the remote method
+     * @return Object the deserialized response value, or null if any error occurs
+     */
     private Object callWebservice(String procedureName, Vector params) {
         MiscUtils.getLogger().debug("#CALLDRUGREF-" + procedureName);
         Object object = null;
         try {
-            XmlRpcClient server = new XmlRpcClient(server_url);
+            SimpleXmlRpcClient server = new SimpleXmlRpcClient(server_url);
             object = server.execute(procedureName, params);
-        } catch (XmlRpcException exception) {
-            logger.error("JavaClient: XML-RPC Fault #" + exception.code, exception);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            logger.error("DrugRef: call interrupted for procedure '{}' on {}", procedureName, server_url, exception);
+        } catch (XmlRpcFaultException exception) {
+            logger.error("DrugRef: XML-RPC fault code={} calling '{}' on {}", exception.code, procedureName, server_url, exception);
         } catch (Exception exception) {
-            logger.error("JavaClient: ", exception);
+            logger.error("DrugRef: failed to call '{}' on {}", procedureName, server_url, exception);
         }
         return object;
     }
 
+    /**
+     * Calls the DrugRef XML-RPC service, propagating non-zero fault codes as exceptions.
+     * A fault code of 0 is treated as a "no result" condition — the event is logged at
+     * WARN level and null is returned. {@link XmlRpcFaultException} with a non-zero code
+     * is re-thrown directly; all other exceptions (network, parse, timeout) are logged
+     * as "call failed" and wrapped in a plain {@link Exception}.
+     *
+     * @param procedureName String the XML-RPC method name to call on the DrugRef server
+     * @param params        Vector of typed parameters to pass to the remote method
+     * @return Object the deserialized response value, or null if fault code 0 is returned
+     * @throws XmlRpcFaultException if the server returns a non-zero XML-RPC fault code
+     * @throws Exception            if a network, parse, or timeout error occurs
+     */
     private Object callWebserviceLite(String procedureName, Vector params) throws Exception {
-
         Object object = null;
         try {
-            if (!System.getProperty("http.proxyHost", "").isEmpty()) {
-                //The Lite client won't recgonize JAVA_OPTS as it uses a customized http
-                XmlRpcClient server = new XmlRpcClient(server_url);
-                object = server.execute(procedureName, params);
+            SimpleXmlRpcClient server = new SimpleXmlRpcClient(server_url);
+            object = server.execute(procedureName, params);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new Exception("DrugRef: call interrupted for procedure '" + procedureName + "'", exception);
+        } catch (XmlRpcFaultException exception) {
+            if (exception.code == 0) {
+                // Fault code 0 means "no result found" — log at warn level and return null
+                logger.warn("DrugRef: no result (fault code 0) for procedure '{}'", procedureName);
             } else {
-                XmlRpcClientLite server = new XmlRpcClientLite(server_url);
-                object = server.execute(procedureName, params);
+                logger.error("DrugRef: XML-RPC fault code={} calling '{}' on {}", exception.code, procedureName, server_url, exception);
+                throw exception;
             }
         } catch (Exception exception) {
-            if (exception instanceof XmlRpcException && ((XmlRpcException) exception).code == 0) {
-                logger.error("JavaClient: XML-RPC Fault. NoResultException thrown for procedure: {} with parameters {}", procedureName, params);
-            } else {
-                logger.error("JavaClient: XML-RPC Fault ", exception);
-                throw new Exception("JavaClient: XML-RPC Fault", exception);
-            }
+            logger.error("DrugRef: call failed for procedure '{}' on {}", procedureName, server_url, exception);
+            throw new Exception("DrugRef: call failed for '" + procedureName + "'", exception);
         }
         return object;
     }
 
-
-    ////DRUGREF API
-
     /**
-     * applications only permitting one or few data sources will use this function to check for valid databases.
-     * <p>
-     * Applications allowing more choice will expose all possible data sources to the end user
+     * Removes all null entries from the given Vector in-place.
+     * Used to sanitize drug parameter lists before sending to the DrugRef service,
+     * since XML-RPC arrays do not support null elements.
      *
-     * @param searchexpr mnemonic describing data source,
-     *                   e.g. mims, amh, rote liste, first database.
-     *                   Case insensitive, partial match possible if using % as wild card
-     * @param tags       see tags
-     * @return array of structs alphabetically sorted by name with the following minimum keys:
-     *
-     * <B>pkey</B>: integer. Primary key
-     * <B>name</B>: string. Menemonic describing data source
-     * <B>revision</B>: string. Format and meaning depends on data source
-     * <B>last_change</B>: string (date in ISO format yyyy-mm-dd)
-     * <B>deprecated</B>: boolean. True if this source is deprecated and should no longer be used
+     * @param v Vector to remove null entries from; no-op if null or already contains no nulls
+     * @since 2026-02-26
      */
-    @Deprecated
-    public Vector list_sources(String searchexpr, Hashtable tags) {
-        return new Vector();
-    }
-
-    /**
-     * useful if searches should be constrained to a single source
-     *
-     * @param pkey primary key.
-     * @return tags: see [tags].
-     */
-    @Deprecated
-    public Hashtable get_source_tag(int pkey) {
-        return new Hashtable();
-    }
-
-    /**
-     * returns basic identifiers of all drugs, drug products and drug classes available in the database which names match searchexpr, and which other criteria match the constraints in tags
-     *
-     * @param searchexpr (Partial) name of a drug (generic, brand name, composite drug) Case insensitive, partial match possible if using % as wild card
-     * @param tags       see [tags] Additional optional keys:
-     *                   classes : boolean. If true, class names (ATC) are listed
-     *                   generics : boolean. If true, generic names are listed
-     *                   branded : boolean. If true, branded product names are listed
-     *                   composites : if true, generic composite drugs are listed
-     * @return array of structs alphabetically sorted by name with the following minimum keys:
-     * pkey: integer. Primary key
-     * Name: string. Name of the drug
-     * Type: string(2):
-     * 'cl' = class
-     * 'ca' = anatomical class
-     * 'cc' = chemical class,
-     * 'ct' = therapeutic class
-     * 'ge' = generic
-     * 'gc' = composite generic (e.g. Co-Trimoxazole)
-     * 'bp' = branded product
-     * If the parameter return_tags was given in the query, tags will be available too.
-     */
-    public Vector list_drugs(String searchexpr, Hashtable tags) {
-        Vector params = new Vector();
-        params.addElement(searchexpr);
-        //params.addElement(tags);
-        //Vector vec = (Vector) callWebservice("list_drugs",params);
-        Vector vec = (Vector) callWebservice("list_search_element", params);
-
-
-        return vec;
-    }
-
-
-    public Hashtable tagCreatorEx(int sources, String languages, String countries, int authors, Date modified_after, boolean return_tags) {
-        Hashtable retHash = new Hashtable();
-        retHash.put("source", Integer.valueOf(0));
-        retHash.put("sources", Integer.valueOf(sources));
-        retHash.put("language", "");
-        retHash.put("languages", Integer.valueOf(languages));
-        retHash.put("country", "");
-        retHash.put("countries", Integer.valueOf(countries));
-        retHash.put("author", Integer.valueOf(0));
-        retHash.put("authors", Integer.valueOf(authors));
-        try {
-            retHash.put("modified_after", new SimpleDateFormat("yyyy-MM-dd").parse(modified_after.toString()));
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("error", e);
-        }
-        retHash.put("return_tags", Boolean.toString(return_tags));      //If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-        return retHash;
-    }
-
-    public Hashtable tagCreatorEx(int sources, String languages, String countries, int authors, boolean return_tags) {
-        Hashtable retHash = new Hashtable();
-        retHash.put("source", Integer.valueOf(0));
-        retHash.put("sources", Integer.valueOf(sources));
-        retHash.put("language", "");
-        retHash.put("languages", Integer.valueOf(languages));
-        retHash.put("country", "");
-        retHash.put("countries", Integer.valueOf(countries));
-        retHash.put("author", Integer.valueOf(0));
-        retHash.put("authors", Integer.valueOf(authors));
-        retHash.put("return_tags", Boolean.toString(return_tags));      //If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-        return retHash;
-    }
-
-
-    /**
-     * For Creating tags
-     *
-     * @param source         Primary key of the referenced information source (Drugref, MIMS, MULTUM, AMIS, Manufacturer, Inhouse, ...)
-     * @param language       string. Three character ISO language code
-     * @param country        string. Two character ISO country code
-     * @param author         integer. Primary key of the submitter of the referenced information
-     * @param modified_after string. ISO date (yyyy-mm-dd). If set, records older than this date will be ignored.
-     * @param return_tags    boolean. If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-     * @return Hashtable with values set from input for tags
-     */
-    public Hashtable tagCreator(int source, String language, String country, int author, Date modified_after, boolean return_tags) {
-        Hashtable retHash = new Hashtable();
-        retHash.put("source", Integer.valueOf(source));
-        retHash.put("language", language);
-        retHash.put("country", country);
-        retHash.put("author", Integer.valueOf(author));
-        try {
-            retHash.put("modified_after", new SimpleDateFormat("yyyy-MM-dd").parse(modified_after.toString()));
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("error", e);
-        }
-        retHash.put("return_tags", Boolean.toString(return_tags));      //If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-        return retHash;
-    }
-
-
-    /**
-     * For Creating tags
-     *
-     * @param source      Primary key of the referenced information source (Drugref, MIMS, MULTUM, AMIS, Manufacturer, Inhouse, ...)
-     * @param language    string. Three character ISO language code
-     * @param country     string. Two character ISO country code
-     * @param author      integer. Primary key of the submitter of the referenced information
-     * @param return_tags boolean. If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-     * @return Hashtable with values set from input for tags
-     */
-    public Hashtable tagCreator(int source, String language, String country, int author, boolean return_tags) {
-        Hashtable retHash = new Hashtable();
-        retHash.put("source", Integer.valueOf(source));
-        retHash.put("language", language);
-        retHash.put("country", country);
-        retHash.put("author", Integer.valueOf(author));
-        retHash.put("return_tags", Boolean.toString(return_tags));      //If true, the values returned by a query will include applicable tag bitstrings for each returned value (will slow down query considerably, but allows client-side sub-filtering)
-        return retHash;
-    }
-
-
-    /**
-     * returns a fuill drug monograph formatted as HTML page, with all headings (= keys returned by get_drug) implemented as anchors.
-     *
-     * @param pkeye4 primary key.
-     * @param css    CSS style sheet used to format the retunred HTML page. Details not finalized yet.
-     * @return base64 encoded HTML page
-     */
-    @Deprecated
-    public Base64 get_drug_html(int pkeye4, Base64 css) { //returns base64
-        return new Base64();
-    }
-
-
-    /**
-     * returns all available products for a given drug as identified by pkey and constrained by tags
-     *
-     * @param pkey primary key of a drug.
-     * @param tags see [tags].
-     * @return list of structs containing the following minimum keys:
-     * brandname : string
-     * form : string. (tablets, capsules, ...)
-     * strength : string. Brief human readable format
-     * package_size : string. Brief human readable format
-     * subsidies : string. Brief human readable format
-     * manufacturer : string. Company name
-     */
-    @Deprecated
-    public Vector list_products(int pkey, Hashtable tags) {
-        return new Vector();
-    }
-
-    /**
-     * returns product specific information for a given drug as identified by pkey and constrained by tags, including available package sizes and strengths, manufacturers, prices and available subsidies as well as legal / subsidy access restrictions.
-     *
-     * @param pkey primary key of a specific drug product
-     * @param tags see [tags]
-     * @return returns the same struct as get_drug(), but with the following additional keys:
-     * form : integer. Primary key of drug forms tablets, capsules, syrup ...)
-     * form_str : string. Drug form in clear text
-     * units: struct. Key (string) is the generic ingredient, value (string) is the SI unit for the strength (mg, ml ...)
-     * strength : struct. Key (string) is the generic ingredient, value (Real) is the strength in units as stated above
-     * pkg_units : string
-     * pkg_size : real
-     * subsidies : struct. Key is name of subsidy, value is character:
-     * y=yes
-     * n=no
-     * c=conditional
-     * subsidy_conditions : struct. Key is name of subsidy, value is a string (conditions in human readable text)
-     * subsidy_gap : struct. Key is name of subsidy, value (Real ) is th amount
-     * brand_price_premium : struct. Key is applicability (all, pensioners ), value (Real) is the price
-     * prices : struct. Key is price category (retail, wholesale, subsidized), value (Real) is the price
-     * currency : string. Currency the stated price / gap / premium is based on
-     */
-    @Deprecated
-    public Hashtable get_product(int pkey, Hashtable tags) {
-        return new Hashtable();
-    }
-
-
-    /**
-     * returns the Consumer Product Information formatted as HTML, base64 encoded
-     *
-     * @param pkey primary key of a drug product.
-     * @param css  CSS style sheet used to format the returned HTML page. Details not finalized yet.
-     * @return base64 encoded HTML page
-     */
-    @Deprecated
-    public Base64 get_product_CPI(int pkey, Base64 css) {
-        return new Base64();
-    }
-
-    /**
-     * returns an array of structs describing the possible interactions between any two drugs contained in drugs. Information used for interaction checking constrained by tags.
-     *
-     * @param drugs array of integers. Primary keys of drugs
-     * @param tags  see [tags].
-     * @return array of structs with the following minimum keys:
-     * affecting_drug : integer. Primary Key
-     * affected_drug : integer. Primary key.
-     * effect : string. Single character:
-     * a = augments
-     * i = inhibits
-     * n = no effect
-     * c = conflicting evidence
-     * clinical_effect : boolean. If false, the effect has no bearing on clinical situations
-     * significance : integer. Clinical significance graded 1-3, 1=mild, 2=moderate, 3=severe
-     * evidence : integer. Level of evidence graded 1-3, 1=poor, 2=fair, 3=good
-     * reference : integer. Primary key of reference
-     */
-    @Deprecated
-    public Vector list_interactions(Vector drugs, Hashtable tags) {
-        return new Vector();
-    }
-
-
-    /**
-     * List all conditions and their codes / coding systems known to drugref, constrained by searchexpr as welll as by tags. Searchexpr accepts % as wildcard.
-     */
-    @Deprecated
-    public Vector list_conditions(String searchexpr, Hashtable tags) {
-        return new Vector();
-    }
-
-    /**
-     * @param indication : integer. Primary key.
-     */
-    @Deprecated
-    public Vector list_drugs_for_indication(int indication, Hashtable tags) {
-        return new Vector();
-    }
-
-
-    /**
-     * List all references this drugref database is based on.
-     *
-     * @param tags see [tags].
-     * @return array of structs with following minimum keys:
-     * name : string. short name of reference source
-     * full title : string.
-     * authors : string
-     * publ_year : string
-     */
-    @Deprecated
-    public Vector list_references(Hashtable tags) {
-        return new Vector();
-    }
-    //////DRUGREF Second Gen API
-
     public static void removeNullFromVector(Vector v) {
         while (v != null && v.contains(null)) {
             v.remove(null);
         }
     }
 
+    /**
+     * Returns drug-drug interactions for the given list of drugs using ATC-based lookup.
+     * Null entries are removed from the input list before the service call. The response
+     * may be a Vector of interaction records or a Hashtable keyed by interaction source
+     * (e.g., "Holbrook Drug Interactions").
+     *
+     * @param drugs Vector of drug identifiers (ATC codes or drug names) to check for interactions
+     * @return Vector of interaction result Hashtables; empty Vector if no interactions found
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Vector getInteractions(Vector drugs) throws Exception {
         removeNullFromVector(drugs);
         Vector params = new Vector();
         params.addElement("interactions_byATC");
         params.addElement(drugs);
-        //Vector vec = (Vector) callWebserviceLite("get",params);
         Vector vec = new Vector();
         Object obj = callWebserviceLite("fetch", params);
         if (obj instanceof Vector) {
             vec = (Vector) obj;
         } else if (obj instanceof Hashtable) {
+            // Some DrugRef implementations return interactions keyed by source name
             Object holbrook = ((Hashtable) obj).get("Holbrook Drug Interactions");
             if (holbrook instanceof Vector) {
                 vec = (Vector) holbrook;
             }
-            Enumeration e = ((Hashtable) obj).keys();
-            while (e.hasMoreElements()) {
-                String s = (String) e.nextElement();
-                MiscUtils.getLogger().debug(s + " " + ((Hashtable) obj).get(s) + " " + ((Hashtable) obj).get(s).getClass().getName());
+            // Log only key names — not values, which may contain PHI (medication context).
+            // Avoid calling .getClass() on values that may be null.
+            if (logger.isDebugEnabled()) {
+                logger.debug("DrugRef interaction sources returned: {}", ((Hashtable<?, ?>) obj).keySet());
             }
         }
-
         return vec;
     }
 
+    /**
+     * Returns allergy warning records for the given drug against the given allergy list.
+     *
+     * @param drugs     String the drug name or identifier to check for allergy warnings
+     * @param allergies Vector of allergy identifiers (e.g., ATC codes or allergen names) to check against
+     * @return Vector of allergy warning Hashtables, or null if the service is unavailable
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Vector getAlergyWarnings(String drugs, Vector allergies) throws Exception {
         Vector params = new Vector();
         params.addElement(drugs);
         params.addElement(allergies);
-        Vector vec = (Vector) callWebserviceLite("get_allergy_warnings", params);
-        return vec;
+        return (Vector) callWebserviceLite("get_allergy_warnings", params);
     }
 
+    /**
+     * Returns allergy class records for the given list of allergen identifiers.
+     *
+     * @param allergies Vector of allergy identifiers to resolve to allergy classes
+     * @return Vector of allergy class Hashtables, or null if the service is unavailable
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Vector getAllergyClasses(Vector allergies) throws Exception {
         Vector params = new Vector();
         params.addElement(allergies);
-        Vector vec = (Vector) callWebserviceLite("get_allergy_classes", params);
-        return vec;
+        return (Vector) callWebserviceLite("get_allergy_classes", params);
     }
 
-
+    /**
+     * Returns the inactive date record for the given Drug Identification Number.
+     * An inactive date indicates when the drug was or will be withdrawn from the market.
+     *
+     * @param din String the Drug Identification Number to look up the inactive date for
+     * @return Vector containing the inactive date record, or null if the service is unavailable
+     * @throws Exception if the DrugRef service is unavailable or returns a non-zero fault
+     * @since 2026-02-26
+     */
     public Vector getInactiveDate(String din) throws Exception {
         Vector params = new Vector();
         params.addElement(din);
-        Vector vec = (Vector) callWebserviceLite("get_inactive_date", params);
-        return vec;
+        return (Vector) callWebserviceLite("get_inactive_date", params);
     }
 }

@@ -42,7 +42,6 @@
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
 <%
     String wlid = (String) request.getAttribute("WLId");
     if (wlid == null) {

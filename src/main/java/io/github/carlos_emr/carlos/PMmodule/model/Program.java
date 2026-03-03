@@ -103,7 +103,7 @@ public class Program extends AbstractModel<Integer> {
     private Integer maximumServiceRestrictionDays;
     private Integer defaultServiceRestrictionDays;
     private Integer shelterId;
-    private int facilityId;
+    private Integer facilityId;
 
     private String facilityDesc;
     private String orgCd;
@@ -233,11 +233,17 @@ public class Program extends AbstractModel<Integer> {
         this.shelterId = shelterId;
     }
 
-    public int getFacilityId() {
+    /**
+     * Returns the facility ID.
+     */
+    public Integer getFacilityId() {
         return facilityId;
     }
 
-    public void setFacilityId(int facilityId) {
+    /**
+     * Sets the facility ID.
+     */
+    public void setFacilityId(Integer facilityId) {
         this.facilityId = facilityId;
     }
 

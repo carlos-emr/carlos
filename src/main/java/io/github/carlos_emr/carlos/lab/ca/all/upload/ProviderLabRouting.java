@@ -116,7 +116,7 @@ public class ProviderLabRouting {
 
             // If the lab has already been sent to this providers check to make sure that
             // it is set as a new lab for at least one providers if AUTO_FILE_LABS=yes is not
-            // set in the oscar.properties file
+            // set in the carlos.properties file
         } else if (autoFileLabs == null || !autoFileLabs.equalsIgnoreCase("yes")) {
             List<ProviderLabRoutingModel> moreRoutings = dao.findByLabNoTypeAndStatus(labId, labType, "N");
             if (!moreRoutings.isEmpty()) {
@@ -175,7 +175,7 @@ public class ProviderLabRouting {
 
             // If the lab has already been sent to this providers check to make sure that
             // it is set as a new lab for at least one providers if AUTO_FILE_LABS=yes is not
-            // set in the oscar.properties file
+            // set in the carlos.properties file
         } else if (autoFileLabs == null || !autoFileLabs.equalsIgnoreCase("yes")) {
             rs = providerLabRoutingDao.getProviderLabRoutingForLabAndType(Integer.parseInt(labId), labType);
             if (rs.isEmpty()) {

@@ -219,7 +219,7 @@ The programmatic DRL generation pipeline is:
 
 ## Configuration Properties
 
-These properties in `oscar_mcmaster.properties` control DRL file locations:
+These properties in `carlos.properties` control DRL file locations:
 
 | Property | Default | Purpose |
 |----------|---------|---------|
@@ -618,7 +618,7 @@ The DRL rules implement thresholds from these Canadian clinical practice guideli
 
 To override default rules without modifying the application:
 
-1. Set the appropriate property in `oscar_mcmaster.properties`:
+1. Set the appropriate property in `carlos.properties`:
    - `MEASUREMENT_DS_DIRECTORY=/path/to/custom/flowsheet/rules/`
    - `PREVENTION_FILE=/path/to/custom/prevention.drl`
    - `WORKFLOW_DS_DIRECTORY=/path/to/custom/workflow/rules/`
@@ -698,7 +698,7 @@ The `mvel2:2.5.x` line removes the `java.lang.Compiler` reference and is the ups
 - **~40 DRL files**: Converted from Drools 2.0 XML format to DRL text format
 - **8 test files**: 101 tests covering Drools infrastructure, DRL compilation, and subsystem integration
 - **pom.xml**: Updated Drools dependency from 2.0 to 7.74.1.Final; overrode `mvel2` to 2.5.2.Final for Java 21 compatibility
-- **oscar_mcmaster.properties**: Updated property comments for new API
+- **carlos.properties**: Updated property comments for new API
 
 ---
 
