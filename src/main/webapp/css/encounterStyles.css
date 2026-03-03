@@ -467,13 +467,12 @@ div#encMainDiv {
 
 div#encMainDivWrapper {
     padding: 15px 15px 10px 10px;
-    overflow-y: scroll;
+    overflow-y: auto;
     border: thin solid #cccccc;
     margin: 0;
-    /*! background-color: -webkit-font-smoothing: antialiased; */
-    /*! -moz-osx-font-smoothing: grayscale; */
-    /*! -webkit-overflow-scrolling: touch; */
     background-color: whitesmoke;
+    flex: 1;
+    min-height: 0;
 }
 
 div#header {
