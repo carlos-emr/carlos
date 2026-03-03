@@ -879,7 +879,7 @@ public class Contact2Action extends ActionSupport {
 
         List<Contact> contacts = searchAllContacts(searchMode, orderBy, keyword);
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectMapper mapper = new ObjectMapper();
         try {
             mapper.writeValue(response.getWriter(), contacts);

@@ -167,7 +167,7 @@ public class HRM2Action extends ActionSupport {
         JSONObject d = new JSONObject();
         d.put("results", data);
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         d.write(response.getWriter());
 
         return null;
@@ -215,7 +215,7 @@ public class HRM2Action extends ActionSupport {
             }
         }
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         d.write(response.getWriter());
 
         return null;

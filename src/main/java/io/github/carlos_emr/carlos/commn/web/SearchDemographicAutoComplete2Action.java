@@ -191,7 +191,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
 
         HashMap<String, List<HashMap<String, String>>> d = new HashMap<String, List<HashMap<String, String>>>();
         d.put("results", secondList);
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         if (jqueryJSON) {
             response.getWriter().print(formatJSON(secondList));
             response.getWriter().flush();

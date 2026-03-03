@@ -881,18 +881,18 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     public void viewDocumentInfo() throws Exception {
-        response.setContentType("text/html");
+        response.setContentType("text/html;charset=UTF-8");
         doViewDocumentInfo(request, response.getWriter(), true, true);
 
     }
 
     public void viewDocumentDescription() throws Exception {
-        response.setContentType("text/html");
+        response.setContentType("text/html;charset=UTF-8");
         doViewDocumentInfo(request, response.getWriter(), false, true);
     }
 
     public void viewAnnotationAcknowledgementTickler() throws Exception {
-        response.setContentType("text/html");
+        response.setContentType("text/html;charset=UTF-8");
         doViewDocumentInfo(request, response.getWriter(), true, false);
     }
 
@@ -1193,7 +1193,7 @@ public class ManageDocument2Action extends ActionSupport {
             if (pageIndex < 0 || pageIndex >= totalPages) {
                 log.error("Invalid page number " + pageNumber + " for PDF " + sanitizedPdfName + " with " + totalPages + " pages");
                 reader.close();
-                response.setContentType("text/html");
+                response.setContentType("text/html;charset=UTF-8");
                 response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
                 response.getWriter().print("<br>Invalid page number");
                 return;
@@ -1205,7 +1205,7 @@ public class ManageDocument2Action extends ActionSupport {
             extractedPage.close();
             reader.close();
         } catch (Exception ex) {
-            response.setContentType("text/html");
+            response.setContentType("text/html;charset=UTF-8");
             // Sanitize the filename to prevent XSS and response splitting
             response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
             response.getWriter().print("<br>" + props.getString("dms.incomingDocs.PDFCouldBeCorrupted"));
