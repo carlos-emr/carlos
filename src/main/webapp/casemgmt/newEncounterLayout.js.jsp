@@ -218,26 +218,29 @@
 
                 // Replace the entire <...> section with the clicked choice
                 event.target.value = value.substring(0, sectionStart) + choice + value.substring(sectionEnd, value.length);
+                // Restore cursor to end of inserted choice so it doesn't jump to position 0
+                const newCursorPos = sectionStart + choice.length;
+                event.target.setSelectionRange(newCursorPos, newCursorPos);
             };
             el.addEventListener('click', clickHandler);
 
             keydownHandler = function (event) {
                 const value = event.target.value;
 
-                // Proceed only if Tab (9) or Enter (13) key is pressed
-                if (event.keyCode === 9 || event.keyCode === 13) {
+                // Proceed only if Tab or Enter key is pressed
+                if (event.key === 'Tab' || event.key === 'Enter') {
                     let selectionStart = el.selectionStart;
                     let selectionEnd = el.selectionEnd;
 
                     // If nothing is highlighted and Enter is pressed, let it behave normally
-                    if (selectionEnd === selectionStart && event.keyCode === 13) { return; }
+                    if (selectionEnd === selectionStart && event.key === 'Enter') { return; }
 
                     const highlighted = value
                         .substring(selectionStart, selectionEnd)
                         .trim();
 
                     // Determine state based on what is currently highlighted
-                    if (isHighlighting(el) && event.keyCode === 13) {
+                    if (isHighlighting(el) && event.key === 'Enter') {
                         if (highlighted === smartTmplVM.TMPL_PLACEHOLDER_CHAR) {
                             state = smartTmplVM.STATE.SELECTED_PLACEHOLDER_TEXT;
                         } else {
@@ -321,19 +324,19 @@
 
                         case smartTmplVM.STATE.SELECTED_OPTION_TEXT: {
                             // Replace entire <opt1|opt2> section with the highlighted option
-                            selectionStart--;
-                            selectionEnd = value
-                                .substring(selectionStart, value.length)
-                                .indexOf(smartTmplVM.TMPL_DELIM_END);
+                            // Use original (untrimmed) text for insertion, trimmed only for state detection
+                            const highlightedForInsert = value.substring(selectionStart, selectionEnd);
+                            // Search forward from current position for the closing '>'
+                            selectionEnd = value.indexOf(smartTmplVM.TMPL_DELIM_END, selectionStart);
                             if (selectionEnd !== -1) {
-                                selectionEnd += selectionStart + 1;
+                                selectionEnd += 1; // advance past the '>'
                                 selectionStart = value.lastIndexOf(smartTmplVM.TMPL_DELIM_START, selectionEnd);
                                 const updatedValue =
                                     value.substring(0, selectionStart) +
-                                    highlighted +
+                                    highlightedForInsert +
                                     value.substring(selectionEnd, value.length);
                                 event.target.value = updatedValue;
-                                el.setSelectionRange(selectionStart, selectionStart);
+                                el.setSelectionRange(selectionStart, selectionStart + highlightedForInsert.length);
                             }
                             event.preventDefault();
                             break;
@@ -385,11 +388,25 @@
                 startIndex = value.indexOf(smartTmplVM.TMPL_DELIM_START, selectionEnd);
                 const pipeIndex = value.indexOf(smartTmplVM.TMPL_DELIM_CHOICE, selectionEnd);
 
-                if (startIndex === -1) { startIndex = pipeIndex; }
+                // Only treat a '|' as a valid delimiter if it is enclosed inside a <...> block.
+                // A standalone '|' (e.g. a separator in clinical text "BP 120/80 | normal") must
+                // not be mistaken for an option delimiter.
+                let validPipeIndex = -1;
+                if (pipeIndex !== -1) {
+                    const precedingAngle = value.lastIndexOf(smartTmplVM.TMPL_DELIM_START, pipeIndex);
+                    const followingClose = value.indexOf(smartTmplVM.TMPL_DELIM_END, pipeIndex);
+                    const lastCloseBeforePipe = value.lastIndexOf(smartTmplVM.TMPL_DELIM_END, pipeIndex);
+                    // Valid only if there is a '<' before the pipe that is not already closed
+                    if (precedingAngle !== -1 && followingClose !== -1 && lastCloseBeforePipe < precedingAngle) {
+                        validPipeIndex = pipeIndex;
+                    }
+                }
+
+                if (startIndex === -1) { startIndex = validPipeIndex; }
                 if (startIndex !== -1) {
-                    if (pipeIndex !== -1 && startIndex > pipeIndex) {
-                        // A '|' delimiter comes before '<', start selection there
-                        startIndex = pipeIndex;
+                    if (validPipeIndex !== -1 && startIndex > validPipeIndex) {
+                        // A valid '|' delimiter comes before '<', start selection there
+                        startIndex = validPipeIndex;
                     }
                     endIndex = value
                         .substring(startIndex, value.length)
