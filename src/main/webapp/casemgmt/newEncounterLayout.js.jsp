@@ -657,8 +657,16 @@
     // scrolling works even when the cursor is over the active note textarea.
     // Only forwards when the textarea has no internal scrollable overflow,
     // so read-only notes with overflow content can still be scrolled normally.
+    // Restricted to the focused case note textarea only, and skips modified
+    // wheel gestures (Ctrl/Meta for zoom, Alt for horizontal scroll).
     document.addEventListener('wheel', function (event) {
         if (event.target && event.target.tagName === 'TEXTAREA') {
+            // Only intercept wheel on the actively focused textarea
+            if (document.activeElement !== event.target) { return; }
+            // Skip modified wheel gestures (pinch-to-zoom, browser-assigned shortcuts)
+            if (event.ctrlKey || event.metaKey || event.altKey) { return; }
+            // Only intercept if this is the active case note (not other textareas in the wrapper)
+            if (typeof caseNote !== 'undefined' && event.target.id !== caseNote) { return; }
             var wrapper = document.getElementById('encMainDivWrapper');
             if (wrapper && wrapper.contains(event.target)) {
                 if (event.target.scrollHeight <= event.target.clientHeight) {
