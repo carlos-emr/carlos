@@ -153,10 +153,8 @@ UserProperty up = upDao.getProp(curProviderNo, UserProperty.LAB_MACRO_JSON);
 <html>
 <head>
 
+<%@ include file="/includes/global-head.jspf" %>
 <title><fmt:message key="provider.labMacroPrefs.msgPrefs"/></title>
-
-<!-- Bootstrap -->
-<link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
 
 <script>
 // ============================================================================

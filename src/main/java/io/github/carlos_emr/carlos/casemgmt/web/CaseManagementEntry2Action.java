@@ -2756,7 +2756,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     public String displayNotes() throws Exception {
-        response.setContentType("text/html");
+        response.setContentType("text/html;charset=UTF-8");
         doDisplayNotes(request, response.getWriter());
         return null;
     }

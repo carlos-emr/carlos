@@ -395,7 +395,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         Hashtable d = new Hashtable();
         d.put("id", "" + id);
         d.put("reason", reason);
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectNode jsonArray = (ObjectNode) objectMapper.valueToTree(d);
         response.getWriter().write(jsonArray.toString());
 

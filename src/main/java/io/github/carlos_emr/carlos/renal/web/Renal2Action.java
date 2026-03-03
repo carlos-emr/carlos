@@ -115,7 +115,7 @@ public class Renal2Action extends ActionSupport {
 
         ObjectNode jsonArray = objectMapper.createObjectNode();
         jsonArray.put("result", exists);
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         try {
             response.getWriter().write(jsonArray.toString());
         } catch (IOException e) {
@@ -156,7 +156,7 @@ public class Renal2Action extends ActionSupport {
 
         ObjectNode jsonArray = objectMapper.createObjectNode();
         jsonArray.put("result", id);
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         try {
             response.getWriter().write(jsonArray.toString());
         } catch (IOException e) {
@@ -276,7 +276,7 @@ public class Renal2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String demographicNo = request.getParameter("demographic_no");
-        response.setContentType("text/html");
+        response.setContentType("text/html;charset=UTF-8");
         try {
             String documentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR", "");
             File f = new File(documentDir, "orn_patient_letter.txt");
