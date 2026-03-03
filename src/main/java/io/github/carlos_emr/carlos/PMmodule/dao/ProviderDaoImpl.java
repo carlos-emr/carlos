@@ -523,7 +523,7 @@ public class ProviderDaoImpl extends AbstractHibernateDao implements ProviderDao
         List<Provider> providers = (List<Provider>) HqlQueryHelper.find(currentSession(), sSQL, ohipNo);
 
         if (providers.size() > 1) {
-            log.warn("Found more than 1 providers with ohipNo=" + ohipNo);
+            log.warn("Found more than 1 providers with the given ohipNo");
         }
         if (providers.isEmpty())
             return null;
