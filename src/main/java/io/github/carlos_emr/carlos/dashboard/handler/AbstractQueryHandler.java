@@ -81,7 +81,7 @@ public abstract class AbstractQueryHandler extends AbstractHibernateDao {
         try (Session session = getSessionFactory().openSession()) {
             tx = session.beginTransaction();
             NativeQuery<?> sqlQuery = session.createNativeQuery(query);
-            // H6-MIGRATE: setResultTransformer() is removed from Query in H6.
+            // TODO H6-MIGRATE: setResultTransformer() is removed from Query in H6.
             // Replace with setTupleTransformer() using a lambda-based tuple transformer (H6-only API).
             sqlQuery.setResultTransformer(org.hibernate.transform.AliasToEntityMapResultTransformer.INSTANCE);
             List<?> results = sqlQuery.getResultList();

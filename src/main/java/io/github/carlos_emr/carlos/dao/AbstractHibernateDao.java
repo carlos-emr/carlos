@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.dao;
 
+import java.util.Objects;
+
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,7 +53,8 @@ public abstract class AbstractHibernateDao {
      */
     @Autowired
     public void setSessionFactory(SessionFactory sessionFactory) {
-        this.sessionFactory = sessionFactory;
+        this.sessionFactory = Objects.requireNonNull(sessionFactory,
+                "SessionFactory must not be null");
     }
 
     /**

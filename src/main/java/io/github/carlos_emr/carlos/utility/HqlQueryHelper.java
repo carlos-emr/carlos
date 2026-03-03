@@ -25,7 +25,12 @@ import java.util.Objects;
 import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.hibernate.query.Query;
-import org.springframework.orm.hibernate5.SessionFactoryUtils;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import org.springframework.dao.InvalidDataAccessResourceUsageException;
 
 /**
  * Replacement for {@code HibernateTemplate.find()} and
@@ -73,7 +78,7 @@ public final class HqlQueryHelper {
             bindPositionalParams(query, params);
             return query.getResultList();
         } catch (HibernateException e) {
-            throw SessionFactoryUtils.convertHibernateAccessException(e);
+            throw translateHibernateException(e);
         }
     }
 
@@ -101,7 +106,7 @@ public final class HqlQueryHelper {
             }
             return query.getResultList();
         } catch (HibernateException e) {
-            throw SessionFactoryUtils.convertHibernateAccessException(e);
+            throw translateHibernateException(e);
         }
     }
 
@@ -125,7 +130,7 @@ public final class HqlQueryHelper {
             bindNamedParams(query, namedParams);
             return query.getResultList();
         } catch (HibernateException e) {
-            throw SessionFactoryUtils.convertHibernateAccessException(e);
+            throw translateHibernateException(e);
         }
     }
 
@@ -152,7 +157,7 @@ public final class HqlQueryHelper {
             }
             return query.getResultList();
         } catch (HibernateException e) {
-            throw SessionFactoryUtils.convertHibernateAccessException(e);
+            throw translateHibernateException(e);
         }
     }
 
@@ -200,7 +205,7 @@ public final class HqlQueryHelper {
             bindPositionalParams(query, params);
             return query.executeUpdate();
         } catch (HibernateException e) {
-            throw SessionFactoryUtils.convertHibernateAccessException(e);
+            throw translateHibernateException(e);
         }
     }
 
@@ -232,8 +237,38 @@ public final class HqlQueryHelper {
             }
             return query.getResultList();
         } catch (HibernateException e) {
-            throw SessionFactoryUtils.convertHibernateAccessException(e);
+            throw translateHibernateException(e);
         }
+    }
+
+    /**
+     * Translates a {@link HibernateException} to Spring's {@link DataAccessException}
+     * hierarchy, replacing the {@code org.springframework.orm.hibernate5.SessionFactoryUtils}
+     * dependency that is removed in Spring's Hibernate 6 support.
+     */
+    private static DataAccessException translateHibernateException(HibernateException e) {
+        if (e instanceof org.hibernate.exception.ConstraintViolationException) {
+            return new DataIntegrityViolationException(e.getMessage(), e);
+        }
+        if (e instanceof org.hibernate.exception.DataException) {
+            return new DataIntegrityViolationException(e.getMessage(), e);
+        }
+        if (e instanceof org.hibernate.exception.LockAcquisitionException) {
+            return new CannotAcquireLockException(e.getMessage(), e);
+        }
+        if (e instanceof org.hibernate.exception.SQLGrammarException) {
+            return new InvalidDataAccessResourceUsageException(e.getMessage(), e);
+        }
+        if (e instanceof org.hibernate.exception.JDBCConnectionException) {
+            return new DataAccessResourceFailureException(e.getMessage(), e);
+        }
+        if (e instanceof org.hibernate.QueryException) {
+            return new InvalidDataAccessResourceUsageException(e.getMessage(), e);
+        }
+        if (e instanceof org.hibernate.NonUniqueResultException) {
+            return new IncorrectResultSizeDataAccessException(e.getMessage(), 1, e);
+        }
+        return new InvalidDataAccessResourceUsageException(e.getMessage(), e);
     }
 
     private static void bindPositionalParams(Query<?> query, Object[] params) {

@@ -103,8 +103,8 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
      * <p>Wraps a real SessionFactory to track opened sessions for leak detection.
      * Delegates all operations to the wrapped factory. Metadata pass-through methods
      * (getAllClassMetadata, getClassMetadata, getCollectionMetadata, getTypeHelper)
-     * were removed as part of Hibernate 6 migration prep — they are deprecated in H5
-     * and removed in H6.</p>
+     * are deprecated in H5 and retained with deprecation suppression until the
+     * Hibernate 6 migration.</p>
      *
      * <p>H6-MIGRATE: When migrating to Spring 6 + Hibernate 6, the base class
      * ({@code LocalSessionFactoryBean}) will move to a different package. The

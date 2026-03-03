@@ -45,10 +45,15 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+import java.util.Set;
+
 @Transactional
 public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements SecobjprivilegeDao {
 
     private Logger logger = MiscUtils.getLogger();
+
+    private static final Set<String> ALLOWED_PROPERTIES = Set.of(
+            "roleusergroup", "objectname_code", "privilege_code", "priority", "providerNo");
 
     @Override
     public void save(Secobjprivilege secobjprivilege) {
@@ -184,6 +189,9 @@ public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements Seco
         logger.debug("finding Secobjprivilege instance with property: " + propertyName
                 + ", value: " + value);
         try {
+            if (!ALLOWED_PROPERTIES.contains(propertyName)) {
+                throw new IllegalArgumentException("Invalid property name: " + propertyName);
+            }
             String queryString = "from Secobjprivilege as model where model."
                     + propertyName + "= ?1 order by objectname_code";
             return HqlQueryHelper.find(currentSession(), queryString, value);

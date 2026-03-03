@@ -111,8 +111,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     @NativeSql("demographic_merged")
     @Override
     public List<Integer> getMergedDemographics(Integer demographicNo) {
-        // Please don't tell me anything about session handling - this hibernate stuff
-        // must be refactored into JPA, then we will talk, ok?
         Session session = currentSession();
         NativeQuery sqlQuery = session.createNativeQuery(
             "select demographic_no from demographic_merged where merged_to = :parentId and deleted = 0");
@@ -135,7 +133,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         return currentSession().get(Demographic.class, dNo);
     }
 
-    // ADD BY PINE-SOFT
     @Override
     public List getDemographics() {
         log.error(
@@ -371,7 +368,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         String ln = "";
         String fn = "";
         String where = "";
-        try {
             if (searchString != null && searchString.length() > 0) {
                 String[] sh = searchString.split(",");
                 if (sh.length > 1) {
@@ -402,7 +398,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             q.setFirstResult(startIndex);
             q.setMaxResults(itemsToReturn);
             return q.list();
-        } finally { }
     }
 
     private final String PROGRAM_DOMAIN_RESTRICTION = "select distinct a.clientId from ProgramProvider pp,Admission a WHERE pp.ProgramId=a.programId AND pp.ProviderNo=:providerNo";
@@ -480,7 +475,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         Session session = currentSession();
-        try {
             var q = session.createQuery(queryString, Demographic.class);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -499,7 +493,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             }
 
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -515,7 +508,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         Session session = currentSession();
-        try {
             var q = session.createQuery(queryString, Demographic.class);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -526,7 +518,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             }
 
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -552,7 +543,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         String[] params = dob.split("-");
         Session session = currentSession();
 
-        try {
             Query q = session.createQuery(queryString);
             q.setParameter("hin", hin.trim());
             q.setParameter("gender", gender.trim());
@@ -561,7 +551,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             q.setParameter("yearOfBirth", params[0].trim() + "%");
             q.setParameter("lastName", lastName.toUpperCase());
             list = q.list();
-        } finally { }
 
         return list;
     }
@@ -634,7 +623,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         Session session = currentSession();
-        try {
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -652,7 +640,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             }
 
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -669,7 +656,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             return new ArrayList<Demographic>();
 
         Session session = currentSession();
-        try {
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -679,7 +665,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             q.setParameter("dateOfBirth", params[2].trim() + "%");
 
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -773,7 +758,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         Session session = currentSession();
-        try {
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -789,7 +773,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             }
 
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -801,7 +784,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         String queryString = "From Demographic d where d.Phone like :phone and d.HeadRecord is not null ";
         Session session = currentSession();
-        try {
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -809,7 +791,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             q.setParameter("phone", "%" + phoneStr.trim() + "%");
 
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -820,13 +801,11 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         String queryString = "From Demographic d where d.Hin like :hin and d.PatientStatus != 'MERGED' ";
 
         Session session = currentSession();
-        try {
             Query q = session.createQuery(queryString);
 
             q.setParameter("hin", hinStr.trim());
 
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -896,7 +875,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         Session session = currentSession();
-        try {
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -912,7 +890,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             }
 
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -1059,7 +1036,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         Session session = currentSession();
-        try {
             Query query = session.createQuery(sqlCommand);
 
             if (hin != null)
@@ -1095,7 +1071,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             List<Demographic> results = query.list();
 
             return (results);
-        } finally { }
     }
 
     @SuppressWarnings("unchecked")
@@ -1106,7 +1081,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
 
         String queryString = "From Demographic d where d.Hin like :hin and d.HeadRecord is not null ";
         Session session = currentSession();
-        try {
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -1114,7 +1088,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             q.setParameter("hin", hinStr.trim() + "%");
 
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -1189,7 +1162,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         Session session = currentSession();
-        try {
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -1204,7 +1176,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
                 q.setParameter("providerNo", providerNo);
             }
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -1294,7 +1265,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         Session session = currentSession();
-        try {
             NativeQuery query = session.createNativeQuery(queryString);
             query.setFirstResult(offset);
             query.setMaxResults(limit);
@@ -1308,9 +1278,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
                 query.setParameter("providerNo", providerNo);
             }
 
-            query.addEntity("de", Demographic.class); // tried to define
+            query.addEntity("de", Demographic.class);
             list = query.list();
-        } finally { }
         return list;
     }
 
@@ -1323,7 +1292,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         String queryString = "From Demographic d where d.Address like :address and d.HeadRecord is not null ";
 
         Session session = currentSession();
-        try {
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -1331,7 +1299,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             q.setParameter("address", addressStr.trim() + "%");
 
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -1398,7 +1365,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         Session session = currentSession();
         List<Demographic> list = null;
 
-        try {
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -1413,7 +1379,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
                 q.setParameter("providerNo", providerNo);
             }
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -1488,7 +1453,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         Session session = currentSession();
         List<Demographic> list = null;
 
-        try {
             Query q = session.createQuery(queryString);
             q.setFirstResult(offset);
             q.setMaxResults(limit);
@@ -1504,7 +1468,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
                 q.setParameter("providerNo", providerNo);
             }
             list = q.list();
-        } finally { }
         return list;
     }
 
@@ -2434,13 +2397,11 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         String sql = "from Demographic d where d.RosterStatus=:status and (d.Postal not like 'L0R%' and d.Postal not like 'L3M%' and d.Postal not like 'L8E%' and d.Postal not like 'L9A%' and d.Postal not like 'L8G%' and d.Postal not like 'L9B%' and d.Postal not like 'L8H%' and d.Postal not like 'L9C%' and d.Postal not like 'L8J%' and d.Postal not like 'L9G%' and d.Postal not like 'L8K%' and d.Postal not like 'L9H%' and d.Postal not like 'L8L%' and d.Postal not like 'L9K%' and d.Postal not like 'L8M%' and d.Postal not like 'L8N%' and d.Postal not like 'N0A%' and d.Postal not like 'L8P%' and d.Postal not like 'N3W%' and d.Postal not like 'L8R%' and d.Postal not like 'L8S%' and d.Postal not like 'L8T%' and d.Postal not like 'L8V%' and d.Postal not like 'L8W%' and d.Postal not like 'K8R%' and d.Postal not like 'L0R%' and d.Postal not like 'L5P%' and d.Postal not like 'L8A%' and d.Postal not like 'L8B%' and d.Postal not like 'L8C%' and d.Postal not like 'L8L%' and d.Postal not like 'L9L%' and d.Postal not like 'L9N%' and d.Postal not like 'L9S%' and d.Postal not like 'M9C%' and d.Postal not like 'N0B%1L0' and d.Postal not like 'L7L%' and d.Postal not like 'L7M%' and d.Postal not like 'L7N%' and d.Postal not like 'L7P%' and d.Postal not like 'L7R%' and d.Postal not like 'L7S%' and d.Postal not like 'L7T%' )";
         Session s = currentSession();
 
-        try {
             Query q = s.createQuery(sql);
             q.setParameter("status", rosterStatus);
             q.setMaxResults(limit);
             q.setFirstResult(offset);
             return q.list();
-        } finally { }
     }
 
     @SuppressWarnings("unchecked")
@@ -2458,7 +2419,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         }
 
         Session s = currentSession();
-        try {
             Query q = s.createQuery(sql);
             if (!isFieldValueEmpty) {
                 q.setParameter("fieldValue", fieldValue);
@@ -2470,7 +2430,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
                 q.setFirstResult(offset);
             }
             return q.list();
-        } finally { }
     }
 
     @SuppressWarnings("unchecked")
@@ -2506,10 +2465,8 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         sql = sql + " order by last_name ";
 
         Session session = currentSession();
-        try {
             NativeQuery sqlQuery = session.createNativeQuery(sql);
             return sqlQuery.list();
-        } finally { }
     }
 
     @SuppressWarnings("unchecked")
@@ -2699,7 +2656,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
         MiscUtils.getLogger().warn(demographicQuery);
 
         Session session = currentSession();
-        try {
             NativeQuery sqlQuery = session.createNativeQuery(demographicQuery);
             for (String key : params.keySet()) {
                 sqlQuery.setParameter(key, params.get(key));
@@ -2707,7 +2663,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             }
             Integer result = ((BigInteger) sqlQuery.uniqueResult()).intValue();
             return result;
-        } finally { }
     }
 
     @Override
@@ -2722,7 +2677,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
                 "p.first_name as providerFirstName,d.hin,dm.merged_to");
 
         Session session = currentSession();
-        try {
             NativeQuery sqlQuery = session.createNativeQuery(demographicQuery);
 
             for (String key : params.keySet()) {
@@ -2730,7 +2684,7 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             }
 
             sqlQuery.setFirstResult(startIndex);
-            // H6-MIGRATE: setResultTransformer() is removed in Hibernate 6.
+            // TODO H6-MIGRATE: setResultTransformer() is removed in Hibernate 6.
             // Replace with setTupleTransformer() using DemographicSearchResultTransformer.transformTuple() (H6-only API).
             DemographicSearchResultTransformer transformer = new DemographicSearchResultTransformer();
             transformer.setDemographicDao(this);
@@ -2738,7 +2692,6 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
             setLimit(sqlQuery, itemsToReturn);
 
             return sqlQuery.list();
-        } finally { }
     }
 
     private String generateDemographicSearchQuery(LoggedInInfo loggedInInfo, DemographicSearchRequest searchRequest,
@@ -2884,14 +2837,12 @@ public class DemographicDaoImpl extends AbstractHibernateDao implements Applicat
     @Override
     public List<Integer> getMissingExtKey(String keyName) {
         Session session = currentSession();
-        try {
             NativeQuery sqlQuery = session.createNativeQuery(
                 "select distinct d.demographic_no from demographic d where d.demographic_no not in (select distinct d.demographic_no from demographic d, demographicExt e where d.demographic_no = e.demographic_no and key_val=:key)");
             sqlQuery.setParameter("key", keyName);
             List<Integer> ids = sqlQuery.list();
 
             return ids;
-        } finally { }
 
     }
 

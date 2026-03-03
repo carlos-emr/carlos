@@ -45,6 +45,8 @@ import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+import java.util.Set;
+
 /**
  * A data access object (DAO) providing persistence and search support for
  * Secuserrole entities. Transaction control of the save(), update() and
@@ -53,12 +55,14 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
  * transactions. Each of these methods provides additional information for how
  * to configure it for the desired type of transaction control.
  *
- * @author MyEclipse Persistence Tools
  * @see Secuserrole
  */
 @Transactional
 public class SecuserroleDaoImpl extends AbstractHibernateDao implements SecuserroleDao {
     private static final Logger logger = MiscUtils.getLogger();
+
+    private static final Set<String> ALLOWED_PROPERTIES = Set.of(
+            PROVIDER_NO, ROLE_NAME, ORGCD, ACTIVEYN);
 
     @Override
     public void saveAll(List list) {
@@ -231,6 +235,9 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
         logger.debug("finding Secuserrole instance with property: " + propertyName
                 + ", value: " + value);
         try {
+            if (!ALLOWED_PROPERTIES.contains(propertyName)) {
+                throw new IllegalArgumentException("Invalid property name: " + propertyName);
+            }
             String queryString = "from Secuserrole as model where model."
                     + propertyName + "= ?1";
             return HqlQueryHelper.find(currentSession(), queryString, value);
@@ -252,15 +259,6 @@ public class SecuserroleDaoImpl extends AbstractHibernateDao implements Secuserr
 
     @Override
     public List findByOrgcd(Object orgcd, boolean activeOnly) {
-        // return findByProperty(ORGCD, orgcd);
-        /*
-         * SQL:
-         * select * from secUserRole s,
-         * (select codecsv from lst_orgcd where code = 'P200011') b
-         * where b.codecsv like '%' || s.orgcd || ',%'
-         * and not (s.orgcd like 'R%' or s.orgcd like 'O%')
-         *
-         */
         logger.debug("Find staff instance .");
         try {
 

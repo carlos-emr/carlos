@@ -39,9 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
- * This couldn't possibly work, it's not a spring managed bean according to the xml files.
- * But oh well, some one imports this class and tries to have it injected so I'll
- * leave the code here so it compiles. what ever...
+ * DAO implementation for provider data access.
  */
 @Transactional
 public class ProviderDAOImpl extends AbstractHibernateDao implements ProviderDAO {

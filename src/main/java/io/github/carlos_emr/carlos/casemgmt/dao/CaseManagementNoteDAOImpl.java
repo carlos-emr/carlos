@@ -363,8 +363,7 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
                                                                              String[] issueCodes) {
         Session session = currentSession();
         List<CaseManagementNote> notes = new ArrayList<CaseManagementNote>();
-        try {
-            StringBuilder sqlCommand = new StringBuilder(
+        StringBuilder sqlCommand = new StringBuilder(
                 "select distinct casemgmt_note.note_id from issue,casemgmt_issue,casemgmt_issue_notes,casemgmt_note " +
                 "where casemgmt_issue.issue_id=issue.issue_id and casemgmt_issue.demographic_no=:demographicNo ");
             
@@ -390,7 +389,6 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
                     log.warn("findNotesByDemographicAndIssueCode: unexpected non-Number id type: {}", id == null ? "null" : id.getClass().getName());
                 }
             }
-        } finally { }
 
         // make unique for uuid
         HashMap<String, CaseManagementNote> uniqueForUuid = new HashMap<String, CaseManagementNote>();
@@ -510,8 +508,8 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
             return results;
 
         } catch (ParseException e) {
-            log.warn("Warning", e);
-            return null;
+            log.warn("search: failed to parse date range from search bean", e);
+            return Collections.emptyList();
         }
     }
 
@@ -559,9 +557,9 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
 
             BigInteger result = (BigInteger) query.uniqueResultOptional().orElse(null);
             return result != null ? result.intValue() : 0;
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            return 0;
+        } catch (RuntimeException e) {
+            log.error("getNoteCountForProviderForDateRange failed for providerNo={}", providerNo, e);
+            throw e;
         }
     }
 
@@ -601,9 +599,9 @@ public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements C
             BigInteger result = (BigInteger) countQuery.uniqueResultOptional().orElse(null);
             int finalCount = result != null ? result.intValue() : 0;
             return finalCount;
-        } catch (Exception e) {
-            log.error("Error counting notes for issue :" + issueCode, e);
-            return 0;
+        } catch (RuntimeException e) {
+            log.error("getNoteCountForProviderForDateRangeWithIssueId failed for issueCode={}", issueCode, e);
+            throw e;
         }
     }
 

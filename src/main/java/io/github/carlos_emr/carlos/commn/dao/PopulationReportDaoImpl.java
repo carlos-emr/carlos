@@ -39,6 +39,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
@@ -92,14 +93,15 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
     "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in (:codes)";
 
     public int getCurrentPopulationSize() {
-        return ((Long) HqlQueryHelper.find(currentSession(), HQL_CURRENT_POP_SIZE).get(0)).intValue();
+        List<?> results = HqlQueryHelper.find(currentSession(), HQL_CURRENT_POP_SIZE);
+        return extractCount(results);
     }
 
     @Override
     public int getCurrentAndHistoricalPopulationSize(int numYears) {
         Map<String, Object> params = new HashMap<>();
         params.put("cutoff", DateTimeFormatUtils.getPast(numYears));
-        return ((Long) HqlQueryHelper.find(currentSession(), HQL_CURRENT_HISTORICAL_POP_SIZE, params).get(0)).intValue();
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_CURRENT_HISTORICAL_POP_SIZE, params));
     }
 
     @Override
@@ -159,7 +161,7 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
     public int getMortalities(int numYears) {
         Map<String, Object> params = new HashMap<>();
         params.put("cutoff", DateTimeFormatUtils.getPast(numYears));
-        return ((Long) HqlQueryHelper.find(currentSession(), HQL_GET_MORTALITIES, params).get(0)).intValue();
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_MORTALITIES, params));
     }
 
     @Override
@@ -169,7 +171,7 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         }
         Map<String, Object> params = new HashMap<>();
         params.put("codes", icd10Codes);
-        return ((Long) HqlQueryHelper.find(currentSession(), HQL_GET_PREVALENCE, params).get(0)).intValue();
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_PREVALENCE, params));
     }
 
     @Override
@@ -179,7 +181,7 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
         }
         Map<String, Object> params = new HashMap<>();
         params.put("codes", icd10Codes);
-        return ((Long) HqlQueryHelper.find(currentSession(), HQL_GET_INCIDENCE, params).get(0)).intValue();
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_INCIDENCE, params));
     }
 
     @Override
@@ -542,5 +544,18 @@ public class PopulationReportDaoImpl extends AbstractHibernateDao implements Pop
             // Close database resources
             SqlUtils.closeResources(c, ps, rs);
         }
+    }
+
+    /**
+     * Safely extracts a count value from an HQL aggregate result list.
+     *
+     * @param results the result list from an HQL COUNT query
+     * @return the count as an int, or 0 if the list is empty or the value is null
+     */
+    private static int extractCount(List<?> results) {
+        if (results.isEmpty() || results.get(0) == null) {
+            return 0;
+        }
+        return ((Long) results.get(0)).intValue();
     }
 }

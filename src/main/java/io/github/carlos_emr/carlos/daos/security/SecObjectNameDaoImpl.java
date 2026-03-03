@@ -44,14 +44,6 @@ public class SecObjectNameDaoImpl extends AbstractHibernateDao implements SecObj
 
     @Override
     public void saveOrUpdate(Secobjectname t) {
-
-        try {
-
-            currentSession().saveOrUpdate(t);
-
-        } catch (RuntimeException re) {
-
-            throw re;
-        }
+        currentSession().saveOrUpdate(t);
     }
 }

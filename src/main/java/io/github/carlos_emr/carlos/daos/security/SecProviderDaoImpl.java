@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import org.hibernate.LockOptions;
@@ -42,14 +43,14 @@ import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
-/**
- * @author JZhang
- */
-
 @Transactional
 public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProviderDao {
     private static final Logger logger = MiscUtils.getLogger();
-    // property constants
+
+    private static final Set<String> ALLOWED_PROPERTIES = Set.of(
+            LAST_NAME, FIRST_NAME, PROVIDER_TYPE, SPECIALTY, TEAM, SEX,
+            ADDRESS, PHONE, WORK_PHONE, OHIP_NO, RMA_NO, BILLING_NO,
+            HSO_NO, STATUS, COMMENTS, PROVIDER_ACTIVITY);
 
     @Override
     public void save(SecProvider transientInstance) {
@@ -132,7 +133,9 @@ public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProvi
         logger.debug("finding Provider instance with property: " + propertyName
                 + ", value: " + value);
         try {
-            // propertyName comes only from interface constants (LAST_NAME, FIRST_NAME, etc.)
+            if (!ALLOWED_PROPERTIES.contains(propertyName)) {
+                throw new IllegalArgumentException("Invalid property name: " + propertyName);
+            }
             return HqlQueryHelper.find(currentSession(),
                     "FROM SecProvider WHERE " + propertyName + " = ?1", value);
         } catch (RuntimeException re) {
