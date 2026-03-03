@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ProEditAddress2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -79,6 +80,7 @@ public class ProEditAddress2Action extends ActionSupport {
         return address;
     }
 
+    @StrutsParameter
     public void setAddress(String address) {
         this.address = address;
     }
@@ -87,6 +89,7 @@ public class ProEditAddress2Action extends ActionSupport {
         return city;
     }
 
+    @StrutsParameter
     public void setCity(String city) {
         this.city = city;
     }
@@ -95,6 +98,7 @@ public class ProEditAddress2Action extends ActionSupport {
         return province;
     }
 
+    @StrutsParameter
     public void setProvince(String province) {
         this.province = province;
     }
@@ -103,6 +107,7 @@ public class ProEditAddress2Action extends ActionSupport {
         return postal;
     }
 
+    @StrutsParameter
     public void setPostal(String postal) {
         this.postal = postal;
     }

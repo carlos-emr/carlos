@@ -40,6 +40,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RxClearPending2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -73,6 +74,7 @@ public final class RxClearPending2Action extends ActionSupport {
         return this.action;
     }
 
+    @StrutsParameter
     public void setAction(String RHS) {
         this.action = RHS;
     }

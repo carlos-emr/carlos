@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ProEditPrinter2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
@@ -94,6 +95,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNameAppointmentReceipt;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNameAppointmentReceipt(String defaultPrinterNameAppointmentReceipt) {
         this.defaultPrinterNameAppointmentReceipt = defaultPrinterNameAppointmentReceipt;
     }
@@ -102,6 +104,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNamePDFEnvelope;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNamePDFEnvelope(String defaultPrinterNamePDFEnvelope) {
         this.defaultPrinterNamePDFEnvelope = defaultPrinterNamePDFEnvelope;
     }
@@ -110,6 +113,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNamePDFLabel;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNamePDFLabel(String defaultPrinterNamePDFLabel) {
         this.defaultPrinterNamePDFLabel = defaultPrinterNamePDFLabel;
     }
@@ -118,6 +122,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNamePDFAddressLabel;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNamePDFAddressLabel(String defaultPrinterNamePDFAddressLabel) {
         this.defaultPrinterNamePDFAddressLabel = defaultPrinterNamePDFAddressLabel;
     }
@@ -126,6 +131,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNamePDFChartLabel;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNamePDFChartLabel(String defaultPrinterNamePDFChartLabel) {
         this.defaultPrinterNamePDFChartLabel = defaultPrinterNamePDFChartLabel;
     }
@@ -134,6 +140,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return defaultPrinterNameClientLabLabel;
     }
 
+    @StrutsParameter
     public void setDefaultPrinterNameClientLabLabel(String defaultPrinterNameClientLabLabel) {
         this.defaultPrinterNameClientLabLabel = defaultPrinterNameClientLabLabel;
     }
@@ -142,6 +149,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintAppointmentReceipt;
     }
 
+    @StrutsParameter
     public void setSilentPrintAppointmentReceipt(boolean silentPrintAppointmentReceipt) {
         this.silentPrintAppointmentReceipt = silentPrintAppointmentReceipt;
     }
@@ -150,6 +158,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintPDFEnvelope;
     }
 
+    @StrutsParameter
     public void setSilentPrintPDFEnvelope(boolean silentPrintPDFEnvelope) {
         this.silentPrintPDFEnvelope = silentPrintPDFEnvelope;
     }
@@ -158,6 +167,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintPDFLabel;
     }
 
+    @StrutsParameter
     public void setSilentPrintPDFLabel(boolean silentPrintPDFLabel) {
         this.silentPrintPDFLabel = silentPrintPDFLabel;
     }
@@ -166,6 +176,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintPDFAddressLabel;
     }
 
+    @StrutsParameter
     public void setSilentPrintPDFAddressLabel(boolean silentPrintPDFAddressLabel) {
         this.silentPrintPDFAddressLabel = silentPrintPDFAddressLabel;
     }
@@ -174,6 +185,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintPDFChartLabel;
     }
 
+    @StrutsParameter
     public void setSilentPrintPDFChartLabel(boolean silentPrintPDFChartLabel) {
         this.silentPrintPDFChartLabel = silentPrintPDFChartLabel;
     }
@@ -182,6 +194,7 @@ public class ProEditPrinter2Action extends ActionSupport {
         return silentPrintClientLabLabel;
     }
 
+    @StrutsParameter
     public void setSilentPrintClientLabLabel(boolean silentPrintClientLabLabel) {
         this.silentPrintClientLabLabel = silentPrintClientLabLabel;
     }

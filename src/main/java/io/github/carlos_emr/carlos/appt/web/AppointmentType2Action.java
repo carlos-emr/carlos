@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.appt.web;
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentType;
@@ -151,6 +152,7 @@ public class AppointmentType2Action extends ActionSupport {
         return typeNo;
     }
 
+    @StrutsParameter
     public void setTypeNo(int typeNo) {
         this.typeNo = typeNo;
     }
@@ -159,6 +161,7 @@ public class AppointmentType2Action extends ActionSupport {
         return id;
     }
 
+    @StrutsParameter
     public void setId(Integer id) {
         this.id = id;
     }
@@ -167,6 +170,7 @@ public class AppointmentType2Action extends ActionSupport {
         return name;
     }
 
+    @StrutsParameter
     public void setName(String name) {
         this.name = name;
     }
@@ -175,6 +179,7 @@ public class AppointmentType2Action extends ActionSupport {
         return notes;
     }
 
+    @StrutsParameter
     public void setNotes(String notes) {
         this.notes = notes;
     }
@@ -183,6 +188,7 @@ public class AppointmentType2Action extends ActionSupport {
         return reason;
     }
 
+    @StrutsParameter
     public void setReason(String reason) {
         this.reason = reason;
     }
@@ -191,6 +197,7 @@ public class AppointmentType2Action extends ActionSupport {
         return location;
     }
 
+    @StrutsParameter
     public void setLocation(String location) {
         this.location = location;
     }
@@ -199,6 +206,7 @@ public class AppointmentType2Action extends ActionSupport {
         return resources;
     }
 
+    @StrutsParameter
     public void setResources(String resources) {
         this.resources = resources;
     }
@@ -207,6 +215,7 @@ public class AppointmentType2Action extends ActionSupport {
         return duration;
     }
 
+    @StrutsParameter
     public void setDuration(int duration) {
         this.duration = duration;
     }

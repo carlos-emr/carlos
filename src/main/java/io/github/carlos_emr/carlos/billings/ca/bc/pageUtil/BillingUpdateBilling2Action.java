@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class BillingUpdateBilling2Action
         extends ActionSupport {
@@ -155,50 +156,62 @@ public final class BillingUpdateBilling2Action
         return billPatient;
     }
 
+    @StrutsParameter
     public void setRequestId(String id) {
         this.requestId = id;
     }
 
+    @StrutsParameter
     public void setAmountReceived(String amountReceived) {
         this.amountReceived = amountReceived;
     }
 
+    @StrutsParameter
     public void setMessageNotes(String messageNotes) {
         this.messageNotes = messageNotes;
     }
 
+    @StrutsParameter
     public void setRecipientAddress(String recipientAddress) {
         this.recipientAddress = recipientAddress;
     }
 
+    @StrutsParameter
     public void setRecipientCity(String recipientCity) {
         this.recipientCity = recipientCity;
     }
 
+    @StrutsParameter
     public void setRecipientName(String recipientName) {
         this.recipientName = recipientName;
     }
 
+    @StrutsParameter
     public void setRecipientPostal(String recipientPostal) {
         this.recipientPostal = recipientPostal;
     }
 
+    @StrutsParameter
     public void setRecipientProvince(String recipientProvince) {
         this.recipientProvince = recipientProvince;
     }
 
+    @StrutsParameter
     public void setBillStatus(String billStatus) {
         this.billStatus = billStatus;
     }
 
+    @StrutsParameter
     public void setBillingNo(String billingNo) {
         this.billingNo = billingNo;
     }
 
+    @StrutsParameter
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
 
+    @StrutsParameter
     public void setBillPatient(String billPatient) {
         this.billPatient = billPatient;
     }

@@ -52,6 +52,7 @@ import cdscihi.RiskFactorsDocument.RiskFactors;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.xmlbeans.XmlOptions;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO;
@@ -1045,6 +1046,7 @@ public class CihiExport2Action extends ActionSupport {
         return patientSet;
     }
 
+    @StrutsParameter
     public void setPatientSet(String patientSet) {
         this.patientSet = patientSet;
     }
@@ -1059,6 +1061,7 @@ public class CihiExport2Action extends ActionSupport {
         return orgName;
     }
 
+    @StrutsParameter
     public void setOrgName(String orgName) {
         this.orgName = orgName;
     }
@@ -1067,6 +1070,7 @@ public class CihiExport2Action extends ActionSupport {
         return vendorId;
     }
 
+    @StrutsParameter
     public void setVendorId(String vendorId) {
         this.vendorId = vendorId;
     }
@@ -1075,6 +1079,7 @@ public class CihiExport2Action extends ActionSupport {
         return vendorBusinessName;
     }
 
+    @StrutsParameter
     public void setVendorBusinessName(String vendorBusinessName) {
         this.vendorBusinessName = vendorBusinessName;
     }
@@ -1083,6 +1088,7 @@ public class CihiExport2Action extends ActionSupport {
         return vendorCommonName;
     }
 
+    @StrutsParameter
     public void setVendorCommonName(String vendorCommonName) {
         this.vendorCommonName = vendorCommonName;
     }
@@ -1091,6 +1097,7 @@ public class CihiExport2Action extends ActionSupport {
         return vendorSoftware;
     }
 
+    @StrutsParameter
     public void setVendorSoftware(String vendorSoftware) {
         this.vendorSoftware = vendorSoftware;
     }
@@ -1099,6 +1106,7 @@ public class CihiExport2Action extends ActionSupport {
         return vendorSoftwareCommonName;
     }
 
+    @StrutsParameter
     public void setVendorSoftwareCommonName(String vendorSoftwareCommonName) {
         this.vendorSoftwareCommonName = vendorSoftwareCommonName;
     }
@@ -1107,6 +1115,7 @@ public class CihiExport2Action extends ActionSupport {
         return vendorSoftwareVer;
     }
 
+    @StrutsParameter
     public void setVendorSoftwareVer(String vendorSoftwareVer) {
         this.vendorSoftwareVer = vendorSoftwareVer;
     }
@@ -1115,6 +1124,7 @@ public class CihiExport2Action extends ActionSupport {
         return installDate;
     }
 
+    @StrutsParameter
     public void setInstallDate(String installDate) {
         this.installDate = installDate;
     }
@@ -1123,6 +1133,7 @@ public class CihiExport2Action extends ActionSupport {
         return contactLName;
     }
 
+    @StrutsParameter
     public void setContactLName(String contactLName) {
         this.contactLName = contactLName;
     }
@@ -1131,6 +1142,7 @@ public class CihiExport2Action extends ActionSupport {
         return contactFName;
     }
 
+    @StrutsParameter
     public void setContactFName(String contactFName) {
         this.contactFName = contactFName;
     }
@@ -1139,6 +1151,7 @@ public class CihiExport2Action extends ActionSupport {
         return contactPhone;
     }
 
+    @StrutsParameter
     public void setContactPhone(String contactPhone) {
         this.contactPhone = contactPhone;
     }
@@ -1147,6 +1160,7 @@ public class CihiExport2Action extends ActionSupport {
         return contactEmail;
     }
 
+    @StrutsParameter
     public void setContactEmail(String contactEmail) {
         this.contactEmail = contactEmail;
     }
@@ -1155,6 +1169,7 @@ public class CihiExport2Action extends ActionSupport {
         return contactUserName;
     }
 
+    @StrutsParameter
     public void setContactUserName(String contactUserName) {
         this.contactUserName = contactUserName;
     }
@@ -1173,6 +1188,7 @@ public class CihiExport2Action extends ActionSupport {
         return extractType;
     }
 
+    @StrutsParameter
     public void setExtractType(String extractType) {
         this.extractType = extractType;
     }

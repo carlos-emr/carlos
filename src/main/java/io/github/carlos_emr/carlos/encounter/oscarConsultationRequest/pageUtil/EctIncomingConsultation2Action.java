@@ -39,6 +39,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctIncomingConsultation2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -57,6 +58,7 @@ public class EctIncomingConsultation2Action extends ActionSupport {
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String str) {
         providerNo = str;
     }
@@ -67,6 +69,7 @@ public class EctIncomingConsultation2Action extends ActionSupport {
         return demographicNo;
     }
 
+    @StrutsParameter
     public void setDemographicNo(String str) {
         demographicNo = str;
     }

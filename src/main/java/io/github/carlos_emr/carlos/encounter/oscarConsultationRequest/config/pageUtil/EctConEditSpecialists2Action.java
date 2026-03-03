@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 
 public class EctConEditSpecialists2Action extends ActionSupport {
@@ -149,6 +150,7 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         return specId;
     }
 
+    @StrutsParameter
     public void setSpecId(String str) {
         MiscUtils.getLogger().debug("setter specId");
         specId = str;
@@ -161,6 +163,7 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         return delete;
     }
 
+    @StrutsParameter
     public void setDelete(String str) {
         MiscUtils.getLogger().debug("setter delete");
         delete = str;
@@ -173,6 +176,7 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         return specialists;
     }
 
+    @StrutsParameter
     public void setSpecialists(String str[]) {
         MiscUtils.getLogger().debug("setter specialists");
         specialists = str;

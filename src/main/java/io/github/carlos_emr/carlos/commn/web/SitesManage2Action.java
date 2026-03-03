@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class SitesManage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -99,10 +100,12 @@ public class SitesManage2Action extends ActionSupport {
 
     private Site s;
 
+    @StrutsParameter(depth = 1)
     public Site getS() {
         return s;
     }
 
+    @StrutsParameter
     public void setS(Site s) {
         this.s = s;
     }

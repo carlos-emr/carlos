@@ -25,6 +25,7 @@ package io.github.carlos_emr.carlos.waitinglist.pageUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
@@ -190,6 +191,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return message;
     }
 
+    @StrutsParameter
     public void setMessage(String message) {
         this.message = message;
     }
@@ -203,6 +205,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return wlNewName;
     }
 
+    @StrutsParameter
     public void setWlNewName(String wlNewName) {
         this.wlNewName = wlNewName;
     }
@@ -211,6 +214,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return wlChangedName;
     }
 
+    @StrutsParameter
     public void setWlChangedName(String wlChangedName) {
         this.wlChangedName = wlChangedName;
     }
@@ -219,6 +223,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return selectedWL;
     }
 
+    @StrutsParameter
     public void setSelectedWL(String selectedWL) {
         this.selectedWL = selectedWL;
     }
@@ -227,6 +232,7 @@ public final class WLEditWaitingListName2Action extends ActionSupport {
         return selectedWL2;
     }
 
+    @StrutsParameter
     public void setSelectedWL2(String selectedWL2) {
         this.selectedWL2 = selectedWL2;
     }

@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class AddDocumentType2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
@@ -69,10 +70,12 @@ public class AddDocumentType2Action extends ActionSupport {
     }
 
 
+    @StrutsParameter
     public void setFunction(String function) {
         this.function = function;
     }
 
+    @StrutsParameter
     public void setDocType(String docType) {
         this.docType = docType;
     }

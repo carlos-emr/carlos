@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.providers.data.ProviderColourUpdater;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts 2 action for updating a healthcare provider's display colour preference.
@@ -125,6 +126,7 @@ public class ProEditColour2Action extends ActionSupport {
      *
      * @param colour String colour code to set
      */
+    @StrutsParameter
     public void setColour(String colour) {
         this.colour = colour;
     }

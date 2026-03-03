@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -175,6 +176,7 @@ public class EctImmCreateImmunizationSetConfig2Action extends ActionSupport {
         return name;
     }
 
+    @StrutsParameter
     public void setName(String str) {
         name = str;
     }

@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ChangeDocStatus2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -69,18 +70,22 @@ public class ChangeDocStatus2Action extends ActionSupport {
         return statusP;
     }
 
+    @StrutsParameter
     public void setDocTypeD(String docTypeD) {
         this.docTypeD = docTypeD;
     }
 
+    @StrutsParameter
     public void setDocTypeP(String docTypeP) {
         this.docTypeP = docTypeP;
     }
 
+    @StrutsParameter
     public void setStatusD(String statusD) {
         this.statusD = statusD;
     }
 
+    @StrutsParameter
     public void setStatusP(String statusP) {
         this.statusP = statusP;
     }

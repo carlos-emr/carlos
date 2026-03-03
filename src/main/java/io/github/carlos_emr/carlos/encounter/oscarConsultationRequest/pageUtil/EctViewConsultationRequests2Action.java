@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctViewConsultationRequests2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -109,6 +110,7 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
         return sendTo;
     }
 
+    @StrutsParameter
     public void setSendTo(String str) {
         sendTo = str;
     }
@@ -119,6 +121,7 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
         return currentTeam;
     }
 
+    @StrutsParameter
     public void setCurrentTeam(String str) {
         currentTeam = str;
     }
@@ -137,6 +140,7 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
      *
      * @param startDate New value of property startDate.
      */
+    @StrutsParameter
     public void setStartDate(String startDate) {
         this.startDate = startDate;
     }
@@ -155,6 +159,7 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
      *
      * @param endDate New value of property endDate.
      */
+    @StrutsParameter
     public void setEndDate(String endDate) {
         this.endDate = endDate;
     }
@@ -173,6 +178,7 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
      *
      * @param includeCompleted New value of property includeCompleted.
      */
+    @StrutsParameter
     public void setIncludeCompleted(String includeCompleted) {
         this.includeCompleted = includeCompleted;
     }
@@ -191,6 +197,7 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
      *
      * @param orderby New value of property orderby.
      */
+    @StrutsParameter
     public void setOrderby(String orderby) {
         this.orderby = orderby;
     }
@@ -209,6 +216,7 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
      *
      * @param desc New value of property desc.
      */
+    @StrutsParameter
     public void setDesc(String desc) {
         this.desc = desc;
     }
@@ -230,6 +238,7 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
      *
      * @param searchDate New value of property searchDate.
      */
+    @StrutsParameter
     public void setSearchDate(String searchDate) {
         this.searchDate = searchDate;
     }
@@ -238,6 +247,7 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
         return offset;
     }
 
+    @StrutsParameter
     public void setOffset(Integer offset) {
         this.offset = offset;
     }
@@ -246,6 +256,7 @@ public class EctViewConsultationRequests2Action extends ActionSupport {
         return limit;
     }
 
+    @StrutsParameter
     public void setLimit(Integer limit) {
         this.limit = limit;
     }

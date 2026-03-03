@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.util.Doc2PDF;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for converting HTML content to PDF documents.
@@ -179,6 +180,7 @@ public final class MsgDoc2PDF2Action extends ActionSupport {
      * 
      * @param srcText String the HTML content to convert to PDF
      */
+    @StrutsParameter
     public void setSrcText(String srcText) {
         this.srcText = srcText;
     }
@@ -198,6 +200,7 @@ public final class MsgDoc2PDF2Action extends ActionSupport {
      * 
      * @param isPreview boolean true to enable preview mode, false for attachment mode
      */
+    @StrutsParameter
     public void setIsPreview(boolean isPreview) {
         this.isPreview = isPreview;
     }
@@ -216,6 +219,7 @@ public final class MsgDoc2PDF2Action extends ActionSupport {
      * 
      * @param jsessionid String the session ID to set
      */
+    @StrutsParameter
     public void setJsessionid(String jsessionid) {
         this.jsessionid = jsessionid;
     }
@@ -234,6 +238,7 @@ public final class MsgDoc2PDF2Action extends ActionSupport {
      * 
      * @param pdfTitle String the title to assign to the PDF
      */
+    @StrutsParameter
     public void setPdfTitle(String pdfTitle) {
         this.pdfTitle = pdfTitle;
     }
@@ -252,6 +257,7 @@ public final class MsgDoc2PDF2Action extends ActionSupport {
      * 
      * @param uriArray String[] the array of URIs to set
      */
+    @StrutsParameter
     public void setUriArray(String[] uriArray) {
         this.uriArray = uriArray;
     }
@@ -261,6 +267,7 @@ public final class MsgDoc2PDF2Action extends ActionSupport {
      * 
      * @param attachmentNumber String the attachment number to set
      */
+    @StrutsParameter
     public void setAttachmentNumber(String attachmentNumber) {
         this.attachmentNumber = attachmentNumber;
     }

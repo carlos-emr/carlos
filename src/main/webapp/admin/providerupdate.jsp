@@ -62,7 +62,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderArchive" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="org.apache.commons.beanutils.BeanUtils" %>
+<%@page import="org.springframework.beans.BeanUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderSite" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderSitePK" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
@@ -162,7 +162,7 @@
                 ProviderArchiveDao providerArchiveDao = (ProviderArchiveDao) SpringUtils.getBean(ProviderArchiveDao.class);
                 Provider provider = providerDao.getProvider(request.getParameter("provider_no"));
                 ProviderArchive pa = new ProviderArchive();
-                BeanUtils.copyProperties(pa, provider);
+                BeanUtils.copyProperties(provider, pa);
                 pa.setId(null);
                 providerArchiveDao.persist(pa);
 

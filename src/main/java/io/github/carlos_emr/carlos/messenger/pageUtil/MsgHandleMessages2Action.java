@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for handling message operations (reply, forward, delete).
@@ -292,6 +293,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param str String the forward flag value
      */
+    @StrutsParameter
     public void setForward(String str) {
         this.forward = str;
     }
@@ -301,6 +303,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param messageNo String the message ID
      */
+    @StrutsParameter
     public void setMessageNo(String messageNo) {
         this.messageNo = messageNo;
     }
@@ -321,6 +324,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param reply String the reply flag value
      */
+    @StrutsParameter
     public void setReply(String reply) {
         this.reply = reply;
         this.replyAll = "";
@@ -343,6 +347,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param replyAll String the reply all flag value
      */
+    @StrutsParameter
     public void setReplyAll(String replyAll) {
         this.replyAll = replyAll;
         this.reply = "";
@@ -365,6 +370,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param delete String the delete flag value
      */
+    @StrutsParameter
     public void setDelete(String delete) {
         this.delete = delete;
         this.reply = "";
@@ -394,6 +400,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param demographic_no String the demographic number to set
      */
+    @StrutsParameter
     public void setDemographic_no(String demographic_no) {
         this.demographic_no = demographic_no;
     }

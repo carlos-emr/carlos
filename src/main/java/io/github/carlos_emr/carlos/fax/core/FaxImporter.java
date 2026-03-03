@@ -90,8 +90,11 @@ import org.springframework.stereotype.Service;
  * <pre>
  * # carlos.properties
  * FAX_INCOMING_DIR=/path/to/fax/incoming  # Optional; defaults resolved by OscarProperties:
- *                                         #   1. ${catalina.base}/fax-incoming (Tomcat)
- *                                         #   2. ${java.io.tmpdir}/carlos-fax-incoming (non-Tomcat)
+ *                                         #   1. FAX_INCOMING_DIR (this property, if set)
+ *                                         #   2. BASE_DOCUMENT_DIR/fax-incoming (preferred default)
+ *                                         #   3. ${catalina.base}/fax-incoming (Tomcat fallback;
+ *                                         #      may be unwritable on Debian/Ubuntu package installs)
+ *                                         #   4. ${java.io.tmpdir}/carlos-fax-incoming (non-Tomcat)
  * DOCUMENT_DIR=/path/to/documents         # Required, final document storage location
  * </pre>
  *
@@ -125,6 +128,20 @@ public class FaxImporter {
     /** Incoming directory for quarantined fax files, initialized at startup */
     private Path faxIncomingDir;
 
+    /**
+     * Set to true only when {@link #initialize()} succeeds. Polling and all import
+     * operations are skipped when false so a misconfigured fax service never prevents
+     * the rest of CARLOS EMR from starting or functioning.
+     */
+    private boolean initialized = false;
+
+    /**
+     * Guards against repeated "not initialized" log warnings on every poll cycle.
+     * The actionable warning is already emitted once during {@link #initialize()}, so
+     * subsequent poll cycles only need to log it once more to remain visible.
+     */
+    private volatile boolean pollInitializationWarningLogged = false;
+
     @Autowired
     public FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
             ProviderLabRoutingDao providerLabRoutingDao, FaxProviderClientFactory faxProviderClientFactory) {
@@ -138,32 +155,53 @@ public class FaxImporter {
     /**
      * Validates directories and initializes the incoming fax directory at startup.
      *
-     * @throws IllegalStateException if DOCUMENT_DIR is not configured
+     * <p>This method is intentionally non-fatal: configuration problems are logged as
+     * warnings rather than thrown as exceptions. A misconfigured fax service must not
+     * prevent CARLOS EMR from starting — fax is an optional feature. If initialization
+     * fails, {@link #initialized} remains {@code false} and all poll/import operations
+     * are silently skipped until the configuration is corrected and Tomcat is restarted.</p>
+     *
+     * <p>To resolve startup warnings, set {@code BASE_DOCUMENT_DIR} or {@code FAX_INCOMING_DIR}
+     * in {@code carlos.properties}.</p>
      */
     @PostConstruct
     public void initialize() {
         if (DOCUMENT_DIR == null || DOCUMENT_DIR.trim().isEmpty()) {
-            throw new IllegalStateException(
-                    "DOCUMENT_DIR is not configured and cannot be derived from BASE_DOCUMENT_DIR. "
+            log.warn("FaxImporter: DOCUMENT_DIR is not configured. Fax import is disabled. "
                     + "Configure DOCUMENT_DIR or BASE_DOCUMENT_DIR in carlos.properties.");
+            return;
         }
 
         String incomingDirPath = OscarProperties.getInstance().getFaxIncomingDirectory();
         if (incomingDirPath == null || incomingDirPath.trim().isEmpty()) {
-            throw new IllegalStateException(
-                    "FAX_INCOMING_DIR cannot be resolved. "
-                    + "Configure FAX_INCOMING_DIR in carlos.properties.");
+            log.warn("FaxImporter: FAX_INCOMING_DIR cannot be resolved. Fax import is disabled. "
+                    + "Configure FAX_INCOMING_DIR or BASE_DOCUMENT_DIR in carlos.properties.");
+            return;
         }
 
-        faxIncomingDir = Paths.get(incomingDirPath.trim());
         try {
-            Files.createDirectories(faxIncomingDir);
-            log.info("Fax incoming directory: {}", faxIncomingDir);
-        } catch (IOException e) {
-            throw new IllegalStateException(
-                    "Cannot create fax incoming directory: " + faxIncomingDir
-                    + ". Check permissions and disk space.", e);
+            Path resolvedDir = Paths.get(incomingDirPath.trim());
+            Files.createDirectories(resolvedDir);
+            faxIncomingDir = resolvedDir;
+            initialized = true;
+            log.info("Fax incoming directory initialized: {}", faxIncomingDir);
+        } catch (IOException | RuntimeException e) {
+            // Log as error but do NOT throw — fax is optional and must not bring down the app.
+            // Catches IOException (permission/disk errors), InvalidPathException (bad path strings),
+            // and SecurityException (security manager rejection) to ensure startup is never blocked.
+            log.error("FaxImporter: Cannot create fax incoming directory: {}. Fax import is disabled. "
+                    + "Check permissions and disk space. Set FAX_INCOMING_DIR in carlos.properties "
+                    + "to a directory writable by the application server.", incomingDirPath, e);
         }
+    }
+
+    /**
+     * Returns whether this service was successfully initialized at startup.
+     *
+     * @return true if the fax incoming directory is configured and writable
+     */
+    public boolean isInitialized() {
+        return initialized;
     }
 
     /**
@@ -176,6 +214,16 @@ public class FaxImporter {
      * @since 2014-08-29
      */
     public void poll() {
+
+        if (!initialized) {
+            if (!pollInitializationWarningLogged) {
+                log.warn("FaxImporter is not initialized — fax directory configuration is missing or "
+                        + "unwritable. Skipping poll. Check startup log for details and set "
+                        + "BASE_DOCUMENT_DIR or FAX_INCOMING_DIR in carlos.properties.");
+                pollInitializationWarningLogged = true;
+            }
+            return;
+        }
 
         log.info("CHECKING REMOTE FOR INCOMING FAXES");
 

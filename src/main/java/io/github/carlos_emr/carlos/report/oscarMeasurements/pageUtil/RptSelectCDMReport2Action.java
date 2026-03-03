@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RptSelectCDMReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -115,6 +116,7 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         return forward;
     }
 
+    @StrutsParameter
     public void setForward(String forward) {
         this.forward = forward;
     }
