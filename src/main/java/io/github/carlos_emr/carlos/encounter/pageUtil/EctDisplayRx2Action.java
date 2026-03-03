@@ -213,8 +213,8 @@ public class EctDisplayRx2Action extends EctDisplayAction {
      * @param drug Prescription the prescription to evaluate
      * @return boolean {@code true} if the drug is considered active
      */
-    public static boolean isActiveDrug(Prescription drug) {
-        return (drug.isCurrent() && !drug.isArchived()) || drug.isLongTerm();
+    private static boolean isActiveDrug(Prescription drug) {
+        return (!drug.isArchived() && drug.isCurrent()) || drug.isLongTerm();
     }
 
     /**
