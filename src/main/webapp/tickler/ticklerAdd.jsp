@@ -669,7 +669,7 @@
                                     for (int i = 0; i < sites.size(); i++) {
                                 %>
                                 <option value="<%=Encode.forHtmlAttribute(sites.get(i).getName())%>"
-                                        style="background-color:<%=Encode.forCssString(sites.get(i).getBgColor())%>"><%=Encode.forHtmlContent(sites.get(i).getName())%>
+                                        style="background-color:'<%=Encode.forCssString(sites.get(i).getBgColor())%>'"><%=Encode.forHtmlContent(sites.get(i).getName())%>
                                 </option>
                                 <% } %>
                             </select>
