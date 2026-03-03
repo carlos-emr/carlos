@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.documentManager;
 
-import com.itextpdf.text.DocumentException;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -43,14 +42,11 @@ import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.xhtmlrenderer.layout.SharedContext;
-import org.xhtmlrenderer.pdf.ITextRenderer;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -81,8 +77,6 @@ public final class ConvertToEdoc {
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_CONTENT_TYPE = "application/pdf";
     private static final String SYSTEM_ID = "-1";
-    private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
-    private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
     
     private static String realPath;
     private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
@@ -243,8 +237,6 @@ public final class ConvertToEdoc {
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             renderPDF(document, os);
             path = nioFileManager.saveTempFile(filename, os);
-        } catch (DocumentException e1) {
-            logger.error("Exception parsing file to PDF. File not saved. ", e1);
         } catch (IOException e) {
             logger.error("Problem while writing PDF file to filesystem. " + filename, e);
         }
@@ -303,82 +295,22 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Use the io.woo.htmltopdf tools for HTML to PDF or
-     * use the Flying Saucer tools if there is a failure.
-     * Flying Saucer requires a well formed w3c XHTML document - which is usually
-     * not the case.
+     * Renders HTML to PDF using Flying Saucer via InternalEDocConverter.
+     *
+     * @param document the tidied HTML string
+     * @param os       the output stream to write the PDF to
+     * @throws IOException if PDF rendering fails
      */
     private static void renderPDF(final String document, ByteArrayOutputStream os)
-            throws DocumentException, IOException {
+            throws IOException {
         EDocConverterInterface converter = new InternalEDocConverter();
-
         try {
             converter.convert(document, os);
+        } catch (IOException e) {
+            throw e;
         } catch (Exception e) {
-            logger.warn("Primary PDF conversion failed, attempting fallback: " + e.getMessage());
-
-            try {
-                os.reset();
-                fallbackRender(document, os);
-            } catch (Exception fallbackError) {
-                logger.error("Fallback PDF conversion also failed", fallbackError);
-                String combinedMessage = "PDF conversion failed with all methods. "
-                        + "Primary error: " + e.getMessage()
-                        + "; Fallback error: " + fallbackError.getMessage();
-                DocumentException docEx = new DocumentException(combinedMessage);
-                docEx.initCause(fallbackError);
-                throw docEx;
-            }
+            throw new IOException("PDF conversion failed: " + e.getMessage(), e);
         }
-    }
-
-    private static void fallbackRender(String document, OutputStream os)
-        throws DocumentException, IOException {
-        // Prepare document for Flying Saucer's strict XHTML requirements
-        Document doc = prepareDocumentForFlyingSaucer(document);
-        
-        ITextRenderer renderer = new ITextRenderer();
-        SharedContext sharedContext = renderer.getSharedContext();
-        sharedContext.setPrint(true);
-        sharedContext.setInteractive(false);
-        sharedContext.setReplacedElementFactory(new ReplacedElementFactoryImpl());
-        sharedContext.getTextRenderer().setSmoothingThreshold(0);
-        
-        renderer.setDocumentFromString(doc.outerHtml(), null);
-        renderer.layout();
-        try {
-            renderer.createPDF(os, true);
-        } catch (com.lowagie.text.DocumentException e) {
-            // Flying Saucer uses OpenPDF library which has a different DocumentException class
-            // Wrap it to maintain API consistency with iText-based PDF generation
-            logger.error("Failed to create PDF with Flying Saucer", e);
-            throw new DocumentException(e);
-        }
-    }
-
-    /**
-     * Prepare document for Flying Saucer which requires strict XHTML
-     */
-    private static Document prepareDocumentForFlyingSaucer(String document) {
-        Document doc = Jsoup.parse(document);
-        
-        // Flying Saucer requires XML/XHTML syntax
-        doc.outputSettings()
-            .syntax(Document.OutputSettings.Syntax.xml)  // Self-closes tags automatically
-            .escapeMode(Entities.EscapeMode.xhtml)
-            .charset("UTF-8")
-            .prettyPrint(false);
-        
-        // Remove scripts (Flying Saucer can't execute them)
-        doc.select("script").remove();
-        
-        // Ensure img tags have alt attributes (XHTML requirement)
-        doc.select("img:not([alt])").attr("alt", "");
-        
-        // Ensure input tags have type attribute
-        doc.select("input:not([type])").attr("type", "text");
-        
-        return doc;
     }
 
     public static Document getDocument(final String documentString, String realPath) {

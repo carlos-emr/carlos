@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for Doc2PDF utility class.
- * Tests HTML to PDF conversion using Jsoup for HTML cleaning.
+ * Tests HTML to PDF conversion using Jsoup for HTML cleaning and Flying Saucer for rendering.
  *
  * @since 2026-01-29
  */
@@ -138,7 +138,7 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
     @Tag("parse")
     @DisplayName("should produce PDF when minimal HTML is provided")
     void shouldProducePdf_whenMinimalHtmlProvided() {
-        // Given - minimal HTML with content (empty body causes XMLWorkerHelper parse failure)
+        // Given - minimal HTML with content
         String minimalHtml = "<html><body><p>.</p></body></html>";
 
         // When

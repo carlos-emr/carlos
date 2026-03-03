@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -53,21 +53,19 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Entities;
 import java.nio.charset.StandardCharsets;
 
-import com.itextpdf.text.Document;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.pdf.PdfWriter;
-import com.itextpdf.tool.xml.XMLWorkerHelper;
+import org.xhtmlrenderer.pdf.ITextRenderer;
+import org.xhtmlrenderer.layout.SharedContext;
 
 /**
- * @author root
- * @deprecated unsafe with potential memory leaks. Consider another conversion tool.
+ * @deprecated unsafe with potential memory leaks. Consider using
+ *             {@link io.github.carlos_emr.carlos.documentManager.ConvertToEdoc} instead.
  */
 @Deprecated
 public class Doc2PDF {
     private static Logger logger = MiscUtils.getLogger();
 
     /**
-     * Configure Jsoup document for XHTML output compatible with iText XMLWorkerHelper.
+     * Configure Jsoup document for XHTML output compatible with Flying Saucer.
      * This ensures consistent HTML cleaning across all PDF conversion methods.
      *
      * @param doc The Jsoup document to configure
@@ -77,7 +75,38 @@ public class Doc2PDF {
         doc.outputSettings()
             .syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml)
             .escapeMode(Entities.EscapeMode.xhtml)
-            .prettyPrint(false);  // Critical: prevents whitespace issues in iText XML parser
+            .charset("UTF-8")
+            .prettyPrint(false);
+
+        // Flying Saucer cannot execute scripts
+        doc.select("script").remove();
+
+        // XHTML requires alt on img elements
+        doc.select("img:not([alt])").attr("alt", "");
+
+        // XHTML requires type on input elements
+        doc.select("input:not([type])").attr("type", "text");
+    }
+
+    /**
+     * Renders an XHTML string to PDF bytes using Flying Saucer.
+     *
+     * @param xhtml the cleaned XHTML string
+     * @return byte array containing the PDF
+     * @throws Exception if rendering fails
+     */
+    private static byte[] renderToPdfBytes(String xhtml) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ITextRenderer renderer = new ITextRenderer();
+        SharedContext sharedContext = renderer.getSharedContext();
+        sharedContext.setPrint(true);
+        sharedContext.setInteractive(false);
+        sharedContext.getTextRenderer().setSmoothingThreshold(0);
+
+        renderer.setDocumentFromString(xhtml, null);
+        renderer.layout();
+        renderer.createPDF(baos, true);
+        return baos.toByteArray();
     }
 
     /**
@@ -284,21 +313,21 @@ public class Doc2PDF {
         return in;
     }
 
+    /**
+     * Converts an XHTML string to Base64-encoded PDF using Flying Saucer.
+     *
+     * @param response HttpServletResponse (not used but maintained for API compatibility)
+     * @param docText  the XHTML content to convert
+     * @return Base64-encoded PDF string, or null if conversion fails
+     */
     public static String GetPDFBin(HttpServletResponse response, String docText) {
-        Document document = new Document(PageSize.A4, 36, 36, 36, 36);
         try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(document, baos);
-            document.open();
-            InputStream is = new ByteArrayInputStream(docText.getBytes(StandardCharsets.UTF_8));
-            XMLWorkerHelper.getInstance().parseXHtml(writer, document, is);
-            document.close();
-            return (new String(Base64.encodeBase64(baos.toByteArray())));
+            byte[] pdfBytes = renderToPdfBytes(docText);
+            return (new String(Base64.encodeBase64(pdfBytes)));
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
         return null;
-
     }
 
     public static void PrintPDFFromBin(HttpServletResponse response, String docBin) {
@@ -350,17 +379,16 @@ public class Doc2PDF {
 
     }
 
+    /**
+     * Converts an XHTML string to PDF and writes it to the HTTP response using Flying Saucer.
+     *
+     * @param response the HTTP response to write the PDF to
+     * @param docText  the XHTML content to convert
+     */
     public static void PrintPDFFromHTMLString(HttpServletResponse response, String docText) {
-        Document document = new Document(PageSize.A4, 36, 36, 36, 36);
         try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(document, baos);
-            document.open();
-            InputStream is = new ByteArrayInputStream(docText.getBytes(StandardCharsets.UTF_8));
-            XMLWorkerHelper.getInstance().parseXHtml(writer, document, is);
-            document.close();
-            byte[] binArray = baos.toByteArray();
-            PrintPDFFromBytes(response, binArray);
+            byte[] pdfBytes = renderToPdfBytes(docText);
+            PrintPDFFromBytes(response, pdfBytes);
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
@@ -412,7 +440,7 @@ public class Doc2PDF {
             // Add it to our list of tag values
             v.addElement(subs);
 
-            // Try it again. Narrow down to the part of string which is not 
+            // Try it again. Narrow down to the part of string which is not
             // processed yet.
             try {
                 xmlString = xmlString.substring(lastIndex + endTagToSearch.length());
@@ -420,7 +448,7 @@ public class Doc2PDF {
                 xmlString = "";
             }
 
-            // Start over again by searching the first occurrence of the begin tag 
+            // Start over again by searching the first occurrence of the begin tag
             // to continue the loop.
 
             index = xmlString.indexOf(beginTagToSearch);

@@ -65,12 +65,6 @@
             <url>file://${basedir}/local_repo</url>
         </repository>
 
-        <!-- for the com.github.openosp htmltopdf dependency only. Upgrades
-        from this dependency are welcome -->
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
@@ -572,17 +566,7 @@
             <artifactId>itextpdf</artifactId>
             <version>5.5.13.5</version>
         </dependency>
-        <dependency>
-            <groupId>com.itextpdf.tool</groupId>
-            <artifactId>xmlworker</artifactId>
-            <version>5.5.13.5</version>
-        </dependency>
 
-        <dependency>
-            <groupId>com.github.openosp</groupId>
-            <artifactId>ultrabuk-htmltopdf-java</artifactId>
-            <version>1.0.11</version>
-        </dependency>
 
         <!-- Modern RTF support via OpenRTF (actively maintained, released Aug 2025) -->
         <dependency>
@@ -1118,12 +1102,6 @@
         
         <!-- ESAPI removed: ClickjackFilter replaced by security headers in ResponseDefaultsFilter -->
 
-        <!-- Apache Commons Exec - used by ExternalEDocConverter -->
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-exec</artifactId>
-            <version>1.5.0</version>
-        </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.codehaus.jettison/jettison -->
         <dependency>
