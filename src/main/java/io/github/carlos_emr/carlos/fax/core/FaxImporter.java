@@ -61,8 +61,6 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import com.lowagie.text.pdf.PdfReader;
 
-import java.nio.file.Files;
-
 import io.github.carlos_emr.OscarProperties;
 import javax.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -340,7 +338,7 @@ public class FaxImporter {
             tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
 
             try {
-                byte[] decoded = java.util.Base64.getDecoder().decode(faxFile.getDocument());
+                byte[] decoded = java.util.Base64.getMimeDecoder().decode(faxFile.getDocument());
                 Files.write(tempFile.toPath(), decoded);
             } catch (IllegalArgumentException e) {
                 throw new FaxProviderException("Base64 decode failed", e);
