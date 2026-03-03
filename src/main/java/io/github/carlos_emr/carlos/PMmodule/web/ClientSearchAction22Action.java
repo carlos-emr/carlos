@@ -167,6 +167,9 @@ public class ClientSearchAction22Action extends ActionSupport {
     private ClientSearchFormBean criteria;
 
     @StrutsParameter(depth = 1)
+    /**
+     * Returns the criteria for the client search.
+     */
     public ClientSearchFormBean getCriteria() {
         return criteria;
     }
