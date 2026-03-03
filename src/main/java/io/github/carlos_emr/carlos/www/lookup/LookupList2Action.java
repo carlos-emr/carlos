@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.utils.Utility;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class LookupList2Action extends ActionSupport {
@@ -98,10 +99,12 @@ public class LookupList2Action extends ActionSupport {
     String grandParentCode;
     LookupTableDefValue tableDef;
 
+    @StrutsParameter(depth = 1)
     public List getLookups() {
         return lookups;
     }
 
+    @StrutsParameter
     public void setLookups(List lookups) {
         this.lookups = lookups;
     }
@@ -110,6 +113,7 @@ public class LookupList2Action extends ActionSupport {
         return codeName;
     }
 
+    @StrutsParameter
     public void setCodeName(String codeName) {
         this.codeName = codeName;
     }
@@ -118,6 +122,7 @@ public class LookupList2Action extends ActionSupport {
         return descName;
     }
 
+    @StrutsParameter
     public void setDescName(String descName) {
         this.descName = descName;
     }
@@ -126,6 +131,7 @@ public class LookupList2Action extends ActionSupport {
         return openerForm;
     }
 
+    @StrutsParameter
     public void setOpenerForm(String openerForm) {
         this.openerForm = openerForm;
     }
@@ -134,6 +140,7 @@ public class LookupList2Action extends ActionSupport {
         return keywordName;
     }
 
+    @StrutsParameter
     public void setKeywordName(String keywordName) {
         this.keywordName = keywordName;
     }
@@ -142,14 +149,17 @@ public class LookupList2Action extends ActionSupport {
         return tableId;
     }
 
+    @StrutsParameter
     public void setTableId(String tableId) {
         this.tableId = tableId;
     }
 
+    @StrutsParameter(depth = 1)
     public LookupTableDefValue getTableDef() {
         return tableDef;
     }
 
+    @StrutsParameter
     public void setTableDef(LookupTableDefValue tableDef) {
         this.tableDef = tableDef;
     }
@@ -158,6 +168,7 @@ public class LookupList2Action extends ActionSupport {
         return grandParentCode;
     }
 
+    @StrutsParameter
     public void setGrandParentCode(String grandParentCode) {
         this.grandParentCode = grandParentCode;
     }
@@ -166,6 +177,7 @@ public class LookupList2Action extends ActionSupport {
         return parentCode;
     }
 
+    @StrutsParameter
     public void setParentCode(String parentCode) {
         this.parentCode = parentCode;
     }

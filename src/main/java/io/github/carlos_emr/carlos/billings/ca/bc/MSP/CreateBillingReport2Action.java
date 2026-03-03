@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class CreateBillingReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -349,6 +350,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return docFormat;
     }
 
+    @StrutsParameter
     public void setDocFormat(String docFormat) {
         this.docFormat = docFormat;
     }
@@ -357,6 +359,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return selAccount;
     }
 
+    @StrutsParameter
     public void setSelAccount(String selAccount) {
         this.selAccount = selAccount;
     }
@@ -365,6 +368,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return selPayee;
     }
 
+    @StrutsParameter
     public void setSelPayee(String selPayee) {
         this.selPayee = selPayee;
     }
@@ -373,6 +377,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return selProv;
     }
 
+    @StrutsParameter
     public void setSelProv(String selProv) {
         this.selProv = selProv;
     }
@@ -381,6 +386,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return showICBC;
     }
 
+    @StrutsParameter
     public void setShowICBC(String showICBC) {
         this.showICBC = showICBC;
     }
@@ -389,6 +395,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return showMSP;
     }
 
+    @StrutsParameter
     public void setShowMSP(String showMSP) {
         this.showMSP = showMSP;
     }
@@ -397,6 +404,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return showPRIV;
     }
 
+    @StrutsParameter
     public void setShowPRIV(String showPRIV) {
         this.showPRIV = showPRIV;
     }
@@ -405,6 +413,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return showWCB;
     }
 
+    @StrutsParameter
     public void setShowWCB(String showWCB) {
         this.showWCB = showWCB;
     }
@@ -413,6 +422,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return verCode;
     }
 
+    @StrutsParameter
     public void setVerCode(String verCode) {
         this.verCode = verCode;
     }
@@ -421,6 +431,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return xml_appointment_date;
     }
 
+    @StrutsParameter
     public void setXml_appointment_date(String xml_appointment_date) {
         this.xml_appointment_date = xml_appointment_date;
     }
@@ -429,6 +440,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return xml_vdate;
     }
 
+    @StrutsParameter
     public void setXml_vdate(String xml_vdate) {
         this.xml_vdate = xml_vdate;
     }
@@ -437,6 +449,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return repType;
     }
 
+    @StrutsParameter
     public void setRepType(String repType) {
         this.repType = repType;
     }

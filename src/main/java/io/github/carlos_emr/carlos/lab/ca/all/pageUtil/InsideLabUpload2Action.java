@@ -65,6 +65,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class InsideLabUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -162,10 +163,12 @@ public class InsideLabUpload2Action extends ActionSupport {
         return FileStatus.INVALID;
     }
 
+    @StrutsParameter(depth = 1)
     public List<File> getImportFiles() 
     { 
         return importFiles; 
     }
+    @StrutsParameter
     public void setImportFiles(List<File> importFiles) 
     { 
         this.importFiles = importFiles; 
@@ -175,6 +178,7 @@ public class InsideLabUpload2Action extends ActionSupport {
     { 
         return importFilesFileName; 
     }
+    @StrutsParameter
     public void setImportFilesFileName(List<String> importFilesFileName) 
     { 
         this.importFilesFileName = importFilesFileName; 
@@ -184,6 +188,7 @@ public class InsideLabUpload2Action extends ActionSupport {
     { 
         return importFilesContentType; 
     }
+    @StrutsParameter
     public void setImportFilesContentType(List<String> importFilesContentType) 
     { 
         this.importFilesContentType = importFilesContentType; 

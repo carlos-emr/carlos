@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.eform.actions;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -102,10 +103,12 @@ public class ManageEForm2Action extends ActionSupport {
 
     private File zippedForm; // 接收上传的文件
 
+    @StrutsParameter(depth = 1)
     public File getZippedForm() {
         return zippedForm;
     }
 
+    @StrutsParameter
     public void setZippedForm(File zippedForm) {
         this.zippedForm = zippedForm;
     }

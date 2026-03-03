@@ -62,6 +62,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RxManagePharmacy2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -373,6 +374,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param pharmacyAction New value of property pharmacyAction.
      */
+    @StrutsParameter
     public void setPharmacyAction(String pharmacyAction) {
         this.pharmacyAction = pharmacyAction;
     }
@@ -391,6 +393,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param ID New value of property ID.
      */
+    @StrutsParameter
     public void setID(String ID) {
         this.ID = ID;
     }
@@ -409,6 +412,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param name New value of property name.
      */
+    @StrutsParameter
     public void setName(String name) {
         this.name = name;
     }
@@ -427,6 +431,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param address New value of property address.
      */
+    @StrutsParameter
     public void setAddress(String address) {
         this.address = address;
     }
@@ -445,6 +450,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param city New value of property city.
      */
+    @StrutsParameter
     public void setCity(String city) {
         this.city = city;
     }
@@ -463,6 +469,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param province New value of property province.
      */
+    @StrutsParameter
     public void setProvince(String province) {
         this.province = province;
     }
@@ -481,6 +488,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param postalCode New value of property postalCode.
      */
+    @StrutsParameter
     public void setPostalCode(String postalCode) {
         this.postalCode = postalCode;
     }
@@ -499,6 +507,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param phone1 New value of property phone1.
      */
+    @StrutsParameter
     public void setPhone1(String phone1) {
         this.phone1 = phone1;
     }
@@ -517,6 +526,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param phone2 New value of property phone2.
      */
+    @StrutsParameter
     public void setPhone2(String phone2) {
         this.phone2 = phone2;
     }
@@ -535,6 +545,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param fax New value of property fax.
      */
+    @StrutsParameter
     public void setFax(String fax) {
         this.fax = fax;
     }
@@ -553,6 +564,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param email New value of property email.
      */
+    @StrutsParameter
     public void setEmail(String email) {
         this.email = email;
     }
@@ -572,6 +584,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param serviceLocationIdentifier New value
      */
+    @StrutsParameter
     public void setServiceLocationIdentifier(String serviceLocationIdentifier) {
         this.serviceLocationIdentifier = serviceLocationIdentifier;
     }
@@ -590,6 +603,7 @@ public final class RxManagePharmacy2Action extends ActionSupport {
      *
      * @param notes New value of property notes.
      */
+    @StrutsParameter
     public void setNotes(String notes) {
         this.notes = notes;
     }

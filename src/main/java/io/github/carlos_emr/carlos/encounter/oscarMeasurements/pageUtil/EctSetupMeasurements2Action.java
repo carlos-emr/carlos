@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class EctSetupMeasurements2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -106,6 +107,7 @@ public final class EctSetupMeasurements2Action extends ActionSupport {
 
     public final Map values = new HashMap();
 
+    @StrutsParameter
     public void setValue(String key, Object value) {
         values.put(key, value);
     }

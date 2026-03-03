@@ -51,6 +51,7 @@ import java.util.*;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ViewBillingPreferences2Action
         extends ActionSupport {
@@ -173,6 +174,7 @@ public class ViewBillingPreferences2Action
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
@@ -181,6 +183,7 @@ public class ViewBillingPreferences2Action
         return referral;
     }
 
+    @StrutsParameter
     public void setReferral(String referral) {
         this.referral = referral;
     }
@@ -189,6 +192,7 @@ public class ViewBillingPreferences2Action
         return payeeProviderNo;
     }
 
+    @StrutsParameter
     public void setPayeeProviderNo(String payeeProviderNo) {
         this.payeeProviderNo = payeeProviderNo;
     }
@@ -197,6 +201,7 @@ public class ViewBillingPreferences2Action
         return gstNo;
     }
 
+    @StrutsParameter
     public void setGstNo(String gstNo) {
         this.gstNo = gstNo;
     }
@@ -205,6 +210,7 @@ public class ViewBillingPreferences2Action
         return useClinicGstNo;
     }
 
+    @StrutsParameter
     public void setUseClinicGstNo(boolean useClinicGstNo) {
         this.useClinicGstNo = useClinicGstNo;
     }
@@ -213,6 +219,7 @@ public class ViewBillingPreferences2Action
         return autoPopulateRefer;
     }
 
+    @StrutsParameter
     public void setAutoPopulateRefer(boolean autoPopulateRefer) {
         this.autoPopulateRefer = autoPopulateRefer;
     }
@@ -221,6 +228,7 @@ public class ViewBillingPreferences2Action
         return invoicePayeeInfo;
     }
 
+    @StrutsParameter
     public void setInvoicePayeeInfo(String invoicePayeeInfo) {
         this.invoicePayeeInfo = invoicePayeeInfo;
     }
@@ -229,6 +237,7 @@ public class ViewBillingPreferences2Action
         return invoicePayeeDisplayClinicInfo;
     }
 
+    @StrutsParameter
     public void setInvoicePayeeDisplayClinicInfo(boolean invoicePayeeDisplayClinicInfo) {
         this.invoicePayeeDisplayClinicInfo = invoicePayeeDisplayClinicInfo;
     }
@@ -237,6 +246,7 @@ public class ViewBillingPreferences2Action
         return defaultBillingForm;
     }
 
+    @StrutsParameter
     public void setDefaultBillingForm(String defaultBillingForm) {
         this.defaultBillingForm = defaultBillingForm;
     }
@@ -245,6 +255,7 @@ public class ViewBillingPreferences2Action
         return formCode;
     }
 
+    @StrutsParameter
     public void setFormCode(String formCode) {
         this.formCode = formCode;
     }
@@ -253,6 +264,7 @@ public class ViewBillingPreferences2Action
         return description;
     }
 
+    @StrutsParameter
     public void setDescription(String description) {
         this.description = description;
     }
@@ -261,6 +273,7 @@ public class ViewBillingPreferences2Action
         return defaultBillingProvider;
     }
 
+    @StrutsParameter
     public void setDefaultBillingProvider(String defaultBillingProvider) {
         this.defaultBillingProvider = defaultBillingProvider;
     }
@@ -269,6 +282,7 @@ public class ViewBillingPreferences2Action
         return defaultServiceLocation;
     }
 
+    @StrutsParameter
     public void setDefaultServiceLocation(String defaultServiceLocation) {
         this.defaultServiceLocation = defaultServiceLocation;
     }

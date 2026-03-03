@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ReSubmit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -143,18 +144,22 @@ public class ReSubmit2Action extends ActionSupport {
     private Detail detail;
     private String serviceIdSent;
 
+    @StrutsParameter(depth = 1)
     public TypeListResult getTypeListResult() {
         return typeListResult;
     }
 
+    @StrutsParameter
     public void setTypeListResult(TypeListResult typeListResult) {
         this.typeListResult = typeListResult;
     }
 
+    @StrutsParameter(depth = 1)
     public Detail getDetail() {
         return detail;
     }
 
+    @StrutsParameter
     public void setDetail(Detail detail) {
         this.detail = detail;
     }
@@ -178,6 +183,7 @@ public class ReSubmit2Action extends ActionSupport {
         return resourceType;
     }
 
+    @StrutsParameter
     public void setResourceType(String resourceType) {
         this.resourceType = resourceType;
     }
@@ -186,6 +192,7 @@ public class ReSubmit2Action extends ActionSupport {
         return status;
     }
 
+    @StrutsParameter
     public void setStatus(String status) {
         this.status = status;
     }
@@ -194,6 +201,7 @@ public class ReSubmit2Action extends ActionSupport {
         return pageNo;
     }
 
+    @StrutsParameter
     public void setPageNo(Integer pageNo) {
         this.pageNo = pageNo;
     }
@@ -233,6 +241,7 @@ public class ReSubmit2Action extends ActionSupport {
         return serviceIdSent;
     }
 
+    @StrutsParameter
     public void setServiceIdSent(String serviceId) {
         this.serviceIdSent = serviceId;
     }

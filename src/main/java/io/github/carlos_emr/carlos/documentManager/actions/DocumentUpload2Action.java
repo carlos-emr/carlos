@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.log.LogConst;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class DocumentUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -396,6 +397,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return function;
     }
 
+    @StrutsParameter
     public void setFunction(String function) {
         this.function = function;
     }
@@ -404,6 +406,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return functionId;
     }
 
+    @StrutsParameter
     public void setFunctionId(String functionId) {
         this.functionId = functionId;
     }
@@ -412,6 +415,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return docType;
     }
 
+    @StrutsParameter
     public void setDocType(String docType) {
         this.docType = docType;
     }
@@ -420,6 +424,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return docDesc;
     }
 
+    @StrutsParameter
     public void setDocDesc(String docDesc) {
         this.docDesc = docDesc;
     }
@@ -429,6 +434,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return docCreator;
     }
 
+    @StrutsParameter
     public void setDocCreator(String docCreator) {
         this.docCreator = docCreator;
     }
@@ -437,6 +443,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return responsibleId;
     }
 
+    @StrutsParameter
     public void setResponsibleId(String responsibleId) {
         this.responsibleId = responsibleId;
     }
@@ -445,14 +452,17 @@ public class DocumentUpload2Action extends ActionSupport {
         return source;
     }
 
+    @StrutsParameter
     public void setSource(String source) {
         this.source = source;
     }
 
+    @StrutsParameter(depth = 1)
     public File getDocFile() {
         return docFile;
     }
 
+    @StrutsParameter
     public void setDocFile(File docFile) {
         this.docFile = docFile;
     }
@@ -461,6 +471,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return mode;
     }
 
+    @StrutsParameter
     public void setMode(String mode) {
         this.mode = mode;
     }
@@ -469,6 +480,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return docPublic;
     }
 
+    @StrutsParameter
     public void setDocPublic(String docPublic) {
         this.docPublic = docPublic;
     }
@@ -477,6 +489,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return observationDate;
     }
 
+    @StrutsParameter
     public void setObservationDate(String observationDate) {
         this.observationDate = observationDate;
     }
@@ -485,6 +498,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return reviewerId;
     }
 
+    @StrutsParameter
     public void setReviewerId(String reviewerId) {
         this.reviewerId = reviewerId;
     }
@@ -493,6 +507,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return reviewDateTime;
     }
 
+    @StrutsParameter
     public void setReviewDateTime(String reviewDateTime) {
         this.reviewDateTime = reviewDateTime;
     }
@@ -501,6 +516,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return reviewDoc;
     }
 
+    @StrutsParameter
     public void setReviewDoc(boolean reviewDoc) {
         this.reviewDoc = reviewDoc;
     }
@@ -509,14 +525,17 @@ public class DocumentUpload2Action extends ActionSupport {
         return html;
     }
 
+    @StrutsParameter
     public void setHtml(String html) {
         this.html = html;
     }
 
+    @StrutsParameter(depth = 1)
     public File getFiledata() {
         return filedata;
     }
 
+    @StrutsParameter
     public void setFiledata(File Filedata) {
         this.filedata = Filedata;
     }
@@ -525,6 +544,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return filedataFileName;
     }
 
+    @StrutsParameter
     public void setFiledataFileName(String filedataFileName) {
         this.filedataFileName = filedataFileName;
     }
@@ -533,6 +553,7 @@ public class DocumentUpload2Action extends ActionSupport {
         return filedataContentType;
     }
 
+    @StrutsParameter
     public void setFiledataContentType(String filedataContentType) {
         this.filedataContentType = filedataContentType;
     }

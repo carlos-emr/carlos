@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.entities.PaymentType;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ViewReceivePayment2Action
         extends ActionSupport {
@@ -76,39 +77,48 @@ public class ViewReceivePayment2Action
         return amountReceived;
     }
 
+    @StrutsParameter
     public void setAmountReceived(String amountReceived) {
         this.amountReceived = amountReceived;
     }
 
+    @StrutsParameter
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
 
+    @StrutsParameter
     public void setPayment(String payment) {
         this.payment = payment;
     }
 
+    @StrutsParameter
     public void setPaymentMethodList(List paymentMethodList) {
         this.paymentMethodList = paymentMethodList;
     }
 
+    @StrutsParameter
     public void setBillingmasterNo(String billingmasterNo) {
         this.billingmasterNo = billingmasterNo;
     }
 
+    @StrutsParameter
     public void setBillNo(String billNo) {
         this.billNo = billNo;
     }
 
+    @StrutsParameter
     public void setPaymentReceived(boolean paymentReceived) {
         this.paymentReceived = paymentReceived;
     }
 
+    @StrutsParameter
     public void setIsRefund(String isRefund) {
 
         this.isRefund = isRefund;
     }
 
+    @StrutsParameter
     public void setPayeeProviderNo(String payeeProviderNo) {
         this.payeeProviderNo = payeeProviderNo;
     }
@@ -121,6 +131,7 @@ public class ViewReceivePayment2Action
         return paymentMethod;
     }
 
+    @StrutsParameter(depth = 1)
     public List getPaymentMethodList() {
         return paymentMethodList;
     }

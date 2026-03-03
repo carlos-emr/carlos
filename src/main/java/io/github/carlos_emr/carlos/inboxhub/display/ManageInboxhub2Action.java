@@ -27,6 +27,7 @@ import com.opensymphony.xwork2.ActionSupport;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.inboxhub.inboxdata.LabDataController;
 import io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -291,6 +292,7 @@ public class ManageInboxhub2Action extends ActionSupport {
      *
      * @return InboxhubQuery the current query object containing filter and pagination settings
      */
+    @StrutsParameter(depth = 1)
     public InboxhubQuery getQuery() {
         return query;
     }
@@ -304,6 +306,7 @@ public class ManageInboxhub2Action extends ActionSupport {
      *
      * @param query InboxhubQuery the query object to set with filter and pagination settings
      */
+    @StrutsParameter
     public void setQuery(InboxhubQuery query) {
         this.query = query;
     }

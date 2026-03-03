@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RxUseFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -163,6 +164,7 @@ public final class RxUseFavorite2Action extends ActionSupport {
         return (this.favoriteId);
     }
 
+    @StrutsParameter
     public void setFavoriteId(String favoriteId) {
         this.favoriteId = favoriteId;
     }

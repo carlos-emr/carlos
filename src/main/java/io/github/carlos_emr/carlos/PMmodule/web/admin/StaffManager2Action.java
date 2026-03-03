@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts 2 action for managing staff (healthcare providers) in the Program Management module.
@@ -157,6 +158,7 @@ public class StaffManager2Action extends ActionSupport {
         return edit();
     }
 
+    @StrutsParameter
     public void setEditAttributes(HttpServletRequest request, Provider provider) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         request.setAttribute("id", provider.getProviderNo());
@@ -288,6 +290,7 @@ public class StaffManager2Action extends ActionSupport {
      *
      * @return ProgramProvider the program provider being edited
      */
+    @StrutsParameter(depth = 1)
     public ProgramProvider getProgram_provider() {
         return program_provider;
     }
@@ -299,6 +302,7 @@ public class StaffManager2Action extends ActionSupport {
      *
      * @param program_provider ProgramProvider the program provider to set
      */
+    @StrutsParameter
     public void setProgram_provider(ProgramProvider program_provider) {
         this.program_provider = program_provider;
     }
@@ -392,6 +396,7 @@ public class StaffManager2Action extends ActionSupport {
         return facilityId;
     }
 
+    @StrutsParameter
     public void setFacilityId(String facilityId) {
         this.facilityId = facilityId;
     }
@@ -400,14 +405,17 @@ public class StaffManager2Action extends ActionSupport {
         return programId;
     }
 
+    @StrutsParameter
     public void setProgramId(String programId) {
         this.programId = programId;
     }
 
+    @StrutsParameter(depth = 1)
     public Provider getProvider() {
         return provider;
     }
 
+    @StrutsParameter
     public void setProvider(Provider provider) {
         this.provider = provider;
     }

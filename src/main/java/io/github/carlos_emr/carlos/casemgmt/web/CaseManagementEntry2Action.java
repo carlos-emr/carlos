@@ -42,6 +42,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.SessionAware;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -3407,6 +3408,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     //TODO: update access model
+    @StrutsParameter
     public void setCPPMedicalHistory(CaseManagementCPP cpp, String providerNo, List accessRight) {
 
         if (caseManagementMgr.greaterEqualLevel(3, providerNo)) {
@@ -3441,6 +3443,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private Map<String, Object> mySessionMap;
 
     @Override
+    @StrutsParameter
     public void setSession(Map<String, Object> session) {
         this.mySessionMap = session;
     }
@@ -3505,6 +3508,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.observation_date;
     }
 
+    @StrutsParameter
     public void setObservation_date(String date) {
         this.observation_date = date;
     }
@@ -3513,6 +3517,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return caseNote_history;
     }
 
+    @StrutsParameter
     public void setCaseNote_history(String caseNote_history) {
         this.caseNote_history = caseNote_history;
     }
@@ -3521,6 +3526,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return deleteId;
     }
 
+    @StrutsParameter
     public void setDeleteId(String deleteId) {
         this.deleteId = deleteId;
     }
@@ -3529,14 +3535,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return includeIssue;
     }
 
+    @StrutsParameter
     public void setIncludeIssue(String includeIssue) {
         this.includeIssue = includeIssue;
     }
 
+    @StrutsParameter(depth = 1)
     public List<CheckBoxBean> getIssueCheckList() {
         return issueCheckList;
     }
 
+    @StrutsParameter
     public void setIssueCheckList(List<CheckBoxBean> issueCheckList) {
         // Only set if it's a valid list with persisted objects (not from Struts parameter binding)
         // During parameter binding, Struts creates NEW unpersisted objects which causes errors
@@ -3559,6 +3568,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return lineId;
     }
 
+    @StrutsParameter
     public void setLineId(String lineId) {
         this.lineId = lineId;
     }
@@ -3567,22 +3577,27 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return method;
     }
 
+    @StrutsParameter
     public void setMethod(String method) {
         this.method = method;
     }
 
+    @StrutsParameter(depth = 1)
     public CheckIssueBoxBean[] getNewIssueCheckList() {
         return newIssueCheckList;
     }
 
+    @StrutsParameter
     public void setNewIssueCheckList(CheckIssueBoxBean[] newIssueCheckList) {
         this.newIssueCheckList = newIssueCheckList;
     }
 
+    @StrutsParameter(depth = 1)
     public List getNewIssueList() {
         return newIssueList;
     }
 
+    @StrutsParameter
     public void setNewIssueList(List newIssueList) {
         this.newIssueList = newIssueList;
     }
@@ -3591,6 +3606,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return noteId;
     }
 
+    @StrutsParameter
     public void setNoteId(String noteId) {
         this.noteId = noteId;
     }
@@ -3599,6 +3615,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return searString;
     }
 
+    @StrutsParameter
     public void setSearString(String searString) {
         this.searString = searString;
     }
@@ -3607,6 +3624,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return showList;
     }
 
+    @StrutsParameter
     public void setShowList(String showList) {
         this.showList = showList;
     }
@@ -3615,14 +3633,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return sign;
     }
 
+    @StrutsParameter
     public void setSign(String sign) {
         this.sign = sign;
     }
 
+    @StrutsParameter(depth = 1)
     public CaseManagementNote getCaseNote() {
         return caseNote;
     }
 
+    @StrutsParameter
     public void setCaseNote(CaseManagementNote caseNote) {
         this.caseNote = caseNote;
     }
@@ -3631,6 +3652,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return demoNo;
     }
 
+    @StrutsParameter
     public void setDemoNo(String demoNo) {
         this.demoNo = demoNo;
     }
@@ -3639,6 +3661,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return demographicNo;
     }
 
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -3647,6 +3670,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return demoName;
     }
 
+    @StrutsParameter
     public void setDemoName(String demoName) {
         this.demoName = demoName;
     }
@@ -3655,6 +3679,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
@@ -3663,15 +3688,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return programNo;
     }
 
+    @StrutsParameter
     public void setProgramNo(String programNo) {
         this.programNo = programNo;
     }
 
 
+    @StrutsParameter(depth = 1)
     public CaseManagementCPP getCpp() {
         return cpp;
     }
 
+    @StrutsParameter
     public void setCpp(CaseManagementCPP cpp) {
         this.cpp = cpp;
     }
@@ -3681,6 +3709,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return caseNote_note;
     }
 
+    @StrutsParameter
     public void setCaseNote_note(String caseNote_note) {
 
         this.caseNote.setNote(caseNote_note);
@@ -3691,6 +3720,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return chain;
     }
 
+    @StrutsParameter
     public void setChain(String chain) {
         this.chain = chain;
     }
@@ -3699,6 +3729,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return appointmentNo;
     }
 
+    @StrutsParameter
     public void setAppointmentNo(String appointmentNo) {
         this.appointmentNo = appointmentNo;
     }
@@ -3707,6 +3738,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.appointmentDate;
     }
 
+    @StrutsParameter
     public void setAppointmentDate(String appointmentDate) {
         this.appointmentDate = appointmentDate;
     }
@@ -3715,6 +3747,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.startTime;
     }
 
+    @StrutsParameter
     public void setStart_time(String startTime) {
         this.startTime = startTime;
     }
@@ -3723,6 +3756,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.billRegion;
     }
 
+    @StrutsParameter
     public void setBillRegion(String billRegion) {
         this.billRegion = billRegion;
     }
@@ -3731,6 +3765,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.apptProvider;
     }
 
+    @StrutsParameter
     public void setApptProvider(String apptProvider) {
         this.apptProvider = apptProvider;
     }
@@ -3739,6 +3774,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.providerview;
     }
 
+    @StrutsParameter
     public void setProviderview(String providerview) {
         this.providerview = providerview;
     }
@@ -3747,6 +3783,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return groupNote;
     }
 
+    @StrutsParameter
     public void setGroupNote(boolean groupNote) {
         this.groupNote = groupNote;
     }
@@ -3755,6 +3792,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return groupNoteClientIds;
     }
 
+    @StrutsParameter
     public void setGroupNoteClientIds(String[] groupNoteClientIds) {
         this.groupNoteClientIds = groupNoteClientIds;
     }
@@ -3763,6 +3801,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return startTime;
     }
 
+    @StrutsParameter
     public void setStartTime(String startTime) {
         this.startTime = startTime;
     }
@@ -3771,6 +3810,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return groupNoteTotalAnonymous;
     }
 
+    @StrutsParameter
     public void setGroupNoteTotalAnonymous(int groupNoteTotalAnonymous) {
         this.groupNoteTotalAnonymous = groupNoteTotalAnonymous;
     }
@@ -3783,6 +3823,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return hourOfEncounterTime;
     }
 
+    @StrutsParameter
     public void setHourOfEncounterTime(Integer hourOfEncounterTime) {
         this.hourOfEncounterTime = hourOfEncounterTime;
     }
@@ -3791,6 +3832,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return minuteOfEncounterTime;
     }
 
+    @StrutsParameter
     public void setMinuteOfEncounterTime(Integer minuteOfEncounterTime) {
         this.minuteOfEncounterTime = minuteOfEncounterTime;
     }
@@ -3799,6 +3841,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return hourOfEncTransportationTime;
     }
 
+    @StrutsParameter
     public void setHourOfEncTransportationTime(Integer hourOfEncTransportationTime) {
         this.hourOfEncTransportationTime = hourOfEncTransportationTime;
     }
@@ -3807,6 +3850,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return minuteOfEncTransportationTime;
     }
 
+    @StrutsParameter
     public void setMinuteOfEncTransportationTime(Integer minuteOfEncTransportationTime) {
         this.minuteOfEncTransportationTime = minuteOfEncTransportationTime;
     }
@@ -3815,6 +3859,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return reloadUrl;
     }
 
+    @StrutsParameter
     public void setReloadUrl(String reloadUrl) {
         this.reloadUrl = reloadUrl;
     }

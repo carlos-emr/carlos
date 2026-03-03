@@ -32,6 +32,7 @@ import ca.ontario.health.edt.*;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
@@ -139,14 +140,17 @@ public class Update2Action extends ActionSupport {
         return resourceId;
     }
 
+    @StrutsParameter
     public void setResourceId(String resourceId) {
         this.resourceId = resourceId;
     }
 
+    @StrutsParameter(depth = 1)
     public File getContent() {
         return content;
     }
 
+    @StrutsParameter
     public void setContent(File content) {
         this.content = content;
     }

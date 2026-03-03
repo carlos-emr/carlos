@@ -61,6 +61,7 @@ import io.github.carlos_emr.carlos.services.LookupManager;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class FacilityManager2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -274,18 +275,22 @@ public class FacilityManager2Action extends ActionSupport {
     private Facility facility;
     private List<EForm> registrationIntakeForms;
 
+    @StrutsParameter(depth = 1)
     public Facility getFacility() {
         return facility;
     }
 
+    @StrutsParameter
     public void setFacility(Facility facility) {
         this.facility = facility;
     }
 
+    @StrutsParameter(depth = 1)
     public List<EForm> getRegistrationIntakeForms() {
         return registrationIntakeForms;
     }
 
+    @StrutsParameter
     public void setRegistrationIntakeForms(List<EForm> registrationIntakeForms) {
         this.registrationIntakeForms = registrationIntakeForms;
     }

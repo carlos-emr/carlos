@@ -39,6 +39,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public class EctImmImmunizationSetDisplay2Action extends ActionSupport {
@@ -59,6 +60,7 @@ public class EctImmImmunizationSetDisplay2Action extends ActionSupport {
         return setId;
     }
 
+    @StrutsParameter
     public void setSetId(String str) {
         MiscUtils.getLogger().debug("set setId".concat(String.valueOf(String.valueOf(setId))));
         setId = str;

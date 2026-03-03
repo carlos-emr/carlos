@@ -58,6 +58,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class DSGuideline2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -148,14 +149,17 @@ public class DSGuideline2Action extends ActionSupport {
             this.actualValues = actualValues;
         }
 
+        @StrutsParameter
         public void setCondition(DSCondition condition) {
             this.condition = condition;
         }
 
+        @StrutsParameter(depth = 1)
         public DSCondition getCondition() {
             return this.condition;
         }
 
+        @StrutsParameter
         public void setResult(Boolean result) {
             this.result = result;
         }
@@ -164,6 +168,7 @@ public class DSGuideline2Action extends ActionSupport {
             return this.result;
         }
 
+        @StrutsParameter
         public void setActualValues(String actualValues) {
             this.actualValues = actualValues;
         }

@@ -45,6 +45,7 @@ import java.util.List;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class Billing2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -129,10 +130,12 @@ public final class Billing2Action extends ActionSupport {
 
     private BillingCreateBilling2Form form;
 
+    @StrutsParameter(depth = 1)
     public BillingCreateBilling2Form getForm() {
         return form;
     }
 
+    @StrutsParameter
     public void setForm(BillingCreateBilling2Form form) {
         this.form = form;
     }

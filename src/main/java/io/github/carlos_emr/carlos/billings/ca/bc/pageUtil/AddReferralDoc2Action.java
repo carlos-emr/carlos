@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class AddReferralDoc2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -130,6 +131,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param referral_no New value of property referral_no.
      */
+    @StrutsParameter
     public void setReferral_no(String referral_no) {
         this.referral_no = referral_no;
     }
@@ -148,6 +150,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param last_name New value of property last_name.
      */
+    @StrutsParameter
     public void setLast_name(String last_name) {
         this.last_name = last_name;
     }
@@ -166,6 +169,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param first_name New value of property first_name.
      */
+    @StrutsParameter
     public void setFirst_name(String first_name) {
         this.first_name = first_name;
     }
@@ -184,6 +188,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param specialty New value of property specialty.
      */
+    @StrutsParameter
     public void setSpecialty(String specialty) {
         this.specialty = specialty;
     }
@@ -202,6 +207,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param address1 New value of property address1.
      */
+    @StrutsParameter
     public void setAddress1(String address1) {
         this.address1 = address1;
     }
@@ -220,6 +226,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param address2 New value of property address2.
      */
+    @StrutsParameter
     public void setAddress2(String address2) {
         this.address2 = address2;
     }
@@ -238,6 +245,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param city New value of property city.
      */
+    @StrutsParameter
     public void setCity(String city) {
         this.city = city;
     }
@@ -256,6 +264,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param province New value of property province.
      */
+    @StrutsParameter
     public void setProvince(String province) {
         this.province = province;
     }
@@ -274,6 +283,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param postal New value of property postal.
      */
+    @StrutsParameter
     public void setPostal(String postal) {
         this.postal = postal;
     }
@@ -292,6 +302,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param phone New value of property phone.
      */
+    @StrutsParameter
     public void setPhone(String phone) {
         this.phone = phone;
     }
@@ -310,6 +321,7 @@ public class AddReferralDoc2Action extends ActionSupport {
      *
      * @param fax New value of property fax.
      */
+    @StrutsParameter
     public void setFax(String fax) {
         this.fax = fax;
     }

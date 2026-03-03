@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctConDisplayService2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -87,6 +88,7 @@ public class EctConDisplayService2Action extends ActionSupport {
         return serviceId;
     }
 
+    @StrutsParameter
     public void setServiceId(String str) {
         serviceId = str;
     }

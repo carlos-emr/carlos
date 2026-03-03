@@ -52,6 +52,7 @@ import java.util.Set;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctConsultationFormFax2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -254,18 +255,21 @@ public class EctConsultationFormFax2Action extends ActionSupport {
     public String getMethod() {
         return method;
     }
+    @StrutsParameter
     public void setMethod(String method) {
         this.method = method;
     }
     public String getRecipient() {
         return recipient;
     }
+    @StrutsParameter
     public void setRecipient(String recipient) {
         this.recipient = recipient;
     }
     public String getFrom() {
         return from;
     }
+    @StrutsParameter
     public void setFrom(String from) {
         this.from = from;
     }
@@ -275,18 +279,21 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         return recipientFaxNumber;
     }
+    @StrutsParameter
     public void setRecipientFaxNumber(String recipientFaxNumber) {
         this.recipientFaxNumber = recipientFaxNumber;
     }
     public String getSendersPhone() {
         return sendersPhone;
     }
+    @StrutsParameter
     public void setSendersPhone(String sendersPhone) {
         this.sendersPhone = sendersPhone;
     }
     public String getSendersFax() {
         return sendersFax;
     }
+    @StrutsParameter
     public void setSendersFax(String sendersFax) {
         this.sendersFax = sendersFax;
     }
@@ -295,6 +302,7 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         return senderFaxNumber;
     }
 
+    @StrutsParameter
     public void setSenderFaxNumber(String senderFaxNumber) {
         this.senderFaxNumber = senderFaxNumber;
     }
@@ -302,24 +310,28 @@ public class EctConsultationFormFax2Action extends ActionSupport {
     public String getComments() {
         return comments;
     }
+    @StrutsParameter
     public void setComments(String comments) {
         this.comments = comments;
     }
     public String getRequestId() {
         return requestId;
     }
+    @StrutsParameter
     public void setRequestId(String requestId) {
         this.requestId = requestId;
     }
     public String getTransType() {
         return transType;
     }
+    @StrutsParameter
     public void setTransType(String transType) {
         this.transType = transType;
     }
     public String getDemographicNo() {
         return demographicNo;
     }
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -329,12 +341,14 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         }
         return faxRecipients;
     }
+    @StrutsParameter
     public void setFaxRecipients(String[] faxRecipients) {
         this.faxRecipients = faxRecipients;
     }
     public boolean isCoverpage() {
         return coverpage;
     }
+    @StrutsParameter
     public void setCoverpage(boolean coverpage) {
         this.coverpage = coverpage;
     }
@@ -364,10 +378,12 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         return copiedTo;
     }
 
+    @StrutsParameter(depth = 1)
     public HttpServletRequest getRequest() {
         return request;
     }
 
+    @StrutsParameter
     public void setRequest(HttpServletRequest request) {
         this.request = request;
     }

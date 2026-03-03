@@ -69,6 +69,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class FrmForm2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -420,6 +421,7 @@ public class FrmForm2Action extends ActionSupport {
 
     private Map values = new HashMap();
 
+    @StrutsParameter
     public void setValue(String key, Object value) {
         values.put(key, value);
     }

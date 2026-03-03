@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.messenger.util.MsgDemoMap;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for displaying and managing messages associated with a specific patient demographic.
@@ -205,6 +206,7 @@ public class MsgDisplayDemographicMessages2Action extends ActionSupport {
      *
      * @param mess String[] array of message IDs selected for unlinking
      */
+    @StrutsParameter
     public void setMessageNo(String[] mess) {
         this.messageNo = mess;
     }

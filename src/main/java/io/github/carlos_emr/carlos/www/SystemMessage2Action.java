@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class SystemMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -115,10 +116,12 @@ public class SystemMessage2Action extends ActionSupport {
 
     private SystemMessage system_message;
 
+    @StrutsParameter(depth = 1)
     public SystemMessage getSystem_message() {
         return system_message;
     }
 
+    @StrutsParameter
     public void setSystem_message(SystemMessage system_message) {
         this.system_message = system_message;
     }

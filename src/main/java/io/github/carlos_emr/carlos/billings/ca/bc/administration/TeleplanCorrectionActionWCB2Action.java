@@ -70,6 +70,7 @@ import io.github.carlos_emr.carlos.util.StringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -236,6 +237,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return id;
     }
 
+    @StrutsParameter
     public void setId(String id) {
         this.id = id;
     }
@@ -244,6 +246,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return demographicNumber;
     }
 
+    @StrutsParameter
     public void setDemographicNumber(String demographicNumber) {
         this.demographicNumber = demographicNumber;
     }
@@ -252,6 +255,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return lastName;
     }
 
+    @StrutsParameter
     public void setLastName(String lastName) {
         this.lastName = lastName;
     }
@@ -260,6 +264,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return firstName;
     }
 
+    @StrutsParameter
     public void setFirstName(String firstName) {
         this.firstName = firstName;
     }
@@ -268,6 +273,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return yearOfBirth;
     }
 
+    @StrutsParameter
     public void setYearOfBirth(String yearOfBirth) {
         this.yearOfBirth = yearOfBirth;
     }
@@ -276,6 +282,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return monthOfBirth;
     }
 
+    @StrutsParameter
     public void setMonthOfBirth(String monthOfBirth) {
         this.monthOfBirth = monthOfBirth;
     }
@@ -284,6 +291,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return dayOfBirth;
     }
 
+    @StrutsParameter
     public void setDayOfBirth(String dayOfBirth) {
         this.dayOfBirth = dayOfBirth;
     }
@@ -292,6 +300,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return address;
     }
 
+    @StrutsParameter
     public void setAddress(String address) {
         this.address = address;
     }
@@ -300,6 +309,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return city;
     }
 
+    @StrutsParameter
     public void setCity(String city) {
         this.city = city;
     }
@@ -308,6 +318,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return province;
     }
 
+    @StrutsParameter
     public void setProvince(String province) {
         this.province = province;
     }
@@ -316,6 +327,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return postal;
     }
 
+    @StrutsParameter
     public void setPostal(String postal) {
         this.postal = postal;
     }
@@ -324,6 +336,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return hin;
     }
 
+    @StrutsParameter
     public void setHin(String hin) {
         this.hin = hin;
     }
@@ -332,6 +345,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return practitioner;
     }
 
+    @StrutsParameter
     public void setPractitioner(String practitioner) {
         this.practitioner = practitioner;
     }
@@ -340,6 +354,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return billingUnit;
     }
 
+    @StrutsParameter
     public void setBillingUnit(String billingUnit) {
         this.billingUnit = billingUnit;
     }
@@ -348,6 +363,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return billingCode;
     }
 
+    @StrutsParameter
     public void setBillingCode(String billingCode) {
         this.billingCode = billingCode;
     }
@@ -356,6 +372,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return billingAmount;
     }
 
+    @StrutsParameter
     public void setBillingAmount(String billingAmount) {
         this.billingAmount = billingAmount;
     }
@@ -364,6 +381,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return serviceLocation;
     }
 
+    @StrutsParameter
     public void setServiceLocation(String serviceLocation) {
         this.serviceLocation = serviceLocation;
     }
@@ -372,6 +390,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return date;
     }
 
+    @StrutsParameter
     public void setDate(String date) {
         this.date = date;
     }
@@ -380,6 +399,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return billingNo;
     }
 
+    @StrutsParameter
     public void setBillingNo(String billingNo) {
         this.billingNo = billingNo;
     }
@@ -388,6 +408,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return dataSeqNo;
     }
 
+    @StrutsParameter
     public void setDataSeqNo(String dataSeqNo) {
         this.dataSeqNo = dataSeqNo;
     }
@@ -396,6 +417,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_reportype;
     }
 
+    @StrutsParameter
     public void setW_reportype(String w_reportype) {
         this.w_reportype = w_reportype;
     }
@@ -404,6 +426,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_mname;
     }
 
+    @StrutsParameter
     public void setW_mname(String w_mname) {
         this.w_mname = w_mname;
     }
@@ -412,6 +435,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_gender;
     }
 
+    @StrutsParameter
     public void setW_gender(String w_gender) {
         this.w_gender = w_gender;
     }
@@ -420,6 +444,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_doi;
     }
 
+    @StrutsParameter
     public void setW_doi(String w_doi) {
         this.w_doi = w_doi;
     }
@@ -428,6 +453,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_area;
     }
 
+    @StrutsParameter
     public void setW_area(String w_area) {
         this.w_area = w_area;
     }
@@ -436,6 +462,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_phone;
     }
 
+    @StrutsParameter
     public void setW_phone(String w_phone) {
         this.w_phone = w_phone;
     }
@@ -444,6 +471,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_empname;
     }
 
+    @StrutsParameter
     public void setW_empname(String w_empname) {
         this.w_empname = w_empname;
     }
@@ -452,6 +480,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_emparea;
     }
 
+    @StrutsParameter
     public void setW_emparea(String w_emparea) {
         this.w_emparea = w_emparea;
     }
@@ -460,6 +489,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_empphone;
     }
 
+    @StrutsParameter
     public void setW_empphone(String w_empphone) {
         this.w_empphone = w_empphone;
     }
@@ -468,6 +498,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_wcbno;
     }
 
+    @StrutsParameter
     public void setW_wcbno(String w_wcbno) {
         this.w_wcbno = w_wcbno;
     }
@@ -476,6 +507,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_opaddress;
     }
 
+    @StrutsParameter
     public void setW_opaddress(String w_opaddress) {
         this.w_opaddress = w_opaddress;
     }
@@ -484,6 +516,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_opcity;
     }
 
+    @StrutsParameter
     public void setW_opcity(String w_opcity) {
         this.w_opcity = w_opcity;
     }
@@ -492,6 +525,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_rphysician;
     }
 
+    @StrutsParameter
     public void setW_rphysician(String w_rphysician) {
         this.w_rphysician = w_rphysician;
     }
@@ -500,6 +534,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_duration;
     }
 
+    @StrutsParameter
     public void setW_duration(String w_duration) {
         this.w_duration = w_duration;
     }
@@ -508,6 +543,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_ftreatment;
     }
 
+    @StrutsParameter
     public void setW_ftreatment(String w_ftreatment) {
         this.w_ftreatment = w_ftreatment;
     }
@@ -516,6 +552,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_problem;
     }
 
+    @StrutsParameter
     public void setW_problem(String w_problem) {
         this.w_problem = w_problem;
     }
@@ -524,6 +561,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_servicedate;
     }
 
+    @StrutsParameter
     public void setW_servicedate(String w_servicedate) {
         this.w_servicedate = w_servicedate;
     }
@@ -532,6 +570,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_diagnosis;
     }
 
+    @StrutsParameter
     public void setW_diagnosis(String w_diagnosis) {
         this.w_diagnosis = w_diagnosis;
     }
@@ -540,6 +579,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_icd9;
     }
 
+    @StrutsParameter
     public void setW_icd9(String w_icd9) {
         this.w_icd9 = w_icd9;
     }
@@ -548,6 +588,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_bp;
     }
 
+    @StrutsParameter
     public void setW_bp(String w_bp) {
         this.w_bp = w_bp;
     }
@@ -556,6 +597,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_side;
     }
 
+    @StrutsParameter
     public void setW_side(String w_side) {
         this.w_side = w_side;
     }
@@ -564,6 +606,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_noi;
     }
 
+    @StrutsParameter
     public void setW_noi(String w_noi) {
         this.w_noi = w_noi;
     }
@@ -572,6 +615,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_work;
     }
 
+    @StrutsParameter
     public void setW_work(String w_work) {
         this.w_work = w_work;
     }
@@ -580,6 +624,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_workdate;
     }
 
+    @StrutsParameter
     public void setW_workdate(String w_workdate) {
         this.w_workdate = w_workdate;
     }
@@ -588,6 +633,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_clinicinfo;
     }
 
+    @StrutsParameter
     public void setW_clinicinfo(String w_clinicinfo) {
         this.w_clinicinfo = w_clinicinfo;
     }
@@ -596,6 +642,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_capability;
     }
 
+    @StrutsParameter
     public void setW_capability(String w_capability) {
         this.w_capability = w_capability;
     }
@@ -604,6 +651,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_capreason;
     }
 
+    @StrutsParameter
     public void setW_capreason(String w_capreason) {
         this.w_capreason = w_capreason;
     }
@@ -612,6 +660,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_estimate;
     }
 
+    @StrutsParameter
     public void setW_estimate(String w_estimate) {
         this.w_estimate = w_estimate;
     }
@@ -620,6 +669,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_rehab;
     }
 
+    @StrutsParameter
     public void setW_rehab(String w_rehab) {
         this.w_rehab = w_rehab;
     }
@@ -628,6 +678,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_rehabtype;
     }
 
+    @StrutsParameter
     public void setW_rehabtype(String w_rehabtype) {
         this.w_rehabtype = w_rehabtype;
     }
@@ -636,6 +687,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_estimatedate;
     }
 
+    @StrutsParameter
     public void setW_estimatedate(String w_estimatedate) {
         this.w_estimatedate = w_estimatedate;
     }
@@ -644,6 +696,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_tofollow;
     }
 
+    @StrutsParameter
     public void setW_tofollow(String w_tofollow) {
         this.w_tofollow = w_tofollow;
     }
@@ -652,6 +705,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_wcbadvisor;
     }
 
+    @StrutsParameter
     public void setW_wcbadvisor(String w_wcbadvisor) {
         this.w_wcbadvisor = w_wcbadvisor;
     }
@@ -660,6 +714,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_feeitem;
     }
 
+    @StrutsParameter
     public void setW_feeitem(String w_feeitem) {
         this.w_feeitem = w_feeitem;
     }
@@ -668,6 +723,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_extrafeeitem;
     }
 
+    @StrutsParameter
     public void setW_extrafeeitem(String w_extrafeeitem) {
         this.w_extrafeeitem = w_extrafeeitem;
     }
@@ -676,6 +732,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return status;
     }
 
+    @StrutsParameter
     public void setStatus(String status) {
         this.status = status;
     }
@@ -684,6 +741,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return formNeeded;
     }
 
+    @StrutsParameter
     public void setFormNeeded(String formNeeded) {
         this.formNeeded = formNeeded;
     }
@@ -692,6 +750,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
@@ -700,6 +759,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_payeeno;
     }
 
+    @StrutsParameter
     public void setW_payeeno(String w_payeeno) {
         this.w_payeeno = w_payeeno;
     }
@@ -708,6 +768,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return w_pracno;
     }
 
+    @StrutsParameter
     public void setW_pracno(String w_pracno) {
         this.w_pracno = w_pracno;
     }
@@ -716,6 +777,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return xml_status;
     }
 
+    @StrutsParameter
     public void setXml_status(String xml_status) {
         this.xml_status = xml_status;
     }
@@ -724,6 +786,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return adjType;
     }
 
+    @StrutsParameter
     public void setAdjType(String adjType) {
         this.adjType = adjType;
     }
@@ -732,6 +795,7 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
         return adjAmount;
     }
 
+    @StrutsParameter
     public void setAdjAmount(String adjAmount) {
         this.adjAmount = adjAmount;
     }

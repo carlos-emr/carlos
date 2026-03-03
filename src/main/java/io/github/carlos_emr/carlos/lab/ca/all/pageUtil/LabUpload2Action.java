@@ -44,6 +44,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OscarKeyDao;
 import io.github.carlos_emr.carlos.commn.dao.PublicKeyDao;
@@ -311,10 +312,12 @@ public class LabUpload2Action extends ActionSupport {
 
     private File importFile;
 
+    @StrutsParameter(depth = 1)
     public File getImportFile() {
         return importFile;
     }
 
+    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }

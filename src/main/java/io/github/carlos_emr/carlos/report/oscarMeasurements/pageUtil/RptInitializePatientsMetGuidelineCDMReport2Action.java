@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -353,6 +354,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
 
     private final Map values = new HashMap();
 
+    @StrutsParameter
     public void setValue(String key, Object value) {
         values.put(key, value);
     }
@@ -367,6 +369,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return patientSeenCheckbox;
     }
 
+    @StrutsParameter
     public void setPatientSeenCheckbox(String[] patientSeenCheckbox) {
         this.patientSeenCheckbox = patientSeenCheckbox;
     }
@@ -377,6 +380,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return startDateA;
     }
 
+    @StrutsParameter
     public void setStartDateA(String startDateA) {
         this.startDateA = startDateA;
     }
@@ -387,6 +391,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return endDateA;
     }
 
+    @StrutsParameter
     public void setEndDateA(String endDateA) {
         this.endDateA = endDateA;
     }
@@ -397,6 +402,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return guidelineCheckbox;
     }
 
+    @StrutsParameter
     public void setGuidelineCheckbox(String[] guidelineCheckbox) {
         this.guidelineCheckbox = guidelineCheckbox;
     }
@@ -407,6 +413,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return startDateB;
     }
 
+    @StrutsParameter
     public void setStartDateB(String[] startDateB) {
         this.startDateB = startDateB;
     }
@@ -417,6 +424,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return endDateB;
     }
 
+    @StrutsParameter
     public void setEndDateB(String[] endDateB) {
         this.endDateB = endDateB;
     }
@@ -427,6 +435,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return idB;
     }
 
+    @StrutsParameter
     public void setIdB(String[] idB) {
         this.idB = idB;
     }
@@ -437,6 +446,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return guildlineB;
     }
 
+    @StrutsParameter
     public void setGuidelineB(String[] guildlineB) {
         this.guildlineB = guildlineB;
     }
@@ -447,6 +457,7 @@ public class RptInitializePatientsMetGuidelineCDMReport2Action extends ActionSup
         return aboveBelow;
     }
 
+    @StrutsParameter
     public void setAboveBelow(String aboveBelow) {
         this.aboveBelow = aboveBelow;
     }

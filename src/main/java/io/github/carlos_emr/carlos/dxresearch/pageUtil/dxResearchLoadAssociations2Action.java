@@ -61,6 +61,7 @@ import org.apache.commons.csv.CSVRecord;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class dxResearchLoadAssociations2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -295,10 +296,12 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     private File file; // Uploaded file
     private boolean replace = true; // Flag for replacement
 
+    @StrutsParameter(depth = 1)
     public File getFile() {
         return file;
     }
 
+    @StrutsParameter
     public void setFile(File file) {
         this.file = file;
     }
@@ -307,6 +310,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return replace;
     }
 
+    @StrutsParameter
     public void setReplace(boolean replace) {
         this.replace = replace;
     }

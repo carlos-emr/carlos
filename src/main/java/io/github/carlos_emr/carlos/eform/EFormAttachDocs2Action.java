@@ -45,6 +45,7 @@ import io.github.carlos_emr.OscarProperties;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EFormAttachDocs2Action
         extends ActionSupport {
@@ -125,6 +126,7 @@ public class EFormAttachDocs2Action
         return requestId;
     }
 
+    @StrutsParameter
     public void setRequestId(String requestId) {
         this.requestId = requestId;
     }
@@ -133,6 +135,7 @@ public class EFormAttachDocs2Action
         return demoNo;
     }
 
+    @StrutsParameter
     public void setDemoNo(String demoNo) {
         this.demoNo = demoNo;
     }
@@ -141,6 +144,7 @@ public class EFormAttachDocs2Action
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
@@ -149,6 +153,7 @@ public class EFormAttachDocs2Action
         return attachedDocs;
     }
 
+    @StrutsParameter
     public void setAttachedDocs(String[] attachedDocs) {
         this.attachedDocs = attachedDocs;
     }

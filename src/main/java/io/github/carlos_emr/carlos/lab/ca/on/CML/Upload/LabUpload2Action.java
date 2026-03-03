@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.lab.ca.on.CML.Upload;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -224,10 +225,12 @@ public class LabUpload2Action extends ActionSupport {
 
     private File importFile;
 
+    @StrutsParameter(depth = 1)
     public File getImportFile() {
         return importFile;
     }
 
+    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }

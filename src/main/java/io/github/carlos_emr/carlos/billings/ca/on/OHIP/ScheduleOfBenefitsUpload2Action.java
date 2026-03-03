@@ -50,6 +50,7 @@ import io.github.carlos_emr.OscarProperties;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -167,10 +168,12 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
     private BigDecimal updateAssistantFeesValue;
     private BigDecimal updateAnaesthetistFeesValue;
 
+    @StrutsParameter(depth = 1)
     public File getImportFile() {
         return importFile;
     }
 
+    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }
@@ -179,6 +182,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
         return importFileFileName;
     }
 
+    @StrutsParameter
     public void setImportFileFileName(String importFileFileName) {
         this.importFileFileName = importFileFileName;
     }
@@ -187,6 +191,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
         return updateAssistantFees;
     }
 
+    @StrutsParameter
     public void setUpdateAssistantFees(boolean updateAssistantFees) {
         this.updateAssistantFees = updateAssistantFees;
     }
@@ -195,6 +200,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
         return updateAnaesthetistFees;
     }
 
+    @StrutsParameter
     public void setUpdateAnaesthetistFees(boolean updateAnaesthetistFees) {
         this.updateAnaesthetistFees = updateAnaesthetistFees;
     }
@@ -203,6 +209,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
         return updateAssistantFeesValue;
     }
 
+    @StrutsParameter
     public void setUpdateAssistantFeesValue(BigDecimal updateAssistantFeesValue) {
         this.updateAssistantFeesValue = updateAssistantFeesValue;
     }
@@ -211,6 +218,7 @@ public class ScheduleOfBenefitsUpload2Action extends ActionSupport {
         return updateAnaesthetistFeesValue;
     }
 
+    @StrutsParameter
     public void setUpdateAnaesthetistFeesValue(BigDecimal updateAnaesthetistFeesValue) {
         this.updateAnaesthetistFeesValue = updateAnaesthetistFeesValue;
     }

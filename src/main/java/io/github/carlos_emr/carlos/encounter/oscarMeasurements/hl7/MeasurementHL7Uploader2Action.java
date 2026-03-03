@@ -66,6 +66,7 @@ import ca.uhn.hl7v2.validation.impl.NoValidation;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class MeasurementHL7Uploader2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -81,10 +82,12 @@ public class MeasurementHL7Uploader2Action extends ActionSupport {
     private String defaultProviderNo = OscarProperties.getInstance().getProperty("oscar.measurements.hl7.defaultProviderNo", "999998");
     private String hl7UploadPassword = OscarProperties.getInstance().getProperty("oscar.measurements.hl7.password");
 
+    @StrutsParameter
     public void setHl7UploadPassword(String uploadPassword) {
         this.hl7UploadPassword = uploadPassword;
     }
 
+    @StrutsParameter
     public void setDefaultProviderNo(String defaultProviderNo) {
         this.defaultProviderNo = defaultProviderNo;
     }
@@ -247,10 +250,12 @@ public class MeasurementHL7Uploader2Action extends ActionSupport {
 
     private File importFile;
 
+    @StrutsParameter(depth = 1)
     public File getImportFile() {
         return importFile;
     }
 
+    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }

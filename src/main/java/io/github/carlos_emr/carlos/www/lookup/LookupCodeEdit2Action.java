@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utils.Utility;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 public class LookupCodeEdit2Action extends ActionSupport {
@@ -172,10 +173,12 @@ public class LookupCodeEdit2Action extends ActionSupport {
     boolean newCode;
     String errMsg;
 
+    @StrutsParameter(depth = 1)
     public List getCodeFields() {
         return codeFields;
     }
 
+    @StrutsParameter
     public void setCodeFields(List codeFields) {
         this.codeFields = codeFields;
     }
@@ -184,14 +187,17 @@ public class LookupCodeEdit2Action extends ActionSupport {
         return newCode;
     }
 
+    @StrutsParameter
     public void setNewCode(boolean newCode) {
         this.newCode = newCode;
     }
 
+    @StrutsParameter(depth = 1)
     public LookupTableDefValue getTableDef() {
         return tableDef;
     }
 
+    @StrutsParameter
     public void setTableDef(LookupTableDefValue tableDef) {
         this.tableDef = tableDef;
     }
@@ -200,6 +206,7 @@ public class LookupCodeEdit2Action extends ActionSupport {
         return errMsg;
     }
 
+    @StrutsParameter
     public void setErrMsg(String errMsg) {
         this.errMsg = errMsg;
     }
