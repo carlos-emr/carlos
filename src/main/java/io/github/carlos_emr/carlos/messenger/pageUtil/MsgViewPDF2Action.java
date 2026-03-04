@@ -30,19 +30,24 @@
 
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.Vector;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.codec.binary.Base64;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.carlos.util.Doc2PDF;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -81,7 +86,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * 
  * @version 2.0
  * @since 2003
- * @see Doc2PDF
+ * @see PlaywrightPdfConverter
  * @see MsgViewPDFAttachment2Action
  * @see MsgAttachPDF2Action
  */
@@ -138,13 +143,13 @@ public class MsgViewPDF2Action extends ActionSupport {
             String id = this.getFile_id();
             int fileID = Integer.parseInt(id);
 
-            if (pdfAttachment != null && pdfAttachment.length() != 0) {
+            if (pdfAttachment != null && !pdfAttachment.isEmpty()) {
                 // Extract all CONTENT tags from XML
-                Vector attVector = Doc2PDF.getXMLTagValue(pdfAttachment, "CONTENT");
+                List<String> attList = getXMLTagValues(pdfAttachment, "CONTENT");
                 // Get the specific PDF by index
-                String pdfFile = (String) attVector.elementAt(fileID);
-                // Stream PDF to browser
-                Doc2PDF.PrintPDFFromBin(response, pdfFile);
+                String pdfFile = attList.get(fileID);
+                // Stream Base64-encoded PDF to browser
+                streamPdfFromBase64(response, pdfFile);
             }
         } catch (Exception e) {
             // Log error but return SUCCESS to avoid error page
@@ -153,6 +158,45 @@ public class MsgViewPDF2Action extends ActionSupport {
         }
 
         return SUCCESS;
+    }
+
+    /**
+     * Extracts values between XML tags from a string.
+     */
+    private static List<String> getXMLTagValues(String xml, String section) {
+        List<String> values = new ArrayList<>();
+        String beginTag = "<" + section + ">";
+        String endTag = "</" + section + ">";
+        int index = xml.indexOf(beginTag);
+        while (index != -1) {
+            int lastIndex = xml.indexOf(endTag, index);
+            if (lastIndex == -1 || lastIndex < index) break;
+            values.add(xml.substring(index + beginTag.length(), lastIndex));
+            xml = xml.substring(lastIndex + endTag.length());
+            index = xml.indexOf(beginTag);
+        }
+        return values;
+    }
+
+    /**
+     * Decodes a Base64-encoded PDF string and streams it to the HTTP response.
+     */
+    private static void streamPdfFromBase64(HttpServletResponse response, String base64Pdf) throws IOException {
+        byte[] pdfBytes = Base64.decodeBase64(base64Pdf.getBytes(StandardCharsets.UTF_8));
+        response.setContentType("application/pdf");
+        response.setContentLength(pdfBytes.length);
+        response.setHeader("Expires", "0");
+        response.setHeader("Cache-Control", "must-revalidate, post-check=0, pre-check=0");
+        response.setHeader("Pragma", "public");
+        try (OutputStream out = response.getOutputStream();
+             InputStream in = new BufferedInputStream(new ByteArrayInputStream(pdfBytes))) {
+            byte[] buf = new byte[32 * 1024];
+            int nRead;
+            while ((nRead = in.read(buf)) != -1) {
+                out.write(buf, 0, nRead);
+            }
+            out.flush();
+        }
     }
     /**
      * Attachment parameter, currently not used in implementation.

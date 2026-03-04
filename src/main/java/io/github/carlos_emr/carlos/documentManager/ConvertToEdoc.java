@@ -81,8 +81,6 @@ public final class ConvertToEdoc {
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_CONTENT_TYPE = "application/pdf";
     private static final String SYSTEM_ID = "-1";
-    private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
-    private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
     
     private static String realPath;
     private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
@@ -303,19 +301,17 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Use the io.woo.htmltopdf tools for HTML to PDF or
-     * use the Flying Saucer tools if there is a failure.
-     * Flying Saucer requires a well formed w3c XHTML document - which is usually
-     * not the case.
+     * Converts HTML to PDF using Playwright (headless Chromium) as the primary engine,
+     * with Flying Saucer (xhtmlrenderer) as a fallback for strict XHTML documents.
      */
     private static void renderPDF(final String document, ByteArrayOutputStream os)
             throws DocumentException, IOException {
-        EDocConverterInterface converter = new InternalEDocConverter();
+        EDocConverterInterface converter = new PlaywrightPdfConverter();
 
         try {
             converter.convert(document, os);
         } catch (Exception e) {
-            logger.warn("Primary PDF conversion failed, attempting fallback: " + e.getMessage());
+            logger.warn("Playwright PDF conversion failed, attempting Flying Saucer fallback: " + e.getMessage());
 
             try {
                 os.reset();
@@ -765,11 +761,39 @@ public final class ConvertToEdoc {
         addCss(document);
 
         /*
+         * Convert absolute filesystem paths to file:// URIs so that
+         * Chromium (Playwright) can load local resources.
+         */
+        convertToFileUris(document);
+
+        /*
          * Convert edited Document object back to String
          * Mostly because the htmltopdf tools require String input
          * for some strange reason.
          */
         return documentToString(document);
+    }
+
+    /**
+     * Converts absolute filesystem paths in src and href attributes to file:// URIs.
+     * Chromium requires file:// protocol for loading local filesystem resources,
+     * unlike wkhtmltopdf which could read absolute paths directly.
+     */
+    private static void convertToFileUris(Document document) {
+        for (Element el : document.select("[src], [href]")) {
+            convertAttrToFileUri(el, "src");
+            convertAttrToFileUri(el, "href");
+        }
+    }
+
+    private static void convertAttrToFileUri(Element el, String attr) {
+        if (!el.hasAttr(attr)) {
+            return;
+        }
+        String value = el.attr(attr);
+        if (value.startsWith("/") && !value.startsWith("//")) {
+            el.attr(attr, "file://" + value);
+        }
     }
 
     /**

@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceResolver;
 
+import io.github.carlos_emr.carlos.documentManager.PlaywrightPdfConverter;
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.OscarProperties;
 
@@ -182,6 +183,14 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
             MiscUtils.setShutdownSignaled(true);
         } catch (ShutdownException e) {
             // do nothing it's okay.
+        }
+
+        // Shut down the shared Playwright/Chromium browser used for PDF generation
+        try {
+            PlaywrightPdfConverter.shutdown();
+            logger.info("Playwright PDF converter shut down");
+        } catch (Exception e) {
+            logger.warn("Error shutting down Playwright PDF converter", e);
         }
     }
 }

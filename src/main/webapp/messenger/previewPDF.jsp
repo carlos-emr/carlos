@@ -77,12 +77,14 @@
     }
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.PlaywrightPdfConverter" %>
 <%
     // Extract HTML content and generate PDF response
     String srcText = request.getParameter("srcText");
-    
+    String html = "<HTML>" + srcText + "</HTML>";
+
     // Convert HTML content to PDF and stream directly to response
-    Doc2PDF.parseString2PDF(request, response, "<HTML>" + srcText + "</HTML>");
+    response.setContentType("application/pdf");
+    PlaywrightPdfConverter converter = new PlaywrightPdfConverter();
+    converter.convert(html, response.getOutputStream());
 %>

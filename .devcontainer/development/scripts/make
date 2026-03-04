@@ -212,6 +212,19 @@ build_and_deploy() {
   snapshot_src_dir="carlos-$version"
   snapshot_dest_dir="carlos"
 
+  # Ensure Playwright Java's Chromium browser is installed for PDF generation.
+  # Uses the Playwright CLI from the built WAR's classpath to download the matching
+  # Chromium revision. Idempotent — skips download if the browser is already present.
+  echo "Ensuring Playwright Chromium browser is installed..."
+  _pw_cp=$(find "target/$snapshot_src_dir/WEB-INF/lib" -name 'playwright-*.jar' -o -name 'driver-bundle-*.jar' 2>/dev/null | tr '\n' ':')
+  if [ -n "$_pw_cp" ]; then
+    java -cp "$_pw_cp" com.microsoft.playwright.CLI install chromium 2>&1 || {
+      echo "WARN: Playwright Chromium install failed. PDF generation may download it on first use."
+    }
+  else
+    echo "WARN: Playwright JARs not found in WAR. Chromium will be downloaded on first PDF generation."
+  fi
+
   # Deploy the exploded WAR to the Tomcat webapps directory.
   # This ensures the app is deployed with the context path `/carlos`.
   if [ -d "target/$snapshot_src_dir" ]; then

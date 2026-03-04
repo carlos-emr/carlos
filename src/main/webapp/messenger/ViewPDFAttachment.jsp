@@ -69,9 +69,8 @@
 --%>
 
 <%@ page
-        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*, io.github.carlos_emr.carlos.messenger.docxfer.util.*, io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="java.util.*, org.w3c.dom.*" %>
-<%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
+        import="io.github.carlos_emr.carlos.messenger.docxfer.send.*, io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
+<%@ page import="java.util.*" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 
@@ -160,13 +159,22 @@
                 </table>
                 <table>
 
-                            <% 
+                            <%
                                 // Extract PDF file titles from attachment data
-                                Vector attVector = Doc2PDF.getXMLTagValue(pdfAttch, "TITLE" ); 
+                                List<String> attList = new ArrayList<>();
+                                String xmlStr = pdfAttch;
+                                int idx = xmlStr.indexOf("<TITLE>");
+                                while (idx != -1) {
+                                    int endIdx = xmlStr.indexOf("</TITLE>", idx);
+                                    if (endIdx == -1) break;
+                                    attList.add(xmlStr.substring(idx + 7, endIdx));
+                                    xmlStr = xmlStr.substring(endIdx + 8);
+                                    idx = xmlStr.indexOf("<TITLE>");
+                                }
                             %>
-                            <% for ( int i = 0 ; i < attVector.size(); i++) { %>
+                            <% for ( int i = 0 ; i < attList.size(); i++) { %>
                     <tr>
-                        <td bgcolor="#DDDDFF"><%=(String) attVector.get(i)%>
+                        <td bgcolor="#DDDDFF"><%=attList.get(i)%>
                         </td>
                         <td bgcolor="#DDDDFF"><input type=submit
                                                      onclick=" document.forms[0].file_id.value = <%=i%>"

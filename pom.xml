@@ -65,8 +65,7 @@
             <url>file://${basedir}/local_repo</url>
         </repository>
 
-        <!-- for the com.github.openosp htmltopdf dependency only. Upgrades
-        from this dependency are welcome -->
+        <!-- JitPack repository for com.github.* dependencies not on Maven Central -->
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
@@ -578,10 +577,11 @@
             <version>5.5.13.5</version>
         </dependency>
 
+        <!-- Playwright Java for HTML-to-PDF conversion via headless Chromium -->
         <dependency>
-            <groupId>com.github.openosp</groupId>
-            <artifactId>ultrabuk-htmltopdf-java</artifactId>
-            <version>1.0.11</version>
+            <groupId>com.microsoft.playwright</groupId>
+            <artifactId>playwright</artifactId>
+            <version>1.50.0</version>
         </dependency>
 
         <!-- Modern RTF support via OpenRTF (actively maintained, released Aug 2025) -->

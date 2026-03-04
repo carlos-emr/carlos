@@ -31,15 +31,16 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.codec.binary.Base64;
+import io.github.carlos_emr.carlos.documentManager.PlaywrightPdfConverter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-
-import io.github.carlos_emr.carlos.util.Doc2PDF;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -113,21 +114,33 @@ public final class MsgDoc2PDF2Action extends ActionSupport {
      * @throws ServletException if there's a servlet processing error
      */
     public String execute() throws IOException, ServletException {
+        PlaywrightPdfConverter converter = new PlaywrightPdfConverter();
+        String html = "<HTML>" + srcText + "</HTML>";
+
         if (this.getIsPreview()) {
             // Preview mode - stream PDF directly to browser
-            Doc2PDF.parseString2PDF(request, response, "<HTML>" + srcText + "</HTML>");
+            try {
+                response.setContentType("application/pdf");
+                converter.convert(html, response.getOutputStream());
+            } catch (Exception e) {
+                MiscUtils.getLogger().error("PDF preview conversion failed", e);
+            }
             this.setIsPreview(false);
         } else {
             // Attachment mode - store PDF in session for message composition
-
             MsgSessionBean bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
 
             if (bean != null) {
-                // Convert HTML to Base64-encoded PDF and store in session
-                bean.setAppendPDFAttachment(Doc2PDF.parseString2Bin(request, response, "<HTML>" + srcText + "</HTML>"), pdfTitle);
+                try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                    converter.convert(html, baos);
+                    String base64Pdf = new String(Base64.encodeBase64(baos.toByteArray()));
+                    bean.setAppendPDFAttachment(base64Pdf, pdfTitle);
+                } catch (Exception e) {
+                    MiscUtils.getLogger().error("PDF attachment conversion failed", e);
+                }
                 this.setIsPreview(false);
             } else {
-                MiscUtils.getLogger().debug(" io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean is null");
+                MiscUtils.getLogger().debug("MsgSessionBean is null");
             }
         }
         return SUCCESS;

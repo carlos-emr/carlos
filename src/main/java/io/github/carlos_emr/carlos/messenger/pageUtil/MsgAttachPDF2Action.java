@@ -30,16 +30,17 @@
 
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.documentManager.PlaywrightPdfConverter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-
-import io.github.carlos_emr.carlos.util.Doc2PDF;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -127,6 +128,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
      */
     public String execute() throws IOException, ServletException {
         logger.info("Starting...");
+        PlaywrightPdfConverter converter = new PlaywrightPdfConverter();
+        String html = "<HTML>" + srcText + "</HTML>";
 
         // Retrieve the message session bean containing attachment state
         MsgSessionBean bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
@@ -134,10 +137,13 @@ public class MsgAttachPDF2Action extends ActionSupport {
         // Handle preview mode - generate PDF and send directly to client
         if (isPreview) {
             logger.info("Got source text: " + srcText);
-            
-            // Convert HTML to PDF and stream to response
-            Doc2PDF.parseString2PDF(request, response, "<HTML>" + srcText + "</HTML>");
-            // Reset preview flag after processing
+
+            try {
+                response.setContentType("application/pdf");
+                converter.convert(html, response.getOutputStream());
+            } catch (Exception e) {
+                logger.error("PDF preview conversion failed", e);
+            }
             isPreview = false;
         } else {
             // Handle attachment mode - store PDF in session for message composition
@@ -156,9 +162,11 @@ public class MsgAttachPDF2Action extends ActionSupport {
                     // Process next attachment if more remain
                     if (bean.getCurrentAttachmentCount() < bean.getTotalAttachmentCount()) {
                         // Convert HTML to Base64-encoded PDF binary
-                        String resultString = Doc2PDF.parseString2Bin(request, response, "<HTML>" + srcText + "</HTML>");
-                        // Store the attachment in the session bean
-                        bean.setAppendPDFAttachment(resultString, attachmentTitle);
+                        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                            converter.convert(html, baos);
+                            String resultString = new String(Base64.encodeBase64(baos.toByteArray()));
+                            bean.setAppendPDFAttachment(resultString, attachmentTitle);
+                        }
                         // Increment the processed attachment counter
                         bean.setCurrentAttachmentCount(bean.getCurrentAttachmentCount() + 1);
                         logger.info("Sleeping for a short period...");
