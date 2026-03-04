@@ -39,6 +39,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.struts2.ServletActionContext;
 
 import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormsDao;
@@ -169,6 +170,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         return messageID;
     }
 
+    @StrutsParameter
     public void setMessageID(String messageID) {
         this.messageID = messageID;
     }
@@ -177,6 +179,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         return from;
     }
 
+    @StrutsParameter
     public void setFrom(String from) {
         this.from = from;
     }
@@ -185,6 +188,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         return demographic_no;
     }
 
+    @StrutsParameter
     public void setDemographic_no(String demographic_no) {
         this.demographic_no = demographic_no;
     }
@@ -193,6 +197,7 @@ public class MsgViewMessageByPosition2Action extends ActionSupport {
         return messagePosition;
     }
 
+    @StrutsParameter
     public void setMessagePosition(String messagePosition) {
         this.messagePosition = messagePosition;
     }

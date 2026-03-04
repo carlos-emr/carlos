@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RxAddFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -137,6 +138,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
         return (this.drugId);
     }
 
+    @StrutsParameter
     public void setDrugId(String drugId) {
         this.drugId = drugId;
     }
@@ -145,6 +147,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
         return (this.stashId);
     }
 
+    @StrutsParameter
     public void setStashId(String stashId) {
         this.stashId = stashId;
     }
@@ -153,6 +156,7 @@ public final class RxAddFavorite2Action extends ActionSupport {
         return (this.favoriteName);
     }
 
+    @StrutsParameter
     public void setFavoriteName(String favoriteName) {
         this.favoriteName = favoriteName;
     }

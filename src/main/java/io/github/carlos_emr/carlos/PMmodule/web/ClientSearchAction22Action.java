@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.services.LookupManager;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ClientSearchAction22Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -165,10 +166,12 @@ public class ClientSearchAction22Action extends ActionSupport {
 
     private ClientSearchFormBean criteria;
 
+    @StrutsParameter(depth = 1)
     public ClientSearchFormBean getCriteria() {
         return criteria;
     }
 
+    @StrutsParameter
     public void setCriteria(ClientSearchFormBean criteria) {
         this.criteria = criteria;
     }

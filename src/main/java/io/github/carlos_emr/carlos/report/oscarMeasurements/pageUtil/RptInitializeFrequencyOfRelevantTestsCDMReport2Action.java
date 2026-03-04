@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -241,6 +242,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return patientSeenCheckbox;
     }
 
+    @StrutsParameter
     public void setPatientSeenCheckbox(String[] patientSeenCheckbox) {
         this.patientSeenCheckbox = patientSeenCheckbox;
     }
@@ -251,6 +253,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return startDateA;
     }
 
+    @StrutsParameter
     public void setStartDateA(String startDateA) {
         this.startDateA = startDateA;
     }
@@ -261,6 +264,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return endDateA;
     }
 
+    @StrutsParameter
     public void setEndDateA(String endDateA) {
         this.endDateA = endDateA;
     }
@@ -275,6 +279,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return frequencyCheckbox;
     }
 
+    @StrutsParameter
     public void setFrequencyCheckbox(String[] frequencyCheckbox) {
         this.frequencyCheckbox = frequencyCheckbox;
     }
@@ -285,6 +290,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return startDateD;
     }
 
+    @StrutsParameter
     public void setStartDateD(String[] startDateD) {
         this.startDateD = startDateD;
     }
@@ -295,6 +301,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return endDateD;
     }
 
+    @StrutsParameter
     public void setEndDateD(String[] endDateD) {
         this.endDateD = endDateD;
     }
@@ -305,6 +312,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return exactly;
     }
 
+    @StrutsParameter
     public void setExactly(int[] exactly) {
         this.exactly = exactly;
     }
@@ -315,6 +323,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
         return moreThan;
     }
 
+    @StrutsParameter
     public void setMoreThan(int[] moreThan) {
         this.moreThan = moreThan;
     }

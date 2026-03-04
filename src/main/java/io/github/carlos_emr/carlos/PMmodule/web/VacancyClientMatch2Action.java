@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class VacancyClientMatch2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -111,6 +112,7 @@ public class VacancyClientMatch2Action extends ActionSupport {
         return template;
     }
 
+    @StrutsParameter
     public void setTemplate(String template) {
         this.template = template;
     }
@@ -119,6 +121,7 @@ public class VacancyClientMatch2Action extends ActionSupport {
         return vacancy;
     }
 
+    @StrutsParameter
     public void setVacancy(String vacancy) {
         this.vacancy = vacancy;
     }
@@ -127,6 +130,7 @@ public class VacancyClientMatch2Action extends ActionSupport {
         return criteriaList;
     }
 
+    @StrutsParameter
     public void setCriteriaList(List<String> criteriaList) {
         this.criteriaList = criteriaList;
     }
@@ -135,6 +139,7 @@ public class VacancyClientMatch2Action extends ActionSupport {
         return programId;
     }
 
+    @StrutsParameter
     public void setProgramId(int programId) {
         this.programId = programId;
     }

@@ -43,6 +43,7 @@ package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager;
@@ -110,6 +111,7 @@ public class UploadTemplates2Action extends ActionSupport {
         return templateFile;
     }
 
+    @StrutsParameter
     public void setTemplateFile(File templateFile) {
         this.templateFile = templateFile;
     }

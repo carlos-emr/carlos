@@ -74,6 +74,7 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
 import org.codehaus.jettison.json.JSONException;
@@ -4857,6 +4858,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return importFile;
     }
 
+    @StrutsParameter
     public void setImportFile(File importFile) {
         this.importFile = importFile;
     }
@@ -4865,6 +4867,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return importFileFileName;
     }
 
+    @StrutsParameter
     public void setImportFileFileName(String importFileFileName) {
         this.importFileFileName = importFileFileName;
     }
@@ -4873,6 +4876,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return matchProviderNames;
     }
 
+    @StrutsParameter
     public void setMatchProviderNames(boolean matchProviderNames) {
         this.matchProviderNames = matchProviderNames;
     }
@@ -4881,6 +4885,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return timeshiftInDays;
     }
 
+    @StrutsParameter
     public void setTimeshiftInDays(int timeshiftInDays) {
         this.timeshiftInDays = timeshiftInDays;
     }
@@ -4889,6 +4894,7 @@ public class ImportDemographicDataAction42Action extends ActionSupport {
         return courseId;
     }
 
+    @StrutsParameter
     public void setCourseId(String courseId) {
         this.courseId = courseId;
     }

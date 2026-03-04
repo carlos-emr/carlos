@@ -43,6 +43,7 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -337,6 +338,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return ahfsString;
     }
 
+    @StrutsParameter
     public void setAhfsSearch(String str) {
         ahfsString = str;
     }
@@ -348,6 +350,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return otcExcluded;
     }
 
+    @StrutsParameter
     public void setOtcExcluded(String str) {
         otcExcluded = str;
     }
@@ -357,6 +360,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return (this.demographicNo);
     }
 
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -365,6 +369,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return (this.searchString);
     }
 
+    @StrutsParameter
     public void setSearchString(String searchString) {
         this.searchString = searchString;
     }
@@ -373,6 +378,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return (this.searchRoute);
     }
 
+    @StrutsParameter
     public void setSearchRoute(String searchRoute) {
         this.searchRoute = searchRoute;
     }
@@ -381,6 +387,7 @@ public final class RxSearchDrug2Action extends ActionSupport {
         return genericString;
     }
 
+    @StrutsParameter
     public void setGenericSearch(String str) {
         genericString = str;
     }

@@ -182,6 +182,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * @author Ronnie Cheng
@@ -3726,74 +3727,92 @@ public class DemographicExportAction42Action extends ActionSupport {
      *
      * @param demographicNo
      */
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
 
+    @StrutsParameter
     public void setPatientSet(String patientSet) {
         this.patientSet = patientSet;
     }
 
+    @StrutsParameter
     public void setPgpReady(String pgpReady) {
         this.pgpReady = pgpReady;
     }
 
+    @StrutsParameter
     public void setTemplate(String template) {
         this.template = template;
     }
 
+    @StrutsParameter
     public void setExPersonalHistory(boolean rhs) {
         this.exPersonalHistory = rhs;
     }
 
+    @StrutsParameter
     public void setExFamilyHistory(boolean rhs) {
         this.exFamilyHistory = rhs;
     }
 
+    @StrutsParameter
     public void setExPastHealth(boolean rhs) {
         this.exPastHealth = rhs;
     }
 
+    @StrutsParameter
     public void setExProblemList(boolean rhs) {
         this.exProblemList = rhs;
     }
 
+    @StrutsParameter
     public void setExRiskFactors(boolean rhs) {
         this.exRiskFactors = rhs;
     }
 
+    @StrutsParameter
     public void setExAllergiesAndAdverseReactions(boolean rhs) {
         this.exAllergiesAndAdverseReactions = rhs;
     }
 
+    @StrutsParameter
     public void setExMedicationsAndTreatments(boolean rhs) {
         this.exMedicationsAndTreatments = rhs;
     }
 
+    @StrutsParameter
     public void setExImmunizations(boolean rhs) {
         this.exImmunizations = rhs;
     }
 
+    @StrutsParameter
     public void setExLaboratoryResults(boolean rhs) {
         this.exLaboratoryResults = rhs;
     }
 
+    @StrutsParameter
     public void setExAppointments(boolean rhs) {
         this.exAppointments = rhs;
     }
 
+    @StrutsParameter
     public void setExClinicalNotes(boolean rhs) {
         this.exClinicalNotes = rhs;
     }
 
+    @StrutsParameter
     public void setExReportsReceived(boolean rhs) {
         this.exReportsReceived = rhs;
     }
 
+    @StrutsParameter
     public void setExAlertsAndSpecialNeeds(boolean rhs) {
         this.exAlertsAndSpecialNeeds = rhs;
     }
 
+    @StrutsParameter
     public void setExCareElements(boolean rhs) {
         this.exCareElements = rhs;
     }
@@ -3802,6 +3821,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }

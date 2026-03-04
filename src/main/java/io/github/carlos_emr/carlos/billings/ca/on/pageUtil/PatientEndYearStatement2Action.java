@@ -59,6 +59,7 @@ import io.github.carlos_emr.OscarDocumentCreator;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class PatientEndYearStatement2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -283,6 +284,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
         return firstNameParam;
     }
 
+    @StrutsParameter
     public void setFirstNameParam(String firstNameParam) {
         this.firstNameParam = firstNameParam;
     }
@@ -291,6 +293,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
         return lastNameParam;
     }
 
+    @StrutsParameter
     public void setLastNameParam(String lastNameParam) {
         this.lastNameParam = lastNameParam;
     }
@@ -299,6 +302,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
         return fromDateParam;
     }
 
+    @StrutsParameter
     public void setFromDateParam(String fromDateParam) {
         this.fromDateParam = fromDateParam;
     }
@@ -307,6 +311,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
         return demographicNoParam;
     }
 
+    @StrutsParameter
     public void setDemographicNoParam(String demographicNoParam) {
         this.demographicNoParam = demographicNoParam;
     }
@@ -327,6 +332,7 @@ public class PatientEndYearStatement2Action extends ActionSupport {
         return toDateParam;
     }
 
+    @StrutsParameter
     public void setToDateParam(String toDate) {
         this.toDateParam = toDate;
     }

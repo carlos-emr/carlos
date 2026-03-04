@@ -50,6 +50,7 @@ import java.util.ResourceBundle;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 Action class for administering messenger groups and their memberships in the CARLOS EMR system.
@@ -430,6 +431,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param update The button value to set
      */
+    @StrutsParameter
     public void setUpdate(String update) {
         this.update = update;
     }
@@ -451,6 +453,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param delete The button value to set
      */
+    @StrutsParameter
     public void setDelete(String delete) {
         this.delete = delete;
     }
@@ -469,6 +472,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param provider The provider ID array to set
      */
+    @StrutsParameter
     public void setProvider(String[] provider) {
         this.provider = provider;
     }
@@ -490,6 +494,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param prov The provider ID array to set
      */
+    @StrutsParameter
     public void setProviders(String[] prov) {
         this.provider = prov;
     }
@@ -511,6 +516,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param grpNo The group number to set
      */
+    @StrutsParameter
     public void setGrpNo(String grpNo) {
         this.grpNo = grpNo;
     }

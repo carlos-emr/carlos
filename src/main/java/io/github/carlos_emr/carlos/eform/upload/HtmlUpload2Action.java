@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.eform.upload;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -81,6 +82,7 @@ public class HtmlUpload2Action extends ActionSupport {
         return formHtml;
     }
 
+    @StrutsParameter
     public void setFormHtml(File formHtml) {
         this.formHtml = formHtml;
     }
@@ -89,6 +91,7 @@ public class HtmlUpload2Action extends ActionSupport {
         return formHtmlContentType;
     }
 
+    @StrutsParameter
     public void setFormHtmlContentType(String formHtmlContentType) {
         this.formHtmlContentType = formHtmlContentType;
     }
@@ -97,6 +100,7 @@ public class HtmlUpload2Action extends ActionSupport {
         return formHtmlFileName;
     }
 
+    @StrutsParameter
     public void setFormHtmlFileName(String formHtmlFileName) {
         this.formHtmlFileName = formHtmlFileName;
     }
@@ -105,6 +109,7 @@ public class HtmlUpload2Action extends ActionSupport {
         return formName;
     }
 
+    @StrutsParameter
     public void setFormName(String formName) {
         this.formName = formName;
     }
@@ -113,6 +118,7 @@ public class HtmlUpload2Action extends ActionSupport {
         return subject;
     }
 
+    @StrutsParameter
     public void setSubject(String subject) {
         this.subject = subject;
     }
@@ -121,6 +127,7 @@ public class HtmlUpload2Action extends ActionSupport {
         return showLatestFormOnly;
     }
 
+    @StrutsParameter
     public void setShowLatestFormOnly(boolean showLatestFormOnly) {
         this.showLatestFormOnly = showLatestFormOnly;
     }
@@ -129,6 +136,7 @@ public class HtmlUpload2Action extends ActionSupport {
         return patientIndependent;
     }
 
+    @StrutsParameter
     public void setPatientIndependent(boolean patientIndependent) {
         this.patientIndependent = patientIndependent;
     }
@@ -137,6 +145,7 @@ public class HtmlUpload2Action extends ActionSupport {
         return roleType;
     }
 
+    @StrutsParameter
     public void setRoleType(String roleType) {
         this.roleType = roleType;
     }

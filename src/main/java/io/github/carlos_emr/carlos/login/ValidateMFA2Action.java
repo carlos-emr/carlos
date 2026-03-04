@@ -29,6 +29,7 @@ package io.github.carlos_emr.carlos.login;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -46,6 +47,7 @@ public class ValidateMFA2Action extends ActionSupport {
         return SUCCESS;
     }
     
+    @StrutsParameter
     public void setCode(String code) {
         this.code = code;
     }
@@ -58,6 +60,7 @@ public class ValidateMFA2Action extends ActionSupport {
         return mfaRegistrationFlow;
     }
     
+    @StrutsParameter
     public void setMfaRegistrationFlow(boolean mfaRegistrationFlow) {
         this.mfaRegistrationFlow = mfaRegistrationFlow;
     }

@@ -39,7 +39,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import org.jboss.aerogear.security.otp.Totp;
+import dev.samstevens.totp.code.DefaultCodeGenerator;
+import dev.samstevens.totp.code.DefaultCodeVerifier;
+import dev.samstevens.totp.time.SystemTimeProvider;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils;
@@ -286,9 +289,15 @@ public final class Login2Action extends ActionSupport {
                     : (LoginCheckLogin) request.getSession().getAttribute("cl");
             
             // Handle MFA validation
-            Object mfaSecret;
+            String mfaSecret;
             if (this.mfaRegistrationFlow) {
-                mfaSecret = request.getSession().getAttribute("mfaSecret").toString();
+                Object mfaSecretAttr = request.getSession().getAttribute("mfaSecret");
+                if (mfaSecretAttr == null) {
+                    // Session expired or attribute missing during MFA registration flow
+                    request.setAttribute("errMsg", "Session expired. Please log in again.");
+                    return "failure";
+                }
+                mfaSecret = mfaSecretAttr.toString();
             } else {
                 Security security = cl.getSecurity();
                 try {
@@ -299,14 +308,19 @@ public final class Login2Action extends ActionSupport {
                 }
             }
             
-            Totp totp = new Totp(mfaSecret.toString());
-            
-            if (totp.verify(this.code)) {
+            // Explicitly configure TOTP verifier parameters to match RFC 6238 standard defaults
+            // (30-second time step, ±1 period allowed discrepancy for clock skew tolerance)
+            DefaultCodeVerifier codeVerifier = new DefaultCodeVerifier(new DefaultCodeGenerator(), new SystemTimeProvider());
+            codeVerifier.setTimePeriod(30);
+            codeVerifier.setAllowedTimePeriodDiscrepancy(1);
+
+            if (codeVerifier.isValidCode(mfaSecret, this.code)) {
+                LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_success", "mfa", ip);
                 if (this.mfaRegistrationFlow) {
                     Security security = cl.getSecurity();
                     LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
                     try {
-                        this.mfaManager.saveMfaSecret(loggedInInfo, security, mfaSecret.toString());
+                        this.mfaManager.saveMfaSecret(loggedInInfo, security, mfaSecret);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -314,9 +328,10 @@ public final class Login2Action extends ActionSupport {
                 // Continue with post-authentication flow after successful MFA
                 return resumePostAuthenticationFlow(cl, ip, isMobileOptimized, submitType, ajaxResponse);
             } else {
+                LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_failed", "mfa", ip);
                 if (this.mfaRegistrationFlow) {
                     request.setAttribute("mfaRegistrationRequired", true);
-                    request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(cl.getSecurity().getId(), mfaSecret.toString()));
+                    request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(cl.getSecurity().getId(), mfaSecret));
                 }
                 request.setAttribute("mfaValidateCodeErr", "Invalid MFA Code");
                 request.setAttribute("securityId", String.valueOf(cl.getSecurity().getSecurityNo()));
@@ -1075,6 +1090,7 @@ public final class Login2Action extends ActionSupport {
      *
      * @param username String the username submitted from the form
      */
+    @StrutsParameter
     public void setUsername(String username) {
         this.username = username;
     }
@@ -1096,6 +1112,7 @@ public final class Login2Action extends ActionSupport {
      *
      * @param password String the plain-text password submitted from the form
      */
+    @StrutsParameter
     public void setPassword(String password) {
         this.password = password;
     }
@@ -1117,6 +1134,7 @@ public final class Login2Action extends ActionSupport {
      *
      * @param pin String the 4-digit PIN submitted from the form (validated to [0-9]{4})
      */
+    @StrutsParameter
     public void setPin(String pin) {
         this.pin = pin;
     }
@@ -1135,6 +1153,7 @@ public final class Login2Action extends ActionSupport {
      *
      * @param propname String the property name
      */
+    @StrutsParameter
     public void setPropname(String propname) {
         this.propname = propname;
     }
@@ -1156,6 +1175,7 @@ public final class Login2Action extends ActionSupport {
      *
      * @param oldPassword String the old password for verification
      */
+    @StrutsParameter
     public void setOldPassword(String oldPassword) {
         this.oldPassword = oldPassword;
     }
@@ -1177,6 +1197,7 @@ public final class Login2Action extends ActionSupport {
      *
      * @param newPassword String the new password to be set
      */
+    @StrutsParameter
     public void setNewPassword(String newPassword) {
         this.newPassword = newPassword;
     }
@@ -1198,6 +1219,7 @@ public final class Login2Action extends ActionSupport {
      *
      * @param confirmPassword String the confirmation of the new password
      */
+    @StrutsParameter
     public void setConfirmPassword(String confirmPassword) {
         this.confirmPassword = confirmPassword;
     }
@@ -1219,6 +1241,7 @@ public final class Login2Action extends ActionSupport {
      *
      * @param code String the 6-digit TOTP code generated by the user's authenticator app
      */
+    @StrutsParameter
     public void setCode(String code) {
         this.code = code;
     }
@@ -1240,6 +1263,7 @@ public final class Login2Action extends ActionSupport {
      *
      * @param mfaRegistrationFlow boolean true for MFA registration, false for standard MFA validation
      */
+    @StrutsParameter
     public void setMfaRegistrationFlow(boolean mfaRegistrationFlow) {
         this.mfaRegistrationFlow = mfaRegistrationFlow;
     }

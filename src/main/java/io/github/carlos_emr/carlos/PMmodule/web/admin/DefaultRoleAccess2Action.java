@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.services.security.RolesManager;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts 2 action for managing default role access permissions in the Program Management module.
@@ -250,6 +251,7 @@ public class DefaultRoleAccess2Action extends ActionSupport {
      *
      * @return DefaultRoleAccess the form object being edited or saved
      */
+    @StrutsParameter(depth = 1)
     public DefaultRoleAccess getForm() {
         return form;
     }
@@ -262,6 +264,7 @@ public class DefaultRoleAccess2Action extends ActionSupport {
      *
      * @param form DefaultRoleAccess the form object to set
      */
+    @StrutsParameter
     public void setForm(DefaultRoleAccess form) {
         this.form = form;
     }

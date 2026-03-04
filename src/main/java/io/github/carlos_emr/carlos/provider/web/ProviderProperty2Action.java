@@ -112,6 +112,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.util.LabelValueBean;
 
@@ -2913,285 +2914,355 @@ public class ProviderProperty2Action extends ActionSupport {
     private UserProperty preventionNonISPAWarningProperty;
     private UserProperty labMacroJSON;
 
+    @StrutsParameter(depth = 1)
     public UserProperty getDateProperty() {
         return dateProperty;
     }
 
+    @StrutsParameter
     public void setDateProperty(UserProperty dateProperty) {
         this.dateProperty = dateProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getSingleViewProperty() {
         return singleViewProperty;
     }
 
+    @StrutsParameter
     public void setSingleViewProperty(UserProperty singleViewProperty) {
         this.singleViewProperty = singleViewProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getRxPageSizeProperty() {
         return rxPageSizeProperty;
     }
 
+    @StrutsParameter
     public void setRxPageSizeProperty(UserProperty rxPageSizeProperty) {
         this.rxPageSizeProperty = rxPageSizeProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getExistingDefaultDocQueueProperty() {
         return existingDefaultDocQueueProperty;
     }
 
+    @StrutsParameter
     public void setExistingDefaultDocQueueProperty(UserProperty existingDefaultDocQueueProperty) {
         this.existingDefaultDocQueueProperty = existingDefaultDocQueueProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getNewDefaultDocQueueProperty() {
         return newDefaultDocQueueProperty;
     }
 
+    @StrutsParameter
     public void setNewDefaultDocQueueProperty(UserProperty newDefaultDocQueueProperty) {
         this.newDefaultDocQueueProperty = newDefaultDocQueueProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getRxProfileViewProperty() {
         return rxProfileViewProperty;
     }
 
+    @StrutsParameter
     public void setRxProfileViewProperty(UserProperty rxProfileViewProperty) {
         this.rxProfileViewProperty = rxProfileViewProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getRxShowPatientDOBProperty() {
         return rxShowPatientDOBProperty;
     }
 
+    @StrutsParameter
     public void setRxShowPatientDOBProperty(UserProperty rxShowPatientDOBProperty) {
         this.rxShowPatientDOBProperty = rxShowPatientDOBProperty;
     }
 
 
+    @StrutsParameter(depth = 1)
     public UserProperty getRxUseRx3Property() {
         return rxUseRx3Property;
     }
 
+    @StrutsParameter
     public void setRxUseRx3Property(UserProperty rxUseRx3Property) {
         this.rxUseRx3Property = rxUseRx3Property;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getRxDefaultQuantityProperty() {
         return rxDefaultQuantityProperty;
     }
 
+    @StrutsParameter
     public void setRxDefaultQuantityProperty(UserProperty rxDefaultQuantityProperty) {
         this.rxDefaultQuantityProperty = rxDefaultQuantityProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getDateProperty2() {
         return dateProperty2;
     }
 
+    @StrutsParameter
     public void setDateProperty2(UserProperty dateProperty2) {
         this.dateProperty2 = dateProperty2;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getCppSingleLineProperty() {
         return cppSingleLineProperty;
     }
 
+    @StrutsParameter
     public void setCppSingleLineProperty(UserProperty cppSingleLineProperty) {
         this.cppSingleLineProperty = cppSingleLineProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty geteDocBrowserInDocumentReportProperty() {
         return eDocBrowserInDocumentReportProperty;
     }
 
+    @StrutsParameter
     public void seteDocBrowserInDocumentReportProperty(UserProperty eDocBrowserInDocumentReportProperty) {
         this.eDocBrowserInDocumentReportProperty = eDocBrowserInDocumentReportProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty geteDocBrowserInMasterFileProperty() {
         return eDocBrowserInMasterFileProperty;
     }
 
+    @StrutsParameter
     public void seteDocBrowserInMasterFileProperty(UserProperty eDocBrowserInMasterFileProperty) {
         this.eDocBrowserInMasterFileProperty = eDocBrowserInMasterFileProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getLabAckCommentProperty() {
         return labAckCommentProperty;
     }
 
+    @StrutsParameter
     public void setLabAckCommentProperty(UserProperty labAckCommentProperty) {
         this.labAckCommentProperty = labAckCommentProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getLabRecallDelegate() {
         return labRecallDelegate;
     }
 
+    @StrutsParameter
     public void setLabRecallDelegate(UserProperty labRecallDelegate) {
         this.labRecallDelegate = labRecallDelegate;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getLabRecallMsgSubject() {
         return labRecallMsgSubject;
     }
 
+    @StrutsParameter
     public void setLabRecallMsgSubject(UserProperty labRecallMsgSubject) {
         this.labRecallMsgSubject = labRecallMsgSubject;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getLabRecallTicklerAssignee() {
         return labRecallTicklerAssignee;
     }
 
+    @StrutsParameter
     public void setLabRecallTicklerAssignee(UserProperty labRecallTicklerAssignee) {
         this.labRecallTicklerAssignee = labRecallTicklerAssignee;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getLabRecallTicklerPriority() {
         return labRecallTicklerPriority;
     }
 
+    @StrutsParameter
     public void setLabRecallTicklerPriority(UserProperty labRecallTicklerPriority) {
         this.labRecallTicklerPriority = labRecallTicklerPriority;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getTaskAssigneeSelection() {
         return taskAssigneeSelection;
     }
 
+    @StrutsParameter
     public void setTaskAssigneeSelection(UserProperty taskAssigneeSelection) {
         this.taskAssigneeSelection = taskAssigneeSelection;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getTaskAssigneeMRP() {
         return taskAssigneeMRP;
     }
 
+    @StrutsParameter
     public void setTaskAssigneeMRP(UserProperty taskAssigneeMRP) {
         this.taskAssigneeMRP = taskAssigneeMRP;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getEncounterWindowWidth() {
         return encounterWindowWidth;
     }
 
+    @StrutsParameter
     public void setEncounterWindowWidth(UserProperty encounterWindowWidth) {
         this.encounterWindowWidth = encounterWindowWidth;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getEncounterWindowHeight() {
         return encounterWindowHeight;
     }
 
+    @StrutsParameter
     public void setEncounterWindowHeight(UserProperty encounterWindowHeight) {
         this.encounterWindowHeight = encounterWindowHeight;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getEncounterWindowMaximize() {
         return encounterWindowMaximize;
     }
 
+    @StrutsParameter
     public void setEncounterWindowMaximize(UserProperty encounterWindowMaximize) {
         this.encounterWindowMaximize = encounterWindowMaximize;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getQuickChartSize() {
         return quickChartSize;
     }
 
+    @StrutsParameter
     public void setQuickChartSize(UserProperty quickChartSize) {
         this.quickChartSize = quickChartSize;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getPatientNameLength() {
         return patientNameLength;
     }
 
+    @StrutsParameter
     public void setPatientNameLength(UserProperty patientNameLength) {
         this.patientNameLength = patientNameLength;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getDisplayDocumentAsProperty() {
         return displayDocumentAsProperty;
     }
 
+    @StrutsParameter
     public void setDisplayDocumentAsProperty(UserProperty displayDocumentAsProperty) {
         this.displayDocumentAsProperty = displayDocumentAsProperty;
     }
 
 
+    @StrutsParameter(depth = 1)
     public UserProperty getHideOldEchartLinkInApptProperty() {
         return hideOldEchartLinkInApptProperty;
     }
 
+    @StrutsParameter
     public void setHideOldEchartLinkInApptProperty(UserProperty hideOldEchartLinkInApptProperty) {
         this.hideOldEchartLinkInApptProperty = hideOldEchartLinkInApptProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getDashboardShareProperty() {
         return dashboardShareProperty;
     }
 
+    @StrutsParameter
     public void setDashboardShareProperty(UserProperty dashboardShareProperty) {
         this.dashboardShareProperty = dashboardShareProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getAppointmentCardName() {
         return appointmentCardName;
     }
 
+    @StrutsParameter
     public void setAppointmentCardName(UserProperty appointmentCardName) {
         this.appointmentCardName = appointmentCardName;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getAppointmentCardPhone() {
         return appointmentCardPhone;
     }
 
+    @StrutsParameter
     public void setAppointmentCardPhone(UserProperty appointmentCardPhone) {
         this.appointmentCardPhone = appointmentCardPhone;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getAppointmentCardFax() {
         return appointmentCardFax;
     }
 
+    @StrutsParameter
     public void setAppointmentCardFax(UserProperty appointmentCardFax) {
         this.appointmentCardFax = appointmentCardFax;
     }
 
 
+    @StrutsParameter(depth = 1)
     public UserProperty getPreventionSSOWarningProperty() {
         return preventionSSOWarningProperty;
     }
 
+    @StrutsParameter
     public void setPreventionSSOWarningProperty(UserProperty preventionSSOWarningProperty) {
         this.preventionSSOWarningProperty = preventionSSOWarningProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getPreventionISPAWarningProperty() {
         return preventionISPAWarningProperty;
     }
 
+    @StrutsParameter
     public void setPreventionISPAWarningProperty(UserProperty preventionISPAWarningProperty) {
         this.preventionISPAWarningProperty = preventionISPAWarningProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getPreventionNonISPAWarningProperty() {
         return preventionNonISPAWarningProperty;
     }
 
+    @StrutsParameter
     public void setPreventionNonISPAWarningProperty(UserProperty preventionNonISPAWarningProperty) {
         this.preventionNonISPAWarningProperty = preventionNonISPAWarningProperty;
     }
 
+    @StrutsParameter(depth = 1)
     public UserProperty getLabMacroJSON() {
         return labMacroJSON;
     }
 
+    @StrutsParameter
     public void setLabMacroJSON(UserProperty labMacroJSON) {
         this.labMacroJSON = labMacroJSON;
     }

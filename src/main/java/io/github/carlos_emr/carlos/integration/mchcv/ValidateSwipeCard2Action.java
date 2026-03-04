@@ -34,6 +34,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts 2 action for validating health card magnetic stripe data.
@@ -105,6 +106,7 @@ public class ValidateSwipeCard2Action extends ActionSupport {
      *
      * @param magneticStripe String raw magnetic stripe data
      */
+    @StrutsParameter
     public void setMagneticStripe(String magneticStripe) {
         this.magneticStripe = magneticStripe;
     }

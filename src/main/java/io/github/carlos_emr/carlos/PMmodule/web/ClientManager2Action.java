@@ -89,6 +89,7 @@ import io.github.carlos_emr.carlos.services.LookupManager;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ClientManager2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -1124,43 +1125,53 @@ public class ClientManager2Action extends ActionSupport {
     private Demographic client;
     private Provider provider;
 
+    @StrutsParameter(depth = 1)
     public ClientManagerFormBean getView() {
         return view;
     }
 
+    @StrutsParameter
     public void setView(ClientManagerFormBean view) {
         this.view = view;
     }
 
+    @StrutsParameter(depth = 1)
     public Admission getAdmission() {
         return admission;
     }
 
+    @StrutsParameter
     public void setAdmission(Admission admission) {
         this.admission = admission;
     }
 
+    @StrutsParameter(depth = 1)
     public Program getProgram() {
         return program;
     }
 
+    @StrutsParameter
     public void setProgram(Program program) {
         this.program = program;
     }
 
 
+    @StrutsParameter(depth = 1)
     public ClientReferral getReferral() {
         return referral;
     }
 
+    @StrutsParameter
     public void setReferral(ClientReferral referral) {
         this.referral = referral;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramClientRestriction getServiceRestriction() {
         return serviceRestriction;
     }
 
+    @StrutsParameter
     public void setServiceRestriction(ProgramClientRestriction serviceRestriction) {
         this.serviceRestriction = serviceRestriction;
     }
@@ -1169,30 +1180,37 @@ public class ClientManager2Action extends ActionSupport {
         return serviceRestrictionLength;
     }
 
+    @StrutsParameter
     public void setServiceRestrictionLength(Integer serviceRestrictionLength) {
         this.serviceRestrictionLength = serviceRestrictionLength;
     }
 
+    @StrutsParameter(depth = 1)
     public CaisiFormInstance getForm() {
         return form;
     }
 
+    @StrutsParameter
     public void setForm(CaisiFormInstance form) {
         this.form = form;
     }
 
+    @StrutsParameter(depth = 1)
     public Demographic getClient() {
         return client;
     }
 
+    @StrutsParameter
     public void setClient(Demographic client) {
         this.client = client;
     }
 
+    @StrutsParameter(depth = 1)
     public Provider getProvider() {
         return provider;
     }
 
+    @StrutsParameter
     public void setProvider(Provider provider) {
         this.provider = provider;
     }

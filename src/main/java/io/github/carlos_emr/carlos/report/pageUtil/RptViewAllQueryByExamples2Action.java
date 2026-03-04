@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.DateUtils;
 
 public class RptViewAllQueryByExamples2Action extends ActionSupport {
@@ -74,6 +75,7 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
         return sql;
     }
 
+    @StrutsParameter
     public void setSql(String sql) {
         this.sql = sql;
     }
@@ -82,6 +84,7 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
         return selectedRecentSearch;
     }
 
+    @StrutsParameter
     public void setSelectedRecentSearch(String selectedRecentSearch) {
         this.selectedRecentSearch = selectedRecentSearch;
     }
@@ -90,6 +93,7 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
         return startDate;
     }
 
+    @StrutsParameter
     public void setStartDate(String startDate) {
         this.startDate = startDate;
     }
@@ -98,6 +102,7 @@ public class RptViewAllQueryByExamples2Action extends ActionSupport {
         return endDate;
     }
 
+    @StrutsParameter
     public void setEndDate(String endDate) {
         this.endDate = endDate;
     }

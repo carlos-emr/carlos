@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctConDisplayInstitution2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -81,6 +82,7 @@ public class EctConDisplayInstitution2Action extends ActionSupport {
         return id;
     }
 
+    @StrutsParameter
     public void setId(String id) {
         this.id = id;
     }
@@ -91,6 +93,7 @@ public class EctConDisplayInstitution2Action extends ActionSupport {
         return specialists;
     }
 
+    @StrutsParameter
     public void setSpecialists(String str[]) {
         specialists = str;
     }

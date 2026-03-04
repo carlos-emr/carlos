@@ -48,6 +48,7 @@ import java.util.Arrays;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 Action for handling message creation and sending in the CARLOS EMR messaging system.
@@ -203,6 +204,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
     }
 
     /** @param provider String[] array of recipient provider numbers */
+    @StrutsParameter
     public void setProvider(String[] provider) {
         this.provider = provider;
     }
@@ -213,6 +215,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
     }
 
     /** @param message String the message body content */
+    @StrutsParameter
     public void setMessage(String message) {
         this.message = message;
     }
@@ -223,6 +226,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
     }
 
     /** @param subject String the message subject line */
+    @StrutsParameter
     public void setSubject(String subject) {
         this.subject = subject;
     }
@@ -233,6 +237,7 @@ public class MsgCreateMessage2Action extends ActionSupport {
     }
 
     /** @param demographic_no String the demographic number to associate with this message */
+    @StrutsParameter
     public void setDemographic_no(String demographic_no) {
         this.demographic_no = demographic_no;
     }

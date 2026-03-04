@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -93,6 +94,7 @@ public class EctDeleteMeasurementStyleSheet2Action extends ActionSupport {
         return deleteCheckbox;
     }
 
+    @StrutsParameter
     public void setDeleteCheckbox(String[] deleteCheckbox) {
         this.deleteCheckbox = deleteCheckbox;
     }
