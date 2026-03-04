@@ -71,12 +71,43 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 
+/**
+ * Scheduled job that generates PDF notification documents for on-call clinic appointments.
+ *
+ * <p>Runs as a background job (via {@link OscarRunnable}) to process the previous day's
+ * on-call clinic appointments. For each qualifying appointment, generates a PDF notification
+ * document addressed to the patient's MRP (Most Responsible Provider), indicating whether
+ * the patient was seen or was a no-show. The generated PDFs are saved to the document
+ * directory and routed to the MRP's inbox.</p>
+ *
+ * <p>Appointment qualification criteria:</p>
+ * <ul>
+ *   <li>The previous day must be configured as an on-call clinic day</li>
+ *   <li>The appointment must use the {@code P:OnCallClinic} schedule template</li>
+ *   <li>The appointment must not be cancelled (status containing "C")</li>
+ *   <li>The patient's MRP must differ from the on-call provider</li>
+ * </ul>
+ *
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) to generate A5-sized notification PDFs
+ * with a blue-tinted background.</p>
+ *
+ * @see OscarRunnable
+ * @see EDocUtil
+ * @since 2017-01-31
+ */
 public class OscarOnCallClinic implements OscarRunnable {
     private Provider provider = null;
     private static String SCHEDULE_TEMPLATE = "P:OnCallClinic";
     private static SimpleDateFormat simpleDateFormat = new SimpleDateFormat("EEEE MMMM d, yyyy");
     private static String DOCUMENTDIR = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
 
+    /**
+     * Processes yesterday's on-call clinic appointments and generates notification PDFs.
+     *
+     * <p>Queries for appointments on the previous calendar day, filters by on-call clinic
+     * schedule template, and generates either a "was seen" or "no-show" PDF for each
+     * qualifying appointment. Documents are saved and routed to the patient's MRP inbox.</p>
+     */
     @Override
     public void run() {
         MiscUtils.getLogger().info("Starting OSCAR ON CALL CLINIC Job");
@@ -135,6 +166,15 @@ public class OscarOnCallClinic implements OscarRunnable {
     }
 
 
+    /**
+     * Creates a PDF notification for a patient who did not attend their on-call appointment.
+     *
+     * @param filename String the output PDF filename (relative to DOCUMENT_DIR)
+     * @param appointment Appointment the missed appointment details
+     * @param demographic Demographic the patient who missed the appointment
+     * @param providerData ProviderData the on-call provider who was scheduled to see the patient
+     * @return Boolean {@code true} if the PDF was created successfully, {@code false} on error
+     */
     private Boolean makeNoShowApptDocument(String filename, Appointment appointment, Demographic demographic, ProviderData providerData) {
         Document document = new Document();
 
@@ -196,6 +236,15 @@ public class OscarOnCallClinic implements OscarRunnable {
 
     }
 
+    /**
+     * Creates a PDF notification for a patient who attended their on-call appointment.
+     *
+     * @param filename String the output PDF filename (relative to DOCUMENT_DIR)
+     * @param appointment Appointment the completed appointment details (includes reason if provided)
+     * @param demographic Demographic the patient who was seen
+     * @param providerData ProviderData the on-call provider who saw the patient
+     * @return Boolean {@code true} if the PDF was created successfully, {@code false} on error
+     */
     private Boolean makeGoodApptDocument(String filename, Appointment appointment, Demographic demographic, ProviderData providerData) {
         Document document = new Document();
 
@@ -256,6 +305,12 @@ public class OscarOnCallClinic implements OscarRunnable {
         return true;
     }
 
+    /**
+     * Registers the generated PDF in the EMR document system and routes it to the patient's MRP inbox.
+     *
+     * @param fileName String the PDF filename (relative to DOCUMENT_DIR)
+     * @param demographic Demographic the patient whose MRP should receive the document
+     */
     private void SendDocument(String fileName, Demographic demographic) {
         String user = "System";
         String mrp = demographic.getProviderNo();
@@ -296,20 +351,24 @@ public class OscarOnCallClinic implements OscarRunnable {
     }
 
 
+    /** {@inheritDoc} */
     @Override
     public void setLoggedInProvider(Provider provider) {
         this.provider = provider;
 
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setLoggedInSecurity(Security security) {
-        // TODO Auto-generated method stub
+        // Not used by this job
 
     }
 
+    /** {@inheritDoc} */
     @Override
     public void setConfig(String string) {
+        // Not used by this job
     }
 
 }

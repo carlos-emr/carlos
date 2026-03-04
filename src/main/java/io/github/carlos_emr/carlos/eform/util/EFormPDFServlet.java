@@ -74,27 +74,61 @@ import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfWriter;
 
 /**
+ * Servlet that generates PDF documents from electronic form (e-form) templates.
  *
+ * <p>Overlays form field values onto a pre-existing PDF template using coordinate-based
+ * positioning defined in text configuration files. Supports single-line text, multi-line
+ * text areas, checkboxes (ZapfDingbats), rectangles, lines, and graphical plots
+ * (e.g., growth charts for Rourke forms).</p>
+ *
+ * <p>Configuration files ({@code .txt}) define field placement using a CSV format:
+ * {@code paramName : alignment, X, Y, 0, font, fontSize [, textToPrint] [, topRightX, topRightY, lineSpacing]}.
+ * Coordinates reference the bottom-left corner of each element and are measured in PDF points.
+ * Graphic configuration files drive measurement plotting via {@link FrmPdfGraphic} implementations.</p>
+ *
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) for PDF template reading, content overlay,
+ * and multi-page document generation.</p>
+ *
+ * @see io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic
+ * @see io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory
+ * @see io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory
+ * @since 2013-07-26
  */
 public class EFormPDFServlet extends HttpServlet {
 
     Logger log = MiscUtils.getLogger();
 
     /**
-     *
+     * Default constructor.
      */
     public EFormPDFServlet() {
         super();
     }
 
+    /**
+     * Delegates GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}.
+     *
+     * @param req HttpServletRequest the incoming request
+     * @param res HttpServletResponse the outgoing response
+     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs
+     */
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
             java.io.IOException {
         doPost(req, res);
     }
 
     /**
-     * @param req HTTP request object
-     * @param res HTTP response object
+     * Generates one or more e-form PDFs and streams the result to the HTTP response.
+     *
+     * <p>If the {@code multiple} parameter is present, generates multiple PDFs and
+     * concatenates them via {@link ConcatPDF}. Otherwise generates a single PDF.
+     * The response is set to {@code application/pdf} with inline content disposition.</p>
+     *
+     * @param req HttpServletRequest containing e-form field values and configuration parameters
+     * @param res HttpServletResponse to write the generated PDF to
+     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs
      */
     public void doPost(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
             java.io.IOException {

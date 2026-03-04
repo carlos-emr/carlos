@@ -31,6 +31,21 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 import org.openpdf.text.pdf.BaseFont;
 import org.openpdf.text.pdf.PdfPageEventHelper;
 
+/**
+ * Base class for PDF page event handlers that render footer content. Provides
+ * shared font configuration (family, size) and a configurable vertical offset
+ * from the page bottom margin.
+ *
+ * <p>Subclasses override the appropriate {@link PdfPageEventHelper} callback
+ * methods (e.g. {@code onEndPage}) to render their specific footer content
+ * using the font and offset provided by this class.
+ *
+ * <p>Defaults to Helvetica 12pt, WinAnsi encoding, not embedded.
+ *
+ * @see PageNumberStamper
+ * @see PromoTextStamper
+ * @since 2012-09-10
+ */
 public class FooterSupport extends PdfPageEventHelper {
 
     private int baseOffset;

@@ -63,6 +63,26 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ImagePDFCreator;
 
+/**
+ * Spring-managed implementation of the {@link DocumentManager} interface for managing
+ * clinical documents in the CARLOS EMR document library.
+ *
+ * <p>Handles the complete document lifecycle including creation, retrieval, update,
+ * file system storage, queue assignment, and rendering (converting images to PDF using
+ * OpenPDF's {@link ImagePDFCreator} or resolving PDF document paths).
+ *
+ * <p>All document operations are protected by {@link SecurityInfoManager} privilege checks
+ * on the {@code _edoc} and {@code _newCasemgmt.documents} security objects. Patient consent
+ * is verified for provider-specific document access.
+ *
+ * <p>Documents are stored on the file system in the directory configured by the
+ * {@code DOCUMENT_DIR} property, with metadata persisted in the {@code document} and
+ * {@code ctl_document} database tables. PDF page counts are determined using Apache PDFBox.
+ *
+ * @see DocumentManager
+ * @see EDocUtil
+ * @since 2012 (McMaster University)
+ */
 @Service
 public class DocumentManagerImpl implements DocumentManager {
 
@@ -304,7 +324,7 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Read and Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        // move the PDF from the temp location to Oscar's document directory.
+        // move the PDF from the temp location to CARLOS document directory.
         try {
             if (toPath == null) {
                 toPath = getParentDirectory();
@@ -378,7 +398,7 @@ public class DocumentManagerImpl implements DocumentManager {
     }
 
     /**
-     * Add a document to Oscar's document library.
+     * Add a document to the CARLOS document library.
      * <p>
      * This method actually saves the Document contents to the file system. The document resource
      * MUST contain valid Base64 encoded document binary data.
@@ -407,7 +427,7 @@ public class DocumentManagerImpl implements DocumentManager {
 
             /*
              *  This ensures that all incoming documents contain the highly required default of 0.
-             *  A null here will break other parts of Oscar functionality.
+             *  A null here will break other parts of CARLOS functionality.
              */
             if (document.getNumberofpages() == null) {
                 document.setNumberofpages(0);

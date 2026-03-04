@@ -48,6 +48,25 @@ import io.github.carlos_emr.carlos.clinic.ClinicData;
 import static io.github.carlos_emr.carlos.utility.ClinicLogoUtility.createLogoHeader;
 
 
+/**
+ * Generates a single-page PDF fax cover page with clinic letterhead, sender/recipient
+ * information, a confidentiality footer, and an optional memo note.
+ *
+ * <p>The cover page is a fixed-height document (US Letter, 792pt) composed of a nested table
+ * layout: letterhead with optional logo, title line ("Fax Transmittal" + "CONFIDENTIAL"),
+ * sender/recipient info, memo body, and a confidentiality statement footer. Long notes are
+ * truncated to fit the fixed memo area (491pt).</p>
+ *
+ * <p>This class should be accessed through {@code FaxDocumentManager} rather than
+ * instantiated directly, to ensure proper sender/recipient resolution.</p>
+ *
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) for PDF generation.</p>
+ *
+ * @see io.github.carlos_emr.carlos.fax.core.FaxAccount
+ * @see io.github.carlos_emr.carlos.fax.core.FaxRecipient
+ * @see io.github.carlos_emr.carlos.utility.ClinicLogoUtility
+ * @since 2014-08-29
+ */
 public class PdfCoverPageCreator {
 
     private String note;
@@ -81,11 +100,25 @@ public class PdfCoverPageCreator {
         }
     }
 
+    /**
+     * Creates a cover page creator with note text and page count.
+     *
+     * @param note String the memo/note text to display on the cover page
+     * @param numberPages int the number of fax content pages (excluding the cover page itself)
+     */
     public PdfCoverPageCreator(String note, int numberPages) {
         this(note);
         this.numberPages = numberPages;
     }
 
+    /**
+     * Creates a fully configured cover page creator with sender and recipient details.
+     *
+     * @param note String the memo/note text to display on the cover page
+     * @param numberPages int the number of fax content pages (excluding the cover page itself)
+     * @param recipient FaxRecipient the fax recipient with name and fax number
+     * @param sender FaxAccount the sending fax account with letterhead and contact info
+     */
     public PdfCoverPageCreator(String note, int numberPages, FaxRecipient recipient, FaxAccount sender) {
         this(note, numberPages);
         this.recipient = recipient;
@@ -93,13 +126,19 @@ public class PdfCoverPageCreator {
     }
 
     /**
-     * This cover page has a fixed height.  Long note information will be truncated.
-     * Cover page height: 792f
-     * Letterhead height: 70f
-     * Heading height:
-     * Sender - Recipient info height:
-     * Body(note) height:
-     * Footer Height:
+     * Generates the fax cover page as a PDF byte array.
+     *
+     * <p>The cover page has a fixed US Letter height (792pt). Long note information will be
+     * truncated to fit the fixed memo area. Layout sections:</p>
+     * <ul>
+     *   <li>Letterhead with optional clinic logo (70pt)</li>
+     *   <li>Title line ("Fax Transmittal" / "CONFIDENTIAL")</li>
+     *   <li>Sender and recipient information with date and page count</li>
+     *   <li>Memo body (491pt fixed height)</li>
+     *   <li>Confidentiality statement footer</li>
+     * </ul>
+     *
+     * @return byte[] the generated PDF cover page, or an empty array if generation fails
      */
     public byte[] createCoverPage() {
         byte[] bytearray = new byte[]{};
@@ -233,6 +272,11 @@ public class PdfCoverPageCreator {
         return infoTable;
     }
 
+    /**
+     * Creates the sender/recipient info section with To, From, Date, Fax number, and page count.
+     *
+     * @return PdfPTable a two-column table with sender/recipient details
+     */
     private PdfPTable createInfoLine() {
         float[] tableWidths = {2f, 1f};
         PdfPTable infolineborder = new PdfPTable(tableWidths);
@@ -276,6 +320,11 @@ public class PdfCoverPageCreator {
         return infolineborder;
     }
 
+    /**
+     * Creates the title section with "Fax Transmittal", "CONFIDENTIAL" label, and sender sub-text.
+     *
+     * @return PdfPTable a three-column table with the title row
+     */
     private PdfPTable createTitleLine() {
         float[] tableWidths = {1f, 1f, 1f};
         PdfPTable titlelineborder = new PdfPTable(tableWidths);
@@ -344,11 +393,16 @@ public class PdfCoverPageCreator {
     }
 
     /**
-     * Method above sets a full border based on a boolean switch.
-     * This method allows the setting of individual boarders in a Rectangle.
-     * <p>
-     * borderarray is set with PdfPCell border location enumerators
-     * paddingarray is set similar to CSS clockwise
+     * Adds a table to a parent table cell with configurable borders and padding.
+     *
+     * <p>Unlike {@link #addToTable(PdfPTable, PdfPTable, boolean)} which sets a full border
+     * based on a boolean, this method allows individual border sides to be enabled selectively.</p>
+     *
+     * @param main PdfPTable the host table to add into
+     * @param add PdfPTable the table being added as a nested cell
+     * @param borderarray int[] array of {@link PdfPCell} border constants (e.g., {@code PdfPCell.TOP})
+     * @param paddingarray int[] padding values in CSS clockwise order (left, top, right, bottom), or null for defaults
+     * @return PdfPCell the cell containing the nested table
      */
     private PdfPCell addToTable(PdfPTable main, PdfPTable add, int[] borderarray, int[] paddingarray) {
 

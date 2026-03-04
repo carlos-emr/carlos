@@ -58,8 +58,22 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.*;
 
-/*
- * @author rjonasz
+/**
+ * Generates a multi-page PDF document containing a patient's prevention and immunization records.
+ *
+ * <p>Produces a two-column, paginated PDF with clinic letterhead, patient demographics,
+ * and categorized prevention entries (immunizations and screenings). Each entry includes
+ * date, age, status, result, comments, shot location, manufacturer, vaccine name, lot ID,
+ * and dose information.</p>
+ *
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) for PDF generation with {@link HeaderPageEvent}
+ * for repeating page headers. Prevention categories are configured via
+ * {@link PreventionDisplayConfig} and status codes are mapped to human-readable labels.</p>
+ *
+ * @see PreventionPrint2Action
+ * @see HeaderPageEvent
+ * @see PreventionDisplayConfig
+ * @since 2007-03-14
  */
 public class PreventionPrintPdf {
 
@@ -90,6 +104,17 @@ public class PreventionPrintPdf {
         readableStatusesForHistoryTypeLayout.put("2", "Previous");
     }
 
+    /**
+     * Generates a prevention PDF and writes it directly to the HTTP response.
+     *
+     * <p>Sets the response content type to {@code application/pdf} with a download
+     * attachment filename of {@code Prevention.pdf}.</p>
+     *
+     * @param request HttpServletRequest containing prevention data parameters
+     * @param response HttpServletResponse to write the PDF output to
+     * @throws IOException if an I/O error occurs writing to the response
+     * @throws DocumentException if a PDF generation error occurs
+     */
     public void printPdf(HttpServletRequest request, HttpServletResponse response) throws IOException, DocumentException {
         response.setContentType("application/pdf");  //octet-stream
         response.setHeader("Content-Disposition", "attachment; filename=\"Prevention.pdf\"");
@@ -97,6 +122,20 @@ public class PreventionPrintPdf {
         printPdf(headerIds, request, response.getOutputStream());
     }
 
+    /**
+     * Generates the full prevention PDF document to the given output stream.
+     *
+     * <p>Separates prevention entries into immunizations and screenings, builds a two-column
+     * layout with automatic pagination, and includes clinic address, patient demographics,
+     * and page numbering. Each prevention entry includes status, dates, vaccine details,
+     * and optional comments.</p>
+     *
+     * @param headerIds1 String[] array of prevention header IDs to include in the PDF
+     * @param request HttpServletRequest containing all prevention procedure parameters
+     * @param outputStream OutputStream to write the generated PDF to
+     * @throws IOException if an I/O error occurs
+     * @throws DocumentException if the PDF document is empty or generation fails
+     */
     public void printPdf(String[] headerIds1, HttpServletRequest request, OutputStream outputStream) throws IOException, DocumentException {
 
         //make sure we have data to print      
@@ -470,7 +509,11 @@ public class PreventionPrintPdf {
 
     /**
      * Calculates the approximate height of the header phrase.
-     * This replaces HeaderFooter.getHeight() which was removed in iText 5.x.
+     *
+     * <p>This replaces {@code HeaderFooter.getHeight()} which was removed in newer
+     * PDF library versions. Estimates height based on phrase leading for multi-line headers.</p>
+     *
+     * @return float the estimated header height in points, or 0 if no header phrase is set
      */
     private float getHeaderHeight() {
         if (headerPhrase == null) {

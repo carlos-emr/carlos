@@ -58,6 +58,22 @@ import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 
+/**
+ * Spring-managed implementation of the {@link LabManager} interface for managing
+ * HL7 laboratory results in CARLOS EMR.
+ *
+ * <p>Provides operations for retrieving HL7 text messages and info records, and
+ * rendering lab results as PDF documents using {@link LabPDFCreator}. PDF rendering
+ * produces a temporary file, appends any embedded documents, and saves the result
+ * via {@link NioFileManager}.
+ *
+ * <p>All operations are protected by {@link SecurityInfoManager} privilege checks
+ * on the {@code _lab} security object.
+ *
+ * @see LabManager
+ * @see LabPDFCreator
+ * @since 2012 (McMaster University)
+ */
 @Service
 public class LabManagerImpl implements LabManager {
 
@@ -79,6 +95,7 @@ public class LabManagerImpl implements LabManager {
     @Autowired
     SecurityInfoManager securityInfoManager;
 
+    /** {@inheritDoc} */
     public List<Hl7TextMessage> getHl7Messages(LoggedInInfo loggedInInfo, Integer demographicNo, int offset, int limit) {
         checkPrivilege(loggedInInfo, "r");
 
@@ -89,6 +106,7 @@ public class LabManagerImpl implements LabManager {
         return results;
     }
 
+    /** {@inheritDoc} */
     public List<Hl7TextInfo> getHl7TextInfo(LoggedInInfo loggedInInfo, int demographicNo) {
         checkPrivilege(loggedInInfo, "r");
 
@@ -106,6 +124,7 @@ public class LabManagerImpl implements LabManager {
 
     }
 
+    /** {@inheritDoc} */
     public Hl7TextMessage getHl7Message(LoggedInInfo loggedInInfo, int labId) {
         checkPrivilege(loggedInInfo, "r");
 
@@ -116,6 +135,18 @@ public class LabManagerImpl implements LabManager {
         return result;
     }
 
+    /**
+     * Renders an HL7 lab result as a PDF document, including any embedded PDF attachments.
+     *
+     * <p>Creates a temporary PDF file via {@link LabPDFCreator#printPdf()}, appends
+     * embedded documents via {@link LabPDFCreator#addEmbeddedDocuments}, and saves
+     * the final result to a managed temporary file.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * @param segmentId Integer the HL7 message segment ID to render
+     * @return Path to the generated temporary PDF file
+     * @throws PDFGenerationException if an error occurs during PDF generation
+     */
     public Path renderLab(LoggedInInfo loggedInInfo, Integer segmentId) throws PDFGenerationException {
         checkPrivilege(loggedInInfo, "r");
         LogAction.addLogSynchronous(loggedInInfo, "LabManager.getHl7MessageAsPDF", "labId=" + segmentId);

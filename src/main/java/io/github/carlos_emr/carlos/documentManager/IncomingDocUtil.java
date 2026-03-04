@@ -55,6 +55,27 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * Utility class for managing incoming documents in the CARLOS EMR document management system.
+ *
+ * <p>Provides operations for incoming PDF documents including:
+ * <ul>
+ *   <li>Page rotation (single page and all pages) using OpenPDF PdfStamper</li>
+ *   <li>Page deletion with optional recycle bin support</li>
+ *   <li>Page extraction into separate PDF files using OpenPDF PdfCopy</li>
+ *   <li>Complete PDF deletion with recycle bin support</li>
+ *   <li>File path construction and validation for incoming document queues</li>
+ *   <li>User preference management for document queue, view mode, and entry mode</li>
+ * </ul>
+ *
+ * <p>All file path operations are secured against path traversal attacks using
+ * {@link PathValidationUtils}. Document directories are organized by queue ID
+ * and subdirectory type (Fax, Mail, File, Refile).
+ *
+ * @see PathValidationUtils
+ * @see EDocUtil
+ * @since 2013-05-12
+ */
 public final class IncomingDocUtil {
     private static final Logger logger = MiscUtils.getLogger();
     
@@ -98,7 +119,10 @@ public final class IncomingDocUtil {
         }
     }
 
+    /** List of formatted modification dates corresponding to PDF files returned by {@link #getDocList(String)}. */
     private ArrayList<String> pdfListModifiedDate = new ArrayList<String>();
+
+    /** Comparator that sorts files by last-modified timestamp in ascending order. */
     private static final Comparator<File> lastModified = new Comparator<File>() {
         @Override
         public int compare(File o1, File o2) {
@@ -106,11 +130,25 @@ public final class IncomingDocUtil {
         }
     };
 
+    /**
+     * Returns the list of formatted modification dates for PDF files found by the last
+     * call to {@link #getDocList(String)}.
+     *
+     * @return ArrayList of String date strings in "yyyy-MM-dd HH:mm:ss" format
+     */
     public ArrayList getPdfListModifiedDate() {
         return pdfListModifiedDate;
 
     }
 
+    /**
+     * Lists all PDF files in the specified directory, sorted by last-modified date ascending.
+     * Also populates the internal {@link #pdfListModifiedDate} list with corresponding
+     * formatted timestamps.
+     *
+     * @param directory String the absolute path to the directory to scan for PDF files
+     * @return ArrayList of String PDF filenames found in the directory
+     */
     public ArrayList getDocList(String directory) {
         ArrayList<String> docList = new ArrayList<String>();
 
@@ -147,6 +185,14 @@ public final class IncomingDocUtil {
         return docList;
     }
 
+    /**
+     * Returns the number of pages in the specified PDF document using OpenPDF PdfReader.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param pdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @param pdfName String the PDF filename
+     * @return int the number of pages, or 0 if the file cannot be read
+     */
     public static int getNumOfPages(String queueId, String pdfDir, String pdfName) {
         String filePath = getIncomingDocumentFilePathName(queueId, pdfDir, pdfName);
         int numOfPages = 0;
@@ -164,6 +210,18 @@ public final class IncomingDocUtil {
         return numOfPages;
     }
 
+    /**
+     * Constructs and validates the full file path for an incoming document.
+     * Validates the PDF name against path traversal and ensures the resulting
+     * path is within the configured INCOMINGDOCUMENT_DIR.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param pdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @param pdfName String the PDF filename
+     * @return String the validated full file path
+     * @throws IllegalArgumentException if pdfName contains path traversal sequences
+     * @throws SecurityException if the resolved path is outside the allowed directory
+     */
     public static String getIncomingDocumentFilePathName(String queueId, String pdfDir, String pdfName) {
         // Validate pdfName to prevent path traversal
         if (!isValidPathComponent(pdfName)) {
@@ -184,6 +242,17 @@ public final class IncomingDocUtil {
         return file.getPath();
     }
 
+    /**
+     * Constructs, validates, and ensures the directory exists for the full incoming
+     * document file path. Creates intermediate directories if they do not exist.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param pdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @param pdfName String the PDF filename
+     * @return String the validated full file path with directories created
+     * @throws IllegalArgumentException if pdfName contains path traversal sequences
+     * @throws SecurityException if the resolved path is outside the allowed directory
+     */
     public static String getAndCreateIncomingDocumentFilePathName(String queueId, String pdfDir, String pdfName) {
         // Validate pdfName to prevent path traversal
         if (!isValidPathComponent(pdfName)) {
@@ -204,6 +273,18 @@ public final class IncomingDocUtil {
         return file.getPath();
     }
 
+    /**
+     * Returns the path to the deleted-documents directory for the given queue and document type.
+     * The deleted directory is named "{pdfDir}_deleted" (e.g., "Fax_deleted"). Creates
+     * the directory if it does not exist.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param pdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @return String the validated path to the deleted-documents directory
+     * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
+     * @throws IllegalArgumentException if queueId or pdfDir contains invalid characters
+     * @throws SecurityException if the resolved path is outside the allowed directory
+     */
     public static String getIncomingDocumentDeletedFilePath(String queueId, String pdfDir) {
         String filePath;
 
@@ -253,6 +334,16 @@ public final class IncomingDocUtil {
         return filePath;
     }
 
+    /**
+     * Constructs the directory path for incoming documents based on queue ID and document type.
+     * The path format is: {INCOMINGDOCUMENT_DIR}/{queueId}/{pdfDir}
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param pdfDir String the subdirectory type (Fax, Mail, File, or Refile), or null for queue root
+     * @return String the validated directory path
+     * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
+     * @throws IllegalArgumentException if queueId or pdfDir contains invalid values
+     */
     public static String getIncomingDocumentFilePath(String queueId, String pdfDir) {
         String filePath;
 
@@ -287,6 +378,16 @@ public final class IncomingDocUtil {
         return filePath;
     }
 
+    /**
+     * Constructs the directory path for incoming documents and creates the directory
+     * structure if it does not already exist.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param pdfDir String the subdirectory type (Fax, Mail, File, or Refile), or null for queue root
+     * @return String the canonical directory path with directories created
+     * @throws IllegalStateException if INCOMINGDOCUMENT_DIR is not configured
+     * @throws SecurityException if the resolved path is outside the allowed directory
+     */
     public static String getAndCreateIncomingDocumentFilePath(String queueId, String pdfDir) {
         String filePath = getIncomingDocumentFilePath(queueId, pdfDir);
         
@@ -323,6 +424,18 @@ public final class IncomingDocUtil {
         }
     }
 
+    /**
+     * Rotates a single page of a PDF document by the specified number of degrees.
+     * Uses OpenPDF PdfStamper to modify the page rotation in-place. The original
+     * file's last-modified timestamp is preserved via a temp-file rename strategy.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param myPdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @param myPdfName String the PDF filename
+     * @param MyPdfPageNumber String the 1-based page number to rotate
+     * @param degrees int the rotation angle in degrees (e.g., 90, 180, -90)
+     * @throws Exception if the rotation, file deletion, or rename operation fails
+     */
     public static void rotatePage(String queueId, String myPdfDir, String myPdfName, String MyPdfPageNumber, int degrees) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -368,6 +481,17 @@ public final class IncomingDocUtil {
         }
     }
 
+    /**
+     * Rotates all pages of a PDF document by the specified number of degrees.
+     * Uses OpenPDF PdfStamper to modify page rotations in-place. The original
+     * file's last-modified timestamp is preserved via a temp-file rename strategy.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param myPdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @param myPdfName String the PDF filename
+     * @param degrees int the rotation angle in degrees (e.g., 90, 180, -90)
+     * @throws Exception if the rotation, file deletion, or rename operation fails
+     */
     public static void rotateAlPages(String queueId, String myPdfDir, String myPdfName, int degrees) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -414,6 +538,18 @@ public final class IncomingDocUtil {
         }
     }
 
+    /**
+     * Deletes a single page from a PDF document using OpenPDF PdfCopy. The deleted page
+     * is saved to the deleted-documents directory (if the recycle bin is enabled via
+     * INCOMINGDOCUMENT_RECYCLEBIN property) with a descriptive filename indicating
+     * which page was deleted and the original total page count.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param myPdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @param myPdfName String the PDF filename
+     * @param PageNumberToDelete String the 1-based page number to delete
+     * @throws Exception if the page deletion, file operations, or rename fails
+     */
     public static void deletePage(String queueId, String myPdfDir, String myPdfName, String PageNumberToDelete) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -485,6 +621,21 @@ public final class IncomingDocUtil {
         }
     }
 
+    /**
+     * Extracts specified pages from a PDF into a new file using OpenPDF PdfCopy.
+     * The remaining pages stay in the original file; extracted pages are written
+     * to a new PDF file with an "E" suffix in the same directory.
+     *
+     * <p>The page specification format supports individual pages and ranges:
+     * "1,3,5-7" extracts pages 1, 3, 5, 6, and 7. Validation rejects invalid
+     * ranges, non-numeric input, and requests that would extract all pages.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param myPdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @param myPdfName String the PDF filename
+     * @param pageNumbersToExtract String comma-separated page numbers and/or ranges (e.g., "1,3-5")
+     * @throws Exception if the page specification is invalid or file operations fail
+     */
     public static void extractPage(String queueId, String myPdfDir, String myPdfName, String pageNumbersToExtract) throws Exception {
         long lastModified;
         String filePathName, tempFilePathName;
@@ -528,6 +679,7 @@ public final class IncomingDocUtil {
             File extractFile = new File(extractBasePath, extractFileName);
             extractPath = extractFile.getPath();
 
+            // Initialize extraction flags: "0" = keep in original, "1" = extract
             for (int pgIndex = 0; pgIndex <= reader.getNumberOfPages(); pgIndex++) {
                 extractList.add(pgIndex, "0");
             }
@@ -569,6 +721,7 @@ public final class IncomingDocUtil {
                     }
                 }
             }
+            // Reject extraction if ALL pages would be extracted (nothing would remain)
             if (!cancelExtract) {
                 cancelExtract = true;
                 for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
@@ -636,6 +789,16 @@ public final class IncomingDocUtil {
         }
     }
 
+    /**
+     * Deletes an entire PDF file. If the INCOMINGDOCUMENT_RECYCLEBIN property is enabled
+     * (default: true), the file is moved to the deleted-documents directory instead of
+     * being permanently removed.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param myPdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @param myPdfName String the PDF filename to delete
+     * @throws Exception if the file cannot be deleted or moved to the recycle bin
+     */
     public static void DeletePDF(String queueId, String myPdfDir, String myPdfName) throws Exception {
         String filePathName;
         boolean success;
@@ -667,6 +830,14 @@ public final class IncomingDocUtil {
         }
     }
 
+    /**
+     * Gets and persists the user's preferred incoming document queue. If no queue is
+     * selected and no preference is stored, defaults to queue "1".
+     *
+     * @param user_no String the provider number of the current user
+     * @param selectedQueue String the user's queue selection, or null to use the stored preference
+     * @return String the active queue identifier
+     */
     public static String getAndSetIncomingDocQueue(String user_no, String selectedQueue) {
         String queue;
         UserPropertyDAO pref = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
@@ -697,6 +868,14 @@ public final class IncomingDocUtil {
         return queue;
     }
 
+    /**
+     * Gets and persists the user's preferred document viewing format (PDF or Image).
+     * Defaults to "Pdf" if no preference is stored.
+     *
+     * @param user_no String the provider number of the current user
+     * @param selectedImageType String the selected view type ("Pdf" or "Image"), or null to use stored preference
+     * @return String the active view type ("Pdf" or "Image")
+     */
     public static String getAndSetViewDocumentAs(String user_no, String selectedImageType) {
 
         String imageType;
@@ -727,6 +906,14 @@ public final class IncomingDocUtil {
         return imageType;
     }
 
+    /**
+     * Gets and persists the user's preferred document entry mode. Defaults to "Normal"
+     * if no preference is stored.
+     *
+     * @param user_no String the provider number of the current user
+     * @param selectedEntryMode String the selected entry mode, or null to use stored preference
+     * @return String the active entry mode
+     */
     public static String getAndSetEntryMode(String user_no, String selectedEntryMode) {
 
         String entryMode;
@@ -757,6 +944,21 @@ public final class IncomingDocUtil {
         return entryMode;
     }
 
+    /**
+     * Dispatches a PDF page manipulation action based on the action name string.
+     * Supports single-page rotation, all-page rotation, page deletion, PDF deletion,
+     * and page extraction.
+     *
+     * @param pdfAction String the action to perform (Rotate90, Rotate180, RotateM90,
+     *                  RotateAll90, RotateAll180, RotateAllM90, DeletePage, DeletePDF, ExtractPagePDF)
+     * @param queueIdStr String the incoming document queue identifier
+     * @param pdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @param pdfName String the PDF filename
+     * @param pdfPageNumber String the 1-based page number for single-page operations
+     * @param pdfExtractPageNumber String comma-separated page specification for extraction
+     * @param locale Locale for localized error messages
+     * @throws Exception if the requested action fails, with a localized error message
+     */
     public static void doPagesAction(String pdfAction, String queueIdStr, String pdfDir, String pdfName, String pdfPageNumber, String pdfExtractPageNumber, Locale locale) throws Exception {
         if (pdfAction == null || pdfAction.trim().isEmpty()) {
             return;

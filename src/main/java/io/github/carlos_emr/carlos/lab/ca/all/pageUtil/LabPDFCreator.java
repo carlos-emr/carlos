@@ -80,7 +80,32 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 
 /**
- * @author wrighd
+ * Generates PDF and RTF renditions of HL7 laboratory results.
+ *
+ * <p>This class extends {@link PdfPageEventHelper} to add custom header/footer rendering
+ * on each page (patient name identifier on pages 2+). It supports multiple Canadian
+ * lab message formats including PATHL7, ExcellerisON, CLS, MEDITECH, MEDVUE, EPSILON,
+ * PFHT, and TRUENORTH.
+ *
+ * <p>Key design features:
+ * <ul>
+ *   <li>Uses {@link PdfPageEventForwarder} to chain this class's {@link #onEndPage} handler
+ *       with factory-installed page stampers (promo text, confidentiality, page numbers)
+ *       rather than overwriting them.</li>
+ *   <li>Uses {@link HTMLWorker} for parsing TRUENORTH lab format HTML comments into
+ *       OpenPDF elements.</li>
+ *   <li>Supports embedded PDF documents (Base64-encoded OBX segments of type "ED")
+ *       which are appended after the main report via {@link ConcatPDF}.</li>
+ *   <li>try-finally around {@link Document#close()} ensures resource cleanup even
+ *       on exceptions during PDF generation.</li>
+ *   <li>Handles structured results (tabular with columns for test name, result,
+ *       abnormal flag, reference range, units, timestamp, status) and unstructured
+ *       results (free-text narrative reports).</li>
+ * </ul>
+ *
+ * @see io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory
+ * @see io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory
+ * @since 2007-11-27
  */
 public class LabPDFCreator extends PdfPageEventHelper {
     private OutputStream os;
@@ -102,6 +127,15 @@ public class LabPDFCreator extends PdfPageEventHelper {
     private List<String> embeddedDocumentsToAppend = new ArrayList<String>();
     List<String> allLicenseNames = new ArrayList<String>();
 
+    /**
+     * Convenience method that generates a complete lab PDF as a byte array.
+     *
+     * @param segmentId String the HL7 message segment ID to render
+     * @param providerNo String the provider number (currently unused but reserved for future filtering)
+     * @return byte[] the generated PDF document bytes
+     * @throws IOException if an I/O error occurs during PDF generation
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public static byte[] getPdfBytes(String segmentId, String providerNo) throws IOException, DocumentException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
@@ -116,17 +150,34 @@ public class LabPDFCreator extends PdfPageEventHelper {
     }
 
     /**
-     * Creates a new instance of LabPDFCreator
+     * Creates a new instance of LabPDFCreator from an HTTP request.
+     *
+     * <p>Extracts {@code segmentID} and {@code providerNo} from request parameters
+     * or attributes (parameter takes precedence).
+     *
+     * @param request HttpServletRequest containing segmentID and providerNo
+     * @param os OutputStream to write the generated PDF to
      */
     public LabPDFCreator(HttpServletRequest request, OutputStream os) {
         this(os, (request.getParameter("segmentID") != null ? request.getParameter("segmentID") : (String) request.getAttribute("segmentID")), (request.getParameter("providerNo") != null ? request.getParameter("providerNo") : (String) request.getAttribute("providerNo")));
     }
 
+    /**
+     * Creates a new instance of LabPDFCreator with explicit parameters.
+     *
+     * <p>Initializes the HL7 message handler via {@link Factory#getHandler}, retrieves
+     * the lab received date from the database, and determines the lab version number
+     * among related labs (multiple versions of the same requisition).
+     *
+     * @param os OutputStream to write the generated PDF to
+     * @param segmentId String the HL7 message segment ID to render
+     * @param providerNo String the provider number (currently unused but reserved for future filtering)
+     */
     public LabPDFCreator(OutputStream os, String segmentId, String providerNo) {
         this.os = os;
         this.id = segmentId;
 
-        //Need date lab was received by OSCAR
+        // Retrieve date lab was received by CARLOS
         Hl7TextMessageDao hl7TxtMsgDao = (Hl7TextMessageDao) SpringUtils.getBean(Hl7TextMessageDao.class);
         Hl7TextMessage hl7TextMessage = hl7TxtMsgDao.find(Integer.parseInt(segmentId));
         java.util.Date date = hl7TextMessage.getCreated();
@@ -147,7 +198,16 @@ public class LabPDFCreator extends PdfPageEventHelper {
         this.versionNum = i + 1;
     }
 
-    //Creates an rtf file for viha rtf labs
+    /**
+     * Generates an RTF rendition of the lab results (used for VIHA RTF-format labs).
+     *
+     * <p>Creates the RTF document using OpenPDF's {@link RtfWriter2}, adds patient
+     * information via text paragraphs (since PdfPTable is not supported in RTF),
+     * and imports the raw RTF content from the first OBX result.
+     *
+     * @throws IOException if an I/O error occurs during RTF generation
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printRtf() throws IOException, DocumentException {
         //create an input stream from the rtf string bytes
         byte[] rtfBytes = handler.getOBXResult(0, 0).getBytes();
@@ -178,6 +238,22 @@ public class LabPDFCreator extends PdfPageEventHelper {
         }
     }
 
+    /**
+     * Generates the main lab report PDF document.
+     *
+     * <p>Creates an OpenPDF document with Letter page size, adds patient/lab info header
+     * table, iterates through all HL7 headers to render structured or unstructured test
+     * results, and appends an "END OF REPORT" footer. Uses try-finally to ensure the
+     * document is closed even on exceptions.
+     *
+     * <p>This method registers itself as a page event handler via
+     * {@link PdfPageEventForwarder} chaining (rather than replacing factory-installed
+     * stampers) so that promo text, confidentiality notices, and page numbers from
+     * {@link PdfWriterFactory} are preserved.
+     *
+     * @throws IOException if an I/O error occurs during PDF generation
+     * @throws DocumentException if the handler is null or an OpenPDF error occurs
+     */
     public void printPdf() throws IOException, DocumentException {
 
         // check that we have data to print
@@ -276,6 +352,13 @@ public class LabPDFCreator extends PdfPageEventHelper {
         os.flush();
     }
 
+    /**
+     * Appends any Base64-encoded embedded PDF documents (from OBX segments of type "ED")
+     * to the main lab report PDF using {@link ConcatPDF}.
+     *
+     * @param currentPDF File the main lab report PDF file to prepend
+     * @param os OutputStream to write the concatenated result to
+     */
     public void addEmbeddedDocuments(File currentPDF, OutputStream os) {
         List<Object> alist = new ArrayList<Object>();
 
@@ -1125,8 +1208,12 @@ public class LabPDFCreator extends PdfPageEventHelper {
     }
 
     /**
-     * Since pdfPtable used in createInfotable() is not properly supported in RTF,
-     * add the patient information to the RTF document using chunks and paragraphs
+     * Adds patient and lab information to an RTF document using Chunks and Paragraphs.
+     *
+     * <p>This is the RTF equivalent of {@link #createInfoTable()}. PdfPTable is not
+     * properly supported in RTF output, so this method uses tab-aligned text instead.
+     *
+     * @throws DocumentException if an OpenPDF document error occurs
      */
     private void addRtfPatientInfo() throws DocumentException {
         Paragraph patientInfo = new Paragraph();

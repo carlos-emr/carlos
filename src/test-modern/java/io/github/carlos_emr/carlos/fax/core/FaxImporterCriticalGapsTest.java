@@ -107,20 +107,27 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     private Method validateAndCountPagesMethod;
     private Method saveToIncomingMethod;
 
+    /**
+     * Sets up mocked DAO dependencies and obtains reflective access to private
+     * {@link FaxImporter} methods under test.
+     *
+     * <p>Reflection is used because the methods being tested ({@code generateUniqueFilename},
+     * {@code validateAndCountPages}, {@code saveToIncoming}) are private implementation details
+     * that are critical for patient safety but not directly exposed in the public API.</p>
+     *
+     * @throws Exception if reflection fails to locate the target methods
+     */
     @BeforeEach
     void setUp() throws Exception {
-        // Mock all DAOs
         faxConfigDao = mock(FaxConfigDao.class);
         faxJobDao = mock(FaxJobDao.class);
         queueDocumentLinkDao = mock(QueueDocumentLinkDao.class);
         providerLabRoutingDao = mock(ProviderLabRoutingDao.class);
         faxProviderClientFactory = mock(FaxProviderClientFactory.class);
 
-        // Create FaxImporter instance with mocked dependencies
         faxImporter = new FaxImporter(faxConfigDao, faxJobDao, queueDocumentLinkDao,
                 providerLabRoutingDao, faxProviderClientFactory);
 
-        // Use reflection to access private methods for targeted testing
         generateUniqueFilenameMethod = FaxImporter.class.getDeclaredMethod("generateUniqueFilename", String.class);
         generateUniqueFilenameMethod.setAccessible(true);
 
@@ -144,6 +151,11 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     @Tag("collision")
     class CollisionFreeFilenameTests {
 
+        /**
+         * Verifies that the AtomicLong-based counter in {@code generateUniqueFilename} produces
+         * 100 distinct filenames when invoked in a tight loop with the same original filename,
+         * simulating a burst of incoming faxes within the same second.
+         */
         @Test
         @DisplayName("should generate 100 unique filenames when called in rapid succession")
         void shouldGenerateUniqueFilenames_whenCalledRapidly() throws Exception {
@@ -174,6 +186,11 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
                     });
         }
 
+        /**
+         * Verifies thread safety of filename generation by running 10 threads in parallel,
+         * each generating 10 filenames. Ensures the AtomicLong counter prevents collisions
+         * even under true concurrent access, as would occur during parallel SRFax downloads.
+         */
         @Test
         @DisplayName("should generate unique filenames when multiple threads generate concurrently")
         @Tag("concurrency")
@@ -212,6 +229,10 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
                     .hasSize(numberOfThreads * filenamesPerThread);
         }
 
+        /**
+         * Verifies that a null original filename (possible from some fax providers) does not
+         * cause a NullPointerException and instead produces valid, unique fallback filenames.
+         */
         @Test
         @DisplayName("should generate unique filenames when original filename is null")
         void shouldGenerateUniqueFilename_whenOriginalFilenameIsNull() throws Exception {
@@ -237,6 +258,11 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             assertThat(filename1).isNotEqualTo(filename2);
         }
 
+        /**
+         * Verifies that path traversal sequences and filesystem-dangerous characters
+         * (e.g., {@code ../}, {@code |}, {@code *}) are stripped from filenames to prevent
+         * directory traversal attacks when writing fax files to disk.
+         */
         @Test
         @DisplayName("should sanitize dangerous characters in filename")
         @Tag("security")
@@ -268,6 +294,11 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     @Tag("validation")
     class PdfValidationTests {
 
+        /**
+         * Verifies that non-PDF binary data is rejected by {@code validateAndCountPages}
+         * with a {@link FaxProviderException}, preventing corrupted documents from entering
+         * patient charts.
+         */
         @Test
         @DisplayName("should reject corrupted PDF and throw FaxProviderException")
         void shouldRejectCorruptedPdf_andThrowException() throws Exception {
@@ -294,6 +325,10 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             }
         }
 
+        /**
+         * Verifies that a zero-byte file is rejected as an invalid PDF, guarding against
+         * empty fax transmissions that could result in blank documents in patient records.
+         */
         @Test
         @DisplayName("should reject empty PDF file")
         void shouldRejectEmptyPdf() throws Exception {
@@ -318,6 +353,11 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             }
         }
 
+        /**
+         * Verifies that a well-formed PDF is accepted and its page count is accurately
+         * reported. The page count is stored in {@link FaxJob} metadata and displayed
+         * in the fax inbox UI.
+         */
         @Test
         @DisplayName("should accept valid PDF and return correct page count")
         void shouldAcceptValidPdf_andReturnPageCount() throws Exception {
@@ -338,6 +378,11 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             }
         }
 
+        /**
+         * Verifies that a minimal PDF-like byte sequence (valid header but no actual page
+         * objects) is rejected. OpenPDF's {@code PdfReader} cannot parse such structures,
+         * so a {@link FaxProviderException} is expected.
+         */
         @Test
         @DisplayName("should reject PDF with zero pages")
         void shouldRejectPdf_withZeroPages() throws Exception {
@@ -366,6 +411,12 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             }
         }
 
+        /**
+         * Verifies the full {@code saveToIncoming} workflow: when the Base64-decoded PDF
+         * content is invalid, the {@link FaxJob#getStatus()} is set to
+         * {@link FaxJob.STATUS#ERROR} and the status string contains a descriptive message,
+         * enabling operators to diagnose the failure from the fax management UI.
+         */
         @Test
         @DisplayName("should set ERROR status when PDF validation fails during saveToIncoming")
         @Tag("error-handling")
@@ -392,6 +443,11 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
                     .containsAnyOf("validation", "PDF", "failed", "decode", "Base64");
         }
 
+        /**
+         * Verifies that the {@code saveToIncoming} finally-block deletes temporary files
+         * even when PDF validation fails. This prevents temp files containing PHI from
+         * accumulating on disk, which is a HIPAA/PIPEDA compliance requirement.
+         */
         @Test
         @DisplayName("should clean up temp file when validation fails")
         @Tag("cleanup")
@@ -462,6 +518,12 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
 
         private Method importFromIncomingMethod;
 
+        /**
+         * Obtains reflective access to the private {@code importFromIncoming} method,
+         * which performs the atomic file move from the incoming directory to DOCUMENT_DIR.
+         *
+         * @throws Exception if reflection fails to locate the method
+         */
         @BeforeEach
         void setUpImportMethod() throws Exception {
             importFromIncomingMethod = FaxImporter.class.getDeclaredMethod("importFromIncoming",
@@ -469,6 +531,10 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             importFromIncomingMethod.setAccessible(true);
         }
 
+        /**
+         * Verifies that {@code importFromIncoming} returns null and sets ERROR status
+         * when DOCUMENT_DIR does not exist, rather than throwing an unhandled exception.
+         */
         @Test
         @DisplayName("should return null when DOCUMENT_DIR does not exist")
         @Tag("cleanup")
@@ -505,6 +571,10 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             assertThat(receivedFax.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
         }
 
+        /**
+         * Verifies that the error message stored in {@link FaxJob#getStatusString()} is
+         * descriptive enough for operators to diagnose the file move failure.
+         */
         @Test
         @DisplayName("should set ERROR status with descriptive message when file move fails")
         @Tag("error-handling")
@@ -544,6 +614,11 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
                     );
         }
 
+        /**
+         * Verifies that when {@code importFromIncoming} fails, the original file remains
+         * in the incoming directory so it can be retried on the next poll cycle rather
+         * than being silently lost.
+         */
         @Test
         @DisplayName("should preserve file in incoming dir when import fails")
         @Tag("atomicity")
@@ -575,13 +650,15 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
         }
     }
 
-    // ==================== Helper Methods ====================
+    // ==================== Test Helper Methods ====================
 
     /**
-     * Initializes the faxIncomingDir field on the FaxImporter via reflection.
-     * Uses a temp directory to avoid requiring real application configuration.
+     * Initializes the {@code faxIncomingDir} field on the {@link FaxImporter} via reflection.
+     * Uses a temporary directory to avoid requiring real application configuration
+     * (OscarProperties).
      *
-     * @return the temporary incoming directory path
+     * @return the temporary incoming directory path created for this test
+     * @throws Exception if reflection fails or temp directory cannot be created
      */
     private Path initializeFaxIncomingDir() throws Exception {
         Path tempIncomingDir = Files.createTempDirectory("test-fax-incoming-");
@@ -592,7 +669,13 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Counts temp files (fax-tmp-*.pdf pattern) in a directory.
+     * Counts temporary fax files matching the {@code fax-tmp-*.pdf} naming pattern in the
+     * specified directory. Used to verify that temp files are properly cleaned up after
+     * validation failures.
+     *
+     * @param directory the directory to scan for temp files
+     * @return the number of matching temp files, or 0 if the directory does not exist
+     * @throws IOException if the directory listing fails
      */
     private long countTempFilesInDir(Path directory) throws IOException {
         if (!Files.exists(directory)) {
@@ -607,7 +690,11 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Creates a temporary file with given content for testing.
+     * Creates a temporary file with the given byte content for use as test input.
+     *
+     * @param content the raw bytes to write to the temp file
+     * @return a {@link File} reference to the created temp file (caller is responsible for cleanup)
+     * @throws IOException if the file cannot be created or written
      */
     private File createTempFile(byte[] content) throws IOException {
         File tempFile = File.createTempFile("test-fax-", ".pdf");
@@ -616,7 +703,13 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Creates a valid PDF file with specified number of pages.
+     * Creates a valid multi-page PDF file using OpenPDF with US Letter page size.
+     * Each page contains a simple text paragraph ("Test page N").
+     *
+     * @param numberOfPages the number of pages to generate (must be at least 1)
+     * @return a {@link File} reference to the created PDF (caller is responsible for cleanup)
+     * @throws IOException if the file cannot be created
+     * @throws DocumentException if OpenPDF encounters an error during PDF generation
      */
     private File createValidPdf(int numberOfPages) throws IOException, DocumentException {
         File tempFile = File.createTempFile("test-valid-fax-", ".pdf");
@@ -637,7 +730,13 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Counts temp files in the given directory.
+     * Counts temporary fax files matching the {@code fax-*.pdf} naming pattern in the
+     * specified directory. Similar to {@link #countTempFilesInDir(Path)} but with a
+     * broader filename prefix match.
+     *
+     * @param directory the directory to scan
+     * @return the number of matching files, or 0 if the directory does not exist
+     * @throws IOException if the directory listing fails
      */
     private long countTempFiles(Path directory) throws IOException {
         if (!Files.exists(directory)) {
@@ -651,7 +750,9 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Creates a test FaxConfig.
+     * Creates a test {@link FaxConfig} configured for SRFax provider with download enabled.
+     *
+     * @return a pre-configured FaxConfig with id=1, active=true, download=true, providerType=SRFAX
      */
     private FaxConfig createFaxConfig() {
         FaxConfig config = new FaxConfig();
@@ -664,7 +765,10 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Creates a test FaxJob representing received fax metadata.
+     * Creates a test {@link FaxJob} representing received fax metadata in WAITING status.
+     * Simulates a fax record that has been fetched from the provider but not yet saved to disk.
+     *
+     * @return a FaxJob with id=1, filename="incoming-referral.pdf", and WAITING status
      */
     private FaxJob createReceivedFax() {
         FaxJob fax = new FaxJob();
@@ -676,7 +780,12 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     }
 
     /**
-     * Creates a test FaxJob with document content.
+     * Creates a test {@link FaxJob} carrying document content. In the real system, the
+     * document field holds Base64-encoded PDF data retrieved from the fax provider.
+     *
+     * @param base64Content the Base64-encoded PDF content (or intentionally invalid data for
+     *                      negative test cases)
+     * @return a FaxJob with the document field set to the provided content
      */
     private FaxJob createFaxFile(String base64Content) {
         FaxJob fax = new FaxJob();

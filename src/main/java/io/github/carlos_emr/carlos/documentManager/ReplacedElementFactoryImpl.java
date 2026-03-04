@@ -51,13 +51,41 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * An override implementation of the Flying Saucer HTMLtoPDF ReplacedElementFactory class
- * that handles scaling of embedded images more accurately.
+ * Custom implementation of the Flying Saucer {@link ReplacedElementFactory} for the
+ * CARLOS EMR HTML-to-PDF conversion pipeline.
+ *
+ * <p>This factory handles two replaced element types:
+ * <ul>
+ *   <li>{@code <img>} tags: Loads images from the local file system, converts them to
+ *       OpenPDF {@link Image} objects wrapped in {@link ITextFSImage}, and applies
+ *       width/height scaling when dimensions are specified in the HTML.</li>
+ *   <li>{@code <input>} tags: Renders form input fields as text elements via
+ *       {@link TextFormField}.</li>
+ * </ul>
+ *
+ * <p>Used by {@link ConvertToEdoc#fallbackRender} as the replaced element factory
+ * for the Flying Saucer ITextRenderer with OpenPDF backend.
+ *
+ * @see ConvertToEdoc
+ * @see org.xhtmlrenderer.extend.ReplacedElementFactory
+ * @since 2022-05-12
  */
 public class ReplacedElementFactoryImpl implements ReplacedElementFactory {
 
     private static Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Creates a replaced element for {@code <img>} and {@code <input>} HTML tags.
+     * Images are loaded from the local file system and scaled to the specified
+     * dimensions. Input elements are rendered as text form fields.
+     *
+     * @param layoutContext LayoutContext the current layout context
+     * @param blockBox BlockBox the block box containing the element to replace
+     * @param userAgentCallback UserAgentCallback the user agent for resource resolution
+     * @param width int the target width in CSS pixels, or -1 if unspecified
+     * @param height int the target height in CSS pixels, or -1 if unspecified
+     * @return ReplacedElement the replacement element, or null if the element is not handled
+     */
     @Override
     public ReplacedElement createReplacedElement(LayoutContext layoutContext, BlockBox blockBox, UserAgentCallback userAgentCallback, int width, int height) {
         Element e = blockBox.getElement();
@@ -91,6 +119,16 @@ public class ReplacedElementFactoryImpl implements ReplacedElementFactory {
         return blockBox.getReplacedElement();
     }
 
+    /**
+     * Loads an image from the local file system and wraps it as an OpenPDF-backed FSImage
+     * for use in the Flying Saucer PDF rendering pipeline.
+     *
+     * @param attribute String the file system path to the image (from the img src attribute)
+     * @param uac UserAgentCallback the user agent callback (unused, retained for API compatibility)
+     * @return FSImage the loaded image wrapped as an ITextFSImage
+     * @throws IOException if the image file cannot be read
+     * @throws BadElementException if the image data cannot be parsed by OpenPDF
+     */
     protected final FSImage imageForPDF(String attribute, UserAgentCallback uac) throws IOException, BadElementException {
         FSImage fsImage;
         try (InputStream input = new FileInputStream(attribute)) {
@@ -102,18 +140,21 @@ public class ReplacedElementFactoryImpl implements ReplacedElementFactory {
         return fsImage;
     }
 
+    /** {@inheritDoc} No-op; this factory maintains no internal state to reset. */
     @Override
     public void reset() {
-        // override
+        // No internal state to reset
     }
 
+    /** {@inheritDoc} No-op; element removal is not tracked by this factory. */
     @Override
     public void remove(Element element) {
-        // override
+        // Element removal not tracked
     }
 
+    /** {@inheritDoc} No-op; form submission is not supported in PDF output. */
     @Override
     public void setFormSubmissionListener(FormSubmissionListener formSubmissionListener) {
-        // override
+        // Form submission not applicable in PDF rendering context
     }
 }

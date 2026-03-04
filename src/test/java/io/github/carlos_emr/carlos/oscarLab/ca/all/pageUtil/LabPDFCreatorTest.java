@@ -57,28 +57,56 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 
 /**
- * This unit test is used for verifying the PDF output of various lab systems
- * <p>
- * To set up:
- * <p>
- * 1.) uncomment the @Test annotations
- * 2.) set the outputFilePath attribute to a output directory and file name of your choice.
- * 3.) run unit test.
- * 4.) uncomment the Test annotations before making a commit.
+ * Legacy JUnit 4 integration test for {@link LabPDFCreator}, verifying PDF generation
+ * from HL7 lab messages produced by various Canadian laboratory information systems.
+ *
+ * <p>Each test method loads sample HL7 messages from a ZIP archive on the classpath,
+ * parses them with the appropriate {@link MessageHandler} implementation, and renders
+ * the results to PDF via {@link LabPDFCreator#printPdf()}. The output PDFs are written
+ * to the classpath output directory for manual visual inspection.</p>
+ *
+ * <h3>Supported Lab Systems</h3>
+ * <ul>
+ *   <li><strong>MEDITECH</strong> -- HL7 format used by most rural Ontario health authorities</li>
+ *   <li><strong>IHAPOI</strong> -- HL7 format used by rural BC health authorities
+ *       (Interior Health Authority)</li>
+ *   <li><strong>Excelleris (PATHL7)</strong> -- HL7 format used by Excelleris in both BC
+ *       and Ontario</li>
+ * </ul>
+ *
+ * <h3>Test Data</h3>
+ * <p>Sample HL7 messages are stored as ZIP archives in the test classpath resources:
+ * {@code MEDITECH_test_data.zip}, {@code IHAPOI_test_data.zip}, and
+ * {@code excelleris_test_lab_data.zip}.</p>
+ *
+ * @see LabPDFCreator
+ * @see MEDITECHHandler
+ * @see IHAPOIHandler
+ * @see PATHL7Handler
  */
 public class LabPDFCreatorTest {
 
+    /** Directory path where generated PDF output files are written for manual inspection. */
     private static String outputFilePath;
+
+    /** Currently open ZIP archive containing HL7 test data; closed and replaced between test methods. */
     private static ZipFile zipFile;
 
-
+    /**
+     * Resolves the output directory to the root of the test classpath resources,
+     * so generated PDF files appear alongside the test data archives.
+     */
     @BeforeClass
     public static void setUpBeforeClass() {
         outputFilePath = Thread.currentThread().getContextClassLoader().getResource("").getFile();
     }
 
     /**
-     * HL7 format used by most of the rural Ontario health authorities
+     * Tests PDF generation for MEDITECH HL7 lab messages.
+     *
+     * <p>MEDITECH is the HL7 format used by most rural Ontario health authorities.
+     * Iterates through all entries in {@code MEDITECH_test_data.zip}, parses each
+     * with {@link MEDITECHHandler}, and verifies that a non-empty PDF file is produced.</p>
      */
     @Test
     public void testPrintMeditech() {
@@ -93,8 +121,12 @@ public class LabPDFCreatorTest {
     }
 
     /**
-     * HL7 format used by most of the rural BC Health Authorities. Specifically the
-     * Interior Health Authority.
+     * Tests PDF generation for IHAPOI HL7 lab messages.
+     *
+     * <p>IHAPOI is the HL7 format used by rural BC health authorities, specifically
+     * the Interior Health Authority (IHA) Point of Inquiry system. Iterates through
+     * all entries in {@code IHAPOI_test_data.zip}, parses each with {@link IHAPOIHandler},
+     * and verifies that a non-empty PDF file is produced.</p>
      */
     @Test
     public void testPrintIHAPOI() {
@@ -109,7 +141,11 @@ public class LabPDFCreatorTest {
     }
 
     /**
-     * Format used by Excelleris in both BC and Ontario
+     * Tests PDF generation for Excelleris (PATHL7) HL7 lab messages.
+     *
+     * <p>Excelleris is a lab result delivery service used in both BC and Ontario.
+     * Iterates through all entries in {@code excelleris_test_lab_data.zip}, parses each
+     * with {@link PATHL7Handler}, and verifies that a non-empty PDF file is produced.</p>
      */
     @Test
     public void testPrintPathHl7() {
@@ -124,6 +160,19 @@ public class LabPDFCreatorTest {
         }
     }
 
+    /**
+     * Parses an HL7 message from a ZIP entry and renders it to a PDF file.
+     *
+     * <p>Extracts the HL7 body from the given {@link ZipEntry}, initializes the
+     * provided {@link MessageHandler}, then uses {@link LabPDFCreator} to generate
+     * a PDF. The output file is written to {@link #outputFilePath} with the entry
+     * name (slashes replaced by underscores) plus a {@code .pdf} extension.</p>
+     *
+     * @param zipEntry the ZIP entry containing the HL7 message text
+     * @param handler  the HL7 message handler appropriate for the lab system format
+     * @return the absolute file path of the generated PDF, or an empty string if
+     *         the HL7 body was empty or an error occurred
+     */
     private static String createPDF(ZipEntry zipEntry, MessageHandler handler) {
 
         String hl7Body = getHL7Body(zipEntry);
@@ -177,6 +226,15 @@ public class LabPDFCreatorTest {
         return filePath;
     }
 
+    /**
+     * Reads the HL7 message body from a ZIP entry as a UTF-8 string.
+     *
+     * <p>If an I/O error occurs while reading, the {@link #zipFile} is closed and
+     * set to null to prevent further reads from a potentially corrupt archive.</p>
+     *
+     * @param zipEntry the ZIP entry to read from the currently open {@link #zipFile}
+     * @return the HL7 message text, or an empty string if reading fails
+     */
     private static String getHL7Body(ZipEntry zipEntry) {
 
         StringWriter writer = new StringWriter();
@@ -203,6 +261,17 @@ public class LabPDFCreatorTest {
         return writer.toString();
     }
 
+    /**
+     * Opens a ZIP archive from the test classpath and returns an enumeration of its entries.
+     *
+     * <p>If a previous ZIP file is still open, it is closed before opening the new one.
+     * The opened archive is stored in the static {@link #zipFile} field for use by
+     * {@link #getHL7Body(ZipEntry)}.</p>
+     *
+     * @param filename the name of the ZIP file on the test classpath (e.g.,
+     *                 {@code "MEDITECH_test_data.zip"})
+     * @return an enumeration of {@link ZipEntry} objects in the archive
+     */
     private static Enumeration<? extends ZipEntry> openZipFile(String filename) {
 
         if (zipFile != null) {

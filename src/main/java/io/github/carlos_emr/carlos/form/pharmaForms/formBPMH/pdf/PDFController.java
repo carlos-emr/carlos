@@ -80,11 +80,30 @@ Verdana — 1.98
 Courier New — 1.60
  */
 
-/*
- * Author: Dennis Warren
- * Company: Colcamex Resources
- * Date: November 2014
- * For: UBC Pharmacy Clinic and McMaster Department of Family Medicine
+/**
+ * Controller for generating Best Possible Medication History (BPMH) PDF documents
+ * using AcroForm field filling.
+ *
+ * <p>This class reads AcroForm smart-tag field names from a PDF template, matches them
+ * to getter methods on a provided data POJO (via reflection), and fills the PDF fields
+ * with the corresponding values. It supports:
+ * <ul>
+ *   <li>Flat property access (e.g., {@code firstName})</li>
+ *   <li>Nested property access (e.g., {@code demographic.phoneNumber})</li>
+ *   <li>Indexed list access (e.g., {@code getMedications#0.drugName})</li>
+ *   <li>Auto-print via embedded PDF JavaScript</li>
+ *   <li>Form flattening to produce a read-only output PDF</li>
+ * </ul>
+ *
+ * <p>Uses OpenPDF's {@link PdfStamper} for AcroForm field manipulation and
+ * {@link PdfReader} for template loading. The {@link FileOutputStream} for the
+ * stamper output is wrapped in a try-catch to ensure cleanup on constructor failure.
+ *
+ * <p>Originally created November 2014 for UBC Pharmacy Clinic and McMaster
+ * Department of Family Medicine.
+ *
+ * @see io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean
+ * @since 2014-11 (UBC Pharmacy Clinic)
  */
 public class PDFController {
 
@@ -556,12 +575,12 @@ public class PDFController {
     }
 
     /**
-     * String return values only.
-     * This method will return data 2 methods deep from the
-     * Method Map and POJO Object set in current Object state.
-     * ie: demographic.phoneNumber
+     * Invokes a getter method by name against the current data object and returns the
+     * result as a String. Supports dot-notation for nested properties
+     * (e.g., {@code demographic.phoneNumber}) up to two levels deep.
      *
-     * @return
+     * @param methodName String the property name matching an AcroForm field tag
+     * @return String the value from the data object, or empty string if not found
      */
     public String invokeValue(String methodName) {
         String value = "";
@@ -574,12 +593,15 @@ public class PDFController {
     }
 
     /**
-     * String return values only.
+     * Invokes a getter method from the provided method map against the given data object.
      *
-     * @param methodName
-     * @param methodMap
-     * @param data
-     * @returns generic Object, null on error.
+     * <p>Supports dot-notation for nested property access and hash-notation for indexed
+     * list access (e.g., {@code getMedications#2.drugName}).
+     *
+     * @param methodName String the property name (supports dot and hash notation)
+     * @param methodMap Map mapping property names to their getter Methods
+     * @param data Object the root data object to invoke methods against
+     * @return Object the invoked value, or {@code null} on error or if not found
      */
     protected static Object invokeValue(String methodName, Map<String, Method> methodMap, Object data) {
 
@@ -652,11 +674,12 @@ public class PDFController {
     }
 
     /**
-     * Cast select Objects into a String object.
-     * So far only Dates, Integers, and Strings are allowed through
+     * Casts supported object types to their String representation.
+     * Handles {@link String}, {@link Date} (formatted as MM-dd-yyyy), and {@link Integer}.
+     * Returns empty string for {@code null} or unsupported types.
      *
-     * @param object
-     * @return
+     * @param object Object the value to convert
+     * @return String the string representation, or empty string if unsupported
      */
     private static final String castToString(final Object object) {
         String string = "";
@@ -679,12 +702,12 @@ public class PDFController {
     }
 
     /**
-     * Converts a POJO method signature into the conventional camel-case
-     * format.
+     * Converts a POJO getter/setter method name to its camelCase property name
+     * by stripping the prefix and lowercasing the first character.
      *
-     * @param start      : starting point of the get or set prepend
-     * @param methodName : the method string being formatted.
-     * @return
+     * @param start int the length of the prefix to strip ("get"=3, "is"=2)
+     * @param methodName String the full method name (e.g., "getFirstName")
+     * @return String the camelCase property name (e.g., "firstName")
      */
     private static String toProperty(int start, String methodName) {
 
@@ -698,9 +721,11 @@ public class PDFController {
     }
 
     /**
-     * Converts a Java array into a comma delimited String
+     * Joins a String array into a single delimited String.
      *
-     * @return
+     * @param array String[] the array of strings to join
+     * @param delimiter String the delimiter to insert between elements
+     * @return String the joined result
      */
     private static final String arrayToString(final String[] array, final String delimiter) {
 

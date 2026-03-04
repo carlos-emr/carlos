@@ -38,7 +38,24 @@ import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintPdf;
 
 import org.openpdf.text.DocumentException;
 
+/**
+ * Strategy interface for pluggable print extensions within the case management
+ * PDF printing subsystem. Implementations render additional content sections
+ * (e.g. measurements, custom forms) into an in-progress PDF document.
+ *
+ * @see CaseManagementPrintPdf
+ * @see io.github.carlos_emr.carlos.casemgmt.service.MeasurementPrint
+ * @since 2010-12-10
+ */
 public interface ExtPrint {
 
+    /**
+     * Renders this extension's content into the given PDF print engine.
+     *
+     * @param engine  CaseManagementPrintPdf the active PDF generation engine
+     * @param request HttpServletRequest the current HTTP request containing print parameters
+     * @throws IOException       if an I/O error occurs during PDF generation
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printExt(CaseManagementPrintPdf engine, HttpServletRequest request) throws IOException, DocumentException;
 }

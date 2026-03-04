@@ -69,6 +69,27 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that manages document attachments for consultation requests.
+ *
+ * <p>Provides two main capabilities:</p>
+ * <ul>
+ *   <li><b>Fetch all attachable items</b> ({@link #fetchAll()}) - retrieves all documents, labs,
+ *       forms, eForms, and HRM reports for a patient, along with which are already attached
+ *       to the consultation request. Populates request attributes for the attachment UI.</li>
+ *   <li><b>Generate PDF previews</b> ({@link #getDocumentPDF()}, {@link #getLabPDF()},
+ *       {@link #getFormPDF()}, {@link #getEFormPDF()}, {@link #getHRMPDF()}) - renders each
+ *       attachment type as a base64-encoded PDF for inline preview in the consultation form.</li>
+ * </ul>
+ *
+ * <p>File path validation uses {@link PathValidationUtils} to prevent path traversal attacks.
+ * PDF responses are returned as JSON objects containing base64-encoded PDF data.</p>
+ *
+ * @see ConsultationPDFCreator
+ * @see ImagePDFCreator
+ * @see DocumentAttachmentManager
+ * @since 2003-07-22
+ */
 public class ConsultationAttachDocs2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -80,10 +101,24 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Default action entry point; delegates to {@link #fetchAll()}.
+     *
+     * @return String the Struts2 result name from fetchAll
+     */
     public String execute() {
         return fetchAll();
     }
 
+    /**
+     * Retrieves all attachable items for a patient's consultation request.
+     *
+     * <p>Loads all labs, documents, forms, eForms, and HRM reports for the specified
+     * demographic, determines which are already attached to the given consultation request,
+     * and sets both lists as request attributes for the attachment selection UI.</p>
+     *
+     * @return String "fetchAll" result name for Struts2 navigation
+     */
     @SuppressWarnings("unused")
     public String fetchAll() {
 
@@ -170,6 +205,13 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
         return "fetchAll";
     }
 
+    /**
+     * Generates a base64-encoded PDF for a document attachment and writes it as a JSON response.
+     *
+     * <p>Handles both image documents (converted via {@link ImagePDFCreator}) and PDF documents
+     * (read directly). File paths are validated against the configured {@code DOCUMENT_DIR}
+     * to prevent path traversal.</p>
+     */
     public void getDocumentPDF() {
         //TODO: refactor this function, and similar code in EctConsultationFormRequestPrincAction2.java
         //      and EctConsultationFormFax2Action.java as part of extending this attach item functionality
@@ -205,6 +247,12 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Generates a base64-encoded PDF for a lab result attachment and writes it as a JSON response.
+     *
+     * <p>Creates a temporary PDF file via {@link LabPDFCreator}, appends any embedded documents,
+     * encodes the result as base64, and cleans up the temporary file.</p>
+     */
     public void getLabPDF() {
         //TODO: refactor this function, and similar code in EctConsultationFormRequestPrincAction2.java
         //      and EctConsultationFormFax2Action.java as part of extending this attach item functionality
@@ -229,6 +277,12 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Generates a base64-encoded PDF for a form attachment and writes it as a JSON response.
+     *
+     * <p>Renders the form via {@link FaxManager#renderFaxDocument} using a
+     * {@link FormTransportContainer} and encodes the result as base64.</p>
+     */
     public void getFormPDF() {
         //TODO: refactor this function, and similar code in EctConsultationFormRequestPrincAction2.java
         //      and EctConsultationFormFax2Action.java as part of extending this attach item functionality
@@ -259,6 +313,12 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Generates a base64-encoded PDF for an eForm attachment and writes it as a JSON response.
+     *
+     * <p>Renders the eForm via {@link FaxManager#renderFaxDocument} and encodes the result
+     * as base64.</p>
+     */
     public void getEFormPDF() {
         //TODO: refactor this function, and similar code in EctConsultationFormRequestPrincAction2.java
         //      and EctConsultationFormFax2Action.java as part of extending this attach item functionality
@@ -271,6 +331,10 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
         generateResponse(response, getBase64(eFormPDF));
     }
 
+    /**
+     * Generates a base64-encoded PDF for an HRM (Hospital Report Manager) attachment
+     * and writes it as a JSON response.
+     */
     public void getHRMPDF() {
         //TODO: refactor this function, and similar code in EctConsultationFormRequestPrincAction2.java
         //      and EctConsultationFormFax2Action.java as part of extending this attach item functionality
@@ -285,6 +349,12 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Writes a JSON response containing base64-encoded PDF data.
+     *
+     * @param response HttpServletResponse the servlet response to write to
+     * @param base64Data String the base64-encoded PDF content
+     */
     private void generateResponse(HttpServletResponse response, String base64Data) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("base64Data", base64Data);
@@ -296,10 +366,22 @@ public class ConsultationAttachDocs2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Encodes a byte array as a base64 string.
+     *
+     * @param bytes byte[] the raw bytes to encode
+     * @return String the base64-encoded representation
+     */
     private String getBase64(byte[] bytes) {
         return Base64.getEncoder().encodeToString(bytes);
     }
 
+    /**
+     * Reads a PDF file from disk and encodes it as a base64 string.
+     *
+     * @param pdfPath Path the filesystem path to the PDF file
+     * @return String the base64-encoded PDF content, or null if an I/O error occurs
+     */
     private String getBase64(Path pdfPath) {
         try {
             return getBase64(Files.readAllBytes(pdfPath));

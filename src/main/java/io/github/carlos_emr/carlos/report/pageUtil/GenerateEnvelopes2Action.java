@@ -57,7 +57,20 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 
 /**
- * @author jay
+ * Struts2 action that generates mailing envelope PDFs for selected patient demographics.
+ *
+ * <p>Creates a multi-page PDF with one #10 envelope (684 x 297 points) per patient,
+ * formatted with the patient's name and mailing address. Optionally embeds JavaScript
+ * for auto-printing to a configured default envelope printer with silent print support.</p>
+ *
+ * <p>Printer preferences are loaded from {@link UserProperty} settings:
+ * {@code DEFAULT_PRINTER_PDF_ENVELOPE} and {@code DEFAULT_PRINTER_PDF_ENVELOPE_SILENT_PRINT}.</p>
+ *
+ * <p>Requires the {@code _report} read privilege. Uses OpenPDF ({@code org.openpdf.*})
+ * for PDF generation.</p>
+ *
+ * @see UserProperty#DEFAULT_PRINTER_PDF_ENVELOPE
+ * @since 2006-09-25
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -69,6 +82,16 @@ public class GenerateEnvelopes2Action extends ActionSupport {
     private static Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Generates the envelope PDF for the selected demographics and writes it to the response.
+     *
+     * <p>Loads user printer preferences, creates a #10 envelope-sized PDF for each
+     * selected patient, and optionally adds auto-print JavaScript. Returns {@code null}
+     * because the response is written directly via the output stream.</p>
+     *
+     * @return String {@code null} (response is written directly as PDF)
+     * @throws SecurityException if the logged-in user lacks {@code _report} read privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -144,6 +167,12 @@ public class GenerateEnvelopes2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Creates a formatted paragraph for an envelope address label.
+     *
+     * @param text String the address text with newline separators
+     * @return Paragraph the formatted label in Helvetica 18pt with 22pt leading
+     */
     Paragraph getEnvelopeLabel(String text) {
         Paragraph p = new Paragraph(text, FontFactory.getFont(FontFactory.HELVETICA, 18));
         p.setLeading(22);

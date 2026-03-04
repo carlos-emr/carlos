@@ -47,11 +47,35 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.openpdf.text.*;
 
+/**
+ * Print extension that renders ophthalmology and clinical measurements into the
+ * case management PDF. Retrieves {@link Measurement} records for a patient
+ * (optionally filtered by date range) and outputs them grouped by observation
+ * date in a two-column table (label / value).
+ *
+ * <p>Measurement types include autorefraction (AR), keratometry (K), manifest
+ * and cycloplegic refraction, intraocular pressure (IOP/NCT), visual fields,
+ * anterior/posterior segment findings, oculoplastics, and orbit measurements.
+ *
+ * @see ExtPrint
+ * @see CaseManagementPrintPdf
+ * @since 2010-12-13
+ */
 public class MeasurementPrint implements ExtPrint {
 
     private static Logger logger = MiscUtils.getLogger();
 
 
+    /**
+     * Queries patient measurements and renders them into the PDF, grouped by
+     * observation date. Reads {@code pStartDate}, {@code pEndDate}, and
+     * {@code demographicNo} from the HTTP request parameters.
+     *
+     * @param engine  CaseManagementPrintPdf the active PDF generation engine
+     * @param request HttpServletRequest the current HTTP request with date range and demographic parameters
+     * @throws IOException       if an I/O error occurs during PDF generation
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     @Override
     public void printExt(CaseManagementPrintPdf engine, HttpServletRequest request) throws IOException, DocumentException {
         logger.info("measurement print!!!!");
@@ -129,6 +153,15 @@ public class MeasurementPrint implements ExtPrint {
         //engine.getDocument().add(p);
     }
 
+    /**
+     * Populates a two-column PDF table with all measurement entries matching the
+     * given date. Each known measurement type is checked against the map and
+     * added as a label/value row if present.
+     *
+     * @param date         String the formatted observation date to filter on
+     * @param measurements List of Measurement records to extract entries from
+     * @param table        PdfPTable the two-column table to populate
+     */
     private void printMeasurementEntries(String date, List<Measurement> measurements, PdfPTable table) {
         SimpleDateFormat formatter = new SimpleDateFormat("dd-MMM-yyyy");
         Map<String, Measurement> map = new HashMap<String, Measurement>();
@@ -282,6 +315,15 @@ public class MeasurementPrint implements ExtPrint {
 
     }
 
+    /**
+     * Adds a single measurement row to the table if the measurement type exists
+     * in the map. Silently skips types that are not present.
+     *
+     * @param type           String the measurement type key (e.g. "od_ar_sph")
+     * @param label          String the human-readable label for display
+     * @param measurementMap Map of measurement type to Measurement, keyed by type
+     * @param table          PdfPTable the table to add the row to
+     */
     private void printMeasurementEntry(String type, String label, Map<String, Measurement> measurementMap, PdfPTable table) {
         if (measurementMap.get(type) == null) {
             return;

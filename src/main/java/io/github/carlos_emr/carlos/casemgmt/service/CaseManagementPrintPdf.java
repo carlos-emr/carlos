@@ -60,7 +60,26 @@ import java.util.List;
 import java.util.ResourceBundle;
 
 /**
- * @author rjonasz
+ * PDF generation engine for the case management encounter print workflow. Renders
+ * a complete patient encounter summary including clinic header, patient demographics,
+ * Cumulative Patient Profile (CPP) sections, clinical notes, allergies, preventions,
+ * and prescription history.
+ *
+ * <p>Uses OpenPDF (forked from iText) for document composition. The engine maintains
+ * shared state (document, fonts, formatters) that pluggable {@link ExtPrint} extensions
+ * can use to append additional content sections.
+ *
+ * <p>Typical usage:
+ * <pre>
+ *   CaseManagementPrintPdf engine = new CaseManagementPrintPdf(request, outputStream);
+ *   engine.printDocHeaderFooter();
+ *   engine.printNotes(notes);
+ *   engine.finish();
+ * </pre>
+ *
+ * @see ExtPrint
+ * @see OscarChartPrinter
+ * @since 2008-01-22
  */
 public class CaseManagementPrintPdf {
 
@@ -82,7 +101,10 @@ public class CaseManagementPrintPdf {
     public final int NUMCOLS = 2;
 
     /**
-     * Creates a new instance of CaseManagementPrintPdf
+     * Creates a new PDF print engine bound to the given request and output stream.
+     *
+     * @param request HttpServletRequest the HTTP request containing patient demographic attributes
+     * @param os      OutputStream the stream to write the generated PDF to
      */
     public CaseManagementPrintPdf(HttpServletRequest request, OutputStream os) {
         this.request = request;
@@ -122,6 +144,15 @@ public class CaseManagementPrintPdf {
         return bf;
     }
 
+    /**
+     * Initializes the PDF document and renders the first-page header containing
+     * clinic information (left column) and patient demographics (right column),
+     * separated by horizontal rules. Optionally uses current program info if
+     * configured via the {@code print.useCurrentProgramInfoInHeader} property.
+     *
+     * @throws IOException       if the base font cannot be created
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printDocHeaderFooter() throws IOException, DocumentException {
         //Create the document we are going to write to
         document = new Document();
@@ -234,6 +265,13 @@ public class CaseManagementPrintPdf {
 
     }
 
+    /**
+     * Renders the patient prevention (immunization) history section. Non-deleted
+     * preventions are listed with their date and type; refused preventions are annotated.
+     *
+     * @param preventions List of Prevention records, or {@code null} to skip this section
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printPreventions(List<Prevention> preventions) throws DocumentException {
         if (preventions == null) {
             return;
@@ -280,6 +318,13 @@ public class CaseManagementPrintPdf {
         }
     }
 
+    /**
+     * Renders the patient allergies section with details including description,
+     * start date, reaction, severity, onset, life stage, and age of onset.
+     *
+     * @param allergies List of Allergy records, or {@code null} to skip this section
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printAllergies(List<Allergy> allergies) throws DocumentException {
         if (allergies == null) {
             return;
@@ -377,10 +422,24 @@ public class CaseManagementPrintPdf {
         }
     }
 
+    /**
+     * Renders the patient prescription history section for all current, non-archived medications.
+     *
+     * @param demoNo String the demographic number of the patient
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printRx(String demoNo) throws DocumentException {
         printRx(demoNo, null);
     }
 
+    /**
+     * Renders the patient prescription history section, optionally followed by
+     * "Other Meds" CPP notes if provided.
+     *
+     * @param demoNo String the demographic number of the patient
+     * @param cpp    List of CaseManagementNote for other medications CPP, or {@code null} to omit
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printRx(String demoNo, List<CaseManagementNote> cpp) throws DocumentException {
         if (demoNo == null)
             return;
@@ -435,6 +494,15 @@ public class CaseManagementPrintPdf {
         }
     }
 
+    /**
+     * Renders the full Cumulative Patient Profile (CPP) with all standard sections:
+     * Social History, Other Meds, Medical History, Ongoing Concerns, Reminders,
+     * Family History, and Risk Factors.
+     *
+     * @param cpp HashMap mapping issue codes to their associated CaseManagementNote lists,
+     *            or {@code null} to skip this section
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printCPP(HashMap<String, List<CaseManagementNote>> cpp) throws DocumentException {
         if (cpp == null)
             return;
@@ -484,6 +552,13 @@ public class CaseManagementPrintPdf {
         }
     }
 
+    /**
+     * Renders a list of case management notes, each with its observation date header
+     * and note text content.
+     *
+     * @param notes List of CaseManagementNote to render
+     * @throws DocumentException if an OpenPDF document error occurs
+     */
     public void printNotes(List<CaseManagementNote> notes) throws DocumentException {
 
         CaseManagementNote note;
@@ -511,6 +586,9 @@ public class CaseManagementPrintPdf {
         }
     }
 
+    /**
+     * Closes the PDF document and flushes all content to the output stream.
+     */
     public void finish() {
         document.close();
     }

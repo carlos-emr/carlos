@@ -73,14 +73,44 @@ import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfWriter;
 
 /**
+ * Servlet that generates PDF renditions of standard medical forms (Rourke growth charts,
+ * BCAR antenatal records, and other configurable clinical forms).
  *
+ * <p>This servlet uses a configuration-driven approach where form layout is defined in
+ * external text files (config files) that specify field positions, fonts, and formatting.
+ * It overlays patient data onto imported PDF templates using OpenPDF's
+ * {@link PdfImportedPage} and {@link PdfContentByte} direct content rendering.
+ *
+ * <p>Key features:
+ * <ul>
+ *   <li>Multi-page form support with page-specific configuration files</li>
+ *   <li>Growth chart graphing via pluggable {@link FrmPdfGraphic} implementations</li>
+ *   <li>Supports checkboxes (ZapfDingbats), single-line text, multi-line text areas,
+ *       lines, and colored rectangles for redaction</li>
+ *   <li>Configurable page sizes (Letter, Half-Letter, A6)</li>
+ *   <li>Multi-form concatenation for batch printing</li>
+ *   <li>Post-processing hook via {@link FrmPDFPostValueProcessor}</li>
+ * </ul>
+ *
+ * <p>Configuration file format (see {@link #generatePDFDocumentBytes}):
+ * <pre>
+ *   Checkboxes:    paramName : alignment, X, Y, 0, font, fontSize, textToPrint
+ *   Single-line:   paramName : alignment, X, Y, 0, font, fontSize
+ *   Multi-line:    paramName : alignment, X1, Y1, 0, font, fontSize, _, X2, Y2, lineSpacing
+ * </pre>
+ * Coordinates refer to the bottom-left corner, measured in PDF points (1/72 inch).
+ *
+ * @see FrmCustomedPDFServlet
+ * @see FrmPdfGraphic
+ * @see FrmRecordFactory
+ * @since 2001 (McMaster University)
  */
 public class FrmPDFServlet extends HttpServlet {
 
     Logger log = MiscUtils.getLogger();
 
     /**
-     *
+     * Default constructor required by the servlet container.
      */
     public FrmPDFServlet() {
         super();

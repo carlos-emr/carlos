@@ -15,8 +15,19 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
- * Reusable page event handler for rendering headers on PDFs.
- * This replaces the deprecated HeaderFooter approach from older PDF library versions.
+ * Reusable page event handler for rendering headers on prevention PDF documents.
+ *
+ * <p>Implements the OpenPDF {@link PdfPageEventHelper} callback to draw a configurable
+ * header (text with optional underline border) in the top margin of every page.
+ * This replaces the deprecated HeaderFooter approach from older PDF library versions.</p>
+ *
+ * <p>The header is rendered via {@link #onEndPage(PdfWriter, Document)} after the page
+ * body is laid out, using {@link ColumnText} for right-aligned text and direct
+ * {@link PdfContentByte} line drawing for the optional border.</p>
+ *
+ * @see PreventionPrintPdf
+ * @see PdfPageEventHelper
+ * @since 2025-10-31
  */
 public class HeaderPageEvent extends PdfPageEventHelper {
     private Phrase headerPhrase;
@@ -38,8 +49,17 @@ public class HeaderPageEvent extends PdfPageEventHelper {
         this.headerPadding = headerPadding;
         this.borderSpacing = borderSpacing;
     }
-    
-    
+
+    /**
+     * Renders the header text and optional border line at the top of each page.
+     *
+     * <p>Called by OpenPDF after each page's body content is finalized. Positions the
+     * header phrase right-aligned within the top margin, then optionally draws a
+     * horizontal rule below the text.</p>
+     *
+     * @param writer PdfWriter the active PDF writer
+     * @param document Document the current PDF document
+     */
     @Override
     public void onEndPage(PdfWriter writer, Document document) {
         if (headerPhrase != null) {

@@ -49,7 +49,20 @@ import org.openpdf.text.FontFactory;
 import org.openpdf.text.Paragraph;
 
 /**
- * @author jay
+ * Struts2 action that exports selected patient demographics as an Excel spreadsheet (XLS).
+ *
+ * <p>Generates an Apache POI {@link HSSFWorkbook} with patient name, address, city, province,
+ * and postal code for each selected demographic. The spreadsheet is streamed to the HTTP
+ * response as an {@code application/octet-stream} download attachment.</p>
+ *
+ * <p>Requires the {@code _report} read privilege.</p>
+ *
+ * <p>Note: This class also contains an unused {@link #getEnvelopeLabel(String)} method
+ * (likely copied from {@link GenerateEnvelopes2Action}) that uses OpenPDF but is not
+ * called by the spreadsheet export logic.</p>
+ *
+ * @see GenerateEnvelopes2Action
+ * @since 2006-09-25
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -61,6 +74,12 @@ public class GeneratePatientSpreadSheetList2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Generates an Excel spreadsheet of selected patient demographics and writes it to the response.
+     *
+     * @return String {@code null} (response is written directly as XLS download)
+     * @throws SecurityException if the logged-in user lacks {@code _report} read privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_report", "r", null)) {
@@ -101,6 +120,15 @@ public class GeneratePatientSpreadSheetList2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Creates a formatted paragraph for an envelope address label.
+     *
+     * <p>Note: This method is unused in the spreadsheet export flow and appears to be
+     * copied from {@link GenerateEnvelopes2Action}.</p>
+     *
+     * @param text String the address text with newline separators
+     * @return Paragraph the formatted label in Helvetica 18pt with 22pt leading
+     */
     Paragraph getEnvelopeLabel(String text) {
         Paragraph p = new Paragraph(text, FontFactory.getFont(FontFactory.HELVETICA, 18));
         p.setLeading(22);

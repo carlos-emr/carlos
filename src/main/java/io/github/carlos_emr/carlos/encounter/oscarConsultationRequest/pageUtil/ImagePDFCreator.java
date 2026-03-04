@@ -38,6 +38,22 @@ import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfPageEventHelper;
 import org.openpdf.text.pdf.PdfWriter;
 
+/**
+ * Converts image files to PDF documents for inclusion in consultation request attachments.
+ *
+ * <p>Supports standard image formats (JPEG, PNG, GIF, BMP) via OpenPDF's {@link Image} class,
+ * and multi-page TIFF files via the TwelveMonkeys ImageIO TIFF plugin. The built-in TiffImage
+ * codec was removed in OpenPDF 3.x, so TIFF handling uses {@link javax.imageio.ImageIO} with
+ * the TwelveMonkeys plugin to read individual pages and convert them to PDF pages.</p>
+ *
+ * <p>Extends {@link PdfPageEventHelper} to participate in OpenPDF page lifecycle events.
+ * File path security is enforced via {@link PathValidationUtils} to prevent path traversal
+ * attacks against the configured document directory.</p>
+ *
+ * @see ConsultationPDFCreator
+ * @see PathValidationUtils
+ * @since 2012-04-09
+ */
 public class ImagePDFCreator extends PdfPageEventHelper {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -47,10 +63,16 @@ public class ImagePDFCreator extends PdfPageEventHelper {
     private Document document;
 
     /**
-     * Prepares a ConsultationPDFCreator instance to print a consultation request to PDF.
+     * Constructs an ImagePDFCreator from an HTTP request containing image path attributes.
      *
-     * @param request contains the information necessary to construct the consultation request
-     * @param os      the output stream where the PDF will be written
+     * <p>Expects the following request attributes:</p>
+     * <ul>
+     *   <li>{@code imagePath} - absolute path to the image file</li>
+     *   <li>{@code imageTitle} - descriptive title for the image in the PDF</li>
+     * </ul>
+     *
+     * @param request HttpServletRequest containing {@code imagePath} and {@code imageTitle} attributes
+     * @param os      OutputStream where the generated PDF will be written
      */
     public ImagePDFCreator(HttpServletRequest request, OutputStream os) {
         this.imagePath = (String) request.getAttribute("imagePath");
@@ -58,6 +80,13 @@ public class ImagePDFCreator extends PdfPageEventHelper {
         this.os = os;
     }
 
+    /**
+     * Constructs an ImagePDFCreator with explicit image path and title.
+     *
+     * @param imagePath  String absolute filesystem path to the image file
+     * @param imageTitle String descriptive title displayed in the PDF for each page
+     * @param os         OutputStream where the generated PDF will be written
+     */
     public ImagePDFCreator(String imagePath, String imageTitle, OutputStream os) {
         this.imagePath = imagePath;
         this.imageTitle = imageTitle;
@@ -65,10 +94,19 @@ public class ImagePDFCreator extends PdfPageEventHelper {
     }
 
     /**
-     * Prints the consultation request.
+     * Generates a PDF document from the configured image file.
      *
-     * @throws IOException       when an error with the output stream occurs
-     * @throws DocumentException when an error in document construction occurs
+     * <p>For TIFF files (detected by {@code .tif} or {@code .tiff} extension), each page in the
+     * multi-page TIFF is rendered as a separate PDF page using the TwelveMonkeys ImageIO TIFF
+     * plugin. For all other image formats, OpenPDF's {@link Image#getInstance(String)} handles
+     * the conversion directly.</p>
+     *
+     * <p>Images exceeding 500x700 points are scaled to fit within those bounds.
+     * The image path is validated against the configured {@code DOCUMENT_DIR} property
+     * using {@link PathValidationUtils} before any file access occurs.</p>
+     *
+     * @throws IOException       when an I/O error occurs reading the image or writing the PDF
+     * @throws DocumentException when OpenPDF encounters an error constructing the PDF document
      */
     public void printPdf() throws IOException, DocumentException {
 

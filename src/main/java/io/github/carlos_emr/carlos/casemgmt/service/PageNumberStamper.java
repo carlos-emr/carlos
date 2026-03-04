@@ -34,14 +34,43 @@ import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfTemplate;
 import org.openpdf.text.pdf.PdfWriter;
 
+/**
+ * OpenPDF page event handler that stamps "Page X of Y" centered in the footer
+ * of each page. Uses a deferred {@link PdfTemplate} to fill in the total page
+ * count when the document is closed.
+ *
+ * <p>The stamper works in three phases:
+ * <ol>
+ *   <li>{@link #onOpenDocument} -- creates a blank template for the total count</li>
+ *   <li>{@link #onEndPage} -- writes "Page N of " plus the template placeholder on every page</li>
+ *   <li>{@link #onCloseDocument} -- fills the template with the actual total page count</li>
+ * </ol>
+ *
+ * @see FooterSupport
+ * @see PromoTextStamper
+ * @since 2012-09-10
+ */
 public class PageNumberStamper extends FooterSupport {
 
+    /** Deferred template that receives the total page count when the document closes. */
     protected PdfTemplate total;
 
+    /**
+     * Creates a new stamper with the specified vertical offset from the page bottom.
+     *
+     * @param offset int the vertical distance (in points) below the document bottom margin
+     */
     public PageNumberStamper(int offset) {
         setBaseOffset(offset);
     }
 
+    /**
+     * Writes the "Page X of " text centered on the page footer and appends
+     * the deferred total-page-count template.
+     *
+     * @param writer PdfWriter the active PDF writer for the document
+     * @param document Document the current OpenPDF document
+     */
     public void onEndPage(PdfWriter writer, Document document) {
         PdfContentByte cb = writer.getDirectContent();
         cb.saveState();
@@ -66,10 +95,11 @@ public class PageNumberStamper extends FooterSupport {
     }
 
     /**
-     * Adds total number of pages to the template
+     * Fills the deferred template with the final total page count. Called once
+     * by OpenPDF when the document is closed.
      *
-     * @param writer
-     * @param document
+     * @param writer PdfWriter the active PDF writer
+     * @param document Document the document being closed
      */
     public void onCloseDocument(PdfWriter writer, Document document) {
         total.beginText();
@@ -80,10 +110,11 @@ public class PageNumberStamper extends FooterSupport {
     }
 
     /**
-     * Initializes template and base font
+     * Initializes the deferred template used for the total page count.
+     * Called once by OpenPDF when the document is first opened.
      *
-     * @param writer
-     * @param document
+     * @param writer PdfWriter the active PDF writer
+     * @param document Document the document being opened
      */
     public void onOpenDocument(PdfWriter writer, Document document) {
         total = writer.getDirectContent().createTemplate(100, 100);

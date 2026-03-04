@@ -51,6 +51,28 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+/**
+ * Generates PDF documents from Hospital Report Manager (HRM) reports.
+ *
+ * <p>Converts HRM report data into printable PDF format, handling three content types:</p>
+ * <ul>
+ *   <li><strong>Text reports:</strong> Structured layout with demographics, report content,
+ *       metadata box, and provider confidentiality statement</li>
+ *   <li><strong>Image attachments</strong> ({@code .gif}, {@code .jpg}, {@code .png}):
+ *       Scaled to fit page with auto-rotation for landscape images</li>
+ *   <li><strong>HTML reports</strong> ({@code .html}): Converted to PDF via
+ *       {@link ConvertToEdoc#saveAsTempPDF(EFormData)}</li>
+ *   <li><strong>Binary attachments:</strong> Written directly to the output stream</li>
+ * </ul>
+ *
+ * <p>Also extends {@link PdfPageEventHelper} to participate in page lifecycle events.
+ * Uses OpenPDF ({@code org.openpdf.*}) for PDF generation.</p>
+ *
+ * @see HRMReport
+ * @see HRMReportParser
+ * @see HRMDocument
+ * @since 2019-04-12
+ */
 public class HRMPDFCreator extends PdfPageEventHelper {
     private Logger logger = MiscUtils.getLogger();
     private OutputStream outputStream;
@@ -60,6 +82,17 @@ public class HRMPDFCreator extends PdfPageEventHelper {
     private LoggedInInfo loggedInInfo;
 
 
+    /**
+     * Constructs an HRM PDF creator for a specific report.
+     *
+     * <p>Loads the HRM document by ID and parses its report XML. If the document
+     * is not found or the ID is invalid, the report will be null and
+     * {@link #printPdf()} will log an error.</p>
+     *
+     * @param outputStream OutputStream to write the generated PDF to
+     * @param hrmId Integer the HRM document ID to render
+     * @param loggedInInfo LoggedInInfo the current user session for confidentiality statement lookup
+     */
     public HRMPDFCreator(OutputStream outputStream, Integer hrmId, LoggedInInfo loggedInInfo) {
 
         //Gets the HRMDocumentDao
@@ -86,6 +119,13 @@ public class HRMPDFCreator extends PdfPageEventHelper {
         }
     }
 
+    /**
+     * Generates the PDF and writes it to the output stream.
+     *
+     * <p>Dispatches to the appropriate rendering strategy based on the report's content type:
+     * text reports use a structured table layout, image attachments are scaled to fit the page,
+     * HTML reports are converted via Flying Saucer, and other binary content is written directly.</p>
+     */
     public void printPdf() {
         try {
             if (!hrmReport.isBinary()) {
@@ -194,6 +234,18 @@ public class HRMPDFCreator extends PdfPageEventHelper {
         }
     }
 
+    /**
+     * Generates the structured PDF layout for a text-based HRM report.
+     *
+     * <p>Builds a single-column table with demographic info, reception timestamp,
+     * report text content, provider confidentiality statement, and a bordered metadata
+     * box containing message ID, sending author, facility, report number, date, and
+     * result status.</p>
+     *
+     * @param hrmReport HRMReport the parsed report data to render
+     * @throws IOException if font creation fails
+     * @throws DocumentException if PDF document operations fail
+     */
     private void generateHRMReport(HRMReport hrmReport) throws IOException, DocumentException {
         BaseFont baseFont = BaseFont.createFont(BaseFont.COURIER, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         Font font = new Font(baseFont, 10, Font.NORMAL);

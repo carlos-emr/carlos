@@ -57,8 +57,20 @@ import org.xhtmlrenderer.pdf.ITextRenderer;
 import org.xhtmlrenderer.layout.SharedContext;
 
 /**
- * @author root
- * @deprecated unsafe with potential memory leaks. Consider another conversion tool.
+ * HTML-to-PDF conversion utility using Flying Saucer's ITextRenderer.
+ *
+ * <p>Provides multiple entry points for converting HTML content (from strings, URIs, or JSP
+ * output) into PDF documents. Uses Jsoup for HTML parsing and XHTML cleanup, then
+ * Flying Saucer ({@link ITextRenderer}) for PDF rendering. Also includes legacy methods
+ * for invoking the external {@code htmldoc} command-line tool.</p>
+ *
+ * <p>Note: Despite the "ITextRenderer" class name in Flying Saucer, this does NOT use
+ * iText directly. Flying Saucer's renderer is a separate PDF engine that wraps its own
+ * rendering pipeline.</p>
+ *
+ * @deprecated Unsafe with potential memory leaks. Consider using
+ *     {@link io.github.carlos_emr.carlos.documentManager.ConvertToEdoc} for HTML-to-PDF conversion.
+ * @since 2005-07-17
  */
 @Deprecated
 public class Doc2PDF {
@@ -146,7 +158,14 @@ public class Doc2PDF {
 
     }
 
-    // Convert named file to PDF on stdout...
+    /**
+     * Converts a file to PDF using the external {@code htmldoc} command-line tool.
+     *
+     * @param request HttpServletRequest the current request (unused, kept for API compatibility)
+     * @param response HttpServletResponse to write the generated PDF to
+     * @param filename String the file path to convert
+     * @return int the exit status from the htmldoc process (0 = success)
+     */
     public static int topdf(HttpServletRequest request, HttpServletResponse response, String filename)// I - Name of file to convert
     {
         String command; // Command string
@@ -191,7 +210,14 @@ public class Doc2PDF {
         }
     }
 
-    // Main entry for htmldoc class
+    /**
+     * Main entry point for the htmldoc external converter. Appends QUERY_STRING if available
+     * and delegates to {@link #topdf(HttpServletRequest, HttpServletResponse, String)}.
+     *
+     * @param request HttpServletRequest the current request
+     * @param response HttpServletResponse to write the generated PDF to
+     * @param url String the URL of the document to convert
+     */
     public static void HTMLDOC(HttpServletRequest request, HttpServletResponse response, String url)// I - Command-line args
     {
         //String server_name, // SERVER_NAME env var
@@ -277,6 +303,12 @@ public class Doc2PDF {
 
     }
 
+    /**
+     * Saves binary PDF data to a file on disk.
+     *
+     * @param fileName String the output file path
+     * @param docBin String the binary PDF data to write
+     */
     public static void SavePDF2File(String fileName, String docBin) {
 
         try {
@@ -295,6 +327,13 @@ public class Doc2PDF {
         }
     }
 
+    /**
+     * Opens an HTTP connection to the given URI with session authentication and returns the input stream.
+     *
+     * @param jsessionid String the session ID appended to the URI for authentication
+     * @param uri String the target URI to fetch
+     * @return BufferedInputStream the response body, or null if the connection fails
+     */
     public static BufferedInputStream GetInputFromURI(String jsessionid, String uri) {
 
         BufferedInputStream in = null;
@@ -314,6 +353,13 @@ public class Doc2PDF {
         return in;
     }
 
+    /**
+     * Converts an HTML string to a Base64-encoded PDF using Flying Saucer.
+     *
+     * @param response HttpServletResponse unused but maintained for API compatibility
+     * @param docText String the HTML content to convert
+     * @return String Base64-encoded PDF data, or null if conversion fails
+     */
     public static String GetPDFBin(HttpServletResponse response, String docText) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -325,6 +371,12 @@ public class Doc2PDF {
         return null;
     }
 
+    /**
+     * Decodes a Base64-encoded PDF string and writes it to the HTTP response.
+     *
+     * @param response HttpServletResponse to write the PDF to
+     * @param docBin String Base64-encoded PDF data
+     */
     public static void PrintPDFFromBin(HttpServletResponse response, String docBin) {
 
         // step 1: creation of a document-object
@@ -342,6 +394,15 @@ public class Doc2PDF {
 
     }
 
+    /**
+     * Writes raw PDF bytes to the HTTP response with appropriate headers.
+     *
+     * <p>Sets no-cache headers and {@code application/pdf} content type before
+     * streaming the byte array to the response output.</p>
+     *
+     * @param response HttpServletResponse to write the PDF to
+     * @param docBytes byte[] the raw PDF document bytes
+     */
     public static void PrintPDFFromBytes(HttpServletResponse response, byte[] docBytes) {
 
         try {
@@ -374,6 +435,12 @@ public class Doc2PDF {
 
     }
 
+    /**
+     * Converts an HTML string to PDF using Flying Saucer and writes it to the HTTP response.
+     *
+     * @param response HttpServletResponse to write the PDF to
+     * @param docText String the HTML content to convert and serve
+     */
     public static void PrintPDFFromHTMLString(HttpServletResponse response, String docText) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -384,6 +451,18 @@ public class Doc2PDF {
         }
     }
 
+    /**
+     * Converts relative {@code src} attribute paths in HTML to absolute URLs based on the request context.
+     *
+     * <p>Strips leading slashes from {@code src} attributes and prepends the full server URL
+     * (protocol, host, port, context path) so that Flying Saucer can resolve images and
+     * resources during PDF rendering.</p>
+     *
+     * @param request HttpServletRequest providing protocol, host, port, and context path
+     * @param docText String the HTML content with potentially relative src attributes
+     * @param uri String the original URI (unused in current implementation)
+     * @return String the HTML with absolute src URLs
+     */
     public static String AddAbsoluteTag(HttpServletRequest request, String docText, String uri) {
 
         String absolutePath = "";
@@ -406,6 +485,18 @@ public class Doc2PDF {
         return docText;
     }
 
+    /**
+     * Extracts all values between matching XML tags from a string.
+     *
+     * <p>Performs simple string-based XML parsing to find all occurrences of
+     * {@code <section>value</section>} and returns the values. Does not handle
+     * self-closing tags ({@code <section />}).</p>
+     *
+     * @param xml String the XML content to parse
+     * @param section String the tag name to search for
+     * @return Vector of String values found between matching tags
+     * @throws Exception if a closing tag is missing or appears before the opening tag
+     */
     public static Vector getXMLTagValue(String xml, String section) throws Exception {
         String xmlString = xml;
 

@@ -85,6 +85,26 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for adding and editing documents in the CARLOS EMR document management system.
+ *
+ * <p>Handles document upload, metadata editing, file persistence, and page count extraction.
+ * Supports both standard form-based uploads and HTML5 multi-file uploads. When a document
+ * is added under a patient demographic, a case management note is automatically created
+ * to record the event.
+ *
+ * <p>Security: All operations require the {@code _edoc} write privilege, enforced via
+ * {@link SecurityInfoManager}. File paths are validated using {@link PathValidationUtils}
+ * to prevent path traversal attacks. Filenames are sanitized before storage.
+ *
+ * <p>PDF page counting uses OpenPDF {@link PdfReader} to determine the number of pages
+ * in uploaded PDF documents.
+ *
+ * @see ManageDocument2Action
+ * @see EDocUtil
+ * @see PathValidationUtils
+ * @since 2006-07-27
+ */
 public class AddEditDocument2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -92,6 +112,15 @@ public class AddEditDocument2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Handles HTML5 multi-file document uploads. Validates file size, saves the file
+     * locally, counts PDF pages using OpenPDF, persists the document record, and routes
+     * it to the specified provider inbox and queue.
+     *
+     * @return String null (response is sent directly via HTTP headers)
+     * @throws Exception if file write or document persistence fails
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
     public String html5MultiUpload() throws Exception {
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
 
@@ -159,7 +188,14 @@ public class AddEditDocument2Action extends ActionSupport {
 
     }
 
-    public static int countNumOfPages(String fileName) {// count number of pages in a local pdf file
+    /**
+     * Counts the number of pages in a local PDF file using OpenPDF PdfReader.
+     * The file is located in the configured DOCUMENT_DIR.
+     *
+     * @param fileName String the PDF filename (relative to DOCUMENT_DIR)
+     * @return int the number of pages, or 0 if the file cannot be read
+     */
+    public static int countNumOfPages(String fileName) {
 
         int numOfPage = 0;
         String docdownload = OscarProperties.getInstance().getDocumentDirectory();
@@ -179,6 +215,14 @@ public class AddEditDocument2Action extends ActionSupport {
         return numOfPage;
     }
 
+    /**
+     * Main Struts2 entry point. Dispatches to {@link #html5MultiUpload()} if the
+     * request method parameter is "html5MultiUpload", otherwise delegates to
+     * {@link #execute2()} for standard add/edit operations.
+     *
+     * @return String the Struts2 result name
+     * @throws Exception if document processing fails
+     */
     public String execute() throws Exception {
         if ("html5MultiUpload".equals(request.getParameter("method"))) {
             return html5MultiUpload();
@@ -186,6 +230,13 @@ public class AddEditDocument2Action extends ActionSupport {
         return execute2();
     }
 
+    /**
+     * Handles the standard add/edit document workflow. Routes to add mode, edit mode,
+     * or returns a file-size error based on the current mode and function parameters.
+     *
+     * @return String the Struts2 result name ("failEdit", "failAdd", "successEdit", or NONE)
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
     public String execute2() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -233,7 +284,14 @@ public class AddEditDocument2Action extends ActionSupport {
         }
     }
 
-    // returns true if successful
+    /**
+     * Adds a new document: validates required fields, saves the uploaded file locally,
+     * persists the EDoc record, creates audit log entries, and generates a case management
+     * note when the document is linked to a patient demographic.
+     *
+     * @param request HttpServletRequest the current request for session and parameter access
+     * @return boolean true if the document was added successfully, false on validation or I/O error
+     */
     private boolean addDocument(HttpServletRequest request) {
 
         Hashtable errors = new Hashtable();
@@ -366,6 +424,13 @@ public class AddEditDocument2Action extends ActionSupport {
         return true;
     }
 
+    /**
+     * Edits an existing document's metadata and optionally replaces its file content.
+     * Handles reviewer assignment, extra reviewer tracking, and document type updates.
+     *
+     * @param request HttpServletRequest the current request for session and parameter access
+     * @return String the Struts2 result name ("successEdit" or "failEdit")
+     */
     private String editDocument(HttpServletRequest request) {
         Hashtable errors = new Hashtable();
 
@@ -470,6 +535,15 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
 
+    /**
+     * Writes an uploaded file to the local document storage directory. The destination
+     * path is validated using {@link PathValidationUtils} to prevent path traversal.
+     *
+     * @param is InputStream the input stream of the file content to write
+     * @param fileName String the target filename (relative to DOCUMENT_DIR)
+     * @return File the written file, or null if an error occurred
+     * @throws Exception if the output stream cannot be closed
+     */
     public static File writeLocalFile(InputStream is, String fileName) throws Exception {
         FileOutputStream fos = null;
         File file = null;
@@ -502,6 +576,14 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return file;
     }
 
+    /**
+     * Stores the binary contents of a document file in the database as a {@link DocumentStorage}
+     * record. This provides an alternative to file-system-only storage.
+     *
+     * @param file File the document file to store
+     * @param documentNo Integer the document number to associate the storage record with
+     * @return int the generated storage record ID, or 0 if an error occurred
+     */
     public static int storeDocumentInDatabase(File file, Integer documentNo) {
         Integer ret = 0;
         FileInputStream fin = null;

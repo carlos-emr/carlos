@@ -59,11 +59,28 @@ import java.util.*;
 import java.util.stream.Stream;
 
 /**
- * A utility that converts HTML into a PDF and returns an Oscar eDoc object.
- * This is useful for converting Forms and eForms with well structured HTML into
- * PDF documents that can be attached to Consultation Requests, Faxes or transferred
- * to other file systems.
- * NOT ALL DOCUMENTS ARE CONVERTABLE. USE AT OWN RISK.
+ * Utility for converting HTML content into PDF documents and wrapping them as EDoc objects
+ * in the CARLOS EMR document management system.
+ *
+ * <p>This is useful for converting Forms and eForms with well-structured HTML into
+ * PDF documents that can be attached to Consultation Requests, Faxes, or transferred
+ * to other file systems. NOT ALL DOCUMENTS ARE CONVERTIBLE. USE AT OWN RISK.
+ *
+ * <p>The conversion pipeline is:
+ * <ol>
+ *   <li>Parse and clean HTML with Jsoup (DOCTYPE injection, resource path validation)</li>
+ *   <li>Translate relative resource paths to absolute file system paths</li>
+ *   <li>Primary conversion via {@code InternalEDocConverter} (wkhtmltopdf)</li>
+ *   <li>Fallback conversion via Flying Saucer {@code ITextRenderer} with OpenPDF backend</li>
+ * </ol>
+ *
+ * <p>Thread safety: The {@code from()} and {@code saveAsTempPDF()} methods are synchronized
+ * to prevent concurrent modification of the shared {@link #realPath} field.
+ *
+ * @see EDoc
+ * @see EDocFactory
+ * @see ReplacedElementFactoryImpl
+ * @since 2018-10-15
  */
 public final class ConvertToEdoc {
 
@@ -88,11 +105,12 @@ public final class ConvertToEdoc {
     private static final NioFileManager nioFileManager = SpringUtils.getBean(NioFileManager.class);
 
     /**
-     * Convert EForm to EDoc
-     * Returns an EDoc Object with a filename that is saved in this class'
-     * temporary DEFAULT_FILE_PATH. This file can be persisted by moving from the
-     * temporary path to a file storage path prior to persisting this Object to the
-     * database.
+     * Converts an EForm into a PDF and returns an EDoc wrapping the result.
+     * The PDF is saved to a temporary file path. The caller should move the file
+     * to persistent storage before saving the EDoc to the database.
+     *
+     * @param eform EFormData the electronic form data to convert
+     * @return EDoc the document object referencing the generated PDF, or null if conversion fails
      */
     public synchronized static EDoc from(EFormData eform) {
 
@@ -118,6 +136,14 @@ public final class ConvertToEdoc {
         return edoc;
     }
 
+    /**
+     * Creates an EDoc from an EForm whose PDF has already been generated at the specified path.
+     *
+     * @param eForm EFormData the electronic form data providing metadata
+     * @param eFormPDFPath Path the path to the pre-generated PDF file
+     * @return EDoc the document object referencing the PDF
+     * @throws PDFGenerationException if the PDF file at the given path is not readable
+     */
     public synchronized static EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
         String demographicNo = eForm.getDemographicId() + "";
         String filename = buildFilename(eForm.getFormName(), demographicNo);
@@ -140,30 +166,23 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Convert Form to EDoc
-     * Returns an EDoc Object with a filename that is saved in this class'
-     * temporary DEFAULT_FILE_PATH. This file can be persisted by moving from the
-     * temporary path to a file storage path prior to persisting this Object to the
-     * database.
-     * Example use:
-     * public ActionForward eDocument(ActionMapping mapping, ActionForm form,
-     * HttpServletRequest request, HttpServletResponse response) throws Exception {
-     * <p>
-     * FormBean bpmh = (FormBean) form;
-     * <p>
-     * FormTransportContainer formTransportContainer = new FormTransportContainer(
-     * response, request, mapping.findForward("success").getPath() );
-     * <p>
-     * formTransportContainer.setDemographicNo( bpmh.getDemographicNo() );
-     * formTransportContainer.setProviderNo( bpmh.getProvider().getProviderNo() );
-     * formTransportContainer.setSubject( "BPMH Form ID " + bpmh.getFormId() );
-     * formTransportContainer.setFormName( "bpmh" );
-     * formTransportContainer.setRealPath( getServlet().getServletContext().getRealPath( File.separator ) );
-     * <p>
-     * FormsManager#saveFormDataAsEDoc( LoggedInInfo.getLoggedInInfoFromSession(request), formTransportContainer );
-     * <p>
-     * return ActionForward;
-     * }
+     * Converts a Form (via its transport container) into a PDF and returns an EDoc.
+     * The PDF is saved to a temporary file path. The caller should move the file
+     * to persistent storage before saving the EDoc to the database.
+     *
+     * <p>Example usage:
+     * <pre>{@code
+     * FormTransportContainer ftc = new FormTransportContainer(response, request, forwardPath);
+     * ftc.setDemographicNo(bpmh.getDemographicNo());
+     * ftc.setProviderNo(bpmh.getProvider().getProviderNo());
+     * ftc.setSubject("BPMH Form ID " + bpmh.getFormId());
+     * ftc.setFormName("bpmh");
+     * ftc.setRealPath(getServlet().getServletContext().getRealPath(File.separator));
+     * FormsManager.saveFormDataAsEDoc(loggedInInfo, ftc);
+     * }</pre>
+     *
+     * @param formTransportContainer FormTransportContainer containing form HTML, metadata, and real path
+     * @return EDoc the document object referencing the generated PDF, or null if conversion fails
      */
     public synchronized static EDoc from(FormTransportContainer formTransportContainer) {
 
@@ -197,10 +216,11 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Save the document as a temporary PDF. Does not save or return an eDoc entity.
-     * This is a temporary file location. Ensure that the file is deleted after it's used.
+     * Converts an EForm to a temporary PDF file without creating an EDoc entity.
+     * The caller is responsible for deleting the temporary file after use.
      *
-     * @return temporary path to the produced PDF..
+     * @param eform EFormData the electronic form data to convert
+     * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
     public synchronized static Path saveAsTempPDF(EFormData eform) {
         String eformString = eform.getFormData();
@@ -209,10 +229,11 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Save the document as a temporary PDF. Does not save or return an eDoc entity.
-     * This is a temporary file location. Ensure that the file is deleted after it's used.
+     * Converts a Form (via its transport container) to a temporary PDF file without
+     * creating an EDoc entity. The caller is responsible for deleting the temporary file after use.
      *
-     * @return temporary path to the produced PDF.
+     * @param formTransportContainer FormTransportContainer containing form HTML, metadata, and real path
+     * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
     public synchronized static Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
         String htmlString = formTransportContainer.getHTML();
@@ -222,11 +243,11 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Save the document as a temporary PDF. Does not save or return an eDoc entity.
-     * This is a temporary file location. Ensure that the file is deleted after it's used.
+     * Converts email HTML content to a temporary PDF file without creating an EDoc entity.
+     * The caller is responsible for deleting the temporary file after use.
      *
-     * @param emailData An object representing email-related data, including HTML content.
-     * @return temporary path to the produced PDF..
+     * @param emailData EmailData containing the encrypted/HTML email message body
+     * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
     public synchronized static Path saveAsTempPDF(EmailData emailData) {
         String htmlString = emailData.getEncryptedMessage();
@@ -235,7 +256,11 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Execute building and saving PDF to temp directory.
+     * Executes the HTML-to-PDF conversion pipeline and saves the result to the temp directory.
+     *
+     * @param eformString String the raw HTML content to convert
+     * @param filename String the base filename for the output PDF
+     * @return Path the path to the saved temporary PDF, or null if conversion fails
      */
     private static Path execute(final String eformString, final String filename) {
         Path path = null;
@@ -253,7 +278,12 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * create a well-formed filename
+     * Creates a well-formed, unique filename by sanitizing spaces/slashes and appending
+     * the demographic number and a timestamp.
+     *
+     * @param filename String the base filename (may contain spaces or slashes)
+     * @param demographicNo String the patient demographic number
+     * @return String the sanitized filename with demographic number and timestamp suffix
      */
     private static String buildFilename(String filename, String demographicNo) {
 
@@ -270,7 +300,17 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Builds an EDoc instance.
+     * Builds an EDoc instance with the specified metadata and file information.
+     * Sets the content type to PDF, counts pages, and records the current date.
+     *
+     * @param filename String the PDF filename
+     * @param subject String the document description/subject
+     * @param sourceHtml String the original HTML source (may be null)
+     * @param providerNo String the creating provider's number
+     * @param demographicNo String the patient demographic number
+     * @param documentType DocumentType the document origin type (eForm or form)
+     * @param filePath String the directory path where the PDF is stored
+     * @return EDoc the constructed document object
      */
     public static EDoc buildEDoc(final String filename, final String subject, final String sourceHtml,
                                  final String providerNo, final String demographicNo, final DocumentType documentType, final String filePath) {
@@ -303,10 +343,15 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Use the io.woo.htmltopdf tools for HTML to PDF or
-     * use the Flying Saucer tools if there is a failure.
-     * Flying Saucer requires a well formed w3c XHTML document - which is usually
-     * not the case.
+     * Renders the HTML document string to a PDF output stream. Uses the primary converter
+     * (wkhtmltopdf via InternalEDocConverter) first; on failure, falls back to Flying Saucer
+     * with OpenPDF backend. Flying Saucer requires well-formed XHTML, so the fallback path
+     * performs additional document preparation via Jsoup.
+     *
+     * @param document String the cleaned HTML document string
+     * @param os ByteArrayOutputStream the output stream to write the PDF to
+     * @throws DocumentException if both primary and fallback PDF conversion fail
+     * @throws IOException if an I/O error occurs during rendering
      */
     private static void renderPDF(final String document, ByteArrayOutputStream os)
             throws DocumentException, IOException {
@@ -332,6 +377,16 @@ public final class ConvertToEdoc {
         }
     }
 
+    /**
+     * Fallback PDF renderer using Flying Saucer ITextRenderer with OpenPDF backend.
+     * Prepares the document for Flying Saucer's strict XHTML requirements and
+     * uses a custom {@link ReplacedElementFactoryImpl} for image scaling.
+     *
+     * @param document String the HTML document string
+     * @param os OutputStream the output stream to write the PDF to
+     * @throws DocumentException if PDF creation fails
+     * @throws IOException if an I/O error occurs
+     */
     private static void fallbackRender(String document, OutputStream os)
         throws DocumentException, IOException {
         // Prepare document for Flying Saucer's strict XHTML requirements
@@ -374,6 +429,13 @@ public final class ConvertToEdoc {
         return doc;
     }
 
+    /**
+     * Parses and cleans an HTML document string using the specified real path for resource resolution.
+     *
+     * @param documentString String the raw HTML content
+     * @param realPath String the servlet context real path for resolving relative resource paths
+     * @return Document the parsed and cleaned Jsoup DOM
+     */
     public static Document getDocument(final String documentString, String realPath) {
 		ConvertToEdoc.realPath = realPath;
 		return getDocument(documentString);
@@ -775,10 +837,10 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Print a well-formed HTML Document object to String using Jtidy tools
+     * Converts a Jsoup Document object back to its HTML string representation.
      *
-     * @param document w3c DOM
-     * @return String HTML output
+     * @param document Document the Jsoup DOM to serialize
+     * @return String the HTML output
      */
     public static String documentToString(Document document) {
         return document.outerHtml();

@@ -37,17 +37,47 @@ import io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper;
 
 import io.github.carlos_emr.OscarProperties;
 
+/**
+ * Factory for creating pre-configured {@link org.openpdf.text.pdf.PdfWriter} instances
+ * used throughout CARLOS EMR for clinical PDF generation.
+ *
+ * <p>Each writer produced by {@link #newInstance} is automatically equipped with a
+ * {@link org.openpdf.text.pdf.events.PdfPageEventForwarder} that chains three page-event
+ * stampers (all rendered on every page):</p>
+ * <ol>
+ *   <li><strong>Confidentiality statement</strong> &mdash; from the {@code confidentialityStatement}
+ *       property (displayed at y-offset 30)</li>
+ *   <li><strong>Promotional / clinic text</strong> &mdash; from the {@code FORMS_PROMOTEXT} property
+ *       with the current date appended (displayed at y-offset 20)</li>
+ *   <li><strong>Page numbers</strong> &mdash; rendered at y-offset 10 via {@link PageNumberStamper}</li>
+ * </ol>
+ *
+ * <p><strong>Important:</strong> OpenPDF's {@code PdfWriter.setPageEvent()} silently overwrites
+ * any previously set handler. This factory uses {@code PdfPageEventForwarder} to ensure all
+ * stampers coexist. Callers that need additional page events (e.g. {@code LabPDFCreator})
+ * should retrieve the existing forwarder via {@code writer.getPageEvent()} and add to it
+ * rather than calling {@code setPageEvent()} again.</p>
+ *
+ * @see FontSettings
+ * @see PageNumberStamper
+ * @see PromoTextStamper
+ * @since 2012-02-20
+ */
 public class PdfWriterFactory {
 
+    /** Confidentiality statement loaded once from system properties at class init. */
     private static String confidentialtyStatement = OscarProperties.getConfidentialityStatement();
+    /** Promotional text (clinic branding) loaded once from system properties at class init. */
     private static String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 
     /**
      * Sets font on a PdfContentByte using the provided FontSettings.
      *
-     * @param pdfContentByte the content byte to set font on
-     * @param settings font settings to apply
-     * @return the modified PdfContentByte
+     * @param pdfContentByte PdfContentByte the content byte to configure with the new font
+     * @param settings FontSettings specifying font name, code page, embedding, and point size
+     * @return PdfContentByte the same content byte instance with the font applied
+     * @throws IllegalStateException if {@link org.openpdf.text.pdf.BaseFont#createFont} fails
+     *                               (wraps the underlying exception with the font name for diagnostics)
      */
     public static org.openpdf.text.pdf.PdfContentByte setFont(org.openpdf.text.pdf.PdfContentByte pdfContentByte, FontSettings settings) {
         try {

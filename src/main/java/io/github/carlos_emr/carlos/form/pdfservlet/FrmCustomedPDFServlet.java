@@ -69,6 +69,27 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.prescript.data.RxPharmacyData;
 
+/**
+ * Servlet that generates customized prescription PDF documents with support for faxing.
+ *
+ * <p>This servlet handles two primary workflows:
+ * <ul>
+ *   <li><strong>PDF Generation</strong> -- Renders prescription content into a bordered PDF
+ *       with clinic/patient headers, prescriber signature, and optional QR codes using OpenPDF
+ *       direct content rendering.</li>
+ *   <li><strong>Fax Submission</strong> -- Persists the generated PDF and creates a
+ *       {@link FaxJob} record for asynchronous fax delivery to a pharmacy.</li>
+ * </ul>
+ *
+ * <p>PDF layout is constructed entirely through {@link PdfContentByte} direct drawing
+ * (lines, text, images) and {@link PdfPTable} cell placement, rather than template-based
+ * AcroForm filling. Page events are handled by the inner {@link EndPage} class which
+ * extends {@link PdfPageEventHelper}.
+ *
+ * @see FrmPDFServlet
+ * @see io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean
+ * @since 2001 (McMaster University)
+ */
 public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -234,12 +255,22 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
 
     /**
-     * the form txt file has lines in the form: For Checkboxes: ie. ohip : left, 76, 193, 0, BaseFont.ZAPFDINGBATS, 8, \u2713 requestParamName : alignment, Xcoord, Ycoord, 0, font, fontSize, textToPrint[if empty, prints the value of the request param]
-     * NOTE: the Xcoord and Ycoord refer to the bottom-left corner of the element For single-line text: ie. patientCity : left, 242, 261, 0, BaseFont.HELVETICA, 12 See checkbox explanation For multi-line text (textarea) ie. aci : left, 20, 308, 0,
-     * BaseFont.HELVETICA, 8, _, 238, 222, 10 requestParamName : alignment, bottomLeftXcoord, bottomLeftYcoord, 0, font, fontSize, _, topRightXcoord, topRightYcoord, spacingBtwnLines NOTE: When working on these forms in linux, it helps to load the PDF file
-     * into gimp, switch to pt. coordinate system and use the mouse to find the coordinates. Prepare to be bored!
+     * OpenPDF page event handler that renders the prescription page layout on each page end.
+     *
+     * <p>Draws the complete prescription frame including:
+     * <ul>
+     *   <li>Rx logo and prescriber information header</li>
+     *   <li>Pharmacy attention block (when a pharmacy is selected)</li>
+     *   <li>Patient demographics (name, DOB, address, HIN, chart number)</li>
+     *   <li>Black border around the prescription area</li>
+     *   <li>Signature line with optional signature image overlay</li>
+     *   <li>Reprint information and page numbers</li>
+     *   <li>Fax confidentiality disclaimer</li>
+     * </ul>
+     *
+     * <p>All coordinates use the OpenPDF coordinate system where (0,0) is the
+     * bottom-left corner of the page, measured in points (1/72 inch).
      */
-
     class EndPage extends PdfPageEventHelper {
 
         private String clinicName;
@@ -336,7 +367,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
 
                 /*
-                 *  Create the special OSCAR Rx logo at the top
+                 *  Create the special CARLOS Rx logo at the top
                  *  left side of the prescription
                  */
                 writeDirectContent(cb, bf, 12, PdfContentByte.ALIGN_LEFT, "o s c a r", 21, height - 60, 90);
@@ -546,6 +577,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         }
     }
 
+    /**
+     * Parses a satellite clinic address from an HTML-formatted string.
+     *
+     * <p>Expects a format with bold name followed by {@code <br>}-delimited address lines
+     * containing clinic name (3 lines), telephone, and fax.
+     *
+     * @param s String the HTML-formatted satellite clinic address
+     * @return HashMap containing "clinicName", "clinicTel", and "clinicFax" entries
+     */
     private HashMap<String, String> parseSCAddress(String s) {
         HashMap<String, String> hm = new HashMap<String, String>();
         String[] ar = s.split("</b>");
@@ -568,6 +608,21 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     }
 
+    /**
+     * Generates the prescription PDF document as a byte array output stream.
+     *
+     * <p>Extracts all prescription parameters from the HTTP request (clinic info, patient
+     * demographics, prescription text, signature image path, QR code settings), constructs
+     * an OpenPDF {@link Document} with the appropriate page size and margins, and writes
+     * prescription entries as paragraphs with an {@link EndPage} event handler for the
+     * page frame rendering.
+     *
+     * @param req HttpServletRequest containing all prescription form parameters
+     * @param ctx ServletContext for resource resolution
+     * @return ByteArrayOutputStream containing the generated PDF bytes
+     * @throws DocumentException if an OpenPDF document error occurs during PDF generation
+     * @throws IOException if an I/O error occurs during PDF generation
+     */
     private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx) throws DocumentException, IOException {
         logger.debug("***in generatePDFDocumentBytes2 FrmCustomedPDFServlet.java***");
 
