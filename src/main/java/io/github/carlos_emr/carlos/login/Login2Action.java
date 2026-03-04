@@ -39,7 +39,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import dev.samstevens.totp.code.CodeVerifier;
 import dev.samstevens.totp.code.DefaultCodeGenerator;
 import dev.samstevens.totp.code.DefaultCodeVerifier;
 import dev.samstevens.totp.time.SystemTimeProvider;
@@ -290,9 +289,15 @@ public final class Login2Action extends ActionSupport {
                     : (LoginCheckLogin) request.getSession().getAttribute("cl");
             
             // Handle MFA validation
-            Object mfaSecret;
+            String mfaSecret;
             if (this.mfaRegistrationFlow) {
-                mfaSecret = request.getSession().getAttribute("mfaSecret").toString();
+                Object mfaSecretAttr = request.getSession().getAttribute("mfaSecret");
+                if (mfaSecretAttr == null) {
+                    // Session expired or attribute missing during MFA registration flow
+                    request.setAttribute("errMsg", "Session expired. Please log in again.");
+                    return "failure";
+                }
+                mfaSecret = mfaSecretAttr.toString();
             } else {
                 Security security = cl.getSecurity();
                 try {
@@ -303,14 +308,19 @@ public final class Login2Action extends ActionSupport {
                 }
             }
             
-            CodeVerifier codeVerifier = new DefaultCodeVerifier(new DefaultCodeGenerator(), new SystemTimeProvider());
+            // Explicitly configure TOTP verifier parameters to match RFC 6238 standard defaults
+            // (30-second time step, ±1 period allowed discrepancy for clock skew tolerance)
+            DefaultCodeVerifier codeVerifier = new DefaultCodeVerifier(new DefaultCodeGenerator(), new SystemTimeProvider());
+            codeVerifier.setTimePeriod(30);
+            codeVerifier.setAllowedTimePeriodDiscrepancy(1);
 
-            if (codeVerifier.isValidCode(mfaSecret.toString(), this.code)) {
+            if (codeVerifier.isValidCode(mfaSecret, this.code)) {
+                LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_success", "mfa", ip);
                 if (this.mfaRegistrationFlow) {
                     Security security = cl.getSecurity();
                     LoggedInInfo loggedInInfo = LoggedInUserFilter.generateLoggedInInfoFromSession(request);
                     try {
-                        this.mfaManager.saveMfaSecret(loggedInInfo, security, mfaSecret.toString());
+                        this.mfaManager.saveMfaSecret(loggedInInfo, security, mfaSecret);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
@@ -318,9 +328,10 @@ public final class Login2Action extends ActionSupport {
                 // Continue with post-authentication flow after successful MFA
                 return resumePostAuthenticationFlow(cl, ip, isMobileOptimized, submitType, ajaxResponse);
             } else {
+                LogAction.addLog(cl.getSecurity().getProviderNo(), "login", "mfa_failed", "mfa", ip);
                 if (this.mfaRegistrationFlow) {
                     request.setAttribute("mfaRegistrationRequired", true);
-                    request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(cl.getSecurity().getId(), mfaSecret.toString()));
+                    request.setAttribute("qrData", this.mfaManager.getQRCodeImageData(cl.getSecurity().getId(), mfaSecret));
                 }
                 request.setAttribute("mfaValidateCodeErr", "Invalid MFA Code");
                 request.setAttribute("securityId", String.valueOf(cl.getSecurity().getSecurityNo()));
