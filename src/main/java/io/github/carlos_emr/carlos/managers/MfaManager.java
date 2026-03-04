@@ -27,7 +27,8 @@
 
 package io.github.carlos_emr.carlos.managers;
 
-import org.jboss.aerogear.security.otp.api.Base32;
+import dev.samstevens.totp.secret.DefaultSecretGenerator;
+import dev.samstevens.totp.secret.SecretGenerator;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.OscarProperties;
@@ -70,7 +71,8 @@ public interface MfaManager {
      * @return A randomly generated MFA secret string.
      */
     static String generateMfaSecret() {
-        return Base32.random();
+        SecretGenerator secretGenerator = new DefaultSecretGenerator();
+        return secretGenerator.generate();
     }
 
     /**

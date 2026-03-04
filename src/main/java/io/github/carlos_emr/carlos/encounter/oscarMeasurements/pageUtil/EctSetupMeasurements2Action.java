@@ -48,7 +48,6 @@ import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class EctSetupMeasurements2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
