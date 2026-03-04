@@ -289,14 +289,6 @@
     "integrity" : "sha512:ZSCqo2FoMqg5YtJ4stmgeqHgrWjU3rIyCZI9e0Psq8WCR+ToTxYsKCWm8Q73TtsoaV8g5IEgH1sMwCuxHdF94A=="
   }, {
     "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "openpdf-kotlin",
-    "version" : "3.0.2",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:/tr6a0X2uU3aWAf/iDDfRKzdK56o5ElBLoILp13QNvySK3hoSt3GrS7oDiEj0rqAGvBSEoYgdC5LA4Cj4/gOgQ=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
     "artifactId" : "openpdf-renderer",
     "version" : "3.0.2",
     "scope" : "compile",
@@ -311,14 +303,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:q2BkevSQgj3Vs7sf6svtSCQ+vYN2+yOXyX2coh5pBqff8+bN3U7zerJzIGSMIZXGHlVgw0VZULH5t93LtGJJaA=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "pdf-swing",
-    "version" : "3.0.2",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:MU2WmQzPil4ZeK04z7qr3J6yCGfeaxS+Zqh/lSnzgQAz350KEljqXpTkUVsAtMqMll9Z2tRmwMn9yFGj60kl7g=="
   }, {
     "groupId" : "com.github.librepdf.openpdf",
     "artifactId" : "pdf-toolbox",
@@ -2313,14 +2297,6 @@
     "optional" : false,
     "integrity" : "sha512:n9tGwCkyX775Ekk5PMFLdmFL8oVQPtyp0GWSu0gHP+FwE4rEt5RpVuwH+BuSu/m/jWtvByIN6idq4E/u/rcgqw=="
   }, {
-    "groupId" : "org.dom4j",
-    "artifactId" : "dom4j",
-    "version" : "2.2.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:nmnYxTuC1i1lidVsaGFFWWOsZOocdKc7Lmd75Sl8EE6hrCbrhxrJLy7lQRazARMESBBwriGlcNOyQb4cwTOQqw=="
-  }, {
     "groupId" : "org.drools",
     "artifactId" : "drools-compiler",
     "version" : "7.74.1.Final",
@@ -2656,14 +2632,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:gWQtt2NY+/Ex3+nC8dnCgPwjtr/eahai022sxJChoq9OD7Srtc14AFcYux0VikL9aDTNK/5hbsWWJd8BlR8keA=="
-  }, {
-    "groupId" : "org.jetbrains.kotlin",
-    "artifactId" : "kotlin-stdlib",
-    "version" : "2.3.10",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:hTK575wP8iSuy1Iff7YlHp7zdTfkioT4/QnhRmaJuW61x7INCz9vO+424OAZEf0NgFd3JfbzI/oyyFYULU++vQ=="
   }, {
     "groupId" : "org.jetbrains",
     "artifactId" : "annotations",
@@ -3288,14 +3256,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:rA94Jqmh3Upf+6QZyBkU8WOm1jj3PBvyNt3oIIo0N4x8wtgke4xD3b0txAorBh3G9if2S6hs/qLUJef7nzvSUg=="
-  }, {
-    "groupId" : "org.swinglabs",
-    "artifactId" : "pdf-renderer",
-    "version" : "1.0.5",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:urXSaGh82l/2WmfYVYvI1IqWhqtdqK5eswgADAFXxqnjoq2uGRQcS9o8HynmpvtcVgnhk+Y8n0W5qAP9SEvdRg=="
   }, {
     "groupId" : "org.testng",
     "artifactId" : "testng",

@@ -579,6 +579,19 @@
             <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf</artifactId>
             <version>3.0.2</version>
+            <exclusions>
+                <!-- Swing GUI PDF viewer - not used (server-side app).
+                     Also eliminates discontinued org.swinglabs:pdf-renderer:1.0.5 -->
+                <exclusion>
+                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <artifactId>pdf-swing</artifactId>
+                </exclusion>
+                <!-- Kotlin bindings - not used (Java project) -->
+                <exclusion>
+                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <artifactId>openpdf-kotlin</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- openpdf-html: HTML to PDF support (HTMLWorker) used by LabPDFCreator.
              Declared explicitly since LabPDFCreator directly imports
