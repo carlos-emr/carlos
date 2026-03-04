@@ -25,7 +25,9 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Iterator;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import org.openpdf.text.Document;
 import org.openpdf.text.DocumentException;
@@ -70,6 +72,23 @@ public class ImagePDFCreator extends PdfPageEventHelper {
      */
     public void printPdf() throws IOException, DocumentException {
 
+        // Validate imagePath against the configured document directory to prevent path traversal
+        if (imagePath == null || imagePath.isEmpty()) {
+            throw new DocumentException("Image path is null or empty");
+        }
+        String documentDir = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        if (documentDir == null || documentDir.isEmpty()) {
+            logger.error("DOCUMENT_DIR property is not configured");
+            throw new DocumentException("Document directory is not configured");
+        }
+        File imageFile;
+        try {
+            imageFile = PathValidationUtils.validateExistingPath(new File(imagePath), new File(documentDir));
+        } catch (SecurityException e) {
+            logger.error("Image path validation failed - access outside document directory blocked");
+            throw new DocumentException("Invalid image path");
+        }
+
         // Create the document we are going to write to
         document = new Document();
         PdfWriter writer = PdfWriter.getInstance(document, os);
@@ -81,13 +100,13 @@ public class ImagePDFCreator extends PdfPageEventHelper {
 
         // Detect TIFF by extension before calling Image.getInstance(), which throws
         // for TIFF files in OpenPDF 3.x (built-in TiffImage codec was removed)
-        String lowerPath = imagePath == null ? "" : imagePath.toLowerCase(java.util.Locale.ROOT);
+        String lowerPath = imageFile.getName().toLowerCase(java.util.Locale.ROOT);
         boolean isTiff = lowerPath.endsWith(".tif") || lowerPath.endsWith(".tiff");
 
         if (isTiff) {
             // Multi-page TIFF handling via ImageIO + TwelveMonkeys TIFF plugin
             // (OpenPDF 3.0 removed built-in TiffImage codec)
-            try (ImageInputStream iis = ImageIO.createImageInputStream(new File(imagePath))) {
+            try (ImageInputStream iis = ImageIO.createImageInputStream(imageFile)) {
                 Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
                 if (!readers.hasNext()) {
                     throw new DocumentException("No TIFF ImageReader found for supplied image");
@@ -115,9 +134,9 @@ public class ImagePDFCreator extends PdfPageEventHelper {
         } else {
             Image image;
             try {
-                image = Image.getInstance(imagePath);
+                image = Image.getInstance(imageFile.getAbsolutePath());
             } catch (Exception e) {
-                logger.error("Unexpected error:", e);
+                logger.error("Unexpected error loading image");
                 throw new DocumentException(e);
             }
             PdfContentByte cb = writer.getDirectContent();
