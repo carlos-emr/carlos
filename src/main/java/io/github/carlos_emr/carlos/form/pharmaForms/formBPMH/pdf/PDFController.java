@@ -393,6 +393,7 @@ public class PDFController {
 
             getReader().selectPages(arrayToString(pages, ","));
 
+            FileOutputStream fos = null;
             try {
 
                 if (!getOutputPath().endsWith("/")) {
@@ -405,7 +406,7 @@ public class PDFController {
                 setFileName(new File(getOutputPath()).getName());
 
                 if (getStamper() == null) {
-                    FileOutputStream fos = new FileOutputStream(getOutputPath());
+                    fos = new FileOutputStream(getOutputPath());
                     try {
                         setStamper(new PdfStamper(getReader(), fos));
                     } catch (Exception e) {
@@ -435,6 +436,13 @@ public class PDFController {
                         getStamper().close();
                     } catch (DocumentException e) {
                         _Logger.log(Level.FATAL, e);
+                    } catch (IOException e) {
+                        _Logger.log(Level.FATAL, e);
+                    }
+                }
+                if (fos != null) {
+                    try {
+                        fos.close();
                     } catch (IOException e) {
                         _Logger.log(Level.FATAL, e);
                     }

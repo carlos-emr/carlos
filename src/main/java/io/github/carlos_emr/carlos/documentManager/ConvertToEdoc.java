@@ -382,6 +382,12 @@ public final class ConvertToEdoc {
      * Prepares the document for Flying Saucer's strict XHTML requirements and
      * uses a custom {@link ReplacedElementFactoryImpl} for image scaling.
      *
+     * <p>Uses {@link LocalOnlyUserAgent} to prevent SSRF — all external network
+     * resource fetches ({@code http:}, {@code https:}, {@code ftp:}, protocol-relative
+     * {@code //}) are blocked at the transport layer. This closes the CSS {@code @import}
+     * and inline {@code style} {@code url()} gaps that DOM-level stripping cannot cover.
+     * The existing DOM-level stripping in {@link #translatePaths} remains as defense-in-depth.</p>
+     *
      * @param document String the HTML document string
      * @param os OutputStream the output stream to write the PDF to
      * @throws DocumentException if PDF creation fails
@@ -392,7 +398,7 @@ public final class ConvertToEdoc {
         // Prepare document for Flying Saucer's strict XHTML requirements
         Document doc = prepareDocumentForFlyingSaucer(document);
         
-        ITextRenderer renderer = new ITextRenderer();
+        ITextRenderer renderer = LocalOnlyUserAgent.createRestrictedRenderer();
         SharedContext sharedContext = renderer.getSharedContext();
         sharedContext.setPrint(true);
         sharedContext.setInteractive(false);

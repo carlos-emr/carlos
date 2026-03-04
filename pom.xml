@@ -591,6 +591,16 @@
                     <groupId>com.github.librepdf.openpdf</groupId>
                     <artifactId>openpdf-kotlin</artifactId>
                 </exclusion>
+                <!-- PDF renderer engine - not used directly (server-side PDF generation only) -->
+                <exclusion>
+                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <artifactId>openpdf-renderer</artifactId>
+                </exclusion>
+                <!-- CLI tools and examples - not used -->
+                <exclusion>
+                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <artifactId>pdf-toolbox</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <!-- openpdf-html: HTML to PDF support (HTMLWorker) used by LabPDFCreator.

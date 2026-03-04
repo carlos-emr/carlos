@@ -594,6 +594,8 @@ public final class IncomingDocUtil {
                         }
                     }
                 } finally {
+                    copy.close();
+                    deleteCopy.close();
                     document.close();
                 }
             }

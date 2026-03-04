@@ -177,9 +177,10 @@ public class OscarOnCallClinic implements OscarRunnable {
      */
     private Boolean makeNoShowApptDocument(String filename, Appointment appointment, Demographic demographic, ProviderData providerData) {
         Document document = new Document();
+        PdfWriter writer = null;
 
         try (FileOutputStream fos = new FileOutputStream(DOCUMENTDIR + filename)) {
-            PdfWriter.getInstance(document, fos);
+            writer = PdfWriter.getInstance(document, fos);
             Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
             pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
             document.setPageSize(pageSize);
@@ -227,6 +228,9 @@ public class OscarOnCallClinic implements OscarRunnable {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
         } finally {
+            if (writer != null) {
+                writer.close();
+            }
             if (document.isOpen()) {
                 document.close();
             }
@@ -247,9 +251,10 @@ public class OscarOnCallClinic implements OscarRunnable {
      */
     private Boolean makeGoodApptDocument(String filename, Appointment appointment, Demographic demographic, ProviderData providerData) {
         Document document = new Document();
+        PdfWriter writer = null;
 
         try (FileOutputStream fos = new FileOutputStream(DOCUMENTDIR + filename)) {
-            PdfWriter.getInstance(document, fos);
+            writer = PdfWriter.getInstance(document, fos);
             Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
             pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
             document.setPageSize(pageSize);
@@ -297,6 +302,9 @@ public class OscarOnCallClinic implements OscarRunnable {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
         } finally {
+            if (writer != null) {
+                writer.close();
+            }
             if (document.isOpen()) {
                 document.close();
             }

@@ -98,15 +98,10 @@ public class PdfWriterFactory {
      * @param stream the output stream to write to
      * @param settings font settings for the writer
      * @return PdfWriter instance configured with all page event stampers
-     * @throws IllegalStateException if the PdfWriter cannot be created
+     * @throws org.openpdf.text.DocumentException if the PdfWriter cannot be created
      */
-    public static org.openpdf.text.pdf.PdfWriter newInstance(org.openpdf.text.Document document, OutputStream stream, FontSettings settings) {
-        org.openpdf.text.pdf.PdfWriter result;
-        try {
-            result = org.openpdf.text.pdf.PdfWriter.getInstance(document, stream);
-        } catch (org.openpdf.text.DocumentException e) {
-            throw new IllegalStateException("Unable to create new PdfWriter instance", e);
-        }
+    public static org.openpdf.text.pdf.PdfWriter newInstance(org.openpdf.text.Document document, OutputStream stream, FontSettings settings) throws org.openpdf.text.DocumentException {
+        org.openpdf.text.pdf.PdfWriter result = org.openpdf.text.pdf.PdfWriter.getInstance(document, stream);
 
         // Use PdfPageEventForwarder to chain all stampers — calling setPageEvent()
         // multiple times would silently overwrite the previous handler in OpenPDF.

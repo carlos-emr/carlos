@@ -53,6 +53,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Entities;
 import java.nio.charset.StandardCharsets;
 
+import io.github.carlos_emr.carlos.documentManager.LocalOnlyUserAgent;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 import org.xhtmlrenderer.layout.SharedContext;
 
@@ -94,6 +95,11 @@ public class Doc2PDF {
      * Render HTML to PDF using Flying Saucer's ITextRenderer.
      * Mirrors the proven pattern from {@code ConvertToEdoc.fallbackRender()}.
      *
+     * <p>Uses {@link LocalOnlyUserAgent} to prevent SSRF — all external network
+     * resource fetches ({@code http:}, {@code https:}, {@code ftp:}, protocol-relative
+     * {@code //}) are blocked at the transport layer. Only {@code data:} URIs and local
+     * file paths are permitted.</p>
+     *
      * @param html String containing the HTML content to render
      * @param os OutputStream to write the PDF to
      * @throws Exception if rendering fails
@@ -111,7 +117,7 @@ public class Doc2PDF {
         doc.select("img:not([alt])").attr("alt", "");
         doc.select("input:not([type])").attr("type", "text");
 
-        ITextRenderer renderer = new ITextRenderer();
+        ITextRenderer renderer = LocalOnlyUserAgent.createRestrictedRenderer();
         SharedContext sharedContext = renderer.getSharedContext();
         sharedContext.setPrint(true);
         sharedContext.setInteractive(false);

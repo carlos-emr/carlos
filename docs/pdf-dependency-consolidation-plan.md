@@ -116,6 +116,67 @@ Cross-cutting utilities used by Groups A-C.
 | File | Feature | Action |
 |------|---------|--------|
 | `documentManager/ReplacedElementFactoryImpl.java` | Flying Saucer image handling (`org.openpdf`) | **DONE** |
+| `documentManager/LocalOnlyUserAgent.java` | SSRF-safe `ITextUserAgent` subclass | **NEW** |
+
+---
+
+### Security: SSRF Prevention in Flying Saucer Rendering
+
+Flying Saucer's default `ITextUserAgent` (extends `NaiveUserAgent`) opens unrestricted HTTP
+connections to fetch any resource referenced in the rendered HTML — `<img src>`, `<link href>`,
+CSS `@import url()`, CSS `background-image: url()`, etc. This creates a **Server-Side Request
+Forgery (SSRF)** vulnerability when the HTML is user-controlled. For example, an authenticated
+user with messaging access could submit HTML containing
+`<link href="http://169.254.169.254/latest/meta-data/">`, causing the server to fetch cloud
+instance metadata during PDF rendering.
+
+This risk existed with the previous iText XMLWorkerHelper in `Doc2PDF`, and `ConvertToEdoc`'s
+DOM-level stripping (which removes `http://` from `<img>`, `<link>`, `<script>` elements) left
+a gap for CSS `@import url()` and inline `style` attribute `url()` references — the
+`ReplacedElementFactory` only blocks image element loading, not CSS resource loading.
+
+#### Fix: `LocalOnlyUserAgent`
+
+**File**: `documentManager/LocalOnlyUserAgent.java`
+
+A restricted `ITextUserAgent` subclass that overrides `resolveAndOpenStream(String uri)` — the
+single chokepoint through which **all** Flying Saucer resource loading flows (`getCSSResource()`,
+`getImageResource()`, `getBinaryResource()`, `getXMLResource()` all delegate to it).
+
+**Allowed resources:**
+- `data:` URIs — inline base64 content, no network request
+- Local file paths — `file:` scheme and relative paths delegated to parent
+
+**Blocked resources:**
+- `http:`, `https:`, `ftp:` — external network requests
+- `//` — protocol-relative URLs
+
+**Factory method**: `LocalOnlyUserAgent.createRestrictedRenderer()` is a drop-in replacement
+for `new ITextRenderer()`. It wires up the restricted user agent with the same default
+`dotsPerPoint` (26.666666f) and `dotsPerPixel` (20) values as the no-arg constructor.
+
+#### Files Using the Restricted Renderer
+
+| File | Method | Previously |
+|------|--------|------------|
+| `util/Doc2PDF.java` | `renderWithFlyingSaucer()` | `new ITextRenderer()` |
+| `documentManager/ConvertToEdoc.java` | `fallbackRender()` | `new ITextRenderer()` |
+
+ConvertToEdoc's existing DOM-level stripping in `translatePaths()` remains as defense-in-depth
+(belt and suspenders). `LocalOnlyUserAgent` provides transport-layer protection that covers
+all resource types regardless of what's in the HTML.
+
+#### What This Does NOT Break
+
+- **ConvertToEdoc image loading**: `ReplacedElementFactoryImpl` loads images via `FileInputStream`
+  (local filesystem) — this bypasses the UserAgent entirely
+- **ConvertToEdoc CSS loading**: `translatePaths()` already translates `<link href>` to local
+  filesystem paths and strips `http://` URLs from the DOM; local paths still work
+- **Inline CSS**: CSS embedded directly in `<style>` tags (not via `@import`) doesn't require
+  fetching — only `@import url("...")` referencing external resources is affected
+- **AddAbsoluteTag in Doc2PDF**: Converts `src` to `http://localhost:...` URLs which will be
+  blocked, but messenger HTML contains no images; if needed, the fix is to convert to filesystem
+  paths instead
 
 ### PDFBox Files (11 files — no changes needed)
 
@@ -377,6 +438,11 @@ Color.LIGHT_GRAY  // or new Color(192, 192, 192) for exact match
 **Doc2PDF handling** (completed):
 - `util/Doc2PDF.java` — Migrated from iText 5 XMLWorkerHelper to Flying Saucer ITextRenderer
 - iText 5 dependencies (`com.itextpdf:itextpdf`, `com.itextpdf.tool:xmlworker`) removed from pom.xml
+- SSRF hardened via `LocalOnlyUserAgent.createRestrictedRenderer()` (blocks external resource fetching)
+
+**ConvertToEdoc SSRF hardening** (completed):
+- `documentManager/ConvertToEdoc.java` — `fallbackRender()` uses `LocalOnlyUserAgent` to close CSS `@import`/`url()` SSRF gap
+- DOM-level stripping retained as defense-in-depth
 
 **PdfWriterFactory cleanup:**
 - Remove the `@Deprecated` overloads (now redundant since everything is `org.openpdf`)

@@ -289,28 +289,12 @@
     "integrity" : "sha512:ZSCqo2FoMqg5YtJ4stmgeqHgrWjU3rIyCZI9e0Psq8WCR+ToTxYsKCWm8Q73TtsoaV8g5IEgH1sMwCuxHdF94A=="
   }, {
     "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "openpdf-renderer",
-    "version" : "3.0.2",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:q1AwbFsH9bETEcs0zKm1g+9Nxx0OTlTvOnoRtcBLxm9Ko3MPp4h74YNP08tIqVqE5MWvhlDju12LRj/rfy+dKw=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
     "artifactId" : "openpdf",
     "version" : "3.0.2",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:q2BkevSQgj3Vs7sf6svtSCQ+vYN2+yOXyX2coh5pBqff8+bN3U7zerJzIGSMIZXGHlVgw0VZULH5t93LtGJJaA=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "pdf-toolbox",
-    "version" : "3.0.2",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:naei1qGtW7k6g4DPE9n4Mhc33sxZ7Z4ATmQZdp9Zm4hFo8wDd6oLry/FtshDT+Dp823PJKMYdIAfJ8D0FD9WKg=="
   }, {
     "groupId" : "com.github.librepdf",
     "artifactId" : "openpdf",

@@ -220,6 +220,9 @@ public class OscarChartPrinter implements java.io.Closeable {
      */
     @Override
     public void close() {
+        if (writer != null) {
+            writer.close();
+        }
         if (document != null && document.isOpen()) {
             document.close();
         }
