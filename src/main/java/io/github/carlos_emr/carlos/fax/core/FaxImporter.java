@@ -385,10 +385,11 @@ public class FaxImporter {
             // Decode to temp file first (atomic write pattern)
             tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
 
-            byte[] decodedBytes = java.util.Base64.getDecoder().decode(faxFile.getDocument());
-            Files.write(tempFile.toPath(), decodedBytes);
-            if (decodedBytes.length == 0) {
-                throw new FaxProviderException("Base64 decode failed");
+            try {
+                byte[] decodedBytes = java.util.Base64.getDecoder().decode(faxFile.getDocument());
+                Files.write(tempFile.toPath(), decodedBytes);
+            } catch (IllegalArgumentException | NullPointerException e) {
+                throw new FaxProviderException("Base64 decode failed", e);
             }
 
             if (tempFile.length() == 0) {
