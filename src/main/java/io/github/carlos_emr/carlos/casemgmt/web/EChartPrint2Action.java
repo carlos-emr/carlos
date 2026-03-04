@@ -87,47 +87,46 @@ public class EChartPrint2Action extends ActionSupport {
         response.setContentType("application/pdf"); // octet-stream
         response.setHeader("Content-Disposition", "attachment; filename=\"" + demographicNo + ".pdf\"");
 
-        OscarChartPrinter printer = new OscarChartPrinter(request, response.getOutputStream());
-        printer.setDemographic(demographic);
-        printer.setNewPage(true);
-        printer.printDocHeaderFooter();
+        try (OscarChartPrinter printer = new OscarChartPrinter(request, response.getOutputStream())) {
+            printer.setDemographic(demographic);
+            printer.setNewPage(true);
+            printer.printDocHeaderFooter();
 
-        printer.printMasterRecord();
-        printer.setNewPage(true);
-        printer.printAppointmentHistory();
-        printer.setNewPage(true);
+            printer.printMasterRecord();
+            printer.setNewPage(true);
+            printer.printAppointmentHistory();
+            printer.setNewPage(true);
 
-        printCppItem(printer, "Social History", "SocHistory", demographic.getDemographicNo());
-        printCppItem(printer, "Medical History", "MedHistory", demographic.getDemographicNo());
-        printCppItem(printer, "Ongoing Concerns", "Concerns", demographic.getDemographicNo());
-        printCppItem(printer, "Reminders", "Reminders", demographic.getDemographicNo());
-        printCppItem(printer, "Family History", "FamHistory", demographic.getDemographicNo());
-        printCppItem(printer, "Risk Factors", "RiskFactors", demographic.getDemographicNo());
-        printCppItem(printer, "Other Medications", "OMeds", demographic.getDemographicNo());
-        printer.setNewPage(true);
+            printCppItem(printer, "Social History", "SocHistory", demographic.getDemographicNo());
+            printCppItem(printer, "Medical History", "MedHistory", demographic.getDemographicNo());
+            printCppItem(printer, "Ongoing Concerns", "Concerns", demographic.getDemographicNo());
+            printCppItem(printer, "Reminders", "Reminders", demographic.getDemographicNo());
+            printCppItem(printer, "Family History", "FamHistory", demographic.getDemographicNo());
+            printCppItem(printer, "Risk Factors", "RiskFactors", demographic.getDemographicNo());
+            printCppItem(printer, "Other Medications", "OMeds", demographic.getDemographicNo());
+            printer.setNewPage(true);
 
-        List<Allergy> allergies = allergyDao.findAllergies(demographic.getDemographicNo());
-        if (allergies.size() > 0) {
-            printer.printAllergies(allergies);
+            List<Allergy> allergies = allergyDao.findAllergies(demographic.getDemographicNo());
+            if (allergies.size() > 0) {
+                printer.printAllergies(allergies);
+            }
+            printer.printRx(String.valueOf(demographic.getDemographicNo()));
+
+            printer.printPreventions();
+            printer.printTicklers(loggedInInfo);
+            printer.printDiseaseRegistry();
+
+            printer.printCurrentAdmissions();
+            printer.printPastAdmissions();
+
+            printer.printCurrentIssues();
+
+
+            List<CaseManagementNote> notes = this.caseManagementNoteDao.getMostRecentNotes(demographic.getDemographicNo());
+            notes = filterOutCpp(notes);
+            if (notes.size() > 0)
+                printer.printNotes(notes, true);
         }
-        printer.printRx(String.valueOf(demographic.getDemographicNo()));
-
-        printer.printPreventions();
-        printer.printTicklers(loggedInInfo);
-        printer.printDiseaseRegistry();
-
-        printer.printCurrentAdmissions();
-        printer.printPastAdmissions();
-
-        printer.printCurrentIssues();
-
-
-        List<CaseManagementNote> notes = this.caseManagementNoteDao.getMostRecentNotes(demographic.getDemographicNo());
-        notes = filterOutCpp(notes);
-        if (notes.size() > 0)
-            printer.printNotes(notes, true);
-
-        printer.finish();
 
         LogAction.addLogSynchronous(loggedInInfo, "print echart", demographicNo);
 

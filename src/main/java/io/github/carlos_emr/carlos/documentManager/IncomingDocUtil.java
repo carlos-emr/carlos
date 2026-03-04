@@ -342,33 +342,15 @@ public final class IncomingDocUtil {
         File f = new File(filePathName);
         lastModified = f.lastModified();
 
-        PdfReader reader = null;
-        PdfStamper stp = null;
-
-        try {
-            reader = new PdfReader(filePathName);
+        try (PdfReader reader = new PdfReader(filePathName);
+             FileOutputStream fos = new FileOutputStream(tempFilePathName)) {
             rot = reader.getPageRotation(Integer.parseInt(MyPdfPageNumber));
             rotatedegrees = rot + degrees;
             rotatedegrees = rotatedegrees % 360;
 
             reader.getPageN(Integer.parseInt(MyPdfPageNumber)).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
-            stp = new PdfStamper(reader, new FileOutputStream(tempFilePathName));
-
-
-        } catch (Exception e) {
-            throw (e);
-        } finally {
-            try {
-                if (stp != null) {
-                    stp.close();
-                }
-
-                if (reader != null) {
-                    reader.close();
-                }
-            } catch (Exception e) {
-                throw (e);
-            }
+            PdfStamper stp = new PdfStamper(reader, fos);
+            stp.close();
         }
 
 
@@ -405,12 +387,8 @@ public final class IncomingDocUtil {
         File f = new File(filePathName);
         lastModified = f.lastModified();
 
-        PdfReader reader = null;
-        PdfStamper stp = null;
-
-        try {
-            reader = new PdfReader(filePathName);
-
+        try (PdfReader reader = new PdfReader(filePathName);
+             FileOutputStream fos = new FileOutputStream(tempFilePathName)) {
             for (int p = 1; p <= reader.getNumberOfPages(); ++p) {
                 rot = reader.getPageRotation(p);
                 rotatedegrees = rot + degrees;
@@ -418,22 +396,8 @@ public final class IncomingDocUtil {
 
                 reader.getPageN(p).put(PdfName.ROTATE, new PdfNumber(rotatedegrees));
             }
-            stp = new PdfStamper(reader, new FileOutputStream(tempFilePathName));
-
-        } catch (Exception e) {
-            throw (e);
-        } finally {
-            try {
-                if (stp != null) {
-                    stp.close();
-                }
-
-                if (reader != null) {
-                    reader.close();
-                }
-            } catch (Exception e) {
-                throw (e);
-            }
+            PdfStamper stp = new PdfStamper(reader, fos);
+            stp.close();
         }
 
         boolean success = f.delete();
@@ -475,48 +439,24 @@ public final class IncomingDocUtil {
         String myPdfNameF = myPdfName.substring(0, index);
         String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
 
-        PdfReader reader = null;
-        Document document = null;
-        PdfCopy copy = null;
-        PdfCopy deleteCopy = null;
-
-        try {
-            reader = new PdfReader(filePathName);
+        try (PdfReader reader = new PdfReader(filePathName);
+             FileOutputStream copyFos = new FileOutputStream(tempFilePathName)) {
             deletePathFileName = deletePath + myPdfNameF + "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()) + myPdfNameExt;
 
-            document = new Document(reader.getPageSizeWithRotation(1));
-            copy = new PdfCopy(document, new FileOutputStream(tempFilePathName));
-            deleteCopy = new PdfCopy(document, new FileOutputStream(deletePathFileName));
-            document.open();
+            try (FileOutputStream deleteFos = new FileOutputStream(deletePathFileName)) {
+                Document document = new Document(reader.getPageSizeWithRotation(1));
+                PdfCopy copy = new PdfCopy(document, copyFos);
+                PdfCopy deleteCopy = new PdfCopy(document, deleteFos);
+                document.open();
 
-            for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                if (!(pageNumber == (Integer.parseInt(PageNumberToDelete)))) {
-                    copy.addPage(copy.getImportedPage(reader, pageNumber));
-                } else {
-                    deleteCopy.addPage(copy.getImportedPage(reader, pageNumber));
+                for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
+                    if (!(pageNumber == (Integer.parseInt(PageNumberToDelete)))) {
+                        copy.addPage(copy.getImportedPage(reader, pageNumber));
+                    } else {
+                        deleteCopy.addPage(copy.getImportedPage(reader, pageNumber));
+                    }
                 }
-            }
-        } catch (Exception e) {
-            throw (e);
-        } finally {
-            try {
-                if (copy != null) {
-                    copy.close();
-                }
-                if (deleteCopy != null) {
-                    deleteCopy.close();
-                }
-
-                if (document != null) {
-                    document.close();
-                }
-
-                if (reader != null) {
-                    reader.close();
-                }
-
-            } catch (Exception e) {
-                throw (e);
+                document.close();
             }
         }
 

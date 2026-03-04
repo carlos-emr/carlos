@@ -87,7 +87,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
  *
  * @author Marc Dumontier
  */
-public class OscarChartPrinter {
+public class OscarChartPrinter implements java.io.Closeable {
 
     public final int LINESPACING = 1;
     public final float LEADING = 12;
@@ -178,7 +178,14 @@ public class OscarChartPrinter {
     }
 
     public void finish() {
-        document.close();
+        close();
+    }
+
+    @Override
+    public void close() {
+        if (document != null && document.isOpen()) {
+            document.close();
+        }
     }
 
 

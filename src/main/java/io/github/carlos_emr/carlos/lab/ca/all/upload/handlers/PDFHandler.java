@@ -117,9 +117,10 @@ public class PDFHandler implements MessageHandler {
             newDoc.setContentType("application/pdf");
 
             //Find the number of pages
-            PdfReader reader = new PdfReader(filePath);
-            int numPages = reader.getNumberOfPages();
-            reader.close();
+            int numPages;
+            try (PdfReader reader = new PdfReader(filePath)) {
+                numPages = reader.getNumberOfPages();
+            }
             newDoc.setNumberOfPages(numPages);
 
             String doc_no = EDocUtil.addDocumentSQL(newDoc);

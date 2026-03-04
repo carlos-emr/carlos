@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.jobs;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -137,8 +138,8 @@ public class OscarOnCallClinic implements OscarRunnable {
     private Boolean makeNoShowApptDocument(String filename, Appointment appointment, Demographic demographic, ProviderData providerData) {
         Document document = new Document();
 
-        try {
-            PdfWriter.getInstance(document, new FileOutputStream(DOCUMENTDIR + filename));
+        try (FileOutputStream fos = new FileOutputStream(DOCUMENTDIR + filename)) {
+            PdfWriter.getInstance(document, fos);
             Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
             pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
             document.setPageSize(pageSize);
@@ -177,16 +178,18 @@ public class OscarOnCallClinic implements OscarRunnable {
             body.add(body2);
             body.setAlignment(Element.ALIGN_LEFT);
             document.add(body);
-            document.close();
-
 
         } catch (FileNotFoundException e) {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
 
-        } catch (DocumentException e) {
+        } catch (DocumentException | IOException e) {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
+        } finally {
+            if (document.isOpen()) {
+                document.close();
+            }
         }
 
         return true;
@@ -196,8 +199,8 @@ public class OscarOnCallClinic implements OscarRunnable {
     private Boolean makeGoodApptDocument(String filename, Appointment appointment, Demographic demographic, ProviderData providerData) {
         Document document = new Document();
 
-        try {
-            PdfWriter.getInstance(document, new FileOutputStream(DOCUMENTDIR + filename));
+        try (FileOutputStream fos = new FileOutputStream(DOCUMENTDIR + filename)) {
+            PdfWriter.getInstance(document, fos);
             Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
             pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
             document.setPageSize(pageSize);
@@ -236,16 +239,18 @@ public class OscarOnCallClinic implements OscarRunnable {
             body.add(body2);
             body.setAlignment(Element.ALIGN_LEFT);
             document.add(body);
-            document.close();
-
 
         } catch (FileNotFoundException e) {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
 
-        } catch (DocumentException e) {
+        } catch (DocumentException | IOException e) {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
+        } finally {
+            if (document.isOpen()) {
+                document.close();
+            }
         }
 
         return true;

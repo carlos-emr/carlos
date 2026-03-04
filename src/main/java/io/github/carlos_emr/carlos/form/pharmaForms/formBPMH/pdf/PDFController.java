@@ -386,8 +386,13 @@ public class PDFController {
                 setFileName(new File(getOutputPath()).getName());
 
                 if (getStamper() == null) {
-                    setStamper(new PdfStamper(getReader(),
-                            new FileOutputStream(getOutputPath())));
+                    FileOutputStream fos = new FileOutputStream(getOutputPath());
+                    try {
+                        setStamper(new PdfStamper(getReader(), fos));
+                    } catch (Exception e) {
+                        fos.close();
+                        throw e;
+                    }
                 }
 
                 addDataToPDF();

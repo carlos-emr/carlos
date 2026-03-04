@@ -150,7 +150,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
                         if (faxConfig.getFaxNumber().equals(faxNumber)) {
 
-                            PdfReader pdfReader = new PdfReader(filepath.toString());
+                            int numPages;
+                            try (PdfReader pdfReader = new PdfReader(filepath.toString())) {
+                                numPages = pdfReader.getNumberOfPages();
+                            }
 
                             faxJob = new FaxJob();
                             faxJob.setDestination(faxNo);
@@ -158,7 +161,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                             faxJob.setFile_name(pdfFile);
                             faxJob.setUser(faxConfig.getFaxUser());
                             faxJob.setRecipient(pharmaName);
-                            faxJob.setNumPages(pdfReader.getNumberOfPages());
+                            faxJob.setNumPages(numPages);
                             faxJob.setStamp(new Date());
                             faxJob.setStatus(FaxJob.STATUS.WAITING);
                             faxJob.setOscarUser(provider_no);

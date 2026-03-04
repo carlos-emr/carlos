@@ -37,7 +37,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
-import java.awt.*;
+import java.awt.Color;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -56,6 +56,7 @@ import org.openpdf.text.Font;
 import org.openpdf.text.Rectangle;
 import org.openpdf.text.html.simpleparser.HTMLWorker;
 import org.openpdf.text.pdf.*;
+import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 import org.openrtf.text.rtf.RtfWriter2;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -188,81 +189,89 @@ public class LabPDFCreator extends PdfPageEventHelper {
         document = new Document();
         PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
 
-
-        //Set page event, function onEndPage will execute each time a page is finished being created
-        writer.setPageEvent(this);
-
-        document.setPageSize(PageSize.LETTER);
-        document.addTitle("OSCAR Laboratory Report");
-        document.addCreator("OSCAR");
-        document.open();
-
-        //Create the fonts that we are going to use
-        bf = BaseFont.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-        font = new Font(bf, 9, Font.NORMAL);
-        boldFont = new Font(bf, 10, Font.BOLD);
-
-        // add the header table containing the patient and lab info to the document
-        createInfoTable();
-
-        // add the tests and test info for each header
-        ArrayList<String> headers = handler.getHeaders();
-        for (int i = 0; i < headers.size(); i++) {
-
-            String specimenSource = null;
-            String specimenDescription = null;
-
-            if ((handler instanceof MEDITECHHandler) && ("MIC".equals(((MEDITECHHandler) handler).getSendingApplication()))) {
-                specimenSource = ((MEDITECHHandler) handler).getSpecimenSource(i);
-                specimenSource = "SPECIMEN SOURCE: " + specimenSource;
-                specimenDescription = ((MEDITECHHandler) handler).getSpecimenDescription(i);
-                specimenDescription = "SPECIMEN DESCRIPTION: " + specimenDescription;
+        try {
+            // Add this class's onEndPage handler to the factory-installed PdfPageEventForwarder
+            // rather than overwriting it (which would discard promo/confidentiality/page-number stampers)
+            PdfPageEvent existingEvent = writer.getPageEvent();
+            if (existingEvent instanceof PdfPageEventForwarder forwarder) {
+                forwarder.addPageEvent(this);
+            } else {
+                writer.setPageEvent(this);
             }
 
-            addLabCategory(headers.get(i), specimenSource, specimenDescription);
-        }
+            document.setPageSize(PageSize.LETTER);
+            document.addTitle("OSCAR Laboratory Report");
+            document.addCreator("OSCAR");
+            document.open();
 
-        // It's not exactly clear that this block does anything. 
-        for (MessageHandler extraHandler : handlers) {
-            ArrayList<String> extraHeaders = extraHandler.getHeaders();
-            for (int i = 0; i < extraHeaders.size(); i++)
-                addLabCategory(extraHeaders.get(i), extraHandler);
-        }
+            //Create the fonts that we are going to use
+            bf = BaseFont.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            font = new Font(bf, 9, Font.NORMAL);
+            boldFont = new Font(bf, 10, Font.BOLD);
 
+            // add the header table containing the patient and lab info to the document
+            createInfoTable();
 
-        // add end of report table
-        PdfPTable table = new PdfPTable(1);
-        table.setWidthPercentage(100);
-        PdfPCell cell = new PdfPCell();
-        cell.setBorder(0);
-        cell.setPhrase(new Phrase("  "));
-        table.addCell(cell);
-        cell.setBorder(15);
-        cell.setBackgroundColor(new Color(210, 212, 255));
-        if (handler.getMsgType().equals("CLS")) {
-            cell.setPhrase(new Phrase("Legend:  A=Abnormal  L=Low  H=High  C=Critical", boldFont));
-        } else {
-            cell.setPhrase(new Phrase("END OF REPORT", boldFont));
-        }
-        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        table.addCell(cell);
-        document.add(table);
+            // add the tests and test info for each header
+            ArrayList<String> headers = handler.getHeaders();
+            for (int i = 0; i < headers.size(); i++) {
 
-        if (handler.getMsgType().equals("ExcellerisON")) {
-            PdfPTable table2 = new PdfPTable(1);
-            table2.setWidthPercentage(100);
-            for (String x : allLicenseNames) {
-                PdfPCell cell2 = new PdfPCell();
-                cell2.setBorder(0);
-                cell2.setPhrase(new Phrase(x, new Font(bf, 9, Font.NORMAL)));
-                table2.addCell(cell2);
+                String specimenSource = null;
+                String specimenDescription = null;
+
+                if ((handler instanceof MEDITECHHandler) && ("MIC".equals(((MEDITECHHandler) handler).getSendingApplication()))) {
+                    specimenSource = ((MEDITECHHandler) handler).getSpecimenSource(i);
+                    specimenSource = "SPECIMEN SOURCE: " + specimenSource;
+                    specimenDescription = ((MEDITECHHandler) handler).getSpecimenDescription(i);
+                    specimenDescription = "SPECIMEN DESCRIPTION: " + specimenDescription;
+                }
+
+                addLabCategory(headers.get(i), specimenSource, specimenDescription);
             }
-            document.add(table2);
+
+            // It's not exactly clear that this block does anything.
+            for (MessageHandler extraHandler : handlers) {
+                ArrayList<String> extraHeaders = extraHandler.getHeaders();
+                for (int i = 0; i < extraHeaders.size(); i++)
+                    addLabCategory(extraHeaders.get(i), extraHandler);
+            }
+
+
+            // add end of report table
+            PdfPTable table = new PdfPTable(1);
+            table.setWidthPercentage(100);
+            PdfPCell cell = new PdfPCell();
+            cell.setBorder(0);
+            cell.setPhrase(new Phrase("  "));
+            table.addCell(cell);
+            cell.setBorder(15);
+            cell.setBackgroundColor(new Color(210, 212, 255));
+            if (handler.getMsgType().equals("CLS")) {
+                cell.setPhrase(new Phrase("Legend:  A=Abnormal  L=Low  H=High  C=Critical", boldFont));
+            } else {
+                cell.setPhrase(new Phrase("END OF REPORT", boldFont));
+            }
+            cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            table.addCell(cell);
+            document.add(table);
+
+            if (handler.getMsgType().equals("ExcellerisON")) {
+                PdfPTable table2 = new PdfPTable(1);
+                table2.setWidthPercentage(100);
+                for (String x : allLicenseNames) {
+                    PdfPCell cell2 = new PdfPCell();
+                    cell2.setBorder(0);
+                    cell2.setPhrase(new Phrase(x, new Font(bf, 9, Font.NORMAL)));
+                    table2.addCell(cell2);
+                }
+                document.add(table2);
+            }
+        } finally {
+            if (document.isOpen()) {
+                document.close();
+            }
         }
-
-
-        document.close();
 
         os.flush();
     }

@@ -676,8 +676,7 @@ public class ManageDocument2Action extends ActionSupport {
         String filePath = docdownload + d.getDocfilename();
 
         int numOfPage = 0;
-        try {
-            PdfReader reader = new PdfReader(filePath);
+        try (PdfReader reader = new PdfReader(filePath)) {
             numOfPage = reader.getNumberOfPages();
 
             HashMap hm = new HashMap();
