@@ -12,99 +12,102 @@
 <%@page import="java.net.URLEncoder"%>
 
 <%
-	LoggedInInfo loggedInInfo3=LoggedInInfo.getLoggedInInfoFromSession(request);
-	ProviderPreference providerPreference = (ProviderPreference)request.getAttribute("providerPreference");
-	String demographic_no = request.getParameter("demographic_no");
-	String appointment_no = request.getParameter("appointment_no");
+	// All local variables use the "4f" suffix to avoid name collisions when this
+	// fragment is included (statically or dynamically) alongside parent JSPs that
+	// may declare variables with the same base names (e.g. formNamesList, providerPreference).
+	LoggedInInfo loggedInInfo4f = LoggedInInfo.getLoggedInInfoFromSession(request);
+	ProviderPreference providerPreference4f = (ProviderPreference) request.getAttribute("providerPreference");
+	String demographic_no4f = request.getParameter("demographic_no");
+	String appointment_no4f = request.getParameter("appointment_no");
 	// When true, caller already renders forms/eforms inline — skip them here to avoid duplication
-	boolean skipFormsAndEforms = "true".equals(request.getParameter("skipFormsAndEforms"));
-	if (providerPreference!=null)
+	boolean skipFormsAndEforms4f = "true".equals(request.getParameter("skipFormsAndEforms"));
+	if (providerPreference4f != null)
 	{
 		// Load provider and demographic for quick link placeholder substitution
-		DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-		ProviderDAO providerDAO = SpringUtils.getBean(ProviderDAO.class);
+		DemographicDao demographicDao4f = SpringUtils.getBean(DemographicDao.class);
+		ProviderDAO providerDAO4f = SpringUtils.getBean(ProviderDAO.class);
 
-		Demographic demographic = null;
-		if (demographic_no != null && !demographic_no.isEmpty()) {
+		Demographic demographic4f = null;
+		if (demographic_no4f != null && !demographic_no4f.isEmpty()) {
 			try {
-				demographic = demographicDao.getDemographic(demographic_no);
+				demographic4f = demographicDao4f.getDemographic(demographic_no4f);
 			} catch (Exception e) {
-				// demographic_no invalid or not found — leave demographic null
-				org.apache.commons.logging.LogFactory.getLog("appointmentFormsLinks").debug("Could not load demographic: " + demographic_no, e);
+				// demographic_no4f invalid or not found — leave demographic4f null
+				org.apache.commons.logging.LogFactory.getLog("appointmentFormsLinks").debug("Could not load demographic: " + demographic_no4f, e);
 			}
 		}
 
-		Provider provider = null;
-		if (providerPreference.getProviderNo() != null) {
-			provider = providerDAO.getProvider(providerPreference.getProviderNo());
+		Provider provider4f = null;
+		if (providerPreference4f.getProviderNo() != null) {
+			provider4f = providerDAO4f.getProvider(providerPreference4f.getProviderNo());
 		}
 
-		if (!skipFormsAndEforms) {
-			Collection<String> formNames=providerPreference.getAppointmentScreenForms();
-			List<String>formNamesList = new ArrayList<String>(formNames);
-			Collections.sort(formNamesList);
+		if (!skipFormsAndEforms4f) {
+			Collection<String> formNames4f = providerPreference4f.getAppointmentScreenForms();
+			List<String> formNamesList4f = new ArrayList<String>(formNames4f);
+			Collections.sort(formNamesList4f);
 
-			for (String formNameTemp : formNamesList)
+			for (String formNameTemp4f : formNamesList4f)
 			{
-				String trimmedLinkName = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, formNameTemp);
-				String url = request.getContextPath()
-						+ "/form/forwardshortcutname.do?formname=" + URLEncoder.encode(formNameTemp, "UTF-8")
-						+ "&demographic_no=" + (demographic_no != null ? URLEncoder.encode(demographic_no, "UTF-8") : "")
-						+ "&appointmentNo=" + (appointment_no != null ? URLEncoder.encode(appointment_no, "UTF-8") : "");
+				String trimmedLinkName4f = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo4f, formNameTemp4f);
+				String url4f = request.getContextPath()
+						+ "/form/forwardshortcutname.do?formname=" + URLEncoder.encode(formNameTemp4f, "UTF-8")
+						+ "&demographic_no=" + (demographic_no4f != null ? URLEncoder.encode(demographic_no4f, "UTF-8") : "")
+						+ "&appointmentNo=" + (appointment_no4f != null ? URLEncoder.encode(appointment_no4f, "UTF-8") : "");
 				%>
-					|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(formNameTemp)%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+					|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url4f)%>")' title='<%=Encode.forHtmlAttribute(formNameTemp4f)%>'><%=Encode.forHtmlContent(trimmedLinkName4f)%></a>
 				<%
 			}
 
-			Collection<ProviderPreference.EformLink> eFormLinks = providerPreference.getAppointmentScreenEForms();
-			for (ProviderPreference.EformLink eFormLink : eFormLinks)
+			Collection<ProviderPreference.EformLink> eFormLinks4f = providerPreference4f.getAppointmentScreenEForms();
+			for (ProviderPreference.EformLink eFormLink4f : eFormLinks4f)
 			{
-				Integer eFormIdTemp = eFormLink.getAppointmentScreenEForm();
-				EForm eForm=AppointmentProviderAdminDayUIBean.getEForms(eFormIdTemp);
-				if (eForm == null) {
-					org.apache.commons.logging.LogFactory.getLog("appointmentFormsLinks").debug("EForm not found for ID: " + eFormIdTemp);
+				Integer eFormIdTemp4f = eFormLink4f.getAppointmentScreenEForm();
+				EForm eForm4f = AppointmentProviderAdminDayUIBean.getEForms(eFormIdTemp4f);
+				if (eForm4f == null) {
+					org.apache.commons.logging.LogFactory.getLog("appointmentFormsLinks").debug("EForm not found for ID: " + eFormIdTemp4f);
 					continue;
 				}
-				String trimmedLinkName = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, eForm.getFormName());
-				String url = request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + eFormIdTemp
-						+ "&demographic_no=" + (demographic_no != null ? URLEncoder.encode(demographic_no, "UTF-8") : "")
-						+ "&appointment=" + (appointment_no != null ? URLEncoder.encode(appointment_no, "UTF-8") : "");
+				String trimmedLinkName4f = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo4f, eForm4f.getFormName());
+				String url4f = request.getContextPath() + "/eform/efmformadd_data.jsp?fid=" + eFormIdTemp4f
+						+ "&demographic_no=" + (demographic_no4f != null ? URLEncoder.encode(demographic_no4f, "UTF-8") : "")
+						+ "&appointment=" + (appointment_no4f != null ? URLEncoder.encode(appointment_no4f, "UTF-8") : "");
 				%>
-					|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(eForm.getFormName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+					|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url4f)%>")' title='<%=Encode.forHtmlAttribute(eForm4f.getFormName())%>'><%=Encode.forHtmlContent(trimmedLinkName4f)%></a>
 				<%
 			}
 		}
 
-		Collection<ProviderPreference.QuickLink> quickLinks=providerPreference.getAppointmentScreenQuickLinks();
-		for (ProviderPreference.QuickLink quickLink : quickLinks)
+		Collection<ProviderPreference.QuickLink> quickLinks4f = providerPreference4f.getAppointmentScreenQuickLinks();
+		for (ProviderPreference.QuickLink quickLink4f : quickLinks4f)
 		{
-			String trimmedLinkName = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo3, quickLink.getName());
+			String trimmedLinkName4f = AppointmentProviderAdminDayUIBean.getLengthLimitedLinkName(loggedInInfo4f, quickLink4f.getName());
 
-			String url = quickLink.getUrl();
-			if (url == null) {
-				url = "";
+			String url4f = quickLink4f.getUrl();
+			if (url4f == null) {
+				url4f = "";
 			}
 
 			// Check before substitution whether HIN or version code will appear in the URL
-			boolean hinExposed = url.contains("${demographicHin}") || url.contains("${demographicVer}");
+			boolean hinExposed4f = url4f.contains("$" + "{demographicHin}") || url4f.contains("$" + "{demographicVer}");
 
 			// Replace tokens using String.replace() (literal substitution, no regex needed)
-			url = url.replace("${contextPath}", request.getContextPath());
-			url = url.replace("${demographicId}", demographic_no != null ? Encode.forUriComponent(demographic_no) : "");
-			url = url.replace("${appointmentId}", appointment_no != null ? Encode.forUriComponent(appointment_no) : "");
-			url = url.replace("${providerId}", providerPreference.getProviderNo() != null ? Encode.forUriComponent(providerPreference.getProviderNo()) : "");
-			url = url.replace("${providerOhip}", provider != null && provider.getOhipNo() != null ? URLEncoder.encode(provider.getOhipNo().trim(), "UTF-8") : "");
-			url = url.replace("${demographicHin}", demographic != null && demographic.getHin() != null ? URLEncoder.encode(demographic.getHin().trim(), "UTF-8") : "");
-			url = url.replace("${demographicVer}", demographic != null && demographic.getVer() != null ? URLEncoder.encode(demographic.getVer().trim(), "UTF-8") : "");
+			url4f = url4f.replace("${contextPath}", request.getContextPath());
+			url4f = url4f.replace("${demographicId}", demographic_no4f != null ? Encode.forUriComponent(demographic_no4f) : "");
+			url4f = url4f.replace("${appointmentId}", appointment_no4f != null ? Encode.forUriComponent(appointment_no4f) : "");
+			url4f = url4f.replace("${providerId}", providerPreference4f.getProviderNo() != null ? Encode.forUriComponent(providerPreference4f.getProviderNo()) : "");
+			url4f = url4f.replace("${providerOhip}", provider4f != null && provider4f.getOhipNo() != null ? URLEncoder.encode(provider4f.getOhipNo().trim(), "UTF-8") : "");
+			url4f = url4f.replace("${demographicHin}", demographic4f != null && demographic4f.getHin() != null ? URLEncoder.encode(demographic4f.getHin().trim(), "UTF-8") : "");
+			url4f = url4f.replace("${demographicVer}", demographic4f != null && demographic4f.getVer() != null ? URLEncoder.encode(demographic4f.getVer().trim(), "UTF-8") : "");
 
-			if (hinExposed) {
-				String warningTitle = "WARNING-The health number is exposed in " + quickLink.getName();
+			if (hinExposed4f) {
+				String warningTitle4f = "WARNING-The health number is exposed in " + quickLink4f.getName();
 				%>
-				|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(warningTitle)%>' style='background-color:red;color:white;'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+				|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url4f)%>")' title='<%=Encode.forHtmlAttribute(warningTitle4f)%>' style='background-color:red;color:white;'><%=Encode.forHtmlContent(trimmedLinkName4f)%></a>
 				<%
 			} else {
 				%>
-				|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url)%>")' title='<%=Encode.forHtmlAttribute(quickLink.getName())%>'><%=Encode.forHtmlContent(trimmedLinkName)%></a>
+				|<a href=# onClick='popupPage2("<%=Encode.forJavaScriptAttribute(url4f)%>")' title='<%=Encode.forHtmlAttribute(quickLink4f.getName())%>'><%=Encode.forHtmlContent(trimmedLinkName4f)%></a>
 				<%
 			}
 		}
