@@ -59,8 +59,7 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import com.itextpdf.text.pdf.codec.Base64;
-import com.itextpdf.text.pdf.PdfReader;
+import com.lowagie.text.pdf.PdfReader;
 
 import io.github.carlos_emr.OscarProperties;
 import javax.annotation.PostConstruct;
@@ -386,7 +385,9 @@ public class FaxImporter {
             // Decode to temp file first (atomic write pattern)
             tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
 
-            if (!Base64.decodeToFile(faxFile.getDocument(), tempFile.getAbsolutePath())) {
+            byte[] decodedBytes = java.util.Base64.getDecoder().decode(faxFile.getDocument());
+            Files.write(tempFile.toPath(), decodedBytes);
+            if (decodedBytes.length == 0) {
                 throw new FaxProviderException("Base64 decode failed");
             }
 
@@ -750,7 +751,7 @@ public class FaxImporter {
             log.debug("PDF validation successful: {} pages", pages);
             return pages;
 
-        } catch (com.itextpdf.text.exceptions.BadPasswordException e) {
+        } catch (com.lowagie.text.exceptions.BadPasswordException e) {
             throw new FaxProviderException("PDF is password-protected - cannot process");
         } catch (IOException e) {
             throw new FaxProviderException("Cannot read PDF file: " + e.getMessage());

@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
-import com.itextpdf.text.DocumentException;
+import com.lowagie.text.DocumentException;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;

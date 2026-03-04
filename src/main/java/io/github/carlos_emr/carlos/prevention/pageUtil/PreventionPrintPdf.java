@@ -36,11 +36,12 @@
 
 package io.github.carlos_emr.carlos.prevention.pageUtil;
 
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfWriter;
+import java.awt.Color;
+import com.lowagie.text.*;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.ColumnText;
+import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfWriter;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -140,7 +141,7 @@ public class PreventionPrintPdf {
         document.setMargins(36, 36, 80, 36);
 
         //Create the font we are going to print to       
-        Font font = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, BaseColor.BLACK);
+        Font font = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, Color.BLACK);
 
         StringBuilder demoInfo = new StringBuilder(demo.getSexDesc())
                 .append(" Age: ")
@@ -157,17 +158,17 @@ public class PreventionPrintPdf {
 
         //Header will be printed at top of every page beginning with p2
         String heading = ("true".equals(request.getParameter("immunizationOnly"))) ? "Immunizations" : "Immunizations and Screenings";
-        Phrase titlePhrase = new Phrase(HEADER_LEADING, heading, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, BaseColor.BLACK));
+        Phrase titlePhrase = new Phrase(HEADER_LEADING, heading, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, Color.BLACK));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demo.getFormattedName(), FontFactory.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, BaseColor.BLACK)));
+        titlePhrase.add(new Chunk(demo.getFormattedName(), FontFactory.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, Color.BLACK)));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demoInfo.toString(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, BaseColor.BLACK)));
+        titlePhrase.add(new Chunk(demoInfo.toString(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, Color.BLACK)));
 
         String mrp = request.getParameter("mrp");
         if (mrp != null && OscarProperties.getInstance().getBooleanProperty("mrp_model", "yes")) {
             Properties prop = (Properties) request.getSession().getAttribute("providerBean");
             titlePhrase.add(Chunk.NEWLINE);
-            titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, BaseColor.BLACK)));
+            titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK)));
         }
 
         // Store header phrase, border flag, header padding, and border spacing for the header
@@ -187,16 +188,16 @@ public class PreventionPrintPdf {
 
         StringBuilder clinicAddrCont = new StringBuilder(clinicData.getClinicCity()).append(", ").append(clinicData.getClinicProvince()).append(" ").append(clinicData.getClinicPostal());
 
-        Paragraph clinicParagraph = new Paragraph(LEADING, clinicData.getClinicName(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, BaseColor.BLACK));
+        Paragraph clinicParagraph = new Paragraph(LEADING, clinicData.getClinicName(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicData.getClinicAddress(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicAddress(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicAddrCont.toString(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
+        clinicParagraph.add(new Chunk(clinicAddrCont.toString(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk("Ph.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, BaseColor.BLACK)));
-        clinicParagraph.add(new Chunk(clinicData.getClinicPhone(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
-        clinicParagraph.add(new Chunk(" Fax.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, BaseColor.BLACK)));
-        clinicParagraph.add(new Chunk(clinicData.getClinicFax(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
+        clinicParagraph.add(new Chunk("Ph.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicPhone(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        clinicParagraph.add(new Chunk(" Fax.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicFax(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
         clinicParagraph.setAlignment(Paragraph.ALIGN_CENTER);
         document.add(clinicParagraph);
 
@@ -268,7 +269,7 @@ public class PreventionPrintPdf {
                 isScreeningsHeaderAdded = true;
             }
 
-            Phrase procHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + "\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, BaseColor.BLACK));
+            Phrase procHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + "\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, Color.BLACK));
             ct.addText(procHeader);
             ct.setAlignment(Element.ALIGN_LEFT);
             ct.setIndent(0);
@@ -296,7 +297,7 @@ public class PreventionPrintPdf {
                     procedureStatus = "N/A";
                 }
 
-                Phrase procedure = new Phrase(LEADING, "Date: ", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK));
+                Phrase procedure = new Phrase(LEADING, "Date: ", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK));
                 addLabelsAndValuesToProcedure(request, procedure, "preventProcedureDate", "Date: ", headerIds, idx, subIdx, font);
                 addLabelsAndValuesToProcedure(request, procedure, "preventProcedureAge", "Age: ", headerIds, idx, subIdx, font);
 
@@ -417,7 +418,7 @@ public class PreventionPrintPdf {
                     //Title (if we are starting to print a new prevention, use the Prevention name as title, otherwise if we 
                     //are in the middle of printing a prevention that has multiple items, identify this as a continued prevention
                     if (subIdx != 0) {
-                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + " (cont'd)\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, BaseColor.BLACK));
+                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + " (cont'd)\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, Color.BLACK));
                         ct.setText(contdProcHeader);
                     } else {
                         ct.setText(procHeader);
@@ -491,7 +492,7 @@ public class PreventionPrintPdf {
     }
 
     private Paragraph addParagraph(String title, float size, int style) throws DocumentException, IOException {
-        Paragraph paragraph = new Paragraph(LEADING, title, FontFactory.getFont(FontFactory.HELVETICA, size, style, BaseColor.BLACK));
+        Paragraph paragraph = new Paragraph(LEADING, title, FontFactory.getFont(FontFactory.HELVETICA, size, style, Color.BLACK));
         paragraph.add(Chunk.NEWLINE);
         paragraph.setAlignment(Paragraph.ALIGN_LEFT);
         return paragraph;

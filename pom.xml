@@ -566,7 +566,17 @@
 
         <!-- XMLBeans for AR2005 and CKD - using existing 3.1.0 version below -->
 
-        <!-- itext -->
+        <!-- OpenPDF (LGPL) - replaces iText 5 (AGPL) for PDF creation.
+             Version 2.0.5 matches Flying Saucer 9.13.3 transitive dependency.
+             Uses com.lowagie.* packages (legacy namespace, pre-3.0 migration). -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>2.0.5</version>
+        </dependency>
+
+        <!-- iText 5 (AGPL) - DEPRECATED, only used by Doc2PDF.java (deferred migration).
+             Remove both artifacts when Doc2PDF is migrated to Flying Saucer/ConvertToEdoc. -->
         <dependency>
             <groupId>com.itextpdf</groupId>
             <artifactId>itextpdf</artifactId>

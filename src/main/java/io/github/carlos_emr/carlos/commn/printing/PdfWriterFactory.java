@@ -44,12 +44,12 @@ public class PdfWriterFactory {
     private static String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 
     /**
-     * @param pdfContentByte
-     * @param settings
-     * @return
-     * @Deprecated: use the newer Itext PDF method with the same signature.
+     * Sets font on a PdfContentByte using the provided FontSettings.
+     *
+     * @param pdfContentByte the content byte to set font on
+     * @param settings font settings to apply
+     * @return the modified PdfContentByte
      */
-    @Deprecated
     public static com.lowagie.text.pdf.PdfContentByte setFont(com.lowagie.text.pdf.PdfContentByte pdfContentByte, FontSettings settings) {
         try {
             com.lowagie.text.pdf.BaseFont baseFont = com.lowagie.text.pdf.BaseFont.createFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
@@ -61,53 +61,19 @@ public class PdfWriterFactory {
     }
 
     /**
-     * @param document
-     * @param stream
-     * @param settings
-     * @return
-     * @Deprecated: use the newer Itext PDF method with the same signature.
+     * Creates a new instance of the PDF writer with promo text, confidentiality
+     * statement, and page numbering enabled.
+     *
+     * @param document the PDF document
+     * @param stream the output stream to write to
+     * @param settings font settings for the writer
+     * @return PdfWriter instance, or null if creation fails
      */
-    @Deprecated
     public static com.lowagie.text.pdf.PdfWriter newInstance(com.lowagie.text.Document document, OutputStream stream, FontSettings settings) {
         com.lowagie.text.pdf.PdfWriter result;
         try {
             result = com.lowagie.text.pdf.PdfWriter.getInstance(document, stream);
         } catch (com.lowagie.text.DocumentException e) {
-            MiscUtils.getLogger().error("Unable to create new PdfWriter instance", e);
-            return null;
-        }
-
-//		String confidentialtyStatement = OscarProperties.getConfidentialityStatement();
-//		PromoTextStamper pts = new PromoTextStamper(confidentialtyStatement, 30);
-//		pts.setFontSize(settings.getFontSize());
-//		result.setPageEvent(pts);
-//
-//		SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd");
-//		String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") + " " + f.format(new Date());
-//		pts = new PromoTextStamper(promoText, 20);
-//		pts.setFontSize(settings.getFontSize());
-//		result.setPageEvent(pts);
-
-//		PageNumberStamper pns = new PageNumberStamper(10);
-//		pns.setFontSize(settings.getFontSize());
-//		result.setPageEvent(pns);
-
-        return result;
-    }
-
-    /**
-     * Creates a new instance of the PDF writer.
-     *
-     * @param document
-     * @param stream
-     * @param settings
-     * @return PdfWriter
-     */
-    public static com.itextpdf.text.pdf.PdfWriter newInstance(com.itextpdf.text.Document document, OutputStream stream, FontSettings settings) {
-        com.itextpdf.text.pdf.PdfWriter result;
-        try {
-            result = com.itextpdf.text.pdf.PdfWriter.getInstance(document, stream);
-        } catch (com.itextpdf.text.DocumentException e) {
             MiscUtils.getLogger().error("Unable to create new PdfWriter instance", e);
             return null;
         }

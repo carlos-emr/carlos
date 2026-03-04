@@ -58,7 +58,7 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.encounter.data.EctProviderData;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
-import com.itextpdf.text.DocumentException;
+import com.lowagie.text.DocumentException;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;

@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
-import com.itextpdf.text.pdf.PdfReader;
+import com.lowagie.text.pdf.PdfReader;
 import com.sun.pdfview.PDFFile;
 import com.sun.pdfview.PDFPage;
 import com.fasterxml.jackson.databind.node.ObjectNode;
