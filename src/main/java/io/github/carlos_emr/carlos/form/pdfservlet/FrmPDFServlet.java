@@ -510,7 +510,7 @@ public class FrmPDFServlet extends HttpServlet {
                             int fontSize = 12;
                             try {
                                 fontSize = Integer.parseInt(cfgVal[5].trim());
-                            } catch (NumberFormatException e) {
+                            } catch (NumberFormatException nfe) {
                                 log.warn("Invalid font size in form print config '{}': {}", tempName, cfgVal[5]);
                             }
                             Font font;

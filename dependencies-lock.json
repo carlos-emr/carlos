@@ -464,22 +464,6 @@
     "optional" : false,
     "integrity" : "sha512:SBMOs0alu1va/4Z+UjGAijzQPRh22Oa3xQEzbfaZLpEvfFNFbccrZzrTJy87VLQUND7qihEY0B0OUXQDyrPjJA=="
   }, {
-    "groupId" : "com.itextpdf.tool",
-    "artifactId" : "xmlworker",
-    "version" : "5.5.13.5",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:qT6Z6M8/iR6PQgI1/y8xfPoGe6iQElOtmuL0OTTRy1KfedxSz6mNqE5KLmB8LdvEb89b3H+GiVl7G30smd7EOA=="
-  }, {
-    "groupId" : "com.itextpdf",
-    "artifactId" : "itextpdf",
-    "version" : "5.5.13.5",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:k8jO0QMHnJwgWpF6c1nn5ga8E6GsaZo2jDPwZWK6nTVoWa7i/OE3DT5vMwkx0vROptpnFABOnJ1Mm7R5JRD8Ag=="
-  }, {
     "groupId" : "com.mysql",
     "artifactId" : "mysql-connector-j",
     "version" : "9.3.0",

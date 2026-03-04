@@ -27,8 +27,8 @@ CARLOS EMR currently uses **5+ overlapping PDF libraries** for PDF creation, for
 
 | Library | GroupId:ArtifactId | Version | License | Usage | Action |
 |---------|-------------------|---------|---------|-------|--------|
-| iText 5 | `com.itextpdf:itextpdf` | 5.5.13.5 | AGPL | HTML→PDF in Doc2PDF only | **REMOVE (deferred)** |
-| iText XMLWorker | `com.itextpdf.tool:xmlworker` | 5.5.13.5 | AGPL | HTML→PDF in Doc2PDF only | **REMOVE (deferred)** |
+| ~~iText 5~~ | ~~`com.itextpdf:itextpdf`~~ | ~~5.5.13.5~~ | ~~AGPL~~ | ~~HTML→PDF in Doc2PDF~~ | **REMOVED** |
+| ~~iText XMLWorker~~ | ~~`com.itextpdf.tool:xmlworker`~~ | ~~5.5.13.5~~ | ~~AGPL~~ | ~~HTML→PDF in Doc2PDF~~ | **REMOVED** |
 | PDFBox | `org.apache.pdfbox:pdfbox` | 2.0.35 | Apache 2.0 | Merge, split, encrypt (11 files) | **KEEP** |
 | Flying Saucer | `org.xhtmlrenderer:flying-saucer-pdf` | 10.0.7 | LGPL | XHTML→PDF (4 files) | **DONE** |
 | OpenRTF | `com.github.librepdf:openrtf` | 3.0.0 | LGPL | RTF export (1 file) | **DONE** |
@@ -108,7 +108,7 @@ Cross-cutting utilities used by Groups A-C.
 
 | File | Feature | Action |
 |------|---------|--------|
-| `util/Doc2PDF.java` | @Deprecated HTML→PDF via XMLWorker | **DEFER** (separate PR) |
+| `util/Doc2PDF.java` | @Deprecated HTML→PDF via Flying Saucer (was XMLWorker) | **DONE** |
 | `documentManager/ConvertToEdoc.java` | HTML→PDF via ultrabuk+Flying Saucer fallback | **KEEP as-is** |
 
 #### Group F: Flying Saucer (already on OpenPDF)
@@ -374,9 +374,9 @@ Color.LIGHT_GRAY  // or new Color(192, 192, 192) for exact match
 10. `eform/util/EFormPDFServlet.java` — E-form PDF
 11. `lab/ca/all/upload/handlers/FHIRCommunicationRequestHandler.java` — FHIR handler
 
-**Doc2PDF handling** (deferred per user decision):
-- `util/Doc2PDF.java` — Stays on iText 5 (`com.itextpdf`) until migrated to Flying Saucer/ConvertToEdoc
-- Full Doc2PDF removal is a separate PR
+**Doc2PDF handling** (completed):
+- `util/Doc2PDF.java` — Migrated from iText 5 XMLWorkerHelper to Flying Saucer ITextRenderer
+- iText 5 dependencies (`com.itextpdf:itextpdf`, `com.itextpdf.tool:xmlworker`) removed from pom.xml
 
 **PdfWriterFactory cleanup:**
 - Remove the `@Deprecated` overloads (now redundant since everything is `org.openpdf`)
@@ -397,7 +397,7 @@ Color.LIGHT_GRAY  // or new Color(192, 192, 192) for exact match
 </dependency>
 ```
 
-**Verification**: Full build with tests (`make install --run-tests`). Verify no remaining `com.itextpdf` imports exist (except Doc2PDF.java). Verify zero `com.lowagie` imports remain. Run comprehensive PDF output tests.
+**Verification**: Full build with tests (`make install --run-tests`). Verify no remaining `com.itextpdf` imports exist anywhere. Verify zero `com.lowagie` imports remain. Run comprehensive PDF output tests.
 
 ---
 
@@ -465,7 +465,7 @@ Uses `org.openpdf.text.rtf.RtfWriter2` from OpenRTF 3.0.0. After migration, LabP
 
 ## Out of Scope (Future Work)
 
-1. **Doc2PDF full removal** — Migrate messenger PDF actions to ConvertToEdoc, then delete Doc2PDF (separate PR)
+1. ~~**Doc2PDF full removal**~~ — **DONE** (migrated to Flying Saucer, iText 5 removed)
 2. **ultrabuk-htmltopdf-java removal** — Replace wkhtmltopdf wrapper with Flying Saucer as primary HTML→PDF, remove JitPack repo dependency (separate PR)
 3. **PDFBox 2.x → 3.x upgrade** — PDFBox 3.0 is available with significant API changes (separate initiative)
 4. ~~**Flying Saucer 9.x → 10.x upgrade**~~ — **DONE** (upgraded to 10.0.7 in PR #536)
@@ -484,4 +484,4 @@ Uses `org.openpdf.text.rtf.RtfWriter2` from OpenRTF 3.0.0. After migration, LabP
 | 4: Cleanup | ~11 | Low | Migrate remaining files, remove iText 5 from pom.xml |
 
 **Total**: 48 files migrated to `org.openpdf.*`, 3 dependency upgrades (OpenPDF 3.0.2, OpenRTF 3.0.0, Flying Saucer 10.0.7)
-**Net result**: 5 PDF libraries → 2 (OpenPDF + PDFBox), with Doc2PDF iText 5 removal deferred
+**Net result**: 5 PDF libraries → 2 (OpenPDF + PDFBox). iText 5 fully removed (Doc2PDF migrated to Flying Saucer).

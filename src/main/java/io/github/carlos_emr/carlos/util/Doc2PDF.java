@@ -53,10 +53,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Entities;
 import java.nio.charset.StandardCharsets;
 
-import com.itextpdf.text.Document;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.pdf.PdfWriter;
-import com.itextpdf.tool.xml.XMLWorkerHelper;
+import org.xhtmlrenderer.pdf.ITextRenderer;
+import org.xhtmlrenderer.layout.SharedContext;
 
 /**
  * @author root
@@ -67,7 +65,7 @@ public class Doc2PDF {
     private static Logger logger = MiscUtils.getLogger();
 
     /**
-     * Configure Jsoup document for XHTML output compatible with iText XMLWorkerHelper.
+     * Configure Jsoup document for XHTML output compatible with Flying Saucer ITextRenderer.
      * This ensures consistent HTML cleaning across all PDF conversion methods.
      *
      * @param doc The Jsoup document to configure
@@ -77,7 +75,39 @@ public class Doc2PDF {
         doc.outputSettings()
             .syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml)
             .escapeMode(Entities.EscapeMode.xhtml)
-            .prettyPrint(false);  // Critical: prevents whitespace issues in iText XML parser
+            .prettyPrint(false);  // Critical: prevents whitespace issues in Flying Saucer XML parser
+    }
+
+    /**
+     * Render HTML to PDF using Flying Saucer's ITextRenderer.
+     * Mirrors the proven pattern from {@code ConvertToEdoc.fallbackRender()}.
+     *
+     * @param html String containing the HTML content to render
+     * @param os OutputStream to write the PDF to
+     * @throws Exception if rendering fails
+     * @since 2026-03-04
+     */
+    private static void renderWithFlyingSaucer(String html, OutputStream os) throws Exception {
+        org.jsoup.nodes.Document doc = Jsoup.parse(html);
+        doc.outputSettings()
+            .syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml)
+            .escapeMode(Entities.EscapeMode.xhtml)
+            .charset(StandardCharsets.UTF_8.name())
+            .prettyPrint(false);
+
+        doc.select("script").remove();
+        doc.select("img:not([alt])").attr("alt", "");
+        doc.select("input:not([type])").attr("type", "text");
+
+        ITextRenderer renderer = new ITextRenderer();
+        SharedContext sharedContext = renderer.getSharedContext();
+        sharedContext.setPrint(true);
+        sharedContext.setInteractive(false);
+        sharedContext.getTextRenderer().setSmoothingThreshold(0);
+
+        renderer.setDocumentFromString(doc.outerHtml(), null);
+        renderer.layout();
+        renderer.createPDF(os, true);
     }
 
     /**
@@ -285,20 +315,14 @@ public class Doc2PDF {
     }
 
     public static String GetPDFBin(HttpServletResponse response, String docText) {
-        Document document = new Document(PageSize.A4, 36, 36, 36, 36);
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(document, baos);
-            document.open();
-            InputStream is = new ByteArrayInputStream(docText.getBytes(StandardCharsets.UTF_8));
-            XMLWorkerHelper.getInstance().parseXHtml(writer, document, is);
-            document.close();
+            renderWithFlyingSaucer(docText, baos);
             return (new String(Base64.encodeBase64(baos.toByteArray())));
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }
         return null;
-
     }
 
     public static void PrintPDFFromBin(HttpServletResponse response, String docBin) {
@@ -351,16 +375,10 @@ public class Doc2PDF {
     }
 
     public static void PrintPDFFromHTMLString(HttpServletResponse response, String docText) {
-        Document document = new Document(PageSize.A4, 36, 36, 36, 36);
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(document, baos);
-            document.open();
-            InputStream is = new ByteArrayInputStream(docText.getBytes(StandardCharsets.UTF_8));
-            XMLWorkerHelper.getInstance().parseXHtml(writer, document, is);
-            document.close();
-            byte[] binArray = baos.toByteArray();
-            PrintPDFFromBytes(response, binArray);
+            renderWithFlyingSaucer(docText, baos);
+            PrintPDFFromBytes(response, baos.toByteArray());
         } catch (Exception e) {
             logger.error("Unexpected error", e);
         }

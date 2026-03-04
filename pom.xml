@@ -602,19 +602,6 @@
             <version>3.0.2</version>
         </dependency>
 
-        <!-- iText 5 (AGPL) - DEPRECATED, only used by Doc2PDF.java (deferred migration).
-             Remove both artifacts when Doc2PDF is migrated to Flying Saucer/ConvertToEdoc. -->
-        <dependency>
-            <groupId>com.itextpdf</groupId>
-            <artifactId>itextpdf</artifactId>
-            <version>5.5.13.5</version>
-        </dependency>
-        <dependency>
-            <groupId>com.itextpdf.tool</groupId>
-            <artifactId>xmlworker</artifactId>
-            <version>5.5.13.5</version>
-        </dependency>
-
         <dependency>
             <groupId>com.github.openosp</groupId>
             <artifactId>ultrabuk-htmltopdf-java</artifactId>

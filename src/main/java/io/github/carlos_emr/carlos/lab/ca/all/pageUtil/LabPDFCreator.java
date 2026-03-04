@@ -51,7 +51,6 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
-import java.awt.Color;
 import org.openpdf.text.*;
 import org.openpdf.text.Font;
 import org.openpdf.text.Rectangle;
