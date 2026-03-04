@@ -6,7 +6,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic"%>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao"%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider"%>
-<%@page import="io.github.carlos_emr.carlos.daos.ProviderDAO"%>
+<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 <%@page import="org.owasp.encoder.Encode"%>
 <%@page import="java.net.URLEncoder"%>
@@ -22,7 +22,7 @@
 	{
 		// Load provider and demographic for quick link placeholder substitution
 		DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-		ProviderDAO providerDAO = SpringUtils.getBean(ProviderDAO.class);
+		ProviderDao providerDAO = SpringUtils.getBean(ProviderDao.class);
 
 		Demographic demographic = null;
 		if (demographic_no != null && !demographic_no.isEmpty()) {
