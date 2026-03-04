@@ -141,7 +141,7 @@ public class EctConsultationFormRequestPrintPdf {
         document.setPageSize(pSize);
 
         document.addTitle("Consultation Form Request");
-        document.addCreator("OSCAR");
+        document.addCreator("CARLOS EMR");
         document.open();
 
         //Create the font we are going to print to

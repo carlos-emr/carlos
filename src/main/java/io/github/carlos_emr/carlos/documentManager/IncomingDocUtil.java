@@ -449,14 +449,17 @@ public final class IncomingDocUtil {
                 PdfCopy deleteCopy = new PdfCopy(document, deleteFos);
                 document.open();
 
-                for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
-                    if (!(pageNumber == (Integer.parseInt(PageNumberToDelete)))) {
-                        copy.addPage(copy.getImportedPage(reader, pageNumber));
-                    } else {
-                        deleteCopy.addPage(copy.getImportedPage(reader, pageNumber));
+                try {
+                    for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
+                        if (!(pageNumber == (Integer.parseInt(PageNumberToDelete)))) {
+                            copy.addPage(copy.getImportedPage(reader, pageNumber));
+                        } else {
+                            deleteCopy.addPage(copy.getImportedPage(reader, pageNumber));
+                        }
                     }
+                } finally {
+                    document.close();
                 }
-                document.close();
             }
         }
 

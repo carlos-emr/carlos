@@ -109,7 +109,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 //		PdfWriterFactory.newInstance( document, os, FontSettings.HELVETICA_10PT );
         document.setPageSize(PageSize.LETTER);
         document.addTitle(getResource("msgConsReq"));
-        document.addCreator("OSCAR");
+        document.addCreator("CARLOS EMR");
         document.open();
 
         PdfPTable maintable = createConsultationRequest(loggedInInfo);

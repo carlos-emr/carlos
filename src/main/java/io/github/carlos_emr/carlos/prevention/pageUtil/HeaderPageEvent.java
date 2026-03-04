@@ -16,7 +16,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Reusable page event handler for rendering headers on PDFs.
- * This replaces the deprecated HeaderFooter class from iText 2.x.
+ * This replaces the deprecated HeaderFooter approach from older PDF library versions.
  */
 public class HeaderPageEvent extends PdfPageEventHelper {
     private Phrase headerPhrase;

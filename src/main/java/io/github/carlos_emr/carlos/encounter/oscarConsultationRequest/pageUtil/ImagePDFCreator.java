@@ -95,7 +95,7 @@ public class ImagePDFCreator extends PdfPageEventHelper {
         //PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_6PT);
 
         document.setPageSize(PageSize.LETTER);
-        document.addCreator("OSCAR");
+        document.addCreator("CARLOS EMR");
         document.open();
 
         try {

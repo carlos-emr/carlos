@@ -154,7 +154,7 @@ OpenPDF 3.0.2 supports `PdfAction.javaScript()` and `PdfWriter.addJavaScript()` 
 ### Package Mapping (Mechanical — import replacement)
 
 The migration went through two namespace hops: `com.itextpdf.*` → `com.lowagie.*` → `org.openpdf.*`.
-All 48 files now use the final `org.openpdf.*` namespace (OpenPDF 3.0.2).
+All 46 files now use the final `org.openpdf.*` namespace (OpenPDF 3.0.2).
 
 | iText 5 (`com.itextpdf.*`) | OpenPDF 3.0.x (`org.openpdf.*`) |
 |----|---|
@@ -235,7 +235,7 @@ Both exist in OpenPDF. Used for document concatenation in consultation attachmen
 **pom.xml changes:**
 ```xml
 <!-- ADD: Explicit OpenPDF dependency (currently transitive via Flying Saucer) -->
-<!-- HTMLWorker (org.openpdf.text.html.simpleparser.HTMLWorker) is included in the main openpdf artifact -->
+<!-- HTMLWorker is in the openpdf-html submodule (com.github.librepdf:openpdf-html), not the main openpdf artifact -->
 <dependency>
     <groupId>com.github.librepdf</groupId>
     <artifactId>openpdf</artifactId>
@@ -483,5 +483,5 @@ Uses `org.openpdf.text.rtf.RtfWriter2` from OpenRTF 3.0.0. After migration, LabP
 | 3: Complex PDF Creators | ~12 | **High** | Migrate lab PDFs, clinical notes, medical form servlets |
 | 4: Cleanup | ~11 | Low | Migrate remaining files, remove iText 5 from pom.xml |
 
-**Total**: 48 files migrated to `org.openpdf.*`, 3 dependency upgrades (OpenPDF 3.0.2, OpenRTF 3.0.0, Flying Saucer 10.0.7)
+**Total**: 46 files migrated to `org.openpdf.*`, 3 dependency upgrades (OpenPDF 3.0.2, OpenRTF 3.0.0, Flying Saucer 10.0.7)
 **Net result**: 5 PDF libraries → 2 (OpenPDF + PDFBox). iText 5 fully removed (Doc2PDF migrated to Flying Saucer).

@@ -157,7 +157,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
             RtfWriter2 writer = RtfWriter2.getInstance(document, os);
             document.setPageSize(org.openpdf.text.PageSize.LETTER);
             document.addTitle("Title of the Document");
-            document.addCreator("OSCAR");
+            document.addCreator("CARLOS EMR");
             document.open();
 
             //Create the fonts that we are going to use
@@ -182,7 +182,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
         // check that we have data to print
         if (handler == null) {
-            throw new DocumentException();
+            throw new DocumentException("No lab handler available for PDF generation");
         }
 
         //Create the document we are going to write to
@@ -201,7 +201,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
             document.setPageSize(PageSize.LETTER);
             document.addTitle("OSCAR Laboratory Report");
-            document.addCreator("OSCAR");
+            document.addCreator("CARLOS EMR");
             document.open();
 
             //Create the fonts that we are going to use

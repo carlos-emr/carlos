@@ -34,7 +34,6 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.casemgmt.service.PageNumberStamper;
 import io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.OscarProperties;
 
@@ -55,7 +54,7 @@ public class PdfWriterFactory {
             org.openpdf.text.pdf.BaseFont baseFont = org.openpdf.text.pdf.BaseFont.createFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
             pdfContentByte.setFontAndSize(baseFont, settings.getFontSize());
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed creation of PDF Base Font ", e);
+            throw new IllegalStateException("Failed creation of PDF Base Font: " + settings.getFont(), e);
         }
         return pdfContentByte;
     }

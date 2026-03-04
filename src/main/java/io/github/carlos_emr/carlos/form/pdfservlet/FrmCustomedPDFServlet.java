@@ -686,7 +686,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         document.addTitle(title);
         document.addSubject("");
         document.addKeywords("pdf");
-        document.addCreator("OSCAR");
+        document.addCreator("CARLOS EMR");
         document.addAuthor("");
         document.addHeader("Expires", "0");
 
