@@ -44,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Tag("integration")
 @Tag("util")
+@Tag("pdf")
 @DisplayName("Doc2PDF Integration Tests")
 class Doc2PDFIntegrationTest extends CarlosTestBase {
 
@@ -198,6 +199,85 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
         assertThat(response.getContentType()).isEqualTo("application/pdf");
         assertThat(response.getContentAsByteArray()).isNotEmpty();
         assertThat(response.getContentAsByteArray().length).isGreaterThan(100);
+    }
+
+    @Test
+    @Tag("parse")
+    @Tag("security")
+    @DisplayName("should produce PDF when HTML contains script tags")
+    void shouldProducePdf_whenHtmlContainsScriptTags() {
+        // Given - Flying Saucer crashes on <script> content; renderWithFlyingSaucer removes them
+        String htmlWithScripts = "<html><body>"
+                + "<script>alert('xss')</script>"
+                + "<p>Content after script</p>"
+                + "<script type='text/javascript'>var x = 1;</script>"
+                + "</body></html>";
+
+        // When
+        Doc2PDF.parseString2PDF(request, response, htmlWithScripts);
+
+        // Then - scripts removed, PDF still generated
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getContentAsByteArray()).isNotEmpty();
+    }
+
+    @Test
+    @Tag("parse")
+    @Tag("security")
+    @DisplayName("should produce PDF when HTML contains external image references")
+    void shouldProducePdf_whenHtmlContainsExternalImageReferences() {
+        // Given - external images should be blocked by LocalOnlyUserAgent (SSRF prevention)
+        String htmlWithExternalImages = "<html><body>"
+                + "<p>Test with external images</p>"
+                + "<img src=\"http://evil.com/track.png\" alt=\"blocked\" />"
+                + "<img src=\"https://attacker.com/exfil.gif\" alt=\"blocked\" />"
+                + "</body></html>";
+
+        // When
+        Doc2PDF.parseString2PDF(request, response, htmlWithExternalImages);
+
+        // Then - images silently dropped, PDF still generated
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getContentAsByteArray()).isNotEmpty();
+    }
+
+    @Test
+    @Tag("parse")
+    @DisplayName("should produce PDF when HTML contains input without type attribute")
+    void shouldProducePdf_whenHtmlContainsInputWithoutTypeAttribute() {
+        // Given - Flying Saucer crashes on <input> without type; renderWithFlyingSaucer adds type="text"
+        String htmlWithInput = "<html><body>"
+                + "<form>"
+                + "<input name=\"field1\" />"
+                + "<input name=\"field2\" value=\"test\" />"
+                + "<input type=\"checkbox\" name=\"field3\" />"
+                + "</form>"
+                + "</body></html>";
+
+        // When
+        Doc2PDF.parseString2PDF(request, response, htmlWithInput);
+
+        // Then
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getContentAsByteArray()).isNotEmpty();
+    }
+
+    @Test
+    @Tag("parse")
+    @DisplayName("should produce PDF when HTML contains img without alt attribute")
+    void shouldProducePdf_whenHtmlContainsImgWithoutAltAttribute() {
+        // Given - XHTML requires alt on <img>; renderWithFlyingSaucer adds alt=""
+        String htmlWithImg = "<html><body>"
+                + "<p>Test with images missing alt</p>"
+                + "<img src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==\" />"
+                + "</body></html>";
+
+        // When
+        Doc2PDF.parseString2PDF(request, response, htmlWithImg);
+
+        // Then
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getContentAsByteArray()).isNotEmpty();
     }
 
     @Test
