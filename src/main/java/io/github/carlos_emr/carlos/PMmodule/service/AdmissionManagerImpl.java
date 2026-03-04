@@ -311,10 +311,6 @@ public class AdmissionManagerImpl implements AdmissionManager {
 
         Admission fullAdmission = getCurrentAdmission(String.valueOf(programId), demographicNo);
 
-        Program program = programDao.getProgram(programId);
-        Integer facilityId = null;
-        if (program != null) facilityId = (int) program.getFacilityId();
-
         if (fullAdmission == null) {
             throw new AdmissionException("Admission Record not found");
         }
@@ -345,10 +341,6 @@ public class AdmissionManagerImpl implements AdmissionManager {
     }
 
     public void processDischargeToCommunity(Integer communityProgramId, Integer demographicNo, String providerNo, String notes, String radioDischargeReason, List<Integer> dependents, Date dischargeDate) throws AdmissionException {
-        Program program = programDao.getProgram(communityProgramId);
-        Integer facilityId = null;
-        if (program != null) facilityId = (int) program.getFacilityId();
-
         Admission currentCommunityAdmission = getCurrentCommunityProgramAdmission(demographicNo);
 
         if (currentCommunityAdmission != null) {

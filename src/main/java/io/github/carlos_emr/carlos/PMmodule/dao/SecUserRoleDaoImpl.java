@@ -37,24 +37,14 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.SecUserRole;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.hibernate.SessionFactory;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRoleDao {
+public class SecUserRoleDaoImpl extends AbstractHibernateDao implements SecUserRoleDao {
 
     private static Logger log = MiscUtils.getLogger();
-
-    @Autowired
-    /**
-     * Sets the session factory override.
-     */
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
-    }
 
     @Override
     public List<SecUserRole> getUserRoles(String providerNo) {
@@ -114,13 +104,13 @@ public class SecUserRoleDaoImpl extends HibernateDaoSupport implements SecUserRo
 
     @Override
     public SecUserRole find(Long id) {
-        return this.getHibernateTemplate().get(SecUserRole.class, id);
+        return currentSession().get(SecUserRole.class, id);
     }
 
     @Override
     public void save(SecUserRole sur) {
         sur.setLastUpdateDate(new Date());
-        this.getHibernateTemplate().save(sur);
+        currentSession().save(sur);
     }
 
     @Override

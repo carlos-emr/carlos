@@ -36,6 +36,7 @@ import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperReport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -139,6 +140,7 @@ public class ManagePatientLetters2Action extends ActionSupport {
         return reportFile;
     }
 
+    @StrutsParameter
     public void setReportFile(File reportFile) {
         this.reportFile = reportFile;
     }

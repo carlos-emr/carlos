@@ -34,6 +34,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EditServiceCodeAssoc2Action extends ActionSupport {
     private String svcCode;
@@ -46,6 +47,7 @@ public class EditServiceCodeAssoc2Action extends ActionSupport {
         return svcCode;
     }
 
+    @StrutsParameter
     public void setSvcCode(String svcCode) {
         this.svcCode = svcCode;
     }
@@ -54,6 +56,7 @@ public class EditServiceCodeAssoc2Action extends ActionSupport {
         return mode;
     }
 
+    @StrutsParameter
     public void setMode(String mode) {
         this.mode = mode;
     }

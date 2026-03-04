@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class RptByExamplesFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -128,6 +129,7 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
         return favoriteName;
     }
 
+    @StrutsParameter
     public void setFavoriteName(String favoriteName) {
         this.favoriteName = favoriteName;
     }
@@ -136,6 +138,7 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
         return query;
     }
 
+    @StrutsParameter
     public void setQuery(String query) {
         this.query = query;
     }
@@ -144,6 +147,7 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
         return newQuery;
     }
 
+    @StrutsParameter
     public void setNewQuery(String newQuery) {
         this.newQuery = newQuery;
     }
@@ -152,6 +156,7 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
         return newName;
     }
 
+    @StrutsParameter
     public void setNewName(String newName) {
         this.newName = newName;
     }
@@ -160,6 +165,7 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
         return toDelete;
     }
 
+    @StrutsParameter
     public void setToDelete(String toDelete) {
         this.toDelete = toDelete;
     }
@@ -168,6 +174,7 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
         return id;
     }
 
+    @StrutsParameter
     public void setId(String id) {
         this.id = id;
     }

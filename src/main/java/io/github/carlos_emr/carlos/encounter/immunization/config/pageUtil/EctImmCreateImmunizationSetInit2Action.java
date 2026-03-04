@@ -33,6 +33,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.struts2.ServletActionContext;
 
 import com.opensymphony.xwork2.ActionSupport;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
@@ -92,6 +93,7 @@ public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
         return setName;
     }
 
+    @StrutsParameter
     public void setSetName(String setName) {
         this.setName = setName;
     }
@@ -100,6 +102,7 @@ public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
         return numRows;
     }
 
+    @StrutsParameter
     public void setNumRows(String numRows) {
         this.numRows = numRows;
     }
@@ -108,6 +111,7 @@ public class EctImmCreateImmunizationSetInit2Action extends ActionSupport {
         return numCols;
     }
 
+    @StrutsParameter
     public void setNumCols(String numCols) {
         this.numCols = numCols;
     }

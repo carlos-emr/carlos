@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.util.DateUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class Obec2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -111,6 +112,7 @@ public class Obec2Action extends ActionSupport {
       return xml_vdate;
    }
 
+   @StrutsParameter
    public void setXml_vdate(String id) {
       this.xml_vdate = id;
    }
@@ -119,6 +121,7 @@ public class Obec2Action extends ActionSupport {
       return numDays;
    }
 
+   @StrutsParameter
    public void setNumDays(int numDays) {
       this.numDays = numDays;
    }

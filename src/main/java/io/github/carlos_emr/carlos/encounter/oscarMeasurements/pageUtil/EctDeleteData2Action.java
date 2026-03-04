@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -93,6 +94,7 @@ public class EctDeleteData2Action extends ActionSupport {
         return deleteCheckbox;
     }
 
+    @StrutsParameter
     public void setDeleteCheckbox(String[] deleteCheckbox) {
         this.deleteCheckbox = deleteCheckbox;
     }
@@ -103,6 +105,7 @@ public class EctDeleteData2Action extends ActionSupport {
         return type;
     }
 
+    @StrutsParameter
     public void setType(String type) {
         this.type = type;
     }

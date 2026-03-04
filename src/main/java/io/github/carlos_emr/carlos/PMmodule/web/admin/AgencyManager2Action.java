@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class AgencyManager2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -97,10 +98,12 @@ public class AgencyManager2Action extends ActionSupport {
 
     private Agency agency;
 
+    @StrutsParameter(depth = 1)
     public Agency getAgency() {
         return agency;
     }
 
+    @StrutsParameter
     public void setAgency(Agency agency) {
         this.agency = agency;
     }

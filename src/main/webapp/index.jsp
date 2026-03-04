@@ -52,15 +52,9 @@
 <html>
 
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
         <title>
-                <%--	    <c:choose>--%>
-                <%--	    	<c:when test="${ not empty LoginResourceBean.tabName }">--%>
-                <%--	    		<c:out value="${ LoginResourceBean.tabName }" />--%>
-                <%--	    	</c:when>--%>
-                <%--	    	<c:otherwise>--%>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.title"/>
-                <%--	    	</c:otherwise>--%>
-                <%--	    </c:choose>--%>
         </title>
 
         <link rel="icon" href="${pageContext.request.contextPath}/images/Oscar.ico"/>

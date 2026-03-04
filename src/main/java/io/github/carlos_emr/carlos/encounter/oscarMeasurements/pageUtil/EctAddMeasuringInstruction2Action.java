@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.messenger.util.MsgStringQuote;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctAddMeasuringInstruction2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -147,6 +148,7 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
         return this.typeDisplayName;
     }
 
+    @StrutsParameter
     public void setTypeDisplayName(String typeDisplayName) {
         this.typeDisplayName = typeDisplayName;
     }
@@ -155,6 +157,7 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
         return this.measuringInstrc;
     }
 
+    @StrutsParameter
     public void setMeasuringInstrc(String measuringInstrc) {
         this.measuringInstrc = measuringInstrc;
     }
@@ -163,6 +166,7 @@ public class EctAddMeasuringInstruction2Action extends ActionSupport {
         return this.validation;
     }
 
+    @StrutsParameter
     public void setValidation(String validation) {
         this.validation = validation;
     }

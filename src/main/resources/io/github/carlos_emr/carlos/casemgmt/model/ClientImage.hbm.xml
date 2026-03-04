@@ -22,7 +22,7 @@
 <hibernate-mapping>
 	<class name="io.github.carlos_emr.carlos.casemgmt.model.ClientImage" table="client_image">
 		<id name="id" column="image_id" unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property name="demographic_no" />
 		<property name="image_type" type="string" />

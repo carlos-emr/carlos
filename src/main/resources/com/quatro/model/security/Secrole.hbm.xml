@@ -5,7 +5,7 @@
 <hibernate-mapping>
     <class name="io.github.carlos_emr.carlos.model.security.Secrole" table="secRole">
     	<id column="role_no" name="Id" type="java.lang.Long" unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>    
 		<property name="roleName" column="role_name" type="java.lang.String"/>	
         <property name="description" type="java.lang.String">

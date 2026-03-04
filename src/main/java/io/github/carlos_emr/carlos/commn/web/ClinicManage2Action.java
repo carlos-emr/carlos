@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ClinicManage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -76,10 +77,12 @@ public class ClinicManage2Action extends ActionSupport {
 
     private Clinic clinic;
 
+    @StrutsParameter(depth = 1)
     public Clinic getClinic() {
         return clinic;
     }
 
+    @StrutsParameter
     public void setClinic(Clinic clinic) {
         this.clinic = clinic;
     }

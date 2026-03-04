@@ -1315,10 +1315,23 @@ function updateCPPNote() {
 
     }
 
+    /**
+     * Initialises the smart template tab-stop and shortcut features on the active case note textarea.
+     * Called after template insertion and whenever a new or existing note becomes active.
+     */
+    function initTemplateFeatures() {
+        try {
+            var el = document.getElementById(caseNote);
+            if (typeof smartTmpl !== 'undefined') { smartTmpl.init(el); }
+            if (typeof templateShortcut !== 'undefined') { templateShortcut.init(el); }
+        } catch (err) { console.error('Template feature init error:', err); }
+    }
+
     function menuAction() {
         var name = document.getElementById('enTemplate').value;
         var func = autoCompleted[name];
-        eval(func);
+        eval(func); // existing legacy template evaluation - pre-existing pattern, not new code
+        initTemplateFeatures();
     }
 
     function grabEnterGetTemplate(event) {
@@ -2044,6 +2057,7 @@ function updateCPPNote() {
 		setTimeout(adjustCaseNote, 0);
 	});
         enableNotePassthroughScroll(jQuery('#' + caseNote));
+        initTemplateFeatures();
         Element.observe(caseNote, 'click', getActiveText);
 
         if (passwordEnabled) {
@@ -2979,6 +2993,7 @@ function updateCPPNote() {
             setTimeout(adjustCaseNote, 0);
         });
             enableNotePassthroughScroll(jQuery('#' + caseNote));
+            initTemplateFeatures();
             Element.observe(caseNote, 'click', getActiveText);
 
             origCaseNote = $F(caseNote);

@@ -26,6 +26,9 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- SonarCloud -->
         <sonar.organization>carlos-emr</sonar.organization>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
+        <argLine></argLine>
         <!-- Log4j Version -->
         <log4j2.version>2.25.3</log4j2.version>
         <!-- Slf4j Version -->
@@ -509,18 +512,11 @@
             <version>6.3.9</version>
         </dependency>
 
-        <!-- Spring Cache Support with EhCache 2.x -->
+        <!-- Spring Context Support (provides JavaMailSenderImpl for email) -->
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context-support</artifactId>
             <version>5.3.39</version>
-        </dependency>
-
-        <!-- EhCache 2.x for Spring Cache -->
-        <dependency>
-            <groupId>net.sf.ehcache</groupId>
-            <artifactId>ehcache</artifactId>
-            <version>2.10.9.2</version>
         </dependency>
 
         <!-- hibernate / sql -->
@@ -595,15 +591,6 @@
             <version>2.0.0</version>
         </dependency>
 
-
-        <!-- apache xmlrpc -->
-        <dependency>
-            <groupId>xmlrpc</groupId>
-            <artifactId>xmlrpc</artifactId>
-            <version>1.2-b1</version>
-        </dependency>
-
-        <!-- apache xmlrpc -->
 
         <!-- Drools 7.x KIE API (migrated from drools:drools-all:2.0 in 2026) -->
         <dependency>
@@ -1129,25 +1116,7 @@
             <version>4.5.0</version>
         </dependency>
         
-        <!-- OWASP ESAPI for ClickjackFilter -->
-        <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
-        <!-- https://mvnrepository.com/artifact/org.owasp.esapi/esapi -->
-        <dependency>
-            <groupId>org.owasp.esapi</groupId>
-            <artifactId>esapi</artifactId>
-            <version>2.6.2.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-lang</groupId>
-                    <artifactId>commons-lang</artifactId>
-                </exclusion>
-                <!-- CVE-2025-46392: Only used by ESAPI AccessControlRule classes, not by ClickjackFilter -->
-                <exclusion>
-                    <groupId>commons-configuration</groupId>
-                    <artifactId>commons-configuration</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        <!-- ESAPI removed: ClickjackFilter replaced by security headers in ResponseDefaultsFilter -->
 
         <!-- Apache Commons Exec - used by ExternalEDocConverter -->
         <dependency>
@@ -1357,11 +1326,11 @@
             <artifactId>caffeine</artifactId>
             <version>3.1.8</version>
         </dependency>
-		<!-- https://mvnrepository.com/artifact/org.jboss.aerogear/aerogear-otp-java -->
+		<!-- https://mvnrepository.com/artifact/dev.samstevens.totp/totp -->
 		<dependency>
-			<groupId>org.jboss.aerogear</groupId>
-			<artifactId>aerogear-otp-java</artifactId>
-			<version>1.0.0</version>
+			<groupId>dev.samstevens.totp</groupId>
+			<artifactId>totp</artifactId>
+			<version>1.7.1</version>
 		</dependency>
 
 
@@ -1673,6 +1642,7 @@
                                 <exclude>**/archive/**/*Test.java</exclude>
                             </excludes>
                             <argLine>
+                               @{argLine}
                                -Xmx2048m
                                -Dnet.bytebuddy.experimental=true
                                --add-opens java.base/java.lang=ALL-UNNAMED
@@ -1721,6 +1691,7 @@
                             </systemPropertyVariables>
                             <!-- Java 21 compatibility flags for JAXB -->
                             <argLine>
+                                @{argLine}
                                 -Xmx2048m
                                 -Dnet.bytebuddy.experimental=true
                                 --add-opens java.base/java.lang=ALL-UNNAMED

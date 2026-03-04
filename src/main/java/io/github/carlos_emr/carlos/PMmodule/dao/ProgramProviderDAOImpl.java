@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.QueueCache;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
@@ -47,7 +47,7 @@ import java.util.Map;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class ProgramProviderDAOImpl extends HibernateDaoSupport implements ProgramProviderDAO {
+public class ProgramProviderDAOImpl extends AbstractHibernateDao implements ProgramProviderDAO {
 
     private Logger log = MiscUtils.getLogger();
 
@@ -144,7 +144,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
             throw new IllegalArgumentException();
         }
 
-        ProgramProvider result = this.getHibernateTemplate().get(ProgramProvider.class, id);
+        ProgramProvider result = currentSession().get(ProgramProvider.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramProvider: id=" + id + ",found=" + (result != null));
@@ -215,7 +215,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
         }
 
         programProviderByProviderProgramIdCache.remove(makeCacheKey(pp.getProviderNo(), pp.getProgramId()));
-        getHibernateTemplate().saveOrUpdate(pp);
+        currentSession().saveOrUpdate(pp);
 
         if (log.isDebugEnabled()) {
             log.debug("saveProgramProvider: id=" + pp.getId());
@@ -232,7 +232,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
         ProgramProvider pp = getProgramProvider(id);
         if (pp != null) {
             programProviderByProviderProgramIdCache.remove(makeCacheKey(pp.getProviderNo(), pp.getProgramId()));
-            getHibernateTemplate().delete(pp);
+            currentSession().delete(pp);
         }
 
         if (log.isDebugEnabled()) {
@@ -252,7 +252,7 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
             while (it.hasNext()) {
                 ProgramProvider pp = (ProgramProvider) it.next();
                 programProviderByProviderProgramIdCache.remove(makeCacheKey(pp.getProviderNo(), pp.getProgramId()));
-                getHibernateTemplate().delete(pp);
+                currentSession().delete(pp);
             }
         }
 
@@ -364,6 +364,6 @@ public class ProgramProviderDAOImpl extends HibernateDaoSupport implements Progr
     @Override
     public void updateProviderRole(ProgramProvider pp, Long roleId) {
         pp.setRoleId(roleId);
-        getHibernateTemplate().update(pp);
+        currentSession().update(pp);
     }
 }

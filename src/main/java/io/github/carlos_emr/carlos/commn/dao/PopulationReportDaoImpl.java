@@ -39,6 +39,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
@@ -53,11 +54,14 @@ import io.github.carlos_emr.carlos.commn.model.Stay;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.EncounterUtil.EncounterType;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
-public class PopulationReportDaoImpl extends HibernateDaoSupport implements PopulationReportDao {
+@Transactional
+public class PopulationReportDaoImpl extends AbstractHibernateDao implements PopulationReportDao {
 
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -70,37 +74,34 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
     private static final String HQL_CURRENT_HISTORICAL_POP_SIZE = "select count(distinct a.clientId) from Admission a where " +
     "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and " +
     "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
-    "(a.dischargeDate is null or a.dischargeDate > ?1)";
+    "(a.dischargeDate is null or a.dischargeDate > :cutoff)";
 
-    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from ?1 a where " +
-    "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and " +
-    "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
-    "(a.dischargeDate is null or a.dischargeDate > ?2) " +
-    "order by a.clientId, a.admissionDate";
+    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from Admission a where a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and (a.dischargeDate is null or a.dischargeDate > :cutoff) order by a.clientId, a.admissionDate";
 
     private static final String HQL_GET_MORTALITIES = "select count(distinct a.clientId) from Admission a where " +
      "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'community' and lower(p.name) = 'deceased') and " +
-     "a.admissionDate > ?1 and a.dischargeDate is null";
+     "a.admissionDate > :cutoff and a.dischargeDate is null";
 
     private static final String HQL_GET_PREVALENCE = "select count(cmi) from CaseManagementIssue cmi where cmi.resolved = false and " +
     "cmi.demographic_no in (select distinct a.clientId from Admission a where a.programId in (select p.id from Program p where " +
     "lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where " +
-    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in ";
+    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in (:codes)";
 
     private static final String HQL_GET_INCIDENCE = "select count(cmi) from CaseManagementIssue cmi where " +
     "cmi.demographic_no in (select distinct a.clientId from Admission a where a.programId in (select p.id from Program p where " +
     "lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where " +
-    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in ";
+    "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in (:codes)";
 
     public int getCurrentPopulationSize() {
-
-        return ((Long) getHibernateTemplate().find(HQL_CURRENT_POP_SIZE).iterator().next()).intValue();
+        List<?> results = HqlQueryHelper.find(currentSession(), HQL_CURRENT_POP_SIZE);
+        return extractCount(results);
     }
 
     @Override
     public int getCurrentAndHistoricalPopulationSize(int numYears) {
-
-        return ((Long) getHibernateTemplate().find(HQL_CURRENT_HISTORICAL_POP_SIZE, DateTimeFormatUtils.getPast(numYears)).iterator().next()).intValue();
+        Map<String, Object> params = new HashMap<>();
+        params.put("cutoff", DateTimeFormatUtils.getPast(numYears));
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_CURRENT_HISTORICAL_POP_SIZE, params));
     }
 
     @Override
@@ -114,7 +115,9 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
         Date end = instant.getTime();
         Date start = DateTimeFormatUtils.getPast(instant, numYears);
 
-        for (Object o : getHibernateTemplate().find(HQL_GET_USAGES, start)) {
+        Map<String, Object> usageParams = new HashMap<>();
+        usageParams.put("cutoff", start);
+        for (Object o : HqlQueryHelper.find(currentSession(), HQL_GET_USAGES, usageParams)) {
             Object[] tuple = (Object[]) o;
 
             Integer clientId = (Integer) tuple[0];
@@ -156,44 +159,29 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
 
     @Override
     public int getMortalities(int numYears) {
-
-        return ((Long) getHibernateTemplate().find(HQL_GET_MORTALITIES, new Object[]{DateTimeFormatUtils.getPast(numYears)}).iterator().next()).intValue();
+        Map<String, Object> params = new HashMap<>();
+        params.put("cutoff", DateTimeFormatUtils.getPast(numYears));
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_MORTALITIES, params));
     }
 
     @Override
     public int getPrevalence(SortedSet<String> icd10Codes) {
-
-        StringBuilder query = new StringBuilder(HQL_GET_PREVALENCE).append("(");
-
-        for (String icd10Code : icd10Codes) {
-            query.append("'").append(icd10Code).append("'");
-
-            if (!icd10Codes.last().equals(icd10Code)) {
-                query.append(",");
-            }
+        if (icd10Codes == null || icd10Codes.isEmpty()) {
+            return 0;
         }
-
-        query.append(")");
-
-        return ((Long) getHibernateTemplate().find(query.toString()).iterator().next()).intValue();
+        Map<String, Object> params = new HashMap<>();
+        params.put("codes", icd10Codes);
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_PREVALENCE, params));
     }
 
     @Override
     public int getIncidence(SortedSet<String> icd10Codes) {
-
-        StringBuilder query = new StringBuilder(HQL_GET_INCIDENCE).append("(");
-
-        for (String icd10Code : icd10Codes) {
-            query.append("'").append(icd10Code).append("'");
-
-            if (!icd10Codes.last().equals(icd10Code)) {
-                query.append(",");
-            }
+        if (icd10Codes == null || icd10Codes.isEmpty()) {
+            return 0;
         }
-
-        query.append(")");
-
-        return ((Long) getHibernateTemplate().find(query.toString()).iterator().next()).intValue();
+        Map<String, Object> params = new HashMap<>();
+        params.put("codes", icd10Codes);
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_INCIDENCE, params));
     }
 
     @Override
@@ -556,5 +544,18 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
             // Close database resources
             SqlUtils.closeResources(c, ps, rs);
         }
+    }
+
+    /**
+     * Safely extracts a count value from an HQL aggregate result list.
+     *
+     * @param results the result list from an HQL COUNT query
+     * @return the count as an int, or 0 if the list is empty or the value is null
+     */
+    private static int extractCount(List<?> results) {
+        if (results.isEmpty() || results.get(0) == null) {
+            return 0;
+        }
+        return ((Long) results.get(0)).intValue();
     }
 }

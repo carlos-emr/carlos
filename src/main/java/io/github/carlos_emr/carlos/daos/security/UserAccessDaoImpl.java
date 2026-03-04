@@ -32,12 +32,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class UserAccessDaoImpl extends HibernateDaoSupport implements UserAccessDao {
+public class UserAccessDaoImpl extends AbstractHibernateDao implements UserAccessDao {
 
     @SuppressWarnings("unchecked")
     @Override

@@ -47,6 +47,7 @@ import javax.servlet.http.HttpServletResponse;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import java.io.IOException;
 
@@ -81,14 +82,17 @@ public class AssociateCodes2Action extends ActionSupport {
         return mode;
     }
 
+    @StrutsParameter
     public void setMode(String mode) {
         this.mode = mode;
     }
 
+    @StrutsParameter(depth = 1)
     public ServiceCodeAssociation getSvcAssoc() {
         return svcAssoc;
     }
 
+    @StrutsParameter
     public void setSvcAssoc(ServiceCodeAssociation svcAssoc) {
         this.svcAssoc = svcAssoc;
     }

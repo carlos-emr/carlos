@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class AddEditHtml2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -226,6 +227,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return function;
     }
 
+    @StrutsParameter
     public void setFunction(String function) {
         this.function = function;
     }
@@ -234,6 +236,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return functionId;
     }
 
+    @StrutsParameter
     public void setFunctionId(String functionId) {
         this.functionId = functionId;
     }
@@ -242,6 +245,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docType;
     }
 
+    @StrutsParameter
     public void setDocType(String docType) {
         this.docType = docType;
     }
@@ -250,6 +254,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docClass;
     }
 
+    @StrutsParameter
     public void setDocClass(String docClass) {
         this.docClass = docClass;
     }
@@ -258,6 +263,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docSubClass;
     }
 
+    @StrutsParameter
     public void setDocSubClass(String docSubClass) {
         this.docSubClass = docSubClass;
     }
@@ -266,6 +272,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docDesc;
     }
 
+    @StrutsParameter
     public void setDocDesc(String docDesc) {
         this.docDesc = docDesc;
     }
@@ -274,6 +281,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docCreator;
     }
 
+    @StrutsParameter
     public void setDocCreator(String docCreator) {
         this.docCreator = docCreator;
     }
@@ -282,6 +290,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return responsibleId;
     }
 
+    @StrutsParameter
     public void setResponsibleId(String responsibleId) {
         this.responsibleId = responsibleId;
     }
@@ -290,6 +299,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return source;
     }
 
+    @StrutsParameter
     public void setSource(String source) {
         this.source = source;
     }
@@ -298,6 +308,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return sourceFacility;
     }
 
+    @StrutsParameter
     public void setSourceFacility(String sourceFacility) {
         this.sourceFacility = sourceFacility;
     }
@@ -306,6 +317,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docFile;
     }
 
+    @StrutsParameter
     public void setDocFile(File docFile) {
         this.docFile = docFile;
     }
@@ -314,6 +326,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return mode;
     }
 
+    @StrutsParameter
     public void setMode(String mode) {
         this.mode = mode;
     }
@@ -322,6 +335,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return docPublic;
     }
 
+    @StrutsParameter
     public void setDocPublic(String docPublic) {
         this.docPublic = docPublic;
     }
@@ -330,6 +344,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return observationDate;
     }
 
+    @StrutsParameter
     public void setObservationDate(String observationDate) {
         this.observationDate = observationDate;
     }
@@ -338,6 +353,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return reviewerId;
     }
 
+    @StrutsParameter
     public void setReviewerId(String reviewerId) {
         this.reviewerId = reviewerId;
     }
@@ -346,6 +362,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return reviewDateTime;
     }
 
+    @StrutsParameter
     public void setReviewDateTime(String reviewDateTime) {
         this.reviewDateTime = reviewDateTime;
     }
@@ -354,6 +371,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return contentDateTime;
     }
 
+    @StrutsParameter
     public void setContentDateTime(String contentDateTime) {
         this.contentDateTime = contentDateTime;
     }
@@ -362,6 +380,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return reviewDoc;
     }
 
+    @StrutsParameter
     public void setReviewDoc(boolean reviewDoc) {
         this.reviewDoc = reviewDoc;
     }
@@ -370,6 +389,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return html;
     }
 
+    @StrutsParameter
     public void setHtml(String html) {
         this.html = html;
     }
@@ -378,6 +398,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return filedata;
     }
 
+    @StrutsParameter
     public void setFiledata(File Filedata) {
         this.filedata = Filedata;
     }
@@ -386,6 +407,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return appointmentNo;
     }
 
+    @StrutsParameter
     public void setAppointmentNo(String appointment) {
         this.appointmentNo = appointment;
     }
@@ -394,6 +416,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return restrictToProgram;
     }
 
+    @StrutsParameter
     public void setRestrictToProgram(boolean restrictToProgram) {
         this.restrictToProgram = restrictToProgram;
     }
@@ -402,6 +425,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return receivedDate;
     }
 
+    @StrutsParameter
     public void setReceivedDate(String receivedDate) {
         this.receivedDate = receivedDate;
     }
@@ -410,6 +434,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return abnormal;
     }
 
+    @StrutsParameter
     public void setAbnormal(String abnormal) {
         this.abnormal = abnormal;
     }
@@ -418,6 +443,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return extraReviewerId;
     }
 
+    @StrutsParameter
     public void setExtraReviewerId(String extraReviewerId) {
         this.extraReviewerId = extraReviewerId;
     }
@@ -426,6 +452,7 @@ public class AddEditHtml2Action extends ActionSupport {
         return extraReviewDoc;
     }
 
+    @StrutsParameter
     public void setExtraReviewDoc(boolean extraReviewDoc) {
         this.extraReviewDoc = extraReviewDoc;
     }

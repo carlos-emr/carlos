@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -225,6 +226,7 @@ public final class WLSetupDisplayWaitingList2Action extends ActionSupport {
         return selectedWL;
     }
 
+    @StrutsParameter
     public void setSelectedWL(String selectedWL) {
         this.selectedWL = selectedWL;
     }

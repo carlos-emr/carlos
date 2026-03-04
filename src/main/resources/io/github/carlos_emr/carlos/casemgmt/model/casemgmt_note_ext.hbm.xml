@@ -24,7 +24,7 @@
 <hibernate-mapping>
 	<class name="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt" table="casemgmt_note_ext">
 		<id name="id">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property column="note_id" name="noteId" />
 		<property column="key_val" name="keyVal" />

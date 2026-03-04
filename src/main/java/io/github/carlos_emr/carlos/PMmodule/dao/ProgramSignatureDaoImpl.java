@@ -37,12 +37,12 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramSignature;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class ProgramSignatureDaoImpl extends HibernateDaoSupport implements ProgramSignatureDao {
+public class ProgramSignatureDaoImpl extends AbstractHibernateDao implements ProgramSignatureDao {
 
     private static final Logger log = MiscUtils.getLogger();
 
@@ -86,8 +86,8 @@ public class ProgramSignatureDaoImpl extends HibernateDaoSupport implements Prog
             throw new IllegalArgumentException();
         }
         programSignature.setUpdateDate(new Date());
-        getHibernateTemplate().saveOrUpdate(programSignature);
-        getHibernateTemplate().flush();
+        currentSession().saveOrUpdate(programSignature);
+        currentSession().flush();
 
         if (log.isDebugEnabled()) {
             log.debug("saveAdmission: id= " + programSignature.getId());
