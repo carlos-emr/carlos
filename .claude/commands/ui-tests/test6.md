@@ -77,7 +77,7 @@ Follow the 22-step workflow defined in `docs/ui-tests/test-6/test-6-EXECUTION.md
 
 ### Phase 1: Authentication & E-Chart Access (Steps 1-4)
 1. **Login Page** - Navigate to http://localhost:8080/oscar, screenshot
-2. **Provider Dashboard** - Login (openodoc/openo2025/2025), screenshot
+2. **Provider Dashboard** - Login (carlosdoc/carlos2026/2026), screenshot
 3. **Patient Search** - Search "FAKE-J", screenshot results
 4. **E-Chart Link** - Click E-Chart link for patient, screenshot
 

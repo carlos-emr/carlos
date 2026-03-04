@@ -24,7 +24,7 @@
 <hibernate-mapping>
 	<class name="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" table="casemgmt_note_link">
 		<id name="id" unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property column="table_name" name="tableName" />
 		<property column="table_id" name="tableId" />

@@ -61,6 +61,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -1539,6 +1540,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.action;
     }
 
+    @StrutsParameter
     public void setAction(String RHS) {
         this.action = RHS;
     }
@@ -1547,6 +1549,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.drugId;
     }
 
+    @StrutsParameter
     public void setDrugID(int RHS) {
         this.drugId = RHS;
     }
@@ -1555,6 +1558,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.demographicNo;
     }
 
+    @StrutsParameter
     public void setDemographicNo(int RHS) {
         this.demographicNo = RHS;
     }
@@ -1563,6 +1567,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.rxDate;
     }
 
+    @StrutsParameter
     public void setRxDate(String RHS) {
         this.rxDate = RHS;
     }
@@ -1571,6 +1576,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.endDate;
     }
 
+    @StrutsParameter
     public void setEndDate(String RHS) {
         this.endDate = RHS;
     }
@@ -1579,6 +1585,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.writtenDate;
     }
 
+    @StrutsParameter
     public void setWrittenDate(String RHS) {
         this.writtenDate = RHS;
     }
@@ -1587,6 +1594,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.GN;
     }
 
+    @StrutsParameter
     public void setGenericName(String RHS) {
         this.GN = RHS;
     }
@@ -1595,6 +1603,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.BN;
     }
 
+    @StrutsParameter
     public void setBrandName(String RHS) {
         this.BN = RHS;
     }
@@ -1603,6 +1612,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.GCN_SEQNO;
     }
 
+    @StrutsParameter
     public void setGCN_SEQNO(String RHS) {
         this.GCN_SEQNO = RHS;
     }
@@ -1611,6 +1621,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.customName;
     }
 
+    @StrutsParameter
     public void setCustomName(String RHS) {
         this.customName = RHS;
     }
@@ -1619,6 +1630,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.takeMin;
     }
 
+    @StrutsParameter
     public void setTakeMin(String RHS) {
         this.takeMin = RHS;
     }
@@ -1636,6 +1648,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.takeMax;
     }
 
+    @StrutsParameter
     public void setTakeMax(String RHS) {
         this.takeMax = RHS;
     }
@@ -1653,6 +1666,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.frequencyCode;
     }
 
+    @StrutsParameter
     public void setFrequencyCode(String RHS) {
         this.frequencyCode = RHS;
     }
@@ -1661,6 +1675,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.duration;
     }
 
+    @StrutsParameter
     public void setDuration(String RHS) {
         this.duration = RHS;
     }
@@ -1669,6 +1684,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.durationUnit;
     }
 
+    @StrutsParameter
     public void setDurationUnit(String RHS) {
         this.durationUnit = RHS;
     }
@@ -1677,6 +1693,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.quantity;
     }
 
+    @StrutsParameter
     public void setQuantity(String RHS) {
         this.quantity = RHS;
     }
@@ -1685,6 +1702,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.repeat;
     }
 
+    @StrutsParameter
     public void setRepeat(int RHS) {
         this.repeat = RHS;
     }
@@ -1693,6 +1711,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.lastRefillDate;
     }
 
+    @StrutsParameter
     public void setLastRefillDate(String RHS) {
         this.lastRefillDate = RHS;
     }
@@ -1701,6 +1720,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.nosubs;
     }
 
+    @StrutsParameter
     public void setNosubs(boolean RHS) {
         this.nosubs = RHS;
     }
@@ -1709,6 +1729,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.prn;
     }
 
+    @StrutsParameter
     public void setPrn(boolean RHS) {
         this.prn = RHS;
     }
@@ -1717,6 +1738,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.special;
     }
 
+    @StrutsParameter
     public void setSpecial(String RHS) {
 
         if (RHS == null || RHS.length() < 6)
@@ -1729,6 +1751,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.customInstr;
     }
 
+    @StrutsParameter
     public void setCustomInstr(boolean c) {
         this.customInstr = c;
     }
@@ -1737,6 +1760,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.longTerm;
     }
 
+    @StrutsParameter
     public void setLongTerm(Boolean trueFalseNull) {
         this.longTerm = trueFalseNull;
     }
@@ -1745,6 +1769,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.shortTerm;
     }
 
+    @StrutsParameter
     public void setShortTerm(boolean st) {
         this.shortTerm = st;
     }
@@ -1753,6 +1778,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.pastMed;
     }
 
+    @StrutsParameter
     public void setPastMed(Boolean trueFalseNull) {
         this.pastMed = trueFalseNull;
     }
@@ -1765,6 +1791,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return dispenseInternal;
     }
 
+    @StrutsParameter
     public void setDispenseInternal(boolean dispenseInternal) {
         this.dispenseInternal = dispenseInternal;
     }
@@ -1773,6 +1800,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return this.patientCompliance;
     }
 
+    @StrutsParameter
     public void setPatientCompliance(Boolean trueFalseNull) {
         this.patientCompliance = trueFalseNull;
     }
@@ -1781,6 +1809,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      * Setter accepts String to handle both numeric IDs and composite IDs.
      * Only sets the int property if the input is a pure integer.
      */
+    @StrutsParameter
     public void setDrugId(String drugId) {
         if (drugId != null) {
             try {
@@ -1795,6 +1824,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return GN;
     }
 
+    @StrutsParameter
     public void setGN(String GN) {
         this.GN = GN;
     }
@@ -1803,6 +1833,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return BN;
     }
 
+    @StrutsParameter
     public void setBN(String BN) {
         this.BN = BN;
     }
@@ -1827,6 +1858,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return atcCode;
     }
 
+    @StrutsParameter
     public void setAtcCode(String atcCode) {
         this.atcCode = atcCode;
     }
@@ -1835,6 +1867,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return regionalIdentifier;
     }
 
+    @StrutsParameter
     public void setRegionalIdentifier(String regionalIdentifier) {
         this.regionalIdentifier = regionalIdentifier;
     }
@@ -1843,6 +1876,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return method;
     }
 
+    @StrutsParameter
     public void setMethod(String method) {
         this.method = method;
     }
@@ -1851,6 +1885,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return unit;
     }
 
+    @StrutsParameter
     public void setUnit(String unit) {
         this.unit = unit;
     }
@@ -1859,6 +1894,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return unitName;
     }
 
+    @StrutsParameter
     public void setUnitName(String unitName) {
         this.unitName = unitName;
     }
@@ -1867,6 +1903,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return route;
     }
 
+    @StrutsParameter
     public void setRoute(String route) {
         this.route = route;
     }
@@ -1875,6 +1912,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return dosage;
     }
 
+    @StrutsParameter
     public void setDosage(String dosage) {
         this.dosage = dosage;
     }
@@ -1883,6 +1921,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return outsideProviderName;
     }
 
+    @StrutsParameter
     public void setOutsideProviderName(String outsideProviderName) {
         this.outsideProviderName = outsideProviderName;
     }
@@ -1891,6 +1930,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         return outsideProviderOhip;
     }
 
+    @StrutsParameter
     public void setOutsideProviderOhip(String outsideProviderOhip) {
         this.outsideProviderOhip = outsideProviderOhip;
     }

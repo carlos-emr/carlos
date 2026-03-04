@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+set -e
 
 # Script to manage building and deploying the CARLOS EMR application to Tomcat
 # This script supports the following operations:
@@ -10,14 +11,78 @@
 # but we want to ensure that the relative paths (like the server script) always work correctly.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Checks git state to determine whether skipping mvn clean is safe.
+# Sets _clean_reason to a human-readable explanation when a clean is needed.
+# Returns 0 if clean is needed, 1 if safe to skip.
+_clean_reason=""
+needs_clean_build() {
+  _clean_reason=""
+
+  # No compiled output → clean is a no-op anyway, full build needed
+  if [ ! -d "target/classes" ]; then
+    _clean_reason="no previous build found"
+    return 0
+  fi
+
+  # Not in a git repo → can't inspect history, play it safe
+  if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    _clean_reason="not inside a git repository"
+    return 0
+  fi
+
+  # Deleted Java source files (staged or unstaged) → stale .class files would remain
+  if git status --porcelain | grep -qE '^D.*\.java$|^ D .*\.java$'; then
+    _clean_reason="Java files have been deleted"
+    return 0
+  fi
+
+  # Renamed Java source files → old .class stays alongside the new one
+  if git status --porcelain | grep -qE '^R.*\.java'; then
+    _clean_reason="Java files have been renamed"
+    return 0
+  fi
+
+  # pom.xml changed (uncommitted) → dependency set may differ from last compile
+  if git status --porcelain | grep -q 'pom\.xml'; then
+    _clean_reason="pom.xml has uncommitted changes"
+    return 0
+  fi
+
+  # HEAD changed since last build → inspect inter-commit changes for danger
+  _build_marker="target/.last-build-head"
+  if [ -f "$_build_marker" ]; then
+    _last_head=$(cat "$_build_marker")
+    _current_head=$(git rev-parse HEAD 2>/dev/null)
+    if [ "$_last_head" != "$_current_head" ]; then
+      # Verify last_head still exists (may be gone after rebase/force-push)
+      if ! git cat-file -e "${_last_head}^{commit}" 2>/dev/null; then
+        _clean_reason="last build commit no longer in history (rebased/force-pushed?)"
+        return 0
+      fi
+      # Check for Java deletions/renames or pom.xml changes between the commits
+      if git diff --name-status "$_last_head" "$_current_head" 2>/dev/null \
+          | grep -qE '^[DR].*\.java$|pom\.xml'; then
+        _clean_reason="Java files or pom.xml changed between commits since last build"
+        return 0
+      fi
+    fi
+  fi
+
+  return 1  # Safe to skip clean
+}
+
 # Function to handle the build and deploy logic
 # Takes a single argument ($1) which is a boolean indicating whether to run tests.
 # Takes a second argument ($2) which is a boolean indicating whether to compile JSPs.
 # Takes a third argument ($3) which is a boolean indicating whether to enable dev mode.
+# Takes a fourth argument ($4) the clean mode: "auto" (default), "force", or "skip".
+# Takes a fifth argument ($5) whether to skip static analysis (checkstyle) for faster dev builds.
 build_and_deploy() {
   run_tests="$1"
   compile_jsps="$2"
   dev_mode="$3"
+  clean_mode="${4:-auto}"
+  skip_checks="$5"
 
   # Stop the Catalina server if it's running (ignore errors if it's not)
   # This prevents Java fault errors when the server isn't already running
@@ -47,7 +112,32 @@ build_and_deploy() {
   if [ "$dev_mode" = true ]; then
     dev_mode_flag="-Dstruts.devMode=true"
   fi
-  
+
+  checks_flag=""
+  if [ "$skip_checks" = true ]; then
+    checks_flag="-Dcheckstyle.skip=true"
+  fi
+
+  # Determine whether to include the clean lifecycle phase.
+  #   auto  (default): inspect git state — skip clean if safe, run full clean if not
+  #   force (--force-clean): always run full clean regardless of git state
+  #   skip  (--no-clean): always skip clean regardless of git state
+  if [ "$clean_mode" = "force" ]; then
+    clean_phase="clean"
+    echo "Build mode: full clean (--force-clean)"
+  elif [ "$clean_mode" = "skip" ]; then
+    clean_phase=""
+    echo "Build mode: incremental — skipping clean (--no-clean)"
+  else
+    if needs_clean_build; then
+      clean_phase="clean"
+      echo "Build mode: full clean ($_clean_reason)"
+    else
+      clean_phase=""
+      echo "Build mode: incremental — git state looks safe, skipping clean"
+    fi
+  fi
+
   if [ "$run_tests" = true ]; then
     # Run all tests in complete isolation (modern first, then legacy)
     echo "========================================="
@@ -58,7 +148,7 @@ build_and_deploy() {
     echo ""
     echo ">>> PHASE 1: Modern Tests Workflow"
     echo "Building application with modern profile..."
-    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag
+    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag $checks_flag
     echo ""
     echo "Running modern tests..."
     mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
@@ -68,28 +158,28 @@ build_and_deploy() {
     echo ">>> Cleaning up between test phases..."
     # Remove the deployed WAR to avoid any state pollution
     rm -rf /usr/local/tomcat/webapps/carlos
-    # Clean target directory to ensure fresh state
+    # Clean target directory to ensure fresh state (always clean between phases for isolation)
     mvn clean -q
 
     # Then, run the complete legacy test workflow
     echo ""
     echo ">>> PHASE 2: Legacy Tests Workflow"
     echo "Building application without modern profile..."
-    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag
+    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
     echo ""
     echo "Running legacy tests..."
     mvn test -DskipModernTests=true
   elif [ "$run_tests" = "modern" ]; then
     # Run only modern tests with JUnit 5 profile and modern lock file
     # Build WITH modern profile activated and modern lock file
-    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag
+    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag $checks_flag
     echo ""
     echo "Running modern tests..."
     # Activate modern-tests profile, use modern lock file
     mvn test -Pmodern-tests -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
   elif [ "$run_tests" = "legacy" ]; then
     # Run only legacy tests WITHOUT JUnit 5, use default lock file
-    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag
+    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
     echo ""
     echo "Running legacy tests..."
     # Skip modern tests, use default lock file
@@ -97,7 +187,7 @@ build_and_deploy() {
   elif [ "$run_tests" = "unit" ]; then
     # Run only modern unit tests with modern lock file
     # Build WITH modern profile activated and modern lock file
-    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag
+    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag $checks_flag
     echo ""
     echo "Running modern unit tests..."
     # Use groups + activate modern profile with modern lock file
@@ -105,14 +195,14 @@ build_and_deploy() {
   elif [ "$run_tests" = "integration" ]; then
     # Run only modern integration tests with modern lock file
     # Build WITH modern profile activated and modern lock file
-    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag
+    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded -Pmodern-tests -Ddependency.lock.filename=dependencies-lock-modern.json $jsp_profile $dev_mode_flag $checks_flag
     echo ""
     echo "Running modern integration tests..."
     # Use groups + activate modern profile with modern lock file
     mvn test -Pmodern-tests -Dgroups="integration" -DskipLegacyTests=true -Ddependency.lock.filename=dependencies-lock-modern.json
   else
     # Regular build without tests - skip modern tests to use default lock file
-    mvn clean -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag
+    mvn $clean_phase -DskipModernTests=true -DskipLegacyTests=true -T 1C package war:exploded $jsp_profile $dev_mode_flag $checks_flag
   fi
 
   # Extract the version from the pom.xml file.
@@ -122,11 +212,11 @@ build_and_deploy() {
   snapshot_src_dir="carlos-$version"
   snapshot_dest_dir="carlos"
 
-  # Create a symlink from the exploded WAR directory to the Tomcat webapps directory.
+  # Deploy the exploded WAR to the Tomcat webapps directory.
   # This ensures the app is deployed with the context path `/carlos`.
-  if [ -d "target/$snapshot_src_dir" ] && [ ! -L "target/$snapshot_src_dir" ]; then
-    mv "target/$snapshot_src_dir" "/usr/local/tomcat/webapps/$snapshot_dest_dir"
-    ln -s "/usr/local/tomcat/webapps/$snapshot_dest_dir" "target/$snapshot_src_dir"
+  if [ -d "target/$snapshot_src_dir" ]; then
+    rm -rf "/usr/local/tomcat/webapps/$snapshot_dest_dir"
+    cp -a "target/$snapshot_src_dir" "/usr/local/tomcat/webapps/$snapshot_dest_dir"
   fi
 
   # Setup hot reload for fast JSP/HTML/CSS updates when refreshing the browser.
@@ -269,6 +359,9 @@ print_help() {
       echo "      --run-integration-tests                 Run only modern integration tests"
       echo "      --jspc                                  Compile JSPs"
       echo "      --dev-mode                              Enable Struts dev mode"
+      echo "      --force-clean                           Always run a full clean build (override auto-detect)"
+      echo "      --no-clean                              Always skip clean even if auto-detect says it is needed"
+      echo "      --skip-checks                           Skip checkstyle (faster dev builds; checkstyle still runs in CI)"
       echo "  jspc                                          Compile JSPs only (no deployment)."
       echo "  docs                                          Generate all documentation and build static site for production."
       echo "  docs-serve                                    Start Docusaurus development server (http://localhost:3000)."
@@ -281,9 +374,12 @@ print_help() {
 
 # Default behavior is to skip tests unless --run-tests is explicitly provided.
 # Default behavior is to skip JSP compilation unless --jspc is explicitly provided.
+# Default clean mode is "auto": inspect git state to decide whether clean is needed.
 run_tests=false
 compile_jsps=false
 dev_mode=false
+clean_mode="auto"
+skip_checks=false
 
 # If no arguments are provided, display usage instructions and exit.
 if [ $# -eq 0 ]; then
@@ -333,6 +429,18 @@ for arg in "$@"; do
             dev_mode=true
             shift
             ;;
+          --no-clean)
+            clean_mode="skip"
+            shift
+            ;;
+          --force-clean)
+            clean_mode="force"
+            shift
+            ;;
+          --skip-checks)
+            skip_checks=true
+            shift
+            ;;
           *)
             echo "Unknown flag: $1"
             print_help
@@ -341,15 +449,24 @@ for arg in "$@"; do
         esac
       done
       # Run the build and deploy process, passing in whether or not to run tests and compile JSPs.
-      build_and_deploy "$run_tests" "$compile_jsps" "$dev_mode"
-      # Exit after successful build to prevent help menu from showing
-      exit 0
+      # Temporarily disable set -e so we can capture the exit code and gate the HEAD marker.
+      set +e
+      build_and_deploy "$run_tests" "$compile_jsps" "$dev_mode" "$clean_mode" "$skip_checks"
+      build_rc=$?
+      set -e
+      # Only record the current HEAD on a successful build. Writing on a failed build
+      # would cause the next incremental run to compare from that HEAD and potentially
+      # skip a clean that is actually needed due to the incomplete prior build.
+      if [ $build_rc -eq 0 ]; then
+        git rev-parse HEAD > "target/.last-build-head" 2>/dev/null || true
+      fi
+      # Exit after build to prevent help menu from showing; propagate build/test exit code
+      exit $build_rc
       ;;
     jspc)
       # Compile JSPs only without deployment.
       echo "Compiling JSPs..."
-      # Skip modern tests to use default lock file
-      mvn package -Pjspc -DskipModernTests=true
+      mvn package -Pjspc -DskipModernTests=true -DskipLegacyTests=true
       ;;
     docs)
       # Generate all documentation and build static site.

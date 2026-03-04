@@ -201,6 +201,7 @@
                 text-align: right;
             }
         </style>
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     </head>
 
@@ -562,7 +563,6 @@
     <!-- #ECHART END-->
 
 
-        <%-- -add by caisi  TODO: move these under integration or system management?--%>
     <caisi:isModuleLoad moduleName="caisi">
         <security:oscarSec roleName="<%=roleName$%>" objectName="_admin.caisi" rights="r" reverse="<%=false%>">
 
@@ -735,7 +735,7 @@
                     <security:oscarSec roleName="<%=roleName$%>"
                                        objectName="_admin,_admin.messenger" rights="r" reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger/DisplayMessages.do?providerNo=<%=curProvider_no%>&amp;userName=<%=userfirstname%>%20<%=userlastname%>");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.messages"/></a></li>
+                               onclick='popupOscarRx(600,1024, "${pageContext.request.contextPath}/messenger/DisplayMessages.do?providerNo=<%=curProvider_no%>");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.messages"/></a></li>
                         <li><a href="#"
                                onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger/config/MessengerAdmin.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnMessengerAdmin"/></a></li>
 
@@ -825,20 +825,9 @@
                 <ul>
 
                     <li>&nbsp;<a href="#" onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/api/clients.jsp");return false;'>REST Clients</a></li>
-                    <li><a href="#"
-                           onclick="popupPage(900, 500, '<%=request.getContextPath()%>/setProviderStaleDate.do?method=viewIntegratorProperties');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.btnSetIntegratorPreferences"/></a></li>
-                    <li><a href="#"
-                           onClick="popupPage(800, 1000, '${pageContext.request.contextPath}/admin/integratorPushStatus.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.integratorPush"/></a></li>
-
                     <li><a href="<%=request.getContextPath()%>/lab/CA/ALL/sendOruR01.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.sendOruR01"/></a></li>
                     <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hospitalReportManager.jsp");return false;'>Hospital
                         Report Manager (HRM) Status</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hrmPreferences.jsp");return false;'>Hospital Report
-                        Manager (HRM) Preferences</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hrmShowMapping.jsp");return false;'>Hospital Report
-                        Manager (HRM) Class Mappings</a></li>
-                    <li><a href="#" onclick='popupPage(400, 400, "${pageContext.request.contextPath}/hospitalReportManager/hrmCategories.jsp");return false;'>Hospital Report
-                        Manager (HRM) Categories</a></li>
 
                     <li><a href="javascript:void(0);" onclick="popupPage(550,800, '${pageContext.request.contextPath}/admin/updateDrugref.jsp');return false;"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.UpdateDrugref"/></a></li>
                 </ul>

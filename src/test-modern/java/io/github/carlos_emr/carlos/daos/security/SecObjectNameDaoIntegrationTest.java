@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import io.github.carlos_emr.carlos.model.security.Secobjectname;
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -78,7 +78,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("security")
 @Transactional
-public class SecObjectNameDaoIntegrationTest extends OpenOTestBase {
+public class SecObjectNameDaoIntegrationTest extends CarlosTestBase {
 
     /**
      * The DAO under test, providing {@code saveOrUpdate} operations for
@@ -159,7 +159,7 @@ public class SecObjectNameDaoIntegrationTest extends OpenOTestBase {
 
         // Flush the Hibernate session to force the SQL INSERT to execute immediately,
         // ensuring that the subsequent native SQL verification query can see the data
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Then - verify via native SQL to ensure data reached the database
         List<?> results = entityManager.createNativeQuery(SELECT_SQL)
@@ -206,7 +206,7 @@ public class SecObjectNameDaoIntegrationTest extends OpenOTestBase {
         secObjectNameDao.saveOrUpdate(secObj);
 
         // Flush to ensure the initial INSERT is executed before the update
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // When - modify mutable fields and call saveOrUpdate again
         secObj.setDescription("Updated description");
@@ -214,7 +214,7 @@ public class SecObjectNameDaoIntegrationTest extends OpenOTestBase {
         secObjectNameDao.saveOrUpdate(secObj);
 
         // Flush again to push the UPDATE SQL to the database
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Then - verify the updated values via native SQL
         List<?> results = entityManager.createNativeQuery(SELECT_SQL)
@@ -263,7 +263,7 @@ public class SecObjectNameDaoIntegrationTest extends OpenOTestBase {
 
         // When
         secObjectNameDao.saveOrUpdate(secObj);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Then - verify persisted with null optional fields
         List<?> results = entityManager.createNativeQuery(SELECT_SQL)
@@ -306,7 +306,7 @@ public class SecObjectNameDaoIntegrationTest extends OpenOTestBase {
 
         // When
         secObjectNameDao.saveOrUpdate(secObj);
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // Then - verify all fields persisted correctly
         List<?> results = entityManager.createNativeQuery(SELECT_SQL)

@@ -157,7 +157,6 @@
 %>
 <!DOCTYPE html>
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-1.12.0.min.js"></script>
@@ -542,19 +541,19 @@
 
 
             function ignoreDuplicates() {
-                //do the check
                 let ignore = true;
-                const lastName = jQuery("#last_name").val();
-                const firstName = jQuery("#first_name").val();
-                const yearOfBirth = jQuery("#year_of_birth").val();
-                const monthOfBirth = jQuery("#month_of_birth").val();
-                const dayOfBirth = jQuery("#date_of_birth").val();
+                const lastName = jQuery.trim(jQuery("#last_name").val());
+                const firstName = jQuery.trim(jQuery("#first_name").val());
+
+                if (!lastName || !firstName) {
+                    return true;
+                }
                 jQuery.ajaxSetup({async: false});
-                let findDuplicate = jQuery.post("<%=request.getContextPath()%>/demographicSupport.do?method=checkForDuplicates&lastName=" + lastName + "&firstName=" + firstName + "&yearOfBirth=" + yearOfBirth + "&monthOfBirth=" + monthOfBirth + "&dayOfBirth=" + dayOfBirth);
+                let findDuplicate = jQuery.post("<%=request.getContextPath()%>/demographicSupport.do", { method: "checkForDuplicates", lastName: lastName, firstName: firstName });
                 findDuplicate.success(function (data) {
                     if (data.hasDuplicates) {
                         console.log(data);
-                        ignore = confirm('There are other patients in this system with the same name and date of birth. Are you sure you want to create this new patient record?');
+                        ignore = confirm('There are other patients in this system with the same first and last name. Are you sure you want to create this new patient record?');
                     }
                 })
                 jQuery.ajaxSetup({async: true});

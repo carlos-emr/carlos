@@ -44,17 +44,18 @@ a:active {
 
 a:link {
     text-decoration: none;
-    color: #0066CC
+    color: var(--carlos-link, #337ab7);
 }
 
 a:visited {
     text-decoration: none;
-    color: #0080c0;
+    color: var(--carlos-link, #337ab7);
 }
 
 a:hover {
-    color: #000;
-    TEXT-DECORATION: underline;
+    color: #28619a;
+    color: color-mix(in srgb, var(--carlos-link, #337ab7) 75%, black);
+    text-decoration: underline;
 }
 
 .deep { /*background-color: #B7B18D; */

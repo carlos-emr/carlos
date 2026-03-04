@@ -20,8 +20,10 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
+import io.github.carlos_emr.carlos.model.security.Secrole;
+import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -33,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -52,23 +55,25 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("casemgmt")
 @Transactional
-public class IssueDAOIntegrationTest extends OpenOTestBase {
+public class IssueDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     @Qualifier("IssueDAO")
     private IssueDAO issueDAO;
+
+    @Autowired
+    private SecroleDao secroleDao;
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
     @BeforeEach
     void setUp() {
-        // Create test issues with different types and codes
         createIssue("DIAB001", "Diabetes Type 1", "doctor", "medical");
         createIssue("DIAB002", "Diabetes Type 2", "doctor", "medical");
         createIssue("HYPER001", "Hypertension", "doctor", "medical");
         createIssue("PSYCH001", "Depression", "nurse", "mental");
-        entityManager.flush();
+        hibernateTemplate.flush();
     }
 
     private Issue createIssue(String code, String description, String role, String type) {
@@ -81,6 +86,70 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         return issue;
     }
 
+    /** Tests for CRUD operations on Issue entities. */
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should retrieve issue by valid ID")
+        void shouldRetrieveIssue_whenValidIdProvided() {
+            // Given
+            Issue saved = createIssue("CRUD001", "CRUD Test Issue", "doctor", "medical");
+            hibernateTemplate.flush();
+
+            // When
+            Issue found = issueDAO.getIssue(saved.getId());
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getCode()).isEqualTo("CRUD001");
+            assertThat(found.getDescription()).isEqualTo("CRUD Test Issue");
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist valid issue data")
+        void shouldPersistIssue_whenValidDataProvided() {
+            // Given
+            Issue issue = new Issue();
+            issue.setCode("NEW001");
+            issue.setDescription("New Issue");
+            issue.setRole("doctor");
+            issue.setType("medical");
+
+            // When
+            issueDAO.saveIssue(issue);
+            hibernateTemplate.flush();
+
+            // Then
+            assertThat(issue.getId()).isNotNull();
+            Issue found = issueDAO.getIssue(issue.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getCode()).isEqualTo("NEW001");
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update issue with changes")
+        void shouldUpdateIssue_whenChangesProvided() {
+            // Given
+            Issue issue = createIssue("UPD001", "Original", "doctor", "medical");
+            hibernateTemplate.flush();
+
+            // When
+            issue.setDescription("Updated Description");
+            issueDAO.saveIssue(issue);
+            hibernateTemplate.flush();
+
+            // Then
+            Issue found = issueDAO.getIssue(issue.getId());
+            assertThat(found.getDescription()).isEqualTo("Updated Description");
+        }
+    }
+
+    /** Tests for findIssueByTypeAndCode (2 params). */
     @Nested
     @DisplayName("findIssueByTypeAndCode (2 params)")
     class FindIssueByTypeAndCode {
@@ -89,8 +158,6 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         @Tag("query")
         @DisplayName("should find issue when both type and code match")
         void shouldFindIssue_whenBothTypeAndCodeMatch() {
-            // Given - Issues created in setUp
-
             // When
             Issue found = issueDAO.findIssueByTypeAndCode("medical", "DIAB001");
 
@@ -104,7 +171,7 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         @Tag("query")
         @DisplayName("should return null when type doesn't match")
         void shouldReturnNull_whenTypeDoesntMatch() {
-            // When - Search with wrong type
+            // When
             Issue found = issueDAO.findIssueByTypeAndCode("mental", "DIAB001");
 
             // Then
@@ -115,7 +182,7 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         @Tag("query")
         @DisplayName("should return null when code doesn't match")
         void shouldReturnNull_whenCodeDoesntMatch() {
-            // When - Search with wrong code
+            // When
             Issue found = issueDAO.findIssueByTypeAndCode("medical", "NONEXISTENT");
 
             // Then
@@ -123,8 +190,47 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for findIssueByCode with code array (IN clause). */
     @Nested
-    @DisplayName("findIssueBySearch (2 params: code like, description like)")
+    @DisplayName("findIssueByCode (String[] codes)")
+    class FindIssueByCodeArray {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should handle code array parameters")
+        void shouldHandleCodeArrayParams_withMultipleCodes() {
+            // Given
+            String[] codes = new String[]{"DIAB001", "HYPER001"};
+
+            // When
+            List<Issue> results = issueDAO.findIssueByCode(codes);
+
+            // Then
+            assertThat(results)
+                .isNotEmpty()
+                .extracting(Issue::getCode)
+                .contains("DIAB001", "HYPER001")
+                .doesNotContain("PSYCH001");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty when no codes match")
+        void shouldReturnEmpty_whenNoCodesMatch() {
+            // Given
+            String[] codes = new String[]{"NONEXISTENT1", "NONEXISTENT2"};
+
+            // When
+            List<Issue> results = issueDAO.findIssueByCode(codes);
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+    }
+
+    /** Tests for findIssueBySearch (2 params: code like, description like). */
+    @Nested
+    @DisplayName("findIssueBySearch (2 params)")
     class FindIssueBySearch {
 
         @Test
@@ -134,7 +240,7 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
             // When
             List<Issue> results = issueDAO.findIssueBySearch("DIAB");
 
-            // Then - Should find both diabetes issues
+            // Then
             assertThat(results)
                 .hasSize(2)
                 .extracting(Issue::getCode)
@@ -166,6 +272,7 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         }
     }
 
+    /** Tests for searchNoRolesConcerned. */
     @Nested
     @DisplayName("searchNoRolesConcerned (uses ?0 and ?1 with same value)")
     class SearchNoRolesConcerned {
@@ -175,17 +282,98 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
         @DisplayName("should search by code and description without role filter")
         @SuppressWarnings("unchecked")
         void shouldSearchByCodeAndDescription() {
-            // When - Method returns raw List (List<Issue>)
+            // When
             List results = issueDAO.searchNoRolesConcerned("Hyper");
 
             // Then
             assertThat(results).isNotEmpty();
-            // Verify first result is the expected issue
             Issue first = (Issue) results.get(0);
             assertThat(first.getCode()).isEqualTo("HYPER001");
         }
     }
 
+    /** Tests for role-based filtering and pagination. */
+    @Nested
+    @DisplayName("Role-based and paginated queries")
+    class RoleBasedQueries {
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should implement paginated search results")
+        void shouldImplementPaginatedSearchResults() {
+            // Given
+            for (int i = 0; i < 5; i++) {
+                createIssue("PAGE" + i, "Pagination Test " + i, "doctor", "medical");
+            }
+            hibernateTemplate.flush();
+
+            Secrole role = new Secrole("doctor", "Doctor role");
+            secroleDao.save(role);
+            hibernateTemplate.flush();
+            List<Secrole> roles = new ArrayList<>();
+            roles.add(role);
+
+            // When
+            List<Issue> results = issueDAO.search("PAGE", roles, 0, 2);
+
+            // Then
+            assertThat(results).hasSize(2);
+        }
+
+        @Test
+        @Tag("aggregate")
+        @DisplayName("should count search results for matching roles")
+        void shouldCountSearchResults_forMatchingRoles() {
+            // Given
+            Secrole role = new Secrole("doctor", "Doctor role");
+            secroleDao.save(role);
+            hibernateTemplate.flush();
+            List<Secrole> roles = new ArrayList<>();
+            roles.add(role);
+
+            // When
+            Integer count = issueDAO.searchCount("DIAB", roles);
+
+            // Then
+            assertThat(count).isGreaterThanOrEqualTo(2);
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should retrieve community-specific codes by type")
+        void shouldRetrieveCodes_forCommunityType() {
+            // Given
+            createIssue("COMM001", "Community Issue", "doctor", "community");
+            hibernateTemplate.flush();
+
+            // When - pass uppercase to verify DAO lowercases input before binding
+            List<String> codes = issueDAO.getLocalCodesByCommunityType("COMMUNITY");
+
+            // Then
+            assertThat(codes)
+                .isNotEmpty()
+                .contains("COMM001")
+                .doesNotContain("DIAB001");
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should return empty list for blank community type")
+        void shouldReturnEmpty_forBlankCommunityType() {
+            List<String> codes = issueDAO.getLocalCodesByCommunityType("");
+            assertThat(codes).isEmpty();
+        }
+
+        @Test
+        @Tag("filter")
+        @DisplayName("should return empty list for null community type")
+        void shouldReturnEmpty_forNullCommunityType() {
+            List<String> codes = issueDAO.getLocalCodesByCommunityType(null);
+            assertThat(codes).isEmpty();
+        }
+    }
+
+    /** Tests for single parameter queries (baseline). */
     @Nested
     @DisplayName("Single parameter queries (baseline)")
     class SingleParamQueries {
@@ -209,11 +397,24 @@ public class IssueDAOIntegrationTest extends OpenOTestBase {
             // When
             List<Issue> issues = issueDAO.getIssues();
 
-            // Then - Should contain our test issues
+            // Then
             assertThat(issues)
                 .isNotEmpty()
                 .extracting(Issue::getCode)
                 .contains("DIAB001", "DIAB002", "HYPER001", "PSYCH001");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should match issues by code string")
+        void shouldMatchIssues_byCodeString() {
+            // When
+            Issue found = issueDAO.findIssueByCode("PSYCH001");
+
+            // Then
+            assertThat(found).isNotNull();
+            assertThat(found.getType()).isEqualTo("mental");
+            assertThat(found.getRole()).isEqualTo("nurse");
         }
     }
 }

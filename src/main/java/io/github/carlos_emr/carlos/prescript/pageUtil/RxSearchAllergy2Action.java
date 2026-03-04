@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RxSearchAllergy2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -245,6 +246,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return searchString;
     }
 
+    @StrutsParameter
     public void setSearchString(String searchString) {
         this.searchString = searchString;
     }
@@ -253,6 +255,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return type5;
     }
 
+    @StrutsParameter
     public void setType5(boolean type5) {
         this.type5 = type5;
     }
@@ -261,6 +264,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return type4;
     }
 
+    @StrutsParameter
     public void setType4(boolean type4) {
         this.type4 = type4;
     }
@@ -269,6 +273,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return type3;
     }
 
+    @StrutsParameter
     public void setType3(boolean type3) {
         this.type3 = type3;
     }
@@ -277,6 +282,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return type2;
     }
 
+    @StrutsParameter
     public void setType2(boolean type2) {
         this.type2 = type2;
     }
@@ -285,6 +291,7 @@ public final class RxSearchAllergy2Action extends ActionSupport {
         return type1;
     }
 
+    @StrutsParameter
     public void setType1(boolean type1) {
         this.type1 = type1;
     }

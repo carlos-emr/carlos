@@ -39,13 +39,16 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.QueueCache;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
  * Anyone modifying get and set methods should take note of the dataCache and
  * add/remove items as appropriate.
  */
-public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientImageDAO {
+@Transactional
+public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientImageDAO {
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -60,11 +63,14 @@ public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientIma
     public void saveClientImage(ClientImage clientImage) {
         ClientImage existing = getClientImage(clientImage.getDemographic_no());
         if (existing != null) {
+            // Update the managed instance so Hibernate tracks the change correctly
             existing.setImage_data(clientImage.getImage_data());
             existing.setImage_type(clientImage.getImage_type());
             existing.setUpdate_date(new Date());
+            currentSession().saveOrUpdate(existing);
+        } else {
+            currentSession().saveOrUpdate(clientImage);
         }
-        getHibernateTemplate().saveOrUpdate(clientImage);
 
         // update cache
         dataCache.remove(clientImage.getDemographic_no());
@@ -80,8 +86,8 @@ public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientIma
 
             // get from database
             @SuppressWarnings("unchecked")
-            List<ClientImage> results = (List<ClientImage>) getHibernateTemplate()
-                    .find("from ClientImage i where i.demographic_no=?0 order by update_date desc", clientId);
+            List<ClientImage> results = (List<ClientImage>) HqlQueryHelper
+                    .find(currentSession(), "from ClientImage i where i.demographic_no=?1 order by update_date desc", clientId);
             if (results.size() > 0) {
                 clientImage = results.get(0);
 

@@ -51,18 +51,13 @@
     }
 %>
 
-<%@page import="org.apache.commons.beanutils.BeanUtils" %>
+
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 
 <%@ page import="java.util.*, java.sql.*, java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.db.*" errorPage="/errorpage.jsp" %>
-<%@ page
-        import="io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager, io.github.carlos_emr.carlos.caisi_integrator.ws.CachedAppointment, io.github.carlos_emr.carlos.caisi_integrator.ws.CachedProvider, io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.CachedAppointmentComparator" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>

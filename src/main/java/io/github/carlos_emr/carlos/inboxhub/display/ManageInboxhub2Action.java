@@ -27,6 +27,7 @@ import com.opensymphony.xwork2.ActionSupport;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.inboxhub.inboxdata.LabDataController;
 import io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -50,7 +51,7 @@ import io.github.carlos_emr.carlos.mds.data.CategoryData;
  * determines which display mode to invoke.
  * </p>
  * <p>
- * <strong>Security:</strong> All methods enforce read-level access to the "_lab" security object
+ * <strong>Security:</strong> All methods enforce read-level access to the "_appointment.doctorLink" security object
  * using {@link SecurityInfoManager}. Unauthorized access returns the "unauthorized" result.
  * </p>
  * <p>
@@ -130,14 +131,14 @@ public class ManageInboxhub2Action extends ActionSupport {
      *   <li>Sets request attributes for JSP rendering</li>
      * </ol>
      * <p>
-     * <strong>Security:</strong> Requires "_lab" read privilege. Returns "unauthorized" if access denied.
+     * <strong>Security:</strong> Requires "_appointment.doctorLink" read privilege. Returns "unauthorized" if access denied.
      * </p>
      *
      * @return String "success" if authorized and data retrieved successfully, "unauthorized" if access denied
      */
     public String displayInboxForm() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment.doctorLink", SecurityInfoManager.READ, null)) {
             return "unauthorized";
         }
 
@@ -167,14 +168,14 @@ public class ManageInboxhub2Action extends ActionSupport {
      * page size, demographic filters, and type filters.
      * </p>
      * <p>
-     * <strong>Security:</strong> Requires "_lab" read privilege. Returns "unauthorized" if access denied.
+     * <strong>Security:</strong> Requires "_appointment.doctorLink" read privilege. Returns "unauthorized" if access denied.
      * </p>
      *
      * @return String "displayList" if authorized and data retrieved successfully, "unauthorized" if access denied
      */
     public String displayInboxList() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment.doctorLink", SecurityInfoManager.READ, null)) {
             return "unauthorized";
         }
 
@@ -191,14 +192,14 @@ public class ManageInboxhub2Action extends ActionSupport {
      * on current query parameters.
      * </p>
      * <p>
-     * <strong>Security:</strong> Requires "_lab" read privilege. Returns "unauthorized" if access denied.
+     * <strong>Security:</strong> Requires "_appointment.doctorLink" read privilege. Returns "unauthorized" if access denied.
      * </p>
      *
      * @return String "displayView" if authorized and data retrieved successfully, "unauthorized" if access denied
      */
     public String displayInboxView() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment.doctorLink", SecurityInfoManager.READ, null)) {
             return "unauthorized";
         }
 
@@ -291,6 +292,7 @@ public class ManageInboxhub2Action extends ActionSupport {
      *
      * @return InboxhubQuery the current query object containing filter and pagination settings
      */
+    @StrutsParameter(depth = 1)
     public InboxhubQuery getQuery() {
         return query;
     }
@@ -304,6 +306,7 @@ public class ManageInboxhub2Action extends ActionSupport {
      *
      * @param query InboxhubQuery the query object to set with filter and pagination settings
      */
+    @StrutsParameter
     public void setQuery(InboxhubQuery query) {
         this.query = query;
     }

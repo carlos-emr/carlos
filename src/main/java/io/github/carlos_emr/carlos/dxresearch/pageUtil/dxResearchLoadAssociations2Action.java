@@ -54,11 +54,14 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.Ostermiller.util.ExcelCSVParser;
-import com.Ostermiller.util.ExcelCSVPrinter;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class dxResearchLoadAssociations2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -155,11 +158,11 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         response.setContentType("application/octet-stream");
         response.setHeader("Content-Disposition", "attachment; filename=\"dx_associations.csv\"");
 
-        ExcelCSVPrinter printer = new ExcelCSVPrinter(response.getWriter());
+        CSVPrinter printer = new CSVPrinter(response.getWriter(), CSVFormat.EXCEL);
 
-        printer.writeln(new String[]{"Issue List Code Type", "Issue List Code", "Disease Registry Code Type", "Disease Registry Code"});
+        printer.printRecord("Issue List Code Type", "Issue List Code", "Disease Registry Code Type", "Disease Registry Code");
         for (DxAssociation dxa : associations) {
-            printer.writeln(new String[]{dxa.getCodeType(), dxa.getCode(), dxa.getDxCodeType(), dxa.getDxCode()});
+            printer.printRecord(dxa.getCodeType(), dxa.getCode(), dxa.getDxCodeType(), dxa.getDxCode());
         }
 
         printer.flush();
@@ -185,7 +188,20 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
 
         // Re-validate at point of use for static analysis visibility
         File validatedFile = PathValidationUtils.validateUpload(file);
-        String[][] data = ExcelCSVParser.parse(new FileReader(validatedFile));
+        // Parse CSV using Apache Commons CSV with proper resource management
+        String[][] data;
+        try (FileReader reader = new FileReader(validatedFile);
+             CSVParser parser = new CSVParser(reader, CSVFormat.EXCEL)) {
+            List<CSVRecord> records = parser.getRecords();
+            data = new String[records.size()][];
+            for (int i = 0; i < records.size(); i++) {
+                CSVRecord record = records.get(i);
+                data[i] = new String[record.size()];
+                for (int j = 0; j < record.size(); j++) {
+                    data[i][j] = record.get(j);
+                }
+            }
+        }
 
         int rowsInserted = 0;
 
@@ -284,6 +300,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return file;
     }
 
+    @StrutsParameter
     public void setFile(File file) {
         this.file = file;
     }
@@ -292,6 +309,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         return replace;
     }
 
+    @StrutsParameter
     public void setReplace(boolean replace) {
         this.replace = replace;
     }

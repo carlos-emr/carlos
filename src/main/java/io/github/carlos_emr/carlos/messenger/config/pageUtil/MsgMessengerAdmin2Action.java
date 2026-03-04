@@ -50,9 +50,10 @@ import java.util.ResourceBundle;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
- * Struts2 Action class for administering messenger groups and their memberships in the OpenO EMR system.
+ * Struts2 Action class for administering messenger groups and their memberships in the CARLOS EMR system.
  * 
  * <p>This action provides comprehensive management functionality for the messenger group system,
  * including creating groups, managing group memberships, and deleting groups. It supports both
@@ -64,7 +65,7 @@ import org.apache.struts2.ServletActionContext;
  *   <li>Adding and removing providers from groups</li>
  *   <li>Creating new groups within the hierarchy</li>
  *   <li>Deleting groups (with validation to prevent orphaning child groups)</li>
- *   <li>Managing both local and remote messenger contacts</li>
+ *   <li>Managing local messenger contacts</li>
  * </ul>
  * </p>
  * 
@@ -120,7 +121,6 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * <ul>
      *   <li>All groups with their current members</li>
      *   <li>All local healthcare provider contacts available for messaging</li>
-     *   <li>All remote contacts from connected healthcare facilities</li>
      * </ul>
      * </p>
      * 
@@ -135,21 +135,17 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
         Map<Groups, List<MsgProviderData>> groups = messengerGroupManager.getAllGroupsWithMembers(loggedInInfo);
         // Get all local providers available for messaging
         List<MsgProviderData> localContacts = messengerGroupManager.getAllLocalMessengerContactList(loggedInInfo);
-        // Get remote contacts from other connected facilities
-        Map<String, List<MsgProviderData>> remoteContacts = messengerGroupManager.getAllRemoteMessengerContactList(loggedInInfo);
-
         request.setAttribute("groups", groups);
         request.setAttribute("localContacts", localContacts);
-        request.setAttribute("remoteContacts", remoteContacts);
         return SUCCESS;
     }
 
     /**
      * Adds a healthcare provider or contact to a messenger group.
      * 
-     * <p>This method handles adding members to groups using composite identifiers that
-     * can represent both local providers and remote contacts. The member ID is expected
-     * to be in a composite format that includes the contact type and identifier.</p>
+     * <p>This method handles adding members to groups using composite identifiers.
+     * The member ID is expected to be in a composite format that includes the contact
+     * type and identifier.</p>
      * 
      * Request parameter "member": The composite member ID to add (format: type:id).
      * Request parameter "group": The target group ID, defaults to "0" (root) if not specified.
@@ -435,6 +431,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param update The button value to set
      */
+    @StrutsParameter
     public void setUpdate(String update) {
         this.update = update;
     }
@@ -456,6 +453,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param delete The button value to set
      */
+    @StrutsParameter
     public void setDelete(String delete) {
         this.delete = delete;
     }
@@ -474,6 +472,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param provider The provider ID array to set
      */
+    @StrutsParameter
     public void setProvider(String[] provider) {
         this.provider = provider;
     }
@@ -495,6 +494,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param prov The provider ID array to set
      */
+    @StrutsParameter
     public void setProviders(String[] prov) {
         this.provider = prov;
     }
@@ -516,6 +516,7 @@ public class MsgMessengerAdmin2Action extends ActionSupport {
      * 
      * @param grpNo The group number to set
      */
+    @StrutsParameter
     public void setGrpNo(String grpNo) {
         this.grpNo = grpNo;
     }

@@ -39,6 +39,15 @@
 **Stack**: Java 21, Spring 5.3.39, Struts 6.8.0, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
+
+## Fax Provider Feature Context (AI + Dev)
+
+- Provider-specific fax transport is now selected by `FaxConfig.providerType` (`MIDDLEWARE` or `SRFAX`).
+- Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+- Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
+- SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
+- See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
+
 ## Essential Commands
 
 ```bash
@@ -63,11 +72,45 @@ gh pr create                 # GitHub pull request creation
 ## Critical Security Requirements
 
 **MANDATORY for all code changes:**
-- Use `Encode.forHtml()`, `Encode.forJavaScript()` for ALL user inputs
+- OWASP Encoder for ALL user inputs (see [OWASP Encoding](#owasp-encoding--xss-prevention) below)
 - Parameterized queries ONLY - never string concatenation
 - ALL actions MUST include `SecurityInfoManager.hasPrivilege()` checks
 - PHI (Patient Health Information) must NEVER be logged or exposed
 - **Use `PathValidationUtils` for ALL file path operations** (see below)
+
+### OWASP Encoding — XSS Prevention
+
+The project includes two OWASP Encoder libraries (`pom.xml`):
+- **`encoder`** (1.4.0) — Java static methods: `Encode.forHtml()`, etc.
+- **`encoder-jsp`** (1.4.0) — JSP EL functions: `${e:forHtml()}`, etc.
+
+**Taglib declaration** (required once per JSP that uses EL functions):
+```jsp
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+```
+
+**Quick-Reference — All Encoding Contexts:**
+
+| Context | EL Function (preferred in JSP) | Java / Scriptlet |
+|---------|-------------------------------|------------------|
+| HTML body | `${e:forHtml(value)}` | `Encode.forHtml(value)` |
+| HTML attribute | `${e:forHtmlAttribute(value)}` | `Encode.forHtmlAttribute(value)` |
+| JavaScript string | `${e:forJavaScript(value)}` | `Encode.forJavaScript(value)` |
+| JS in HTML attr | `${e:forJavaScriptAttribute(value)}` | `Encode.forJavaScriptAttribute(value)` |
+| CSS string | `${e:forCssString(value)}` | `Encode.forCssString(value)` |
+| URL path | `${e:forUri(value)}` | `Encode.forUri(value)` |
+| URL parameter | `${e:forUriComponent(value)}` | `Encode.forUriComponent(value)` |
+
+**When to use which:**
+- **JSP with JSTL/EL** (preferred): `${e:forHtml(value)}` — clean, no scriptlet needed, context-aware
+- **JSP with heavy scriptlets**: `<%= Encode.forHtml(value) %>` — when already in scriptlet context
+- **Java code** (Actions, Managers): `Encode.forHtml(value)` — direct static method call
+
+**`${e:forHtml()}` replaces `<c:out>` and `fn:escapeXml()`:**
+- `<c:out>` and `fn:escapeXml()` only do basic XML entity escaping (`<>&"'`)
+- `${e:forHtml()}` uses OWASP Encoder which handles additional edge cases and provides context-specific variants for attributes, JS, CSS, URLs
+- `${e:forHtml()}` is a **drop-in replacement**: `<c:out value="${name}"/>` → `${e:forHtml(name)}`
+- **`<c:out>` is legacy** — still acceptable in existing code, but use `${e:forHtml()}` for all new code
 
 ### PathValidationUtils - File Path Security
 
@@ -189,7 +232,7 @@ public class Example2Action extends ActionSupport {
 - **Multi-File Architecture**: Component-first naming (`TicklerDao*Test`) for scalability
 - **Documentation**: Complete guide at `docs/test/modern-test-framework-complete.md`
 - **Context Guide**: `docs/test/claude-test-context.md` (auto-injected by hooks when working on tests)
-- **Unit Test Support**: `OpenOUnitTestBase` for mocked tests without database
+- **Unit Test Support**: `CarlosUnitTestBase` for mocked tests without database
 - **Manager Testing**: @Nested classes for organizing 100+ tests per manager (see `DemographicManagerUnitTest`)
 
 ### Test Organization Standards
@@ -228,7 +271,7 @@ The preposition after the underscore (`when`, `by`, `for`, `with`, `to`, `from`,
 ### Test Context Configuration
 
 The codebase has legacy patterns (SpringUtils static access, mixed Hibernate/JPA, circular dependencies) that require specific test setup. See **[Test Writing Guide](docs/test/test-writing-guide.md)** for detailed configuration patterns.
-**Key points**: Extend `OpenOTestBase` (handles SpringUtils), define beans manually in test context, explicitly list entities in persistence.xml.
+**Key points**: Extend `CarlosTestBase` (handles SpringUtils), define beans manually in test context, explicitly list entities in persistence.xml.
 
 **Writing Tests - CRITICAL**:
 When asked to write tests, you MUST:
@@ -236,16 +279,105 @@ When asked to write tests, you MUST:
 2. **Only test methods that actually exist** in the codebase
 3. **Never invent or assume method names** - verify they exist
 4. **Choose the right base class**:
-   - `OpenOTestBase` - Integration tests with Spring context and database
-   - `OpenOUnitTestBase` - Unit tests with mocked SpringUtils (no database)
+   - `CarlosTestBase` - Integration tests with Spring context and database
+   - `CarlosUnitTestBase` - Unit tests with mocked SpringUtils (no database)
    - Domain-specific bases like `DemographicUnitTestBase` - Unit tests with test data builders
 5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for EntityManager (integration tests only)
 6. **For Manager unit tests**: Register SpringUtils mocks BEFORE creating static mocks (LogAction, etc.)
 
+### Integration Test Pitfalls (Hibernate/H2)
+
+The test infrastructure uses **dual persistence contexts** (JPA EntityManager + Hibernate Session) sharing one JDBC connection via `TransactionAwareDataSourceProxy`. This creates several non-obvious pitfalls:
+
+**1. Flush Context Mismatch**
+DAOs extending `HibernateDaoSupport` write through the Hibernate Session. `entityManager.flush()` only flushes the JPA context — it will NOT flush Hibernate writes. Always use `hibernateTemplate.flush()` (available via `CarlosTestBase`) when testing `HibernateDaoSupport`-based DAOs.
+```java
+// WRONG - won't flush HibernateDaoSupport DAO writes:
+entityManager.flush();
+
+// CORRECT - flushes the Hibernate Session:
+hibernateTemplate.flush();
+```
+
+**2. HBM Property Names Are Case-Sensitive**
+HQL must use the exact `name` attribute from HBM XML mappings. Some entities use PascalCase (e.g., `Provider.hbm.xml`: `LastName`, `FirstName`, `Status`) while others use camelCase (e.g., `SecProvider.hbm.xml`: `lastName`, `firstName`, `status`). Always check the HBM file before writing HQL.
+
+**3. H2 Reserved Words in HBM Mappings**
+Column names that are SQL reserved words (e.g., `value`, `key`, `order`) must use backtick quoting in HBM XML. Hibernate translates backticks to database-appropriate quoting (double-quotes for H2, backticks for MySQL).
+```xml
+<!-- WRONG - breaks in H2: -->
+<property column="value" name="value" />
+
+<!-- CORRECT - works in both H2 and MySQL: -->
+<property column="`value`" name="value" />
+```
+
+**4. FK Constraints from HBM `<one-to-many>` Mappings**
+When `hbm2ddl.auto=create` runs, `<set>` mappings with `<one-to-many>` generate FK constraints. Tests must create parent records before inserting child records. Check HBM files for relationships:
+```xml
+<!-- This in casemgmt_note.hbm.xml creates FK on casemgmt_note_ext.note_id: -->
+<set name="extend" table="casemgmt_note_ext">
+    <key column="note_id"/>
+    <one-to-many class="CaseManagementNoteExt"/>
+</set>
+```
+Test fix: Create parent records in `@BeforeEach` and use their generated IDs.
+
+**5. VARCHAR Length Constraints**
+Check HBM mappings for column length limits. For example, `provider_no` is `VARCHAR(6)` in `SecProvider.hbm.xml`. Test data (like `uniquePrefix + suffix`) must fit within these limits.
+
+**6. Dual Entity Mappings to Same Table**
+`Provider.hbm.xml` and `SecProvider.hbm.xml` both map to the `provider` table. When creating test data for one entity, you must satisfy NOT NULL constraints from BOTH mappings. For example, `specialty` is required by `Provider.hbm.xml` even when testing through `SecProvider`:
+```java
+secProvider.setSpecialty("");  // NOT NULL in Provider.hbm.xml
+```
+
+**7. H2/MySQL BOOLEAN Incompatibility**
+H2 uses actual `BOOLEAN` type while MySQL uses `TINYINT(1)`. HQL comparisons like `locked<>'1'` work in MySQL (comparing TINYINT with string) but fail in H2. Fix production HQL to use proper boolean comparisons: `cmn.locked = false` instead of `cmn.locked != '1'`. This is both more correct and cross-database compatible.
+
+**8. Formula Columns Require Reference Tables**
+HBM `<property formula="...">` subselects execute even when not directly queried. If a formula references a table (e.g., `secRole`, `program`), that table must exist in the test database. Add `CREATE TABLE IF NOT EXISTS` statements to `test-lookup-tables.sql`.
+
+**9. `hbm2ddl` Execution Order**
+`EntityManagerFactory` with `hbm2ddl.auto=create` DROPS and recreates all managed entity tables. This runs AFTER `databaseInitializer` SQL scripts. So tables created by `test-lookup-tables.sql` for HBM-managed entities will be dropped and recreated by hbm2ddl. Use `CREATE TABLE IF NOT EXISTS` in SQL scripts as a safety net, but understand that hbm2ddl is the authoritative schema source for mapped entities.
+
+**10. HQL LIKE Queries Need Explicit Wildcards**
+DAO methods using HQL `LIKE` do not auto-add `%` wildcards. Tests must include them:
+```java
+// WRONG - will only match exact string:
+dao.searchNotes("111", "diabetes");
+
+// CORRECT - wraps with wildcards for partial matching:
+dao.searchNotes("111", "%diabetes%");
+```
+Note: This is standard SQL behavior, NOT a production bug. Callers provide wildcards from the UI layer.
+
+**11. DAO Methods May Override Test Data**
+Some DAO `save*()` methods override fields like `update_date` with `new Date()`. When testing date-based queries, re-set the date after saving:
+```java
+caseManagementIssueDAO.saveIssue(cmi);  // Overwrites update_date with now()
+cmi.setUpdate_date(desiredDate);         // Re-set to test-specific date
+hibernateTemplate.flush();               // Persist the corrected date
+```
+Always check the DAO implementation before assuming test data is persisted as-is.
+
+**12. SpringUtils Identity Across Multiple Contexts**
+When running the full test suite, classes with `@TestPropertySource` create separate Spring contexts. `SpringUtils.getBean()` may return instances from a different context than `@Autowired` injection. Do NOT assert instance identity (`isSameAs`/`isEqualTo`). Instead assert type:
+```java
+// WRONG - fails across multiple Spring contexts:
+assertThat(springUtilsDao).isSameAs(autowiredDao);
+
+// CORRECT - verifies correct type regardless of context:
+assertThat(springUtilsDao).isInstanceOf(autowiredDao.getClass());
+```
+
+**13. Read DAO Method Semantics Carefully**
+DAO method names can be misleading. For example, `getProviders(boolean active)` returns providers filtered by that status — `getProviders(false)` returns INACTIVE providers, not ALL providers. Always read the DAO implementation before writing test assertions.
+
 ## Code Quality Standards
 
 **Security (CodeQL Integration)**:
-- OWASP Encoder for all JSP outputs
+- OWASP Encoder for all JSP outputs — prefer `${e:forHtml()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Parameterized SQL queries (never concatenation)
 - File upload filename validation
 - CodeQL security scanning must pass
@@ -294,6 +426,22 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Mental Health Assessments**: Standardized clinical assessment forms
 - **Laboratory Requisitions**: Province-specific lab ordering forms
 
+## Drools Decision Support System
+
+**Version**: Drools 7.74.1.Final (KIE API), migrated from Drools 2.0 in PR #423
+**MVEL**: `mvel2:2.5.2.Final` (overridden from 2.4.x for Java 21 compatibility; 2.4.x references `java.lang.Compiler` removed in JDK 16)
+**Documentation**: Full architecture, DRL file reference, and known bugs in `docs/drools-decision-support-system.md`
+
+**Key Classes**:
+- `DroolsHelper` — compiles DRL to `KieBase` via `KieHelper` (standalone, no global KIE repository pollution)
+- `RuleBaseFactory` — thread-safe `QueueCache` of compiled `KieBase` objects (24h TTL, SHA-256 keyed)
+- `DroolsCompilationException` — checked exception for DRL compilation failures
+- `RuleBaseCreator` — generates DRL from `DSCondition` objects, compiles and caches
+- `TargetColour` / `Recommendation` — generate DRL from flowsheet XML for color indicators and clinical reminders
+- `WorkFlowDS` — wraps `KieBase` for workflow rule execution (e.g., Rh pregnancy management)
+
+**Test Coverage**: Tests in `src/test-modern/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
+
 ## Technology Stack Details
 
 ### Core Technologies
@@ -317,8 +465,9 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Vanilla JavaScript**: Progressively replacing jQuery dependencies where possible
 
 ### Security Libraries
-- **OWASP CSRF Guard**: CSRF protection with healthcare exclusions
-- **OWASP Encoder**: Output encoding for XSS prevention
+- **OWASP CSRFGuard 4.5**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
+- **OWASP Encoder** (`encoder` 1.4.0): `Encode.*` static methods for Java code and JSP scriptlets
+- **OWASP Encoder JSP** (`encoder-jsp` 1.4.0): `${e:forHtml()}` EL functions — preferred for JSP output encoding
 - **BCrypt**: Password hashing for provider authentication
 - **Bouncy Castle**: Cryptographic functions for PHI protection
 
@@ -374,7 +523,7 @@ Located in `/scripts` directory within the container (copied from `.devcontainer
 - **Build Process**: Stops Tomcat → Builds WAR → Creates symlink → Starts Tomcat
 - **Configuration**: Auto-creates `over_ride_config.properties` from template
 - **Parallel builds**: Uses `-T 1C` for faster Maven builds
-- **Deployment**: Handles versioned WAR directories with symlinks to `/usr/local/tomcat/webapps/oscar`
+- **Deployment**: Handles versioned WAR directories with symlinks to `/usr/local/tomcat/webapps/carlos`
 
 ## Architecture Patterns
 
@@ -490,12 +639,13 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 
 **2. Error Handling**
 - Use context-appropriate OWASP encoding when outputting user data:
-  - `Encode.forHtml()` - HTML body content
-  - `Encode.forHtmlAttribute()` - HTML attribute values
-  - `Encode.forJavaScript()` - JavaScript string contexts
-  - `Encode.forJavaScriptAttribute()` - JS in HTML attributes
-  - `Encode.forCssString()` - CSS string values
-  - `Encode.forUri()` / `Encode.forUriComponent()` - URL paths/parameters
+  - `Encode.forHtml()` / `${e:forHtml()}` - HTML body content
+  - `Encode.forHtmlAttribute()` / `${e:forHtmlAttribute()}` - HTML attribute values
+  - `Encode.forJavaScript()` / `${e:forJavaScript()}` - JavaScript string contexts
+  - `Encode.forJavaScriptAttribute()` / `${e:forJavaScriptAttribute()}` - JS in HTML attributes
+  - `Encode.forCssString()` / `${e:forCssString()}` - CSS string values
+  - `Encode.forUri()` / `${e:forUri()}` and `Encode.forUriComponent()` / `${e:forUriComponent()}` - URL paths/parameters
+- In JSP views, prefer the `${e:...}` EL functions over scriptlet calls (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Implement proper exception handling
 - Return appropriate result strings
 
@@ -531,7 +681,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
   - Connection tracking: `OscarTrackingBasicDataSource`
   - Legacy MySQL compatibility settings
 - **Security Configuration**:
-  - `web.xml` - Complex filter chain with OWASP CSRF protection
+  - `web.xml` - Filter chain with CSRFGuard 4.5 CSRF protection (see `docs/csrf-protection-architecture.md`)
   - Privacy statement filters and audit logging
   - Multi-factor authentication and SAML 2.0 support
 - `pom.xml` - Maven with 200+ healthcare-specific dependencies
@@ -599,6 +749,7 @@ firstNationCommunities_lu_list.sql # First Nations communities
 - Container: `db-connect` alias → MariaDB as root user
 - Port 3306 with health checks, 2G memory limit
 - Seeded with medical forms (Rourke charts, BCAR) and reference data
+- **Default login**: username `carlosdoc`, password `carlos2026`, PIN `2026`
 
 ---
 
@@ -708,7 +859,7 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - Claude creates feature branches: `claude/issue-<number>-<timestamp>`
 
 ### Security Checklist (Every Code Change)
-- [ ] Context-appropriate OWASP encoding for user inputs (see Error Handling section)
+- [ ] Context-appropriate OWASP encoding for user inputs (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - [ ] Parameterized SQL queries (never concatenation)
 - [ ] `SecurityInfoManager.hasPrivilege()` checks in all actions
 - [ ] `PathValidationUtils` for file operations
@@ -855,11 +1006,11 @@ src/main/webapp/WEB-INF/classes/oscar/oscarSecurity/                # Security f
 src/main/webapp/*/*.jsp                            # Look for Encode.forHtml() usage patterns
 src/main/java/io/github/carlos_emr/carlos/*/web/*2Action.java # Security check implementations
 
-# CSRF Protection Implementation
-src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties # CSRF Guard configuration
-src/main/webapp/WEB-INF/csrfguard.js               # Client-side token injection
-src/main/java/io/github/carlos_emr/carlos/app/CSRFPreservingFilter.java    # Custom CSRF filter
-src/main/java/io/github/carlos_emr/carlos/app/CsrfJavaScriptInjectionFilter.java # JS injection
+# CSRF Protection (CSRFGuard 4.5) — see docs/csrf-protection-architecture.md
+src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties # CSRFGuard configuration
+src/main/java/io/github/carlos_emr/carlos/app/CarlosCsrfGuardFilter.java          # CSRF token validation filter
+src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java # Auto-injects csrfguard script tag
+src/main/java/io/github/carlos_emr/carlos/app/MultiReadHttpServletRequest.java     # Multipart request dual-read wrapper
 
 ```
 
@@ -912,7 +1063,7 @@ database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integrati
 # Modern Test Framework (JUnit 5) - ACTIVE AND RECOMMENDED
 src/test-modern/java/io/github/carlos_emr/carlos/            # Modern JUnit 5 tests
 src/test-modern/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
-src/test-modern/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (OpenOUnitTestBase)
+src/test-modern/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
 src/test-modern/resources/                        # Modern test configurations
 docs/test/modern-test-framework-complete.md       # Complete test framework documentation
 docs/test/test-writing-guide.md                   # Test writing patterns and static mocking
@@ -928,8 +1079,8 @@ src/test/resources/over_ride_config.properties    # Test configuration template
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
 4. **Choose the right base class**:
-   - Integration tests: Extend `OpenOTestBase` (Spring context + database)
-   - Unit tests: Extend `OpenOUnitTestBase` (mocked SpringUtils, no database)
+   - Integration tests: Extend `CarlosTestBase` (Spring context + database)
+   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
 5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests

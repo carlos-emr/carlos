@@ -14,16 +14,4 @@
 		<property name="orgCdcsv" column="orgCdcsv"></property>
 		<property name="orgApplicable" column="orgapplicable" />
 	</class>
-	<sql-query name="user_access">
-		<return alias="uav" class="io.github.carlos_emr.carlos.model.security.UserAccessValue" />
-
-		select a.provider_no as {uav.providerNo}, c.code as {uav.orgCd},
-		c.codecsv as {uav.orgCdcsv}, b.objectname as
-		{uav.functionCd},d.orgapplicable as {uav.orgApplicable},
-		max(b.privilege) as {uav.privilege} from secUserRole a,
-		secObjPrivilege b, lst_orgcd c, secObjectName d where a.provider_no =
-		? and a.role_name = b.roleusergroup and a.orgcd = c.code and
-		b.objectname=d.objectname and a.activeyn=1 and c.activeyn=1 group by
-		a.provider_no, c.code, c.codecsv, b.objectname, d.orgapplicable
-	</sql-query>
 </hibernate-mapping>

@@ -42,6 +42,17 @@
         return;
     }
 %>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Provider Service Report</title>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <script src="<%=request.getContextPath()%>/js/jquery.js"></script>
+    <script src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
+    <link href="<%=request.getContextPath()%>/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
+    <script src="<%=request.getContextPath()%>/js/jquery.validate.min.js"></script>
+</head>
+<body>
 
 <%@page import="java.util.*" %>
 <%@page import="org.caisi.dao.*" %>
@@ -87,7 +98,7 @@
             <div class="control-group">
                 <div class="controls">
                     <button type="submit" class="btn btn-primary">
-                        <i class="icon-download-alt icon-white"></i> Export
+                        <i class="fa-solid fa-download"></i> Export
                     </button>
                 </div>
             </div>
@@ -126,3 +137,5 @@
         });
     });
 </script>
+</body>
+</html>

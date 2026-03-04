@@ -63,6 +63,10 @@
     if (!authed) {
         return;
     }
+    if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return;
+    }
 %>
 
 <%

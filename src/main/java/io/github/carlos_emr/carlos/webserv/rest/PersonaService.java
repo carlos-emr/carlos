@@ -38,6 +38,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.QueryParam;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -221,7 +222,7 @@ public class PersonaService extends AbstractServiceImpl {
 
         MenuTo1 menu = new MenuTo1()
                 .add(idCounter++, bundle.getString("navbar.menu.schedule"), null, "../provider/providercontrol.jsp")
-                .add(idCounter++, bundle.getString("navbar.menu.inbox"), null, "../documentManager/inboxManage.do?method=prepareForIndexPage", "inbox");
+                .add(idCounter++, bundle.getString("navbar.menu.inbox"), null, "../web/inboxhub/Inboxhub.do?method=displayInboxForm", "inbox");
 
         if (!consultationManager.isConsultResponseEnabled()) {
             menu.addWithState(idCounter++, bundle.getString("navbar.menu.consults"), null, "consultRequests");
@@ -280,9 +281,14 @@ public class PersonaService extends AbstractServiceImpl {
         return result;
     }
 
-    @GET
+    @POST
     @Path("/setDefaultProgramInDomain")
-    public GenericRESTResponse setDefaultProgram(@QueryParam("programId") Integer programId) {
+    @Consumes("application/x-www-form-urlencoded")
+    @Produces(MediaType.APPLICATION_JSON)
+    /**
+     * Sets the default program for the logged-in provider.
+     */
+    public GenericRESTResponse setDefaultProgram(@FormParam("programId") Integer programId) {
         programManager2.setCurrentProgramInDomain(getLoggedInInfo().getLoggedInProviderNo(), programId);
         return new GenericRESTResponse();
     }
@@ -379,10 +385,12 @@ public class PersonaService extends AbstractServiceImpl {
     }
 
     /**
-     * This will be a REST based way to get access to groups of preferences. It's not fully implemented yet
+     * REST endpoint for retrieving groups of provider preferences.
      *
-     * @param obj
-     * @return
+     * @param obj ObjectNode JSON object. May contain a "type" field for future preference
+     *            group filtering, but this is currently unused -- all calls return dashboard preferences.
+     * @return PersonaResponse containing dashboard preferences
+     * @since 2026-02-10
      */
     @POST
     @Path("/preferences")

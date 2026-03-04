@@ -78,6 +78,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -102,7 +103,6 @@
 %>
 
 <html>
-    <script src="${pageContext.request.contextPath}/csrfguard"></script>
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     </head>
@@ -337,8 +337,10 @@
                         if (hinDemo.getVer() != null && !hinDemo.getVer().equals("66")) {
 
         %>
-        ***<font color='red'><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddarecord.msgDuplicatedHIN"/></font>
-        ***<br><br><a href=# onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></b></a>
+        <span style="color:red;"><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicupdatearecord.msgDuplicatedHINError"/></span><br>
+        <fmt:message key="demographic.msgDuplicatedHINDetail"/>
+        <a href="demographiccontrol.jsp?demographic_no=<%= Encode.forUriComponent(hinDemo.getDemographicNo().toString()) %>&displaymode=edit&dboperation=search_detail"><%= Encode.forHtml(hinDemo.getLastName() + ", " + hinDemo.getFirstName()) %></a><br><br>
+        <a href="#" onClick="history.go(-1);return false;"><b>&lt;-<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/></b></a>
         <%
                             return;
                         }
@@ -397,7 +399,7 @@
 
         %>
 
-        <form name="add2WLFrm" action="<%= request.getContextPath() %>/oscarWaitingList/Add2WaitingList.jsp">
+        <form name="add2WLFrm" action="<%= request.getContextPath() %>/oscarWaitingList/Add2WaitingList.jsp" method="post">
             <input type="hidden" name="listId" value="<%=request.getParameter("list_id")%>"/>
             <input type="hidden" name="demographicNo" value="<%=request.getParameter("demographic_no")%>"/>
             <input type="hidden" name="demographic_no" value="<%=request.getParameter("demographic_no")%>"/>

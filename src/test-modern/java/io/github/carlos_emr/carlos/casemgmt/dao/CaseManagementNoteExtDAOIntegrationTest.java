@@ -20,8 +20,10 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -35,6 +37,7 @@ import javax.persistence.PersistenceContext;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -52,14 +55,45 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("casemgmt")
 @Transactional
-public class CaseManagementNoteExtDAOIntegrationTest extends OpenOTestBase {
+public class CaseManagementNoteExtDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     @Qualifier("CaseManagementNoteExtDAO")
     private CaseManagementNoteExtDAO caseManagementNoteExtDAO;
 
+    @Autowired
+    @Qualifier("CaseManagementNoteDAO")
+    private CaseManagementNoteDAO caseManagementNoteDAO;
+
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
+
+    /** Parent note IDs to satisfy FK constraint on casemgmt_note_ext.note_id. */
+    private Long parentNoteId1;
+    private Long parentNoteId2;
+
+    @BeforeEach
+    void setUp() {
+        // Create parent CaseManagementNote records to satisfy FK constraint
+        parentNoteId1 = createParentNote().getId();
+        parentNoteId2 = createParentNote().getId();
+        hibernateTemplate.flush();
+    }
+
+    private CaseManagementNote createParentNote() {
+        CaseManagementNote note = new CaseManagementNote();
+        note.setDemographic_no("1");
+        note.setNote("Parent note for ext tests");
+        note.setProviderNo("999998");
+        note.setUuid(UUID.randomUUID().toString());
+        note.setUpdate_date(new Date());
+        note.setObservation_date(new Date());
+        note.setSigned(false);
+        note.setArchived(false);
+        note.setLocked(false);
+        caseManagementNoteDAO.saveNote(note);
+        return note;
+    }
 
     private CaseManagementNoteExt createNoteExt(Long noteId, String keyVal, String value) {
         CaseManagementNoteExt ext = new CaseManagementNoteExt();
@@ -95,10 +129,10 @@ public class CaseManagementNoteExtDAOIntegrationTest extends OpenOTestBase {
         @DisplayName("should find ext when both keyVal and value match")
         void shouldFindExt_whenBothKeyValAndValueMatch() {
             // Given
-            CaseManagementNoteExt match = createNoteExt(1001L, "status", "active");
-            CaseManagementNoteExt wrongKey = createNoteExt(1002L, "type", "active");     // Different key
-            CaseManagementNoteExt wrongValue = createNoteExt(1003L, "status", "inactive"); // Different value
-            entityManager.flush();
+            CaseManagementNoteExt match = createNoteExt(parentNoteId1,"status", "active");
+            CaseManagementNoteExt wrongKey = createNoteExt(parentNoteId1,"type", "active");     // Different key
+            CaseManagementNoteExt wrongValue = createNoteExt(parentNoteId1,"status", "inactive"); // Different value
+            hibernateTemplate.flush();
 
             // When
             List results = caseManagementNoteExtDAO.getExtByValue("status", "active");
@@ -116,10 +150,10 @@ public class CaseManagementNoteExtDAOIntegrationTest extends OpenOTestBase {
         @DisplayName("should support partial value matching with like")
         void shouldSupportPartialValueMatching() {
             // Given
-            createNoteExt(1001L, "diagnosis", "diabetes mellitus type 1");
-            createNoteExt(1002L, "diagnosis", "diabetes mellitus type 2");
-            createNoteExt(1003L, "diagnosis", "hypertension");
-            entityManager.flush();
+            createNoteExt(parentNoteId1,"diagnosis", "diabetes mellitus type 1");
+            createNoteExt(parentNoteId1,"diagnosis", "diabetes mellitus type 2");
+            createNoteExt(parentNoteId1,"diagnosis", "hypertension");
+            hibernateTemplate.flush();
 
             // When - Search with partial match
             List results = caseManagementNoteExtDAO.getExtByValue("diagnosis", "diabetes%");
@@ -133,8 +167,8 @@ public class CaseManagementNoteExtDAOIntegrationTest extends OpenOTestBase {
         @DisplayName("should return empty when no matches")
         void shouldReturnEmpty_whenNoMatches() {
             // Given
-            createNoteExt(1001L, "status", "active");
-            entityManager.flush();
+            createNoteExt(parentNoteId1,"status", "active");
+            hibernateTemplate.flush();
 
             // When
             List results = caseManagementNoteExtDAO.getExtByValue("nonexistent", "value");
@@ -157,10 +191,10 @@ public class CaseManagementNoteExtDAOIntegrationTest extends OpenOTestBase {
             Date jan10 = createDate(2024, 1, 10);
             Date jan20 = createDate(2024, 1, 20);
 
-            CaseManagementNoteExt beforeDate = createNoteExtWithDate(1001L, "appointment", jan10);
-            CaseManagementNoteExt afterDate = createNoteExtWithDate(1002L, "appointment", jan20);
-            CaseManagementNoteExt wrongKey = createNoteExtWithDate(1003L, "other", jan10);
-            entityManager.flush();
+            CaseManagementNoteExt beforeDate = createNoteExtWithDate(parentNoteId1, "appointment", jan10);
+            CaseManagementNoteExt afterDate = createNoteExtWithDate(parentNoteId1, "appointment", jan20);
+            CaseManagementNoteExt wrongKey = createNoteExtWithDate(parentNoteId1, "other", jan10);
+            hibernateTemplate.flush();
 
             // When
             List results = caseManagementNoteExtDAO.getExtBeforeDate("appointment", jan15);
@@ -178,8 +212,8 @@ public class CaseManagementNoteExtDAOIntegrationTest extends OpenOTestBase {
         void shouldIncludeDatesOnCutoff() {
             // Given
             Date cutoff = createDate(2024, 1, 15);
-            CaseManagementNoteExt onCutoff = createNoteExtWithDate(1001L, "due", cutoff);
-            entityManager.flush();
+            CaseManagementNoteExt onCutoff = createNoteExtWithDate(parentNoteId1, "due", cutoff);
+            hibernateTemplate.flush();
 
             // When
             List results = caseManagementNoteExtDAO.getExtBeforeDate("due", cutoff);
@@ -202,10 +236,10 @@ public class CaseManagementNoteExtDAOIntegrationTest extends OpenOTestBase {
             Date jan10 = createDate(2024, 1, 10);
             Date jan20 = createDate(2024, 1, 20);
 
-            CaseManagementNoteExt beforeDate = createNoteExtWithDate(1001L, "followup", jan10);
-            CaseManagementNoteExt afterDate = createNoteExtWithDate(1002L, "followup", jan20);
-            CaseManagementNoteExt wrongKey = createNoteExtWithDate(1003L, "other", jan20);
-            entityManager.flush();
+            CaseManagementNoteExt beforeDate = createNoteExtWithDate(parentNoteId1, "followup", jan10);
+            CaseManagementNoteExt afterDate = createNoteExtWithDate(parentNoteId1, "followup", jan20);
+            CaseManagementNoteExt wrongKey = createNoteExtWithDate(parentNoteId1, "other", jan20);
+            hibernateTemplate.flush();
 
             // When
             List results = caseManagementNoteExtDAO.getExtAfterDate("followup", jan15);
@@ -224,8 +258,8 @@ public class CaseManagementNoteExtDAOIntegrationTest extends OpenOTestBase {
             // Given
             Date jan10 = createDate(2024, 1, 10);
             Date jan20 = createDate(2024, 1, 20);
-            createNoteExtWithDate(1001L, "reminder", jan10);
-            entityManager.flush();
+            createNoteExtWithDate(parentNoteId1, "reminder", jan10);
+            hibernateTemplate.flush();
 
             // When - Search for dates after jan20
             List results = caseManagementNoteExtDAO.getExtAfterDate("reminder", jan20);
@@ -244,18 +278,18 @@ public class CaseManagementNoteExtDAOIntegrationTest extends OpenOTestBase {
         @DisplayName("should get extensions by note ID")
         void shouldGetExtByNoteId() {
             // Given
-            createNoteExt(8888L, "key1", "value1");
-            createNoteExt(8888L, "key2", "value2");
-            createNoteExt(9999L, "key1", "value1");  // Different note
-            entityManager.flush();
+            createNoteExt(parentNoteId1, "key1", "value1");
+            createNoteExt(parentNoteId1, "key2", "value2");
+            createNoteExt(parentNoteId2, "key1", "value1");  // Different note
+            hibernateTemplate.flush();
 
             // When
-            List<CaseManagementNoteExt> results = caseManagementNoteExtDAO.getExtByNote(8888L);
+            List<CaseManagementNoteExt> results = caseManagementNoteExtDAO.getExtByNote(parentNoteId1);
 
             // Then
             assertThat(results)
                 .hasSize(2)
-                .allMatch(e -> e.getNoteId().equals(8888L));
+                .allMatch(e -> e.getNoteId().equals(parentNoteId1));
         }
 
         @Test
@@ -263,10 +297,10 @@ public class CaseManagementNoteExtDAOIntegrationTest extends OpenOTestBase {
         @DisplayName("should get extensions by key value")
         void shouldGetExtByKeyVal() {
             // Given
-            createNoteExt(1001L, "status", "active");
-            createNoteExt(1002L, "status", "inactive");
-            createNoteExt(1003L, "type", "active");  // Different key
-            entityManager.flush();
+            createNoteExt(parentNoteId1,"status", "active");
+            createNoteExt(parentNoteId1, "status", "inactive");
+            createNoteExt(parentNoteId1, "type", "active");  // Different key
+            hibernateTemplate.flush();
 
             // When
             List results = caseManagementNoteExtDAO.getExtByKeyVal("status");

@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class CreateLabelTDIS2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -83,6 +84,7 @@ public class CreateLabelTDIS2Action extends ActionSupport {
         return lab_no;
     }
 
+    @StrutsParameter
     public void setLab_no(String lab_no) {
         this.lab_no = lab_no;
     }
@@ -91,6 +93,7 @@ public class CreateLabelTDIS2Action extends ActionSupport {
         return accessionNum;
     }
 
+    @StrutsParameter
     public void setAccessionNum(String accessionNum) {
         this.accessionNum = accessionNum;
     }
@@ -99,6 +102,7 @@ public class CreateLabelTDIS2Action extends ActionSupport {
         return label;
     }
 
+    @StrutsParameter
     public void setLabel(String label) {
         this.label = label;
     }

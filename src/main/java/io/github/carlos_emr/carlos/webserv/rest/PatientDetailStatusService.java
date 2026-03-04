@@ -38,7 +38,6 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.integration.mchcv.HCValidationFactory;
 import io.github.carlos_emr.carlos.integration.mchcv.HCValidationResult;
@@ -69,35 +68,7 @@ public class PatientDetailStatusService extends AbstractServiceImpl {
     public PatientDetailStatusTo1 getStatus(@QueryParam("demographicNo") Integer demographicNo) {
         PatientDetailStatusTo1 status = new PatientDetailStatusTo1();
 
-        //Integrator status
-        status.setIntegratorEnabled(getLoggedInInfo().getCurrentFacility().isIntegratorEnabled());
-        if (status.isIntegratorEnabled()) {
-            status.setIntegratorOffline(CaisiIntegratorManager.isIntegratorOffline(getLoggedInInfo().getSession()));
-
-            int secondsTillConsideredStale = -1;
-            try {
-                secondsTillConsideredStale = Integer.parseInt(oscarProperties.getProperty("seconds_till_considered_stale"));
-            } catch (Exception e) {
-                logger.error("OSCAR Property: seconds_till_considered_stale did not parse to an int", e);
-                secondsTillConsideredStale = -1;
-            }
-
-            boolean allSynced = true;
-            try {
-                allSynced = CaisiIntegratorManager.haveAllRemoteFacilitiesSyncedIn(getLoggedInInfo(), getLoggedInInfo().getCurrentFacility(), secondsTillConsideredStale);
-            } catch (Exception remoteFacilityException) {
-                logger.error("Error checking Remote Facilities Sync status", remoteFacilityException);
-                CaisiIntegratorManager.checkForConnectionError(getLoggedInInfo().getSession(), remoteFacilityException);
-            }
-
-            if (secondsTillConsideredStale == -1) {
-                allSynced = true;
-            }
-            status.setIntegratorAllSynced(allSynced);
-        }
-
-
-        //from oscar.properties
+        //from carlos.properties
         status.setConformanceFeaturesEnabled(oscarProperties.isPropertyActive("ENABLE_CONFORMANCE_ONLY_FEATURES"));
         status.setWorkflowEnhance(oscarProperties.isPropertyActive("workflow_enhance"));
         status.setBillregion(oscarProperties.getProperty("billregion", ""));

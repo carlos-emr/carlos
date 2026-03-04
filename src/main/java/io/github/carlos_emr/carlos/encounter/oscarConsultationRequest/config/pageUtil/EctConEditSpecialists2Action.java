@@ -39,6 +39,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -46,6 +48,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 
 public class EctConEditSpecialists2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -71,7 +75,17 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         if (delete.equals(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"))) {
             if (specialists.length > 0) {
                 for (int i = 0; i < specialists.length; i++) {
-                    professionalSpecialistDao.remove(Integer.parseInt(specialists[i]));
+                    try {
+                        ProfessionalSpecialist specialist = professionalSpecialistDao.find(Integer.parseInt(specialists[i]));
+                        if (specialist != null) {
+                            specialist.setDeleted(true);
+                            professionalSpecialistDao.merge(specialist);
+                            LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request),
+                                    LogConst.DELETE, "specialist id=" + specialist.getId());
+                        }
+                    } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Invalid specialist ID: {}", Encode.forJava(specialists[i]), e);
+                    }
                 }
             }
             EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
@@ -80,7 +94,17 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         }
 
         // not delete request, just update one entry
-        ProfessionalSpecialist professionalSpecialist = professionalSpecialistDao.find(Integer.parseInt(specId));
+        ProfessionalSpecialist professionalSpecialist;
+        try {
+            professionalSpecialist = professionalSpecialistDao.find(Integer.parseInt(specId));
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid specialist ID for update: {}", Encode.forJava(specId), e);
+            return ERROR;
+        }
+        if (professionalSpecialist == null) {
+            MiscUtils.getLogger().warn("Specialist not found for ID: {}", Encode.forJava(specId));
+            return ERROR;
+        }
 
         int updater = 0;
         request.setAttribute("fName", professionalSpecialist.getFirstName());
@@ -101,8 +125,10 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         request.setAttribute("eDataServiceName", professionalSpecialist.geteDataServiceName());
         request.setAttribute("annotation", professionalSpecialist.getAnnotation());
         request.setAttribute("referralNo", professionalSpecialist.getReferralNo());
-        request.setAttribute("institution", professionalSpecialist.getInstitutionId().toString());
-        request.setAttribute("department", professionalSpecialist.getDepartmentId().toString());
+        request.setAttribute("institution", professionalSpecialist.getInstitutionId() != null
+                ? professionalSpecialist.getInstitutionId().toString() : "");
+        request.setAttribute("department", professionalSpecialist.getDepartmentId() != null
+                ? professionalSpecialist.getDepartmentId().toString() : "");
         request.setAttribute("privatePhoneNumber", professionalSpecialist.getPrivatePhoneNumber());
         request.setAttribute("cellPhoneNumber", professionalSpecialist.getCellPhoneNumber());
         request.setAttribute("pagerNumber", professionalSpecialist.getPagerNumber());
@@ -124,6 +150,7 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         return specId;
     }
 
+    @StrutsParameter
     public void setSpecId(String str) {
         MiscUtils.getLogger().debug("setter specId");
         specId = str;
@@ -136,6 +163,7 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         return delete;
     }
 
+    @StrutsParameter
     public void setDelete(String str) {
         MiscUtils.getLogger().debug("setter delete");
         delete = str;
@@ -148,6 +176,7 @@ public class EctConEditSpecialists2Action extends ActionSupport {
         return specialists;
     }
 
+    @StrutsParameter
     public void setSpecialists(String str[]) {
         MiscUtils.getLogger().debug("setter specialists");
         specialists = str;

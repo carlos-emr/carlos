@@ -28,7 +28,6 @@
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.OscarProperties;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.*;
 import io.github.carlos_emr.carlos.casemgmt.model.*;
 import io.github.carlos_emr.carlos.casemgmt.service.*;
 import io.github.carlos_emr.carlos.commn.dao.*;
@@ -45,9 +44,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam;
@@ -80,7 +78,6 @@ import javax.servlet.http.HttpSession;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
 import java.util.*;
 
 public class CaseManagementView2Action extends ActionSupport {
@@ -453,7 +450,6 @@ public class CaseManagementView2Action extends ActionSupport {
             List<Drug> prescriptions = null;
             boolean viewAll = this.getPrescipt_view().equals("all");
             String demographicId = getDemographicNo(request);
-            request.setAttribute("isIntegratorEnabled", loggedInInfo.getCurrentFacility().isIntegratorEnabled());
             prescriptions = caseManagementMgr.getPrescriptions(loggedInInfo, Integer.parseInt(demographicId), viewAll);
 
             request.setAttribute("Prescriptions", prescriptions);
@@ -539,7 +535,6 @@ public class CaseManagementView2Action extends ActionSupport {
 
         ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
         addLocalIssues(providerNo, checkBoxBeanList, demographicNo, hideInactiveIssues, Integer.valueOf(programId));
-        addRemoteIssues(loggedInInfo, checkBoxBeanList, demographicNo, hideInactiveIssues);
         addGroupIssues(loggedInInfo, checkBoxBeanList, demographicNo, hideInactiveIssues);
 
         sortIssues(checkBoxBeanList);
@@ -588,12 +583,10 @@ public class CaseManagementView2Action extends ActionSupport {
             notesToDisplay.add(new NoteDisplayLocal(loggedInInfo, noteTemp));
         logger.debug("FETCHED " + localNotes.size() + " NOTES in time : " + (System.currentTimeMillis() - startTime));
 
-        // deal with remote notes
+        // deal with group notes
         startTime = System.currentTimeMillis();
-        List<Issue> issueList = issueDao.findIssueByCode(checkedCodeList.toArray(new String[0]));
-        addRemoteNotes(loggedInInfo, notesToDisplay, demographicNo, issueList, programId);
         addGroupNotes(loggedInInfo, notesToDisplay, Integer.parseInt(demoNo), null);
-        logger.debug("Get remote notes. time=" + (System.currentTimeMillis() - startTime));
+        logger.debug("Get group notes. time=" + (System.currentTimeMillis() - startTime));
 
         // not sure what everything else is after this
         String resetFilter = request.getParameter("resetFilter");
@@ -681,7 +674,7 @@ public class CaseManagementView2Action extends ActionSupport {
 
         /* PROGRESS NOTES */
         List<CaseManagementNote> notes = null;
-        // here we might have a checked/unchecked issue that is remote and has no issue_id (they're all zero).
+        // here we might have a checked/unchecked issue that has no issue_id (they're all zero).
         String[] checkedIssues = request.getParameterValues("check_issue");
 
         if (request.getParameter("offset") != null && request.getParameter("numToReturn") != null) {
@@ -735,7 +728,7 @@ public class CaseManagementView2Action extends ActionSupport {
         if (checkedIssues != null && checkedIssues.length > 0) notes = applyIssueFilter(notes, checkedIssues);
         logger.debug("Filter on issue " + (System.currentTimeMillis() - startTime));
 
-        // this is a local filter and does not apply to remote notes
+        // apply issue filter
         logger.debug("Pop notes with editors");
         startTime = System.currentTimeMillis();
         this.caseManagementMgr.getEditors(notes);
@@ -747,7 +740,6 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         if (request.getParameter("offset") == null || request.getParameter("offset").equalsIgnoreCase("0")) {
-            addRemoteNotes(loggedInInfo, notesToDisplay, demographicId, null, programId);
             addGroupNotes(loggedInInfo, notesToDisplay, demographicId, null);
 
             // add eforms to notes list as single line items
@@ -801,7 +793,6 @@ public class CaseManagementView2Action extends ActionSupport {
 
         ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
         addLocalIssues(providerNo, checkBoxBeanList, demographicId, false, Integer.valueOf(programId));
-        addRemoteIssues(loggedInInfo, checkBoxBeanList, demographicId, false);
         addGroupIssues(loggedInInfo, checkBoxBeanList, demographicId, false);
         sortIssues(checkBoxBeanList);
         request.setAttribute("cme_issues", checkBoxBeanList);
@@ -953,65 +944,6 @@ public class CaseManagementView2Action extends ActionSupport {
 
     }
 
-    private void addRemoteNotes(LoggedInInfo loggedInInfo, ArrayList<NoteDisplay> notesToDisplay, int demographicNo, List<Issue> issueCodesToDisplay, String programId) {
-        if (!loggedInInfo.getCurrentFacility().isIntegratorEnabled()) return;
-        List<CachedDemographicNote> linkedNotes = null;
-        try {
-            if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                linkedNotes = CaisiIntegratorManager.getLinkedNotes(loggedInInfo, demographicNo);
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-            CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-        }
-
-        if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-            linkedNotes = IntegratorFallBackManager.getLinkedNotes(loggedInInfo, demographicNo);
-        }
-
-        if (linkedNotes == null) return;
-
-        for (CachedDemographicNote cachedDemographicNote : linkedNotes) {
-            try {
-
-                // filter on issues to display
-                if (issueCodesToDisplay == null || hasIssueToBeDisplayed(cachedDemographicNote, issueCodesToDisplay)) {
-                    // filter on role based access
-                    if (caseManagementMgr.hasRole(loggedInInfo.getLoggedInProvider().getProviderNo(), cachedDemographicNote, programId)) {
-                        notesToDisplay.add(new NoteDisplayIntegrator(loggedInInfo, cachedDemographicNote));
-                    }
-                }
-            } catch (Exception e) {
-                logger.error("Unexpected error.", e);
-            }
-        }
-    }
-
-    private boolean hasIssueToBeDisplayed(CachedDemographicNote cachedDemographicNote, List<Issue> issueCodesToDisplay) {
-        // no issue selected means display all
-        if (issueCodesToDisplay == null || issueCodesToDisplay.size() == 0) return (true);
-
-        for (NoteIssue noteIssue : cachedDemographicNote.getIssues()) {
-            for (Issue issue : issueCodesToDisplay) {
-                logger.info("Comparing " + noteIssue.getIssueCode() + " type:" + noteIssue.getCodeType() + " TO " + issue.getCode() + " type:" + issue.getType());
-                if (Issue.CUSTOM_ISSUE.equalsIgnoreCase(issue.getType()) && noteIssue.getCodeType() == CodeType.CUSTOM_ISSUE && noteIssue.getIssueCode().equalsIgnoreCase(issue.getCode())) {
-                    return true;
-                } else if (Issue.SYSTEM.equalsIgnoreCase(issue.getType()) && noteIssue.getCodeType() == CodeType.SYSTEM && noteIssue.getIssueCode().equalsIgnoreCase(issue.getCode())) {
-                    return true;
-                } else if (Issue.ICD_9.equalsIgnoreCase(issue.getType()) && noteIssue.getCodeType() == CodeType.ICD_9 && noteIssue.getIssueCode().equalsIgnoreCase(issue.getCode())) {
-                    return true;
-                } else if (Issue.ICD_10.equalsIgnoreCase(issue.getType()) && noteIssue.getCodeType() == CodeType.ICD_10 && noteIssue.getIssueCode().equalsIgnoreCase(issue.getCode())) {
-                    return true;
-                } else if (Issue.SNOMED.equalsIgnoreCase(issue.getType()) && noteIssue.getCodeType() == CodeType.SNOMED && noteIssue.getIssueCode().equalsIgnoreCase(issue.getCode())) {
-                    return true;
-                } else if (Issue.SNOMED_CORE.equalsIgnoreCase(issue.getType()) && noteIssue.getCodeType() == CodeType.SNOMED_CORE && noteIssue.getIssueCode().equalsIgnoreCase(issue.getCode())) {
-                    return true;
-                }
-            }
-        }
-
-        return (false);
-    }
 
     /*
      * This does absolutely nothing
@@ -1031,107 +963,6 @@ public class CaseManagementView2Action extends ActionSupport {
         } catch (Exception e) {
             logger.error("Unexpected error.", e);
         }
-    }
-
-    protected void addRemoteIssues(LoggedInInfo loggedInInfo, ArrayList<CheckBoxBean> checkBoxBeanList, int demographicNo, boolean hideInactiveIssues) {
-        if (!loggedInInfo.getCurrentFacility().isIntegratorEnabled()) return;
-
-        try {
-            List<CachedDemographicIssue> remoteIssues = null;
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                    remoteIssues = demographicWs.getLinkedCachedDemographicIssuesByDemographicId(demographicNo);
-                }
-            } catch (Exception e) {
-                logger.error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                remoteIssues = IntegratorFallBackManager.getRemoteDemographicIssues(loggedInInfo, demographicNo);
-            }
-
-            for (CachedDemographicIssue cachedDemographicIssue : remoteIssues) {
-                try {
-                    IssueDisplay issueDisplay = null;
-
-                    if (!hideInactiveIssues) issueDisplay = getIssueToDisplay(loggedInInfo, cachedDemographicIssue);
-                    else if (!cachedDemographicIssue.isResolved())
-                        issueDisplay = getIssueToDisplay(loggedInInfo, cachedDemographicIssue);
-
-                    if (issueDisplay != null) {
-                        if (existsIssueWithSameAttributes(issueDisplay, checkBoxBeanList)) continue;
-
-                        CheckBoxBean checkBoxBean = new CheckBoxBean();
-                        checkBoxBean.setIssueDisplay(issueDisplay);
-                        checkBoxBean.setUsed(caseManagementNoteDao.haveIssue(issueDisplay.getCode(), demographicNo));
-                        checkBoxBeanList.add(checkBoxBean);
-                    }
-                } catch (Exception e) {
-                    logger.error("Unexpected error.", e);
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-        }
-    }
-
-    private static boolean existsIssueWithSameAttributes(IssueDisplay issueDisplay, ArrayList<CheckBoxBean> checkBoxBeanList) {
-        // must iterate through all items, can't stop at first hit
-        for (CheckBoxBean cbb : checkBoxBeanList) {
-            IssueDisplay existingIssueDisplay = cbb.getIssueDisplay();
-            if (hasSameAttributes(existingIssueDisplay, issueDisplay)) return (true);
-        }
-
-        return (false);
-    }
-
-    public static boolean hasSameAttributes(IssueDisplay issueDisplay1, IssueDisplay issueDisplay2) {
-        if (issueDisplay1.code != null && !issueDisplay1.code.equals(issueDisplay2.code)) return (false);
-        if (issueDisplay1.acute != null && !issueDisplay1.acute.equals(issueDisplay2.acute)) return (false);
-        if (issueDisplay1.certain != null && !issueDisplay1.certain.equals(issueDisplay2.certain)) return (false);
-        if (issueDisplay1.major != null && !issueDisplay1.major.equals(issueDisplay2.major)) return (false);
-        if (issueDisplay1.priority != null && !issueDisplay1.priority.equals(issueDisplay2.priority)) return (false);
-        if (issueDisplay1.resolved != null && !issueDisplay1.resolved.equals(issueDisplay2.resolved)) return (false);
-
-        return (true);
-    }
-
-    private IssueDisplay getIssueToDisplay(LoggedInInfo loggedInInfo, CachedDemographicIssue cachedDemographicIssue) throws MalformedURLException {
-        IssueDisplay issueDisplay = new IssueDisplay();
-
-        issueDisplay.writeAccess = true;
-        issueDisplay.acute = cachedDemographicIssue.isAcute() ? "acute" : "chronic";
-        issueDisplay.certain = cachedDemographicIssue.isCertain() ? "certain" : "uncertain";
-        issueDisplay.code = cachedDemographicIssue.getFacilityDemographicIssuePk().getIssueCode();
-        issueDisplay.codeType = "ICD10"; // temp hard coded hack till issue is resolved
-
-        Issue issue = null;
-        // temp hard coded icd hack till issue is resolved
-        if ("ICD10".equalsIgnoreCase(OscarProperties.getInstance().getProperty("COMMUNITY_ISSUE_CODETYPE").toUpperCase())) {
-            issue = issueDao.findIssueByCode(cachedDemographicIssue.getFacilityDemographicIssuePk().getIssueCode());
-        }
-
-        if (issue != null) {
-            issueDisplay.description = issue.getDescription();
-            issueDisplay.priority = issue.getPriority();
-            issueDisplay.role = issue.getRole();
-        } else {
-            issueDisplay.description = "Not Available";
-            issueDisplay.priority = "Not Available";
-            issueDisplay.role = "Not Available";
-        }
-
-        Integer remoteFacilityId = cachedDemographicIssue.getFacilityDemographicIssuePk().getIntegratorFacilityId();
-        CachedFacility remoteFacility = CaisiIntegratorManager.getRemoteFacility(loggedInInfo, loggedInInfo.getCurrentFacility(), remoteFacilityId);
-        if (remoteFacility != null) issueDisplay.location = "remote: " + remoteFacility.getName();
-        else issueDisplay.location = "remote: name unavailable";
-
-        issueDisplay.major = cachedDemographicIssue.isMajor() ? "major" : "not major";
-        issueDisplay.resolved = cachedDemographicIssue.isResolved() ? "resolved" : "unresolved";
-
-        return (issueDisplay);
     }
 
     protected void addLocalIssues(String providerNo, ArrayList<CheckBoxBean> checkBoxBeanList, Integer demographicNo, boolean hideInactiveIssues, Integer programId) {
@@ -1284,14 +1115,6 @@ public class CaseManagementView2Action extends ActionSupport {
         }
         request.setAttribute("NoteExts", lcme);
         request.setAttribute("Notes", notes);
-
-        ArrayList<NoteDisplay> remoteNotes = new ArrayList<NoteDisplay>();
-        ArrayList<String> issueCodes = new ArrayList<String>(Arrays.asList(codes));
-        addRemoteNotes(loggedInInfo, remoteNotes, Integer.parseInt(demoNo), issues, programId);
-
-        if (remoteNotes.size() > 0) {
-            request.setAttribute("remoteNotes", remoteNotes);
-        }
 
         boolean isJsonRequest = request.getParameter("json") != null && request.getParameter("json").equalsIgnoreCase("true");
         if (isJsonRequest) {
@@ -1874,10 +1697,12 @@ public class CaseManagementView2Action extends ActionSupport {
     private int noteId;
     private String password;
 
+    @StrutsParameter(depth = 1)
     public EncounterWindow getEctWin() {
         return this.ectWin;
     }
 
+    @StrutsParameter
     public void setEctWin(EncounterWindow ectWin) {
         this.ectWin = ectWin;
     }
@@ -1886,6 +1711,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return password;
     }
 
+    @StrutsParameter
     public void setPassword(String password) {
         this.password = password;
     }
@@ -1894,6 +1720,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return note_sort;
     }
 
+    @StrutsParameter
     public void setNote_sort(String note_sort) {
         this.note_sort = note_sort;
     }
@@ -1902,14 +1729,17 @@ public class CaseManagementView2Action extends ActionSupport {
         return imageFile;
     }
 
+    @StrutsParameter
     public void setImageFile(File imageFile) {
         this.imageFile = imageFile;
     }
 
+    @StrutsParameter(depth = 1)
     public CaseManagementCPP getCpp() {
         return this.cpp;
     }
 
+    @StrutsParameter
     public void setCpp(CaseManagementCPP cpp) {
         this.cpp = cpp;
     }
@@ -1918,6 +1748,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return vlCountry;
     }
 
+    @StrutsParameter
     public void setVlCountry(String vlCountry) {
         this.vlCountry = vlCountry;
     }
@@ -1926,6 +1757,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return rootCompURL;
     }
 
+    @StrutsParameter
     public void setRootCompURL(String rootCompURL) {
         this.rootCompURL = rootCompURL;
     }
@@ -1934,6 +1766,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return demographicNo;
     }
 
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -1942,6 +1775,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return issues;
     }
 
+    @StrutsParameter
     public void setIssues(String[] issues) {
         this.issues = issues;
     }
@@ -1950,6 +1784,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return note_view;
     }
 
+    @StrutsParameter
     public void setNote_view(String note_view) {
         this.note_view = note_view;
     }
@@ -1958,6 +1793,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return tab;
     }
 
+    @StrutsParameter
     public void setTab(String tab) {
         this.tab = tab;
     }
@@ -1966,6 +1802,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return hideActiveIssue;
     }
 
+    @StrutsParameter
     public void setHideActiveIssue(String hideActiveIssue) {
         this.hideActiveIssue = hideActiveIssue;
     }
@@ -1974,6 +1811,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
@@ -1982,6 +1820,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return prescipt_view;
     }
 
+    @StrutsParameter
     public void setPrescipt_view(String prescipt_view) {
         this.prescipt_view = prescipt_view;
     }
@@ -2014,30 +1853,37 @@ public class CaseManagementView2Action extends ActionSupport {
         return searchText;
     }
 
+    @StrutsParameter
     public void setSearchEncounterType(String searchEncounterType) {
         this.searchEncounterType = searchEncounterType;
     }
 
+    @StrutsParameter
     public void setSearchEndDate(String searchEndDate) {
         this.searchEndDate = searchEndDate;
     }
 
+    @StrutsParameter
     public void setSearchProgramId(int searchProgramId) {
         this.searchProgramId = searchProgramId;
     }
 
+    @StrutsParameter
     public void setSearchProviderNo(String searchProviderNo) {
         this.searchProviderNo = searchProviderNo;
     }
 
+    @StrutsParameter
     public void setSearchRoleId(int searchRoleId) {
         this.searchRoleId = searchRoleId;
     }
 
+    @StrutsParameter
     public void setSearchStartDate(String searchStartDate) {
         this.searchStartDate = searchStartDate;
     }
 
+    @StrutsParameter
     public void setSearchText(String searchText) {
         this.searchText = searchText;
     }
@@ -2046,6 +1892,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return noteId;
     }
 
+    @StrutsParameter
     public void setNoteId(int noteId) {
         this.noteId = noteId;
     }
@@ -2054,6 +1901,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return this.filter_providers;
     }
 
+    @StrutsParameter
     public void setFilter_providers(String[] provs) {
         this.filter_providers = provs;
     }
@@ -2062,6 +1910,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return filter_provider;
     }
 
+    @StrutsParameter
     public void setFilter_provider(String filter_provider) {
         this.filter_provider = filter_provider;
     }
@@ -2070,6 +1919,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return filter_roles;
     }
 
+    @StrutsParameter
     public void setFilter_roles(String[] filter_roles) {
         this.filter_roles = filter_roles;
     }
@@ -2078,6 +1928,7 @@ public class CaseManagementView2Action extends ActionSupport {
         return formId;
     }
 
+    @StrutsParameter
     public void setFormId(long formId) {
         this.formId = formId;
     }

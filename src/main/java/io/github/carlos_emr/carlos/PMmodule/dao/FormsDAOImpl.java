@@ -36,18 +36,24 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.FormInfo;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
 
-public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
+@Transactional
+public class FormsDAOImpl extends AbstractHibernateDao implements FormsDAO {
 
     private Logger log = MiscUtils.getLogger();
 
     public void saveForm(Object o) {
-        this.getHibernateTemplate().save(o);
+        currentSession().save(o);
 
         if (log.isDebugEnabled()) {
             log.debug("saveForm:" + o);
@@ -61,12 +67,11 @@ public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
             throw new IllegalArgumentException();
         }
 
-        String className = clazz.getName();
-        if (className.indexOf(".") != -1) {
-            className = className.substring(className.lastIndexOf(".") + 1);
-        }
-        String sSQL = "from ?0 f where f.DemographicNo=?1";
-        List results = this.getHibernateTemplate().find(sSQL, new Object[]{className, clientId});
+        CriteriaBuilder cb = currentSession().getCriteriaBuilder();
+        CriteriaQuery<?> cq = cb.createQuery(clazz);
+        Root<?> root = cq.from(clazz);
+        cq.where(cb.equal(root.get("demographicNo"), Integer.parseInt(clientId)));
+        List<?> results = currentSession().createQuery(cq).getResultList();
         if (results.size() > 0) {
             result = results.get(0);
         }
@@ -84,25 +89,23 @@ public class FormsDAOImpl extends HibernateDaoSupport implements FormsDAO {
         }
 
         List<FormInfo> formInfos = new ArrayList<FormInfo>();
-        String className = clazz.getName();
-        if (className.indexOf(".") != -1) {
-            className = className.substring(className.lastIndexOf(".") + 1);
-        }
-        String sSQL = "select f.id,f.ProviderNo,f.FormEdited from ?0 f where f.DemographicNo=?1 order by f.FormEdited DESC";
-        Object[] params = new Object[] {
-            className,
-            Long.valueOf(clientId)
-        };
-        List results = this.getHibernateTemplate().find(sSQL, params);
+
+        CriteriaBuilder cb = currentSession().getCriteriaBuilder();
+        CriteriaQuery<Object[]> cq = cb.createQuery(Object[].class);
+        Root<?> root = cq.from(clazz);
+        cq.multiselect(root.get("id"), root.get("providerNo"), root.get("formEdited"));
+        cq.where(cb.equal(root.get("demographicNo"), Integer.parseInt(clientId)));
+        cq.orderBy(cb.desc(root.get("formEdited")));
+        List results = currentSession().createQuery(cq).getResultList();
         for (Iterator iter = results.iterator(); iter.hasNext(); ) {
             FormInfo fi = new FormInfo();
             Object[] values = (Object[]) iter.next();
-            Long id = (Long) values[0];
-            Long providerNo = (Long) values[1];
+            Integer id = (Integer) values[0];
+            String providerNo = (String) values[1];
             Date dateEdited = (Date) values[2];
-            Provider provider = this.getHibernateTemplate().get(Provider.class, String.valueOf(providerNo));
-            fi.setFormId(id);
-            fi.setProviderNo(providerNo);
+            Provider provider = currentSession().get(Provider.class, providerNo);
+            fi.setFormId(id.longValue());
+            fi.setProviderNo(Long.parseLong(providerNo));
             fi.setFormDate(dateEdited);
             fi.setProviderName(provider.getFormattedName());
             formInfos.add(fi);

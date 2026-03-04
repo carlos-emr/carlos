@@ -61,7 +61,6 @@
     <head>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.securityaddsecurity.title"/></title>
-        <script src="${pageContext.request.contextPath}/csrfguard"></script>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css">
     </head>
     <body topmargin="0" leftmargin="0" rightmargin="0">

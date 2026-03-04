@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctStyleShee
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctSelectMeasurementGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -143,6 +144,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
         return forward;
     }
 
+    @StrutsParameter
     public void setForward(String forward) {
         this.forward = forward;
     }
@@ -153,6 +155,7 @@ public class EctSelectMeasurementGroup2Action extends ActionSupport {
         return selectedGroupName;
     }
 
+    @StrutsParameter
     public void setSelectedGroupName(String selectedGroupName) {
         this.selectedGroupName = selectedGroupName;
     }

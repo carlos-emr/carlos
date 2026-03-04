@@ -70,6 +70,7 @@
 <head>
 
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.labFwdRules"/></title>
+    <link rel="stylesheet" href="${ctx}/css/fontawesome-all.min.css">
 
     <script type="text/javascript">
 
@@ -144,7 +145,7 @@
             <% }%>
         </select>
 
-        <i class="icon-question-sign"></i>
+        <i class="fa-solid fa-circle-question"></i>
         <br>
 
     </div>
@@ -187,7 +188,7 @@
                 <td>
                     <button type="submit" class="btn btn-small"
                             onclick="return removeProvider('<%= (String) ((ArrayList) frwdProviders.get(i)).get(0) %>', '<%= StringEscapeUtils.escapeEcmaScript((String) ((ArrayList) frwdProviders.get(i)).get(1)) %> <%= StringEscapeUtils.escapeEcmaScript((String) ((ArrayList) frwdProviders.get(i)).get(2)) %>')"
-                            title="remove provider"><i class="icon-trash"></i> remove
+                            title="remove provider"><i class="fa-solid fa-trash"></i> remove
                     </button>
                 </td>
             </tr>
@@ -207,7 +208,7 @@
 
         <%}%>
         <br/>
-        <button type="submit" class="btn btn-danger" onclick="return setActionClear()"><i class="icon-trash"></i> Clear
+        <button type="submit" class="btn btn-danger" onclick="return setActionClear()"><i class="fa-solid fa-trash"></i> Clear
             All Forwarding Rules
         </button>
 

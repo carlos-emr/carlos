@@ -45,10 +45,6 @@ import javax.persistence.PersistenceException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicForm;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
@@ -66,12 +62,26 @@ public class EctFormData {
     public static final String DATE_FORMAT = "dd-MM-yyyy";
     public static final String DATETIME_FORMAT = "dd-MM-yyyy HH:mm:ss";
 
+    private static final List<String> REMOVED_CAISI_FORM_NAMES = Arrays.asList(
+            "Counsellor Assessment",
+            "Discharge Summary",
+            "Reception Assessment"
+    );
+
+    public static boolean isRemovedCaisiForm(String formName) {
+        return REMOVED_CAISI_FORM_NAMES.stream().anyMatch(removedName -> removedName.equalsIgnoreCase(formName));
+    }
+
     public static Form[] getForms() {
         List<EncounterForm> results = encounterFormDao.findAll();
         Collections.sort(results, EncounterForm.BC_FIRST_COMPARATOR);
 
         ArrayList<Form> forms = new ArrayList<Form>();
         for (EncounterForm encounterForm : results) {
+            if (isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             Form frm = new Form(encounterForm.getFormName(), encounterForm.getFormValue(), encounterForm.getFormTable(), encounterForm.isHidden());
             forms.add(frm);
         }
@@ -124,6 +134,10 @@ public class EctFormData {
         // grab patient forms for all the above form types grouped by date of edit
         ArrayList<PatientForm> allResults = new ArrayList<PatientForm>();
         for (EncounterForm encounterForm : encounterForms) {
+            if (isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             String table = StringUtils.trimToNull(encounterForm.getFormTable());
             if (table != null) {
                 allResults.addAll(getGroupedPatientFormsAsArrayList(demographicId.toString(), encounterForm.getFormName(), table, encounterForm.getFormValue()));
@@ -185,6 +199,10 @@ public class EctFormData {
         // grab all patient forms for all the above form types
         ArrayList<PatientForm> allResults = new ArrayList<PatientForm>();
         for (EncounterForm encounterForm : encounterForms) {
+            if (isRemovedCaisiForm(encounterForm.getFormName())) {
+                continue;
+            }
+
             String table = StringUtils.trimToNull(encounterForm.getFormTable());
             if (table != null) {
                 allResults.addAll(getPatientFormsAsArrayList(demographicId.toString(), encounterForm.getFormName(), table));
@@ -245,54 +263,12 @@ public class EctFormData {
         return (forms);
     }
 
-    public static ArrayList<PatientForm> getRemotePatientForms(LoggedInInfo loggedInInfo, Integer demographicId, String formName, String table) {
-        ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
-        List<CachedDemographicForm> remoteForms = null;
-        table = StringUtils.trimToNull(table);
-        if (table == null) return (new ArrayList<PatientForm>());
-
-        try {
-            if (!loggedInInfo.getCurrentFacility().isIntegratorEnabled()) return (forms);
-            if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                remoteForms = demographicWs.getLinkedCachedDemographicForms(demographicId, table);
-            }
-        } catch (Exception e) {
-            logger.error("Error retriving remote forms :" + CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession()), e);
-            CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-        }
-
-
-        if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-            remoteForms = IntegratorFallBackManager.getRemoteForms(loggedInInfo, demographicId, table);
-        }
-
-        if (remoteForms == null) return (forms);
-
-        for (CachedDemographicForm cachedDemographicForm : remoteForms) {
-            Date date = cachedDemographicForm.getEditDate().getTime();
-            PatientForm frm = new PatientForm(formName, cachedDemographicForm.getFacilityIdIntegerCompositePk().getCaisiItemId(), cachedDemographicForm.getCaisiDemographicId(), date, date);
-            frm.setRemoteFacilityId(cachedDemographicForm.getFacilityIdIntegerCompositePk().getIntegratorFacilityId());
-            forms.add(frm);
-        }
-        return (forms);
-    }
-
     public static PatientForm[] getPatientForms(String demoNo, String table) {
         return (getPatientFormsAsArrayList(demoNo, null, table).toArray(new PatientForm[0]));
     }
 
     public static PatientForm[] getPatientFormsFromLocalAndRemote(LoggedInInfo loggedInInfo, String demoNo, String table) {
         ArrayList<PatientForm> results = getPatientFormsAsArrayList(demoNo, null, table);
-
-        if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            try {
-                ArrayList<PatientForm> remoteResults = getRemotePatientForms(loggedInInfo, Integer.parseInt(demoNo), null, table);
-                results.addAll(remoteResults);
-            } catch (Exception e) {
-                logger.error("Retrieving remote forms failed", e);
-            }
-        }
 
         Collections.sort(results, PatientForm.CREATED_DATE_COMPARATOR);
 
@@ -354,7 +330,6 @@ public class EctFormData {
         };
 
         public Integer formId;
-        private Integer remoteFacilityId;
         public Integer demographicId;
         public Date created;
         public Date edited;
@@ -428,14 +403,6 @@ public class EctFormData {
 
         public void setFormName(String formName) {
             this.formName = formName;
-        }
-
-        public Integer getRemoteFacilityId() {
-            return (remoteFacilityId);
-        }
-
-        public void setRemoteFacilityId(Integer remoteFacilityId) {
-            this.remoteFacilityId = remoteFacilityId;
         }
 
         /**

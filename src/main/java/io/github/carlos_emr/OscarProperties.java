@@ -56,8 +56,8 @@ import java.util.*;
  * <p><strong>Important:</strong> This is a singleton class. Do not instantiate directly.
  * Use {@link #getInstance()} to obtain the instance.</p>
  * 
- * <p><strong>Configuration File:</strong> Properties are loaded from the OpenO properties
- * file. Any changes to the properties file require a Tomcat restart to take effect.</p>
+ * <p><strong>Configuration File:</strong> Properties are loaded from the CARLOS properties
+ * file (carlos.properties). Any changes to the properties file require a Tomcat restart to take effect.</p>
  * 
  * <p><strong>Namespace Migration:</strong> This class includes validation to detect and
  * ignore deprecated namespace values (org.oscarehr.*, oscar.*) that should be migrated
@@ -182,12 +182,12 @@ public class OscarProperties extends Properties {
 
     /* Do not use this constructor. Use getInstance instead */
     private OscarProperties() {
-        MiscUtils.getLogger().debug("OSCAR PROPS CONSTRUCTOR");
+        MiscUtils.getLogger().debug("CARLOS PROPS CONSTRUCTOR");
 
         try {
-            readFromFile("/oscar_mcmaster.properties");
+            readFromFile("/carlos.properties");
 
-            String overrideProperties = System.getProperty("oscar_override_properties");
+            String overrideProperties = System.getProperty("carlos_override_properties");
             if (overrideProperties != null) {
                 MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
                 readFromFile(overrideProperties);
@@ -503,6 +503,46 @@ public class OscarProperties extends Properties {
             eform_images = Paths.get(oscarProperties.getProperty("BASE_DOCUMENT_DIR"), "eform", "images").toString();
         }
         return eform_images;
+    }
+
+    /**
+     * Returns the directory for inbound fax files awaiting import.
+     *
+     * <p>Resolution order (first non-null/non-empty value wins):</p>
+     * <ol>
+     *   <li>{@code FAX_INCOMING_DIR} property from carlos.properties (explicit override)</li>
+     *   <li>{@code BASE_DOCUMENT_DIR/fax-incoming} — consistent with DOCUMENT_DIR and EFORM_IMAGES_DIR
+     *       patterns; uses a directory that is already configured, writable, and outside the webroot</li>
+     *   <li>{@code ${catalina.base}/fax-incoming} — Tomcat instance root fallback</li>
+     *   <li>{@code ${java.io.tmpdir}/carlos-fax-incoming} — test/non-Tomcat environments only</li>
+     * </ol>
+     *
+     * @return String path to the fax incoming directory, never null
+     */
+    public String getFaxIncomingDirectory() {
+        String faxIncoming = oscarProperties.getProperty("FAX_INCOMING_DIR");
+
+        if (faxIncoming == null || faxIncoming.trim().isEmpty()) {
+            // Prefer BASE_DOCUMENT_DIR — same pattern as DOCUMENT_DIR and EFORM_IMAGES_DIR.
+            // This directory is already configured, writable by the app server, and outside the webroot.
+            String baseDocDir = oscarProperties.getProperty("BASE_DOCUMENT_DIR");
+            if (baseDocDir != null && !baseDocDir.trim().isEmpty()) {
+                faxIncoming = Paths.get(baseDocDir.trim(), "fax-incoming").toString();
+            } else {
+                // Fall back to catalina.base only if BASE_DOCUMENT_DIR is not set.
+                // NOTE: On Debian/Ubuntu package installs, catalina.base = /var/lib/tomcat9,
+                // which is a system directory the Tomcat process may not have write access to.
+                // Set FAX_INCOMING_DIR or BASE_DOCUMENT_DIR in carlos.properties to avoid this.
+                String catalinaBase = System.getProperty("catalina.base");
+                if (catalinaBase != null && !catalinaBase.trim().isEmpty()) {
+                    faxIncoming = Paths.get(catalinaBase.trim(), "fax-incoming").toString();
+                } else {
+                    // Non-Tomcat environment (tests, standalone): use system temp
+                    faxIncoming = Paths.get(System.getProperty("java.io.tmpdir"), "carlos-fax-incoming").toString();
+                }
+            }
+        }
+        return faxIncoming;
     }
 
 	/**

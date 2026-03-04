@@ -16,7 +16,6 @@
 	<package name="default" namespace="/" extends="struts-default">
         <action name="logout" class="io.github.carlos_emr.carlos.login.Logout2Action">
             <result name="success">/index.jsp</result>
-            <result name="logoutsso">/ssoLogin.do?method=ssoLogout</result>
         </action>
         <action name="lookupListManagerAction" class="io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action">
             <result name="success">/admin/lookUpLists/</result>
@@ -109,25 +108,9 @@
             <result name="caisiPMM">/PMmodule/ProviderInfo.do</result>
             <result name="forcepasswordreset">/forcepasswordreset.jsp</result>
             <result name="programLocation">/location.jsp</result>
-            <result name="ssoLogin">/ssoLogin.do</result>
             <result name="mfaHandler">/mfa/mfa_handler.jsp</result>
         </action>
         <action name="securityRecord/mfa" class="io.github.carlos_emr.carlos.security.MfaActions2Action"/>
-        <action name="ssoLogin" class="io.github.carlos_emr.carlos.login.SSOLogin2Action">
-            <result name="provider">/provider/providercontrol.jsp</result>
-            <result name="failure">/logout.jsp?login=failed</result>
-            <result name="ssoLoginError">/index.jsp</result>
-            <result name="error">/loginfailed.jsp</result>
-            <result name="caisiPMM">/PMmodule/ProviderInfo.do</result>
-            <result name="LoginTest">/login/LoginTest.jsp</result>
-            <result name="programLocation">/location.jsp</result>
-            <result name="logout">/logout.jsp</result>
-        </action>
-        <action name="econsultSSOLogin" class="io.github.carlos_emr.carlos.login.SSOLogin2Action">
-            <result name="success">/oscarEncounter/econsult.do</result>
-            <result name="error">/logout.jsp</result>
-            <result name="ssoLoginError">/index.jsp</result>
-        </action>
         <action name="login/recordLogin" class="io.github.carlos_emr.carlos.login.LoginAgreement2Action"/>
         <action name="messenger/ImportDemographic" class="io.github.carlos_emr.carlos.messenger.pageUtil.ImportDemographic2Action">
             <result name="success">/messenger/ViewMessage.do</result>
@@ -1314,7 +1297,7 @@
             <result name="genCppSingleLine">/provider/setCppSingleLine.jsp</result>
             <result name="genAckCommentLab">/provider/setLabAckComment.jsp</result>
             <result name="genLabRecallPrefs">/provider/setLabRecallPrefs.jsp</result>
-            <result name="genIntegrator">/admin/setIntegratorProperties.jsp</result>
+
             <result name="genEncounterWindowSize">/provider/setEncounterWindowSize.jsp</result>
             <result name="genQuickChartSize">/provider/setQuickChartSize.jsp</result>
             <result name="genEDocBrowserInDocumentReport">/provider/setEDocBrowserInDocumentReport.jsp</result>
@@ -1432,9 +1415,6 @@
             <result name="outside">/billing/CA/ON/billingLreport.jsp</result>
             <result name="error">/billing/CA/ON/billingOBECEA.jsp</result>
         </action>
-        <!--action name="PMmodule/remoteReferal" class="oscar.remotereferal.OscarRemoteReferal2Action">
-            <result name="success">/eform/efmshowform_data.jsp</result>
-        </action-->
         <action name="oscarWaitingList/SetupDisplayPatientWaitingList" class="io.github.carlos_emr.carlos.waitinglist.pageUtil.WLSetupDisplayPatientWaitingList2Action">
             <result name="continue">/oscarWaitingList/DisplayPatientWaitingList.jsp</result>
         </action>
@@ -1511,6 +1491,8 @@
         <action name="tickler/AddTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.AddTickler2Action">
             <result name="close">/close.html</result>
         </action>
+        <action name="tickler/ListTicklers" class="io.github.carlos_emr.carlos.tickler.pageUtil.TicklerList2Action"/>
+
         <action name="eform/uploadHtml" class="io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action">
             <result name="success">/eform/partials/upload.jsp</result>
             <result name="fail">/eform/partials/upload.jsp</result>
@@ -2004,24 +1986,11 @@
         <action name="hospitalReportManager/Display" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action">
             <result name="display" type="dispatcher">/hospitalReportManager/displayHRMReport.jsp</result>
         </action>
-        <action name="hospitalReportManager/hrmKeyUploader" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMUploadKey2Action">
-            <result name="success">/hospitalReportManager/hrmPreferences.jsp</result>
-        </action>
-        <action name="hospitalReportManager/UploadLab" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMUploadLab2Action">
-            <interceptor-ref name="defaultStack"/>
-            <result name="success">/hospitalReportManager/hospitalReportManager.jsp</result>
-        </action>
         <action name="hospitalReportManager/Modify" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action">
             <result name="ajax">/hospitalReportManager/ajaxResponse.jsp</result>
         </action>
         <action name="hospitalReportManager/Statement" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action">
             <result name="success">/hospitalReportManager/hospitalReportManager.jsp</result>
-        </action>
-        <action name="hospitalReportManager/Mapping" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMMapping2Action">
-            <result name="success">/hospitalReportManager/hrmShowMapping.jsp</result>
-        </action>
-        <action name="hospitalReportManager/HRMPreferences" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMPreferences2Action">
-            <result name="success">/hospitalReportManager/hrmPreferences.jsp</result>
         </action>
         <action name="hospitalReportManager/HRMDownloadFile" class="io.github.carlos_emr.carlos.hospitalReportManager.HRMDownloadFile2Action"/>
         <action name="hospitalReportManager/hrm" class="io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action"/>
@@ -2224,7 +2193,7 @@
         </action>
         <!--action name="consults/Consultations" class="org.oscarehr.consultations.Consultation2Action"/-->
         <action name="DemographicExtService" class="io.github.carlos_emr.carlos.commn.web.DemographicExtService2Action"/>
-        <action name="integrator/IntegratorPush" class="io.github.carlos_emr.carlos.commn.web.IntegratorPush2Action"/>
+
         <action name="printReferralLabelAction" class="io.github.carlos_emr.carlos.commn.web.PrintReferralLabel2Action"/>
         <action name="billing/CA/ON/billingON3rdPayments" class="io.github.carlos_emr.carlos.billing.CA.ON.web.BillingONPayments2Action" method="execute">
             <result name="success">/billing/CA/ON/billingON3rdPayments.jsp</result>

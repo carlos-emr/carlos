@@ -28,6 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -44,6 +45,10 @@
     if (!authed) {
         return;
     }
+    if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+        return;
+    }
 %>
 <%@ page
         import="java.sql.*, io.github.carlos_emr.carlos.login.*, java.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*,io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
@@ -57,7 +62,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderArchive" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="org.apache.commons.beanutils.BeanUtils" %>
+<%@page import="org.springframework.beans.BeanUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderSite" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderSitePK" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao" %>
@@ -157,7 +162,7 @@
                 ProviderArchiveDao providerArchiveDao = (ProviderArchiveDao) SpringUtils.getBean(ProviderArchiveDao.class);
                 Provider provider = providerDao.getProvider(request.getParameter("provider_no"));
                 ProviderArchive pa = new ProviderArchive();
-                BeanUtils.copyProperties(pa, provider);
+                BeanUtils.copyProperties(provider, pa);
                 pa.setId(null);
                 providerArchiveDao.persist(pa);
 
@@ -227,7 +232,7 @@
         %>
         <p>
         <h2><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.providerupdate.msgUpdateSuccess"/>
-            <a href="providerupdateprovider.jsp?keyword=<%=request.getParameter("provider_no")%>"><%= request.getParameter("provider_no") %>
+            <a href="providerupdateprovider.jsp?keyword=<%=Encode.forUriComponent(request.getParameter("provider_no"))%>"><%= Encode.forHtml(request.getParameter("provider_no")) %>
             </a>
         </h2>
         <%

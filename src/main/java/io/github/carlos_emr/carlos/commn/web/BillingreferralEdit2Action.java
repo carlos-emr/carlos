@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class BillingreferralEdit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -231,6 +232,7 @@ public class BillingreferralEdit2Action extends ActionSupport {
         return search;
     }
 
+    @StrutsParameter
     public void setSearch(String search) {
         this.search = search;
     }

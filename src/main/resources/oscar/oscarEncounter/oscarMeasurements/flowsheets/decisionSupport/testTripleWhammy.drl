@@ -1,146 +1,195 @@
-<?xml version="1.0"?>
+// Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+// Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+//
+// This software is published under the GPL GNU General Public License.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+//
+// Originally written for the Department of Family Medicine, McMaster University.
+// Now maintained by the CARLOS EMR Project.
+// https://github.com/carlos-emr/carlos
+//
+// Modifications by CARLOS Contributors, 2026.
 
+// ============================================================================
+// CARLOS EMR - Clinical Report Numerator: Triple Target ("Triple Whammy")
+// ============================================================================
+//
+// Purpose:
+//   Population health reporting rule counting patients who meet ALL THREE
+//   diabetes management targets simultaneously:
+//     1. A1C <7.0% (or <0.07 in fraction format) - glycemic control
+//     2. Systolic BP <131 mmHg - blood pressure control
+//     3. LDL <2.0 mmol/L - lipid control
+//   This is the "Triple Whammy" composite indicator - a measure of
+//   comprehensive diabetes care quality.
+//
+// How It Works:
+//   This is the most complex clinical report rule file. It evaluates
+//   three measurements sequentially using the isInRange() flag as a
+//   running "AND" condition:
+//     1. LDL rules fire first - set isInRange based on LDL
+//     2. BP rules check both BP value AND isInRange from step 1
+//     3. A1C rules check both A1C value AND isInRange from step 2
+//   If any measurement is missing or above target, isInRange is set to
+//   false, which prevents subsequent rules from setting it back to true.
+//
+// Referenced By:
+//   - XML: ClinicalReports.xml, Numerator id="valTripWham"
+//   - Java: DroolsNumerator compiles and fires for each denominator patient
+//   - Displayed in: Clinical Reports interface
+//
+// Fact: MeasurementDSHelper - setMeasurement() loads each measurement type
+//   sequentially, isInRange() tracks cumulative pass/fail state.
+// ============================================================================
+package ReportTripleWhammy;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
-<rule-set name="ReportA1C"
-          xmlns="http://drools.org/rules"
-          xmlns:java="http://drools.org/semantics/java"
-          xmlns:xs="http://www.w3.org/2001/XMLSchema-instance"
-          xs:schemaLocation="http://drools.org/rules rules.xsd
-                             http://drools.org/semantics/java java.xsd">
+// --------------------------------------------------------------------------
+// STEP 1: LDL Cholesterol evaluation (first gate in the triple AND chain)
+// LDL at target: <2.0 mmol/L per CCS guidelines for diabetes patients
+// setMeasurement("LDL") loads the patient's latest LDL value and returns
+// true if a record exists, false if the patient has no LDL on file.
+// --------------------------------------------------------------------------
 
-    <rule name="LDL">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("LDL") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &lt; 2.0</java:condition>       
-        <java:consequence>     
-              m.log("LDL RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
+// LDL PASS: Patient has LDL <2.0 - sets inRange=true to allow next gate
+rule "LDL"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("LDL") == true )
+        eval( m.getDataAsDouble() < 2.0 )
+    then
+        m.log("LDL RULES IS GETTING RUN");
+        m.setInRange(true);
+end
 
-    <rule name="LDL_1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("LDL") == false</java:condition>       
-        <java:consequence>     
-              m.log("LDL_1 RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
+// LDL MISSING: No LDL on file - fails the triple target (inRange=false)
+rule "LDL_1"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("LDL") == false )
+    then
+        m.log("LDL_1 RULES IS GETTING RUN");
+        m.setInRange(false);
+end
 
+// --------------------------------------------------------------------------
+// STEP 2: Blood Pressure evaluation (second gate - requires LDL pass)
+// BP at target: systolic <131 mmHg (Diabetes Canada target <130/80)
+// getNumberFromSplit("/",0) extracts systolic from "systolic/diastolic" string
+// NOTE: Only checks systolic, not diastolic (simpler than full <130/80 check)
+// The isInRange() check on the PASS rule means BP only contributes to the
+// composite if LDL already passed. If LDL failed, BP PASS won't fire.
+// --------------------------------------------------------------------------
 
+// BP MISSING: No BP on file - fails the triple target
+rule "BP_3"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("BP") == false )
+    then
+        m.log("NO BP records");
+        m.setInRange(false);
+end
 
-    <rule name="BP_3">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("BP") == false</java:condition>       
-        <java:consequence>     
-              m.log("NO BP records");
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
+// BP PASS: Systolic <131 AND previous gates passed (isInRange==true)
+rule "BP"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("BP") == true )
+        eval( m.getNumberFromSplit("/",0) < 131 )
+        eval( m.isInRange() == true )
+    then
+        m.log("BP RULES IS GETTING RUN");
+        m.setInRange(true);
+end
 
-   <rule name="BP">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("BP") == true</java:condition>       
-        <java:condition>m.getNumberFromSplit("/",0) &lt; 131</java:condition>   
-        <java:condition>m.isInRange() == true</java:condition>
-        <java:consequence>     
-              m.log("BP RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
+// BP FAIL: Systolic >=131 - fails regardless of previous gate status
+rule "BP_2"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("BP") == true )
+        eval( m.getNumberFromSplit("/",0) >= 131 )
+    then
+        m.log("BP2 RULES IS GETTING RUN");
+        m.setInRange(false);
+end
 
+// --------------------------------------------------------------------------
+// STEP 3: A1C evaluation (third/final gate - requires LDL+BP pass)
+// A1C at target: <7.0% (percentage) or <0.07 (fraction format)
+// Handles both formats with separate pass/fail rule pairs.
+// The isInRange() check on PASS rules means A1C only contributes to the
+// composite if both LDL and BP already passed.
+// --------------------------------------------------------------------------
 
-    <rule name="BP_2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("BP") == true</java:condition>       
-        <java:condition>m.getNumberFromSplit("/",0) &gt;= 131</java:condition>   
-        <java:consequence>     
-              m.log("BP2 RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
+// A1C MISSING: No A1C on file - fails the triple target
+rule "A1C_3"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("A1C") == false )
+    then
+        m.log("No A1C Records");
+        m.setInRange(false);
+end
 
+// A1C PASS (percentage): <7.0% AND >=2.0 (excludes fraction format)
+// AND previous gates passed (isInRange==true)
+rule "A1C_1"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("A1C") == true )
+        eval( m.getDataAsDouble() < 7.0 )
+        eval( m.getDataAsDouble() >= 2.0 )
+        eval( m.isInRange() == true )
+    then
+        m.log("A1C RULES IS GETTING RUN");
+        m.setInRange(true);
+end
 
-    
+// A1C FAIL (percentage): >=7.0% - fails regardless of previous gate status
+rule "A1C_1_2"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("A1C") == true )
+        eval( m.getDataAsDouble() >= 7.0 )
+    then
+        m.log("A1C_1_2 RULES IS GETTING RUN");
+        m.setInRange(false);
+end
 
-  
-    <rule name="A1C_3">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == false</java:condition>       
-        <java:consequence>     
-              m.log("No A1C Records");
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
+// A1C PASS (fraction): <0.07 AND previous gates passed (isInRange==true)
+rule "A1C_2"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("A1C") == true )
+        eval( m.getDataAsDouble() < 0.07 )
+        eval( m.isInRange() == true )
+    then
+        m.log("A1C RULES IS GETTING RUN");
+        m.setInRange(true);
+end
 
-
-    <rule name="A1C_1">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &lt; 7.0</java:condition> 
-        <java:condition>m.getDataAsDouble() &gt;= 2.0</java:condition>
-        <java:condition>m.isInRange() == true</java:condition>      
-        <java:consequence>     
-              m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
-
-    <rule name="A1C_1_2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &gt;= 7.0</java:condition>              
-        <java:consequence>     
-              m.log("A1C_1_2 RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
-
-    
-    <rule name="A1C_2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &lt; 0.07</java:condition>       
-        <java:condition>m.isInRange() == true</java:condition> 
-        <java:consequence>     
-              m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(true);
-        </java:consequence>
-    </rule>
-
-
-    <rule name="A1C_2_2">
-        <parameter identifier="m">
-            <class>io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper</class>
-        </parameter>
-        <java:condition>m.setMeasurement("A1C") == true</java:condition>       
-        <java:condition>m.getDataAsDouble() &gt;= 0.07</java:condition>  
-        <java:condition>m.getDataAsDouble() &lt;= 2.0</java:condition>    
-        <java:consequence>     
-              m.log("A1C RULES IS GETTING RUN"+m.getDataAsDouble());
-              m.setInRange(false);
-        </java:consequence>
-    </rule>
-
-</rule-set>
-
-
+// A1C FAIL (fraction): >=0.07 AND <=2.0 (fraction range) - fails
+rule "A1C_2_2"
+    when
+        m : MeasurementDSHelper()
+        eval( m.setMeasurement("A1C") == true )
+        eval( m.getDataAsDouble() >= 0.07 )
+        eval( m.getDataAsDouble() <= 2.0 )
+    then
+        m.log("A1C RULES IS GETTING RUN");
+        m.setInRange(false);
+end

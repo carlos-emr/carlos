@@ -29,7 +29,7 @@
  */
 package io.github.carlos_emr.carlos.tickler.web;
 
-import io.github.carlos_emr.carlos.test.base.OpenOWebTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.tickler.pageUtil.AddTickler2Action;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -87,13 +87,13 @@ import java.util.Date;
  * ensuring HIPAA/PIPEDA compliance for patient data access.
  *
  * @see AddTickler2Action
- * @see OpenOWebTestBase
+ * @see CarlosWebTestBase
  * @see TicklerManager
  * @author yingbull
  * @since 2025-09-15
  */
 @DisplayName("AddTickler2Action Web Layer Tests")
-class AddTickler2ActionTest extends OpenOWebTestBase {
+class AddTickler2ActionTest extends CarlosWebTestBase {
 
     /** Mocked TicklerManager for business logic isolation */
     @Mock

@@ -37,20 +37,23 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /*
  * Updated by Eugene Petruhin on 09 jan 2009 while fixing #2482832 & #2494061
  */
-public class CaseManagementCPPDAOImpl extends HibernateDaoSupport implements CaseManagementCPPDAO {
+@Transactional
+public class CaseManagementCPPDAOImpl extends AbstractHibernateDao implements CaseManagementCPPDAO {
 
     private Logger log = MiscUtils.getLogger();
 
     @Override
     public CaseManagementCPP getCPP(String demographic_no) {
-        List results = this.getHibernateTemplate().find(
-                "from CaseManagementCPP cpp where cpp.demographic_no = ?0 order by update_date desc",
-                new Object[]{demographic_no});
+        List results = HqlQueryHelper.find(currentSession(),
+                "from CaseManagementCPP cpp where cpp.demographic_no = ?1 order by update_date desc",
+                demographic_no);
         return (results.size() != 0) ? (CaseManagementCPP) results.get(0) : null;
     }
 
@@ -80,7 +83,7 @@ public class CaseManagementCPPDAOImpl extends HibernateDaoSupport implements Cas
             log.debug("Saving or updating a CPP: " + cpp);
         }
 
-        this.getHibernateTemplate().saveOrUpdate(cpp);
+        currentSession().saveOrUpdate(cpp);
 
     }
 }

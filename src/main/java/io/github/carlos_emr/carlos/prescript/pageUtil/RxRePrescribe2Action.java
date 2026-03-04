@@ -55,6 +55,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RxRePrescribe2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -560,6 +561,7 @@ public String saveDigitalSignature() throws IOException {
         return this.drugList;
     }
 
+    @StrutsParameter
     public void setDrugList(String RHS) {
         this.drugList = RHS;
     }

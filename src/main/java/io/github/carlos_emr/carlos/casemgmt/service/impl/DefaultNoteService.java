@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service.impl;
 
-import java.net.MalformedURLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -43,9 +42,6 @@ import java.util.Map;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicNote;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicNoteCompositePk;
 import io.github.carlos_emr.carlos.casemgmt.common.EChartNoteEntry;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
@@ -55,7 +51,6 @@ import io.github.carlos_emr.carlos.casemgmt.service.NoteSelectionCriteria;
 import io.github.carlos_emr.carlos.casemgmt.service.NoteSelectionResult;
 import io.github.carlos_emr.carlos.casemgmt.service.NoteService;
 import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay;
-import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayIntegrator;
 import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal;
 import io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -132,25 +127,6 @@ public class DefaultNoteService implements NoteService {
         }
 
         logger.debug("FETCHED " + notes.size() + " NOTE META IN " + (System.currentTimeMillis() - intTime) + "ms");
-        intTime = System.currentTimeMillis();
-
-        List<CachedDemographicNote> remoteNotesInfo = getRemoteNoteIds(loggedInInfo, demographicId);
-        if (remoteNotesInfo != null) {
-            for (CachedDemographicNote note : remoteNotesInfo) {
-                EChartNoteEntry e = new EChartNoteEntry();
-                e.setId(note.getCachedDemographicNoteCompositePk());
-                e.setDate(note.getObservationDate().getTime());
-                e.setProviderNo(note.getObservationCaisiProviderId());
-                e.setRole(note.getRole());
-                e.setType("remote_note");
-                entries.add(e);
-            }
-        }
-
-        if (remoteNotesInfo != null) {
-            logger.debug("FETCHED " + remoteNotesInfo.size() + " REMOTE NOTE META IN "
-                    + (System.currentTimeMillis() - intTime) + "ms");
-        }
         intTime = System.currentTimeMillis();
 
         List<GroupNoteLink> groupNotesInfo = this.getGroupNoteIds(loggedInInfo, demographicId);
@@ -304,15 +280,12 @@ public class DefaultNoteService implements NoteService {
         if (slice.size() > 0) {
             // figure out what we need to retrieve
             List<Long> localNoteIds = new ArrayList<Long>();
-            List<CachedDemographicNoteCompositePk> remoteNoteIds = new ArrayList<CachedDemographicNoteCompositePk>();
             List<Long> groupNoteIds = new ArrayList<Long>();
             List<Integer> invoiceIds = new ArrayList<Integer>();
 
             for (EChartNoteEntry entry : slice) {
                 if (entry.getType().equals("local_note")) {
                     localNoteIds.add((Long) entry.getId());
-                } else if (entry.getType().equals("remote_note")) {
-                    remoteNoteIds.add((CachedDemographicNoteCompositePk) entry.getId());
                 } else if (entry.getType().equals("invoice")) {
                     invoiceIds.add((Integer) entry.getId());
                 } else if (entry.getType().equals("group_note")) {
@@ -323,19 +296,6 @@ public class DefaultNoteService implements NoteService {
             List<CaseManagementNote> localNotes = caseManagementNoteDao.getNotes(localNoteIds);
 
             logger.debug("FETCHED " + localNotes.size() + " NOTES IN " + (System.currentTimeMillis() - intTime) + "ms");
-            intTime = System.currentTimeMillis();
-
-            List<CachedDemographicNote> remoteNotes = new ArrayList<CachedDemographicNote>();
-            if (remoteNoteIds != null && remoteNoteIds.size() > 0) {
-                try {
-                    remoteNotes = CaisiIntegratorManager.getLinkedNotes(loggedInInfo, remoteNoteIds);
-                } catch (MalformedURLException e) {
-                    logger.error("Unable to load linked notes", e);
-                }
-            }
-
-            logger.debug("FETCHED " + remoteNotes.size() + " REMOTE NOTES IN " + (System.currentTimeMillis() - intTime)
-                    + "ms");
             intTime = System.currentTimeMillis();
 
             List<CaseManagementNote> groupNotes = caseManagementNoteDao.getNotes(groupNoteIds);
@@ -355,9 +315,6 @@ public class DefaultNoteService implements NoteService {
             for (EChartNoteEntry entry : slice) {
                 if (entry.getType().equals("local_note")) {
                     notesToDisplay.add(new NoteDisplayLocal(loggedInInfo, findNote((Long) entry.getId(), localNotes)));
-                } else if (entry.getType().equals("remote_note")) {
-                    notesToDisplay.add(new NoteDisplayIntegrator(loggedInInfo,
-                            findRemoteNote((CachedDemographicNoteCompositePk) entry.getId(), remoteNotes)));
                 } else if (entry.getType().equals("eform")) {
                     notesToDisplay.add(new NoteDisplayNonNote(findEform((String) entry.getId(), eForms)));
                 } else if (entry.getType().equals("encounter_form")) {
@@ -466,40 +423,6 @@ public class DefaultNoteService implements NoteService {
             }
         }
         return null;
-    }
-
-    private List<CachedDemographicNote> getRemoteNoteIds(LoggedInInfo loggedInInfo, int demographicNo) {
-        if (loggedInInfo == null) {
-            return null;
-        }
-
-        // Facility may be null for OAuth authentication - integrator is not enabled in that case
-        if (loggedInInfo.getCurrentFacility() == null || !loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-            return null;
-        }
-
-        List<CachedDemographicNote> linkedNotes = null;
-        try {
-            if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                linkedNotes = CaisiIntegratorManager.getLinkedNotesMetaData(loggedInInfo, demographicNo);
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-
-            CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-        }
-
-        if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-            // TODO: No idea how this works
-            // linkedNotes = IntegratorFallBackManager.getLinkedNotes(demographicNo);
-        }
-
-        if (linkedNotes == null) {
-            return null;
-        }
-
-        return linkedNotes;
-
     }
 
     private List<GroupNoteLink> getGroupNoteIds(LoggedInInfo loggedInInfo, int demographicNo) {
@@ -645,18 +568,6 @@ public class DefaultNoteService implements NoteService {
         for (CaseManagementNote note : notes) {
             if (id.equals(note.getId())) {
                 notes.remove(note);
-                return note;
-            }
-        }
-        return null;
-    }
-
-    private CachedDemographicNote findRemoteNote(CachedDemographicNoteCompositePk id,
-                                                 List<CachedDemographicNote> notes) {
-        for (CachedDemographicNote note : notes) {
-            if (id.getIntegratorFacilityId()
-                    .equals(note.getCachedDemographicNoteCompositePk().getIntegratorFacilityId())
-                    && id.getUuid().equals(note.getCachedDemographicNoteCompositePk().getUuid())) {
                 return note;
             }
         }

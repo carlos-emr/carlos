@@ -250,6 +250,7 @@ public class ManageEmails2Action extends ActionSupport {
         request.setAttribute("receiverEmailList", receiverEmailList[0]);
         request.setAttribute("invalidReceiverEmailList", receiverEmailList[1]);
         request.setAttribute("senderAccounts", senderAccounts);
+        request.setAttribute("senderConfigId", emailLog.getEmailConfig() != null ? emailLog.getEmailConfig().getId() : null);
         request.setAttribute("senderEmail", emailLog.getFromEmail());
         request.setAttribute("subjectEmail", emailLog.getSubject());
         request.setAttribute("bodyEmail", emailLog.getBody());

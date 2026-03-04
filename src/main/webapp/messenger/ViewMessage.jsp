@@ -31,54 +31,68 @@
 
 <%--
   ViewMessage.jsp - Primary message viewing interface
-  
+
   This comprehensive JSP page displays individual messages with full details,
   attachments, and action options. It supports viewing messages from various
   sources including inbox, sent items, and demographic-specific messages.
-  
+
   Main features:
   - Full message display with sender, recipients, subject, body
   - Attachment viewing and download capabilities
   - Reply, forward, and delete actions
   - Integration with case management notes
-  - Support for resident/supervisor message approval workflow
   - PDF attachment preview
-  - Message thread navigation
-  
+  - Markdown rendering via Toast UI Editor viewer mode
+  - XSS-safe HTML sanitization for rendered markdown content
+
   Security:
   - Requires "_msg" object with read ("r") permissions
   - Validates user access to specific messages
-  
+  - DOMPurify sanitizes rendered HTML to prevent XSS
+
   Request parameters:
   - messageID: Unique identifier of message to view
   - boxType: Source mailbox (inbox, sent, deleted)
   - demographic_no: Associated patient ID if applicable
-  - providerview: Filter for provider-specific views
-  - bFirstDisp: First display flag for marking as read
-  
+
+  Frontend Dependencies:
+  - Bootstrap 5.0.2 (responsive layout and button styles)
+  - Font Awesome 6.x (icons for reply, forward, delete, etc.)
+  - Toast UI Editor 3.x (viewer mode for markdown-formatted message bodies)
+
   Integration points:
   - Case management notes for clinical documentation
-  - Resident supervision workflow
   - PDF document management
   - Patient encounter system
-  
-  @since 2003
+
+  @since 2002-11-08
 --%>
 
-<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" %>
-<%@page import="java.util.Set" %>
-<%@page import="java.util.List" %>
 <%@page import="java.util.HashMap" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ResidentOscarMsg" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ResidentOscarMsgDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.OscarMsgType" %>
+<%@ page import="java.util.List" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.OscarMsgType" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions" prefix="fn" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<fmt:setBundle basename="oscarResources"/>
 <%
     // Retrieve user information from session
     String providerNo = (String) session.getAttribute("providerNo");
     String curUser_no = (String) session.getAttribute("user");
-    String roleName$ = (String) session.getAttribute("userrole") + "," + curUser_no;
+    String userrole = (String) session.getAttribute("userrole");
+    String roleName$ = (userrole != null ? userrole : "") + "," + (curUser_no != null ? curUser_no : "");
 
     boolean authed = true;
 %>
@@ -91,448 +105,481 @@
         return;
     }
 %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-
 
 <%
-    String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
-    boolean bFirstDisp = true; //this is the first time to display the window
-    if (request.getParameter("bFirstDisp") != null) bFirstDisp = (request.getParameter("bFirstDisp")).equals("true");
+    // bodyTextAsHTML: the message body content retrieved from session for display.
+    String bodyTextAsHTML = (String) session.getAttribute("viewMessageMessage");
+    if (bodyTextAsHTML == null) {
+        bodyTextAsHTML = "";
+    }
 %>
-<%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.*, java.util.Enumeration" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-
-<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
-
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
-<%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
-<%@taglib prefix="Encode" uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" %>
-
-
+<!DOCTYPE html>
 <html>
-    <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+<head>
+    <title><fmt:message key="messenger.ViewMessage.title" /></title>
+    <!-- js -->
+    <script src="<%=request.getContextPath() %>/js/global.js"></script>
+    <script src="<%=request.getContextPath() %>/library/dompurify/purify.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/toastui/toastui-editor-all.min.js"></script>
+    <script src="<%=request.getContextPath() %>/messenger/messenger-common.js"></script>
+    <!-- css -->
+    <link href="<%=request.getContextPath() %>/library/toastui/toastui-editor.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
+<%
+String boxType = request.getParameter("boxType");
+%>
 
-        <link rel="stylesheet" type="text/css" href="encounterStyles.css"
-              media="screen">
-        <link rel="stylesheet" type="text/css" href="printable.css"
-              media="print">
+<script>
+// Opens attachment in a popup window; routes to the encounter window if the URL contains IncomingEncounter
+function popupViewAttach(vheight,vwidth,varpage) {
+  var page = varpage;
+  windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
+  var winName;
 
-        <%
-            String boxType = request.getParameter("boxType");
-        %>
+  if( page.indexOf("IncomingEncounter.do") > -1 ) {
+    winName = "encounter";
+  }
+  else {
+    winName = "oscarMVA";
+  }
 
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.title"/></title>
-
-
-        <script type="text/javascript">
-            function BackToOscar() {
-                if (opener.callRefreshTabAlerts) {
-                    opener.callRefreshTabAlerts("oscar_new_msg");
-                    setTimeout("window.close()", 100);
-                } else {
-                    window.close();
-                }
-            }
-
-            function popupViewAttach(vheight, vwidth, varpage) { //open a new popup window
-                var page = varpage;
-                windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-                var winName;
-
-                if (page.indexOf("IncomingEncounter.do") > -1) {
-                    winName = "encounter";
-                } else {
-                    winName = "oscarMVA";
-                }
-
-                var popup = window.open(varpage, winName, windowprops);
-                if (popup != null) {
-                    if (popup.opener == null) {
-                        popup.opener = self;
-                    }
-                }
+  var popup=window.open(varpage, winName, windowprops);
+  if (popup != null) {
+    if (popup.opener == null) {
+      popup.opener = self;
+    }
+  }
 
 
-            }
+}
 
-            function popup(demographicNo, msgId, providerNo, action) { //open a new popup window
-                var vheight = 700;
-                var vwidth = 980;
+// Handles demographic-related actions: writing message content to encounter notes
+// or linking this message to a patient demographic record.
+// When action is "writeToEncounter", attempts multiple strategies to paste the
+// formatted message into the encounter note editor (direct, Angular, or form POST).
+// When action is "linkToDemographic", submits a form to associate the demographic.
+function popup(demographicNo, msgId, providerNo, action) {
+  var vheight = 700;
+  var vwidth = 980;
 
-                if (demographicNo != null && demographicNo != "") {
-                    //alert("demographicNo is not null!");
-                    windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-                    var page = "";
-                    var win;
-                    var today = "<%=session.getAttribute("today")%>";
-                    var header = "messenger";
-                    var encType = "messenger";
-                    var txt;
+  if (demographicNo!=null &&  demographicNo!="" ){
+      windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
+      var page = "";
+      var win;
+      var txt;
 
-                    //note editor in new ui
-                    var noteEditorId = "noteEditor" + demographicNo;
-                    var noteEditor = window.parent.opener.document.getElementById(noteEditorId);
-                    var ngApp = window.parent.opener.document.body.parentElement.getAttribute("ng-app");
+      //note editor in new ui
+      var noteEditorId = "noteEditor"+demographicNo;
+      var noteEditor;
+      var ngApp;
+      if (window.parent.opener){
+        noteEditor = window.parent.opener.document.getElementById(noteEditorId);
+        var ngApp = window.parent.opener.document.body.parentElement.getAttribute("ng-app");
+        }
 
-                    if (action == "writeToEncounter") {
-                        win = window.open("", "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>");
-                        if (win.pasteToEncounterNote && win.demographicNo == demographicNo) {
-                            txt = fmtOscarMsg();
-                            win.pasteToEncounterNote(txt);
-                        } else if (noteEditor != undefined) {
-                            win.close();
-                            txt = "\n" + fmtOscarMsg();
-                            noteEditor.value = noteEditor.value + txt;
-                        } else if (noteEditor == undefined && ngApp != undefined) {
-                            win.close();
-                            txt = "\n" + fmtOscarMsg();
-                            getAngJsPath = window.opener.location.href;
-                            newAngJsPath = getAngJsPath.substring(0, getAngJsPath.indexOf('#') + 2) + "record/" + demographicNo + "/summary?noteEditorText=" + encodeURI(txt);
-                            window.opener.location.href = newAngJsPath;
-                        } else {
-                            win.close();
-                            page = 'WriteToEncounter.do?demographic_no=' + demographicNo + '&msgId=' + msgId + '&providerNo=' + providerNo + '&encType=messenger';
-                            var popUp = window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
-                            if (popUp != null) {
-                                if (popUp.opener == null) {
-                                    popUp.opener = self;
-                                }
-                                popUp.focus();
-                            }
-                        }
-                    } else if (action == "linkToDemographic") {
-                        page = 'ViewMessage.do?linkMsgDemo=true&demographic_no=' + demographicNo + '&messageID=' + msgId + '&providerNo=' + providerNo;
-                        window.location = page;
-                    }
-                }
+      if ( action == "writeToEncounter") {
+          win = window.open("","<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>");
+          if ( win.pasteToEncounterNote && win.demographicNo == demographicNo ) {
+            txt = fmtOscarMsg();
+            win.pasteToEncounterNote(txt);
+          } else if ( noteEditor != undefined ){
+        	win.close();
+        	txt = "\n" + fmtOscarMsg();
+        	noteEditor.value = noteEditor.value + txt;
+          } else if ( noteEditor == undefined && ngApp != undefined ){
+        	  win.close();
+        	  txt = "\n" + fmtOscarMsg();
+        	  var openerRef = window.parent.opener || window.opener;
+        	  if (openerRef) {
+        	      getAngJsPath = openerRef.location.href;
+        	      newAngJsPath = getAngJsPath.substring(0, getAngJsPath.indexOf('#')+2) + "record/" + demographicNo + "/summary?noteEditorText=" + encodeURI(txt);
+        	      openerRef.location.href = newAngJsPath;
+        	  }
+          } else {
+              win.close();
+              var writeForm = document.createElement('form');
+              writeForm.method = 'post';
+              writeForm.action = 'WriteToEncounter.do';
+              writeForm.target = "<fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>";
+              var writeFields = {'demographic_no': demographicNo, 'msgId': msgId, 'providerNo': providerNo, 'encType': 'messenger'};
+              for (var k in writeFields) {
+                  var inp = document.createElement('input');
+                  inp.type = 'hidden'; inp.name = k; inp.value = writeFields[k];
+                  writeForm.appendChild(inp);
+              }
+              document.body.appendChild(writeForm);
+              var popUp = window.open('', writeForm.target, windowprops);
+              writeForm.submit();
+              if (popUp != null) {
+                  if (popUp.opener == null) {
+                      popUp.opener = self;
+                  }
+                  popUp.focus();
+              }
+          }
+      }
+      else if ( action == "linkToDemographic"){
+          var linkForm = document.createElement('form');
+          linkForm.method = 'post';
+          linkForm.action = 'ViewMessage.do';
+          var linkFields = {'linkMsgDemo': 'true', 'demographic_no': demographicNo, 'messageID': msgId, 'providerNo': providerNo};
+          for (var lk in linkFields) {
+              var li = document.createElement('input');
+              li.type = 'hidden'; li.name = lk; li.value = linkFields[lk];
+              linkForm.appendChild(li);
+          }
+          document.body.appendChild(linkForm);
+          linkForm.submit();
+      }
+  }
 
-            }
+}
 
-            function popupStart(vheight, vwidth, varpage, windowname) {
-                var page = varpage;
-                windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
-                var popup = window.open(varpage, windowname, windowprops);
-            }
+function popupStart(vheight,vwidth,varpage,windowname) {
+    var page = varpage;
+    windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
+    var popup=window.open(varpage, windowname, windowprops);
+}
 
-            function popupSearchDemo(keyword) { // open a new popup window
-                var vheight = 700;
-                var vwidth = 980;
-                windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
-                var page = 'msgSearchDemo.jsp?keyword=' + keyword + '&firstSearch=' + true;
-                var popUp = window.open(page, "msgSearchDemo", windowprops);
-                if (popUp != null) {
-                    if (popUp.opener == null) {
-                        popUp.opener = self;
-                    }
-                    popUp.focus();
-                }
-            }
+// Formats the current message fields (from, to, date, subject, body) into a
+// plain text string suitable for pasting into encounter notes
+function fmtOscarMsg() {
+    txt = "From: ";
+    tmp = document.getElementById("sentBy").innerHTML;
+    tmp = tmp.replace(/^\s+|\s+$/g,"");
+    txt += tmp;
+    txt += "\nTo: ";
+    tmp = document.getElementById("sentTo").innerHTML;
+    tmp = tmp.replace(/^\s+|\s+$/g,"");
+    txt += tmp;
+    txt += "\nDate: ";
+    tmp = document.getElementById("sentDate").innerHTML;
+    tmp = tmp.replace(/\s+|\n+/g,"");
+    tmp = tmp.replace(/&nbsp;/g," ");
+    txt += tmp;
+    txt += "\nSubject: ";
+    tmp = document.getElementById("msgSubject").innerHTML;
+    tmp = tmp.replace(/^\s+|\s+$/g,"");
+    txt += tmp;
+    txt += "\n\n";
+    tmp = document.getElementById("msgBody").innerHTML;
+    tmp = tmp.replace(/^\s+|\s+$/g,"");
+    txt += tmp;
 
-            //format msg for pasting into encounter
-            function fmtOscarMsg() {
-                txt = "From: ";
-                tmp = document.getElementById("sentBy").innerHTML;
-                tmp = tmp.replace(/^\s+|\s+$/g, "");
-                txt += tmp;
-                txt += "\nTo: ";
-                tmp = document.getElementById("sentTo").innerHTML;
-                tmp = tmp.replace(/^\s+|\s+$/g, "");
-                txt += tmp;
-                txt += "\nDate: ";
-                tmp = document.getElementById("sentDate").innerHTML;
-                tmp = tmp.replace(/\s+|\n+/g, "");
-                tmp = tmp.replace(/&nbsp;/g, " ");
-                txt += tmp;
-                txt += "\nSubject: ";
-                tmp = document.getElementById("msgSubject").innerHTML;
-                tmp = tmp.replace(/^\s+|\s+$/g, "");
-                txt += tmp;
-                txt += "\n";
-                tmp = document.getElementById("msgBody").innerHTML;
-                tmp = tmp.replace(/^\s+|\s+$/g, "");
-                txt += tmp;
+    return txt;
 
-                return txt;
+}
 
-            }
+</script>
+<style type="text/css">
+    .emphasis {
+	    font-weight:bold;
+	}
+    .subheader {
+	    background-color:silver;
+	}
+    blockquote p {
+    font-size:14px;
+    }
+    p.toastui-editor-contents {
+    font-size:17px;
+    }
+    .modal {
+      font-size: 11px;
+      display: none; /* Hidden by default */
+      position: fixed; /* Stay in place */
+      z-index: 1; /* Sit on top */
+      left: 0;
+      top: 0;
+      width: 100%; /* Full width */
+      height: 100%; /* Full height */
+      overflow: auto; /* Enable scroll if needed */
+      background-color: rgb(0,0,0); /* Fallback color */
+      background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    }
+    #print_helper {
+      display: none;
+    }
+</style>
+<style type="text/css" media="print">
+    .DoNotPrint {
+	    display: none;
+    }
+    #print_helper {
+        display: block;
+        overflow: visible;
+        font-family: Menlo, "Deja Vu Sans Mono", "Bitstream Vera Sans Mono", Monaco, monospace;
+        white-space: pre;
+        white-space: pre-wrap;
+    }
+</style>
+</head>
+<body>
+<form action="<%=request.getContextPath()%>/messenger/HandleMessages.do" method="post">
+	<table class="MainTable" id="scrollNumber1" style="width:95%">
+		<tr class="MainTableTopRow">
+			<td class="MainTableTopRowLeftColumn">
+                <h4>&nbsp;<i class="fa-regular fa-envelope" title="<fmt:message key="messenger.ViewMessage.msgMessenger"/>"></i>&nbsp;
+                    <fmt:message key="messenger.ViewMessage.msgViewMessage" />
+                </h4>
+            </td>
+			<td class="MainTableTopRowRightColumn">
+			</td>
+        </tr>
+    </table>
+    <table style="width:95%">
+		<tr style="width:100%;">
+			<td class="MainTableLeftColumn">&nbsp;</td>
+			<td class="MainTableRightColumn Printable" colspan="2">
+			<table style="width:100%">
+				<tr class="DoNotPrint">
+					<td>
+					<table>
+						<tr>
+							<!-- dont need this button from the encounter view -->
+							<c:if test="${ empty param.from or not param.from eq 'encounter' }">
+								<td>
+								<table class=messButtonsA >
+									<tr>
+										<td class="messengerButtonsA">
+									        <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
+									            class="btn btn-outline-primary">
+									            <fmt:message key="messenger.ViewMessage.btnInbox"/>
+									        </a>
+									    </td>
+									</tr>
+								</table>
+								</td>
+							</c:if>
 
-        </script>
+							<!-- prior page is the sent view -->
+							<% if( "1".equals(boxType) ) { %>
+							<td>
+							<table class=messButtonsA >
+								<tr>
+									<td class="messengerButtonsA">
+									    <a href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1"
+									        class="btn btn-outline-primary">
+									        <fmt:message key="messenger.ViewMessage.btnSent"/>
+									    </a>
+									</td>
+								</tr>
+							</table>
+							</td>
+							<%} %>
 
-    </head>
-
-    <body class="BodyStyle" vlink="#0000FF">
-    <form action="${pageContext.request.contextPath}/messenger/HandleMessages.do" method="post">
-
-        <table class="MainTable" id="scrollNumber1" name="encounterTable">
-            <tr class="MainTableTopRow">
-                <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgMessenger"/></td>
-                <td class="MainTableTopRowRightColumn">
-                    <table class="TopStatusBar">
-                        <tr>
-                            <td><h2><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgViewMessage"/></h2></td>
-                            <td></td>
-                            <td style="text-align: right">
-
-                                <a href="javascript:void(0)"
-                                   onclick="javascript:popupPage(600,700,'<%= request.getContextPath() %>/oscarEncounter/About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-            <tr>
-                <td class="MainTableLeftColumn">&nbsp;</td>
-                <td class="MainTableRightColumn Printable">
-                    <table>
-                        <tr>
-                            <td>
-                                <table cellspacing=3>
-                                    <tr>
-                                        <!-- dont need this button from the encounter view -->
-                                        <c:if test="${ empty param.from or not param.from eq 'encounter' }">
-                                            <td>
-                                                <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                                    <tr>
-                                                        <td class="messengerButtonsA"><a
-                                                                href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp"
-                                                                class="messengerButtons">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnCompose"/>
-                                                        </a></td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </c:if>
-
-                                        <td>
-                                            <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                                <tr>
-                                                    <td class="messengerButtonsA"><a
-                                                            href="javascript:window.print()"
-                                                            class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnPrint"/></a></td>
-                                                </tr>
-                                            </table>
+							<!-- dont need this button from the encounter view -->
+							<c:if test="${ empty param.from or not param.from eq 'encounter' }">
+								<td>
+								<table class=messButtonsA>
+									<tr>
+										<td class="messengerButtonsA">
+                                            <a href="${pageContext.request.contextPath}/messenger/CreateMessage.jsp"
+                                                class="btn btn-outline-secondary">
+                                                <fmt:message key="messenger.ViewMessage.btnCompose"/>
+                                            </a>
                                         </td>
+									</tr>
+								</table>
+								</td>
+							</c:if>
 
-                                        <!-- dont need this button from the encounter view -->
-                                        <c:if test="${ empty param.from or not param.from eq 'encounter' }">
-                                            <td>
-                                                <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                                    <tr>
-                                                        <td class="messengerButtonsA"><a
-                                                                href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp"
-                                                                class="messengerButtons">
-                                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnInbox"/>
-                                                        </a></td>
-                                                    </tr>
-                                                </table>
-                                            </td>
-                                        </c:if>
+							<td>
+							<table class=messButtonsA >
+								<tr>
+									<td class="messengerButtonsA">
+									    <a href="javascript:window.print()" class="btn btn-outline-secondary"><fmt:message key="messenger.ViewMessage.btnPrint" />
+									    </a>
+									</td>
+								</tr>
+							</table>
+							</td>
 
-                                        <% if ("1".equals(boxType)) { %>
-                                        <td>
-                                            <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                                <tr>
-                                                    <td class="messengerButtonsA"><a
-                                                            href="${pageContext.request.contextPath}/messenger/DisplayMessages.jsp?boxType=1"
-                                                            class="messengerButtons">
-                                                        <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnSent"/>
-                                                    </a></td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                        <%} %>
+							<td>
+							<table class=messButtonsA >
+								<tr>
+									<td class="messengerButtonsA">
+									    <a href="javascript:BackToCarlos()" class="nav-link">
+                                        <fmt:message key="messenger.ViewMessage.btnExit" />
+									    </a>
+									</td>
+								</tr>
+							</table>
+							</td>
+						</tr>
+					</table>
+					</td>
+				</tr>
+				<tr>
+					<td class="Printable">
 
-                                        <td>
-                                            <table class=messButtonsA cellspacing=0 cellpadding=3>
-                                                <tr>
-                                                    <td class="messengerButtonsA"><a
-                                                            href="javascript:BackToOscar()"
-                                                            class="messengerButtons"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnExit"/></a></td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="Printable">
-                                <table valign="top">
-                                    <tr>
-                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgFrom"/>:
-                                        </td>
-                                        <td colspan="2" id="sentBy" class="Printable"
-                                            bgcolor="#CCCCFF"><%= session.getAttribute("viewMessageSentby") %>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgTo"/>:
-                                        </td>
-                                        <td colspan="2" id="sentTo" class="Printable"
-                                            bgcolor="#BFBFFF"><%= session.getAttribute("viewMessageSentto") %>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgSubject"/>:
-                                        </td>
-                                        <td colspan="2" id="msgSubject" class="Printable"
-                                            bgcolor="#BBBBFF"><%= session.getAttribute("viewMessageSubject") %>
-                                        </td>
-                                    </tr>
-
-                                    <tr>
-                                        <td class="Printable" bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgDate"/>:
-                                        </td>
-                                        <td colspan="2" id="sentDate" class="Printable" bgcolor="#B8B8FF">
-                                            <c:out value="${ viewMessageDate }"/> <c:out value="${ viewMessageTime }"/>
-                                        </td>
-                                    </tr>
-                                    <% String attach = (String) session.getAttribute("viewMessageAttach");
-                                        String id = (String) session.getAttribute("viewMessageId");
-                                        if (attach != null && attach.equals("1")) {
+					<table valign="top" class="well"  style="width:100%"><!-- the messageblock -->
+						<tr>
+							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgFrom" />:</td>
+							<td colspan="2" id="sentBy" class="Printable" ><c:out value="${ viewMessageSentby }" />
+							</td>
+						</tr>
+						<tr>
+							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgTo" />:</td>
+							<td colspan="2" id="sentTo" class="Printable" ><c:out value="${ viewMessageSentto }" />
+							</td>
+						</tr>
+						<tr>
+							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgSubject" />:</td>
+							<td colspan="2" id="msgSubject" class="Printable" ><c:out value="${ viewMessageSubject }" />
+							</td>
+						</tr>
+						<tr>
+							<td class="Printable emphasis" ><fmt:message key="messenger.ViewMessage.msgDate" />:</td>
+							<td colspan="2" id="sentDate" class="Printable" >
+								<c:out value="${ viewMessageDate }" /> <c:out value="${ viewMessageTime }" />
+							</td>
+						</tr>
+						<%-- Display file and PDF attachments if present in session --%>
+						<%  String attach = (String) session.getAttribute("viewMessageAttach");
+                                    String id = (String) session.getAttribute("viewMessageId");
+                                    if ( attach != null && attach.equals("1") ){
                                     %>
-                                    <tr>
-                                        <td bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgAttachments"/>:
-                                        </td>
-                                        <td bgcolor="#B8B8FF" colspan="2"><a
-                                                href="javascript:popupViewAttach(700,960,'ViewAttach.do?attachId=<%=id%>')">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnAttach"/> </a></td>
-                                    </tr>
-                                    <%
-                                        }
+						<tr class="DoNotPrint">
+							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
+							<td colspan="2"><a
+								href="javascript:popupViewAttach(700,960,'ViewAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
+							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
+						</tr>
+						<%
+                                    }
+                                %>
+						<%
+                                    String pdfAttach = (String) session.getAttribute("viewMessagePDFAttach");
+                                    if ( pdfAttach != null && pdfAttach.equals("1") ){
                                     %>
-                                    <%
-                                        String pdfAttach = (String) session.getAttribute("viewMessagePDFAttach");
-                                        if (pdfAttach != null && pdfAttach.equals("1")) {
-                                    %>
-                                    <tr>
-                                        <td bgcolor="#DDDDFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.msgAttachments"/>:
-                                        </td>
-                                        <td bgcolor="#B8B8FF" colspan="2"><a
-                                                href="javascript:popupViewAttach(700,960,'ViewPDFAttach.do?attachId=<%=id%>')">
-                                            <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnAttach"/> </a></td>
-                                    </tr>
-                                    <%
-                                        }
-                                    %>
+						<tr class="DoNotPrint">
+							<td><fmt:message key="messenger.ViewMessage.msgAttachments" />:</td>
+							<td colspan="2"><a
+								href="javascript:popupViewAttach(700,960,'ViewPDFAttach.do?attachId=<%=Encode.forJavaScript(id)%>')">
+							<fmt:message key="messenger.ViewMessage.btnAttach" /> </a></td>
+						</tr>
+						<%
+                                    }
+                                %>
 
-                                    <tr>
-                                        <td bgcolor="#EEEEFF"></td>
-                                        <td bgcolor="#EEEEFF" colspan="2">
-                                            <textarea id="msgBody" name="Message" wrap="hard" readonly="true" rows="18"
-                                                      cols="60"><c:out value="${ viewMessageMessage }"/></textarea>
-                                        </td>
-                                    </tr>
+						<%--
+						  Message body display: the hidden textarea holds HTML-encoded content
+						  that JavaScript reads and passes to the Toast UI viewer for markdown
+						  rendering. The print_helper div provides a plain-text fallback for
+						  print media.
+						--%>
+						<tr>
+							<td></td>
+							<td colspan="2" class="Printable"><p>&nbsp;</p>
 
-                                    <!-- switch views depending on if the request was made from the patient encounter -->
+                            <div id="viewer" class="DoNotPrint"></div>
+								<textarea id="msgBody" name="Message" wrap="hard" readonly rows="18" cols="80" class="DoNotPrint" style="display:none; min-width: 100%"><%=Encode.forHtml(bodyTextAsHTML)%></textarea>
 
-                                    <c:choose>
-                                        <%-- If view request is from the encounter, display the following: --%>
-                                        <c:when test="${ from eq 'encounter' }">
-                                            <tr>
-                                                <td bgcolor="#EEEEFF"></td>
-                                                <td bgcolor="#EEEEFF">
-                                                    <strong>
-                                                        Demographic(s) linked to this message
-                                                    </strong>
-                                                </td>
-                                            </tr>
+                            <div id="print_helper"><%=Encode.forHtml(bodyTextAsHTML)%></div>
+							</td>
+						</tr>
 
-                                            <%-- display the list of attached demographics --%>
-                                            <c:choose>
-                                                <c:when test="${ not empty attachedDemographics }">
-                                                    <c:forEach items="${ attachedDemographics }" var="demoattached">
-                                                        <tr>
-                                                            <td bgcolor="#EEEEFF"></td>
-                                                            <td bgcolor="#EEEEFF" colspan="2">
+						<!-- switch views depending on if the request was made from the patient encounter -->
 
-                                                                <c:out value="${ demoattached.value }"/> <br/>
+						<c:choose>
+						<%-- If view request is from the encounter, display the following: --%>
+						<c:when test="${ from eq 'encounter' }">
+							<tr>
+								<td></td>
+								<td>
+								<strong>
+									<fmt:message key="messenger.ViewMessage.demoLinked" />
+								</strong>
+								</td>
+							</tr>
 
-                                                                <c:if test="${ demoattached.key eq demographic_no }">
-                                                                    <input
-                                                                            onclick="javascript:popup('${ demographic_no }', '${ messageID }', '${ providerNo }');"
-                                                                            class="ControlPushButton" type="button"
-                                                                            name="writeToEncounter"
-                                                                            value="Write To Encounter"> <input
-                                                                        onclick="return paste2Encounter('${ demographic_no }');"
-                                                                        class="ControlPushButton" type="button"
-                                                                        name="pasteToEncounter"
-                                                                        value="Paste To Encounter">
-                                                                </c:if>
-                                                            </td>
-                                                        </tr>
-                                                    </c:forEach>
-                                                </c:when>
+							<%-- display the list of attached demographics --%>
+							<c:choose>
+								<c:when test="${ not empty attachedDemographics }">
+									<c:forEach items="${ attachedDemographics }" var="demoattached">
+										<tr>
+										<td></td>
+										<td  colspan="2">
 
-                                                <%--  or send a message that no demogrpahic is linked --%>
-                                                <c:otherwise>
-                                                    <tr>
-                                                        <td bgcolor="#EEEEFF"></td>
-                                                        <td bgcolor="#EEEEFF">
-                                                            No demographic is linked to this message
-                                                        </td>
-                                                    </tr>
-                                                </c:otherwise>
-                                            </c:choose>
-                                        </c:when>
+											<c:out value="${ demoattached.value }" /> <br />
 
-                                        <%-- If veiw request is from the inbox, display the following --%>
-                                        <c:otherwise>
-                                            <tr>
-                                                <td bgcolor="#EEEEFF"></td>
-                                                <td bgcolor="#EEEEFF" colspan="2">
-                                                    <input type="submit"  class="ControlPushButton"
-                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReply"/>"/>
-                                                    <input type="submit" class="ControlPushButton"
-                                                        value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnReplyAll"/>"/>
-                                                    <input type="submit" class="ControlPushButton"
-                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnForward"/>"/>
-                                                    <input type="submit" class="ControlPushButton"
-                                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="messenger.ViewMessage.btnDelete"/>"/>
-                                                    <input type="hidden" name="messageNo" id="messageNo" value="${ viewMessageNo }"/>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td bgcolor="#B8B8FF"></td>
-                                                <td bgcolor="#B8B8FF" colspan="2">
-                                                    <strong>
-                                                        Link this message to ...
-                                                    </strong>
-                                                </td>
-                                            </tr>
+											<c:if test="${ demoattached.key eq demographic_no }">
+												<input
+													onclick="javascript:popup('${ fn:escapeXml(demographic_no) }', '${ fn:escapeXml(messageID) }', '${ fn:escapeXml(providerNo) }');"
+													class="btn DoNotPrint" type="button"  name="writeToEncounter"
+													value="<fmt:message key="messenger.ViewMessage.writeToE" />">
+											 </c:if>
+										</td>
+										</tr>
+									</c:forEach>
+								</c:when>
 
-                                            <tr>
-                                                <td bgcolor="#EEEEFF"></td>
-                                                <td bgcolor="#EEEEFF"><input type="text" name="keyword"
-                                                                             size="30"/>
-                                                </td>
-                                                <td bgcolor="#EEEEFF">
-                                                    <input type="hidden" class="ControlPushButton"
-                                                           name="demographic_no"/> <input type="button"
-                                                                                          class="ControlPushButton"
-                                                                                          name="searchDemo"
-                                                                                          value="Search Demographic"
-                                                                                          onclick="popupSearchDemo(document.forms[0].keyword.value)"/>
-                                                </td>
+								<%--  or send a message that no demographic is linked --%>
+								<c:otherwise>
+									<tr>
+									<td ></td>
+									<td>
+										<fmt:message key="messenger.ViewMessage.demoNotLinked" />
+									</td>
+								</tr>
+								</c:otherwise>
+							</c:choose>
+						</c:when>
 
-                                            </tr>
-                                            <tr>
-                                                <td bgcolor="#EEEEFF"></td>
-                                                <td bgcolor="#EEEEFF" colspan="2"><strong>Selected Demographic</strong>
-                                                </td>
-                                            </tr>
+						<%-- If view request is from the inbox, display the following --%>
+						<c:otherwise>
+						<tr class="DoNotPrint">
+							<td ></td>
+							<td  colspan="2">
+								<button type="submit" class="btn btn-primary" name="reply"
+                                    title="<fmt:message key="messenger.ViewMessage.btnReply"/>"><i class="fa-solid fa-reply"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnReply"/></button>
+                                <button type="submit" class="btn btn-primary" name="replyAll"
+                                    title="<fmt:message key="messenger.ViewMessage.btnReplyAll"/>"><i class="fa-solid fa-reply-all"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnReplyAll"/></button>
+                                <button type="submit" class="btn btn-secondary" name="forward"
+                                    title="<fmt:message key="messenger.ViewMessage.btnForward"/>"><i class="fa-solid fa-share"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnForward"/></button>
+                                <button type="submit" class="btn btn-danger" name="delete"
+                                    title="<fmt:message key="messenger.ViewMessage.btnDelete"/>"><i class="fa-solid fa-trash"></i>&nbsp;<fmt:message key="messenger.ViewMessage.btnDelete"/></button>
+                                <input type="hidden" name="messageNo" id="messageNo" value="${ fn:escapeXml(viewMessageNo) }"/>
+							</td>
+						</tr>
+						<tr class="subheader DoNotPrint">
+							<td></td>
+							<td colspan="2">
+							<strong>
+								<fmt:message key="messenger.ViewMessage.linkTo" />
+							</strong>
+							</td>
+						</tr>
+
+						<tr class="DoNotPrint">
+							<td></td>
+							<td><input type="text" name="keyword"
+								class="form-control" />
+							</td>
+							<td>
+							<input type="hidden" name="demographic_no">
+                            <input type="button"
+								class="btn btn-outline-secondary" name="searchDemo"
+								value="<fmt:message key="messenger.ViewMessage.searchDemo" />"
+								onclick="popupSearchDemo(document.forms[0].keyword.value)" >
+							</td>
+
+						</tr>
+						<tr class="DoNotPrint">
+							<td></td>
+							<td colspan="2"><strong><fmt:message key="messenger.ViewMessage.selectedDemo" /></strong></td>
+						</tr>
 
                                             <%
+                                                // Null-safe session attribute retrieval for use in the link button onclick
+                                                String viewMsgId = session.getAttribute("viewMessageId") != null ? (String) session.getAttribute("viewMessageId") : "";
+                                                String viewProvNo = session.getAttribute("providerNo") != null ? (String) session.getAttribute("providerNo") : "";
 
+                                                // Demographic search and link section: looks up a patient by
+                                                // demographic_no from the request and allows associating (linking)
+                                                // that patient with this message.
                                                 String demographic_no = request.getParameter("demographic_no");
                                                 DemographicData demoData = new DemographicData();
                                                 Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographic_no);
@@ -542,294 +589,161 @@
                                                 if (demo != null) {
                                                     demoName = demo.getLastName() + ", " + demo.getFirstName();
                                                     demoLastName = demo.getLastName();
-                                                    demoFirstName = demo.getLastName();
-
+                                                    demoFirstName = demo.getFirstName();
                                                 } %>
-                                            <tr>
-                                                <td bgcolor="#EEEEFF"></td>
-                                                <td bgcolor="#EEEEFF"><input type="text"
-                                                                             name="selectedDemo" size="30" readonly
-                                                                             style="background: #EEEEFF; border: none"
-                                                                             value="none"/>
-                                                    <script>
-                                                        if ("<%=Encode.forJavaScript(demoName)%>" && "<%=Encode.forJavaScript(demoName)%>" !== "null") {
-                                                            document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>"
-                                                            document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>"
-                                                        }
-                                                    </script>
-                                                </td>
-
-                                                <td bgcolor="#EEEEFF">
-                                                    <input type="button"
-                                                           class="ControlPushButton" name="linkDemo"
-                                                           value="Link to demographic"
-                                                           onclick="popup(document.forms[0].demographic_no.value,'<%=session.getAttribute("viewMessageId")%>','<%=session.getAttribute("providerNo")%>','linkToDemographic')"/>
-
-                                                    <input type="button" class="ControlPushButton"
-                                                           name="clearDemographic" value="Clear selected demographic"
-                                                           onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"'/>
-                                                </td>
-
-                                            </tr>
-
-
-                                            <tr>
-                                                <td bgcolor="#EEEEFF"></td>
-                                                <td bgcolor="#EEEEFF" colspan="2">
-                                                    <strong>
-                                                        Demographic(s) linked to this message
-                                                    </strong>
-                                                </td>
-                                            </tr>
-                                            <c:if test="${ not empty unlinkedDemographics }">
-                                                <c:forEach items="${ unlinkedDemographics }" var="unlinkedDemographic">
-                                                    <tr id="unlinkedDemographicDetails">
-                                                        <td bgcolor="#EEEEFF"></td>
-                                                        <td bgcolor="#EEEEFF">
-                                                            <input type="hidden"
-                                                                   name="unlinkedIntegratorDemographicName"
-                                                                   value="<Encode:forHtmlAttribute value='${ unlinkedDemographic.lastName }, ${ unlinkedDemographic.firstName }' />"/>
-                                                            <c:out value="${ unlinkedDemographic.lastName }"/>, <c:out
-                                                                value="${ unlinkedDemographic.firstName }"/> <br/>
-                                                            <strong>Gender:</strong> <c:out
-                                                                value="${ unlinkedDemographic.gender }"/><br/>
-                                                            <strong>HIN:</strong> <c:out
-                                                                value="${ unlinkedDemographic.hin }"/><br/>
-                                                            <strong>File Location:</strong> <c:out
-                                                                value="${ demographicLocation }"/>
-                                                        </td>
-                                                        <td bgcolor="#EEEEFF">
-                                                            <a title="Import"
-                                                               href="<%= request.getContextPath() %>/messenger/ImportDemographic.do?remoteFacilityId=${ unlinkedDemographic.integratorFacilityId }&remoteDemographicNo=${ unlinkedDemographic.caisiDemographicId }&messageID=${ viewMessageNo }">
-                                                                Import
-                                                            </a>
-                                                        </td>
-                                                    </tr>
-                                                </c:forEach>
-                                            </c:if>
-                                            <% int demoCount = 0; %>
-                                            <c:forEach items="${ attachedDemographics }" var="demographic">
-                                                <c:set var="demographicNumber" value="${ demographic.key }"/>
-                                                <tr>
-                                                    <td bgcolor="#EEEEFF"></td>
-                                                    <td bgcolor="#EEEEFF">
-                                                        <input type="text" size="30" readonly
-                                                               style="background: #EEEEFF; border: none"
-                                                               value="<Encode:forHtmlAttribute value='${ demographic.value }' />"/>
-                                                    </td>
-                                                    <td bgcolor="#EEEEFF">
-                                                        <a href="javascript:popupViewAttach(700,960, '<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=${ demographic.key }&displaymode=edit&dboperation=search_detail')">M</a>
-
-                                                        <%
-                                                            //Hide old echart link
-                                                            boolean showOldEchartLink = true;
-                                                            UserPropertyDAO propDao = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-                                                            UserProperty oldEchartLink = propDao.getProp(curUser_no, UserProperty.HIDE_OLD_ECHART_LINK_IN_APPT);
-                                                            if (oldEchartLink != null && "Y".equals(oldEchartLink.getValue()))
-                                                                showOldEchartLink = false;
-                                                            CaseManagementNoteDAO caseManagementNoteDAO = SpringUtils.getBean(CaseManagementNoteDAO.class);
-                                                            if (showOldEchartLink) {
-                                                                String params = "";
-                                                                String msgType = (String) session.getAttribute("msgType");
-
-                                                                if (msgType != null) {
-
-                                                                    if (Integer.valueOf(msgType).equals(OscarMsgType.OSCAR_REVIEW_TYPE)) {
-                                                                        HashMap<String, List<String>> hashMap = (HashMap<String, List<String>>) session.getAttribute("msgTypeLink");
-                                                                        if (hashMap != null) {
-                                                                            List<String> demoList = hashMap.get((String) pageContext.getAttribute("demographicNumber"));
-
-                                                                            String[] val = demoList.get(demoCount).split(":");
-                                                                            if (val.length == 3) {
-                                                                                String note_id = "";
-                                                                                CaseManagementNote note = caseManagementNoteDAO.getNote(Long.valueOf(val[2]));
-                                                                                if (note != null) {
-                                                                                    String uuid = note.getUuid();
-                                                                                    List<CaseManagementNote> noteList = caseManagementNoteDAO.getNotesByUUID(uuid);
-                                                                                    if (noteList.get(noteList.size() - 1).getId().equals(note.getId())) {
-                                                                                        note_id = String.valueOf(note.getId());
-                                                                                    } else {
-                                                                                        note_id = String.valueOf(noteList.get(noteList.size() - 1).getId());
-                                                                                    }
-                                                                                }
-
-                                                                                params = "&appointmentNo=" + (val[0].equalsIgnoreCase("null") ? "" : val[0]) + "&msgType=" + msgType + "&OscarMsgTypeLink=" + val[1] + "&noteId=" + note_id;
-                                                                            } else {
-                                                                                params = "";
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-
-
-                                                        %>
-                                                        <a href="javascript:void(0)"
-                                                           onclick="popupViewAttach(700,960,'<%=request.getContextPath()%>/oscarEncounter/IncomingEncounter.do?demographicNo=${ demographic.key }&curProviderNo=<%=session.getAttribute("providerNo")%>
-                                                                   <%=params%>');return false;">E</a>
-                                                        <%} %>
-
-                                                        <a href="javascript:popupViewAttach(700,960,'<%=request.getContextPath()%>/oscarRx/choosePatient.do?providerNo=<%=session.getAttribute("providerNo")%>&demographicNo=${ demographic.key }')">Rx</a>
-
-
-
-                                                        <input type="button" class="ControlPushButton"
-                                                               name="writeEncounter" value="Write to encounter"
-                                                               onclick="popup( '${ demographic.key }','<%=session.getAttribute("viewMessageId")%>','<%=session.getAttribute("providerNo")%>','writeToEncounter')"/>
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td bgcolor="#EEEEFF"></td>
-                                                    <td bgcolor="#EEEEFF"><a
-                                                            href="javascript:popupStart(400,850, '<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=${ demographic.key }&last_name=<%=demoLastName%>&first_name=<%=demoFirstName%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
-                                                            title="Click to see appointment history">Next Appt:
-                                                        <oscar:nextAppt
-                                                                demographicNo="${ demographic.key }"/></a></td>
-                                                    <td bgcolor="#EEEEFF"></td>
-                                                </tr>
-                                                <% ++demoCount; %>
-                                            </c:forEach>
-
-                                        </c:otherwise>
-                                    </c:choose>  <!-- end view demographic selection block -->
-
-                                </table>
+						<tr class="DoNotPrint">
+							<td></td>
+							<td><input type="text"
+								name="selectedDemo" class="form-control" readonly
+								style="border: none" value="none">
+                                <script>
+                                if ( "<%=Encode.forJavaScript(demoName)%>" != "null" && "<%=Encode.forJavaScript(demoName)%>" != "") {
+                                    document.forms[0].selectedDemo.value = "<%=Encode.forJavaScript(demoName)%>"
+                                    document.forms[0].demographic_no.value = "<%=Encode.forJavaScript(demographic_no)%>"
+                                }
+                                </script>
                             </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-            <tr>
-                <td class="MainTableBottomRowLeftColumn"></td>
-                <td class="MainTableBottomRowRightColumn"></td>
-            </tr>
-        </table>
-    </form>
-    <% String bodyTextAsHTML = (String) session.getAttribute("viewMessageMessage");
-        bodyTextAsHTML = bodyTextAsHTML.replaceAll("\n|\r\n?", "<br/>"); %>
-    <p class="NotDisplayable Printable"><%= bodyTextAsHTML %>
-    </p>
+                            <td>
+                                <input type="button"
+								    class="btn btn-outline-secondary" name="linkDemo"
+								    value="<fmt:message key="messenger.ViewMessage.linkToDemo" />"
+								    onclick="popup(document.forms[0].demographic_no.value,'<%=Encode.forJavaScript(viewMsgId)%>','<%=Encode.forJavaScript(viewProvNo)%>','linkToDemographic')">
+							    <input type="button" class="btn btn-outline-secondary"
+								    name="clearDemographic" value="<fmt:message key="messenger.ViewMessage.clearDemo" />"
+								    onclick='document.forms[0].demographic_no.value = ""; document.forms[0].selectedDemo.value = "none"' />
+							</td>
+						</tr>
+						<tr>
+							<td></td>
+							<td colspan="2">
+								<strong>
+									<fmt:message key="messenger.ViewMessage.demoLinked" />
+								</strong>
+							</td>
+						</tr>
+                        <%-- Display demographics already linked to this message with
+                             encounter (E), prescription (Rx), and appointment shortcuts --%>
+                        <% int demoCount = 0; %>
+                        <c:forEach items="${ attachedDemographics }" var="demographic">
+             			<c:set var="demographicNumber" value="${ demographic.key }" />
+							<tr>
+								<td></td>
+								<td>
+								<input type="text" readonly
+									style="border: none"
+									value="${ fn:escapeXml(demographic.value) }"
+									title="${ fn:escapeXml(demographic.key) }">
+                                <span class="DoNotPrint">
+								<%
+									CaseManagementNoteDAO caseManagementNoteDAO = SpringUtils.getBean(CaseManagementNoteDAO.class);
+									String params = "";
+									String msgType = (String) session.getAttribute("msgType");
 
+									if (msgType != null) {
+									    Integer msgTypeInt = ConversionUtils.fromIntString(msgType);
+									    if (msgTypeInt > 0 && msgTypeInt.equals(OscarMsgType.OSCAR_REVIEW_TYPE)) {
+									        HashMap < String, List < String >> hashMap = (HashMap < String, List < String >> ) session.getAttribute("msgTypeLink");
+									        if (hashMap != null) {
+									            List < String > demoList = hashMap.get((String) pageContext.getAttribute("demographicNumber"));
 
-    <!-- Select demographic modal window for the import demographic process -->
-    <div id="selectDemographic" class="modal">
-        <div class="modal-content">
-            <form id="selectDemographicForm"
-                  action="<%= request.getContextPath() %>/messenger/ImportDemographic.do">
-                <div class="modal-header">
-                    <span id="closeSelectDemographic" class="close">&times;</span>
-                    <h2>Local Demographic Matches Found</h2>
-                </div>
-                <div class="modal-body">
-                    <c:if test="${ not empty demographicUserSelect }">
-                        <c:forEach items="${ unlinkedDemographics }" var="unlinkedDemographic">
-                            <c:if test="${ unlinkedDemographic.caisiDemographicId eq remoteDemographicNo }">
-                                <div>
-                                    <c:out value="${ unlinkedDemographic.lastName }"/>, <c:out
-                                        value="${ unlinkedDemographic.firstName }"/> <br/>
-                                    <strong>Gender:</strong> <c:out value="${ unlinkedDemographic.gender }"/><br/>
-                                    <strong>HIN:</strong> <c:out value="${ unlinkedDemographic.hin }"/><br/>
-                                    <strong>File Location:</strong> <c:out value="${ demographicLocation }"/>
-                                    <input type="hidden" id="remoteDemographicNo" name="remoteDemographicNo"
-                                           value="${ unlinkedDemographic.caisiDemographicId }"/>
-                                    <input type="hidden" id="remoteFacilityId" name="remoteFacilityId"
-                                           value="${ unlinkedDemographic.integratorFacilityId }"/>
-                                </div>
-                            </c:if>
-                        </c:forEach>
-                        <p>
-                            Select a local demographic file to link with this remote demographic. Or select "No Match"
-                            to import the remote demographic.
-                        </p>
-                        <c:forEach items="${ demographicUserSelect }" var="demographicSelect">
-                            <div class="demographicOption">
-                                <input type="radio" name="selectedDemographicNo"
-                                       id="demographic_${ demographicSelect.demographicNo }"
-                                       value="${ demographicSelect.demographicNo }"/>
-                                <label for="demographic_${ demographicSelect.demographicNo }">
-                                    <c:out value="${ demographicSelect.lastName }"/>, <c:out
-                                        value="${ demographicSelect.firstName }"/> <br/>
-                                    <strong>Gender:</strong> <c:out value="${ demographicSelect.sex }"/><br/>
-                                    <strong>HIN:</strong> <c:out value="${ demographicSelect.hin }"/><br/>
-                                    <strong>DOB:</strong> <c:out value="${ demographicSelect.birthDayAsString }"/>
-                                </label>
-                            </div>
-                        </c:forEach>
-                        <div class="demographicOption">
-                            <input type="radio" name="selectedDemographicNo" id="no_selection" value="0"/>
-                            <label for="no_selection">
-                                No Match
-                            </label>
-                        </div>
+									            if (demoList != null && demoCount < demoList.size()) {
+									                String[] val = demoList.get(demoCount).split(":");
+									                if (val.length == 3) {
+									                    String note_id = "";
+									                    Long noteIdLong = ConversionUtils.fromLongString(val[2]);
+									                    CaseManagementNote note = noteIdLong > 0L ? caseManagementNoteDAO.getNote(noteIdLong) : null;
+									                    if (note != null) {
+									                        String uuid = note.getUuid();
+									                        List < CaseManagementNote > noteList = caseManagementNoteDAO.getNotesByUUID(uuid);
+									                        if (noteList != null && !noteList.isEmpty()) {
+									                            if (noteList.get(noteList.size() - 1).getId().equals(note.getId())) {
+									                                note_id = String.valueOf(note.getId());
+									                            } else {
+									                                note_id = String.valueOf(noteList.get(noteList.size() - 1).getId());
+									                            }
+									                        }
+									                    }
 
-                        <input type="hidden" id="messageID" name="messageID" value="${ viewMessageId }"/>
-                    </c:if>
-                </div>
-            </form>
-            <div class="modal-footer">
-                <div>
-                    <button class="modal_button" id="cancelbtn" value="cancel">cancel</button>
-                    <button class="modal_button" id="linkbtn" value="link">link</button>
-                </div>
-            </div>
-        </div>
-    </div>
+									                    params = "&appointmentNo=" + Encode.forUriComponent(val[0].equalsIgnoreCase("null") ? "" : val[0]) + "&msgType=" + Encode.forUriComponent(msgType) + "&OscarMsgTypeLink=" + Encode.forUriComponent(val[1]) + "&noteId=" + Encode.forUriComponent(note_id);
+									                } else {
+									                    params = "";
+									                }
+									            }
+									        }
+									    }
+									}
 
-    <script type="text/javascript">
-        /*
-         * Modal window scripts for import demographic selector.
-         * This is triggered after the user selects to import a remote demographic
-         * and several matching demographics are found in the local database.
-         */
-        var modal = document.getElementById("selectDemographic");
-        var span = document.getElementById("closeSelectDemographic");
-        var cancel = document.getElementById("cancelbtn");
-        var link = document.getElementById("linkbtn");
+                                    String demoKeyJs = Encode.forJavaScript((String) (pageContext.getAttribute("demographicNumber")+""));
+                                    %>
+                                    <a href="javascript:popupViewAttach(700,960,'../demographic/demographiccontrol.jsp?demographic_no=<%=demoKeyJs%>&displaymode=edit&dboperation=search_detail')"><fmt:message key="global.M" /></a>
+                                    <a href="javascript:void(0)" onclick="popupViewAttach(700,960,'../oscarEncounter/IncomingEncounter.do?demographicNo=<%=demoKeyJs%>&curProviderNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%><%=Encode.forJavaScript(params)%>');return false;"><fmt:message key="global.E" /></a>
+                                    <a href="javascript:popupViewAttach(700,960,'../oscarRx/choosePatient.do?providerNo=<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>&demographicNo=<%=demoKeyJs%>')">Rx</a>
+                                </span>
+								</td>
+								<td class="DoNotPrint">
+								<button type="button" class="btn btn-secondary"
+									name="writeEncounter"
+                                    onclick="popup( '<%=demoKeyJs%>','<%=Encode.forJavaScript((String)session.getAttribute("viewMessageId"))%>','<%=Encode.forJavaScript((String)session.getAttribute("providerNo"))%>','writeToEncounter')" >
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                    <fmt:message key="messenger.ViewMessage.writeToE"/>
+								</button>
+								</td>
+							</tr>
+							<tr>
+								<td></td>
+								<td><a class="DoNotPrint"
+									href="javascript:popupStart(400,850,'../demographic/demographiccontrol.jsp?demographic_no=<%=demoKeyJs%>&last_name=<%=Encode.forUriComponent(demoLastName)%>&first_name=<%=Encode.forUriComponent(demoFirstName)%>&orderby=appointment_date&displaymode=appt_history&dboperation=appt_history&limit1=0&limit2=25','ApptHist')"
+									title="<fmt:message key="messenger.ViewMessage.clickApptHx" />"><fmt:message key="oscarEncounter.oscarConsultationRequest.consultationFormPrint.msgappDate" />   <oscar:nextAppt demographicNo="${ demographic.key }" /></a></td>
+								<td></td>
+							</tr>
+						<% ++demoCount; %>
+						</c:forEach>
 
-        //open the modal
-        function openSelectDemographicModal() {
-            modal.style.display = "block";
-        }
+					</c:otherwise>
+					</c:choose>  <!-- end view demographic selection block -->
 
-        //(x), close the modal
-        cancel.onclick = function () {
-            modal.style.display = "none";
-        }
-        span.onclick = function () {
-            modal.style.display = "none";
-        }
-        window.onclick = function (event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
+					</table>
+					</td>
+				</tr>
+			</table>
+			</td>
+		</tr>
+		<tr>
+			<td class="MainTableBottomRowLeftColumn"></td>
+			<td class="MainTableBottomRowRightColumn"></td>
+		</tr>
+	</table>
+</form>
+
+<script>
+    // Initialize Toast UI Editor in read-only viewer mode to render the message
+    // body as markdown. DOMPurify sanitizes the rendered HTML to prevent XSS.
+    // Falls back to showing the plain textarea if the editor library fails to load.
+    var content=document.getElementById("msgBody").value;
+    content = content.replace(/\r\n/g, "\n");
+
+    var viewer;
+    try {
+        viewer = new toastui.Editor.factory({
+            el: document.getElementById('viewer'),
+            usageStatistics: false,
+            viewer: true,
+            initialEditType: 'wysiwyg',
+            initialValue: content,
+            height: '500px',
+            customHTMLSanitizer: function(html) {
+                return DOMPurify.sanitize(html);
             }
-        }
+        });
+    } catch (e) {
+        console.error('Toast UI viewer failed to initialize:', e);
+        document.getElementById('msgBody').style.display = '';
+        var warning = document.createElement('div');
+        warning.className = 'alert alert-warning mt-2';
+        warning.textContent = 'Rich text viewer could not load. Using plain text mode.';
+        document.getElementById('viewer').parentNode.insertBefore(warning, document.getElementById('viewer'));
+    }
 
-        // submit actions
-        link.onclick = function () {
-            var form = document.getElementById("selectDemographicForm");
-            var selected = form.elements["selectedDemographicNo"];
-            var remoteDemographic = form.elements["remoteDemographicNo"];
-
-            if (!selected.value) {
-                alert("Please select a demographic or \"No Match\"");
-                return false;
-            }
-
-            if (!remoteDemographic) {
-                alert("Cannot link this demographic. Contact support.");
-                return false;
-            }
-
-            form.submit();
-            modal.style.display = "none";
-        }
-
-        /* the select demographic modal will open if there are
-         * a selection of demogrpahic files to select from
-         */
-        if ("${ demographicUserSelect }") {
-            openSelectDemographicModal();
-        }
-    </script>
-
-    </body>
+</script>
+</body>
 </html>

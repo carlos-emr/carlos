@@ -78,11 +78,8 @@
 %>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <title>Manage API Clients</title>
-        <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
-
-        <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
 
         <script type="text/javascript" language="JavaScript"
                 src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
@@ -90,7 +87,7 @@
 
         <script>
             function deleteAccessToken(id) {
-                jQuery.getJSON("tokenManage.json",
+                jQuery.post("tokenManage.json",
                     {
                         method: "deleteAccessToken",
                         id: id
@@ -100,11 +97,11 @@
                             window.location = 'clients.jsp';
                         else
                             alert(xml.error);
-                    });
+                    }, "json");
             }
 
             function deleteRequestToken(id) {
-                jQuery.getJSON("tokenManage.json",
+                jQuery.post("tokenManage.json",
                     {
                         method: "deleteRequestToken",
                         id: id
@@ -114,7 +111,7 @@
                             window.location = 'clients.jsp';
                         else
                             alert(xml.error);
-                    });
+                    }, "json");
             }
 
         </script>

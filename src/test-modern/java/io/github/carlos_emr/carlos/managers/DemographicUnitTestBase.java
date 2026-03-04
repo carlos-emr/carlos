@@ -29,7 +29,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -40,7 +40,7 @@ import java.util.Date;
 /**
  * Base class for Demographic-related unit tests providing common mocks and utilities.
  *
- * <p>This class extends OpenOUnitTestBase and adds Demographic-specific test infrastructure
+ * <p>This class extends CarlosUnitTestBase and adds Demographic-specific test infrastructure
  * including commonly used mocks, helper methods, and test data builders. It serves as
  * the foundation for all Demographic unit tests, enabling consistent test patterns across
  * DAO, Manager, and validation layers.</p>
@@ -54,12 +54,12 @@ import java.util.Date;
  * </ul>
  *
  * @since 2026-01-24
- * @see OpenOUnitTestBase
+ * @see CarlosUnitTestBase
  */
 @Tag("unit")
 @Tag("fast")
 @Tag("demographic")
-public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
+public abstract class DemographicUnitTestBase extends CarlosUnitTestBase {
 
     // Common mocks that most Demographic tests will need
     protected SecurityInfoManager mockSecurityInfoManager;
@@ -83,7 +83,7 @@ public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
      * and performs the following setup:</p>
      * <ol>
      *   <li>Creates mock instances for SecurityInfoManager, LoggedInInfo, and Facility</li>
-     *   <li>Configures default behavior for facility (integrator disabled)</li>
+     *   <li>Configures default behavior for facility</li>
      *   <li>Configures LoggedInInfo to return test provider number</li>
      *   <li>Registers SecurityInfoManager with SpringUtils for static lookups</li>
      * </ol>
@@ -98,9 +98,7 @@ public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
         mockLoggedInInfo = Mockito.mock(LoggedInInfo.class);
         mockFacility = Mockito.mock(Facility.class);
 
-        // Configure facility mock to return false for integrator by default
         Mockito.lenient().when(mockLoggedInInfo.getCurrentFacility()).thenReturn(mockFacility);
-        Mockito.lenient().when(mockFacility.isIntegratorEnabled()).thenReturn(false);
         Mockito.lenient().when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
 
         // Register common mocks with SpringUtils

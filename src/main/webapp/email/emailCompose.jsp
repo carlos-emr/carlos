@@ -5,7 +5,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib prefix="html" uri="http://www.springframework.org/tags/form" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 <html>
 <head>
@@ -14,7 +14,7 @@
     <c:set var="ctx" value="${ pageContext.request.contextPath }" scope="page"/>
     <link rel="stylesheet" href="${ctx}/library/bootstrap/5.0.2/css/bootstrap.min.css" type="text/css"/>
     <link href="${ctx}/library/jquery/jquery-ui.min.css" rel="stylesheet" type="text/css"/>
-    <link href="${ctx}/css/font-awesome.min.css" rel="stylesheet">
+    <link href="${ctx}/css/fontawesome-all.min.css" rel="stylesheet">
 
     <script type="text/javascript" src="${ctx}/library/jquery/jquery-3.6.4.min.js"></script>
     <script type="text/javascript" src="${ctx}/library/jquery/jquery.validate.min.js"></script>
@@ -207,11 +207,12 @@
                             <div class="row">
                                 <div class="col-sm-12 form-group">
                                     <label for="senderEmailAddress">Sender</label>
-                                    <select class="form-select" name="senderEmailAddress" id="senderEmailAddress"
+                                    <select class="form-select" name="senderConfigId" id="senderEmailAddress"
                                             onchange="showAdditionalParamOption()">
                                         <c:forEach items="${ senderAccounts }" var="senderAccount">
-                                            <option value="${ senderAccount.senderEmail }"
-                                                    data-email-type="${ senderAccount.emailType }" ${ senderAccount.senderEmail eq senderEmail or senderAccount.senderEmail eq param.senderEmail ? 'selected' : '' }>
+                                            <option value="<c:out value='${senderAccount.id}' />"
+                                                    data-email-type="${ e:forHtmlAttribute(senderAccount.emailType) }"
+                                                    <c:if test="${ senderAccount.id eq senderConfigId or senderAccount.senderEmail eq senderEmail }">selected</c:if>>
                                                 <c:out value="${ senderAccount.senderFirstName }"/> <c:out
                                                     value="${ senderAccount.senderLastName }"/> <c:out
                                                     value="(${ senderAccount.senderEmail })"/>
@@ -257,7 +258,7 @@
                                         </div>
                                         <div class="col-sm-1">
                                             <button type="button" title="Remove Email" class="btn btn-danger"
-                                                    onclick="removeReceiverEmail(this)"><i class="icon-remove"></i>
+                                                    onclick="removeReceiverEmail(this)"><i class="fa-solid fa-xmark"></i>
                                             </button>
                                         </div>
                                     </div>
@@ -266,7 +267,7 @@
                         </div>
                     </div>
                     <div class="card-footer">
-                        <span class="icon-warning-sign"></span> <c:out value="${ emailConsentName }"/>: <b><c:out
+                        <span class="fa-solid fa-triangle-exclamation"></span> <c:out value="${ emailConsentName }"/>: <b><c:out
                             value="${ emailConsentStatus }"/></b>
                         <input type="hidden" name="emailConsentStatus" value="${emailConsentStatus}"/>
                     </div>
@@ -307,7 +308,7 @@
                                                     class="alert-link">${ receiverName }</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
-                                                <li>${invalidEmail}</li>
+                                                <li><c:out value="${invalidEmail}"/></li>
                                             </c:forEach>
                                         </ul>
                                     </c:when>
@@ -317,7 +318,7 @@
                                                                 class="alert-link">${ receiverName }</a></p>
                                         <ul>
                                             <c:forEach items="${ invalidReceiverEmailList }" var="invalidEmail">
-                                                <li>${invalidEmail}</li>
+                                                <li><c:out value="${invalidEmail}"/></li>
                                             </c:forEach>
                                         </ul>
                                     </c:when>
@@ -369,15 +370,15 @@
                         </div>
                     </div>
                     <div class="card-footer">
-                        <span class="icon-warning-sign"></span> Unencrypted Body of Email
+                        <span class="fa-solid fa-triangle-exclamation"></span> Unencrypted Body of Email
                     </div>
                 </div>
 
                 <div class="card mt-4">
                     <div class="card-header">
                         <h5 class="card-title">
-                            <span class="icon-lock"></span> Encryption <span id="encryptionOptionsInfo"
-                                                                             class="icon-info-sign"
+                            <span class="fa-solid fa-lock"></span> Encryption <span id="encryptionOptionsInfo"
+                                                                             class="fa-solid fa-circle-info"
                                                                              data-toggle="tooltip"
                                                                              data-placement="auto right"
                                                                              title="Emails will be sent encrypted by default. Encryption settings can be modified by disabling this feature."></span>
@@ -392,7 +393,7 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12 form-group">
-                                    <label>Encrypted message <span id="encryptedMessageInfo" class="icon-info-sign"
+                                    <label>Encrypted message <span id="encryptedMessageInfo" class="fa-solid fa-circle-info"
                                                                    data-toggle="tooltip" data-placement="auto right"
                                                                    title="Message will be added into the encrypted pdf"></span></label>
                                     <textarea class="form-control" name="encryptedMessage" id="encryptedMessage"
@@ -415,7 +416,7 @@
                             </div>
                             <div class="row mt-3 form-group">
                                 <div class="col-sm-2">
-                                    <label>Clue <span id="clueInfo" class="icon-info-sign" data-toggle="tooltip"
+                                    <label>Clue <span id="clueInfo" class="fa-solid fa-circle-info" data-toggle="tooltip"
                                                       data-placement="auto right"
                                                       title="Clue will be added into the email body (visible)"></span></label>
                                 </div>
@@ -428,7 +429,7 @@
                             </div>
                             <div class="row mt-3 form-group">
                                 <div class="col-sm-2">
-                                    <label>Encrypt Attachments <span id="encryptAttachmentInfo" class="icon-info-sign"
+                                    <label>Encrypt Attachments <span id="encryptAttachmentInfo" class="fa-solid fa-circle-info"
                                                                      data-toggle="tooltip" data-placement="auto right"
                                                                      title="Email attachments will be encrypted when enabled"></span></label>
                                 </div>
@@ -499,7 +500,7 @@
                                                         data-bs-target="#emailAttachmentBody${loop.index + 1}"
                                                         aria-expanded="false"
                                                         aria-controls="emailAttachmentBody${loop.index + 1}">
-                                                    <i class="icon-file attachmentIcon"></i> <span
+                                                    <i class="fa-solid fa-file attachmentIcon"></i> <span
                                                         class="attachmentName"><c:out
                                                         value="${emailAttachment.fileName}"/></span>
                                                     <span class="text-muted attachmentSize"><c:out
@@ -545,13 +546,13 @@
                     <div class="row">
                         <div class="col-sm-12">
                             <button type="submit" id="btnSend" class="btn btn-primary btn-md pull-right" value="Send">
-                                <span class="btn-label"><i class="icon-location-arrow"></i></span>
+                                <span class="btn-label"><i class="fa-solid fa-location-arrow"></i></span>
                                 Send
                             </button>
                             <button formnovalidate="formnovalidate" id="btnCancel"
                                     class="btn btn-danger btn-md pull-right" value="Cancel" name="close"
                                     onclick="cancelEmail()">
-                                <span class="btn-label"><i class="icon-remove"></i></span>
+                                <span class="btn-label"><i class="fa-solid fa-xmark"></i></span>
                                 Cancel
                             </button>
                         </div>

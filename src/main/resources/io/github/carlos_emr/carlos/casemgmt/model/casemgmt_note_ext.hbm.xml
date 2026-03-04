@@ -23,12 +23,12 @@
 	"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd" >
 <hibernate-mapping>
 	<class name="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt" table="casemgmt_note_ext">
-		<id name="id" unsaved-value="0">
-			<generator class="native" />
+		<id name="id">
+			<generator class="identity" />
 		</id>
 		<property column="note_id" name="noteId" />
 		<property column="key_val" name="keyVal" />
-		<property column="value" name="value" />
+		<property column="`value`" name="value" />
 		<property column="date_value" name="dateValue" type="java.util.Date" />
 	</class>
 </hibernate-mapping>

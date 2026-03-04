@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public final class RxUpdateFavorite2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -163,6 +164,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return this.customInstr;
     }
 
+    @StrutsParameter
     public void setCustomInstr(boolean customInstr) {
         this.customInstr = customInstr;
     }
@@ -171,6 +173,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.favoriteId);
     }
 
+    @StrutsParameter
     public void setFavoriteId(String favoriteId) {
         this.favoriteId = favoriteId;
     }
@@ -179,6 +182,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.favoriteName);
     }
 
+    @StrutsParameter
     public void setFavoriteName(String RHS) {
         this.favoriteName = RHS;
     }
@@ -187,6 +191,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return this.customName;
     }
 
+    @StrutsParameter
     public void setCustomName(String RHS) {
         this.customName = RHS;
     }
@@ -195,6 +200,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.takeMin);
     }
 
+    @StrutsParameter
     public void setTakeMin(String RHS) {
         this.takeMin = RHS;
     }
@@ -203,6 +209,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.takeMax);
     }
 
+    @StrutsParameter
     public void setTakeMax(String RHS) {
         this.takeMax = RHS;
     }
@@ -211,6 +218,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.frequencyCode);
     }
 
+    @StrutsParameter
     public void setFrequencyCode(String RHS) {
         this.frequencyCode = RHS;
     }
@@ -219,6 +227,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.duration);
     }
 
+    @StrutsParameter
     public void setDuration(String RHS) {
         this.duration = RHS;
     }
@@ -227,6 +236,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.durationUnit);
     }
 
+    @StrutsParameter
     public void setDurationUnit(String RHS) {
         this.durationUnit = RHS;
     }
@@ -235,6 +245,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.quantity);
     }
 
+    @StrutsParameter
     public void setQuantity(String RHS) {
         this.quantity = RHS;
     }
@@ -243,6 +254,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.repeat);
     }
 
+    @StrutsParameter
     public void setRepeat(String RHS) {
         this.repeat = RHS;
     }
@@ -251,6 +263,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.nosubs);
     }
 
+    @StrutsParameter
     public void setNosubs(boolean RHS) {
         this.nosubs = RHS;
     }
@@ -259,6 +272,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.prn);
     }
 
+    @StrutsParameter
     public void setPrn(boolean RHS) {
         this.prn = RHS;
     }
@@ -267,6 +281,7 @@ public final class RxUpdateFavorite2Action extends ActionSupport {
         return (this.special);
     }
 
+    @StrutsParameter
     public void setSpecial(String RHS) {
         this.special = RHS;
     }

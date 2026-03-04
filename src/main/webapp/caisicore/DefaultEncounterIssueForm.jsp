@@ -85,7 +85,7 @@
 </table>
 
 <br/>
-<form name="issueForm" action="<%=request.getContextPath()%>/DefaultEncounterIssue.do"
+<form name="issueForm" action="<%=request.getContextPath()%>/DefaultEncounterIssue.do" method="post"
       onsubmit="return validaeIssues();">
     <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="issuenotempty"

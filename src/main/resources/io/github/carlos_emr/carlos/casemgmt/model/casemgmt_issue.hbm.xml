@@ -23,7 +23,7 @@
 	<class name="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue"
 		table="casemgmt_issue">
 		<id name="id" column="id" unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property name="demographic_no" />
 		<property name="issue_id" />

@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.daos.security;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 import io.github.carlos_emr.carlos.model.security.Secobjectname;
 import org.junit.jupiter.api.DisplayName;
@@ -29,11 +29,13 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.orm.hibernate5.HibernateTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
@@ -88,7 +90,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("dao")
 @Tag("security")
 @Transactional
-public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
+public class SecobjprivilegeDaoIntegrationTest extends CarlosTestBase {
 
     /**
      * The DAO under test, autowired from the Spring test application context.
@@ -107,6 +109,17 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
      */
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
+
+    /**
+     * HibernateTemplate for flushing the Hibernate Session.
+     * SecobjprivilegeDaoImpl extends HibernateDaoSupport, so its writes go through
+     * the standalone Hibernate Session, not the JPA EntityManager. Calling
+     * entityManager.flush() only flushes the JPA persistence context, not the
+     * Hibernate Session. We must flush via HibernateTemplate to push pending
+     * Hibernate writes to the database before native SQL verification queries.
+     */
+    @Autowired
+    private HibernateTemplate hibernateTemplate;
 
     /**
      * Native SQL that selects all columns from the {@code secObjPrivilege} table
@@ -167,9 +180,9 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
         Secobjprivilege priv = new Secobjprivilege(roleUserGroup, objectName,
                 privilege, priority, providerNo);
         secobjprivilegeDao.save(priv);
-        // Flush to synchronize the persistence context with the database,
-        // making the row visible to native SQL verification queries
-        entityManager.flush();
+        // Flush the Hibernate Session (not JPA EntityManager) to synchronize
+        // HibernateDaoSupport writes with the database
+        hibernateTemplate.flush();
         return priv;
     }
 
@@ -226,7 +239,7 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
 
             // When
             secobjprivilegeDao.save(priv);
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then - verify via native query to confirm persistence
             @SuppressWarnings("unchecked")
@@ -309,7 +322,7 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
             // When
             secobjprivilegeDao.delete(priv);
             // Flush to force the DELETE SQL to execute immediately
-            entityManager.flush();
+            hibernateTemplate.flush();
 
             // Then - confirm the row no longer exists in the database
             @SuppressWarnings("unchecked")
@@ -365,9 +378,9 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
             assertThat(deleted).isEqualTo(2);
 
             // Verify the other role's privilege was not deleted
-            entityManager.flush();
+            hibernateTemplate.flush();
             // Clear the persistence context to force a fresh read from the database
-            entityManager.clear();
+            hibernateTemplate.clear();
             @SuppressWarnings("unchecked")
             List<Object[]> remaining = entityManager
                     .createNativeQuery(NATIVE_CHECK_BY_ROLE)
@@ -524,30 +537,361 @@ public class SecobjprivilegeDaoIntegrationTest extends OpenOTestBase {
         }
     }
 
-    /*
-     * Methods intentionally NOT tested due to raw session management:
+    /**
+     * Tests for the {@link SecobjprivilegeDao#save(Secobjprivilege)} additional scenarios.
      *
-     * - update(Secobjprivilege): Uses sessionFactory.getCurrentSession() and calls
-     *   session.close() in a finally block. This conflicts with Spring @Transactional
-     *   test management, which expects to control the session lifecycle. Calling
-     *   session.close() within a Spring-managed transaction results in
-     *   SessionException or TransactionException.
-     *
-     * - findByProperty(String, Object): Same raw session pattern with session.close()
-     *   in the finally block. Would cause the same session lifecycle conflicts.
-     *
-     * - getFunctions(String): Delegates directly to findByProperty(), inheriting
-     *   the same raw session issue.
-     *
-     * - getByRoles(List<String>): Uses sessionFactory.getCurrentSession() without
-     *   closing, but does not use HibernateTemplate. May behave unpredictably
-     *   when the session is managed by Spring's transaction infrastructure.
-     *
-     * - getAccessDesc(String): Queries the Secprivilege entity which may not be
-     *   available in the test persistence context.
-     *
-     * These methods would need to be refactored to use HibernateTemplate (or
-     * the session without explicit close()) before they can be reliably
-     * integration-tested within Spring's transactional test framework.
+     * <p>Validates different data combinations and the saveOrUpdate behavior
+     * for various privilege configurations.</p>
      */
+    @Nested
+    @DisplayName("save() additional scenarios")
+    class SaveAdditionalScenarios {
+
+        /**
+         * Verifies that {@code save()} can persist multiple privilege entries
+         * for the same role but different object names.
+         */
+        @Test
+        @Tag("create")
+        @DisplayName("should save multiple privileges for same role with different objects")
+        void shouldSaveMultiplePrivileges_forSameRoleWithDifferentObjects() {
+            // Given
+            Secobjprivilege priv1 = new Secobjprivilege("multiRole", "_obj1", "r", 1, "999990");
+            Secobjprivilege priv2 = new Secobjprivilege("multiRole", "_obj2", "w", 2, "999990");
+            Secobjprivilege priv3 = new Secobjprivilege("multiRole", "_obj3", "x", 3, "999990");
+
+            // When
+            secobjprivilegeDao.save(priv1);
+            secobjprivilegeDao.save(priv2);
+            secobjprivilegeDao.save(priv3);
+            hibernateTemplate.flush();
+
+            // Then - verify all three were persisted via native query
+            @SuppressWarnings("unchecked")
+            List<Object[]> results = entityManager.createNativeQuery(NATIVE_CHECK_BY_ROLE)
+                    .setParameter(1, "multiRole")
+                    .getResultList();
+            assertThat(results).hasSize(3);
+        }
+
+        /**
+         * Verifies that {@code save()} persists the priority and providerNo fields
+         * correctly, including null priority.
+         */
+        @Test
+        @Tag("create")
+        @DisplayName("should save privilege with null priority")
+        void shouldSavePrivilege_withNullPriority() {
+            // Given
+            Secobjprivilege priv = new Secobjprivilege("nullPrioRole", "_objNP", "r", null, "999989");
+
+            // When
+            secobjprivilegeDao.save(priv);
+            hibernateTemplate.flush();
+
+            // Then - verify via native query
+            @SuppressWarnings("unchecked")
+            List<Object[]> results = entityManager.createNativeQuery(NATIVE_SELECT_PRIVILEGE)
+                    .setParameter(1, "nullPrioRole")
+                    .setParameter(2, "_objNP")
+                    .getResultList();
+            assertThat(results).hasSize(1);
+            Object[] row = results.get(0);
+            assertThat(row[0]).isEqualTo("nullPrioRole");
+            assertThat(row[3]).isNull(); // priority should be null
+        }
+    }
+
+    /**
+     * Tests for the {@link SecobjprivilegeDao#delete(Secobjprivilege)} additional scenarios.
+     */
+    @Nested
+    @DisplayName("delete() additional scenarios")
+    class DeleteAdditionalScenarios {
+
+        /**
+         * Verifies that {@code delete()} only removes the target entity and leaves
+         * other privileges for the same role intact.
+         */
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete only target privilege and leave others for same role")
+        void shouldDeleteOnlyTarget_whenMultiplePrivilegesExistForSameRole() {
+            // Given
+            Secobjprivilege priv1 = createAndSavePrivilege("delSelRole", "_delObj1", "r", 1, "999988");
+            createAndSavePrivilege("delSelRole", "_delObj2", "w", 2, "999988");
+
+            // When - delete only the first privilege
+            secobjprivilegeDao.delete(priv1);
+            hibernateTemplate.flush();
+
+            // Then - first privilege should be gone
+            @SuppressWarnings("unchecked")
+            List<Object[]> deleted = entityManager
+                    .createNativeQuery(NATIVE_CHECK_BY_ROLE_AND_OBJ)
+                    .setParameter(1, "delSelRole")
+                    .setParameter(2, "_delObj1")
+                    .getResultList();
+            assertThat(deleted).isEmpty();
+
+            // Second privilege should still exist
+            @SuppressWarnings("unchecked")
+            List<Object[]> remaining = entityManager
+                    .createNativeQuery(NATIVE_CHECK_BY_ROLE_AND_OBJ)
+                    .setParameter(1, "delSelRole")
+                    .setParameter(2, "_delObj2")
+                    .getResultList();
+            assertThat(remaining).hasSize(1);
+        }
+    }
+
+    /**
+     * Tests for the {@link SecobjprivilegeDao#deleteByRoleName(String)} additional scenarios.
+     */
+    @Nested
+    @DisplayName("deleteByRoleName() additional scenarios")
+    class DeleteByRoleNameAdditionalScenarios {
+
+        /**
+         * Verifies that {@code deleteByRoleName()} removes a single privilege
+         * when only one exists for the role.
+         */
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete single privilege when role has exactly one")
+        void shouldDeleteSinglePrivilege_whenRoleHasExactlyOne() {
+            // Given
+            createAndSavePrivilege("singleDelRole", "_singleObj", "r", 1, "999987");
+
+            // When
+            int deleted = secobjprivilegeDao.deleteByRoleName("singleDelRole");
+
+            // Then
+            assertThat(deleted).isEqualTo(1);
+        }
+    }
+
+    /**
+     * Tests for the {@link SecobjprivilegeDao#getFunctionDesc(String)} additional scenarios.
+     */
+    @Nested
+    @DisplayName("getFunctionDesc() additional scenarios")
+    class GetFunctionDescAdditionalScenarios {
+
+        /**
+         * Verifies that {@code getFunctionDesc()} returns the correct description
+         * when multiple Secobjectname records exist, selecting only the matching one.
+         */
+        @Test
+        @Tag("read")
+        @DisplayName("should return correct description when multiple secobjectnames exist")
+        void shouldReturnCorrectDescription_whenMultipleSecobjectnamesExist() {
+            // Given
+            insertSecobjectname("_funcA", "Function A Description");
+            insertSecobjectname("_funcB", "Function B Description");
+            insertSecobjectname("_funcC", "Function C Description");
+
+            // When
+            String descB = secobjprivilegeDao.getFunctionDesc("_funcB");
+
+            // Then
+            assertThat(descB).isEqualTo("Function B Description");
+        }
+    }
+
+    /**
+     * Tests for the {@link SecobjprivilegeDao#getByObjectNameAndRoles(String, List)}
+     * additional edge case scenarios.
+     *
+     * <p>These tests cover boundary conditions not addressed by the existing
+     * filter test, including empty role lists, non-matching object names,
+     * and single-role queries.</p>
+     */
+    @Nested
+    @DisplayName("getByObjectNameAndRoles() additional scenarios")
+    class GetByObjectNameAndRolesAdditionalScenarios {
+
+        /**
+         * Verifies that {@code getByObjectNameAndRoles()} returns an empty list
+         * when the role list is empty (no roles to match against).
+         */
+        @Test
+        @Tag("read")
+        @Tag("filter")
+        @DisplayName("should return empty list when roles list is empty")
+        void shouldReturnEmptyList_whenRolesListIsEmpty() {
+            // Given
+            createAndSavePrivilege("anyRole", "_anyObj", "r", 1, "999986");
+
+            // When
+            List<Secobjprivilege> results = secobjprivilegeDao.getByObjectNameAndRoles(
+                    "_anyObj", Collections.emptyList());
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        /**
+         * Verifies that {@code getByObjectNameAndRoles()} returns an empty list
+         * when the object name does not match any records.
+         */
+        @Test
+        @Tag("read")
+        @Tag("filter")
+        @DisplayName("should return empty list when object name does not exist")
+        void shouldReturnEmptyList_whenObjectNameDoesNotExist() {
+            // Given
+            createAndSavePrivilege("someRole", "_existingObj", "r", 1, "999985");
+
+            // When
+            List<Secobjprivilege> results = secobjprivilegeDao.getByObjectNameAndRoles(
+                    "_nonExistentObj", Arrays.asList("someRole"));
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        /**
+         * Verifies that {@code getByObjectNameAndRoles()} correctly handles the case
+         * where the object name exists but none of the roles match.
+         */
+        @Test
+        @Tag("read")
+        @Tag("filter")
+        @DisplayName("should return empty list when object exists but no roles match")
+        void shouldReturnEmptyList_whenObjectExistsButNoRolesMatch() {
+            // Given
+            createAndSavePrivilege("roleX", "_objForNoMatch", "r", 1, "999984");
+
+            // When
+            List<Secobjprivilege> results = secobjprivilegeDao.getByObjectNameAndRoles(
+                    "_objForNoMatch", Arrays.asList("roleY", "roleZ"));
+
+            // Then
+            assertThat(results).isEmpty();
+        }
+
+        /**
+         * Verifies that {@code getByObjectNameAndRoles()} returns a single result
+         * when exactly one role matches.
+         */
+        @Test
+        @Tag("read")
+        @Tag("filter")
+        @DisplayName("should return single result when exactly one role matches")
+        void shouldReturnSingleResult_whenExactlyOneRoleMatches() {
+            // Given
+            createAndSavePrivilege("matchRole", "_singleMatch", "r", 1, "999983");
+            createAndSavePrivilege("otherRole", "_singleMatch", "w", 2, "999982");
+
+            // When
+            List<Secobjprivilege> results = secobjprivilegeDao.getByObjectNameAndRoles(
+                    "_singleMatch", Arrays.asList("matchRole"));
+
+            // Then
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getRoleusergroup()).isEqualTo("matchRole");
+        }
+
+        /**
+         * Verifies that the privilege_code field is correctly preserved in the
+         * returned entities after filtering.
+         */
+        @Test
+        @Tag("read")
+        @Tag("filter")
+        @DisplayName("should preserve privilege code in returned entities")
+        void shouldPreservePrivilegeCode_inReturnedEntities() {
+            // Given
+            createAndSavePrivilege("privRole", "_privObj", "rw", 5, "999981");
+
+            // When
+            List<Secobjprivilege> results = secobjprivilegeDao.getByObjectNameAndRoles(
+                    "_privObj", Arrays.asList("privRole"));
+
+            // Then
+            assertThat(results).hasSize(1);
+            Secobjprivilege result = results.get(0);
+            assertThat(result.getPrivilege_code()).isEqualTo("rw");
+            assertThat(result.getPriority()).isEqualTo(5);
+            assertThat(result.getProviderNo()).isEqualTo("999981");
+        }
+    }
+
+    /**
+     * Tests for the {@link SecobjprivilegeDao#saveAll(List)} method.
+     *
+     * <p>The {@code saveAll()} implementation iterates through the list, calling
+     * {@code update()} first on each entity. If the update returns 0 (no existing
+     * row matched), it falls back to calling {@code save()} to insert a new row.
+     * This implements an upsert pattern.</p>
+     *
+     * <p><b>Note:</b> The {@code update()} method internally uses
+     * {@code sessionFactory.getCurrentSession()} with {@code session.close()} in
+     * a finally block. Under Spring's transactional test management, this causes
+     * a session lifecycle conflict. Therefore, the {@code saveAll()} method also
+     * cannot be safely tested in this test context. These tests are included as
+     * documentation of the expected behavior but may need to be enabled after
+     * the DAO is refactored to remove explicit {@code session.close()} calls.</p>
+     */
+    /*
+     * saveAll() tests cannot be enabled because saveAll() internally calls
+     * update(), which closes the session prematurely. See the raw session
+     * management note below for details.
+     */
+
+    /**
+     * Tests for the {@link SecobjprivilegeDao#update(Secobjprivilege)} method.
+     *
+     * <p>The {@code update()} implementation uses {@code HqlQueryHelper.bulkUpdate()}
+     * with the HQL: {@code update Secobjprivilege set providerNo = ?1 where
+     * objectname_code = ?2 and privilege_code = ?3 and roleusergroup = ?4}.
+     * It returns the count of rows updated, or 0 if {@code providerNo} is null
+     * (early-return guard that routes the caller to {@code save()} instead).</p>
+     *
+     * <p>Note: {@code findByProperty()}, {@code getFunctions()}, {@code getByRoles()},
+     * and {@code getAccessDesc()} are not tested here. {@code getAccessDesc()} requires
+     * the {@code Secprivilege} entity which is not mapped in the test persistence unit.</p>
+     */
+    @Nested
+    @DisplayName("update() operations")
+    class UpdateOperations {
+
+        @Test
+        @Tag("update")
+        @DisplayName("should return zero when providerNo is null (routes to save)")
+        void shouldReturnZero_whenProviderNoIsNull() {
+            Secobjprivilege instance = new Secobjprivilege("nullRole", "_obj", "r", 1, null);
+
+            int result = secobjprivilegeDao.update(instance);
+
+            assertThat(result).isEqualTo(0);
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update providerNo and return row count when record exists")
+        void shouldUpdateProviderNo_whenRecordExists() {
+            // Given - persist a record with an initial providerNo
+            createAndSavePrivilege("updateRole", "_updateObj", "w", 1, "111111");
+
+            // When - update providerNo via the composite key
+            Secobjprivilege toUpdate = new Secobjprivilege("updateRole", "_updateObj", "w", 1, "222222");
+            int rowsUpdated = secobjprivilegeDao.update(toUpdate);
+
+            // Then - exactly one row updated
+            assertThat(rowsUpdated).isEqualTo(1);
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should return zero when no matching record exists")
+        void shouldReturnZero_whenNoMatchingRecord() {
+            Secobjprivilege instance = new Secobjprivilege("nonExistentRole", "_obj", "r", 1, "999999");
+
+            int result = secobjprivilegeDao.update(instance);
+
+            assertThat(result).isEqualTo(0);
+        }
+    }
 }

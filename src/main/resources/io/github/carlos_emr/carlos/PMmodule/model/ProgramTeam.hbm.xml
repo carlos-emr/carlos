@@ -23,7 +23,7 @@
 	<class name="io.github.carlos_emr.carlos.PMmodule.model.ProgramTeam" table="program_team">
 		<meta attribute="sync-DAO">false</meta>
 		<id name="id" type="integer" column="team_id" unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property name="name" column="name" type="string" not-null="false"
 			length="255" />

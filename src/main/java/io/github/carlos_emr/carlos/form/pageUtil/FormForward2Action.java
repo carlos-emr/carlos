@@ -71,7 +71,6 @@ public class FormForward2Action extends ActionSupport {
         }
 
         String formName = request.getParameter("formname");
-        String remoteFacilityIdString = request.getParameter("remoteFacilityId");
         String appointmentNo = request.getParameter("appointmentNo");
         String formId = request.getParameter("formId");
         String provNo = request.getParameter("provNo");
@@ -157,10 +156,6 @@ public class FormForward2Action extends ActionSupport {
          */
         if (requestedForm > 0 && requestedForm < latestForm) {
             redirect.append("&warning=").append("history");
-        }
-
-        if (remoteFacilityIdString != null && !remoteFacilityIdString.isEmpty()) {
-            redirect.append("&remoteFacilityId=").append(remoteFacilityIdString);
         }
 
         if (appointmentNo != null && !appointmentNo.isEmpty()) {

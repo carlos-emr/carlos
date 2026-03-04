@@ -93,6 +93,7 @@
 <head>
     <title>Billing Report</title>
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet">
     <script language="JavaScript">
         var checkSubmitFlg = false;
 
@@ -135,6 +136,23 @@
 
         //-->
     </script>
+    <script>
+        function sendTeleplanFile(id) {
+            var form = document.createElement('form');
+            form.method = 'post';
+            form.action = '<%= request.getContextPath() %>/billing/CA/BC/ManageTeleplan.do';
+            var fields = {id: id, method: 'sendFile'};
+            for (var key in fields) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+            }
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
 </head>
 
 <body>
@@ -172,7 +190,7 @@
     </h4>
     <c:if test="${!empty error}"><c:out value="${error}"/></c:if>
 
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile.do" onsubmit="return checkSubmit();"
+    <form action="${pageContext.request.contextPath}/billing/CA/BC/GenerateTeleplanFile.do" method="post" onsubmit="return checkSubmit();"
                class="form-inline">
 
         Select provider
@@ -193,7 +211,7 @@
 
     Activity List | <a href="#" onClick="showHideLayers('Layer2','','show');">Show Archive</a>
     <button class="btn pull-right" type="button" value="Print" onclick="window.print()"/>
-    <i class="icon-print"></i> Print</button>
+    <i class="fa-solid fa-print"></i> Print</button>
 
 
     <table class="table table-striped  table-condensed">
@@ -225,7 +243,7 @@
             <td><c:out value="${billAct.claimrecord}"/>&nbsp;</td>
             <td><c:choose>
                 <c:when test="${billAct.status == 'A'}">
-                    <a href="<%= request.getContextPath() %>/billing/CA/BC/ManageTeleplan.do?id=${billAct.id}&method=sendFile">
+                    <a href="javascript:void(0);" onclick="sendTeleplanFile('${billAct.id}');">
                         Send
                     </a>
                 </c:when>

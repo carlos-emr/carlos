@@ -154,15 +154,14 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
-<%@ taglib prefix="form" uri="http://www.springframework.org/tags/form" %>
 
 <html>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.ManagePrivFrm"/></title>
-        <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
 
         <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     </head>
 
     <body>
@@ -228,7 +227,7 @@
                     <input style="width:90px" name="billingservice_date" id="billingservice_date" data-date="today()"
                            data-date-format="yyyy-mm-dd" size="16" type="text" value="<%=billingServiceDate%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" readonly>
-                    <span class="btn"><i class="icon-calendar"></i></span>
+                    <span class="btn"><i class="fa-solid fa-calendar"></i></span>
                 </div>
 
                 <div>

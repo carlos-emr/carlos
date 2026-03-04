@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -161,6 +162,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
         return (this.providerNo);
     }
 
+    @StrutsParameter
     public void setProviderNo(String RHS) {
         this.providerNo = RHS;
     }
@@ -169,6 +171,7 @@ public final class RxChoosePatient2Action extends ActionSupport {
         return (this.demographicNo);
     }
 
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }

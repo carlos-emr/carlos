@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.managers;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
-import io.github.carlos_emr.carlos.test.unit.OpenOUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -36,12 +36,12 @@ import java.util.Date;
  * Base class for Measurement-related unit tests providing common mocks and test data builders.
  *
  * @since 2026-02-09
- * @see OpenOUnitTestBase
+ * @see CarlosUnitTestBase
  */
 @Tag("unit")
 @Tag("fast")
 @Tag("measurement")
-public abstract class MeasurementUnitTestBase extends OpenOUnitTestBase {
+public abstract class MeasurementUnitTestBase extends CarlosUnitTestBase {
 
     protected SecurityInfoManager mockSecurityInfoManager;
     protected LoggedInInfo mockLoggedInInfo;
@@ -61,7 +61,6 @@ public abstract class MeasurementUnitTestBase extends OpenOUnitTestBase {
         mockFacility = Mockito.mock(Facility.class);
 
         Mockito.lenient().when(mockLoggedInInfo.getCurrentFacility()).thenReturn(mockFacility);
-        Mockito.lenient().when(mockFacility.isIntegratorEnabled()).thenReturn(false);
         Mockito.lenient().when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
 
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);

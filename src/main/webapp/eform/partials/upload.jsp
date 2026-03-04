@@ -31,6 +31,7 @@
 <!DOCTYPE html>
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
@@ -54,6 +55,7 @@
                 display: inline-block;
             }
         </style>
+    <link rel="stylesheet" href="<%=Encode.forHtmlAttribute(request.getContextPath())%>/css/fontawesome-all.min.css">
 
     </head>
 
@@ -126,7 +128,7 @@
 
         <input type="file" name="formHtml" id="formHtml" class="check" size="50" required>
         <span style="color:red;">
-								         <i class="icon-warning-sign"
+								         <i class="fa-solid fa-triangle-exclamation"
                                             title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"></i>
 								        </span>
 

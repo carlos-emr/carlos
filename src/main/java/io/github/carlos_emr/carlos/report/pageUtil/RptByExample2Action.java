@@ -56,6 +56,7 @@ import io.github.carlos_emr.carlos.report.bean.RptByExampleQueryBeanHandler;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class RptByExample2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -138,6 +139,7 @@ public class RptByExample2Action extends ActionSupport {
         return sql;
     }
 
+    @StrutsParameter
     public void setSql(String sql) {
         this.sql = sql;
     }
@@ -146,6 +148,7 @@ public class RptByExample2Action extends ActionSupport {
         return selectedRecentSearch;
     }
 
+    @StrutsParameter
     public void setSelectedRecentSearch(String selectedRecentSearch) {
         this.selectedRecentSearch = selectedRecentSearch;
     }

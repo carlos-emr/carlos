@@ -34,7 +34,6 @@ import io.github.carlos_emr.carlos.commn.model.ProviderSitePK;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import org.apache.logging.log4j.Logger;
 import org.apache.xml.security.utils.resolver.ResourceResolver;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorUpdateTask;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -81,10 +80,6 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
 
             createOscarProgramIfNecessary();
             createDefaultSiteIfNecessary();
-
-            if (oscarProperties.getBooleanProperty("INTEGRATOR_ENABLED", "true")) {
-                CaisiIntegratorUpdateTask.startTask();
-            }
 
             OscarJobUtils.initializeJobExecutionFramework();
 
@@ -180,8 +175,6 @@ public class ContextStartupListener implements javax.servlet.ServletContextListe
     @Override
     public void contextDestroyed(javax.servlet.ServletContextEvent sce) {
         logger.info("Server processes stopping. context=" + sce.getServletContext().getContextPath());
-
-        CaisiIntegratorUpdateTask.stopTask();
 
         try {
             MiscUtils.checkShutdownSignaled();

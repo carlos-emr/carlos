@@ -18,25 +18,22 @@
 	   xmlns:context="http://www.springframework.org/schema/context"
 	   xmlns:task="http://www.springframework.org/schema/task"
 	   xmlns:aop="http://www.springframework.org/schema/aop"
-	   xmlns:cache="http://www.springframework.org/schema/cache"
 	   xsi:schemaLocation="http://www.springframework.org/schema/beans
                            http://www.springframework.org/schema/beans/spring-beans.xsd
-                           http://www.springframework.org/schema/tx 
+                           http://www.springframework.org/schema/tx
                            http://www.springframework.org/schema/tx/spring-tx.xsd
-                           http://www.springframework.org/schema/context 
+                           http://www.springframework.org/schema/context
                            http://www.springframework.org/schema/context/spring-context.xsd
-                           http://www.springframework.org/schema/task 
+                           http://www.springframework.org/schema/task
                            http://www.springframework.org/schema/task/spring-task.xsd
-                           http://www.springframework.org/schema/aop 
-                           http://www.springframework.org/schema/aop/spring-aop.xsd
-                           http://www.springframework.org/schema/cache
-                           http://www.springframework.org/schema/cache/spring-cache.xsd"
+                           http://www.springframework.org/schema/aop
+                           http://www.springframework.org/schema/aop/spring-aop.xsd"
 	   default-autowire="no">
 
 
 
 	<!--
-		load properties from additional property files; oscar.properties is
+		load properties from additional property files; carlos.properties is
 		already loaded
 	-->
 	<aop:aspectj-autoproxy proxy-target-class="true"/>
@@ -47,22 +44,9 @@
 	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">
 		<property name="locations">
 			<list>
-				<value>classpath:oscar_mcmaster.properties</value>
+				<value>classpath:carlos.properties</value>
 			</list>
 		</property>
-	</bean>
-
-	<!-- Enable Spring Cache with EhCache 2.x -->
-	<cache:annotation-driven />
-
-	<!-- EhCache Cache Manager -->
-	<bean id="cacheManager" class="org.springframework.cache.ehcache.EhCacheCacheManager">
-		<constructor-arg ref="ehcacheManager"/>
-	</bean>
-
-	<!-- EhCache Factory Bean -->
-	<bean id="ehcacheManager" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean">
-		<property name="configLocation" value="classpath:ehcache.xml"/>
 	</bean>
 
 	<!-- setup JPA -->
@@ -345,8 +329,7 @@
 <!-- <bean id="vacancyTemplateManager" class="io.github.carlos_emr.carlos.service.PMmodule.VacancyTemplateManagerImpl"></bean> -->
  <!-- <bean id="eformDataManager" class="io.github.carlos_emr.carlos.managers.EformDataManagerImpl"></bean> -->
 <!--<bean id="nioFileManager" class="io.github.carlos_emr.carlos.managers.NioFileManagerImpl"></bean> -->
-<!-- <bean id="preventionDS" class="oscar.oscarPrevention.PreventionDSImpl"></bean>
-<bean id="integratorProgressDao" class="io.github.carlos_emr.carlos.commn.dao.IntegratorProgressDaoImpl"></bean> -->
+<!-- <bean id="preventionDS" class="oscar.oscarPrevention.PreventionDSImpl"></bean> -->
 <!-- <bean id="messengerDemographicManager" class="io.github.carlos_emr.carlos.managers.MessengerDemographicManagerImpl"></bean> -->
 <!-- <bean id="documentAttachmentManager" class="io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManagerImpl"></bean> -->
 <!-- <bean id="faxDocumentManager" class="io.github.carlos_emr.carlos.managers.FaxDocumentManagerImpl"></bean> -->

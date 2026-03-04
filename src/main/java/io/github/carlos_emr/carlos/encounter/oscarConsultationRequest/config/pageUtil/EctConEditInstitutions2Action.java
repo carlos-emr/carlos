@@ -37,6 +37,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.InstitutionDao;
 import io.github.carlos_emr.carlos.commn.model.Institution;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -44,6 +46,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 
 public class EctConEditInstitutions2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -62,14 +66,21 @@ public class EctConEditInstitutions2Action extends ActionSupport {
 
         String id = this.getId();
         String delete = this.getDelete();
-        String specialists[] = this.getSpecialists();
+        String institutions[] = this.getInstitutions();
 
         ResourceBundle oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
 
-        if (delete.equals(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.EditSpecialists.btnDeleteSpecialist"))) {
-            if (specialists.length > 0) {
-                for (int i = 0; i < specialists.length; i++) {
-                    institutionDao.remove(Integer.parseInt(specialists[i]));
+        if (delete.equals(oscarR.getString("oscarEncounter.oscarConsultationRequest.config.EditInstitutions.btnDeleteInstitution"))) {
+            if (institutions.length > 0) {
+                for (int i = 0; i < institutions.length; i++) {
+                    try {
+                        int instId = Integer.parseInt(institutions[i]);
+                        institutionDao.remove(instId);
+                        LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request),
+                                LogConst.DELETE, "institution id=" + instId);
+                    } catch (NumberFormatException e) {
+                        MiscUtils.getLogger().warn("Invalid institution ID: {}", Encode.forJava(institutions[i]), e);
+                    }
                 }
             }
             EctConConstructSpecialistsScriptsFile constructSpecialistsScriptsFile = new EctConConstructSpecialistsScriptsFile();
@@ -78,7 +89,17 @@ public class EctConEditInstitutions2Action extends ActionSupport {
         }
 
         // not delete request, just update one entry
-        Institution institution = institutionDao.find(Integer.parseInt(id));
+        Institution institution;
+        try {
+            institution = institutionDao.find(Integer.parseInt(id));
+        } catch (NumberFormatException e) {
+            MiscUtils.getLogger().warn("Invalid institution ID for update: {}", Encode.forJava(id), e);
+            return ERROR;
+        }
+        if (institution == null) {
+            MiscUtils.getLogger().warn("Institution not found for ID: {}", Encode.forJava(id));
+            return ERROR;
+        }
 
         int updater = 0;
         request.setAttribute("name", institution.getName());
@@ -109,6 +130,7 @@ public class EctConEditInstitutions2Action extends ActionSupport {
         return id;
     }
 
+    @StrutsParameter
     public void setId(String id) {
         this.id = id;
     }
@@ -120,24 +142,26 @@ public class EctConEditInstitutions2Action extends ActionSupport {
         return delete;
     }
 
+    @StrutsParameter
     public void setDelete(String str) {
         MiscUtils.getLogger().debug("setter delete");
         delete = str;
     }
 
-    public String[] getSpecialists() {
-        MiscUtils.getLogger().debug("getter specialists");
-        if (specialists == null)
-            specialists = new String[0];
-        return specialists;
+    public String[] getInstitutions() {
+        MiscUtils.getLogger().debug("getter institutions");
+        if (institutions == null)
+            institutions = new String[0];
+        return institutions;
     }
 
-    public void setSpecialists(String str[]) {
-        MiscUtils.getLogger().debug("setter specialists");
-        specialists = str;
+    @StrutsParameter
+    public void setInstitutions(String str[]) {
+        MiscUtils.getLogger().debug("setter institutions");
+        institutions = str;
     }
 
     String id;
     String delete;
-    String specialists[];
+    String institutions[];
 }

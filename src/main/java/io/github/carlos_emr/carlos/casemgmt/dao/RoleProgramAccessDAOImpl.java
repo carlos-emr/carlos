@@ -31,30 +31,37 @@
 
 package io.github.carlos_emr.carlos.casemgmt.dao;
 
+import java.util.Collections;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
-public class RoleProgramAccessDAOImpl extends HibernateDaoSupport implements RoleProgramAccessDAO {
+@Transactional
+public class RoleProgramAccessDAOImpl extends AbstractHibernateDao implements RoleProgramAccessDAO {
 
     @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultAccessRightByRole(Long roleId) {
-        String q = "from DefaultRoleAccess da where da.caisi_role.id=?0";
-        return (List<DefaultRoleAccess>) getHibernateTemplate().find(q, roleId);
+        if (roleId == null) return Collections.emptyList();
+        String q = "from DefaultRoleAccess da where da.caisi_role.id=?1";
+        return (List<DefaultRoleAccess>) HqlQueryHelper.find(currentSession(), q, roleId);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<DefaultRoleAccess> getDefaultSpecificAccessRightByRole(Long roleId, String accessType) {
-        String q = "from DefaultRoleAccess da where da.caisi_role.id=?0 and da.access_type.Name like ?1";
-        return (List<DefaultRoleAccess>) getHibernateTemplate().find(q, new Object[]{roleId, accessType});
+        if (roleId == null || accessType == null) return Collections.emptyList();
+        String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.Name like ?2";
+        return (List<DefaultRoleAccess>) HqlQueryHelper.find(currentSession(), q, roleId, accessType);
     }
 
     @Override
     public boolean hasAccess(String accessName, Long roleId) {
-        String q = "from DefaultRoleAccess da where da.caisi_role.id=" + roleId + " and da.access_type.Name= ?0";
-        return getHibernateTemplate().find(q, accessName).isEmpty() ? false : true;
+        if (accessName == null || roleId == null) return false;
+        String q = "from DefaultRoleAccess da where da.caisi_role.id=?1 and da.access_type.Name=?2";
+        return !HqlQueryHelper.find(currentSession(), q, roleId, accessName).isEmpty();
     }
 }

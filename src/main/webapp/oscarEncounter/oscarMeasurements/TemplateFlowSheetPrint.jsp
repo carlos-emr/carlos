@@ -474,7 +474,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
             }
         </style>
 
-
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     </head>
 
     <body class="BodyStyle" id="printFlowsheetBody">
@@ -537,7 +537,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     <a href="JavaScript:void(0);" class="btn btn-small back loading" title="Cancel"
                        data-loading-text="cancelling...">Cancel</a>
                     <button type="button" class="btn btn-small btn-success DoNotPrint"
-                            onclick="javascript:window.print();"><i class="icon-print icon-white"></i> Print
+                            onclick="javascript:window.print();"><i class="fa-solid fa-print"></i> Print
                     </button>
                     <%} else {%>
 
@@ -553,7 +553,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                     </div>
 
                     <button type="submit" class="btn btn-small DoNotPrint loading-print preview"
-                            data-loading-text="Loading..."><i class="icon-print"></i> Preview
+                            data-loading-text="Loading..."><i class="fa-solid fa-print"></i> Preview
                     </button>
 
                     <%}%>
@@ -641,7 +641,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                                     <input style="width:90px" name="sDate<%=measure%>" id="sDate-<%=measure%>" size="16"
                                            type="text" value="" placeholder="start"
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$">
-                                    <span class="add-on"><i class="icon-calendar"></i></span>
+                                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
 
                                 <div class="input-append date" id="dp-endDate-<%=measure%>" data-date="<%=date%>"
@@ -649,7 +649,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                                     <input style="width:90px" name="eDate<%=measure%>" id="eDate-<%=measure%>" size="16"
                                            type="text" value="" placeholder="end"
                                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$">
-                                    <span class="add-on"><i class="icon-calendar"></i></span>
+                                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                                 </div>
                             </div><!--range container-->
 
@@ -995,7 +995,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
         </div> <!-- wrapper-content -->
     </form>
     <div id="scrollToTop" class="DoNotPrint"><a href="#printFlowsheetBody" class="DoNotPrint"><i
-            class="icon-arrow-up"></i>Top</a></div>
+            class="fa-solid fa-arrow-up"></i>Top</a></div>
 
     <div class="alert">
         <button type="button" class="close" data-dismiss="alert">&times;</button>

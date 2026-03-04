@@ -6,7 +6,7 @@
     <class name="io.github.carlos_emr.carlos.model.security.Secuserrole" table="secUserRole">
         <id name="id" type="java.lang.Integer">
             <column name="id" precision="22" scale="0" />
-            <generator class="native" />
+            <generator class="identity" />
         </id>
         <property name="providerNo" type="java.lang.String">
             <column name="provider_no" length="6" not-null="true" />

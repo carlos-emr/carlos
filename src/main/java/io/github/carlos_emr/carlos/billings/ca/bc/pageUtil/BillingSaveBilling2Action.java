@@ -57,6 +57,7 @@ import java.util.Date;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class BillingSaveBilling2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -420,6 +421,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return submit;
     }
 
+    @StrutsParameter
     public void setSubmit(String submit) {
         this.submit = submit;
     }
@@ -428,6 +430,7 @@ public class BillingSaveBilling2Action extends ActionSupport {
         return billingIds;
     }
 
+    @StrutsParameter
     public void setBillingIds(String[] billingIds) {
         this.billingIds = billingIds;
     }

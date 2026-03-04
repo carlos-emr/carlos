@@ -67,7 +67,7 @@
         <title>Audit Log Purge Tool</title>
 
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap.css" type="text/css">
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css" type="text/css">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css">
         <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" type="text/css">
         <link rel="stylesheet"
               href="<%=request.getContextPath() %>/js/jquery_css/smoothness/jquery-ui-1.10.2.custom.min.css"
@@ -145,7 +145,7 @@
             <%
                 if (msg == null) {
             %>
-            <form action="<%=request.getContextPath()%>/admin/AuditLogPurge.do" onsubmit="return submitForm();">
+            <form action="<%=request.getContextPath()%>/admin/AuditLogPurge.do" method="post" onsubmit="return submitForm();">
 
                 <p>Welcome to the Audit Log Purge Tool.</p>
                 <p>

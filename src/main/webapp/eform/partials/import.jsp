@@ -53,6 +53,7 @@
             background-color: #f5f5f5;
         }
     </style>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 </head>
 
 <body>
@@ -103,7 +104,7 @@
             <label class="control-label" for="zippedForm">Import eForm:</label>
             <input type="file" class="input-file" id="zippedForm" name="zippedForm" size="50" required/>
             <span style="color:red;">
-		         <i class="icon-warning-sign" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"></i>
+		         <i class="fa-solid fa-triangle-exclamation" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.uploadWarningBody"/>"></i>
 		         </span>
             <input type="submit" name="subm" value="Import" class="btn btn-primary upload" disabled>
         </div>

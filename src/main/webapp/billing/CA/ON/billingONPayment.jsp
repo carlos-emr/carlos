@@ -179,7 +179,7 @@
 
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
     <script type="text/javascript">
         function popupPage(vheight, vwidth, varpage) {
@@ -243,7 +243,7 @@
                     <input type="text" style="width:90px" name="startDateText" id="startDateText"
                            value="<%=DateUtils.formatDate(startDate,locale)%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 
@@ -253,7 +253,7 @@
                     <input type="text" style="width:90px" name="endDateText" id="endDateText"
                            value="<%=DateUtils.formatDate(endDate,locale)%>"
                            pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off"/>
-                    <span class="add-on"><i class="icon-calendar"></i></span>
+                    <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                 </div>
             </div>
 

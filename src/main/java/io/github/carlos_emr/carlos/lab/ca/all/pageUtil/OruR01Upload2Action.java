@@ -35,6 +35,7 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01;
@@ -161,10 +162,12 @@ public class OruR01Upload2Action extends ActionSupport {
 
     private OruR01Upload2Form form;
 
+    @StrutsParameter(depth = 1)
     public OruR01Upload2Form getForm() {
         return form;
     }
 
+    @StrutsParameter
     public void setForm(OruR01Upload2Form form) {
         this.form = form;
     }

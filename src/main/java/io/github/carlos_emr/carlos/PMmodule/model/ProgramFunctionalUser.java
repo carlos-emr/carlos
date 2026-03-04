@@ -41,7 +41,7 @@ public class ProgramFunctionalUser implements Serializable {
     private Long _id; // fields
     private Long _programId;
     private long _userTypeId;
-    private Long _providerNo; // many to one
+    private String _providerNo; // many to one
     private FunctionalUserType _userType;
     private Provider _provider;
 
@@ -116,7 +116,7 @@ public class ProgramFunctionalUser implements Serializable {
     /**
      * Return the value associated with the column: provider_no
      */
-    public Long getProviderNo() {
+    public String getProviderNo() {
         return _providerNo;
     }
 
@@ -125,7 +125,7 @@ public class ProgramFunctionalUser implements Serializable {
      *
      * @param _providerNo the provider_no value
      */
-    public void setProviderNo(Long _providerNo) {
+    public void setProviderNo(String _providerNo) {
         this._providerNo = _providerNo;
     }
 

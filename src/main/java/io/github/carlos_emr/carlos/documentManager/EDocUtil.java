@@ -42,9 +42,8 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
+
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -57,12 +56,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.pdmodel.PDDocument;
 
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDocument;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
@@ -92,7 +88,7 @@ import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData;
 import io.github.carlos_emr.carlos.mds.data.ReportStatus;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.util.DateUtils;
+
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 // all SQL statements here
@@ -1058,78 +1054,6 @@ public final class EDocUtil {
 
         }
         return doc;
-    }
-
-    public static ArrayList<EDoc> getRemoteDocuments(LoggedInInfo loggedInInfo, Integer demographicId) {
-        ArrayList<EDoc> results = new ArrayList<EDoc>();
-
-        try {
-
-            List<CachedDemographicDocument> remoteDocuments = null;
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                    CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                    remoteDocuments = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicDocuments(demographicId);
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                MiscUtils.getLogger().debug("getting fall back documents for " + demographicId);
-                remoteDocuments = IntegratorFallBackManager.getRemoteDocuments(loggedInInfo, demographicId);
-            }
-
-            for (CachedDemographicDocument remoteDocument : remoteDocuments) {
-                results.add(toEDoc(remoteDocument));
-            }
-        } catch (Exception e) {
-            logger.error("Error retriving integrated documents.", e);
-        }
-
-        logger.debug("retreived remote documents, document count=" + results.size());
-
-        return (results);
-    }
-
-    private static EDoc toEDoc(CachedDemographicDocument remoteDocument) {
-        EDoc eDoc = new EDoc();
-
-        eDoc.setRemoteFacilityId(remoteDocument.getFacilityIntegerPk().getIntegratorFacilityId());
-
-        eDoc.setAppointmentNo(remoteDocument.getAppointmentNo());
-        eDoc.setContentType(remoteDocument.getContentType());
-        eDoc.setCreatorId(remoteDocument.getDocCreator());
-        eDoc.setDateTimeStamp(DateUtils.formatDate(remoteDocument.getUpdateDateTime(), null));
-        eDoc.setDateTimeStampAsDate(DateUtils.toDate(remoteDocument.getUpdateDateTime()));
-        eDoc.setDescription(remoteDocument.getDescription());
-        eDoc.setDocId(remoteDocument.getFacilityIntegerPk().getCaisiItemId().toString());
-        eDoc.setDocPublic("" + remoteDocument.getPublic1());
-        eDoc.setFileName(remoteDocument.getDocFilename());
-        eDoc.setHtml(remoteDocument.getDocXml());
-        eDoc.setModule("demographic");
-        eDoc.setModuleId("" + remoteDocument.getCaisiDemographicId());
-        eDoc.setNumberOfPages(remoteDocument.getNumberOfPages());
-
-        // to a string in yyyy-mm-dd
-        Calendar observationDate = remoteDocument.getObservationDate();
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        String observationDateString = simpleDateFormat.format(observationDate.getTime());
-        eDoc.setObservationDate(observationDateString);
-
-        eDoc.setProgramId(remoteDocument.getProgramId());
-        eDoc.setResponsibleId(remoteDocument.getResponsible());
-        eDoc.setReviewDateTimeDate(DateUtils.toDate(remoteDocument.getReviewDateTime()));
-        eDoc.setReviewDateTime(DateUtils.formatDate(remoteDocument.getReviewDateTime(), null));
-        eDoc.setReviewerId(remoteDocument.getReviewer());
-
-        // this will get used as a marker for an integrated result.
-        eDoc.setSource(remoteDocument.getSource() == null ? "integrator" : remoteDocument.getSource());
-        eDoc.setStatus(remoteDocument.getStatus() != null && remoteDocument.getStatus().length() > 0 ? remoteDocument.getStatus().charAt(0) : ' ');
-        eDoc.setType(remoteDocument.getContentType());
-
-        return (eDoc);
     }
 
     public static void subtractOnePage(String docId) {

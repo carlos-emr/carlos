@@ -232,6 +232,7 @@
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
               rel="stylesheet">
+        <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
         <script>
             $(document).ready(function () {
                 var startDate = $("#xml_vdate").datepicker({format: "yyyy-mm-dd"});
@@ -346,8 +347,9 @@
                     //alert(('status'+idNum) + document.getElementById('status'+idNum).checked);
                     val = 'Y';
                 }
-                xmlHttp.open("GET", "billingONStatusERUpdateStatus.jsp?id=" + idNum + "&val=" + val, true);
-                xmlHttp.send(null);
+                xmlHttp.open("POST", "billingONStatusERUpdateStatus.jsp", true);
+                xmlHttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                xmlHttp.send("id=" + encodeURIComponent(idNum) + "&val=" + encodeURIComponent(val));
             }
 
             function handleStateChange() {
@@ -566,7 +568,7 @@
                         <div class="input-append">
                             <input type="text" name="xml_vdate" id="xml_vdate" style="width:90px" value="<%=startDate%>"
                                    pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$" autocomplete="off" required>
-                            <span class="add-on"><i class="icon-calendar"></i></span>
+                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="xml_appointment_date">End:
                             <small>
@@ -582,7 +584,7 @@
                             <input type="text" name="xml_appointment_date" style="width:90px" id="xml_appointment_date"
                                    value="<%=endDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off" required>
-                            <span class="add-on"><i class="icon-calendar"></i></span>
+                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                     </div>
                 </div>
@@ -663,14 +665,14 @@
                             <input type="text" name="paymentStartDate" id="paymentStartDate" style="width:90px"
                                    value="<%=paymentStartDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
-                            <span class="add-on"><i class="icon-calendar"></i></span>
+                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <label for="paymentEndDate">Payment End:</label>
                         <div class="input-append">
                             <input type="text" name="paymentEndDate" id="paymentEndDate" style="width:90px"
                                    value="<%=paymentEndDate%>" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                                    autocomplete="off">
-                            <span class="add-on"><i class="icon-calendar"></i></span>
+                            <span class="add-on"><i class="fa-solid fa-calendar"></i></span>
                         </div>
                         <!--</div>-->
                         <!--<div class="row" >-->
@@ -706,7 +708,7 @@
                         <div class="span4" style="padding-top:10px;">
                             <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">
                             <button class="btn" type='button' name='print' value='Print' onClick='window.print()'><i
-                                    class="icon icon-print"></i> Print
+                                    class="fa-solid fa-print"></i> Print
                             </button>
                         </div>
                     </div>

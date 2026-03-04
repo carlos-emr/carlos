@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.contactRegistry;
 import com.opensymphony.xwork2.ActionSupport;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.managers.ProfessionalSpecialistsManager;
 import io.github.carlos_emr.carlos.utility.JsonUtil;
@@ -180,6 +181,7 @@ public class ProfessionalSpecialist2Action extends ActionSupport {
      *
      * @param actionType String the action type path that determines which method to invoke
      */
+    @StrutsParameter
     public void setActionType(String actionType) {
         this.actionType = actionType;
     }

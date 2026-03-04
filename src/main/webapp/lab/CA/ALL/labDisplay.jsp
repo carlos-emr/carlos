@@ -28,51 +28,121 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ================================================================================
+    labDisplay.jsp 
+    ================================================================================
+    Purpose:
+        Comprehensive lab results display and acknowledgment interface for CARLOS EMR.
+        This JSP renders HL7 lab results with full formatting, segmentation, and
+        provider-initiated acknowledgment workflows. Supports multi-jurisdictional
+        lab systems (Ontario OLIS, etc.) with custom parsing and display rules.
 
-<%@ page import="java.nio.charset.StandardCharsets" %>
-<%@page import="com.fasterxml.jackson.databind.ObjectMapper" %>
-<%@page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
-<%@page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
-<%@page import="com.fasterxml.jackson.databind.JsonNode" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.PatientLabRouting" %>
-<%@ page import="java.net.URLEncoder" %>
-<%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="org.w3c.dom.Document" %>
-<%@ page import="io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicLabResult" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"%>
+    Key Features:
+        - HL7 v2 lab result parsing and display with segment handling
+        - Rich formatting for critical values, abnormal flags, and reference ranges
+        - Patient-friendly and provider-friendly view options
+        - Lab result acknowledgment with auto-populated comments via macros
+        - Macro system integration: Quick-action templates for common acknowledgments
+        - Tickler (follow-up reminder) creation during acknowledgment
+        - Multi-lab display with result status tracking
+        - Case management note linking and comment attachment
+        - Results history and comparative views
+        - Print-friendly output with RTF support
+        - OWASP XSS encoding for all user inputs and data outputs
+        - OWASP CSRF protection via security tokens
 
-<%@ page import="java.util.*,
-                 io.github.carlos_emr.carlos.util.UtilDateUtilities,
-                 io.github.carlos_emr.carlos.lab.ca.all.*,
-                 io.github.carlos_emr.carlos.lab.ca.all.parsers.*,
-                 io.github.carlos_emr.carlos.lab.LabRequestReportLink,
-                 io.github.carlos_emr.carlos.mds.data.ReportStatus,
-                 io.github.carlos_emr.carlos.log.*,
-                 io.github.carlos_emr.OscarProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+    Architecture:
+        - Displays HL7 lab results from database or file storage
+        - Parses HL7 v2 segments: MSH, PID, OBR, OBX, NTE, etc.
+        - Provides acknowledgment UI with optional macro quick-actions
+        - Macro dropdown renders user-configured lab result templates
+        - Macro application via runMacro() JavaScript function (defined in this file)
+        - Result acknowledgment submitted to backend action for persistence
+        - Audit logging for all result views and acknowledgments
+
+    Lab Macro Integration:
+        - Loads provider's configured lab macros from UserProperty.LAB_MACRO_JSON
+        - Renders macro names as clickable links in results page
+        - Macro application pre-fills acknowledgment comment and optionally creates tickler
+        - Supports multiple macro templates per result (e.g., "Abnormal", "Critical")
+        - Macro parsing uses Jackson ObjectMapper with error handling
+        - Failed macro parsing displays user-friendly error in macro dropdown
+
+    Security:
+        - Requires "_lab" READ privilege via security.oscarSec tag
+        - All JSP outputs escaped with OWASP Encoder for XSS prevention
+        - Macro names XSS-encoded: Encode.forJavaScript() in onClick, Encode.forHtml() in link text
+        - Audit logging via LogAction for all sensitive operations
+        - HL7 message output encoding (OWASP) to prevent XSS
+
+    Known Issues & Limitations:
+        - RTF conversion may fail silently on unsupported characters
+
+    Dependencies:
+        - HL7 parsing: io.github.carlos_emr.carlos.lab.ca.all.parsers.*
+        - Lab display helper: io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper
+        - User properties: io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO
+        - Macros: Jackson ObjectMapper for JSON parsing
+        - Security: OWASP Encoder for XSS prevention
+
+    @since 2007-07-13 (Macro improvements 2026-02-17)
+--%>
+
+<%@ page import="com.fasterxml.jackson.databind.JsonNode" %>
+<%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%@ page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
+<%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
+<%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap, io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Hl7TextInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Hl7TextMessage" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.PatientLabRouting" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
-<%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page
-        import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager, io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao, io.github.carlos_emr.carlos.commn.model.Hl7TextMessage,io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao,io.github.carlos_emr.carlos.commn.model.Hl7TextInfo" %>
-<jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
-<%@    page import="javax.swing.text.rtf.RTFEditorKit" %>
-<%@    page import="java.io.ByteArrayInputStream" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.LabRequestReportLink" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.*" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"%>
+<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
+<%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.*" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
+<%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="java.io.ByteArrayInputStream" %>
+<%@ page import="java.net.URLEncoder" %>
+<%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="java.time.LocalDate" %>
+<%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="java.util.*" %>
+<%@ page import="javax.swing.text.rtf.RTFEditorKit" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
+<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="org.w3c.dom.Document" %>
+
+<jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
+
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -104,7 +174,7 @@
     String demographicID = request.getParameter("demographicId");
     String showAllstr = request.getParameter("all");
 
-String showLatest = request.getParameter("showLatest");
+    String showLatest = request.getParameter("showLatest");
 
     List<String> allLicenseNames = new ArrayList<String>();
     String lastLicenseNo = null, currentLicenseNo = null;
@@ -132,15 +202,17 @@ String showLatest = request.getParameter("showLatest");
     if (getRecallDelegate != null) {
         recall = true;
         recallDelegate = getRecallDelegate.getValue();
-        recallTicklerPriority = getRecallTicklerPriority.getValue();
-        if (getRecallTicklerAssignee.getValue().equals("yes")) {
+        if (getRecallTicklerPriority != null) {
+            recallTicklerPriority = getRecallTicklerPriority.getValue();
+        }
+        if (getRecallTicklerAssignee != null && "yes".equals(getRecallTicklerAssignee.getValue())) {
             ticklerAssignee = "&taskTo=" + recallDelegate;
         }
     }
 
     Hl7TextMessageDao hl7TxtMsgDao = SpringUtils.getBean(Hl7TextMessageDao.class);
     MeasurementMapDao measurementMapDao = SpringUtils.getBean(MeasurementMapDao.class);
-Hl7TextMessage hl7TextMessage = null;
+    Hl7TextMessage hl7TextMessage = null;
     if (StringUtils.isNotBlank(segmentID) && StringUtils.isNumeric(segmentID)) {
         hl7TextMessage = hl7TxtMsgDao.find(Integer.parseInt(segmentID));
     }
@@ -170,8 +242,8 @@ Hl7TextMessage hl7TextMessage = null;
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
 
-String duplicateOfLab = null;
-Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
+    String duplicateOfLab = null;
+    Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
 
     if (remoteFacilityIdString == null) // local lab
     {
@@ -234,27 +306,6 @@ Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>()
             hl7 = Factory.getHL7Body(segmentID);
         }
 
-    } else // remote lab
-    {
-        CachedDemographicLabResult remoteLabResult = LabDisplayHelper.getRemoteLab(loggedInInfo, Integer.parseInt(remoteFacilityIdString), remoteLabKey, Integer.parseInt(demographicID));
-        MiscUtils.getLogger().debug("retrieved remoteLab:" + ReflectionToStringBuilder.toString(remoteLabResult));
-        isLinkedToDemographic = true;
-
-        LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_HL7_LAB, "segmentId=" + segmentID + ", remoteFacilityId=" + remoteFacilityIdString + ", remoteDemographicId=" + demographicID);
-
-        Document cachedDemographicLabResultXmlData = LabDisplayHelper.getXmlDocument(remoteLabResult);
-        ackList = LabDisplayHelper.getReportStatus(cachedDemographicLabResultXmlData);
-        multiLabId = LabDisplayHelper.getMultiLabId(cachedDemographicLabResultXmlData);
-        handler = LabDisplayHelper.getMessageHandler(cachedDemographicLabResultXmlData);
-        handlers.add(handler);
-        segmentIDs = new String[]{"0"};  //fake segment ID for the for loop below to execute
-        hl7 = LabDisplayHelper.getHl7Body(cachedDemographicLabResultXmlData);
-
-        try {
-            remoteFacilityIdQueryString = "&remoteFacilityId=" + remoteFacilityIdString + "&remoteLabKey=" + URLEncoder.encode(remoteLabKey, "UTF-8");
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
     }
 
 request.setAttribute("duplicateOfLab", duplicateOfLab);
@@ -262,11 +313,46 @@ request.setAttribute("missingTests", missingTests);
 
 /********************** Converted to this sport *****************************/
 
+String tickler_no="";
+String tickler_note="";
+Integer demoI = 0;
+Integer numTickler = 0;
+
+if (demographicID != null && !demographicID.isEmpty()) {
+    try {
+        demoI = Integer.parseInt(demographicID);
+    } catch (NumberFormatException e) {
+        MiscUtils.getLogger().warn("Invalid demographicID: " + demographicID, e);
+    }
+}
+
+
+LocalDate nearFuture = LocalDate.now().plusWeeks(6);
+DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+String strDate = nearFuture.format(formatter);
+
+SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+TicklerManager ticklerManager= SpringUtils.getBean(TicklerManager.class);
+
+if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic ) {
+    // Note: tickler_note is intentionally raw HTML. All dynamic values MUST remain encoded using OWASP Encoder methods.
+    String tlinkf="\n <a class=\"alert-link\" href='"+request.getContextPath()+"/tickler/ticklerEdit.jsp?tickler_no=";
+    List<String> notes = new java.util.ArrayList<>();
+    List<Tickler> ticklers = ticklerManager.search_tickler(loggedInInfo, demoI, MyDateFormat.getSysDate(strDate));
+
+    for (Tickler t: ticklers) {
+        if (t.getMessage() != null && !t.getMessage().trim().isEmpty()) {
+            notes.add(tlinkf + Encode.forUriComponent(String.valueOf(t.getId())) + "' target='_blank'>" + Encode.forHtml(t.getMessage()) + "</a>");
+        }
+    }
+    numTickler = notes.size();
+    tickler_note = String.join(", ", notes);
+}
 
 // check for errors printing
     if (request.getAttribute("printError") != null && (Boolean) request.getAttribute("printError")) {
 %>
-<script language="JavaScript">
+<script>
     alert("The lab could not be printed due to an error. Please see the server logs for more detail.");
 </script>
 <%
@@ -283,32 +369,20 @@ request.setAttribute("missingTests", missingTests);
 <html>
 <head>
     <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-    <title><%=handler.getPatientName() + " Lab Results"%>
+    <title><%=Encode.forHtml(handler.getPatientName()) + " Lab Results"%>
     </title>
 
-    <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.12.1.min.css"/>
-    <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.css"/>
-    <link rel="stylesheet" type="text/css" media="all"
-          href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.12.1.min.css"/>
-    <script language="javascript" type="text/javascript"
+    <script type="text/javascript"
             src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
-    <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-1.12.0.min.js"></script>
-    <script type="text/javascript"
-            src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
-    <script type="text/javascript"
-            src="<%= request.getContextPath() %>/share/javascript/jquery/jquery.form.js"></script>
+    <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/global.js"></script>
 
-    <script type="text/javascript" charset="utf-8">
+    <script>
         var contextpath = "${pageContext.servletContext.contextPath}";
         const ctx = contextpath;
     </script>
 
 
-    <script language="javascript" type="text/javascript">
+    <script type="text/javascript">
         // alternately refer to this function in oscarMDSindex.js as labDisplayAjax.jsp does
         function updateLabDemoStatus(labno) {
             if (document.getElementById("DemoTable" + labno)) {
@@ -316,485 +390,146 @@ request.setAttribute("missingTests", missingTests);
             }
         }
     </script>
-    <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css">
-    <style type="text/css">
-        <!--
-        .RollRes {
-            font-weight: 700;
-            font-size: 8pt;
-            color: white;
-            font-family: Verdana, Arial, Helvetica
-        }
+    <!--<link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/share/css/OscarStandardLayout.css">-->
+<!-- Bootstrap -->
+<link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
+<script src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
+
+     <style type="text/css">
+body { line-height: 12px; font-size: 12px; }
+.RollRes     { font-weight: 700; font-size: 8pt; color: white; font-family:
+               Verdana, Arial, Helvetica }
+.RollRes a:link { color: white }
+.RollRes a:hover { color: white }
+.RollRes a:visited { color: white }
+.RollRes a:active { color: white }
+.AbnormalRollRes { font-weight: 700; font-size: 8pt; color: red; font-family:
+               Verdana, Arial, Helvetica }
+.AbnormalRollRes a:link { color: red }
+.AbnormalRollRes a:hover { color: red }
+.AbnormalRollRes a:visited { color: red }
+.AbnormalRollRes a:active { color: red }
+.CorrectedRollRes { font-weight: 700; font-size: 8pt; color: yellow; font-family:
+               Verdana, Arial, Helvetica }
+.CorrectedRollRes a:link { color: yellow }
+.CorrectedRollRes a:hover { color: yellow }
+.CorrectedRollRes a:visited { color: yellow }
+.CorrectedRollRes a:active { color: yellow }
+.AbnormalRes { font-weight: bold; font-size: 8pt; color: red; font-family:
+               Verdana, Arial, Helvetica }
+.AbnormalRes a:link { color: red }
+.AbnormalRes a:hover { color: red }
+.AbnormalRes a:visited { color: red }
+.AbnormalRes a:active { color: red }
+.NormalRes   { font-weight: bold; font-size: 8pt; color: black; font-family:
+                      Verdana, Arial, Helvetica }
+.TDISRes	{font-weight: bold; font-size: 10pt; color: black; font-family:
+               Verdana, Arial, Helvetica}
+.NormalRes a:link { color: black }
+.NormalRes a:hover { color: black }
+.NormalRes a:visited { color: black }
+.NormalRes a:active { color: black }
+.HiLoRes     { font-weight: bold; font-size: 8pt; color: blue; font-family:
+               Verdana, Arial, Helvetica }
+.HiLoRes a:link { color: blue }
+.HiLoRes a:hover { color: blue }
+.HiLoRes a:visited { color: blue }
+.HiLoRes a:active { color: blue }
+.CorrectedRes { font-weight: bold; font-size: 8pt; color: #E000D0; font-family:
+               Verdana, Arial, Helvetica }
+.CorrectedRes         a:link { color: #6da997 }
+.CorrectedRes a:hover { color: #6da997 }
+.CorrectedRes a:visited { color: #6da997 }
+.CorrectedRes a:active { color: #6da997 }
+.Field       { font-weight: bold; font-size: 8.5pt; color: black; font-family:
+               Verdana, Arial, Helvetica }
+.NarrativeRes { font-weight: 700; font-size: 10pt; color: black; font-family:
+               Courier New, Courier, mono }
+div.Field a:link { color: black }
+div.Field a:hover { color: black }
+div.Field a:visited { color: black }
+div.Field a:active { color: black }
+.Field2      { font-weight: bold; font-size: 8pt; color: #ffffff; font-family:
+               Verdana, Arial, Helvetica }
+div.Field2   { font-weight: bold; font-size: 8pt; color: #ffffff; font-family:
+               Verdana, Arial, Helvetica }
+div.FieldData { font-weight: normal; font-size: 8pt; color: black; font-family:
+               Verdana, Arial, Helvetica }
+div.Field3   { font-weight: normal; font-size: 8pt; color: black; font-style: italic;
+               font-family: Verdana, Arial, Helvetica }
+div.Title    { font-weight: 800; font-size: 10pt; color: white; font-family:
+               Verdana, Arial, Helvetica; padding-top: 4pt; padding-bottom:
+               2pt }
+div.Title a:link { color: white }
+div.Title a:hover { color: white }
+div.Title a:visited { color: white }
+div.Title a:active { color: white }
+div.Title2   { font-weight: bolder; font-size: 9pt; color: black; text-indent: 5pt;
+               font-family: Verdana, Arial, Helvetica; padding: 10pt 15pt 2pt 2pt}
+div.Title2 a:link { color: black }
+div.Title2 a:hover { color: black }
+div.Title2 a:visited { color: black }
+div.Title2 a:active { color: black }
+
+.Cell        { background-color: silver; border-left: thin solid grey;
+               text-align: center;
+               border-right: thin solid black;
+               border-top: thin solid grey;
+               border-bottom: thin solid black }
+.Cell2       { background-color: #376c95; border-left-style: none; border-left-width: medium;
+               border-right-style: none; border-right-width: medium;
+               border-top: thin none #bfcbe3; border-bottom-style: none;
+               border-bottom-width: medium }
+.Cell3       { background-color: #add9c7; border-left: thin solid #dbfdeb;
+               border-right: thin solid #5d9987;
+               border-top: thin solid #dbfdeb;
+               border-bottom: thin solid #5d9987 }
+.CellHdr     { background-color: #cbe5d7; border-right-style: none; border-right-width:
+               medium; border-bottom-style: none; border-bottom-width: medium }
+.Nav         { font-weight: bold; font-size: 8pt; color: black; font-family:
+               Verdana, Arial, Helvetica }
+.PageLink a:link { font-size: 8pt; color: white }
+.PageLink a:hover { color: red }
+.PageLink a:visited { font-size: 9pt; color: yellow }
+.PageLink a:active { font-size: 12pt; color: yellow }
+.PageLink    { font-family: Verdana }
+.text1       { font-size: 8pt; color: black; font-family: Verdana, Arial, Helvetica }
+div.txt1     { font-size: 8pt; color: black; font-family: Verdana, Arial }
+div.txt2     { font-weight: bolder; font-size: 6pt; color: black; font-family: Verdana, Arial }
+div.Title3   { font-weight: bolder; font-size: 12pt; color: black; font-family:
+               Verdana, Arial }
+.red         { color: red }
+.text2       { font-size: 7pt; color: black; font-family: Verdana, Arial }
+.white       { color: white }
+.title1      { font-size: 9pt; color: black; font-family: Verdana, Arial }
+div.Title4   { font-weight: 600; font-size: 8pt; color: white; font-family:
+               Verdana, Arial, Helvetica }
+pre {
+	display: block;
+    font-family:  Verdana, Arial, Helvetica;
+    background-color: #f5f5f5;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    white-space: -moz-pre-space;
+    margin:0px;
+    font-size: x-small;
+    font-weight:400;
+}
+
+[id^=ticklerWrap]{position:relative;top:0px;background-color:#FF6600;width:100%;}
+
+input[id^='acklabel_']{
+    margin-top: 10px; /* align with bootstrap buttons */
+}
+
+
+.completedTickler{
+    opacity: 0.8;
+}
+
+@media print {
+.DoNotPrint{display:none;}
+}
 
-        .RollRes a:link {
-            color: white
-        }
-
-        .RollRes a:hover {
-            color: white
-        }
-
-        .RollRes a:visited {
-            color: white
-        }
-
-        .RollRes a:active {
-            color: white
-        }
-
-        .AbnormalRollRes {
-            font-weight: 700;
-            font-size: 8pt;
-            color: red;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .AbnormalRollRes a:link {
-            color: red
-        }
-
-        .AbnormalRollRes a:hover {
-            color: red
-        }
-
-        .AbnormalRollRes a:visited {
-            color: red
-        }
-
-        .AbnormalRollRes a:active {
-            color: red
-        }
-
-        .CorrectedRollRes {
-            font-weight: 700;
-            font-size: 8pt;
-            color: yellow;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .CorrectedRollRes a:link {
-            color: yellow
-        }
-
-        .CorrectedRollRes a:hover {
-            color: yellow
-        }
-
-        .CorrectedRollRes a:visited {
-            color: yellow
-        }
-
-        .CorrectedRollRes a:active {
-            color: yellow
-        }
-
-        .AbnormalRes {
-            font-weight: bold;
-            font-size: 8pt;
-            color: red;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .AbnormalRes a:link {
-            color: red
-        }
-
-        .AbnormalRes a:hover {
-            color: red
-        }
-
-        .AbnormalRes a:visited {
-            color: red
-        }
-
-        .AbnormalRes a:active {
-            color: red
-        }
-
-        .NormalRes {
-            font-weight: bold;
-            font-size: 8pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .TDISRes {
-            font-weight: bold;
-            font-size: 10pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .NormalRes a:link {
-            color: black
-        }
-
-        .NormalRes a:hover {
-            color: black
-        }
-
-        .NormalRes a:visited {
-            color: black
-        }
-
-        .NormalRes a:active {
-            color: black
-        }
-
-        .HiLoRes {
-            font-weight: bold;
-            font-size: 8pt;
-            color: blue;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .HiLoRes a:link {
-            color: blue
-        }
-
-        .HiLoRes a:hover {
-            color: blue
-        }
-
-        .HiLoRes a:visited {
-            color: blue
-        }
-
-        .HiLoRes a:active {
-            color: blue
-        }
-
-        .CorrectedRes {
-            font-weight: bold;
-            font-size: 8pt;
-            color: #E000D0;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .CorrectedRes a:link {
-            color: #6da997
-        }
-
-        .CorrectedRes a:hover {
-            color: #6da997
-        }
-
-        .CorrectedRes a:visited {
-            color: #6da997
-        }
-
-        .CorrectedRes a:active {
-            color: #6da997
-        }
-
-        .Field {
-            font-weight: bold;
-            font-size: 8.5pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .NarrativeRes {
-            font-weight: 700;
-            font-size: 10pt;
-            color: black;
-            font-family: Courier New, Courier, mono
-        }
-
-        div.Field a:link {
-            color: black
-        }
-
-        div.Field a:hover {
-            color: black
-        }
-
-        div.Field a:visited {
-            color: black
-        }
-
-        div.Field a:active {
-            color: black
-        }
-
-        .Field2 {
-            font-weight: bold;
-            font-size: 8pt;
-            color: #ffffff;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        div.Field2 {
-            font-weight: bold;
-            font-size: 8pt;
-            color: #ffffff;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        div.FieldData {
-            font-weight: normal;
-            font-size: 8pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        div.Field3 {
-            font-weight: normal;
-            font-size: 8pt;
-            color: black;
-            font-style: italic;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        div.Title {
-            font-weight: 800;
-            font-size: 10pt;
-            color: white;
-            font-family: Verdana, Arial, Helvetica;
-            padding-top: 4pt;
-            padding-bottom: 2pt
-        }
-
-        div.Title a:link {
-            color: white
-        }
-
-        div.Title a:hover {
-            color: white
-        }
-
-        div.Title a:visited {
-            color: white
-        }
-
-        div.Title a:active {
-            color: white
-        }
-
-        div.Title2 {
-            font-weight: bolder;
-            font-size: 9pt;
-            color: black;
-            text-indent: 5pt;
-            font-family: Verdana, Arial, Helvetica;
-            padding: 10pt 15pt 2pt 2pt
-        }
-
-        div.Title2 a:link {
-            color: black
-        }
-
-        div.Title2 a:hover {
-            color: black
-        }
-
-        div.Title2 a:visited {
-            color: black
-        }
-
-        div.Title2 a:active {
-            color: black
-        }
-
-        .Cell {
-            background-color: #9999CC;
-            border-left: thin solid #CCCCFF;
-            border-right: thin solid #6666CC;
-            border-top: thin solid #CCCCFF;
-            border-bottom: thin solid #6666CC
-        }
-
-        .Cell2 {
-            background-color: #376c95;
-            border-left-style: none;
-            border-left-width: medium;
-            border-right-style: none;
-            border-right-width: medium;
-            border-top: thin none #bfcbe3;
-            border-bottom-style: none;
-            border-bottom-width: medium
-        }
-
-        .Cell3 {
-            background-color: #add9c7;
-            border-left: thin solid #dbfdeb;
-            border-right: thin solid #5d9987;
-            border-top: thin solid #dbfdeb;
-            border-bottom: thin solid #5d9987
-        }
-
-        .CellHdr {
-            background-color: #cbe5d7;
-            border-right-style: none;
-            border-right-width: medium;
-            border-bottom-style: none;
-            border-bottom-width: medium
-        }
-
-        .Nav {
-            font-weight: bold;
-            font-size: 8pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        .PageLink a:link {
-            font-size: 8pt;
-            color: white
-        }
-
-        .PageLink a:hover {
-            color: red
-        }
-
-        .PageLink a:visited {
-            font-size: 9pt;
-            color: yellow
-        }
-
-        .PageLink a:active {
-            font-size: 12pt;
-            color: yellow
-        }
-
-        .PageLink {
-            font-family: Verdana
-        }
-
-        .text1 {
-            font-size: 8pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        div.txt1 {
-            font-size: 8pt;
-            color: black;
-            font-family: Verdana, Arial
-        }
-
-        div.txt2 {
-            font-weight: bolder;
-            font-size: 6pt;
-            color: black;
-            font-family: Verdana, Arial
-        }
-
-        div.Title3 {
-            font-weight: bolder;
-            font-size: 12pt;
-            color: black;
-            font-family: Verdana, Arial
-        }
-
-        .red {
-            color: red
-        }
-
-        .text2 {
-            font-size: 7pt;
-            color: black;
-            font-family: Verdana, Arial
-        }
-
-        .white {
-            color: white
-        }
-
-        .title1 {
-            font-size: 9pt;
-            color: black;
-            font-family: Verdana, Arial
-        }
-
-        div.Title4 {
-            font-weight: 600;
-            font-size: 8pt;
-            color: white;
-            font-family: Verdana, Arial, Helvetica
-        }
-
-        pre {
-            display: block;
-            font-family: Verdana, Arial, Helvetica;
-            white-space: -moz-pre-space;
-            margin: 0px;
-            font-size: x-small;
-            font-weight: 600;
-        }
-
-        -->
-
-        input[type=button], button, input[id^='acklabel_'] {
-            font-size: 12px !important;
-            padding: 0px;
-        }
-
-        #ticklerWrap {
-            position: relative;
-            top: 0px;
-            background-color: #FF6600;
-            width: 100%;
-        }
-
-        .completedTickler {
-            opacity: 0.8;
-            filter: alpha(opacity=80); /* For IE8 and earlier */
-        }
-
-        @media print {
-            .DoNotPrint {
-                display: none;
-            }
-        }
-    </style>
-
-    <style>
-        /* Dropdown Button */
-        .dropbtn {
-            /*  background-color: #4CAF50;
-              color: white;
-              padding: 16px;
-              font-size: 16px;
-              border: none;*/
-        }
-
-        /* The container <div> - needed to position the dropdown content */
-        .dropdown {
-            position: relative;
-            display: inline-block;
-        }
-
-        /* Dropdown Content (Hidden by Default) */
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            background-color: #f1f1f1;
-            min-width: 160px;
-            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
-            z-index: 1;
-        }
-
-        /* Links inside the dropdown */
-        .dropdown-content a {
-            color: black;
-            padding: 12px 16px;
-            text-decoration: none;
-            display: block;
-        }
-
-        /* Change color of dropdown links on hover */
-        .dropdown-content a:hover {
-            background-color: #ddd;
-        }
-
-        /* Show the dropdown menu on hover */
-        .dropdown:hover .dropdown-content {
-            display: block;
-        }
-
-        /* Change the background color of the dropdown button when the dropdown content is shown */
-.dropdown:hover .dropbtn {background-color: #3e8e41;}
 
 #labVersionInfoModal .modal-title {
     font-size: 18px;
@@ -826,10 +561,10 @@ request.setAttribute("missingTests", missingTests);
 }
     </style>
 
-    <script language="JavaScript">
+    <script>
         var labNo = '<%=Encode.forJavaScript(segmentID)%>';
-        var providerNo = '<%=providerNo%>';
-        var demographicNo = '<%=isLinkedToDemographic ? demographicID : ""%>';
+        var providerNo = '<%=Encode.forJavaScript(providerNo)%>';
+        var demographicNo = '<%=Encode.forJavaScript(isLinkedToDemographic ? demographicID : "")%>';
 
         function popupStart(vheight, vwidth, varpage, windowname) {
             var page = varpage;
@@ -1025,7 +760,6 @@ request.setAttribute("missingTests", missingTests);
                 window.location.reload();
             });
         }
-
         function submitLabel(lblval, segmentID) {
             var ackForm = document.forms['acknowledgeForm_' + segmentID];
             var tdisForm = document.forms['TDISLabelForm_' + segmentID];
@@ -1036,6 +770,7 @@ request.setAttribute("missingTests", missingTests);
                 }
             }
         }
+
     </script>
 
 </head>
@@ -1084,23 +819,29 @@ request.setAttribute("missingTests", missingTests);
 %>
 <script type="text/javascript">
 
-    jQuery(function () {
-        jQuery("#createLabel_<%=Encode.forJavaScript(segmentID)%>").click(function () {
-            jQuery.ajax({
-                type: "POST",
-                url: '<%=request.getContextPath()%>' + "/lab/CA/ALL/createLabelTDIS.do",
-                dataType: "json",
-                data: {
-                    lab_no: jQuery("#labNum_<%=Encode.forJavaScript(segmentID)%>").val(),
-                    accessionNum: jQuery("#accNum").val(),
-                    label: jQuery("#label_<%=Encode.forJavaScript(segmentID)%>").val(),
-                    ajaxcall: true
-                }
-            })
-            jQuery("#labelspan_<%=Encode.forJavaScript(segmentID)%> i").text(jQuery("#label_<%=Encode.forJavaScript(segmentID)%>").val());
-            var ackForm = document.forms['acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>'];
-            if (ackForm && ackForm.label) ackForm.label.value = "";
-        });
+    document.addEventListener('DOMContentLoaded', function () {
+        var btn = document.getElementById('createLabel_<%=Encode.forJavaScript(segmentID)%>');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                var labNo = document.getElementById('labNum_<%=Encode.forJavaScript(segmentID)%>');
+                var accNum = document.getElementById('accNum');
+                var labelInput = document.getElementById('label_<%=Encode.forJavaScript(segmentID)%>');
+                var params = new URLSearchParams();
+                if (labNo) params.append('lab_no', labNo.value);
+                if (accNum) params.append('accessionNum', accNum.value);
+                if (labelInput) params.append('label', labelInput.value);
+                params.append('ajaxcall', 'true');
+                fetch('<%=request.getContextPath()%>/lab/CA/ALL/createLabelTDIS.do', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: params.toString()
+                });
+                var spanI = document.querySelector('#labelspan_<%=Encode.forJavaScript(segmentID)%> i');
+                if (spanI && labelInput) spanI.textContent = labelInput.value;
+                var ackForm = document.forms['acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>'];
+                if (ackForm && ackForm.label) ackForm.label.value = '';
+            });
+        }
     });
 
     var _in_window = <%= request.getParameter("inWindow") == null || "true".equals(request.getParameter("inWindow")) %>;
@@ -1155,82 +896,43 @@ request.setAttribute("missingTests", missingTests);
         <c:set var="hasMissingTests" value="${not empty missingTests}" />
         <c:set var="showModal" value="${hasDuplicateInfo or hasMissingTests}" />
 
-        <c:if test="${showModal}">
-            <!-- Modal -->
-            <div id="labVersionInfoModal" title="Lab Version Information" style="display:none;">
-                <div class="lab-version-modal">
-                    <c:if test="${hasDuplicateInfo}">
-                        <!-- Duplicate Information Section -->
-                        <div class="info-section">
-                            <div class="modal-title">Duplicate Lab Version Alert</div>
-                            <p>Warning: You are viewing a version of a lab result that appears to be a duplicate of previously received version <c:out value="${duplicateOfLab}" />.</p>
-                            <p style="margin-top: 5px">There is likely no new data in this version, but please double check regardless.</p>
-                        </div>
-                    </c:if>
 
-                    <c:if test="${hasMissingTests}">
-                        <!-- Missing Tests Information Section -->
-                        <div class="info-section">
-                            <div class="modal-title">Missing Test Results</div>
-                            <p>Warning: At least the following tests were not included in this version of the lab results:</p>
-                            <div class="test-list">
-                                <c:forEach var="entry" items="${missingTests}">
-                                    <div class="test-item">
-                                        <span>${entry.key}</span>
-                                        <span class="status">${entry.value.description}</span>
-                                    </div>
-                                </c:forEach>
-                            </div>
-                        </div>
-                    </c:if>
-                </div>
-            </div>
-
-            <script>
-                // Include a short delay before showing modal to improve user experience
-                setTimeout(function () {
-                    jQuery(document).ready(function () {
-                        jQuery("#labVersionInfoModal").dialog({ modal: true, width: 500 });
-                    });
-                }, 300);
-            </script>
-        </c:if>
 
     <form name="reassignForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" action="<%= request.getContextPath() %>/lab/CA/ALL/Forward.do">
-        <input type="hidden" name="flaggedLabs" value="<%= Encode.forHtmlAttribute(segmentID) %>"/>
-        <input type="hidden" name="selectedProviders" value=""/>
-        <input type="hidden" name="favorites" value=""/>
-        <input type="hidden" name="labType" value="HL7"/>
-        <input type="hidden" name="labType<%= Encode.forHtmlAttribute(segmentID) %>HL7" value="imNotNull"/>
+        <input type="hidden" name="flaggedLabs" value="<%= Encode.forHtmlAttribute(segmentID) %>">
+        <input type="hidden" name="selectedProviders" value="">
+        <input type="hidden" name="favorites" value="">
+        <input type="hidden" name="labType" value="HL7">
+        <input type="hidden" name="labType<%= Encode.forHtmlAttribute(segmentID) %>HL7" value="imNotNull">
         <input type="hidden" id="providerNo_<%= Encode.forHtmlAttribute(segmentID) %>" name="providerNo"
-               value="<%= providerNo %>"/>
+               value="<%= Encode.forHtmlAttribute(providerNo) %>">
     </form>
 
     <form name="TDISLabelForm_<%= Encode.forHtmlAttribute(segmentID) %>" method='POST'
           action="<%=request.getContextPath()%>/lab/CA/ALL/createLabelTDIS.do">
-        <input type="hidden" id="labNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=lab_no%>">
-        <input type="hidden" id="label_<%= Encode.forHtmlAttribute(segmentID) %>" name="label" value="<%=label%>">
+        <input type="hidden" id="labellabNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=lab_no%>">
+        <input type="hidden" id="label_<%= Encode.forHtmlAttribute(segmentID) %>" name="label" value="<%= Encode.forHtmlAttribute(label) %>">
     </form>
 
     <form name="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>"
           id="acknowledgeForm_<%= Encode.forHtmlAttribute(segmentID) %>" method="post" onsubmit="javascript:void(0);"
-          method="post" action="javascript:void(0);">
+          action="javascript:void(0);">
 
-        <table width="100%" height="100%" border="0" cellspacing="0" cellpadding="0">
+        <table style="width:100%;">
             <tr>
-                <td valign="top">
-                    <table class="MainTableTopRowRightColumn" width="100%" border="0" cellspacing="0" cellpadding="3">
+                <td style="vertical-align:top;">
+                    <table class="MainTableTopRowRightColumn" style="width:100%;">
                         <tr>
                             <td>
                                 <input type="hidden" name="segmentID"
-                                       value="<%= Encode.forHtmlAttribute(segmentID) %>"/>
-                                <input type="hidden" name="multiID" value="<%= Encode.forHtmlAttribute(multiLabId) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(segmentID) %>">
+                                <input type="hidden" name="multiID" value="<%= Encode.forHtmlAttribute(multiLabId) %>">
                                 <input type="hidden" name="providerNo" id="providerNo"
-                                       value="<%= Encode.forHtmlAttribute(providerNo) %>"/>
+                                       value="<%= Encode.forHtmlAttribute(providerNo) %>">
                                 <input type="hidden" name="status" value="<%=Encode.forHtmlAttribute(labStatus)%>"
-                                       id="labStatus_<%=Encode.forHtmlAttribute(segmentID)%>"/>
-                                <input type="hidden" name="comment" value=""/>
-                                <input type="hidden" name="labType" value="HL7"/>
+                                       id="labStatus_<%=Encode.forHtmlAttribute(segmentID)%>">
+                                <input type="hidden" name="comment" value="">
+                                <input type="hidden" name="labType" value="HL7">
                                 <%
                                     if (!ackFlag) {
                                 %>
@@ -1238,11 +940,16 @@ request.setAttribute("missingTests", missingTests);
                                 <%
                                     UserPropertyDAO upDao = SpringUtils.getBean(UserPropertyDAO.class);
                                     UserProperty up = upDao.getProp(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), UserProperty.LAB_MACRO_JSON);
+
+                                %>
+<div class="d-flex align-items-center input-group-sm">
+                                <%
                                     if (up != null && !StringUtils.isEmpty(up.getValue())) {
+
                                 %>
                                 <div class="dropdown">
-                                    <button class="dropbtn">Macros</button>
-                                    <div class="dropdown-content">
+                                    <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">Macros</button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
                                         <%
                                             try {
                                                 ObjectMapper mapper = new ObjectMapper();
@@ -1253,88 +960,83 @@ request.setAttribute("missingTests", missingTests);
                                                         String name = macro.get("name").asText();
                                                         boolean closeOnSuccess = macro.has("closeOnSuccess") && macro.get("closeOnSuccess").asBoolean();
 
-                                        %><a href="javascript:void(0);"
-                                             onClick="runMacro('<%=name%>','acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>',<%=closeOnSuccess%>)"><%=name %>
-                                    </a><%
+                                        %><li><a class="dropdown-item" href="javascript:void(0);"
+                                             onClick="runMacro('<%=Encode.forJavaScript(name)%>','acknowledgeForm_<%=Encode.forJavaScript(segmentID)%>',<%=closeOnSuccess%>)"><%=Encode.forHtml(name)%>
+                                    </a></li><%
                                                 }
                                             }
                                         } catch (Exception e) {
                                             MiscUtils.getLogger().warn("Invalid JSON for lab macros", e);
                                         }
                                     %>
-
+                                      </ul>
                                     </div>
-                                </div>
                                 <% } %>
 
-                                <input type="button"
+                                <input type="button" class="btn btn-sm btn-outline-primary"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                                        onclick="<%=ackLabFunc%>">
                                 <% } %>
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                        onclick="return getComment('addComment',<%=Encode.forJavaScript(segmentID)%>);">
-                                <input type="button" class="smallButton"
+                                <input type="button" class="btn btn-sm btn-outline-secondary"
                                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
                                        onClick="ForwardSelectedRows(<%=Encode.forJavaScript(segmentID)%> + ':HL7', '', '')">
-                                <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> "
                                        onClick="window.close()">
-                                <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
                                        onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
 
-                                <input type="button" value="Msg"
-                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLab');"/>
-                                <input type="button" value="Tickler"
-                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','ticklerLab');"/>
-                                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
-                                       onclick="unlinkDemographic(<%=Encode.forJavaScript(segmentID)%>)"/>
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="Msg"
+                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLab');">
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="Tickler"
+                                       onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','ticklerLab');">
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
+                                       onclick="unlinkDemographic(<%=Encode.forJavaScript(segmentID)%>)">
 
                                 <% if (searchProviderNo != null) { // null if we were called from e-chart%>
-                                <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
                                        onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
                                 <% } %>
-                                <input type="button" value="Req# <%=reqTableID%>" title="Link to Requisition"
-                                       onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=reqID%>');"/>
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="Req# <%=Encode.forHtmlAttribute(reqTableID)%>" title="Link to Requisition"
+                                       onclick="linkreq('<%=Encode.forJavaScript(segmentID)%>','<%=reqID%>');">
 
 
                                 <% if (bShortcutForm) { %>
-                                <input type="button" value="<%=formNameShort%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName%>&demographic_no=<%=demographicID%>', '<%=formNameShort%>')"/>
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="<%=Encode.forHtmlAttribute(formNameShort)%>"
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName%>&demographic_no=<%=demographicID%>', '<%=Encode.forJavaScript(formNameShort)%>')">
                                 <% } %>
                                 <% if (bShortcutForm2) { %>
-                                <input type="button" value="<%=formName2Short%>"
-                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName2%>&demographic_no=<%=demographicID%>', '<%=formName2Short%>')"/>
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="<%=formName2Short%>"
+                                       onClick="popupStart(700, 1024, '/form/forwardshortcutname.do?formname=<%=formName2%>&demographic_no=<%=demographicID%>', '<%=formName2Short%>')">
                                 <% } %>
 
                                 <% if (recall) {%>
-                                <input type="button" value="Recall"
+                                <input type="button" class="btn btn-sm btn-outline-secondary" value="Recall"
                                        onclick="handleLab('','<%=Encode.forJavaScript(segmentID)%>','msgLabRecall');">
                                 <%}%>
                                 <%
-                                    if (remoteLabKey == null || "".equals(remoteLabKey.length())) {
+                                    if (remoteLabKey == null || remoteLabKey.isEmpty()) {
                                 %>
 
 
-                                <span class="Field2"><i>Next Appointment: <oscar:nextAppt
-                                        demographicNo="<%=demographicID%>"/></i></span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
+                                <span style="font-size:10px; font-style:italic;">Next Appointment: <oscar:nextAppt
+                                        demographicNo="<%=demographicID%>"/></span>
                                 <% if (!label.equals(null) && !label.equals("")) { %>
-                                <button type="button" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
                                         value="Label"
                                         onclick="submitLabel(this, '<%=Encode.forJavaScript(segmentID)%>');">Label
                                 </button>
                                 <%} else { %>
-                                <button type="button" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
-                                        style="background-color:#6699FF" value="Label"
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="createLabel_<%= Encode.forHtmlAttribute(segmentID) %>"
+                                        value="Label"
                                         onclick="submitLabel(this, '<%=Encode.forJavaScript(segmentID)%>');">Label
                                 </button>
                                 <%} %>
                                 <input type="hidden" id="labNum_<%=Encode.forHtmlAttribute(segmentID) %>" name="lab_no"
                                        value="<%=lab_no%>">
-                                <input type="text" id="acklabel_<%= Encode.forHtmlAttribute(segmentID) %>" name="label"
-                                       value=""/>
+                                <input type="text" class="form-control form-control-sm" style="width: 140px; margin-top: 0px;" id="acklabel_<%= Encode.forHtmlAttribute(segmentID) %>" name="label"
+                                       value="">
 
                                 <% String labelval = "";
                                     if (label != "" && label != null) {
@@ -1344,22 +1046,28 @@ request.setAttribute("missingTests", missingTests);
 
                                     } %>
                                 <span id="labelspan_<%= Encode.forHtmlAttribute(segmentID) %>"
-                                      class="Field2"><i><%= Encode.forHtml(labelval) %> </i></span>
+                                      ><i><%= Encode.forHtml(labelval) %> </i></span>
 
                                 <% } %>
+</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+
+
                             </td>
 
                         </tr>
                     </table>
-                    <table width="100%" border="1" cellspacing="0" cellpadding="3" bgcolor="#9999CC"
-                           bordercolordark="#bfcbe3">
+                    <table style="width:100%; background-color:#9999CC;">
                         <%
                             if (multiLabId != null) {
                                 String[] multiID = multiLabId.split(",");
                                 if (multiID.length > 1) {
                         %>
                         <tr>
-                            <td class="Cell" colspan="2" align="middle">
+                            <td class="Cell" colspan="2" >
                                 <div class="Field2">
                                     Version:&#160;&#160;
                                     <%
@@ -1392,134 +1100,131 @@ request.setAttribute("missingTests", missingTests);
                             }
                         %>
                         <tr>
-                            <td width="66%" align="middle" class="Cell">
+                            <td style="width:66%;"  class="Cell">
                                 <div class="Field2">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDetailResults"/>
                                 </div>
                             </td>
-                            <td width="33%" align="middle" class="Cell">
+                            <td style="width:33%;"  class="Cell">
                                 <div class="Field2">
                                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResultsInfo"/>
                                 </div>
                             </td>
                         </tr>
                         <tr>
-                            <td bgcolor="white" valign="top">
-                                <table valign="top" border="0" cellpadding="2" cellspacing="0" width="100%">
-                                    <tr valign="top">
-                                        <td valign="top" width="33%" align="left">
-                                            <table width="100%" border="0" cellpadding="2" cellspacing="0"
-                                                   valign="top"  <% if (!isLinkedToDemographic) { %>
-                                                   bgcolor="orange" <% } %>
+                            <td style="background-color:white; vertical-align:top; ">
+                                <table style="width:100%; vertical-align:top;">
+                                    <tr style="vertical-align:top; ">
+                                        <td style="width:33%; text-align:left; vertical-align:top; ">
+                                            <table style="width:100%; vertical-align:top; <% if (!isLinkedToDemographic) { %>
+                                                   background-color:orange;<% } %>"
                                                    id="DemoTable<%= Encode.forHtmlAttribute(segmentID) %>">
                                                 <tr>
-                                                    <td valign="top" align="left">
-                                                        <table valign="top" border="0" cellpadding="3" cellspacing="0"
-                                                               width="100%">
+                                                    <td style="vertical-align:top;  text-align:left;">
+                                                        <table style="width:100%; vertical-align:top; ">
                                                             <tr>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formPatientName"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div class="FieldData" nowrap="nowrap">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <% if (searchProviderNo == null) { // we were called from e-chart%>
                                                                         <a href="javascript:window.close()">
                                                                                 <% } else { // we were called from lab module%>
                                                                             <a href="javascript:popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow')">
                                                                                 <% } %>
-                                                                                <%=handler.getPatientName()%>
+                                                                                <%=Encode.forHtml(handler.getPatientName())%>
                                                                             </a>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateBirth"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div class="FieldData" nowrap="nowrap">
-                                                                        <%=handler.getDOB()%>
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
+                                                                        <%=Encode.forHtml(handler.getDOB())%>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAge"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <%=handler.getAge()%>
+                                                                        <%=Encode.forHtml(handler.getAge())%>
                                                                     </div>
                                                                 </td>
 
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong>
                                                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formHealthNumber"/>
                                                                         </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div class="FieldData" nowrap="nowrap">
-                                                                        <%=handler.getHealthNum()%>
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
+                                                                        <%=Encode.forHtml(handler.getHealthNum())%>
                                                                     </div>
                                                                 </td>
                                                                 <td colspan="2"></td>
                                                             </tr>
                                                         </table>
                                                     </td>
-                                                    <td width="33%" valign="top">
-                                                        <table valign="top" border="0" cellpadding="3" cellspacing="0"
-                                                               width="100%">
+                                                    <td style="width:33%;vertical-align:top; ">
+                                                        <table style="width:100%;vertical-align:top; ">
                                                             <tr>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formHomePhone"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData" nowrap="nowrap">
-                                                                        <%=handler.getHomePhone()%>
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
+                                                                        <%=Encode.forHtml(handler.getHomePhone())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formWorkPhone"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData" nowrap="nowrap">
-                                                                        <%=handler.getWorkPhone()%>
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
+                                                                        <%=Encode.forHtml(handler.getWorkPhone())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
+                                                                <td style="white-space:nowrap;">
                                                                     <div class="FieldData">
                                                                         <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formSex"/>: </strong>
                                                                     </div>
                                                                 </td>
-                                                                <td align="left" nowrap>
+                                                                <td style="text-align:left; white-space:nowrap;">
                                                                     <div class="FieldData">
-                                                                        <%=handler.getSex()%>
+                                                                        <%=Encode.forHtml(handler.getSex())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
                                                             <tr>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData">
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
                                                                         <% if ("ExcellerisON".equals(handler.getMsgType())) { %>
                                                                         <strong>Reported by:</strong>
                                                                         <% } else { %>
@@ -1527,9 +1232,9 @@ request.setAttribute("missingTests", missingTests);
                                                                         <% } %>
                                                                     </div>
                                                                 </td>
-                                                                <td nowrap>
-                                                                    <div align="left" class="FieldData" nowrap="nowrap">
-                                                                        <%=handler.getPatientLocation()%>
+                                                                <td style="white-space:nowrap;">
+                                                                    <div class="FieldData">
+                                                                        <%=Encode.forHtml(handler.getPatientLocation())%>
                                                                     </div>
                                                                 </td>
                                                             </tr>
@@ -1541,8 +1246,8 @@ request.setAttribute("missingTests", missingTests);
                                     </tr>
                                 </table>
                             </td>
-                            <td bgcolor="white" valign="top">
-                                <table width="100%" border="0" cellspacing="0" cellpadding="1">
+                            <td style="background-color:white; vertical-align:top; ">
+                                <table style="width:100%;">
                                     <tr>
                                         <td>
                                             <div class="FieldData">
@@ -1554,8 +1259,8 @@ request.setAttribute("missingTests", missingTests);
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
-                                                <%= handler.getServiceDate() %>
+                                            <div class="FieldData">
+                                                <%=Encode.forHtml(handler.getServiceDate()) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -1568,8 +1273,8 @@ request.setAttribute("missingTests", missingTests);
                                                 </div>
                                             </td>
                                             <td>
-                                                <div class="FieldData" nowrap="nowrap">
-                                                    <%= ((ExcellerisOntarioHandler) handler).getReportStatusChangeDate() %>
+                                                <div class="FieldData">
+                                                    <%=Encode.forHtml(((ExcellerisOntarioHandler) handler).getReportStatusChangeDate())%>
                                                 </div>
                                             </td>
                                         </tr>
@@ -1583,8 +1288,8 @@ request.setAttribute("missingTests", missingTests);
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
-                                                <%= handler.getRequestDate(0) %>
+                                            <div class="FieldData">
+                                                <%=Encode.forHtml(handler.getRequestDate(0)) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -1596,7 +1301,7 @@ request.setAttribute("missingTests", missingTests);
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
+                                            <div class="FieldData">
                                                 <%= dateLabReceived %>
                                             </div>
                                         </td>
@@ -1608,8 +1313,8 @@ request.setAttribute("missingTests", missingTests);
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
-                                                <%=handler.getOrderStatus()%>
+                                            <div class="FieldData">
+                                                <%=Encode.forHtml(handler.getOrderStatus())%>
                                             </div>
                                         </td>
                                     </tr>
@@ -1617,14 +1322,14 @@ request.setAttribute("missingTests", missingTests);
                                         <td></td>
                                     </tr>
                                     <tr>
-                                        <td nowrap>
+                                        <td style="white-space:nowrap;">
                                             <div class="FieldData">
                                                 <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formClientRefer"/>:</strong>
                                             </div>
                                         </td>
-                                        <td nowrap>
-                                            <div class="FieldData" nowrap="nowrap">
-                                                <%= handler.getClientRef()%>
+                                        <td style="white-space:nowrap;">
+                                            <div class="FieldData">
+                                                <%=Encode.forHtml(handler.getClientRef())%>
                                             </div>
                                         </td>
                                     </tr>
@@ -1635,8 +1340,8 @@ request.setAttribute("missingTests", missingTests);
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
-                                                <%= handler.getAccessionNum()%>
+                                            <div class="FieldData">
+                                                <%=Encode.forHtml(handler.getAccessionNum())%>
                                             </div>
                                         </td>
                                     </tr>
@@ -1648,8 +1353,8 @@ request.setAttribute("missingTests", missingTests);
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
-                                                <%= ((ExcellerisOntarioHandler) handler).getAlternativePatientIdentifier()%>
+                                            <div class="FieldData">
+                                                <%=Encode.forHtml(((ExcellerisOntarioHandler) handler).getAlternativePatientIdentifier())%>
                                             </div>
                                         </td>
                                     </tr>
@@ -1662,13 +1367,13 @@ request.setAttribute("missingTests", missingTests);
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
-                                                <%= handler.getEncounterId() %>
+                                            <div class="FieldData">
+                                                <%=Encode.forHtml(handler.getEncounterId()) %>
                                             </div>
                                         </td>
                                     </tr>
                                     <% }
-                                        String comment = handler.getNteForPID();
+                                        String comment =Encode.forHtml(handler.getNteForPID());
                                         if (comment != null && !comment.equals("")) {%>
                                     <tr>
                                         <td>
@@ -1677,8 +1382,8 @@ request.setAttribute("missingTests", missingTests);
                                             </div>
                                         </td>
                                         <td>
-                                            <div class="FieldData" nowrap="nowrap">
-                                                <%= comment %>
+                                            <div class="FieldData">
+                                                <%=Encode.forHtml(comment) %>
                                             </div>
                                         </td>
                                     </tr>
@@ -1687,25 +1392,25 @@ request.setAttribute("missingTests", missingTests);
                             </td>
                         </tr>
                         <tr>
-                            <td bgcolor="white" colspan="2">
-                                <table width="100%" border="0" cellpadding="0" cellspacing="0" bordercolor="#CCCCCC">
+                            <td style="background-color:white;" colspan="2">
+                                <table style="width:100%; border-color:#CCCCCC;">
                                     <tr>
-                                        <td bgcolor="white">
+                                        <td style="background-color:white;">
                                             <div class="FieldData">
                                                 <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formRequestingClient"/>: </strong>
-                                                <%= handler.getDocName()%>
+                                                <%=Encode.forHtml(handler.getDocName())%>
                                             </div>
                                         </td>
-                                        <%-- <td bgcolor="white">
+                                        <%-- <td style="background-color:white;">
                                 <div class="FieldData">
                                     <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReportToClient"/>: </strong>
                                         <%= No admitting Doctor for CML messages%>
                                 </div>
                             </td> --%>
-                                        <td bgcolor="white" align="right">
+                                        <td style="background-color:white; text-align:right">
                                             <div class="FieldData">
                                                 <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formCCClient"/>: </strong>
-                                                <%= handler.getCCDocs()%>
+                                                <%=Encode.forHtml(handler.getCCDocs())%>
 
                                             </div>
                                         </td>
@@ -1714,27 +1419,30 @@ request.setAttribute("missingTests", missingTests);
                             </td>
                         </tr>
                         <tr>
-                            <td align="center" bgcolor="white" colspan="2" style="padding:0px;" cellspacing="0">
+                            <td style="background-color:white; padding:0px; text-align:center;" colspan="2">
                                 <%
                                     String[] multiID = multiLabId.split(",");
+                                    boolean isTickler = false;
 
                                     for (int mcount = 0; mcount < multiID.length; mcount++) {
                                         if (demographicID != null && !demographicID.equals("")) {
-                                            TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
+
                                             List<Tickler> LabTicklers = null;
                                             if (demographicID != null) {
                                                 LabTicklers = ticklerManager.getTicklerByLabIdAnyProvider(loggedInInfo, Integer.valueOf(multiID[mcount]), Integer.valueOf(demographicID));
                                             }
 
                                             if (LabTicklers != null && LabTicklers.size() > 0) {
-                                %>
-                                <div id="ticklerWrap" class="DoNotPrint">
-                                    <h3 style="color:#fff"><a href="javascript:void(0)" id="open-ticklers"
-                                                              onclick="showHideItem('ticklerDisplay')">View Ticklers</a>
-                                        Linked to this Lab</h3><br>
+                                    if(!isTickler){
+                                        // Note: Opening divs (ticklerWrap, ticklerDisplay) are closed at lines 1464-1465
+%>
+                            <div id="ticklerWrap" class="DoNotPrint">
+							    <h4 style="color:#fff"><a href="javascript:void(0)" id="open-ticklers" onclick="showHideItem('ticklerDisplay')">View Ticklers</a> Linked to this Lab</h4>
+                                <div id="ticklerDisplay" style="display:none">
+<%
 
-                                    <div id="ticklerDisplay" style="display:none">
-                                        <%
+                                        isTickler = true;
+                                    }
                                             String flag;
                                             String ticklerClass;
                                             String ticklerStatus;
@@ -1757,7 +1465,7 @@ request.setAttribute("missingTests", missingTests);
                                         %>
                                         <div style="text-align:left;background-color:#fff;padding:5px; width:600px;"
                                              class="<%=ticklerClass%>">
-                                            <table width="100%">
+                                            <table style="width:100%;">
                                                 <tr>
                                                     <td><b>Priority:</b> <%=flag%> <%=tickler.getPriority()%>
                                                     </td>
@@ -1766,7 +1474,7 @@ request.setAttribute("missingTests", missingTests);
                                                     <td><b>Assigned
                                                         To:</b> <%=tickler.getAssignee() != null ? Encode.forHtml(tickler.getAssignee().getLastName() + ", " + tickler.getAssignee().getFirstName()) : "N/A"%>
                                                     </td>
-                                                    <td width="90px">
+                                                    <td style="width:90px;">
                                                         <b>Status:</b> <%=ticklerStatus.equals("C") ? "Completed" : "Active" %>
                                                     </td>
                                                 </tr>
@@ -1779,15 +1487,44 @@ request.setAttribute("missingTests", missingTests);
                                         <br>
                                         <%
                                             }
-                                        %>
-                                    </div><!-- end ticklerDisplay -->
-                                </div>
-                                <%
-                                            }//no ticklers to display
+
+                                            }//no ticklers to display OR
 
                                         }
                                     }
+    if(isTickler){
+        // Note: Closing divs here (ticklerDisplay, ticklerWrap) were opened at lines 1407-1408
+    %>
+                                </div><!-- end ticklerDisplay-->
+                            </div><!-- end ticklerWrap-->
+    <%
+    }
+%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_tickler" rights="r">
+    <% if (numTickler > 0 && !searchProviderNo.isEmpty() ) {%>
+        <table style="width:100%;">
+            <tr>
+                <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <strong>INFO</strong> The following <%=numTickler%> <a class="alert-link" onclick="popup(450, 1200, '<%=request.getContextPath()%>/tickler/ticklerDemoMain.jsp?demoview=<%=Encode.forUriComponent(demographicID)%>', 'openTicklers')">ticklers</a> are marked pending:<%=tickler_note%>
+                </td>
+            </tr>
+         </table>
+    <% } %>
+</security:oscarSec>
 
+            <c:if test="${hasDuplicateInfo}">
+                <table style="width:100%; height:20px">
+                    <tr>
+                        <td class="alert alert-info alert-dismissible fade show"><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    <!-- Duplicate Information Section -->
+                                    <div class="info-section">
+                                        <p><b>Warning:</b> You are viewing a version of a lab result that is a duplicate of previously received version <b>v<c:out value="${duplicateOfLab}" /></b>.</p>
+                                    </div>
+                        </td>
+                    </tr>
+                </table>
+            </c:if>
+<%
 
                                     ReportStatus report;
                                     boolean startFlag = false;
@@ -1798,17 +1535,17 @@ request.setAttribute("missingTests", missingTests);
                                         if (startFlag) {
                                             //if (ackList.size() > 0){{
                                 %>
-                                <table width="100%" height="20" cellpadding="2" cellspacing="2">
+                                <table style="width:100%" >
                                     <tr>
                                         <% if (multiID.length > 1) { %>
-                                        <td align="center" bgcolor="white" width="20%" valign="top">
+                                        <td style="background-color:white; text-align:center; width:20%">
                                             <div class="FieldData">
                                                 <b>Version:</b> v<%= j + 1 %>
                                             </div>
                                         </td>
-                                        <td align="left" bgcolor="white" width="80%" valign="top">
+                                        <td style="background-color:white; text-align:left; width:80%;" >
                                                 <% }else{ %>
-                                        <td align="center" bgcolor="white">
+                                        <td style="background-color:white; text-align:center;">
                                             <% } %>
                                             <div class="FieldData">
                                                 <!--center-->
@@ -1825,17 +1562,17 @@ request.setAttribute("missingTests", missingTests);
                                                         ackStatus = "Not Acknowledged";
                                                     }
                                                 %>
-                                                <font color="red"><%= ackStatus %>
-                                                </font>
+                                                <span style="color:red"><%= ackStatus %>
+                                                </span>
                                                 <% if (ackStatus.equals("Acknowledged")) { %>
                                                 <%= report.getTimestamp() %>,
                                                 <% } %>
                                                 <span id="<%=report.getOscarProviderNo() + "_" + segmentID%>commentLabel"><%=report.getComment() == null || report.getComment().equals("") ? "no comment" : "comment : "%></span><span
-                                                    id="<%=report.getOscarProviderNo() + "_" + segmentID%>commentText"><%=report.getComment() == null ? "" : report.getComment()%></span>
+                                                    id="<%=report.getOscarProviderNo() + "_" + segmentID%>commentText"><%=report.getComment() == null ? "" : Encode.forHtml(report.getComment())%></span>
                                                 <br>
                                                 <% }
                                                     if (ackList.size() == 0) {
-                                                %><font color="red">N/A</font><%
+                                                %><span style="color:red">N/A</span><%
                                                 }
                                             %>
                                                 <!--/center-->
@@ -1859,57 +1596,55 @@ request.setAttribute("missingTests", missingTests);
                         int k = 0;
                         int l = 0;
                         int linenum = 0;
-                        String highlight = "#E0E0FF";
+                        String highlight = "silver";
 
                         ArrayList<String> headers = handler.getHeaders();
                         int OBRCount = handler.getOBRCount();
 
                         if (handler.getMsgType().equals("MEDVUE")) { %>
                     <%-- MEDVUE Redirect. --%>
-                    <table style="page-break-inside:avoid;" bgcolor="#003399" border="0" cellpadding="0" cellspacing="0"
-                           width="100%">
+                    <table style="page-break-inside:avoid; width:100%">
                         <tr>
-                            <td colspan="4" height="7">&nbsp;</td>
+                            <td colspan="4">&nbsp;</td>
                         </tr>
                         <tr>
-                            <td bgcolor="#FFCC00" width="300" valign="bottom">
+                            <td style="background-color:#FFCC00; width:300px; vertical-align:bottom">
                                 <div class="Title2">
-                                    <%=headers.get(0)%>
+                                    <%=Encode.forHtml(headers.get(0))%>
                                 </div>
                             </td>
-                            <%--<td align="right" bgcolor="#FFCC00" width="100">&nbsp;</td>--%>
-                            <td width="9">&nbsp;</td>
-                            <td width="9">&nbsp;</td>
-                            <td width="*">&nbsp;</td>
+                            <%--<td style="text-align:right" style="background-color:#FFCC00; width:100">&nbsp;</td>--%>
+                            <td style="width:9px">&nbsp;</td>
+                            <td style="width:9px">&nbsp;</td>
+                            <td>&nbsp;</td>
                         </tr>
                     </table>
-                    <table width="100%" border="0" cellspacing="0" cellpadding="2" bgcolor="#CCCCFF"
-                           bordercolor="#9966FF" bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
+                    <table style="width:100%" id="tblDiscs1">
                         <tr class="Field2">
-                            <td width="25%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                            <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                            <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
-                            <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
-                            <td width="10%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
-                            <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
-                            <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                            <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
+                            <td style="width:25%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                            <td style="width:15%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                            <td style="width:5%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
+                            <td style="width:15%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
+                            <td style="width:10%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
+                            <td style="width:15%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                            <td style="width:6%"  class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
+                            <td style="width:6%"  class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
                         </tr>
                         <tr class="TDISRes">
-                            <td valign="top" align="left" colspan="8">
-                                <pre style="margin:0px 0px 0px 100px;"><b>Radiologist: </b><b><%=handler.getRadiologistInfo()%></b></pre>
+                            <td style="vertical-align:top;  text-align:left;"> colspan="9">
+                                <pre style="margin:0px 0px 0px 100px;"><b>Radiologist: </b><b><%=Encode.forHtml(handler.getRadiologistInfo())%></b></pre>
                             </td>
                 </td>
             </tr>
             <tr class="TDISRes">
-                <td valign="top" align="left" colspan="8">
-                    <pre style="margin:0px 0px 0px 100px;"><b><%=handler.getOBXComment(1, 1, 1)%></b></pre>
+                <td style="vertical-align:top;  text-align:left;"> colspan="9">
+                    <pre style="margin:0px 0px 0px 100px;"><b><%=Encode.forHtml(handler.getOBXComment(1, 1, 1))%></b></pre>
                 </td>
                 </td>
-                <td align="center" valign="top">
+                <td style="text-align:center; vertical-align:top; ">
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
-                        <img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16" width="13" border="0"/>
+                        <img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16" style="width:13"/>
                     </a>
                 </td>
             </tr>
@@ -1941,97 +1676,94 @@ request.setAttribute("missingTests", missingTests);
                     isUnstructuredDoc = ((MEDITECHHandler) handler).isUnstructured();
                 } %>
 
-        <table style="page-break-inside:avoid;" bgcolor="#003399" border="0" cellpadding="0" cellspacing="0"
-               width="100%">
+        <table style="page-break-inside:avoid; width:100%;">
             <tr>
-                <td colspan="4" height="7">&nbsp;</td>
+                <td colspan="4">&nbsp;</td>
             </tr>
             <tr>
-                <td bgcolor="#FFCC00" width="300" valign="bottom">
+                <td style="background-color:#FFCC00; width:300px; vertical-align: bottom">
                     <div class="Title2">
-                        <%=headers.get(i)%>
+                        <%=Encode.forHtml(headers.get(i))%>
                     </div>
                 </td>
-                <%--<td align="right" bgcolor="#FFCC00" width="100">&nbsp;</td>--%>
-                <td width="9">&nbsp;</td>
-                <td width="9">&nbsp;</td>
-                <td width="*">&nbsp;</td>
+                <%--<td style="text-align:right" style="background-color:#FFCC00; width:100px">&nbsp;</td>--%>
+                <td style="width:9px">&nbsp;</td>
+                <td style="width:9px">&nbsp;</td>
+                <td>&nbsp;</td>
             </tr>
         </table>
         <% if ((handler.getMsgType().equals("MEDITECH") && isUnstructuredDoc) ||
                 (handler.getMsgType().equals("MEDITECH") && ((MEDITECHHandler) handler).isReportData())) { %>
-        <table style="width:100%;border-collapse:collapse;" bgcolor="#CCCCFF" bordercolor="#9966FF"
-               bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
+        <table style="width:100%;border-collapse:collapse; border-color:#9966FF;"
+               id="tblDiscs2">
             <tr>
                 <td colspan="4" style="padding-left:10px;">
 
                         <%} else if( isUnstructuredDoc){%>
-                    <table width="100%" border="0" cellspacing="0" cellpadding="2" bgcolor="#CCCCFF"
-                           bordercolor="#9966FF" bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
+                    <table style="width:100%; border-color:#9966FF;" id="tblDiscs3">
 
                         <tr class="Field2">
 
-                            <td width="20%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                            <td width="60%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                            <td style="width:60%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
                             <% if ("CLS".equals(handler.getMsgType())) { %>
-                            <td width="20%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
+                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
                             <% } else { %>
-                            <td width="20%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                            <td style="width:20%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
                             <% } %>
 
-                            <td width="31%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                            <td width="31%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                            <td width="31%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                            <td style="width:31%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
 
                         </tr>
                             <%
 						} else {%>
-                        <table width="100%" border="0" cellspacing="0" cellpadding="2" bgcolor="#CCCCFF"
-                               bordercolor="#9966FF" bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
+                        <table style="width:100%; border-color:#9966FF;" id="tblDiscs4">
 
                                 <% if( handler instanceof MEDITECHHandler && "MIC".equals( ((MEDITECHHandler) handler).getSendingApplication() ) ) { %>
                             <tr>
-                                <td colspan="8"></td>
+                                <td colspan="9"></td>
                             </tr>
                             <tr>
-                                <td valign="top" align="left" style="padding-left:20px;font-weight:bold;">SPECIMEN
+                                <td style="padding-left:20px;font-weight:bold; vertical-align:top; text-align:left;">SPECIMEN
                                     SOURCE:
                                 </td>
-                                <td valign="top" align="left" style="font-weight:bold;"
-                                    colspan="7"><%= ((MEDITECHHandler) handler).getSpecimenSource(i) %>
+                                <td style="font-weight:bold;vertical-align:top;text-align:left;"
+                                    colspan="7"><%=Encode.forHtml(((MEDITECHHandler) handler).getSpecimenSource(i))%>
                                 </td>
                             </tr>
                             <tr>
-                                <td valign="top" align="left" style="padding-left:20px;font-weight:bold;">SPECIMEN
+                                <td style="padding-left:20px;font-weight:bold;vertical-align:top;">SPECIMEN
                                     DESCRIPTION:
                                 </td>
-                                <td valign="top" align="left" style="font-weight:bold;"
-                                    colspan="7"><%= ((MEDITECHHandler) handler).getSpecimenDescription(i) %>
+                                <td style="font-weight:bold;vertical-align:top;text-align:left;"
+                                    colspan="7"><%=Encode.forHtml(((MEDITECHHandler) handler).getSpecimenDescription(i))%>
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="8"></td>
+                                <td colspan="9"></td>
                             </tr>
                                 <% }%>
 
                             <tr class="Field2">
-                                <td width="25%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                                <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
-                                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
-                                <td width="10%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
+                                <td style="width:25%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                                <td style="width:5%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
+                                <td style="width:10%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
                                 <% if ("CLS".equals(handler.getMsgType())) { %>
-                                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompletedCLS"/></td>
                                 <% } else { %>
-                                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                                <td style="width:15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
                                 <% } %>
-                                <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                                <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
+                                <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
+                                <td style="width:6%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
                                 <% if ("ExcellerisON".equals(handler.getMsgType())) { %>
-                                <td width="6%" align="middle" valign="bottom" class="Cell">License #</td>
+                                <td style="width:6%;  vertical-align:bottom" class="Cell">License #</td>
                             </tr>
                                 <% } %>
-            </tr>
+            <!--</tr>-->
 
             <%
                 } // end else / if isUnstructured
@@ -2046,16 +1778,16 @@ request.setAttribute("missingTests", missingTests);
                         String orderRequestStatus = ((ExcellerisOntarioHandler) handler).getOrderStatus(j);
                         int obrCommentCount = handler.getOBRCommentCount(j);
                         if (orderRequestStatus.equals(ExcellerisOntarioHandler.OrderStatus.DELETED.getDescription())) { continue; }
-                        
+
                         if (obxCount > 0 || !orderRequestStatus.isEmpty() || obrCommentCount > 0) {
                             obrFlag = true;
                             %>
-                                <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" >
-                                    <td valign="top" align="left"><span style="font-size:16px;font-weight: bold;"><%=handler.getOBRName(j)%></span></td>
-                                    <td colspan="1"><%=orderRequestStatus%></td>
+                                <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" >
+                                    <td style="vertical-align:top;  text-align:left;"><span style="font-size:16px;font-weight: bold;"><%=Encode.forHtml(handler.getOBRName(j))%></span></td>
+                                    <td colspan="1"><%=Encode.forHtml(orderRequestStatus)%></td>
                                 </tr>
                             <%
-                        }                               
+                        }
                     }
 
                     for (k = 0; k < obxCount; k++) {
@@ -2106,8 +1838,8 @@ request.setAttribute("missingTests", missingTests);
                             b3 = !(obxCount < 2 && !isUnstructuredDoc);
                             if (b1 && b2 && b3 && !handler.getMsgType().equals("ExcellerisON")) {
             %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
-                <td valign="top" align="left"><span style="font-size:16px;font-weight: bold;"><%=obrName%></span></td>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
+                <td style="vertical-align:top;  text-align:left;"><span style="font-size:16px;font-weight: bold;"><%=Encode.forHtml(obrName)%></span></td>
                 <td colspan="6">&nbsp;</td>
             </tr>
             <%
@@ -2147,8 +1879,8 @@ request.setAttribute("missingTests", missingTests);
                     if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && !obxName.equals("")) {
             %>
 
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=obxName %>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
@@ -2156,36 +1888,36 @@ request.setAttribute("missingTests", missingTests);
                         info</a>
                     <%} %>
                 </td>
-                <td align="right">
-                    <%= handler.getOBXResult(j, k) %>
+                <td style="text-align:right">
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
                     <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
-                <td align="center">
-                    <%= handler.getOBXAbnormalFlag(j, k)%>
+                <td style="text-align:center">
+                    <%=Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
                 </td>
-                <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
                 </td>
-                <td align="left"><%=handler.getOBXUnits(j, k) %>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
                 </td>
-                <td align="center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
                 </td>
-                <td align="center"><%= handler.getOBXResultStatus(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                 </td>
-                <td align="center" valign="top">
+                <td style="text-align:center; vertical-align:top;  ">
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13" border="0"/><%} else { %><img
+                                                          width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                            border="0"/> <%} %>
+                           /> <%} %>
                     </a>
                 </td>
             </tr>
             <% } else if (handler.getOBXIdentifier(j, k).equals(headers.get(i)) && obxName.equals("")) { %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXResult(j, k)%><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXResult(j, k))%><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
 
             </tr>
@@ -2193,8 +1925,8 @@ request.setAttribute("missingTests", missingTests);
 
             } else if (handler.getMsgType().equals("PFHT") || handler.getMsgType().equals("HHSEMR") || handler.getMsgType().equals("CML")) {
                 if (!obxName.equals("")) { %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=obxName %>
                 </a>
                     &nbsp;
@@ -2202,37 +1934,37 @@ request.setAttribute("missingTests", missingTests);
                     <a href="javascript:popupStart('660','1000','http://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%=loincCode%>&informationRecipient.languageCode.c=en')">
                         info</a>
                     <%} %></td>
-                <td align="right">
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                <td style="text-align:right">
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
-                <td align="center">
-                    <%= handler.getOBXAbnormalFlag(j, k)%>
+                <td style="text-align:center">
+                    <%=Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
                 </td>
-                <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
                 </td>
-                <td align="left"><%=handler.getOBXUnits(j, k) %>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
                 </td>
-                <td align="center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
                 </td>
-                <td align="center"><%= handler.getOBXResultStatus(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                 </td>
-                <td align="center" valign="top">
+                <td style="vertical-align:center; text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13" border="0"/><%} else { %><img
+                                                          width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                            border="0"/> <%} %>
+                           /> <%} %>
                     </a>
                 </td>
             </tr>
 
             <%} else { %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXResult(j, k)%><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXResult(j, k))%><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
 
             </tr>
@@ -2240,16 +1972,16 @@ request.setAttribute("missingTests", missingTests);
                 }
                 if (!handler.getNteForOBX(j, k).equals("") && handler.getNteForOBX(j, k) != null) {
             %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getNteForOBX(j, k)%></pre>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getNteForOBX(j, k))%></pre>
                 </td>
             </tr>
             <% }
                 for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
                 </td>
             </tr>
             <%
@@ -2257,8 +1989,8 @@ request.setAttribute("missingTests", missingTests);
 
             } else if ((!handler.getOBXResultStatus(j, k).equals("TDIS") && handler.getMsgType().equals("Spire"))) {
             %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=obxName %>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
@@ -2268,69 +2000,69 @@ request.setAttribute("missingTests", missingTests);
                 <% if (handler.getOBXResult(j, k).length() > 20) {
                 %>
 
-                <td align="left" colspan="4">
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                <td style="text-align:left" colspan="4">
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
-                <% String abnormalFlag = handler.getOBXAbnormalFlag(j, k);
+                <% String abnormalFlag =Encode.forHtml(handler.getOBXAbnormalFlag(j, k));
                     if (abnormalFlag != null && abnormalFlag.length() > 0) {
                 %>
-                <td align="center">
+                <td style="text-align:center">
                     <%= abnormalFlag%>
                 </td>
                 <% } %>
 
-                <% String refRange = handler.getOBXReferenceRange(j, k);
+                <% String refRange =Encode.forHtml(handler.getOBXReferenceRange(j, k));
                     if (refRange != null && refRange.length() > 0) {
                 %>
-                <td align="left"><%=refRange%>
+                <td style="text-align:left"><%=refRange%>
                 </td>
                 <% } %>
 
-                <% String units = handler.getOBXUnits(j, k);
+                <% String units =Encode.forHtml(handler.getOBXUnits(j, k));
                     if (units != null && units.length() > 0) {
                 %>
-                <td align="left"><%=units %>
+                <td style="text-align:left"><%=units %>
                 </td>
                 <% } %>
                 <%
                 } else {
                 %>
-                <td align="right" colspan="1">
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                <td style="text-align:right" colspan="1">
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
-                <td align="center"><%= handler.getOBXAbnormalFlag(j, k)%>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
                 </td>
-                <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
                 </td>
-                <td align="left"><%=handler.getOBXUnits(j, k) %>
+                <td style="text-align:left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
                 </td>
                 <%
                     }
                 %>
 
-                <td align="center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
                 </td>
-                <td align="center"><%= handler.getOBXResultStatus(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getOBXResultStatus(j, k)) %>
                 </td>
 
-                <td align="center" valign="top">
+                <td style="vertical-align:top;  text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13" border="0"/><%} else { %><img
+                                                          width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                            border="0"/> <%} %>
+                           /> <%} %>
                     </a>
                 </td>
             </tr>
 
             <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
                 </td>
             </tr>
             <%
@@ -2341,12 +2073,12 @@ request.setAttribute("missingTests", missingTests);
 
                 if (isUnstructuredDoc) {
             %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%="NarrativeRes"%>"><%
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%="NarrativeRes"%>"><%
                                    			if(handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (obxCount>1) && ! handler.getMsgType().equals("MEDITECH") ){%>
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier='<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8")%>')"></a><%
                                    			}else if(! handler.getMsgType().equals("MEDITECH") ) {%>
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=obxName %>
                 </a>
                         <%}%>
@@ -2362,27 +2094,27 @@ request.setAttribute("missingTests", missingTests);
 										    	rtfParser.read(rtfStream, doc, 0);
 										    	String rtfText = doc.getText(0, doc.getLength()).replaceAll("\n", "<br>");
 										    	String disclaimer = "<br>IMPORTANT DISCLAIMER: You are viewing a PREVIEW of the original report. The rich text formatting contained in the original report may convey critical information that must be considered for clinical decision making. Please refer to the ORIGINAL report, by clicking 'Print', prior to making any decision on diagnosis or treatment.";%>
-                <td align="left"><%= rtfText + disclaimer %>
+                <td style="text-align:left"><%= rtfText + disclaimer %>
                 </td>
                     <%}else{%>
-                <td align="left">
-                    <span><%= handler.getOBXResult(j, k) %><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
+                <td style="text-align:left">
+                    <span><%=Encode.forHtml(handler.getOBXResult(j, k)) %><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></span>
                 </td>
                     <%} %>
 
                     <% if(handler.getTimeStamp(j, k).equals(handler.getTimeStamp(j, k-1)) && (obxCount>1)){ %>
-                <td align="center"></td>
+                <td style="text-align:center"></td>
                     <%} else {%>
-                <td align="center"><%= handler.getTimeStamp(j, k) %>
+                <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
                 </td>
                     <%}
 
                                        		} else {//if it isn't a PATHL7 doc %>
 
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
 
                     <% if(handler.getMsgType().equals("PATHL7") && !isAllowedDuplicate && (obxCount>1) && handler.getOBXIdentifier(j, k).equalsIgnoreCase(handler.getOBXIdentifier(j, k-1)) && (handler.getOBXValueType(j, k).equals("TX") || handler.getOBXValueType(j, k).equals("FT"))){%>
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"></a><%
                                    			} else {
 
@@ -2391,7 +2123,7 @@ request.setAttribute("missingTests", missingTests);
 								%>
                 <td></td>
                     <% } else { %>
-                <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
+                <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
                         href="javascript:popupStart('660','900','${pageContext.request.contextPath}/lab/CA/ON/labValues.jsp?testName=<%=obxName%>&demo=<%=demographicID%>&labType=HL7&identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k).replaceAll("&","%26"),"UTF-8") %>')"><%=obxName %>
                 </a>
 
@@ -2409,7 +2141,7 @@ request.setAttribute("missingTests", missingTests);
 
                     <% if(handler instanceof AlphaHandler && "FT".equals(handler.getOBXValueType(j, k))) { %>
                 <td colspan="4">
-                    <pre style="font-family:Courier New, monospace;">       <%= handler.getOBXResult(j, k) %><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
+                    <pre style="font-family:Courier New, monospace;">       <%=Encode.forHtml(handler.getOBXResult(j, k)) %><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%></pre>
                 </td>
                     <%
                                        			lastObxSetId = ((AlphaHandler)handler).getObxSetId(j,k);
@@ -2417,8 +2149,8 @@ request.setAttribute("missingTests", missingTests);
                                            } else if(handler instanceof PATHL7Handler && "FT".equals(handler.getOBXValueType(j, k)) && (handler.getOBXReferenceRange(j,k).isEmpty() && handler.getOBXUnits(j,k).isEmpty())){
                                         	  %>
                 <td colspan="4">
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
                     <%
                                            } else { %>
@@ -2437,9 +2169,9 @@ request.setAttribute("missingTests", missingTests);
                                            		//CLS textual results - use 4 columns.
                                            		if(handler instanceof CLSHandler && ( (CLSHandler) handler).isUnstructured()) {
                                            	%>
-                <td align="left" colspan="4">
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                <td style="text-align:left" colspan="4">
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
 
                     <%
@@ -2448,15 +2180,14 @@ request.setAttribute("missingTests", missingTests);
                                            		else if(handler.getMsgType().equals("MEDITECH")  && isUnstructuredDoc ) {
                                            	%>
 
-                <pre>
-					                             		<%= handler.getOBXResult(j, k) %><%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                <pre> <%=Encode.forHtml(handler.getOBXResult(j, k)) %><%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
 					                             		</pre>
 
                     <% } else if(handler.getMsgType().equals("MEDITECH")  && ((MEDITECHHandler) handler).isReportData() ) { %>
             <tr>
                 <td>
-                    <%= handler.getOBXResult(j, k) %>
-                    <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                    <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
+                    <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
                 </td>
             </tr>
 
@@ -2474,37 +2205,37 @@ request.setAttribute("missingTests", missingTests);
                     }
 
             %>
-            <td align="<%=align%>"><a
+            <td style="text-align:<%=align%>"><a
                     href="<%=request.getContextPath() %>/lab/DownloadEmbeddedDocumentFromLab.do?labNo=<%= Encode.forHtmlAttribute(segmentID) %>&segment=<%=j%>&group=<%=k%><%=legacy%>">PDF
                 Report</a></td>
             <%
             } else {
             %>
-            <td align="<%=align%>">
+            <td style="text-align:<%=align%>">
                 <% if (handler.getMsgType().equals("ExcellerisON") && !((ExcellerisOntarioHandler) handler).getOBXSubId(j, k).isEmpty()) { %>
-                <em><%= ((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue( j, k) %></em>
+                <em><%=Encode.forHtml(((ExcellerisOntarioHandler) handler).getOBXSubIdWithObservationValue(j, k))%></em>
                 <% } else { %>
-                <%= handler.getOBXResult(j, k) %>
+                <%=Encode.forHtml(handler.getOBXResult(j, k)) %>
                 <% } %>
-                <%= handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
+                <%=handler.isTestResultBlocked(j, k) ? "<a href='#' title='Do Not Disclose Without Explicit Patient Consent'>(BLOCKED)</a>" : ""%>
             </td>
 
             <% } %>
-            <td align="center">
-                <%= handler.getOBXAbnormalFlag(j, k)%>
+            <td style="text-align:center">
+                <%=Encode.forHtml(handler.getOBXAbnormalFlag(j, k))%>
             </td>
-            <td align="left"><%=handler.getOBXReferenceRange(j, k)%>
+            <td style="text-align:left"><%=Encode.forHtml(handler.getOBXReferenceRange(j, k))%>
             </td>
-            <td align="left"><%=handler.getOBXUnits(j, k) %>
+            <td style="text-align:left"><%=Encode.forHtml(handler.getOBXUnits(j, k)) %>
             </td>
 
             <%}%>
 
-            <td align="center"><%= handler.getTimeStamp(j, k) %>
+            <td style="text-align:center"><%=Encode.forHtml(handler.getTimeStamp(j, k)) %>
             </td>
-            <td align="center">
+            <td style="text-align:center">
                 <%
-                    String status = handler.getOBXResultStatus(j, k);
+                    String status =Encode.forHtml(handler.getOBXResultStatus(j, k));
                     if ("GDML".equals(handler.getMsgType()) && ((GDMLHandler) handler).isTestResultBlocked(j, k)) {
                         if (!StringUtils.isEmpty(status)) {
                             status += "/";
@@ -2515,11 +2246,11 @@ request.setAttribute("missingTests", missingTests);
                 <%=status %>
 
             </td>
-            <td align="center" valign="top"><a href="javascript:void(0);" title="Annotation"
+            <td style="vertical-align:top;  text-align:left;"><a href="javascript:void(0);" title="Annotation"
                                                onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(j) + "-" + String.valueOf(k) %>','anwin','width=400,height=500');">
                 <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                  width="13" border="0"/><%} else { %><img
-                    src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13" border="0"/> <%} %>
+                                                  width="13"/><%} else { %><img
+                    src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"/> <%} %>
             </a>
             </td>
 
@@ -2531,7 +2262,7 @@ request.setAttribute("missingTests", missingTests);
                     allLicenseNames.add(licenseName);
                 }
             %>
-            <td><%= !currentLicenseNo.equals(lastLicenseNo) ? currentLicenseNo : ""%>
+            <td><%=!currentLicenseNo.equals(lastLicenseNo) ? Encode.forHtml(currentLicenseNo) : ""%>
             </td>
             <% } %>
             </tr>
@@ -2541,9 +2272,9 @@ request.setAttribute("missingTests", missingTests);
 
                 for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {
             %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
-                <td valign="top" align="left" colspan="8">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
                 </td>
             </tr>
             <%
@@ -2556,17 +2287,17 @@ request.setAttribute("missingTests", missingTests);
                 for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {
                     if (!handler.getOBXComment(j, k, l).equals("")) {
             %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="TDISRes">
-                <td valign="top" align="left" colspan="8">
-                    <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="TDISRes">
+                <td style="vertical-align:top;  text-align:left;" colspan="9">
+                    <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
                 </td>
-                <td align="center" valign="top">
+                <td style="vertical-align:top;  text-align:left;">
                     <a href="javascript:void(0);" title="Annotation"
                        onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
                         <%if (!isPrevAnnotation) { %><img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16"
-                                                          width="13" border="0"/><%} else { %><img
+                                                          width="13"/><%} else { %><img
                             src="<%= request.getContextPath() %>/images/filledNotes.gif" alt="rxAnnotation" height="16" width="13"
-                            border="0"/> <%} %>
+                           /> <%} %>
                     </a>
                 </td>
             </tr>
@@ -2592,8 +2323,8 @@ request.setAttribute("missingTests", missingTests);
                     // obx name is "" or if it is the same as the obr name
                     if (!obrFlag && handler.getOBXName(j, 0).equals("")) {
             %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
-                <td valign="top" align="left"><%=handler.getOBRName(j)%>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
+                <td style="vertical-align:top;  text-align:left;"><%=Encode.forHtml(handler.getOBRName(j))%>
                 </td>
                 <td colspan="6">&nbsp;</td>
             </tr>
@@ -2601,17 +2332,17 @@ request.setAttribute("missingTests", missingTests);
                     obrFlag = true;
                 }
             %>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="NormalRes">
-                <td valign="top" align="left" colspan="1"></td>
-                <td valign="top" align="left" colspan="7">
-                    <pre style="margin:0px 0px 0px 0px;"><%=handler.getOBRComment(j, k)%></pre>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="NormalRes">
+                <td style="vertical-align:top;  text-align:left;" colspan="1"></td>
+                <td style="vertical-align:top;  text-align:left;" colspan="7">
+                    <pre style="margin:0px 0px 0px 0px;"><%=Encode.forHtml(handler.getOBRComment(j, k).replaceAll("<br />", " "))%></pre>
                 </td>
             </tr>
             <% if (!handler.getMsgType().equals("HHSEMR") || !handler.getMsgType().equals("TRUENORTH")) {
                 if (handler.getOBXName(j, k).equals("")) {
                     String result = handler.getOBXResult(j, k);%>
-            <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
-                <td colspan="7" valign="top" align="left"><%=result%>
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
+                <td colspan="7" style="vertical-align:top; text-align:left;"><%=result%>
                 </td>
             </tr>
             <%
@@ -2636,27 +2367,27 @@ request.setAttribute("missingTests", missingTests);
                     if (numZDS > 0) {
             %>
             <tr class="Field2">
-                <td width="25%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formProvider"/></td>
-                <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
-                <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
+                <td width="25%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
+                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
+                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formProvider"/></td>
+                <td width="15%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
+                <td width="6%;  vertical-align:bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
             </tr>
             <%
                 }
 
                 for (int m = 0; m < numZDS; m++) {
             %>
-            <tr bgcolor="<%=(lineNumber % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
-                <td valign="top" align="left"><%=((SpireHandler) handler).getZDSName(m)%>
+            <tr style="background-color:<%=(lineNumber % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
+                <td style="vertical-align:top;  text-align:left;"><%=Encode.forHtml(((SpireHandler) handler).getZDSName(m))%>
                 </td>
-                <td align="right"><%= ((SpireHandler) handler).getZDSResult(m) %>
+                <td style="text-align:right"><%=Encode.forHtml(((SpireHandler) handler).getZDSResult(m))%>
                 </td>
-                <td align="center"><%= ((SpireHandler) handler).getZDSProvider(m) %>
+                <td style="text-align:center"><%=Encode.forHtml(((SpireHandler) handler).getZDSProvider(m))%>
                 </td>
-                <td align="center"><%= ((SpireHandler) handler).getZDSTimeStamp(m) %>
+                <td style="text-align:center"><%=Encode.forHtml(((SpireHandler) handler).getZDSTimeStamp(m))%>
                 </td>
-                <td align="center"><%= ((SpireHandler) handler).getZDSResultStatus(m) %>
+                <td style="text-align:center"><%=Encode.forHtml(((SpireHandler) handler).getZDSResultStatus(m))%>
                 </td>
             </tr>
             <%
@@ -2672,28 +2403,27 @@ request.setAttribute("missingTests", missingTests);
 
         %>
         <%-- FOOTER --%>
-        <table width="100%" border="0" cellspacing="0" cellpadding="3" class="MainTableBottomRowRightColumn"
-               bgcolor="#003399">
+        <table style="width:100%" class="MainTableBottomRowRightColumn">
             <tr>
-                <td align="left" width="50%">
+                <td style="text-align:left; width:50%">
                     <% if (!ackFlag) { %>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
+                    <input type="button" class="btn btn-sm btn-outline-primary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                            onclick="<%=ackLabFunc%>">
                     <% } %>
-                    <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
+                    <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                            onclick="return getComment('addComment',<%=Encode.forJavaScript(segmentID)%>);">
-                    <input type="button" class="smallButton" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
+                    <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.index.btnForward"/>"
                            onClick="ForwardSelectedRows(<%=Encode.forJavaScript(segmentID)%> + ':HL7', '', '')">
-                    <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> " onClick="window.close()">
-                    <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
+                    <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> " onClick="window.close()">
+                    <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/> "
                            onClick="printPDF('<%=Encode.forJavaScript(segmentID)%>')">
                     <% if (searchProviderNo != null) { // we were called from e-chart %>
-                    <input type="button" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
+                    <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                            onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient.do?labType=HL7&segmentID=<%= Encode.forJavaScript(segmentID) %>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
 
                     <% } %>
                 </td>
-                <td width="50%" valign="center" align="left">
+                <td style="vertical-align:top; text-align:left; width:50%;">
                     <% if ("CLS".equals(handler.getMsgType())) { %>
                     <span class="Field2"><i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.msgReportEndCLS"/></i></span>
                     <% } else { %>
@@ -2705,11 +2435,31 @@ request.setAttribute("missingTests", missingTests);
 
         <br/>
         <table>
+                    <c:if test="${hasMissingTests}">
+                        <tr><td class="alert alert-info">
+                        <!-- Missing Tests Information Section -->
+                        <div class="info-section">
+                            <p>&nbsp;&nbsp;<b>Info:</b> The following tests were not included in this version of the lab results:</p>
+                            <table class="test-list" >
+                                <c:forEach var="entry" items="${missingTests}">
+                                    <tr>
+                                        <td><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<c:out value="${entry.key}"/></span></td>
+                                        <td><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="status"><c:out value="${entry.value.description}"/></span></b></td>
+                                    </tr>
+                                </c:forEach>
+                                    <tr>
+                                        <td><span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;If items are *reported under separate cover* see v1</span></td>
+                                        <td></td>
+                                    </tr>
+                            </table>
+                        </div>
+                        </td></tr>
+                    </c:if>
             <%
                 for (String lName : allLicenseNames) {
             %>
             <tr>
-                <td><%=lName %>
+                <td><%=Encode.forHtml(lName)%>
                 </td>
             </tr>
 
@@ -2722,8 +2472,8 @@ request.setAttribute("missingTests", missingTests);
     </form>
 
     <%String s = "" + System.currentTimeMillis();%>
-    <a style="color:white;" href="javascript: void(0);" onclick="showHideItem('rawhl7<%=s%>');">show</a>
-    <pre id="rawhl7<%=s%>" style="display:none;"><%=hl7%></pre>
+    <a style="color:lightgrey;" href="javascript: void(0);" onclick="showHideItem('rawhl7<%=s%>');">show</a>
+    <pre id="rawhl7<%=s%>" style="display:none;"><%=Encode.forHtml(hl7)%></pre>
 </div>
 <%} %>
 

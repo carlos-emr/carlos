@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.providers.data.ProSignatureData;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class ProEditSignature2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -72,6 +73,7 @@ public class ProEditSignature2Action extends ActionSupport {
         return signature;
     }
 
+    @StrutsParameter
     public void setSignature(String str) {
         MiscUtils.getLogger().debug("signature has been set");
         signature = str;

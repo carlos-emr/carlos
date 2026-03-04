@@ -42,7 +42,7 @@
   - Delete groups (with confirmation)
   - Add/remove providers from groups
   - Display hierarchical group structure
-  - Support for local and remote (Integrator) groups
+  - Support for local groups
   
   Security:
   - Requires "_admin" object with read ("r") permissions
@@ -79,6 +79,7 @@
                     src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
             <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui.min.css" rel="stylesheet"
                   type="text/css"/>
+            <link rel="stylesheet" href="${pageContext.request.contextPath}/css/fontawesome-all.min.css">
             <style type="text/css">
                 summary {
                     cursor: pointer;
@@ -272,7 +273,7 @@
 
             <div class="row-fluid tab-content">
                 <div class="tab-pane active" id="addContacts">
-                    <p>Enable or disable (check or uncheck) local and remote clinic providers as a contact in the Oscar
+                    <p>Enable or disable (check or uncheck) clinic providers as a contact in the
                         Messenger address book.</p>
                     <ul class="nav nav-tabs">
                         <li class="active">
@@ -280,13 +281,6 @@
                                 Local Providers
                             </a>
                         </li>
-                        <c:if test="${ not empty remoteContacts }">
-                            <li>
-                                <a data-toggle="tab" href="#remote-contacts">
-                                    Remote Providers
-                                </a>
-                            </li>
-                        </c:if>
                     </ul>
 
                     <div class="tab-content">
@@ -307,32 +301,6 @@
                             </c:forEach>
                         </div>
 
-                        <c:if test="${ not empty remoteContacts }">
-                            <div class="tab-pane" id="remote-contacts">
-                                <c:forEach items="${ remoteContacts }" var="location">
-                                    <details>
-                                        <summary>
-                                            <strong><c:out value="${ location.key }"/></strong>
-                                        </summary>
-                                        <c:forEach items="${ location.value }" var="contact" varStatus="count">
-                                            <div class="row-fluid contact-entry">
-                                                <label class="checkbox ${ count.index%2 == 0 ? 'even' : 'odd' }">
-                                                    <input type="checkbox" value="${ contact.id.compositeId }"
-                                                        ${ contact.member ? 'checked="checked"' : '' }/>
-                                                    <span id="${ contact.id.compositeId }" class="provider-name">
-												<c:out value="${ contact.lastName }"/>, <c:out
-                                                            value="${ contact.firstName }"/>
-											</span>
-                                                    <span class="muted">
-												<c:out value="${ contact.providerType }"/>
-											</span>
-                                                </label>
-                                            </div>
-                                        </c:forEach>
-                                    </details>
-                                </c:forEach>
-                            </div>
-                        </c:if>
                     </div>
                 </div>
                 <div class="tab-pane" id="manageGroups">
@@ -347,7 +315,7 @@
                         </c:forEach>
                         <li>
                             <a data-toggle="tab" href="#new-group" class="muted">
-                                <i class="icon-plus add-group-tab" title="New Group"></i>
+                                <i class="fa-solid fa-plus add-group-tab" title="New Group"></i>
                             </a>
                         </li>
                     </ul>
@@ -360,7 +328,7 @@
                                     <c:forEach items="${ group.value }" var="member">
                                         <div class="row-fluid contact-entry">
                                             <label class="checkbox">
-                                                <i class="icon-trash group-member"
+                                                <i class="fa-solid fa-trash group-member"
                                                    onclick="removeGroupMember('${ member.id.compositeId }', '${ group.key.id }')"
                                                    title="Remove Contact"
                                                    id="${ member.id.compositeId }-${ group.key.id }"></i>

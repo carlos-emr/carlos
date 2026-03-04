@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for handling message operations (reply, forward, delete).
@@ -65,7 +66,6 @@ import org.apache.struts2.ServletActionContext;
  *   <li>Forward messages with original content preserved</li>
  *   <li>Delete messages (soft delete)</li>
  *   <li>Demographic linking and unlinking support</li>
- *   <li>Integration with remote facilities via Integrator</li>
  * </ul>
  * 
  * <p>The action performs several important tasks:</p>
@@ -121,7 +121,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * <p>This method determines which operation to perform (reply, reply all,
      * forward, or delete) based on request parameters and executes the
      * appropriate workflow. It also manages demographic associations for
-     * messages, including handling unlinked Integrator demographics.</p>
+     * messages.</p>
      * 
      * <p>Operation workflows:</p>
      * <ul>
@@ -150,18 +150,12 @@ public class MsgHandleMessages2Action extends ActionSupport {
         }
 
         String demographicNo = this.getDemographic_no();
-        String unlinkedIntegratorDemographicName = request.getParameter("unlinkedIntegratorDemographicName");
 
         // Check for attached demographics and update demographicNo if found
         List<MsgDemoMap> msgDemoMap = messengerDemographicManager.getAttachedDemographicList(loggedInInfo, Integer.parseInt(messageNo));
         if (msgDemoMap != null && msgDemoMap.size() > 0) {
             // Use the first attached demographic
             demographicNo = msgDemoMap.get(0).getDemographic_no() + "";
-        }
-        // Handle unlinked Integrator demographics
-        else if (unlinkedIntegratorDemographicName != null && !unlinkedIntegratorDemographicName.isEmpty()) {
-            request.setAttribute("unlinkedIntegratorDemographicName", unlinkedIntegratorDemographicName);
-            demographicNo = null;
         }
 
         // Set the final demographic number for the view
@@ -170,28 +164,24 @@ public class MsgHandleMessages2Action extends ActionSupport {
         }
 
         // Determine which operation to perform based on request parameters
-        java.util.Enumeration enumeration = request.getParameterNames();
-        while (enumeration.hasMoreElements()) {
-            String param = ((String) enumeration.nextElement());
-            if (param.equals("delete")) {
-                delete = "Delete";
-            } else if (param.equals("reply")) {
-                reply = "Reply";
-            } else if (param.equals("replyAll")) {
-                replyAll = "reply All";
-            } else if (param.equals("forward")) {
-                forward = "Forward";
-            }
+        if (request.getParameter("delete") != null) {
+            delete = "Delete";
+        } else if (request.getParameter("reply") != null) {
+            reply = "Reply";
+        } else if (request.getParameter("replyAll") != null) {
+            replyAll = "reply All";
+        } else if (request.getParameter("forward") != null) {
+            forward = "Forward";
         }
 
         // Process delete operation
-        if (delete.compareToIgnoreCase("Delete") == 0) {
+        if ("Delete".equalsIgnoreCase(delete)) {
             // Soft delete the message
             messagingManager.deleteMessage(loggedInInfo, Integer.parseInt(messageNo));
 
         } 
         // Process reply or reply all operations
-        else if (reply.equalsIgnoreCase("Reply") || (replyAll.equalsIgnoreCase("reply All"))) {
+        else if ("Reply".equalsIgnoreCase(reply) || "reply All".equalsIgnoreCase(replyAll)) {
 
             // Retrieve original message and format for quoting
             StringBuilder theSendMessage = new StringBuilder();
@@ -230,7 +220,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
 
         } 
         // Process forward operation
-        else if (forward.equals("Forward")) {
+        else if ("Forward".equalsIgnoreCase(forward)) {
             // Prepare subject with "Fwd:" prefix
             StringBuilder subject = new StringBuilder("Fwd:");
             String themessage = new String();
@@ -303,6 +293,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param str String the forward flag value
      */
+    @StrutsParameter
     public void setForward(String str) {
         this.forward = str;
     }
@@ -312,6 +303,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param messageNo String the message ID
      */
+    @StrutsParameter
     public void setMessageNo(String messageNo) {
         this.messageNo = messageNo;
     }
@@ -332,6 +324,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param reply String the reply flag value
      */
+    @StrutsParameter
     public void setReply(String reply) {
         this.reply = reply;
         this.replyAll = "";
@@ -354,6 +347,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param replyAll String the reply all flag value
      */
+    @StrutsParameter
     public void setReplyAll(String replyAll) {
         this.replyAll = replyAll;
         this.reply = "";
@@ -376,6 +370,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param delete String the delete flag value
      */
+    @StrutsParameter
     public void setDelete(String delete) {
         this.delete = delete;
         this.reply = "";
@@ -405,6 +400,7 @@ public class MsgHandleMessages2Action extends ActionSupport {
      * 
      * @param demographic_no String the demographic number to set
      */
+    @StrutsParameter
     public void setDemographic_no(String demographic_no) {
         this.demographic_no = demographic_no;
     }

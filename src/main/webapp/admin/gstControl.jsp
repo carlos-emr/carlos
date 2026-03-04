@@ -72,7 +72,7 @@
 
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageGSTControl"/></h3>
 
-    <form action="<%=request.getContextPath() %>/admin/GstControl.do">
+    <form action="<%=request.getContextPath() %>/admin/GstControl.do" method="post">
         GST:<br>
         <div class="input-append">
             <input type="text" class="span2" maxlength="3" id="gstPercent" name="gstPercent" value="<%=percent%>"/>

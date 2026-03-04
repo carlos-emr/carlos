@@ -31,13 +31,8 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDrug;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -50,7 +45,6 @@ import java.util.Locale;
 
 public class EctDisplayRx2Action extends EctDisplayAction {
     private String cmd = "Rx";
-    private static final Logger logger = MiscUtils.getLogger();
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
@@ -83,47 +77,11 @@ public class EctDisplayRx2Action extends EctDisplayAction {
             ArrayList<Prescription> uniqueDrugs = new ArrayList<Prescription>();
             for (Prescription p : arr) uniqueDrugs.add(p);
 
-            int demographicId = Integer.parseInt(bean.demographicNo);
-
             CppPreferencesUIBean prefsBean = new CppPreferencesUIBean(loggedInInfo.getLoggedInProviderNo());
             prefsBean.loadValues();
 
-            // --- get integrator drugs ---
-            if (loggedInInfo.getCurrentFacility().isIntegratorEnabled()) {
-                try {
-
-
-                    List<CachedDemographicDrug> remoteDrugs = null;
-                    try {
-                        if (!CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                            remoteDrugs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility()).getLinkedCachedDemographicDrugsByDemographicId(demographicId);
-                        }
-                    } catch (Exception e) {
-                        MiscUtils.getLogger().error("Unexpected error.", e);
-                        CaisiIntegratorManager.checkForConnectionError(loggedInInfo.getSession(), e);
-                    }
-
-                    if (CaisiIntegratorManager.isIntegratorOffline(loggedInInfo.getSession())) {
-                        remoteDrugs = IntegratorFallBackManager.getRemoteDrugs(loggedInInfo, demographicId);
-                    }
-
-                    logger.debug("remote Drugs : " + remoteDrugs.size());
-
-                    for (CachedDemographicDrug remoteDrug : remoteDrugs) {
-                        Prescription p = new Prescription(remoteDrug.getFacilityIdIntegerCompositePk().getIntegratorFacilityId(), remoteDrug.getCaisiProviderId(), demographicId);
-                        p.setArchived(remoteDrug.isArchived() ? "1" : "0");
-                        if (remoteDrug.getEndDate() != null) p.setEndDate(remoteDrug.getEndDate().getTime());
-                        if (remoteDrug.getRxDate() != null) p.setRxDate(remoteDrug.getRxDate().getTime());
-                        p.setSpecial(remoteDrug.getSpecial());
-                        p.setOutsideProviderName(" "); //little hack so that the style gets set to "external"
-
-                        // okay so I'm not exactly making it unique... that's the price of last minute conformance test changes.
-                        uniqueDrugs.add(p);
-                    }
-                } catch (Exception e) {
-                    logger.error("error getting remote drugs", e);
-                }
-            }
+            // Stable partition: active prescriptions first, preserving relative order.
+            stablePartitionActiveFirst(uniqueDrugs);
 
             long now = System.currentTimeMillis();
             long month = 1000L * 60L * 60L * 24L * 30L;
@@ -199,7 +157,7 @@ public class EctDisplayRx2Action extends EctDisplayAction {
             sb.append("expireInReference ");
         }
 
-        if ((drug.isCurrent() && !drug.isArchived()) || drug.isLongTerm()) {
+        if (isActiveDrug(drug)) {
             sb.append("currentDrug ");
         }
 
@@ -234,6 +192,52 @@ public class EctDisplayRx2Action extends EctDisplayAction {
 
     }
 
+
+    /**
+     * Determines whether a prescription is considered active for display purposes.
+     *
+     * <p>A drug is active if it is current and not archived, or if it is long-term.
+     * This definition is shared between {@link #stablePartitionActiveFirst(List)}
+     * and the CSS class assignment in {@link #getClassColour}.</p>
+     *
+     * <p><b>Note:</b> This method does not filter archived long-term drugs — it will
+     * return {@code true} for a drug that is long-term even if archived. In
+     * {@link #getInfo}, archived drugs are filtered during iteration <em>after</em>
+     * the {@code stablePartitionActiveFirst} call and are therefore not displayed.
+     * If using this method in other contexts, additional checks (for example,
+     * {@code !drug.isArchived()}) may be required to exclude archived items.</p>
+     *
+     * @param drug Prescription the prescription to evaluate
+     * @return boolean {@code true} if the drug is considered active
+     */
+    private static boolean isActiveDrug(Prescription drug) {
+        return (!drug.isArchived() && drug.isCurrent()) || drug.isLongTerm();
+    }
+
+    /**
+     * Reorders {@code drugs} in-place so that active prescriptions come first,
+     * preserving the original relative order within each group (stable partition).
+     *
+     * <p>Calls {@link #isActiveDrug(Prescription)} exactly once per element
+     * (O(n)), avoiding the repeated {@link java.util.GregorianCalendar} allocations
+     * that would occur if the same check were used inside a sort comparator.</p>
+     *
+     * @param drugs List the mutable list of prescriptions to reorder
+     */
+    public static void stablePartitionActiveFirst(List<Prescription> drugs) {
+        List<Prescription> active = new ArrayList<>(drugs.size());
+        List<Prescription> inactive = new ArrayList<>(drugs.size());
+        for (Prescription drug : drugs) {
+            if (isActiveDrug(drug)) {
+                active.add(drug);
+            } else {
+                inactive.add(drug);
+            }
+        }
+        drugs.clear();
+        drugs.addAll(active);
+        drugs.addAll(inactive);
+    }
 
     public String getCmd() {
         return cmd;

@@ -41,12 +41,14 @@ import io.github.carlos_emr.carlos.commn.dao.RemoteAttachmentsDao;
 import io.github.carlos_emr.carlos.commn.model.RemoteAttachments;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for handling remote attachment associations with demographics.
@@ -75,8 +77,8 @@ import org.apache.struts2.ServletActionContext;
  * need to be permanently associated with patient records for medical documentation
  * purposes.</p>
  * 
- * @version 2.0
- * @since 2003
+ * @version 2.0 Struts2 migration
+ * @since 2003-07-21
  * @see RemoteAttachments
  * @see RemoteAttachmentsDao
  * @see MsgSessionBean
@@ -88,7 +90,7 @@ public class MsgProceed2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     
     /**
-     * HTTP response object, maintained for consistency but not actively used.
+     * HTTP response object, standard for the 2Action pattern.
      */
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -120,27 +122,50 @@ public class MsgProceed2Action extends ActionSupport {
      */
     public String execute() throws IOException, ServletException {
 
-        // Verify user has write permission for messages
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_msg", "w", null)) {
+        // Validate session and permissions
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
+            throw new SecurityException("No valid session found");
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "w", null)) {
             throw new SecurityException("missing required sec object (_msg)");
         }
 
-        // Retrieve session bean for user context
+        // Retrieve session bean for user context.
+        // The session bean must have been initialized by MsgDisplayMessages2Action.
         MsgSessionBean bean;
         bean = (MsgSessionBean) request.getSession().getAttribute("msgSessionBean");
+        if (bean == null) {
+            throw new SecurityException("Message session not initialized");
+        }
+
+        // Defensive check: verify the session bean's provider matches the logged-in user
+        if (!loggedInInfo.getLoggedInProviderNo().equals(bean.getProviderNo())) {
+            throw new SecurityException("Cannot access another provider's messages");
+        }
+
+        // Validate IDs before DAO operations.
+        // ConversionUtils.fromIntString() returns 0 for null/invalid input, never null.
+        Integer parsedDemoId = ConversionUtils.fromIntString(demoId);
+        Integer parsedMsgId = ConversionUtils.fromIntString(id);
+        if (parsedDemoId <= 0 || parsedMsgId <= 0) {
+            MiscUtils.getLogger().warn("Invalid demoId or message id: demoId=" + demoId + ", id=" + id);
+            return ERROR;
+        }
 
         // Check for existing remote attachment association
         RemoteAttachmentsDao dao = SpringUtils.getBean(RemoteAttachmentsDao.class);
-        List<RemoteAttachments> rs = dao.findByDemoNoAndMessageId(ConversionUtils.fromIntString(demoId), ConversionUtils.fromIntString(id));
-        
+        List<RemoteAttachments> rs = dao.findByDemoNoAndMessageId(parsedDemoId, parsedMsgId);
+
         if (rs.size() > 0) {
             // Attachment already exists - set confirmation message "1"
             request.setAttribute("confMessage", "1");
         } else {
             // Create new remote attachment association
             RemoteAttachments ra = new RemoteAttachments();
-            ra.setDemographicNo(Integer.parseInt(demoId));
-            ra.setMessageId(Integer.parseInt(id));
+            ra.setDemographicNo(parsedDemoId);
+            ra.setMessageId(parsedMsgId);
             ra.setSavedBy(bean.getUserName());
             ra.setDate(new Date());
             ra.setTime(new Date());
@@ -172,7 +197,7 @@ public class MsgProceed2Action extends ActionSupport {
      */
     public String getDemoId() {
         if (this.demoId == null) {
-            this.demoId = new String();
+            this.demoId = "";
         }
         return this.demoId;
     }
@@ -182,6 +207,7 @@ public class MsgProceed2Action extends ActionSupport {
      * 
      * @param str String the demographic ID to set
      */
+    @StrutsParameter
     public void setDemoId(String str) {
         this.demoId = str;
     }
@@ -193,7 +219,7 @@ public class MsgProceed2Action extends ActionSupport {
      */
     public String getId() {
         if (this.id == null) {
-            this.id = new String();
+            this.id = "";
         }
         return this.id;
     }
@@ -203,6 +229,7 @@ public class MsgProceed2Action extends ActionSupport {
      * 
      * @param str String the message ID to set
      */
+    @StrutsParameter
     public void setId(String str) {
         this.id = str;
     }

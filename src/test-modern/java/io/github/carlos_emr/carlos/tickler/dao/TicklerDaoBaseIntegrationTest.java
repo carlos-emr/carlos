@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.tickler.dao;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +37,7 @@ import java.util.Date;
  * Base test class for TicklerDao integration tests.
  *
  * <p>Provides shared setup, utilities, and test data creation methods for all
- * TicklerDao test classes. Extends OpenOTestBase to inherit Spring context
+ * TicklerDao test classes. Extends CarlosTestBase to inherit Spring context
  * configuration and SpringUtils anti-pattern handling.</p>
  *
  * <p><b>Shared Features:</b></p>
@@ -59,7 +59,7 @@ import java.util.Date;
 @Tag("dao")
 @Tag("tickler")
 @Transactional
-public abstract class TicklerDaoBaseIntegrationTest extends OpenOTestBase {
+public abstract class TicklerDaoBaseIntegrationTest extends CarlosTestBase {
 
     @Autowired
     protected TicklerDao ticklerDao;

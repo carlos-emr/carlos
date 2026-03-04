@@ -42,8 +42,6 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 
-<%@ taglib prefix="csrf" uri="http://www.owasp.org/index.php/Category:OWASP_CSRFGuard_Project/Owasp.CsrfGuard.tld" %>
-
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
 
@@ -85,7 +83,7 @@
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
 
     <style>
@@ -138,11 +136,11 @@
             text-decoration: none;
         }
 
-        .icon-chevron-right {
+        .fa-solid.fa-chevron-right {
             opacity: 0.3;
         }
 
-        .accordion-heading a:hover > .icon-chevron-right {
+        .accordion-heading a:hover > .fa-solid.fa-chevron-right {
             opacity: 1;
         }
 
@@ -185,7 +183,7 @@
             color: #0088cc;
         }
 
-        .icon-chevron-right {
+        .fa-solid.fa-chevron-right {
             float: right;
         }
 
@@ -262,7 +260,7 @@
             color: #0088cc;
         }
 
-        .icon-trash:hover {
+        .fa-solid.fa-trash:hover {
             color: #bd362f !important;
         }
 
@@ -318,7 +316,7 @@
 <body>
 <div class="container-fluid">
     <div class="row-fluid hidden-print" style="text-align:right">
-        <i class=" icon-question-sign"></i>
+        <i class=" fa-solid fa-circle-question"></i>
         <%if (resourcehelpHtml == "") { %>
         <a href="#" ONCLICK="popupPage(600,750,'<%=resourcebaseurl%>');return false;" title=""
            onmouseover="window.status='';return true">Help</a>
@@ -341,7 +339,7 @@
         </div>
         <%}%>
 
-        <i class=" icon-info-sign" style="margin-left:10px;"></i> <a href="javascript:void(0)"
+        <i class=" fa-solid fa-circle-info" style="margin-left:10px;"></i> <a href="javascript:void(0)"
                                                                      onClick="window.open('<%=request.getContextPath()%>/oscarEncounter/About.jsp','About OSCAR','scrollbars=1,resizable=1,width=800,height=600,left=0,top=0')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a></div>
 
     <div class="row-fluid">
@@ -363,7 +361,7 @@
                 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.unlockAccount" rights="r">
                     <div class="well quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/unLock.jsp"><i
-                                class="icon-user icon-4x"></i>
+                                class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.unlockAcct"/></h5></a>
                     </div>
                 </security:oscarSec>
@@ -372,13 +370,13 @@
                                    rights="r" reverse="<%=false%>">
                     <div class="well quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/provideraddarecordhtm.jsp"><i
-                                class="icon-user icon-4x"></i>
+                                class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddProvider"/></h5></a>
                     </div>
 
                     <div class="well quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/securityaddarecord.jsp"><i
-                                class="icon-user icon-4x"></i>
+                                class="fa-solid fa-user fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddLogin"/></h5></a>
                     </div>
                 </security:oscarSec>
@@ -387,7 +385,7 @@
                                    reverse="<%=false%>">
                     <div class="well quick-links">
                         <a href="${ctx}/eform/efmformmanager.jsp" class="contentLink defaultForms"><i
-                                class="icon-file icon-4x"></i>
+                                class="fa-solid fa-file fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.showmyform.msgManageEFrm"/></h5></a>
                     </div>
                 </security:oscarSec>
@@ -397,13 +395,13 @@
                     <div class="well quick-links">
                         <a href="javascript:void(0);" class="xlink" rel="${ctx}/schedule/scheduletemplatesetting.jsp"
                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSettingTitle"/>"><i
-                                class="icon-calendar icon-4x"></i>
+                                class="fa-solid fa-calendar fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.scheduleSetting"/></h5></a>
                     </div>
 
                     <div class="well quick-links">
                         <a href="javascript:void(0);" class="xlink" rel="${ctx}/admin/admindisplaymygroup.jsp"><i
-                                class="icon-calendar icon-4x"></i>
+                                class="fa-solid fa-calendar fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></h5></a>
                     </div>
                 </security:oscarSec>
@@ -412,7 +410,7 @@
                                    reverse="<%=false%>">
                     <div class="well quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providertemplate.jsp"><i
-                                class="icon-medkit icon-4x"></i>
+                                class="fa-solid fa-suitcase-medical fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnInsertTemplate"/></h5></a>
                     </div>
                 </security:oscarSec>
@@ -421,7 +419,7 @@
                                    reverse="<%=false%>">
                     <div class="well quick-links">
                         <a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/providerPrivilege.jsp"><i
-                                class="icon-wrench icon-4x"></i>
+                                class="fa-solid fa-wrench fa-4x"></i>
                             <h5><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRightsObject"/></h5></a>
                     </div>
                 </security:oscarSec>
@@ -480,20 +478,11 @@
             }
             // gather the form data
             let data = $(this).serialize();
-            // get csrf token and place it in the header for a ajax request
-            let headerToken = null;
-
-            thisForm.serializeArray().forEach(function (field) {
-                if (field.name === '<csrf:tokenname/>' && headerToken === null) {
-                    headerToken = {'<csrf:tokenname/>': field.value};
-                }
-            });
-            // post data
+            // post data (CSRFGuard 4.5 auto-injects CSRF token into XHR headers)
             $.ajax({
                 url: thisForm.attr('action'),
                 type: thisForm.attr('method'),
                 data: data,
-                headers: headerToken,
                 success: function (returnData) {
                     // insert returned html
                     $('#' + divId).html(returnData)

@@ -66,7 +66,9 @@
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</mapping-file>
         <!-- PMmodule additional mappings for integration tests -->
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramProvider.hbm.xml</mapping-file>
-        <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/SecUserRole.hbm.xml</mapping-file>
+        <!-- Secuserrole.hbm.xml creates secUserRole table with auto-increment id column.
+             SecUserRole.hbm.xml excluded from EMF to avoid schema conflict (composite key vs auto-id). -->
+        <mapping-file>com/quatro/model/security/Secuserrole.hbm.xml</mapping-file>
         <!-- CaseManagement mappings for integration tests -->
         <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_issue.hbm.xml</mapping-file>
@@ -96,6 +98,11 @@
         <!-- PMmodule additional mappings -->
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</mapping-file>
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</mapping-file>
+        <!-- Lookup / organization code mappings for LIKE-semantics tests -->
+        <mapping-file>com/quatro/model/LstOrgcd.hbm.xml</mapping-file>
+        <!-- ProviderFacility entities for ProviderDao facility-based query tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.ProviderFacility</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ProviderFacilityPK</class>
     </persistence-unit>
 
 </persistence>

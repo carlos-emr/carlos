@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class OrganizationMessage2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -163,10 +164,12 @@ public class OrganizationMessage2Action extends ActionSupport {
 
     private FacilityMessage facility_message;
 
+    @StrutsParameter(depth = 1)
     public FacilityMessage getFacility_message() {
         return facility_message;
     }
 
+    @StrutsParameter
     public void setFacility_message(FacilityMessage facility_message) {
         this.facility_message = facility_message;
     }

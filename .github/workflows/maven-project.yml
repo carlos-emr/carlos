@@ -2,7 +2,8 @@
 #
 # Description:
 # This workflow automates the build and testing for the CARLOS EMR Maven project.
-# It uses a parallelized approach: build first, then run modern and legacy tests in parallel.
+# It uses a parallelized approach: build first, then run modern tests, legacy tests,
+# and JSP compilation in parallel.
 #
 # Container Images:
 # This workflow tries to pull pre-built container images from ghcr.io first.
@@ -32,12 +33,18 @@
 #   - Runs legacy tests (JUnit 4) using MariaDB
 #   - Requires the database container
 #
+# - jspc (parallel):
+#   - Restores Maven dependencies from cache (graceful fallback if miss)
+#   - Compiles all JSPs via the jspc Maven profile
+#   - Catches JSP syntax errors and EL/tag errors that do not surface at runtime
+#   - Does NOT require the database container
+#
 # License:
 # This GitHub Workflow file is part of the Carlos EMR project and is subject
 # to the licensing terms outlined in the repository's LICENSE file.
 #
 # Last Updated:
-# January 2026
+# February 2026
 
 name: Check Carlos EMR
 
@@ -275,6 +282,119 @@ jobs:
             echo 'Running Modern Tests (JUnit 5 with H2)'
             echo '========================================='
             make install --run-modern-tests
+          "
+
+  jspc:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Restore Maven cache
+        uses: actions/cache/restore@v4
+        id: cache-restore
+        continue-on-error: true
+        with:
+          path: .m2-cache
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml', '**/dependencies-lock*.json') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Prepare Maven cache directory
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss or restore failed, Maven will download dependencies"
+          mkdir -p .m2-cache
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Try to pull pre-built image from ghcr.io
+        id: pull-image
+        continue-on-error: true
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev:latest
+        run: |
+          echo "Attempting to pull pre-built image from $IMAGE..."
+          # Capture stderr so we can distinguish "not found" from other errors
+          if docker pull "$IMAGE" 2>pull-image-error.log; then
+            docker tag "$IMAGE" carlos-tomcat-dev
+            echo "pulled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=success" >> "$GITHUB_OUTPUT"
+            echo "Successfully pulled pre-built image!"
+          else
+            echo "pulled=false" >> "$GITHUB_OUTPUT"
+            if grep -qiE 'manifest unknown|not found' pull-image-error.log; then
+              echo "reason=not-found" >> "$GITHUB_OUTPUT"
+              echo "Pre-built image not available (not found in registry), will build locally"
+            else
+              echo "reason=error" >> "$GITHUB_OUTPUT"
+              echo "Image pull failed due to an unexpected error:"
+              cat pull-image-error.log
+            fi
+          fi
+          rm -f pull-image-error.log
+
+      - name: Fail on unexpected image pull error
+        if: steps.pull-image.outputs.reason == 'error'
+        run: |
+          echo "::error::Failed to pull pre-built image from ${{ env.REGISTRY }} for a reason other than 'image not found'. Check network connectivity, registry permissions, or image name."
+          exit 1
+
+      - name: Cache Docker layers
+        if: steps.pull-image.outputs.pulled != 'true' && steps.pull-image.outputs.reason == 'not-found'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('.devcontainer/development/**') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build dev container (fallback)
+        if: steps.pull-image.outputs.pulled != 'true'
+        run: |
+          echo "Building container locally..."
+          docker buildx build \
+            --cache-from=type=local,src=/tmp/.buildx-cache \
+            --cache-to=type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            -t carlos-tomcat-dev \
+            .devcontainer/development
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Start container
+        run: |
+          docker run -d --name carlos-tomcat-dev \
+            -v ${{ github.workspace }}:/workspace \
+            -v ${{ github.workspace }}/.m2-cache:/root/.m2 \
+            -w /workspace \
+            carlos-tomcat-dev tail -f /dev/null
+
+      - name: Configure git safe directory
+        run: |
+          docker exec carlos-tomcat-dev bash -c "
+            git config --global --add safe.directory /workspace
+          "
+
+      - name: Compile JSPs
+        run: |
+          docker exec carlos-tomcat-dev bash -c "
+            echo '========================================='
+            echo 'Compiling JSPs (jspc profile)'
+            echo '========================================='
+            make jspc
           "
 
   legacy-tests:

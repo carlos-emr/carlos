@@ -36,7 +36,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
-import io.github.carlos_emr.carlos.commn.dao.IntegratorControlDao;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
@@ -45,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.WebUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class FacilityManager2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -52,7 +52,6 @@ public class FacilityManager2Action extends ActionSupport {
 
 
     private FacilityDao facilityDao = (FacilityDao) SpringUtils.getBean(FacilityDao.class);
-    private IntegratorControlDao integratorControlDao = (IntegratorControlDao) SpringUtils.getBean(IntegratorControlDao.class);
 
     private static final String FORWARD_EDIT = "edit";
     private static final String FORWARD_LIST = "list";
@@ -90,9 +89,6 @@ public class FacilityManager2Action extends ActionSupport {
         request.setAttribute("orgId", facility.getOrgId());
         request.setAttribute("sectorId", facility.getSectorId());
 
-        boolean removeDemoId = integratorControlDao.readRemoveDemographicIdentity(Integer.valueOf(id));
-        this.setRemoveDemographicIdentity(removeDemoId);
-
         return FORWARD_EDIT;
     }
 
@@ -109,9 +105,6 @@ public class FacilityManager2Action extends ActionSupport {
         Facility facility = new Facility("", "");
         this.setFacility(facility);
 
-        this.setRemoveDemographicIdentity(true);
-        // Ronnie ((FacilityManagerForm) form).setUpdateInterval(0);
-
         return FORWARD_EDIT;
     }
 
@@ -121,12 +114,8 @@ public class FacilityManager2Action extends ActionSupport {
 
         Facility facility = this.getFacility();
 
-        boolean rdid = WebUtils.isChecked(request, "removeDemographicIdentity");
         if (request.getParameter("facility.hic") == null) facility.setHic(false);
 
-        facility.setIntegratorEnabled(WebUtils.isChecked(request, "facility.integratorEnabled"));
-        facility.setAllowSims(WebUtils.isChecked(request, "facility.allowSims"));
-        facility.setEnableIntegratedReferrals(WebUtils.isChecked(request, "facility.enableIntegratedReferrals"));
         facility.setEnableHealthNumberRegistry(WebUtils.isChecked(request, "facility.enableHealthNumberRegistry"));
         facility.setEnableDigitalSignatures(WebUtils.isChecked(request, "facility.enableDigitalSignatures"));
         if (facility.getId() == null || facility.getId() == 0) facilityDao.persist(facility);
@@ -140,27 +129,18 @@ public class FacilityManager2Action extends ActionSupport {
         addActionMessage(getText("facility.saved", facility.getName()));
         request.setAttribute("id", facility.getId());
 
-        integratorControlDao.saveRemoveDemographicIdentity(facility.getId(), rdid);
-
         return list();
     }
 
     private Facility facility;
-    private boolean removeDemographicIdentity;
 
+    @StrutsParameter(depth = 1)
     public Facility getFacility() {
         return facility;
     }
 
+    @StrutsParameter
     public void setFacility(Facility facility) {
         this.facility = facility;
-    }
-
-    public boolean isRemoveDemographicIdentity() {
-        return removeDemographicIdentity;
-    }
-
-    public void setRemoveDemographicIdentity(boolean removeDemographicIdentity) {
-        this.removeDemographicIdentity = removeDemographicIdentity;
     }
 }

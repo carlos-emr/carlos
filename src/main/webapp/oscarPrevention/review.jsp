@@ -29,8 +29,9 @@
 
 --%>
 
-<%@page import="org.joda.time.LocalDate" %>
-<%@page import="org.joda.time.Days" %>
+<%@page import="java.time.LocalDate" %>
+<%@page import="java.time.ZoneId" %>
+<%@page import="java.time.temporal.ChronoUnit" %>
 <%@page import="org.hl7.fhir.dstu3.model.Coding" %>
 <%@page import="org.hl7.fhir.dstu3.model.CodeableConcept" %>
 <%@page import="org.hl7.fhir.dstu3.model.Practitioner.PractitionerQualificationComponent" %>
@@ -843,7 +844,7 @@
 
                 <% } %>
 
-                <form action="<%=request.getContextPath()%>/dhir/submit.do">
+                <form action="<%=request.getContextPath()%>/dhir/submit.do" method="post">
                     <input type="hidden" name="uuid" value="<%=bundle.getId()%>"/>
 
                     <input type="submit"
@@ -1051,7 +1052,9 @@
     }
 
     boolean isHistorical(Date dateOfAdministration, Date timestamp) {
-        int days = Days.daysBetween(new LocalDate(dateOfAdministration), new LocalDate(timestamp)).getDays();
+        LocalDate adminDate = dateOfAdministration.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        LocalDate tsDate = timestamp.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        long days = ChronoUnit.DAYS.between(adminDate, tsDate);
         if (days > 14) {
             return true;
         }

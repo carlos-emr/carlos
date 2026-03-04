@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctConAddInstitution2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -127,6 +128,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return name;
     }
 
+    @StrutsParameter
     public void setName(String name) {
         this.name = name;
     }
@@ -135,6 +137,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return address;
     }
 
+    @StrutsParameter
     public void setAddress(String address) {
         this.address = address;
     }
@@ -143,6 +146,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return city;
     }
 
+    @StrutsParameter
     public void setCity(String city) {
         this.city = city;
     }
@@ -151,6 +155,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return province;
     }
 
+    @StrutsParameter
     public void setProvince(String province) {
         this.province = province;
     }
@@ -159,6 +164,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return country;
     }
 
+    @StrutsParameter
     public void setCountry(String country) {
         this.country = country;
     }
@@ -167,6 +173,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return postal;
     }
 
+    @StrutsParameter
     public void setPostal(String postal) {
         this.postal = postal;
     }
@@ -175,6 +182,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return phone;
     }
 
+    @StrutsParameter
     public void setPhone(String phone) {
         this.phone = phone;
     }
@@ -183,6 +191,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return fax;
     }
 
+    @StrutsParameter
     public void setFax(String fax) {
         this.fax = fax;
     }
@@ -191,6 +200,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return website;
     }
 
+    @StrutsParameter
     public void setWebsite(String website) {
         this.website = website;
     }
@@ -199,6 +209,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return email;
     }
 
+    @StrutsParameter
     public void setEmail(String email) {
         this.email = email;
     }
@@ -207,6 +218,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return whichType;
     }
 
+    @StrutsParameter
     public void setWhichType(int whichType) {
         this.whichType = whichType;
     }
@@ -215,6 +227,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return id;
     }
 
+    @StrutsParameter
     public void setId(String id) {
         this.id = id;
     }
@@ -223,6 +236,7 @@ public class EctConAddInstitution2Action extends ActionSupport {
         return annotation;
     }
 
+    @StrutsParameter
     public void setAnnotation(String annotation) {
         this.annotation = annotation;
     }

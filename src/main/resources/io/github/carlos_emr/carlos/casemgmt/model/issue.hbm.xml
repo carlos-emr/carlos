@@ -22,7 +22,7 @@
 <hibernate-mapping>
 	<class name="io.github.carlos_emr.carlos.casemgmt.model.Issue" table="issue">
 		<id name="id" column="issue_id" unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property name="code" />
 		<property name="description" />

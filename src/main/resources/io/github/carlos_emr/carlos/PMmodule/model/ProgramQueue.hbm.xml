@@ -22,7 +22,7 @@
 <hibernate-mapping package="io.github.carlos_emr.carlos.PMmodule.model">
 	<class name="io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue" table="program_queue">
 		<id column="queue_id" name="Id" type="java.lang.Long">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property column="client_id" length="11" name="ClientId"
 			not-null="true" type="java.lang.Long" />

@@ -87,6 +87,16 @@
         <property name="poolPreparedStatements" value="false" />
     </bean>
 
+    <!-- Transaction-aware DataSource proxy for Hibernate/JPA mixed-mode support.
+         During the Hibernate→JPA migration, legacy HibernateDaoSupport DAOs and modern
+         JPA EntityManager DAOs coexist. JpaTransactionManager manages the JDBC Connection,
+         and this proxy ensures standalone SessionFactory Sessions share the SAME Connection
+         so that all writes participate in a single Spring-managed transaction. -->
+    <bean id="transactionAwareDataSource"
+          class="org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy">
+        <constructor-arg ref="dataSource" />
+    </bean>
+
     <!-- Initialize lookup tables after SessionFactory creates schema -->
     <bean id="databaseInitializer" class="org.springframework.jdbc.datasource.init.DataSourceInitializer" depends-on="sessionFactory">
         <property name="dataSource" ref="dataSource"/>
@@ -125,7 +135,10 @@
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramTeam.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramProvider.hbm.xml</value>
-                <value>io/github/carlos_emr/carlos/PMmodule/model/SecUserRole.hbm.xml</value>
+                <!-- Secuserrole.hbm.xml creates secUserRole table with auto-increment id column.
+                     SecUserRole.hbm.xml is excluded from EMF to avoid table conflict (composite key schema).
+                     SecUserRole.hbm.xml is still in sessionFactory for DAOs that use composite key reads. -->
+                <value>com/quatro/model/security/Secuserrole.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramAccess.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note.hbm.xml</value>
@@ -134,8 +147,6 @@
                 <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_ext.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note_link.hbm.xml</value>
                 <value>com/quatro/model/security/Secrole.hbm.xml</value>
-                <!-- Exclude Secuserrole.hbm.xml - conflicts with PMmodule SecUserRole.hbm.xml -->
-                <!-- Both map to secUserRole table with different schemas -->
                 <value>com/quatro/model/security/SecProvider.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramFunctionalUser.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/FunctionalUserType.hbm.xml</value>
@@ -152,6 +163,8 @@
                 <!-- PMmodule additional mappings -->
                 <value>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</value>
+                <!-- Lookup / organization code mappings for LIKE-semantics tests -->
+                <value>com/quatro/model/LstOrgcd.hbm.xml</value>
             </list>
         </property>
         <property name="jpaVendorAdapter">
@@ -183,9 +196,11 @@
         </property>
     </bean>
 
-    <!-- Standalone Hibernate SessionFactory for HibernateDaoSupport DAOs - uses schema from EntityManagerFactory -->
+    <!-- Standalone Hibernate SessionFactory for HibernateDaoSupport DAOs - uses schema from EntityManagerFactory.
+         Uses transactionAwareDataSource so Sessions share the same JDBC Connection as
+         the JPA EntityManager, enabling both to participate in a single Spring transaction. -->
     <bean id="sessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean" depends-on="entityManagerFactory">
-        <property name="dataSource" ref="dataSource" />
+        <property name="dataSource" ref="transactionAwareDataSource" />
         <!-- Explicitly list @Entity annotated classes needed for tests -->
         <property name="annotatedClasses">
             <list>
@@ -239,6 +254,7 @@
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramQueue.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramProvider.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/SecUserRole.hbm.xml</value>
+                <value>com/quatro/model/security/Secuserrole.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramAccess.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/AccessType.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/casemgmt/model/casemgmt_note.hbm.xml</value>
@@ -263,6 +279,11 @@
                 <!-- PMmodule additional mappings -->
                 <value>io/github/carlos_emr/carlos/PMmodule/model/Agency.hbm.xml</value>
                 <value>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</value>
+                <!-- Lookup DAO entity mappings -->
+                <value>com/quatro/model/LookupTableDefValue.hbm.xml</value>
+                <value>com/quatro/model/FieldDefValue.hbm.xml</value>
+                <!-- Lookup / organization code mappings for LIKE-semantics tests -->
+                <value>com/quatro/model/LstOrgcd.hbm.xml</value>
             </list>
         </property>
         <property name="hibernateProperties">
@@ -274,6 +295,12 @@
                 <prop key="hibernate.hbm2ddl.auto">none</prop>
                 <prop key="hibernate.current_session_context_class">org.springframework.orm.hibernate5.SpringSessionContext</prop>
                 <prop key="hibernate.cache.use_second_level_cache">false</prop>
+                <!-- Allow HibernateDaoSupport DAOs to write within JPA-managed transactions.
+                     The JDBC Connection IS transactional (managed by JpaTransactionManager via
+                     TransactionAwareDataSourceProxy), but Hibernate's Session doesn't know about
+                     the JPA transaction. This tells Hibernate to trust the Connection's transaction
+                     state instead of requiring a Hibernate-level transaction. -->
+                <prop key="hibernate.allow_update_outside_transaction">true</prop>
             </props>
         </property>
     </bean>
@@ -476,5 +503,16 @@
     <bean id="professionalSpecialistDao" class="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDaoImpl" autowire="byName" />
     <bean id="consultDocsDao" class="io.github.carlos_emr.carlos.commn.dao.ConsultDocsDaoImpl" autowire="byName" />
     <bean id="consultResponseDocDao" class="io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDaoImpl" autowire="byName" />
+
+    <!-- PMmodule DAOs for ProgramTeamDAO tests -->
+    <bean id="programTeamDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramTeamDAOImpl" autowire="byName" />
+
+    <!-- Lookup DAO for LookupDao tests -->
+    <bean id="lookupDao" class="io.github.carlos_emr.carlos.daos.LookupDaoImpl" autowire="byName" />
+
+    <!-- Population Report DAO for PopulationReportDao tests -->
+    <bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName">
+        <property name="sessionFactory" ref="sessionFactory" />
+    </bean>
 
 </beans>

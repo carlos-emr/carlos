@@ -152,7 +152,7 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         ObjectNode jsonResponse = objectMapper.createObjectNode();
         jsonResponse.put("dxvalid", dxvalid);
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
 
         try (PrintWriter pout = response.getWriter()) {
             pout.write(jsonResponse.toString());
@@ -179,7 +179,7 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
         jsonResponse.put("description", description);
         jsonResponse.put("code", code);
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
 
         try (PrintWriter pout = response.getWriter()) {
             pout.write(jsonResponse.toString());
@@ -193,7 +193,7 @@ public class dxCodeSearchJSON2Action extends ActionSupport {
     private static void jsonify(final List<?> classList,
                                 final HttpServletResponse response, String[] ignoreMethods) throws IOException {
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
 
         String jsonstring = null;
 

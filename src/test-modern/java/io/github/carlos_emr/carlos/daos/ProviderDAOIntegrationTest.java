@@ -20,7 +20,7 @@
  */
 package io.github.carlos_emr.carlos.daos;
 
-import io.github.carlos_emr.carlos.test.base.OpenOTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,7 +53,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("integration")
 @Tag("dao")
 @Transactional
-public class ProviderDAOIntegrationTest extends OpenOTestBase {
+public class ProviderDAOIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private ProviderDAO providerDAO;
@@ -65,13 +65,14 @@ public class ProviderDAOIntegrationTest extends OpenOTestBase {
 
     @BeforeEach
     void setUp() {
-        uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 6);
+        uniquePrefix = String.valueOf(System.nanoTime()).substring(0, 4);
 
-        // Create test providers
+        // Create test providers (providerNo must fit VARCHAR(6): 4-char prefix + 2-char suffix)
         createProvider(uniquePrefix + "01", "John", "Smith", "1", "doctor");
         createProvider(uniquePrefix + "02", "Jane", "Smith", "1", "doctor");
         createProvider(uniquePrefix + "03", "John", "Doe", "1", "nurse");
         createProvider(uniquePrefix + "04", "Bob", "Johnson", "0", "doctor");  // Inactive
+        hibernateTemplate.flush();
     }
 
     private Provider createProvider(String providerNo, String firstName, String lastName,
@@ -84,7 +85,7 @@ public class ProviderDAOIntegrationTest extends OpenOTestBase {
         provider.setProviderType(providerType);
         provider.setSex("M");
         provider.setSpecialty("");  // Required not-null field
-        entityManager.persist(provider);
+        hibernateTemplate.save(provider);
         return provider;
     }
 

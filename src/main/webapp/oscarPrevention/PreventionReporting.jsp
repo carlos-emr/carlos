@@ -28,15 +28,11 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-"http://www.w3.org/TR/html4/loose.dtd">
-<%@ page import="java.nio.charset.StandardCharsets" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*, java.text.SimpleDateFormat,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,java.net.*,io.github.carlos_emr.carlos.eform.*" %>
 <%@page import="io.github.carlos_emr.OscarProperties"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
@@ -44,6 +40,8 @@
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptSearchData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -75,21 +73,14 @@
     String preventionText = "";
 
     String eformSearch = (String) request.getAttribute("eformSearch");
-    //EfmData efData = new EfmData();
-    BillingONCHeader1Dao bCh1Dao = (BillingONCHeader1Dao) SpringUtils.getBean(BillingONCHeader1Dao.class);
-
-    // Try to get the asofDate parameter if available
     String asofDate = request.getParameter("asofDate");
-    // Create current date value to display as a fallback
     if (asofDate == null) asofDate = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
 
-    // Get patientSet from parameter first, then fall back to attribute
     String patientSet = request.getParameter("patientSet");
     if (patientSet == null) {
         patientSet = (String) request.getAttribute("patientSet");
     }
 
-    // Get prevention from parameter first, then fall back to attribute
     String prevention = request.getParameter("prevention");
     if (prevention == null) {
         prevention = (String) request.getAttribute("prevention");
@@ -97,116 +88,26 @@
 %>
 
 <html>
-
     <head>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title><!-- i18n -->
-
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1">
-
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/sortable.js"></script>
-        <style type="text/css">
-            div.ImmSet {
-                background-color: #ffffff;
-            }
-
-            div.ImmSet h2 {
-            }
-
-            div.ImmSet ul {
-            }
-
-            div.ImmSet li {
-            }
-
-            div.ImmSet li a {
-                text-decoration: none;
-                color: blue;
-            }
-
-            div.ImmSet li a:hover {
-                text-decoration: none;
-                color: red;
-            }
-
-            div.ImmSet li a:visited {
-                text-decoration: none;
-                color: blue;
-            }
-        </style>
 
         <script type="text/javascript">
-
-            //update all selected patient's records with next contact method
-            //still need to generate before values are saved
-            function setNextContactMethod(selectElem) {
-                var nextSelectedContactMethod = selectElem.options[selectElem.selectedIndex].value;
-
-                var chckbxSelectedContactMethod = document.getElementsByName("nsp");
-                var displayId;
-                var currentValue;
-                var idNum;
-                var indexPos;
-
-                if (nextSelectedContactMethod == "other") {
-                    nextSelectedContactMethod = prompt("Enter next contact method: ");
-                    if (nextSelectedContactMethod == null) {
-                        return;
-                    }
-                }
-
-                for (var idx = 0; idx < chckbxSelectedContactMethod.length; ++idx) {
-                    if (chckbxSelectedContactMethod[idx].checked) {
-                        currentValue = chckbxSelectedContactMethod[idx].value.split(",");
-                        currentValue[0] += "," + nextSelectedContactMethod;
-                        chckbxSelectedContactMethod[idx].value = currentValue[0];
-
-                        idNum = chckbxSelectedContactMethod[idx].id.substr(9);
-
-                        displayId = "nextSuggestedProcedure" + idNum;
-                        $(displayId).update(nextSelectedContactMethod);
-                    }
-                }
-
-            }
-
-            var nspChecked = false;
-
-            function selectAllnsp() {
-                var chckbxSelectedContactMethod = document.getElementsByName("nsp");
-
-                for (var idx = 0; idx < chckbxSelectedContactMethod.length; ++idx) {
-                    if (nspChecked) {
-                        chckbxSelectedContactMethod[idx].checked = false;
-                    } else {
-                        chckbxSelectedContactMethod[idx].checked = true;
-                    }
-                }
-
-                nspChecked = !nspChecked;
-            }
-
             function showHideItem(id) {
                 if (document.getElementById(id).style.display == 'none')
                     document.getElementById(id).style.display = '';
                 else
                     document.getElementById(id).style.display = 'none';
             }
-
-            function showItem(id) {
-                document.getElementById(id).style.display = '';
-            }
-
-            function hideItem(id) {
-                document.getElementById(id).style.display = 'none';
-            }
+            function showItem(id) { document.getElementById(id).style.display = ''; }
+            function hideItem(id) { document.getElementById(id).style.display = 'none'; }
 
             function showHideNextDate(id, nextDate, neverWarn) {
                 if (document.getElementById(id).style.display == 'none') {
@@ -215,244 +116,62 @@
                     hideItem(id);
                     document.getElementById(nextDate).value = "";
                     document.getElementById(neverWarn).checked = false;
-
                 }
             }
 
             function disableifchecked(ele, nextDate) {
-                if (ele.checked == true) {
-                    document.getElementById(nextDate).disabled = true;
-                } else {
-                    document.getElementById(nextDate).disabled = false;
-                }
-            }
-
-            function batchBill() {
-                var frm = document.forms["frmBatchBill"];
-                var url = "<c:out value="${ctx}"/>" + "/billing/CA/ON/BatchBill.do";
-
-                new Ajax.Request(
-                    url,
-                    {
-                        method: 'post',
-                        postBody: Form.serialize(frm),
-                        asynchronous: true,
-                        onSuccess: function (ret) {
-                            alert("Billing Complete!");
-                        },
-                        onFailure: function (ret) {
-                            alert(ret.status + " Billing Failed");
-                        }
-                    }
-                );
-
-                return false;
-            }
-
-            function saveContacts() {
-                var frm = document.forms["frmBatchBill"];
-                var url = "<c:out value="${ctx}"/>" + "/oscarMeasurement/AddShortMeasurement.do?method=addMeasurements";
-
-                new Ajax.Request(
-                    url,
-                    {
-                        method: 'post',
-                        postBody: Form.serialize(frm),
-                        asynchronous: true,
-                        onSuccess: function (ret) {
-                            window.location.reload();
-                        },
-                        onFailure: function (ret) {
-                            alert(ret.status + " There was a problem saving contacts.");
-                        }
-                    }
-                );
-
-                return false;
-
+                document.getElementById(nextDate).disabled = (ele.checked == true);
             }
 
         </script>
-
-
-        <script type="text/javascript">
-
-
-            //Function sends AJAX request to action
-            function completedProcedure(idval, followUpType, procedure, demographic) {
-                var comment = prompt('Are you sure you want to added this to patients record \n\nAdd Comment Below ', '');
-                if (comment != null) {
-                    var params = "id=" + idval + "&followupType=" + followUpType + "&followupValue=" + procedure + "&demos=" + demographic + "&message=" + comment;
-                    var url = "<%=request.getContextPath()%>/oscarMeasurement/AddShortMeasurement.do";
-
-                    new Ajax.Request(url, {
-                        method: 'get',
-                        parameters: params,
-                        asynchronous: true,
-                        onComplete: followUp
-                    });
-                }
-                return false;
-            }
-
-            function followUp(origRequest) {
-                //alert(origRequest.responseText);
-                var hash = origRequest.responseText.parseQuery();
-                //alert( hash['id'] + " " + hash['followupValue']+" "+hash['Date'] );
-                //("id="+id+"&followupValue="+followUpValue+"&Date=
-                var lastFollowupTD = $('lastFollowup' + hash['id']);
-                var nextProcedureTD = $('nextSuggestedProcedure' + hash['id']);
-                //alert(nextProcedureTD);
-                nextProcedureTD.innerHTML = "----";
-                lastFollowupTD.innerHTML = hash['followupValue'] + " " + hash['Date'];
-
-                //alert(nextProcedureTD.innerText);
-
-            }
-        </script>
-
 
         <style type="text/css">
-            table.outline {
-                margin-top: 50px;
-                border-bottom: 1pt solid #888888;
-                border-left: 1pt solid #888888;
-                border-top: 1pt solid #888888;
-                border-right: 1pt solid #888888;
-            }
-
-            table.grid {
-                border-bottom: 1pt solid #888888;
-                border-left: 1pt solid #888888;
-                border-top: 1pt solid #888888;
-                border-right: 1pt solid #888888;
-            }
-
-            td.gridTitles {
-                border-bottom: 2pt solid #888888;
+            .section-header {
                 font-weight: bold;
-                text-align: center;
+                font-size: 14px;
+                padding: 6px 10px;
+                background: #eee;
+                border-bottom: 1px solid #ddd;
+                margin-bottom: 8px;
             }
-
-            td.gridTitlesWOBottom {
-                font-weight: bold;
-                text-align: center;
-            }
-
-            td.middleGrid {
-                border-left: 1pt solid #888888;
-                border-right: 1pt solid #888888;
-                text-align: center;
-            }
-
-
-            label {
-                float: left;
-                width: 120px;
-                font-weight: bold;
-            }
-
-            span.labelLook {
-                font-weight: bold;
-
-            }
-
-            input, textarea, select {
-
-                margin-bottom: 5px;
-            }
-
-            textarea {
-                width: 250px;
-                height: 150px;
-            }
-
-            .boxes {
-                width: 1em;
-            }
-
-            #submitbutton {
-                margin-left: 120px;
-                margin-top: 5px;
-                width: 90px;
-            }
-
-            br {
-                clear: left;
-            }
-
-            table.ele {
-
-                border-collapse: collapse;
-            }
-
-            table.ele td {
-                border: 1px solid grey;
-                padding: 2px;
-            }
-
-            /* Sortable tables */
-            table.ele thead {
+            table.sortable thead {
                 background-color: #eee;
                 color: #666666;
                 font-size: x-small;
                 cursor: default;
             }
+            table.sortable thead th {
+                padding: 4px 6px;
+                border: 1px solid #ddd;
+            }
+            .sortarrow img[src=""] {
+                display: none;
+            }
         </style>
-
         <style type="text/css" media="print">
-            .MainTable {
-                display: none;
-            }
-
-            .hiddenInPrint {
-                display: none;
-            }
-
-            .shownInPrint {
-                display: block;
-            }
-
+            .searchBox { display: none; }
         </style>
-
-
     </head>
 
-    <body class="BodyStyle" vlink="#0000FF">
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn" width="100">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/>
-            </td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
-                    <tr>
-                        <td>
-                            Prevention Reporting
-                        </td>
-                        <td>&nbsp;
-                            <a href="<%= request.getContextPath() %>/report/ManageLetters.jsp?goto=success_manage_from_prevention" target="_blank">manage
-                                letters</a>
-                        </td>
-                        <td style="text-align:right">
-                            <a
-                                href="javascript:popup(300,400,'<%= request.getContextPath() %>/oscarEncounter/About.jsp','About')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a>
-                            | <a href="javascript:popup(300,400,'<%= request.getContextPath() %>/oscarEncounter/License.jsp','License')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableLeftColumn" valign="top">
-                &nbsp;
-            </td>
-            <td valign="top" class="MainTableRightColumn">
-                <form action="${pageContext.request.contextPath}/oscarPrevention/PreventionReport.do" method="get">
-                    <div>
-                        Patient Demographic Query:
-                        <select name="patientSet" id="patientSet">
+    <body>
+    <div class="container">
+    <div class="searchBox">
+
+        <div style="background:#f5f5f5; padding:8px 15px; border-bottom:1px solid #ddd; margin-bottom:10px;">
+            <h4 style="margin:0; font-size:18px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:text-bottom">
+                    <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5z"/>
+                </svg>
+                &nbsp;Prevention Reporting
+            </h4>
+        </div>
+
+        <form action="${pageContext.request.contextPath}/oscarPrevention/PreventionReport.do" method="get">
+            <table class="table table-sm" style="font-size:13px; margin-bottom:10px;">
+                <tr>
+                    <td style="width:180px;">Patient Demographic Query</td>
+                    <td>
+                        <select name="patientSet" id="patientSet" class="form-select form-select-sm" style="width:auto;display:inline-block">
                             <option value="-1" <%=("-1".equals(patientSet) || patientSet == null) ? "selected" : ""%>>--Select Query--</option>
                             <%
                                 for (int i = 0; i < queryArray.size(); i++) {
@@ -461,117 +180,76 @@
                                     String qName = sc.queryName;
                                     String selected = (patientSet != null && patientSet.equals(qId)) ? "selected" : "";
                             %>
-                            <option value="<%=Encode.forHtmlAttribute(qId)%>" <%=selected%>><%=Encode.forHtmlContent(qName)%>
-                            </option>
+                            <option value="<%=Encode.forHtmlAttribute(qId)%>" <%=selected%>><%=Encode.forHtmlContent(qName)%></option>
                             <%}%>
                         </select>
-                    </div>
-                    <div>
-                        Prevention:
-                        <select name="prevention" id="prevention">
-                            <option value="-1" <%=("-1".equals(prevention) || prevention == null) ? "selected" : ""%>>--Select Prevention--</option>
-                            <option value="PAP" <%="PAP".equals(prevention) ? "selected" : ""%>>PAP</option>
-                            <option value="Mammogram" <%="Mammogram".equals(prevention) ? "selected" : ""%>>Mammogram</option>
-                            <option value="Flu" <%="Flu".equals(prevention) ? "selected" : ""%>>Flu</option>
-                            <option value="ChildImmunizations" <%="ChildImmunizations".equals(prevention) ? "selected" : ""%>>Child Immunizations</option>
-                            <option value="FOBT" <%="FOBT".equals(prevention) ? "selected" : ""%>>FOBT</option>
-                        </select>
-                    </div>
-                    <div>
-                        As of:
-                        <input type="text" name="asofDate" size="9" id="asofDate" value="<%=Encode.forHtmlAttribute(asofDate)%>"/> <a id="date"><img title="Calendar"
-                                                                                                       src="<%= request.getContextPath() %>/images/cal.gif"
-                                                                                                       alt="Calendar"
-                                                                                                       border="0"/></a>
-                        <br>
-
-
-                    </div>
-                    <input type="submit"/>
-                </form>
-
-
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn">
-                &nbsp;
-            </td>
-            <td class="MainTableBottomRowRightColumn" valign="top">
-                &nbsp;
-            </td>
-        </tr>
-    </table>
-
-    <div>
-
-        <%
-            ArrayList overDueList = new ArrayList();
-            ArrayList firstLetter = new ArrayList();
-            ArrayList secondLetter = new ArrayList();
-            ArrayList refusedLetter = new ArrayList();
-            ArrayList phoneCall = new ArrayList();
-            String type = (String) request.getAttribute("ReportType");
-            String ineligible = (String) request.getAttribute("inEligible");
-            String done = (String) request.getAttribute("up2date");
-            String percentage = (String) request.getAttribute("percent");
-            String percentageWithGrace = (String) request.getAttribute("percentWithGrace");
-            String followUpType = (String) request.getAttribute("followUpType");
-            String billCode = (String) request.getAttribute("BillCode");
-            ArrayList list = (ArrayList) request.getAttribute("returnReport");
-            Date asDate = (Date) request.getAttribute("asDate");
-            if (asDate == null) {
-                asDate = Calendar.getInstance().getTime();
-            }
-
-            if (list != null) {
-        %>
-        <form name="frmBatchBill" action="" method="post">
-            <input type="hidden" name="clinic_view"
-                   value="<%=OscarProperties.getInstance().getProperty("clinic_view","")%>">
-            <input type="hidden" name="followUpType" value="<%=followUpType%>">
-            <table class="ele" width="90%">
+                    </td>
+                </tr>
                 <tr>
-                    <td>&nbsp;</td>
-                    <td style="10%;">Total patients: <%=list.size()%><br/>Ineligible:<%=ineligible%>
-                    </td>
-                    <td style="10%;">Up to Date: <%=done%> = <%=percentage %> %
-                        <%if (percentageWithGrace != null) { %>
-                            <%-- <br/> With Grace <%=percentageWithGrace%> %
-                            --%>
-                        <%}%>
-                    </td>
-
-                    <td style="40%;">&nbsp;<%=request.getAttribute("patientSet")%>
-                    </td>
+                    <td>Prevention</td>
                     <td>
-                        <select onchange="setNextContactMethod(this)">
-                            <option value="----">Select Contact Method</option>
-                            <option value="Email">Email</option>
-                            <option value="L1">Letter 1</option>
-                            <option value="L2">Letter 2</option>
-                            <option value="Newsletter">Newsletter</option>
-                            <option value="other">Other</option>
+                        <select name="prevention" id="prevention" class="form-select form-select-sm" style="width:auto;display:inline-block">
+                            <option value="-1" <%=("-1".equals(prevention) || prevention == null) ? "selected" : ""%>>--Select Prevention--</option>
+                            <option value="Mammogram" <%="Mammogram".equals(prevention) ? "selected" : ""%>>Breast</option>
+                            <option value="PAP" <%="PAP".equals(prevention) ? "selected" : ""%>>Cervical</option>
+                            <option value="ChildImmunizations" <%="ChildImmunizations".equals(prevention) ? "selected" : ""%>>Child Immunizations</option>
+                            <option value="FOBT" <%="FOBT".equals(prevention) ? "selected" : ""%>>Colorectal</option>
+                            <option value="Flu" <%="Flu".equals(prevention) ? "selected" : ""%>>Flu</option>
                         </select>
-                        &nbsp;&nbsp;
-                        <input type="button" value="Save Contacts" onclick="return saveContacts();">
                     </td>
-                    <td style="10%;"><input style="float: right" type="button" value="Bill"
-                                            onclick="return batchBill();"></td>
+                </tr>
+                <tr>
+                    <td>As of</td>
+                    <td>
+                        <input type="text" name="asofDate" size="9" id="asofDate" class="form-control form-control-sm" style="width:auto;display:inline-block" value="<%=Encode.forHtmlAttribute(asofDate)%>"/>
+                        <a id="date"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
+                    </td>
                 </tr>
             </table>
-            <table id="preventionTable" class="sortable ele" width="80%">
+            <div style="padding:0 0 10px 0;">
+                <input type="submit" value="Run Report" class="btn btn-sm btn-primary"/>
+            </div>
+        </form>
+
+    </div>
+
+    <%
+        ArrayList overDueList = new ArrayList();
+        String type = (String) request.getAttribute("ReportType");
+        String ineligible = (String) request.getAttribute("inEligible");
+        String done = (String) request.getAttribute("up2date");
+        String percentage = (String) request.getAttribute("percent");
+        String percentageWithGrace = (String) request.getAttribute("percentWithGrace");
+        ArrayList list = (ArrayList) request.getAttribute("returnReport");
+        Date asDate = (Date) request.getAttribute("asDate");
+        if (asDate == null) {
+            asDate = Calendar.getInstance().getTime();
+        }
+
+        if (list != null) {
+    %>
+    <div style="margin-top:10px;">
+        <form name="frmBatchBill" action="" method="post">
+            <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
+            <input type="hidden" name="clinic_view" value="<%=OscarProperties.getInstance().getProperty("clinic_view","")%>">
+
+            <div style="background:#f5f5f5; padding:8px 15px; border:1px solid #ddd; border-radius:3px; margin-bottom:10px;">
+                <span style="margin-right:15px;">Total patients: <strong><%=list.size()%></strong></span>
+                <span style="margin-right:15px;">Ineligible: <strong><%=Encode.forHtml(StringUtils.defaultString(ineligible, "0"))%></strong></span>
+                <span style="margin-right:15px;">Up to Date: <strong><%=Encode.forHtml(StringUtils.defaultString(done, "0"))%> = <%=Encode.forHtml(StringUtils.defaultString(percentage, "0"))%>%</strong></span>
+                <span style="margin-right:15px;"><%=Encode.forHtml(String.valueOf(request.getAttribute("patientSet")))%></span>
+            </div>
+
+            <table id="preventionTable" class="sortable table table-sm table-bordered" style="font-size:12px;">
                 <thead>
                 <tr>
-                    <th class="unsortable">&nbsp;</th>
+                    <th class="unsortable">#</th>
                     <th>DemoNo</th>
                     <th>DOB</th>
-                    <th>Age as of <br/><%=UtilDateUtilities.DateToString(asDate)%>
-                    </th>
+                    <th>Age as of<br/><%=UtilDateUtilities.DateToString(asDate)%></th>
                     <th>Sex</th>
                     <th>Lastname</th>
                     <th>Firstname</th>
-                    <th>HIN</th>
                     <%if (type != null) { %>
                     <th>Guardian</th>
                     <%}%>
@@ -583,173 +261,109 @@
                     <%if (type != null) { %>
                     <th>Shot #</th>
                     <%}%>
-                    <th>Bonus Stat</th>
-                    <th>Since Last Procedure Date</th>
-                    <th>Last Procedure Date</th>
-                    <th>Last Contact Method</th>
-                    <th>Next Contact Method</th>
-                    <th class="unsortable">Select Contact<br><input type="checkbox" onclick="selectAllnsp()"></th>
+                    <th>Months Since</th>
+                    <th>Last Procedure</th>
                     <th>Roster Physician</th>
-                    <th class="unsortable">Bill</th>
                 </tr>
                 </thead>
                 <tbody>
                 <%
                     DemographicNameAgeString deName = DemographicNameAgeString.getInstance();
                     DemographicData demoData = new DemographicData();
-                    boolean setBill;
-                    String enabled = "";
-                    int numDays;
 
                     for (int i = 0; i < list.size(); i++) {
-                        setBill = false;
                         PreventionReportDisplay dis = (PreventionReportDisplay) list.get(i);
                         Hashtable<String, String> h = new Hashtable<>(deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString()));
                         Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());
 
-                        if (dis.nextSuggestedProcedure != null) {
-                            if (dis.nextSuggestedProcedure.equals("L1")) {
-                                firstLetter.add(dis.demographicNo);
-                            } else if (dis.nextSuggestedProcedure.equals("L2")) {
-                                secondLetter.add(dis.demographicNo);
-                            } else if (dis.nextSuggestedProcedure.equals("P1")) {
-                                phoneCall.add(dis.demographicNo);
-                                setBill = true;
-                            }
-                        }
-
-                        if (dis.state != null && dis.state.equals("Refused")) {
-                            refusedLetter.add(dis.demographicNo);
-                            setBill = true;
+                        if (demo == null) {
+                            MiscUtils.getLogger().warn("PreventionReporting: demographic not found for demographicNo=" + dis.demographicNo);
+                            continue;
                         }
 
                         if (dis.state != null && dis.state.equals("Overdue")) {
                             overDueList.add(dis.demographicNo);
                         }
+                %>
+                <tr>
+                    <td><%=i+1%></td>
+                    <td>
+                        <a href="javascript: return false;" onClick="popup(724,964,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forHtmlAttribute(dis.demographicNo.toString())%>&amp;displaymode=edit&amp;dboperation=search_detail','MasterDemographic')"><%=Encode.forHtml(dis.demographicNo.toString())%></a>
+                    </td>
+                    <td><%=DemographicData.getDob(demo,"-")%></td>
 
-                            if( dis.state != null && dis.billStatus.equals("Y")) {
-                              setBill = true;
-                            }
-                            %>
-                       <tr>
-                          <td><%=i+1%></td>
-                          <td>
-                              <a href="javascript: return false;" onClick="popup(724,964,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=dis.demographicNo%>&amp;displaymode=edit&amp;dboperation=search_detail','MasterDemographic')"><%=dis.demographicNo%></a>
-                          </td>
-                          <td><%=DemographicData.getDob(demo,"-")%></td>
+                    <%if (type == null) { %>
+                    <td><%=demo.getAgeAsOf(asDate)%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("sex", ""))%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("lastName", ""))%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("firstName", ""))%></td>
+                    <td><%
+                        String hExt = demo.getExtraValue(DemographicExt.DemographicProperty.hPhoneExt);
+                        String wExt = demo.getExtraValue(DemographicExt.DemographicProperty.wPhoneExt);
+                        if (!demo.getPhone().isEmpty()) { %>H: <%=Encode.forHtmlContent(demo.getPhone())%><%= !hExt.isEmpty() ? " x" + Encode.forHtmlContent(hExt) : "" %><%
+                        }
+                        if (!demo.getPhone2().isEmpty()) { %><br/>W: <%=Encode.forHtmlContent(demo.getPhone2())%><%= !wExt.isEmpty() ? " x" + Encode.forHtmlContent(wExt) : "" %><%
+                        }
+                        if (!demo.getCellPhone().isEmpty()) { %><br/>C: <%=Encode.forHtmlContent(demo.getCellPhone())%><%
+                        }
+                    %></td>
+                    <td><%=Encode.forHtmlContent(StringUtils.defaultString(demo.getEmail()))%></td>
+                    <td><%=Encode.forHtmlContent(StringUtils.defaultString(demo.getAddress()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getCity()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getProvince()))+" "+Encode.forHtmlContent(StringUtils.defaultString(demo.getPostal()))%></td>
+                    <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
+                    <td><%
+String labelClass;
+if ("green".equals(dis.color)) labelClass = "bg-success";
+else if ("red".equals(dis.color)) labelClass = "bg-danger";
+else if ("yellow".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("pink".equals(dis.color)) labelClass = "bg-info";
+else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
+else labelClass = "bg-secondary";
+%><span class="badge <%=labelClass%>"><%=Encode.forHtml(StringUtils.defaultString(dis.state))%></span></td>
+                    <td><%=Encode.forHtml(String.valueOf(dis.numMonths))%></td>
+                    <td><%=Encode.forHtml(StringUtils.defaultString(dis.lastDate))%></td>
 
-                          <%if (type == null) { %>
-                          <td><%=demo.getAgeAsOf(asDate)%></td>
-                          <td><%=Encode.forHtmlContent(h.get("sex"))%></td>
-                          <td><%=Encode.forHtmlContent(h.get("lastName"))%></td>
-                          <td><%=Encode.forHtmlContent(h.get("firstName"))%></td>
-                          <td><%=Encode.forHtmlContent(demo.getHin())+Encode.forHtmlContent(demo.getVer())%></td>
-                          <td><%=Encode.forHtmlContent(demo.getPhone())%> </td>
-                          <td><%=Encode.forHtmlContent(demo.getEmail()) %></td>
-                          <td><%=Encode.forHtmlContent(demo.getAddress())+" "+Encode.forHtmlContent(demo.getCity())+" "+Encode.forHtmlContent(demo.getProvince())+" "+Encode.forHtmlContent(demo.getPostal())%> </td>
-                          <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
-                          <td bgcolor="<%=dis.color%>"><%=dis.state%></td>                          
-                          <td bgcolor="<%=dis.color%>"><%=dis.bonusStatus%></td>
-                          <td bgcolor="<%=dis.color%>"><%=dis.numMonths%></td>
-                          <td bgcolor="<%=dis.color%>"><%=dis.lastDate%></td>
+                    <% } else {
+                        Demographic demoSDM = demoData.getSubstituteDecisionMaker(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());%>
+                    <td><%=demo.getAgeAsOf(asDate)%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("sex", ""))%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("lastName", ""))%></td>
+                    <td><%=Encode.forHtmlContent(h.getOrDefault("firstName", ""))%></td>
+                    <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getLastName())%><%=demoSDM == null ? "" : ","%> <%= demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getFirstName()) %>&nbsp;</td>
+                    <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getPhone())%>&nbsp;</td>
+                    <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getEmail())%>&nbsp;</td>
+                    <td><%=demoSDM == null ? "" :Encode.forHtmlContent(demoSDM.getAddress())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getCity())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getProvince())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getPostal())%>&nbsp;</td>
+                    <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
+                    <td><%
+String labelClass;
+if ("green".equals(dis.color)) labelClass = "bg-success";
+else if ("red".equals(dis.color)) labelClass = "bg-danger";
+else if ("yellow".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
+else if ("pink".equals(dis.color)) labelClass = "bg-info";
+else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
+else labelClass = "bg-secondary";
+%><span class="badge <%=labelClass%>"><%=Encode.forHtml(StringUtils.defaultString(dis.state))%></span></td>
+                    <td><%=Encode.forHtml(String.valueOf(dis.numShots))%></td>
+                    <td><%=Encode.forHtml(String.valueOf(dis.numMonths))%></td>
+                    <td><%=Encode.forHtml(StringUtils.defaultString(dis.lastDate))%></td>
 
+                    <%}%>
+                    <%
+                        String providerName=providerBean.getProperty(StringUtils.defaultString(demo.getProviderNo()), "");
+                        providerName=StringUtils.trimToEmpty(providerName);
+                    %>
+                    <td><%=Encode.forHtml(providerName)%></td>
+                </tr>
+                <%}%>
+                </tbody>
+            </table>
+            <div style="margin-bottom:10px;"></div>
+        </form>
 
-                          <% } else {
-                              Demographic demoSDM = demoData.getSubstituteDecisionMaker(LoggedInInfo.getLoggedInInfoFromSession(request), dis.demographicNo.toString());%>
-                          <td><%=demo.getAgeAsOf(asDate)%></td>
-                          <td><%=Encode.forHtmlContent(h.get("sex"))%></td>
-                          <td><%=Encode.forHtmlContent(h.get("lastName"))%></td>
-                          <td><%=Encode.forHtmlContent(h.get("firstName"))%></td>
-                          <td><%=Encode.forHtmlContent(demo.getHin()) + Encode.forHtmlContent(demo.getVer())%></td>
-                          <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getLastName())%><%=demoSDM == null ? "" : ","%> <%= demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getFirstName()) %>&nbsp;</td>
-                          <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getPhone())%> &nbsp;</td>
-                          <td><%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getEmail())%> &nbsp;</td>
-                          <td><%=demoSDM == null ? "" :Encode.forHtmlContent(demoSDM.getAddress())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getCity())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getProvince())%> <%=demoSDM == null ? "" : Encode.forHtmlContent(demoSDM.getPostal())%>&nbsp;</td>
-                          <td><oscar:nextAppt demographicNo="<%=demo.getDemographicNo().toString()%>"/></td>
-                          <td bgcolor="<%=dis.color%>"><%=dis.state%></td>
-                          <td bgcolor="<%=dis.color%>"><%=dis.numShots%></td>                          
-                          <td bgcolor="<%=dis.color%>"><%=dis.bonusStatus%></td>
-                          <td bgcolor="<%=dis.color%>"><%=dis.numMonths%></td>
-                          <td bgcolor="<%=dis.color%>"><%=dis.lastDate%></td>
+    <%}%>
 
-                          <%}%>
-                          <td bgcolor="<%=dis.color%>" id="lastFollowup<%=i+1%>">
-                             <% if (dis.lastFollowup != null ){ %>
-                                 <%=dis.lastFollupProcedure%>
-                                 <%=UtilDateUtilities.DateToString(dis.lastFollowup)%>
-                                 <%=UtilDateUtilities.getNumMonths(dis.lastFollowup,new Date())%>M
-                             <% }else{ %>
-                                ----
-                             <% } %>
-                          </td>
-                          <td bgcolor="<%=dis.color%>" id="nextSuggestedProcedure<%=i+1%>">
-                              <%if (dis.nextSuggestedProcedure != null && dis.nextSuggestedProcedure.equals("P1")){ %>
-                                 <a href="javascript: return false;" onclick="return completedProcedure('<%=i+1%>','<%=followUpType%>','<%=dis.nextSuggestedProcedure%>','<%=dis.demographicNo%>');"><%=dis.nextSuggestedProcedure%></a>                              
-                              <%}else{%>
-                                    <%=(dis.nextSuggestedProcedure != null)?dis.nextSuggestedProcedure:"&nbsp;"%>
-                              <%}%>
-                          </td>
-                          <td bgcolor="<%=dis.color%>">		
-                          	<%if(!setBill) {%>					                          
-                          		<input type="checkbox"  id="selectnsp<%=i+1%>" name="nsp" value="<%=dis.demographicNo%>">
-                          	<%} else { %>
-                          		&nbsp;
-                          	<%} %>
-                          </td>
-                          <%
-                          	String providerName=providerBean.getProperty(demo.getProviderNo());
-                          	providerName=StringUtils.trimToEmpty(providerName);
-                          %>
-                          <td bgcolor="<%=dis.color%>"><%=providerName%></td>
-                          <td bgcolor="<%=dis.color%>">
-                              <% if( billCode != null && setBill ) {
-                                  numDays = bCh1Dao.getDaysSinceBilled(billCode, dis.demographicNo);
-                                  //we only want to enable billing if it has been a year since the last invoice was created
-                                  enabled = numDays >= 0 && numDays < 365 ? "disabled" : "checked";
-                              %>
-                              <input type="checkbox" name="bill" <%=enabled%> value="<%=billCode + ";" + dis.demographicNo + ";" + demo.getProviderNo()%>">
-                              <%}%>
-                          </td>
-
-                       </tr>
-                      <%}%>
-                    	</tbody>
-                    </table>
-                    <table class="ele" style="width:80%;">
-                      <tr>
-                          <td style="text-align:right;"><input type="button" value="Bill" onclick="return batchBill();"></td>
-
-                      </tr>
-                    </table>
-
-                    </form>
-
-                  <%}%>
-
-        <% if (firstLetter.size() > 0) {
-            String queryStr = getUrlParamList(firstLetter, "demo");
-        %>
-        <a target="_blank"
-           href="<%= request.getContextPath() %>/report/GenerateLetters.jsp?<%=queryStr%>&amp;message=<%=java.net.URLEncoder.encode("Letter 1 Reminder Letter sent for :"+request.getAttribute("prevType"), StandardCharsets.UTF_8)%>&amp;followupType=<%=followUpType%>&amp;followupValue=L1">Generate
-            First Letter</a>
-        <%}%>
-
-        <% if (secondLetter.size() > 0) {
-            String queryStr = getUrlParamList(secondLetter, "demo");
-        %>
-        <a target="_blank"
-           href="<%= request.getContextPath() %>/report/GenerateLetters.jsp?<%=queryStr%>&amp;message=<%=java.net.URLEncoder.encode("Letter 2 Reminder Letter sent for :"+request.getAttribute("prevType"), StandardCharsets.UTF_8)%>&amp;followupType=<%=followUpType%>&amp;followupValue=L2">Generate
-            Second Letter</a>
-        <%}%>
-
-        <% if (refusedLetter.size() > 0) {
-            String queryStr = getUrlParamList(refusedLetter, "demo");
-        %>
-        <a target="_blank"
-           href="<%= request.getContextPath() %>/report/GenerateLetters.jsp?<%=queryStr%>&amp;message=<%=java.net.URLEncoder.encode("Letter 1 Reminder Letter sent for :"+request.getAttribute("prevType"), StandardCharsets.UTF_8)%>&amp;followupType=<%=followUpType%>&amp;followupValue=L1">Generate
-            Refused Letter</a>
-        <%}%>
-
+    </div>
     </div>
 
     <script type="text/javascript">
@@ -762,21 +376,6 @@
             step: 1
         });
     </script>
-
     </body>
 </html>
 
-<%!
-    String getUrlParamList(ArrayList list, String paramName) {
-        String queryStr = "";
-        for (int i = 0; i < list.size(); i++) {
-            String demo = String.valueOf(list.get(i));
-            if (i == 0) {
-                queryStr += paramName + "=" + demo;
-            } else {
-                queryStr += "&amp;" + paramName + "=" + demo;
-            }
-        }
-        return queryStr;
-    }
-%>

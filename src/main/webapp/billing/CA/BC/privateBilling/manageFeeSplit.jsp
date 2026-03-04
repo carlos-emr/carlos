@@ -66,12 +66,11 @@
 <html>
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageFeeSplit"/></title>
-    <script src="<%=request.getContextPath()%>/csrfguard" type="text/javascript"></script>
     <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageFeeSplit"/></h3>
-<form action="manageFeeSplit.jsp">
+<form action="manageFeeSplit.jsp" method="post">
     <label for="providerNo">Provider:</label>
     <select name="providerNo" id="providerNo" onchange="setSplitProvider()">
         <% for (Provider provider : providerDao.getBillableProvidersInBC()) { %>

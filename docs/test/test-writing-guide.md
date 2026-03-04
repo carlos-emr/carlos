@@ -8,7 +8,7 @@ The OpenO codebase has several legacy patterns that require specific handling in
 
 ### SpringUtils Anti-Pattern Resolution
 
-The codebase uses static `SpringUtils.getBean()` throughout. Modern tests handle this via reflection in `OpenOTestBase`:
+The codebase uses static `SpringUtils.getBean()` throughout. Modern tests handle this via reflection in `CarlosTestBase`:
 
 ```java
 @BeforeEach
@@ -185,15 +185,15 @@ void shouldPerformExpectedBehavior_whenConditionIsMet() {  // camelCase with ONE
 
 ## Test Base Classes
 
-### Integration Tests - OpenOTestBase
+### Integration Tests - CarlosTestBase
 
-All modern integration tests should extend `OpenOTestBase`:
+All modern integration tests should extend `CarlosTestBase`:
 
 ```java
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(locations = {"classpath:applicationContext-test.xml"})
 @Transactional
-public abstract class OpenOTestBase {
+public abstract class CarlosTestBase {
 
     @Autowired
     protected ApplicationContext applicationContext;
@@ -210,21 +210,21 @@ public abstract class OpenOTestBase {
 }
 ```
 
-### Why Extend OpenOTestBase?
+### Why Extend CarlosTestBase?
 
 1. **SpringUtils handling**: Automatically sets up the static SpringUtils field
 2. **Spring context**: Provides autowired ApplicationContext
 3. **EntityManager**: Provides properly configured EntityManager
 4. **Transaction support**: Tests are transactional and roll back automatically
 
-### Unit Tests - OpenOUnitTestBase
+### Unit Tests - CarlosUnitTestBase
 
-For unit tests (no database, all mocks), extend `OpenOUnitTestBase`:
+For unit tests (no database, all mocks), extend `CarlosUnitTestBase`:
 
 ```java
 @Tag("unit")
 @Tag("fast")
-public abstract class OpenOUnitTestBase {
+public abstract class CarlosUnitTestBase {
 
     protected MockedStatic<SpringUtils> springUtilsMock;
     protected Map<Class<?>, Object> mockedBeans = new HashMap<>();
@@ -256,7 +256,7 @@ For complex domains (like Demographic), create a domain-specific base class:
 @Tag("unit")
 @Tag("fast")
 @Tag("demographic")
-public abstract class DemographicUnitTestBase extends OpenOUnitTestBase {
+public abstract class DemographicUnitTestBase extends CarlosUnitTestBase {
 
     protected SecurityInfoManager mockSecurityInfoManager;
     protected LoggedInInfo mockLoggedInInfo;
@@ -306,7 +306,7 @@ Every test class should have at minimum:
 @Tag("integration")
 @Tag("dao")
 @Tag("tickler")
-class TicklerDaoFindIntegrationTest extends OpenOTestBase {
+class TicklerDaoFindIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private TicklerDao ticklerDao;
@@ -387,22 +387,133 @@ When `mockStatic(LogAction.class)` is called, Java loads and initializes the `Lo
 
 ### "SpringUtils returned null" Errors
 
-**Cause**: Test not extending OpenOTestBase, or @BeforeEach not running.
+**Cause**: Test not extending CarlosTestBase, or @BeforeEach not running.
 
-**Solution**: Ensure your test class extends OpenOTestBase.
+**Solution**: Ensure your test class extends CarlosTestBase.
 
 ### Tests Pass Individually but Fail Together
 
 **Cause**: Shared state between tests, often from SpringUtils static field.
 
-**Solution**: Ensure OpenOTestBase's @BeforeEach runs for every test. Consider test isolation.
+**Solution**: Ensure CarlosTestBase's @BeforeEach runs for every test. Consider test isolation.
+
+---
+
+## Hibernate/JPA Dual Persistence Context Pitfalls
+
+The test infrastructure uses **dual persistence contexts** (JPA EntityManager + Hibernate Session) sharing one JDBC connection via `TransactionAwareDataSourceProxy`. This section documents the most common issues encountered when writing integration tests.
+
+### Flush Context Mismatch (Most Common Issue)
+
+DAOs extending `HibernateDaoSupport` write through the Hibernate Session. `entityManager.flush()` only flushes the JPA context — it does NOT flush Hibernate writes.
+
+```java
+// WRONG - HibernateTemplate writes NOT flushed to DB:
+myDao.saveEntity(entity);       // Goes through HibernateTemplate
+entityManager.flush();           // Only flushes JPA context (nothing here)
+entityManager.find(Entity.class, id);  // May not find the entity!
+
+// CORRECT - Use hibernateTemplate.flush() for HibernateDaoSupport DAOs:
+myDao.saveEntity(entity);       // Goes through HibernateTemplate
+hibernateTemplate.flush();       // Flushes Hibernate Session to DB
+entityManager.find(Entity.class, id);  // Now finds the entity via shared JDBC connection
+```
+
+**Rule of thumb**: Always use `hibernateTemplate.flush()` (available from `CarlosTestBase`) when testing DAOs that extend `HibernateDaoSupport`.
+
+### DAO Methods That Override Test Data
+
+Some DAO `save*()` methods override fields like `update_date` with `new Date()`. For example, `CaseManagementIssueDAOImpl.saveIssue()` always sets `update_date` to the current time, ignoring the value you set in the test.
+
+```java
+// The DAO implementation:
+public void saveIssue(CaseManagementIssue issue) {
+    issue.setUpdate_date(new Date());  // OVERRIDES your test date!
+    getHibernateTemplate().saveOrUpdate(issue);
+}
+
+// Test fix - re-set the date after saving:
+cmi.setUpdate_date(pastDate);
+caseManagementIssueDAO.saveIssue(cmi);  // Overwritten to now()
+cmi.setUpdate_date(pastDate);            // Re-set to desired date (dirty tracking)
+hibernateTemplate.flush();               // Persists the corrected date
+```
+
+### FK Constraints from HBM `<one-to-many>` Mappings
+
+When `hbm2ddl.auto=create` generates schema, `<set>` mappings with `<one-to-many>` create FK constraints. Tests must create parent records before inserting child records:
+
+```java
+// casemgmt_note.hbm.xml creates FK on casemgmt_note_ext.note_id
+@BeforeEach
+void setUp() {
+    parentNote = createParentNote();  // Must exist before NoteExt
+    hibernateTemplate.flush();
+}
+```
+
+### H2 Reserved Words in HBM Mappings
+
+Column names like `value`, `key`, `order` are SQL reserved words in H2. Use backtick quoting in HBM XML:
+
+```xml
+<!-- WRONG: <property column="value" name="value" /> -->
+<property column="`value`" name="value" />
+```
+
+Hibernate translates backticks to the database-appropriate quoting (double-quotes for H2, backticks for MySQL).
+
+### Formula Columns Require Reference Tables
+
+HBM `<property formula="...">` subselects execute even when not directly queried. Add `CREATE TABLE IF NOT EXISTS` to `test-lookup-tables.sql` for any tables referenced by formulas.
+
+### HBM Property Names Are Case-Sensitive in HQL
+
+HQL must use the exact `name` attribute from the HBM XML mapping:
+- `Provider.hbm.xml`: PascalCase — `p.LastName`, `p.FirstName`, `p.Status`
+- `SecProvider.hbm.xml`: camelCase — `p.lastName`, `p.firstName`, `p.status`
+
+Always check the HBM file before writing HQL queries in tests.
+
+### VARCHAR Length Constraints
+
+Check HBM mappings for column length limits. For example, `provider_no` is `VARCHAR(6)`. Test data like `uniquePrefix + suffix` must fit within these limits.
+
+### Dual Entity Mappings to Same Table
+
+`Provider.hbm.xml` and `SecProvider.hbm.xml` both map to the `provider` table. When creating test data for one entity, you must satisfy NOT NULL constraints from BOTH:
+
+```java
+secProvider.setSpecialty("");  // Required by Provider.hbm.xml even when testing SecProvider
+```
+
+### H2/MySQL BOOLEAN Incompatibility
+
+H2 uses actual `BOOLEAN` type while MySQL uses `TINYINT(1)`. HQL should use boolean comparisons, not string comparisons:
+
+```java
+// WRONG (fails in H2): cmn.locked != '1'
+// CORRECT: cmn.locked = false
+```
+
+### SpringUtils Identity Across Multiple Contexts
+
+When running the full test suite, classes with `@TestPropertySource` create separate Spring contexts. `SpringUtils.getBean()` may return instances from a different context:
+
+```java
+// WRONG - fails with multiple Spring contexts:
+assertThat(springUtilsDao).isSameAs(autowiredDao);
+
+// CORRECT:
+assertThat(springUtilsDao).isInstanceOf(autowiredDao.getClass());
+```
 
 ---
 
 ## File Locations
 
 - **Modern tests**: `src/test-modern/java/io/github/carlos_emr/carlos/`
-- **Unit test base**: `src/test-modern/java/io/github/carlos_emr/carlos/test/unit/OpenOUnitTestBase.java`
+- **Unit test base**: `src/test-modern/java/io/github/carlos_emr/carlos/test/unit/CarlosUnitTestBase.java`
 - **Manager tests**: `src/test-modern/java/io/github/carlos_emr/carlos/managers/`
 - **Domain bases**: `src/test-modern/java/io/github/carlos_emr/carlos/managers/DemographicUnitTestBase.java`
 - **Test resources**: `src/test-modern/resources/`

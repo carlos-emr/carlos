@@ -182,6 +182,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * @author Ronnie Cheng
@@ -309,7 +310,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         switch (template) {
             case CMS4:
                 if (!new File(tmpDir).mkdir() || !Util.checkDir(tmpDir)) {
-                    logger.debug("Error! Cannot write to TMP_DIR - Check oscar.properties or dir permissions. (" + tmpDir + ")");
+                    logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions. (" + tmpDir + ")");
                 } else {
                     XmlOptions options = new XmlOptions();
                     options.put(XmlOptions.SAVE_PRETTY_PRINT);
@@ -2638,7 +2639,7 @@ public class DemographicExportAction42Action extends ActionSupport {
             // Remove unused E2E tools.
 //		case E2E:
 //			if (!Util.checkDir(tmpDir)) {
-//				logger.debug("Error! Cannot write to TMP_DIR - Check oscar.properties or dir permissions.");
+//				logger.debug("Error! Cannot write to TMP_DIR - Check carlos.properties or dir permissions.");
 //			} else {
 //				ArrayList<File> files = new ArrayList<File>();
 //				StringBuilder exportLog = new StringBuilder();
@@ -2756,7 +2757,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         out.write("CMS Vendor, Product & Version : ");
         String vendor = oscarProperties.getProperty("Vendor_Product");
         if (StringUtils.empty(vendor)) {
-            exportError.add("Error! Vendor_Product not defined in oscar.properties");
+            exportError.add("Error! Vendor_Product not defined in carlos.properties");
         } else {
             out.write(vendor);
         }
@@ -2764,7 +2765,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         out.write("Application Support Contact   : ");
         String support = oscarProperties.getProperty("Support_Contact");
         if (StringUtils.empty(support)) {
-            exportError.add("Error! Support_Contact not defined in oscar.properties");
+            exportError.add("Error! Support_Contact not defined in carlos.properties");
         } else {
             out.write(support);
         }
@@ -3726,74 +3727,92 @@ public class DemographicExportAction42Action extends ActionSupport {
      *
      * @param demographicNo
      */
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
 
+    @StrutsParameter
     public void setPatientSet(String patientSet) {
         this.patientSet = patientSet;
     }
 
+    @StrutsParameter
     public void setPgpReady(String pgpReady) {
         this.pgpReady = pgpReady;
     }
 
+    @StrutsParameter
     public void setTemplate(String template) {
         this.template = template;
     }
 
+    @StrutsParameter
     public void setExPersonalHistory(boolean rhs) {
         this.exPersonalHistory = rhs;
     }
 
+    @StrutsParameter
     public void setExFamilyHistory(boolean rhs) {
         this.exFamilyHistory = rhs;
     }
 
+    @StrutsParameter
     public void setExPastHealth(boolean rhs) {
         this.exPastHealth = rhs;
     }
 
+    @StrutsParameter
     public void setExProblemList(boolean rhs) {
         this.exProblemList = rhs;
     }
 
+    @StrutsParameter
     public void setExRiskFactors(boolean rhs) {
         this.exRiskFactors = rhs;
     }
 
+    @StrutsParameter
     public void setExAllergiesAndAdverseReactions(boolean rhs) {
         this.exAllergiesAndAdverseReactions = rhs;
     }
 
+    @StrutsParameter
     public void setExMedicationsAndTreatments(boolean rhs) {
         this.exMedicationsAndTreatments = rhs;
     }
 
+    @StrutsParameter
     public void setExImmunizations(boolean rhs) {
         this.exImmunizations = rhs;
     }
 
+    @StrutsParameter
     public void setExLaboratoryResults(boolean rhs) {
         this.exLaboratoryResults = rhs;
     }
 
+    @StrutsParameter
     public void setExAppointments(boolean rhs) {
         this.exAppointments = rhs;
     }
 
+    @StrutsParameter
     public void setExClinicalNotes(boolean rhs) {
         this.exClinicalNotes = rhs;
     }
 
+    @StrutsParameter
     public void setExReportsReceived(boolean rhs) {
         this.exReportsReceived = rhs;
     }
 
+    @StrutsParameter
     public void setExAlertsAndSpecialNeeds(boolean rhs) {
         this.exAlertsAndSpecialNeeds = rhs;
     }
 
+    @StrutsParameter
     public void setExCareElements(boolean rhs) {
         this.exCareElements = rhs;
     }
@@ -3802,6 +3821,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }

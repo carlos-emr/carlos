@@ -63,7 +63,7 @@
 <html>
 <head>
     <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>CALENDAR</title>
     <% if (session.getAttribute("mobileOptimized") != null) { %>
@@ -128,16 +128,16 @@
         </td>
         <td align="right"><h2>
             <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-12">
-                <i class="icon-double-angle-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgLastYear"/>"></i>
+                <i class="fa-solid fa-angles-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgLastYear"/>"></i>
             </a>
             <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=-1">
-                <i class="icon-angle-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgViewLastMonth"/>"></i>
+                <i class="fa-solid fa-angle-left" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgViewLastMonth"/>"></i>
             </a>
             <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=1">
-                <i class="icon-angle-right" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextMonth"/>"></i>
+                <i class="fa-solid fa-angle-right" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextMonth"/>"></i>
             </a>
             <a href="CalendarPopup.jsp?urlfrom=<%=Encode.forHtmlAttribute(urlfrom)%>&year=<%=year%>&month=<%=month%>&param=<%=URLEncoder.encode(param, StandardCharsets.UTF_8)%>&delta=12">
-                <i class="icon-double-angle-right" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextYear"/>"></i>
+                <i class="fa-solid fa-angles-right" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="share.CalendarPopUp.msgNextYear"/>"></i>
             </a>&nbsp;</h2>
         </td>
     </tr>

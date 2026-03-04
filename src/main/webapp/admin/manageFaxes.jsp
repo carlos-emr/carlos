@@ -59,6 +59,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap.min.css" type="text/css"/>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" type="text/css"/>
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css" type="text/css"/>
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css"/>
     <link rel="stylesheet"
           href="<%=request.getContextPath() %>/js/jquery_css/smoothness/jquery-ui-1.10.2.custom.min.css"/>
@@ -298,7 +299,7 @@
                     <input class="span2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="From" id="dateBegin" name="dateBegin" required/>
                     <span class="add-on">
-                		<i class="icon-calendar"></i>
+                		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
 
@@ -307,7 +308,7 @@
                     <input class="span2" type="text" pattern="^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01])$"
                            placeholder="To" id="dateEnd" name="dateEnd" required/>
                     <span class="add-on">
-                		<i class="icon-calendar"></i>
+                		<i class="fa-solid fa-calendar"></i>
                 	</span>
                 </div>
                 <div class="span6">

@@ -33,9 +33,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
-import com.itextpdf.text.pdf.PdfReader;
-import com.sun.pdfview.PDFFile;
-import com.sun.pdfview.PDFPage;
+import com.lowagie.text.pdf.PdfReader;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
@@ -46,13 +44,7 @@ import org.apache.pdfbox.pdfparser.PDFParser;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.CaisiIntegratorManager;
-import io.github.carlos_emr.carlos.PMmodule.caisi_integrator.IntegratorFallBackManager;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDocument;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.CachedDemographicDocumentContents;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.DemographicWs;
-import io.github.carlos_emr.carlos.caisi_integrator.ws.FacilityIdIntegerCompositePk;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
@@ -82,11 +74,8 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.awt.image.RenderedImage;
 import java.io.*;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -589,58 +578,6 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
-    /**
-     * @Deprecated : use createCacheVersion2
-     */
-    public File createCacheVersion(Document d) throws Exception {
-
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-        File documentDir = new File(docdownload);
-        File documentCacheDir = getDocumentCacheDir(docdownload);
-        log.debug("Document Dir is a dir" + documentDir.isDirectory());
-
-        File file = new File(documentDir, d.getDocfilename());
-        PDFFile pdffile = null;
-
-        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r");
-             FileChannel channel = raf.getChannel()
-        ) {
-            ByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
-            pdffile = new PDFFile(buf);
-        } catch (Exception e) {
-            throw new Exception(e);
-        }
-
-        // long readfile = System.currentTimeMillis() - start;
-        // draw the first page to an image
-        PDFPage ppage = pdffile.getPage(0);
-
-        log.debug("WIDTH " + (int) ppage.getBBox().getWidth() + " height " + (int) ppage.getBBox().getHeight());
-
-        // get the width and height for the doc at the default zoom
-        Rectangle rect = new Rectangle(0, 0, (int) ppage.getBBox().getWidth(), (int) ppage.getBBox().getHeight());
-
-        log.debug("generate the image");
-        Image img = ppage.getImage(rect.width, rect.height, // width & height
-                rect, // clip rect
-                null, // null for the ImageObserver
-                true, // fill background with white
-                true // block until drawing is done
-        );
-
-        log.debug("about to Print to stream");
-        File outfile = new File(documentCacheDir, d.getDocfilename() + ".png");
-
-        try (OutputStream outs = new FileOutputStream(outfile)) {
-            RenderedImage rendImage = (RenderedImage) img;
-            ImageIO.write(rendImage, "png", outs);
-            outs.flush();
-        }
-
-        return outfile;
-
-    }
-
     public void showPage() throws Exception {
         getPage(Integer.parseInt(request.getParameter("page")));
     }
@@ -726,62 +663,6 @@ public class ManageDocument2Action extends ActionSupport {
 
     }
 
-    public void view2() throws Exception {
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
-        }
-
-        String doc_no = request.getParameter("doc_no");
-        log.debug("Document No :" + doc_no);
-
-        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
-
-        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
-        File documentDir = new File(docdownload);
-        log.debug("Document Dir is a dir" + documentDir.isDirectory());
-
-        Document d = documentDao.getDocument(doc_no);
-        log.debug("Document Name :" + d.getDocfilename());
-
-        // TODO: Right now this assumes it's a pdf which it shouldn't
-
-        response.setContentType("image/png");
-        // response.setHeader("Content-Disposition", "attachment;filename=\"" + filename+ "\"");
-        // read the file name.
-        File file = new File(documentDir, d.getDocfilename());
-
-        java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r");
-        FileChannel channel = raf.getChannel();
-        ByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
-        PDFFile pdffile = new PDFFile(buf);
-        // long readfile = System.currentTimeMillis() - start;
-        // draw the first page to an image
-        PDFPage ppage = pdffile.getPage(0);
-
-        log.debug("WIDTH " + (int) ppage.getBBox().getWidth() + " height " + (int) ppage.getBBox().getHeight());
-
-        // get the width and height for the doc at the default zoom
-        Rectangle rect = new Rectangle(0, 0, (int) ppage.getBBox().getWidth(), (int) ppage.getBBox().getHeight());
-
-        log.debug("generate the image");
-        Image img = ppage.getImage(rect.width, rect.height, // width & height
-                rect, // clip rect
-                null, // null for the ImageObserver
-                true, // fill background with white
-                true // block until drawing is done
-        );
-
-        log.debug("about to Print to stream");
-        ServletOutputStream outs = response.getOutputStream();
-
-        RenderedImage rendImage = (RenderedImage) img;
-        ImageIO.write(rendImage, "png", outs);
-        outs.flush();
-        outs.close();
-
-    }
-
     public void getDocPageNumber() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -827,12 +708,6 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
-        String temp = request.getParameter("remoteFacilityId");
-        Integer remoteFacilityId = null;
-        if (temp != null) {
-            remoteFacilityId = Integer.parseInt(temp);
-        }
-
         String doc_no = request.getParameter("doc_no");
         log.debug("Document No :" + doc_no);
         String demoNo = request.getParameter("demoNo");
@@ -842,77 +717,31 @@ public class ManageDocument2Action extends ActionSupport {
         byte[] contentBytes = null;
         String filename = null;
 
-        // local document
-        if (remoteFacilityId == null) {
-            CtlDocument ctld = ctlDocumentDao.getCtrlDocument(Integer.parseInt(doc_no));
-            if (ctld.isDemographicDocument()) {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), "" + ctld.getId().getModuleId());
-            } else {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+        CtlDocument ctld = ctlDocumentDao.getCtrlDocument(Integer.parseInt(doc_no));
+        if (ctld.isDemographicDocument()) {
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), "" + ctld.getId().getModuleId());
+        } else {
+            LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+        }
+
+        Document d = documentDao.getDocument(doc_no);
+
+        log.debug("Document Name :" + d.getDocfilename());
+
+        docxml = d.getDocxml();
+        contentType = d.getContenttype();
+        filename = d.getDocfilename();
+
+        Path file = Paths.get(DOCUMENT_DIR, filename);
+
+        if (Files.exists(file)) {
+            contentBytes = Files.readAllBytes(file);
+        } else {
+            if (docxml == null || docxml.trim().equals("")) {
+                // Only throw exception if the file does not exist and the docxml is null/empty to serve HTML files that were uploaded in OSCAR 12,
+                // where HTML file uploads contents were stored in the docxml field of the document table, and the file was never saved.
+                throw new IllegalStateException("Local document doesn't exist for eDoc (ID " + d.getId() + "): " + file.getFileName());
             }
-
-            Document d = documentDao.getDocument(doc_no);
-
-            log.debug("Document Name :" + d.getDocfilename());
-
-            docxml = d.getDocxml();
-            contentType = d.getContenttype();
-            filename = d.getDocfilename();
-
-            Path file = Paths.get(DOCUMENT_DIR, filename);
-
-            if (Files.exists(file)) {
-                contentBytes = Files.readAllBytes(file);
-            } else {
-                if (docxml == null || docxml.trim().equals("")) {
-                    // Only throw exception if the file does not exist and the docxml is null/empty to serve HTML files that were uploaded in OSCAR 12,
-                    // where HTML file uploads contents were stored in the docxml field of the document table, and the file was never saved.
-                    throw new IllegalStateException("Local document doesn't exist for eDoc (ID " + d.getId() + "): " + file.getFileName());
-                }
-            }
-        } else // remote document
-        {
-            FacilityIdIntegerCompositePk remotePk = new FacilityIdIntegerCompositePk();
-            remotePk.setIntegratorFacilityId(remoteFacilityId);
-            remotePk.setCaisiItemId(Integer.parseInt(doc_no));
-
-
-            CachedDemographicDocument remoteDocument = null;
-            CachedDemographicDocumentContents remoteDocumentContents = null;
-
-            try {
-                if (!CaisiIntegratorManager.isIntegratorOffline(request.getSession())) {
-                    DemographicWs demographicWs = CaisiIntegratorManager.getDemographicWs(loggedInInfo, loggedInInfo.getCurrentFacility());
-                    remoteDocument = demographicWs.getCachedDemographicDocument(remotePk);
-                    remoteDocumentContents = demographicWs.getCachedDemographicDocumentContents(remotePk);
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Unexpected error.", e);
-                CaisiIntegratorManager.checkForConnectionError(request.getSession(), e);
-            }
-
-            if (CaisiIntegratorManager.isIntegratorOffline(request.getSession())) {
-                Integer demographicId = IntegratorFallBackManager.getDemographicNoFromRemoteDocument(loggedInInfo, remotePk);
-                MiscUtils.getLogger().debug("got demographic no from remote document " + demographicId);
-                List<CachedDemographicDocument> remoteDocuments = IntegratorFallBackManager.getRemoteDocuments(loggedInInfo, demographicId);
-                for (CachedDemographicDocument demographicDocument : remoteDocuments) {
-                    if (demographicDocument.getFacilityIntegerPk().getIntegratorFacilityId() == remotePk.getIntegratorFacilityId() && demographicDocument.getFacilityIntegerPk().getCaisiItemId() == remotePk.getCaisiItemId()) {
-                        remoteDocument = demographicDocument;
-                        remoteDocumentContents = IntegratorFallBackManager.getRemoteDocument(loggedInInfo, demographicId, remotePk);
-                        break;
-                    }
-                    MiscUtils.getLogger().error("End of the loop and didn't find the remoteDocument");
-                }
-            }
-
-            if (remoteDocument == null || remoteDocumentContents == null) {
-                throw new IllegalStateException("Remote document not found or contents unavailable for document ID: " + doc_no);
-            }
-
-            docxml = remoteDocument.getDocXml();
-            contentType = remoteDocument.getContentType();
-            filename = remoteDocument.getDocFilename();
-            contentBytes = remoteDocumentContents.getFileContents().getContent().toString().getBytes(StandardCharsets.UTF_8);
         }
 
         if (docxml != null && !docxml.trim().equals("")) {
@@ -939,18 +768,18 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     public void viewDocumentInfo() throws Exception {
-        response.setContentType("text/html");
+        response.setContentType("text/html;charset=UTF-8");
         doViewDocumentInfo(request, response.getWriter(), true, true);
 
     }
 
     public void viewDocumentDescription() throws Exception {
-        response.setContentType("text/html");
+        response.setContentType("text/html;charset=UTF-8");
         doViewDocumentInfo(request, response.getWriter(), false, true);
     }
 
     public void viewAnnotationAcknowledgementTickler() throws Exception {
-        response.setContentType("text/html");
+        response.setContentType("text/html;charset=UTF-8");
         doViewDocumentInfo(request, response.getWriter(), true, false);
     }
 
@@ -1251,7 +1080,7 @@ public class ManageDocument2Action extends ActionSupport {
             if (pageIndex < 0 || pageIndex >= totalPages) {
                 log.error("Invalid page number " + pageNumber + " for PDF " + sanitizedPdfName + " with " + totalPages + " pages");
                 reader.close();
-                response.setContentType("text/html");
+                response.setContentType("text/html;charset=UTF-8");
                 response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
                 response.getWriter().print("<br>Invalid page number");
                 return;
@@ -1263,7 +1092,7 @@ public class ManageDocument2Action extends ActionSupport {
             extractedPage.close();
             reader.close();
         } catch (Exception ex) {
-            response.setContentType("text/html");
+            response.setContentType("text/html;charset=UTF-8");
             // Sanitize the filename to prevent XSS and response splitting
             response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
             response.getWriter().print("<br>" + props.getString("dms.incomingDocs.PDFCouldBeCorrupted"));

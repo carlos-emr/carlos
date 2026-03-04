@@ -393,6 +393,15 @@ public interface DemographicDao {
     public List<Demographic> getDemographicWithLastFirstDOBExact(String lastname, String firstname,
                                                                  String year_of_birth, String month_of_birth, String date_of_birth);
 
+    /**
+     * Checks whether a demographic record exists with the given first and last name.
+     *
+     * @param firstName String the patient's first name (exact match)
+     * @param lastName String the patient's last name (exact match)
+     * @return boolean true if at least one matching record exists, false otherwise
+     */
+    public boolean existsByFirstAndLastName(String firstName, String lastName);
+
     public List<Demographic> getDemographicsByHealthNum(String hin);
 
     public List<Integer> getActiveDemographicIds();

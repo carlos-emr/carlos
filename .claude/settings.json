@@ -44,6 +44,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/enforce-sql-migration-pattern.py",
+            "timeout": 5
+          }
+        ]
       }
     ]
   },
@@ -61,6 +71,8 @@
   },
   "permissions": {
     "allow": [
+      "Write(path:database/mysql/updates/update-*.sql)",
+      "Edit(path:database/mysql/updates/update-*.sql)",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_snapshot",
       "mcp__playwright__browser_take_screenshot",
@@ -108,10 +120,14 @@
       "Bash(gh pr list *)",
       "Bash(gh pr diff *)",
       "Bash(gh pr checks *)",
+      "Bash(gh pr review *)",
       "Bash(gh issue view *)",
       "Bash(gh issue list *)",
       "Bash(gh issue comment *)",
       "Bash(gh repo view *)",
+      "Bash(gh api repos/carlos-emr/carlos/pulls/comments *)",
+      "Bash(gh api repos/carlos-emr/carlos/pulls/*/comments *)",
+      "Bash(gh api repos/carlos-emr/carlos/pulls/*/reviews *)",
       "Bash(gh api -X GET repos/carlos-emr/carlos/pulls *)",
       "Bash(gh api -X GET repos/carlos-emr/carlos/pulls/*/files *)",
       "Bash(gh api -X GET repos/carlos-emr/carlos/issues *)",
@@ -141,7 +157,20 @@
       "Write(path:.git/**)",
       "Write(path:.github/**)",
       "Write(path:.github/workflows/**)",
-      "Write(path:database/**)",
+      "Write(path:database/mysql/oscarinit*.sql)",
+      "Write(path:database/mysql/oscardata*.sql)",
+      "Write(path:database/mysql/icd*.sql)",
+      "Write(path:database/mysql/measurementMapData.sql)",
+      "Write(path:database/mysql/caisi/**)",
+      "Write(path:database/mysql/olis/**)",
+      "Write(path:database/mysql/SnomedCore/**)",
+      "Edit(path:database/mysql/oscarinit*.sql)",
+      "Edit(path:database/mysql/oscardata*.sql)",
+      "Edit(path:database/mysql/icd*.sql)",
+      "Edit(path:database/mysql/measurementMapData.sql)",
+      "Edit(path:database/mysql/caisi/**)",
+      "Edit(path:database/mysql/olis/**)",
+      "Edit(path:database/mysql/SnomedCore/**)",
       "Bash(gh repo create *)",
       "Bash(gh repo delete *)",
       "Bash(gh repo fork *)",
@@ -154,10 +183,6 @@
       "Bash(gh api repos/*/invitations *)",
       "Bash(gh api repos/*/branches/*/protection *)",
       "Bash(gh api repos/*/settings *)",
-      "Bash(gh api * -f *)",
-      "Bash(gh api * --field *)",
-      "Bash(gh api * -F *)",
-      "Bash(gh api * --raw-field *)",
       "Bash(gh workflow enable *)",
       "Bash(gh workflow disable *)",
       "Bash(git remote add *)",
@@ -210,11 +235,9 @@
       "Bash(git clean *)",
       "Bash(gh auth *)",
       "Bash(gh api * -X DELETE *)",
-      "Bash(gh api * -X POST *)",
       "Bash(gh api * -X PUT *)",
       "Bash(gh api * -X PATCH *)",
       "Bash(gh api * --method DELETE *)",
-      "Bash(gh api * --method POST *)",
       "Bash(gh api * --method PUT *)",
       "Bash(gh api * --method PATCH *)",
       "Bash(gh pr merge *)",
