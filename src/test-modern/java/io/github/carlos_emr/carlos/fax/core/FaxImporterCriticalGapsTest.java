@@ -21,12 +21,11 @@
  */
 package io.github.carlos_emr.carlos.fax.core;
 
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.pdf.PdfWriter;
-import com.itextpdf.text.pdf.codec.Base64;
+import com.lowagie.text.Document;
+import com.lowagie.text.DocumentException;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.PdfWriter;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
@@ -47,6 +46,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.Base64;
 import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.*;
@@ -402,7 +402,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             FaxJob receivedFax = createReceivedFax();
 
             // Create base64 of corrupted PDF
-            String corruptedBase64 = Base64.encodeBytes("Not a valid PDF".getBytes());
+            String corruptedBase64 = Base64.getEncoder().encodeToString("Not a valid PDF".getBytes());
             FaxJob faxFile = createFaxFile(corruptedBase64);
 
             // Track temp files before test in the config-specific subdirectory
@@ -483,7 +483,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             byte[] pdfBytes = Files.readAllBytes(validPdf.toPath());
             validPdf.delete();
 
-            String validBase64 = Base64.encodeBytes(pdfBytes);
+            String validBase64 = Base64.getEncoder().encodeToString(pdfBytes);
             FaxJob faxFile = createFaxFile(validBase64);
 
             // Save to incoming first
@@ -518,7 +518,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             byte[] pdfBytes = Files.readAllBytes(validPdf.toPath());
             validPdf.delete();
 
-            String validBase64 = Base64.encodeBytes(pdfBytes);
+            String validBase64 = Base64.getEncoder().encodeToString(pdfBytes);
             FaxJob faxFile = createFaxFile(validBase64);
 
             Path incomingFile = (Path) saveToIncomingMethod.invoke(
@@ -557,7 +557,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
             byte[] pdfBytes = Files.readAllBytes(validPdf.toPath());
             validPdf.delete();
 
-            String validBase64 = Base64.encodeBytes(pdfBytes);
+            String validBase64 = Base64.getEncoder().encodeToString(pdfBytes);
             FaxJob faxFile = createFaxFile(validBase64);
 
             Path incomingFile = (Path) saveToIncomingMethod.invoke(
