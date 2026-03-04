@@ -70,51 +70,56 @@ public class ImagePDFCreator extends PdfPageEventHelper {
      */
     public void printPdf() throws IOException, DocumentException {
 
-        Image image;
-        try {
-            image = Image.getInstance(imagePath);
-        } catch (Exception e) {
-            logger.error("Unexpected error:", e);
-            throw new DocumentException(e);
-        }
-
         // Create the document we are going to write to
         document = new Document();
         PdfWriter writer = PdfWriter.getInstance(document, os);
         //PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_6PT);
 
-
         document.setPageSize(PageSize.LETTER);
         document.addCreator("OSCAR");
         document.open();
 
-        int type = image.getOriginalType();
-        if (type == Image.ORIGINAL_TIFF) {
+        // Detect TIFF by extension before calling Image.getInstance(), which throws
+        // for TIFF files in OpenPDF 3.x (built-in TiffImage codec was removed)
+        String lowerPath = imagePath == null ? "" : imagePath.toLowerCase(java.util.Locale.ROOT);
+        boolean isTiff = lowerPath.endsWith(".tif") || lowerPath.endsWith(".tiff");
+
+        if (isTiff) {
             // Multi-page TIFF handling via ImageIO + TwelveMonkeys TIFF plugin
             // (OpenPDF 3.0 removed built-in TiffImage codec)
             try (ImageInputStream iis = ImageIO.createImageInputStream(new File(imagePath))) {
                 Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
                 if (!readers.hasNext()) {
-                    throw new DocumentException("No TIFF ImageReader found for: " + imagePath);
+                    throw new DocumentException("No TIFF ImageReader found for supplied image");
                 }
                 ImageReader reader = readers.next();
-                reader.setInput(iis);
-                int comps = reader.getNumImages(true);
-                PdfContentByte cb = writer.getDirectContent();
-                for (int c = 0; c < comps; c++) {
-                    BufferedImage bufferedImage = reader.read(c);
-                    Image img = Image.getInstance(bufferedImage, null);
-                    if (img.getScaledWidth() > 500 || img.getScaledHeight() > 700) {
-                        img.scaleToFit(500, 700);
+                try {
+                    reader.setInput(iis);
+                    int comps = reader.getNumImages(true);
+                    PdfContentByte cb = writer.getDirectContent();
+                    for (int c = 0; c < comps; c++) {
+                        BufferedImage bufferedImage = reader.read(c);
+                        Image img = Image.getInstance(bufferedImage, null);
+                        if (img.getScaledWidth() > 500 || img.getScaledHeight() > 700) {
+                            img.scaleToFit(500, 700);
+                        }
+                        img.setAbsolutePosition(20, 20);
+                        document.newPage();
+                        document.add(new Paragraph(imageTitle + " - page " + (c + 1)));
+                        cb.addImage(img);
                     }
-                    img.setAbsolutePosition(20, 20);
-                    document.newPage();
-                    document.add(new Paragraph(imageTitle + " - page " + (c + 1)));
-                    cb.addImage(img);
+                } finally {
+                    reader.dispose();
                 }
-                reader.dispose();
             }
         } else {
+            Image image;
+            try {
+                image = Image.getInstance(imagePath);
+            } catch (Exception e) {
+                logger.error("Unexpected error:", e);
+                throw new DocumentException(e);
+            }
             PdfContentByte cb = writer.getDirectContent();
             if (image.getScaledWidth() > 500 || image.getScaledHeight() > 700) {
                 image.scaleToFit(500, 700);
