@@ -32,25 +32,18 @@
 
 package io.github.carlos_emr.carlos.daos.security;
 
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 
 import io.github.carlos_emr.carlos.model.security.Secobjectname;
-
+import org.springframework.transaction.annotation.Transactional;
 /**
  * @author jackson
  */
-public class SecObjectNameDaoImpl extends HibernateDaoSupport implements SecObjectNameDao {
+@Transactional
+public class SecObjectNameDaoImpl extends AbstractHibernateDao implements SecObjectNameDao {
 
     @Override
     public void saveOrUpdate(Secobjectname t) {
-
-        try {
-
-            this.getHibernateTemplate().saveOrUpdate(t);
-
-        } catch (RuntimeException re) {
-
-            throw re;
-        }
+        currentSession().saveOrUpdate(t);
     }
 }

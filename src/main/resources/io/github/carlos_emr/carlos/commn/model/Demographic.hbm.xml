@@ -11,7 +11,7 @@
 <hibernate-mapping package="io.github.carlos_emr.carlos.commn.model">
 	<class name="io.github.carlos_emr.carlos.commn.model.Demographic" table="demographic">
 		<id column="demographic_no" name="DemographicNo" type="integer">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property column="title" name="title" type="string" />
 		<property column="first_name" length="30" name="FirstName" not-null="true" type="string" />

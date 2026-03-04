@@ -34,20 +34,20 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
 @SuppressWarnings("unchecked")
-public class DefaultRoleAccessDAOImpl extends HibernateDaoSupport implements DefaultRoleAccessDAO {
+public class DefaultRoleAccessDAOImpl extends AbstractHibernateDao implements DefaultRoleAccessDAO {
 
     public void deleteDefaultRoleAccess(Long id) {
-        this.getHibernateTemplate().delete(getDefaultRoleAccess(id));
+        currentSession().delete(getDefaultRoleAccess(id));
     }
 
     public DefaultRoleAccess getDefaultRoleAccess(Long id) {
-        return this.getHibernateTemplate().get(DefaultRoleAccess.class, id);
+        return currentSession().get(DefaultRoleAccess.class, id);
     }
 
     public List<DefaultRoleAccess> getDefaultRoleAccesses() {
@@ -59,7 +59,7 @@ public class DefaultRoleAccessDAOImpl extends HibernateDaoSupport implements Def
     }
 
     public void saveDefaultRoleAccess(DefaultRoleAccess dra) {
-        this.getHibernateTemplate().saveOrUpdate(dra);
+        currentSession().saveOrUpdate(dra);
     }
 
     public DefaultRoleAccess find(Long roleId, Long accessTypeId) {

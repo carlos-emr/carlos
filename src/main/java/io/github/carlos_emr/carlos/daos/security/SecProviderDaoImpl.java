@@ -30,34 +30,33 @@
 package io.github.carlos_emr.carlos.daos.security;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Criteria;
-import org.hibernate.LockMode;
-import org.hibernate.Query;
+import org.hibernate.LockOptions;
 import org.hibernate.Session;
-import org.hibernate.criterion.Example;
+import org.hibernate.query.Query;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
-/**
- * @author JZhang
- */
-
 @Transactional
-public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProviderDao {
+public class SecProviderDaoImpl extends AbstractHibernateDao implements SecProviderDao {
     private static final Logger logger = MiscUtils.getLogger();
-    // property constants
+
+    private static final Set<String> ALLOWED_PROPERTIES = Set.of(
+            LAST_NAME, FIRST_NAME, PROVIDER_TYPE, SPECIALTY, TEAM, SEX,
+            ADDRESS, PHONE, WORK_PHONE, OHIP_NO, RMA_NO, BILLING_NO,
+            HSO_NO, STATUS, COMMENTS, PROVIDER_ACTIVITY);
 
     @Override
     public void save(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
         try {
-            this.getHibernateTemplate().save(transientInstance);
+            currentSession().save(transientInstance);
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);
@@ -69,7 +68,7 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     public void saveOrUpdate(SecProvider transientInstance) {
         logger.debug("saving Provider instance");
         try {
-            this.getHibernateTemplate().saveOrUpdate(transientInstance);
+            currentSession().saveOrUpdate(transientInstance);
             logger.debug("save successful");
         } catch (RuntimeException re) {
             logger.error("save failed", re);
@@ -81,7 +80,7 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     public void delete(SecProvider persistentInstance) {
         logger.debug("deleting Provider instance");
         try {
-            this.getHibernateTemplate().delete(persistentInstance);
+            currentSession().delete(persistentInstance);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -93,8 +92,7 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     public SecProvider findById(java.lang.String id) {
         logger.debug("getting Provider instance with id: " + id);
         try {
-            SecProvider instance = (SecProvider) this.getHibernateTemplate().get(
-                    SecProvider.class, id);
+            SecProvider instance = currentSession().get(SecProvider.class, id);
             return instance;
         } catch (RuntimeException re) {
             logger.error("get failed", re);
@@ -121,20 +119,10 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
 
     @Override
     public List findByExample(SecProviderDao instance) {
-        logger.debug("finding Provider instance by example");
-        Session session = currentSession();
-        try {
-            List results = session.createCriteria(
-                            SecProvider.class).add(
-                            Example.create(instance))
-                    .list();
-            logger.debug("find by example successful, result size: "
-                    + results.size());
-            return results;
-        } catch (RuntimeException re) {
-            logger.error("find by example failed", re);
-            throw re;
-        }
+        logger.debug("finding Provider instance by example (delegates to findAll)");
+        // Legacy method signature takes the DAO interface instead of the entity,
+        // making Example.create() non-functional. Delegate to findAll().
+        return findAll();
     }
 
     @Override
@@ -144,11 +132,12 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     public List findByProperty(String propertyName, Object value) {
         logger.debug("finding Provider instance with property: " + propertyName
                 + ", value: " + value);
-        Session session = currentSession();
         try {
-            Criteria criteria = session.createCriteria(SecProvider.class);
-            criteria.add(org.hibernate.criterion.Restrictions.eq(propertyName, value));
-            return criteria.list();
+            if (!ALLOWED_PROPERTIES.contains(propertyName)) {
+                throw new IllegalArgumentException("Invalid property name: " + propertyName);
+            }
+            return HqlQueryHelper.find(currentSession(),
+                    "FROM SecProvider WHERE " + propertyName + " = ?1", value);
         } catch (RuntimeException re) {
             logger.error("find by property name failed", re);
             throw re;
@@ -241,10 +230,8 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
      */
     public List findAll() {
         logger.debug("finding all Provider instances");
-        Session session = currentSession();
         try {
-            String queryString = "from SecProvider";
-            Query queryObject = session.createQuery(queryString);
+            Query<SecProvider> queryObject = currentSession().createQuery("from SecProvider", SecProvider.class);
             return queryObject.list();
         } catch (RuntimeException re) {
             logger.error("find all failed", re);
@@ -282,9 +269,8 @@ public class SecProviderDaoImpl extends HibernateDaoSupport implements SecProvid
     @Override
     public void attachClean(SecProviderDao instance) {
         logger.debug("attaching clean Provider instance");
-        Session session = currentSession();
         try {
-            session.lock(instance, LockMode.NONE);
+            currentSession().buildLockRequest(LockOptions.NONE).lock(instance);
             logger.debug("attach successful");
         } catch (RuntimeException re) {
             logger.error("attach failed", re);

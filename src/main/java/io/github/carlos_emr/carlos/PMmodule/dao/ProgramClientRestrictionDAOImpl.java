@@ -37,7 +37,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import org.springframework.beans.factory.annotation.Required;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
@@ -56,7 +56,7 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
  * @see ProgramClientRestriction
  */
 @Transactional
-public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport implements ProgramClientRestrictionDAO {
+public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implements ProgramClientRestrictionDAO {
     private DemographicDao demographicDao;
     private ProgramDao programDao;
     private ProviderDao providerDao;
@@ -72,11 +72,11 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public void save(ProgramClientRestriction restriction) {
-        getHibernateTemplate().saveOrUpdate(restriction);
+        currentSession().saveOrUpdate(restriction);
     }
 
     public ProgramClientRestriction find(int restrictionId) {
-        return setRelationships(getHibernateTemplate().get(ProgramClientRestriction.class, restrictionId));
+        return setRelationships(currentSession().get(ProgramClientRestriction.class, restrictionId));
     }
 
     public Collection<ProgramClientRestriction> findForProgram(int programId) {

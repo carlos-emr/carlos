@@ -35,12 +35,12 @@ import java.util.Collections;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class RoleProgramAccessDAOImpl extends HibernateDaoSupport implements RoleProgramAccessDAO {
+public class RoleProgramAccessDAOImpl extends AbstractHibernateDao implements RoleProgramAccessDAO {
 
     @SuppressWarnings("unchecked")
     @Override

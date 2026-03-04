@@ -18,7 +18,7 @@
  * This software was written for
  * Centre for Research on Inner City Health, St. Michael's Hospital,
  * Toronto, Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -45,7 +45,6 @@ import org.hibernate.engine.spi.FilterDefinition;
 import org.hibernate.metadata.ClassMetadata;
 import org.hibernate.metadata.CollectionMetadata;
 import org.hibernate.stat.Statistics;
-import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.service.ServiceRegistry;
@@ -98,78 +97,64 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
         }
     }
 
+    /**
+     * Session-tracking decorator for SessionFactory.
+     *
+     * <p>Wraps a real SessionFactory to track opened sessions for leak detection.
+     * Delegates all operations to the wrapped factory. Metadata pass-through methods
+     * (getAllClassMetadata, getClassMetadata, getCollectionMetadata, getTypeHelper)
+     * are deprecated in H5 and retained with deprecation suppression until the
+     * Hibernate 6 migration.</p>
+     *
+     * <p>H6-MIGRATE: When migrating to Spring 6 + Hibernate 6, the base class
+     * ({@code LocalSessionFactoryBean}) will move to a different package. The
+     * TrackingSessionFactory itself only uses Hibernate's SessionFactory interface
+     * and should need minimal changes.</p>
+     */
     public static class TrackingSessionFactory implements SessionFactory {
-        private SessionFactory sessionFactory = null;
+        private final SessionFactory sessionFactory;
 
         public TrackingSessionFactory(SessionFactory sessionFactory) {
-            System.out.println("TrackingSessionFactory constructor called");
+            logger.info("TrackingSessionFactory wrapping: {}", sessionFactory.getClass().getName());
             this.sessionFactory = sessionFactory;
         }
 
+        @Override
         public void close() throws HibernateException {
             sessionFactory.close();
         }
 
         @Override
         public Map<String, Object> getProperties() {
-            return Collections.emptyMap();
+            return sessionFactory.getProperties();
         }
 
-//		public void evict(Class arg0, Serializable arg1) throws HibernateException {
-//	        sessionFactory.evict(arg0, arg1);
-//        }
-//
-//		public void evict(Class arg0) throws HibernateException {
-//	        sessionFactory.evict(arg0);
-//        }
-//
-//		public void evictCollection(String arg0, Serializable arg1) throws HibernateException {
-//	        sessionFactory.evictCollection(arg0, arg1);
-//        }
-//
-//		public void evictCollection(String arg0) throws HibernateException {
-//	        sessionFactory.evictCollection(arg0);
-//        }
-//
-//		public void evictEntity(String arg0, Serializable arg1) throws HibernateException {
-//	        sessionFactory.evictEntity(arg0, arg1);
-//        }
-//
-//		public void evictEntity(String arg0) throws HibernateException {
-//	        sessionFactory.evictEntity(arg0);
-//        }
-//
-//		public void evictQueries() throws HibernateException {
-//	        sessionFactory.evictQueries();
-//        }
-//
-//		public void evictQueries(String arg0) throws HibernateException {
-//	        sessionFactory.evictQueries(arg0);
-//        }
-
+        // H6-MIGRATE: These metadata methods are removed in Hibernate 6.
+        // They are deprecated in H5 but still required by the SessionFactory interface.
+        @SuppressWarnings("deprecation")
         public Map getAllClassMetadata() throws HibernateException {
             return sessionFactory.getAllClassMetadata();
         }
 
+        @SuppressWarnings("deprecation")
         public Map getAllCollectionMetadata() throws HibernateException {
             return sessionFactory.getAllCollectionMetadata();
         }
 
+        @SuppressWarnings("deprecation")
         public ClassMetadata getClassMetadata(Class arg0) throws HibernateException {
             return sessionFactory.getClassMetadata(arg0);
         }
 
+        @SuppressWarnings("deprecation")
         public ClassMetadata getClassMetadata(String arg0) throws HibernateException {
             return sessionFactory.getClassMetadata(arg0);
         }
 
+        @SuppressWarnings("deprecation")
         public CollectionMetadata getCollectionMetadata(String arg0) throws HibernateException {
             return sessionFactory.getCollectionMetadata(arg0);
         }
-
-        // public Session getCurrentSession() throws HibernateException {
-        //     return(trackSession(sessionFactory.getCurrentSession()));
-        // }
 
         public Set getDefinedFilterNames() {
             return sessionFactory.getDefinedFilterNames();
@@ -183,10 +168,12 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
             return sessionFactory.getReference();
         }
 
+        @Override
         public Statistics getStatistics() {
             return sessionFactory.getStatistics();
         }
 
+        @Override
         public boolean isClosed() {
             return sessionFactory.isClosed();
         }
@@ -195,18 +182,6 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
         public Session openSession() throws HibernateException {
             return (trackSession(sessionFactory.openSession()));
         }
-
-		/*public Session openSession(Connection arg0, Interceptor arg1) {
-	        return(trackSession(sessionFactory.openSession(arg0, arg1)));
-        }
-
-		public Session openSession(Connection arg0) {
-	        return(trackSession(sessionFactory.openSession(arg0)));
-        }
-
-		public Session openSession(Interceptor arg0) throws HibernateException {
-			return(trackSession(sessionFactory.openSession(arg0)));
-        }*/
 
         @Override
         public StatelessSession openStatelessSession() {
@@ -223,112 +198,98 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
             return sessionFactory.openStatelessSession(arg0);
         }
 
+        // H6-MIGRATE: getTypeHelper() is removed in Hibernate 6.
+        // Delegate to wrapped factory instead of self-cast (which caused StackOverflowError).
         @Override
         public TypeHelper getTypeHelper() {
-            return ((SessionFactoryImplementor) this).getTypeHelper();
+            return sessionFactory.getTypeHelper();
         }
 
         @Override
         public boolean containsFetchProfileDefinition(String s) {
-            return false;
+            return sessionFactory.containsFetchProfileDefinition(s);
         }
 
         @Override
         public Cache getCache() {
-            return null;
+            return sessionFactory.getCache();
         }
 
         @Override
         public PersistenceUnitUtil getPersistenceUnitUtil() {
-            return null;
+            return sessionFactory.getPersistenceUnitUtil();
         }
 
         @Override
         public void addNamedQuery(String name, javax.persistence.Query query) {
-
+            sessionFactory.addNamedQuery(name, query);
         }
 
         @Override
         public <T> T unwrap(Class<T> cls) {
-            return null;
+            return sessionFactory.unwrap(cls);
         }
 
         @Override
         public <T> void addNamedEntityGraph(String graphName, EntityGraph<T> entityGraph) {
-
+            sessionFactory.addNamedEntityGraph(graphName, entityGraph);
         }
-
-//		@Override
-//		public SessionFactoryOptions getSessionFactoryOptions() {
-//			// TODO Auto-generated method stub
-//			return null;
-//		}
 
         @Override
         public SessionFactoryOptions getSessionFactoryOptions() {
-            return null;
+            return sessionFactory.getSessionFactoryOptions();
         }
 
         @Override
         public SessionBuilder withOptions() {
-            // TODO Auto-generated method stub
-            return null;
+            return sessionFactory.withOptions();
         }
 
         @Override
         public StatelessSessionBuilder withStatelessOptions() {
-            // TODO Auto-generated method stub
-            return null;
+            return sessionFactory.withStatelessOptions();
         }
 
         @Override
         public <T> List<EntityGraph<? super T>> findEntityGraphsByType(Class<T> aClass) {
-            return Collections.emptyList();
+            return sessionFactory.findEntityGraphsByType(aClass);
         }
 
         @Override
         public EntityManager createEntityManager() {
-            return null;
+            return sessionFactory.createEntityManager();
         }
 
         @Override
         public EntityManager createEntityManager(Map map) {
-            return null;
+            return sessionFactory.createEntityManager(map);
         }
 
         @Override
         public EntityManager createEntityManager(SynchronizationType synchronizationType) {
-            return null;
+            return sessionFactory.createEntityManager(synchronizationType);
         }
 
         @Override
         public EntityManager createEntityManager(SynchronizationType synchronizationType, Map map) {
-            return null;
+            return sessionFactory.createEntityManager(synchronizationType, map);
         }
 
         @Override
         public CriteriaBuilder getCriteriaBuilder() {
-            return null;
+            return sessionFactory.getCriteriaBuilder();
         }
 
         @Override
         public Metamodel getMetamodel() {
-            return null;
+            return sessionFactory.getMetamodel();
         }
 
         @Override
         public boolean isOpen() {
-            return false;
+            return sessionFactory.isOpen();
         }
     }
-	
-	/*@Override
-	public SessionFactory newSessionFactory(Configuration config)
-	{
-		SessionFactory sf=super.newSessionFactory(config);
-		
-		return(new TrackingSessionFactory(sf));
-	}*/
 
     @Override
     protected SessionFactory buildSessionFactory(LocalSessionFactoryBuilder sfb) {
@@ -336,9 +297,8 @@ public class SpringHibernateLocalSessionFactoryBean extends LocalSessionFactoryB
                 .applySettings(sfb.getProperties());
         ServiceRegistry serviceRegistry = serviceRegistryBuilder.build();
         SessionFactory sessionFactory = sfb.buildSessionFactory(serviceRegistry);
-        System.out.println("Output of building session factory: " + sessionFactory);
+        logger.info("Built SessionFactory: {}", sessionFactory);
         return new TrackingSessionFactory(sessionFactory);
     }
-
 
 }

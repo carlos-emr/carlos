@@ -22,7 +22,7 @@
 <hibernate-mapping package="io.github.carlos_emr.carlos.PMmodule.model">
 	<class name="io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess" table="default_role_access">
 		<id column="id" name="id" type="java.lang.Long">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property name="roleId" column="role_id" type="long" />
 		<property name="accessTypeId" column="access_id" type="long" />

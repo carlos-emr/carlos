@@ -10,7 +10,7 @@ import org.hibernate.Session;
 import org.springframework.orm.hibernate5.HibernateCallback;
 import org.hibernate.HibernateException;
 
-import org.hibernate.Query;
+import org.hibernate.query.Query;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -97,7 +97,7 @@ public class HibernateTestDao {
                 }
                 query.setMaxResults(aLimit);
 
-                return query.list();
+                return query.getResultList();
             }
         });
     }

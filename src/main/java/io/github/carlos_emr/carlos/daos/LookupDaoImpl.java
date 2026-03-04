@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
@@ -58,12 +58,10 @@ import io.github.carlos_emr.carlos.model.LstOrgcd;
 import io.github.carlos_emr.carlos.model.security.SecProvider;
 import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.hibernate.SessionFactory;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
+public class LookupDaoImpl extends AbstractHibernateDao implements LookupDao {
 
     private static final Logger log = MiscUtils.getLogger();
 
@@ -75,13 +73,6 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
      * 10 - 16 Buf3 - Buf9 17 - CodeCSV
      */
     private ProviderDao providerDao;
-
-    public SessionFactory sessionFactory;
-
-    @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
-    }
 
     @Override
     public List LoadCodeList(String tableId, boolean activeOnly, String code, String codeDesc) {
@@ -601,7 +592,7 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
                     + "codecsv = replace(codecsv, :oldCsv, :newCsv) "
                     + "where codecsv like :oldCsvPattern";
 
-            currentSession().createSQLQuery(sql)
+            currentSession().createNativeQuery(sql)
                     .setParameter("oldFullCode", oldFullCode)
                     .setParameter("newFullCode", newFullCode)
                     .setParameter("oldTreeCode", oldTreeCode)
@@ -624,7 +615,7 @@ public class LookupDaoImpl extends HibernateDaoSupport implements LookupDao {
                     "FROM LstOrgcd o WHERE o.codecsv like ?1", oldCsv);
             for (LstOrgcd l : o) {
                 l.setActiveyn(0);
-                this.getHibernateTemplate().update(l);
+                currentSession().update(l);
             }
         }
     }

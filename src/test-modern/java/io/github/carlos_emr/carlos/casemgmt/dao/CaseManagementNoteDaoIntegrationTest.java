@@ -1511,18 +1511,15 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
     /**
      * Tests for getNotesByDemographicDateRange(String, Date, Date).
      *
-     * <p><b>NOTE: Disabled — the named query "mostRecentDateRange" is not defined in
-     * casemgmt_note.hbm.xml.</b> Calling this method always throws
-     * {@code MappingException: Named query not known: mostRecentDateRange}.
-     * These tests are disabled to document the broken method and require a fix
-     * (add the missing named query) before enabling.</p>
+     * <p><b>NOTE: Disabled — the named query uses MySQL-specific HIGH_PRIORITY keyword
+     * which is incompatible with H2 in-memory database used by integration tests.</b></p>
      */
     @Nested
     @DisplayName("getNotesByDemographicDateRange (3 params: demographic_no, startDate, endDate)")
     class GetNotesByDemographicDateRange {
 
         @Test
-        @Disabled("Named query 'mostRecentDateRange' is not defined in casemgmt_note.hbm.xml — method always throws MappingException")
+        @Disabled("Named query uses MySQL-specific HIGH_PRIORITY keyword incompatible with H2")
         @Tag("query")
         @DisplayName("should return notes within date range for demographic")
         void shouldReturnNotes_withinDateRangeForDemographic() {

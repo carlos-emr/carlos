@@ -36,12 +36,12 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramQueue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQueueDao {
+public class ProgramQueueDaoImpl extends AbstractHibernateDao implements ProgramQueueDao {
 
     private Logger log = MiscUtils.getLogger();
 
@@ -51,7 +51,7 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
             throw new IllegalArgumentException();
         }
 
-        ProgramQueue result = getHibernateTemplate().get(ProgramQueue.class, queueId);
+        ProgramQueue result = currentSession().get(ProgramQueue.class, queueId);
 
         if (log.isDebugEnabled()) {
             log.debug("getProgramQueue: queueId=" + queueId + ", found=" + (result != null));
@@ -99,7 +99,7 @@ public class ProgramQueueDaoImpl extends HibernateDaoSupport implements ProgramQ
             return;
         }
 
-        getHibernateTemplate().saveOrUpdate(programQueue);
+        currentSession().saveOrUpdate(programQueue);
 
         if (log.isDebugEnabled()) {
             log.debug("saveProgramQueue: id=" + programQueue.getId());

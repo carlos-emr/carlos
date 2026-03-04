@@ -72,11 +72,45 @@ gh pr create                 # GitHub pull request creation
 ## Critical Security Requirements
 
 **MANDATORY for all code changes:**
-- Use `Encode.forHtml()`, `Encode.forJavaScript()` for ALL user inputs
+- OWASP Encoder for ALL user inputs (see [OWASP Encoding](#owasp-encoding--xss-prevention) below)
 - Parameterized queries ONLY - never string concatenation
 - ALL actions MUST include `SecurityInfoManager.hasPrivilege()` checks
 - PHI (Patient Health Information) must NEVER be logged or exposed
 - **Use `PathValidationUtils` for ALL file path operations** (see below)
+
+### OWASP Encoding — XSS Prevention
+
+The project includes two OWASP Encoder libraries (`pom.xml`):
+- **`encoder`** (1.4.0) — Java static methods: `Encode.forHtml()`, etc.
+- **`encoder-jsp`** (1.4.0) — JSP EL functions: `${e:forHtml()}`, etc.
+
+**Taglib declaration** (required once per JSP that uses EL functions):
+```jsp
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
+```
+
+**Quick-Reference — All Encoding Contexts:**
+
+| Context | EL Function (preferred in JSP) | Java / Scriptlet |
+|---------|-------------------------------|------------------|
+| HTML body | `${e:forHtml(value)}` | `Encode.forHtml(value)` |
+| HTML attribute | `${e:forHtmlAttribute(value)}` | `Encode.forHtmlAttribute(value)` |
+| JavaScript string | `${e:forJavaScript(value)}` | `Encode.forJavaScript(value)` |
+| JS in HTML attr | `${e:forJavaScriptAttribute(value)}` | `Encode.forJavaScriptAttribute(value)` |
+| CSS string | `${e:forCssString(value)}` | `Encode.forCssString(value)` |
+| URL path | `${e:forUri(value)}` | `Encode.forUri(value)` |
+| URL parameter | `${e:forUriComponent(value)}` | `Encode.forUriComponent(value)` |
+
+**When to use which:**
+- **JSP with JSTL/EL** (preferred): `${e:forHtml(value)}` — clean, no scriptlet needed, context-aware
+- **JSP with heavy scriptlets**: `<%= Encode.forHtml(value) %>` — when already in scriptlet context
+- **Java code** (Actions, Managers): `Encode.forHtml(value)` — direct static method call
+
+**`${e:forHtml()}` replaces `<c:out>` and `fn:escapeXml()`:**
+- `<c:out>` and `fn:escapeXml()` only do basic XML entity escaping (`<>&"'`)
+- `${e:forHtml()}` uses OWASP Encoder which handles additional edge cases and provides context-specific variants for attributes, JS, CSS, URLs
+- `${e:forHtml()}` is a **drop-in replacement**: `<c:out value="${name}"/>` → `${e:forHtml(name)}`
+- **`<c:out>` is legacy** — still acceptable in existing code, but use `${e:forHtml()}` for all new code
 
 ### PathValidationUtils - File Path Security
 
@@ -343,7 +377,7 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 ## Code Quality Standards
 
 **Security (CodeQL Integration)**:
-- OWASP Encoder for all JSP outputs
+- OWASP Encoder for all JSP outputs — prefer `${e:forHtml()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Parameterized SQL queries (never concatenation)
 - File upload filename validation
 - CodeQL security scanning must pass
@@ -432,7 +466,8 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 
 ### Security Libraries
 - **OWASP CSRFGuard 4.5**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
-- **OWASP Encoder**: Output encoding for XSS prevention
+- **OWASP Encoder** (`encoder` 1.4.0): `Encode.*` static methods for Java code and JSP scriptlets
+- **OWASP Encoder JSP** (`encoder-jsp` 1.4.0): `${e:forHtml()}` EL functions — preferred for JSP output encoding
 - **BCrypt**: Password hashing for provider authentication
 - **Bouncy Castle**: Cryptographic functions for PHI protection
 
@@ -604,12 +639,13 @@ if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(re
 
 **2. Error Handling**
 - Use context-appropriate OWASP encoding when outputting user data:
-  - `Encode.forHtml()` - HTML body content
-  - `Encode.forHtmlAttribute()` - HTML attribute values
-  - `Encode.forJavaScript()` - JavaScript string contexts
-  - `Encode.forJavaScriptAttribute()` - JS in HTML attributes
-  - `Encode.forCssString()` - CSS string values
-  - `Encode.forUri()` / `Encode.forUriComponent()` - URL paths/parameters
+  - `Encode.forHtml()` / `${e:forHtml()}` - HTML body content
+  - `Encode.forHtmlAttribute()` / `${e:forHtmlAttribute()}` - HTML attribute values
+  - `Encode.forJavaScript()` / `${e:forJavaScript()}` - JavaScript string contexts
+  - `Encode.forJavaScriptAttribute()` / `${e:forJavaScriptAttribute()}` - JS in HTML attributes
+  - `Encode.forCssString()` / `${e:forCssString()}` - CSS string values
+  - `Encode.forUri()` / `${e:forUri()}` and `Encode.forUriComponent()` / `${e:forUriComponent()}` - URL paths/parameters
+- In JSP views, prefer the `${e:...}` EL functions over scriptlet calls (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Implement proper exception handling
 - Return appropriate result strings
 
@@ -823,7 +859,7 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - Claude creates feature branches: `claude/issue-<number>-<timestamp>`
 
 ### Security Checklist (Every Code Change)
-- [ ] Context-appropriate OWASP encoding for user inputs (see Error Handling section)
+- [ ] Context-appropriate OWASP encoding for user inputs (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - [ ] Parameterized SQL queries (never concatenation)
 - [ ] `SecurityInfoManager.hasPrivilege()` checks in all actions
 - [ ] `PathValidationUtils` for file operations

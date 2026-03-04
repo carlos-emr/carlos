@@ -6,7 +6,7 @@
 	<class name="io.github.carlos_emr.carlos.model.LookupTableDefValue" table="app_lookuptable"
 				 mutable="false">
 		<id name="tableId" unsaved-value="0">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property name="tableName" column="table_name" />
 		<property name="description" />

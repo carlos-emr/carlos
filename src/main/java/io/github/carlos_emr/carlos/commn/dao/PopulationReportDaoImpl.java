@@ -39,6 +39,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
@@ -53,11 +54,14 @@ import io.github.carlos_emr.carlos.commn.model.Stay;
 import io.github.carlos_emr.carlos.utility.DbConnectionFilter;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.EncounterUtil.EncounterType;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import org.springframework.transaction.annotation.Transactional;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
-public class PopulationReportDaoImpl extends HibernateDaoSupport implements PopulationReportDao {
+@Transactional
+public class PopulationReportDaoImpl extends AbstractHibernateDao implements PopulationReportDao {
 
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -72,11 +76,7 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
     "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
     "(a.dischargeDate is null or a.dischargeDate > :cutoff)";
 
-    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from Admission a where " +
-    "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and " +
-    "a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and " +
-    "(a.dischargeDate is null or a.dischargeDate > :cutoff) " +
-    "order by a.clientId, a.admissionDate";
+    private static final String HQL_GET_USAGES = "select a.clientId, a.admissionDate, a.dischargeDate from Admission a where a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'service') and a.clientId in (select d.DemographicNo from Demographic d where lower(d.PatientStatus) = 'ac') and (a.dischargeDate is null or a.dischargeDate > :cutoff) order by a.clientId, a.admissionDate";
 
     private static final String HQL_GET_MORTALITIES = "select count(distinct a.clientId) from Admission a where " +
      "a.programId in (select p.id from Program p where lower(p.programStatus) = 'active' and lower(p.type) = 'community' and lower(p.name) = 'deceased') and " +
@@ -93,19 +93,15 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
     "lower(d.PatientStatus) = 'ac') and a.dischargeDate is null) and cmi.issue.code in (:codes)";
 
     public int getCurrentPopulationSize() {
-        Long count = (Long) getSessionFactory().getCurrentSession()
-            .createQuery(HQL_CURRENT_POP_SIZE)
-            .uniqueResult();
-        return count != null ? count.intValue() : 0;
+        List<?> results = HqlQueryHelper.find(currentSession(), HQL_CURRENT_POP_SIZE);
+        return extractCount(results);
     }
 
     @Override
     public int getCurrentAndHistoricalPopulationSize(int numYears) {
-        Long count = (Long) getSessionFactory().getCurrentSession()
-            .createQuery(HQL_CURRENT_HISTORICAL_POP_SIZE)
-            .setParameter("cutoff", DateTimeFormatUtils.getPast(numYears))
-            .uniqueResult();
-        return count != null ? count.intValue() : 0;
+        Map<String, Object> params = new HashMap<>();
+        params.put("cutoff", DateTimeFormatUtils.getPast(numYears));
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_CURRENT_HISTORICAL_POP_SIZE, params));
     }
 
     @Override
@@ -119,10 +115,9 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
         Date end = instant.getTime();
         Date start = DateTimeFormatUtils.getPast(instant, numYears);
 
-        for (Object o : getSessionFactory().getCurrentSession()
-                .createQuery(HQL_GET_USAGES)
-                .setParameter("cutoff", start)
-                .list()) {
+        Map<String, Object> usageParams = new HashMap<>();
+        usageParams.put("cutoff", start);
+        for (Object o : HqlQueryHelper.find(currentSession(), HQL_GET_USAGES, usageParams)) {
             Object[] tuple = (Object[]) o;
 
             Integer clientId = (Integer) tuple[0];
@@ -164,11 +159,9 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
 
     @Override
     public int getMortalities(int numYears) {
-        Long count = (Long) getSessionFactory().getCurrentSession()
-            .createQuery(HQL_GET_MORTALITIES)
-            .setParameter("cutoff", DateTimeFormatUtils.getPast(numYears))
-            .uniqueResult();
-        return count != null ? count.intValue() : 0;
+        Map<String, Object> params = new HashMap<>();
+        params.put("cutoff", DateTimeFormatUtils.getPast(numYears));
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_MORTALITIES, params));
     }
 
     @Override
@@ -176,12 +169,9 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
         if (icd10Codes == null || icd10Codes.isEmpty()) {
             return 0;
         }
-
-        Long count = (Long) getSessionFactory().getCurrentSession()
-            .createQuery(HQL_GET_PREVALENCE)
-            .setParameterList("codes", icd10Codes)
-            .uniqueResult();
-        return count != null ? count.intValue() : 0;
+        Map<String, Object> params = new HashMap<>();
+        params.put("codes", icd10Codes);
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_PREVALENCE, params));
     }
 
     @Override
@@ -189,12 +179,9 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
         if (icd10Codes == null || icd10Codes.isEmpty()) {
             return 0;
         }
-
-        Long count = (Long) getSessionFactory().getCurrentSession()
-            .createQuery(HQL_GET_INCIDENCE)
-            .setParameterList("codes", icd10Codes)
-            .uniqueResult();
-        return count != null ? count.intValue() : 0;
+        Map<String, Object> params = new HashMap<>();
+        params.put("codes", icd10Codes);
+        return extractCount(HqlQueryHelper.find(currentSession(), HQL_GET_INCIDENCE, params));
     }
 
     @Override
@@ -557,5 +544,18 @@ public class PopulationReportDaoImpl extends HibernateDaoSupport implements Popu
             // Close database resources
             SqlUtils.closeResources(c, ps, rs);
         }
+    }
+
+    /**
+     * Safely extracts a count value from an HQL aggregate result list.
+     *
+     * @param results the result list from an HQL COUNT query
+     * @return the count as an int, or 0 if the list is empty or the value is null
+     */
+    private static int extractCount(List<?> results) {
+        if (results.isEmpty() || results.get(0) == null) {
+            return 0;
+        }
+        return ((Long) results.get(0)).intValue();
     }
 }

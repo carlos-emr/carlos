@@ -36,21 +36,14 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientStatus;
 import io.github.carlos_emr.carlos.commn.model.Admission;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.hibernate.SessionFactory;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
-public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements ProgramClientStatusDAO {
+public class ProgramClientStatusDAOImpl extends AbstractHibernateDao implements ProgramClientStatusDAO {
 
     private Logger log = MiscUtils.getLogger();
-
-    @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
-    }
 
     public List<ProgramClientStatus> getProgramClientStatuses(Integer programId) {
         String sSQL = "from ProgramClientStatus pcs where pcs.programId=?1";
@@ -58,7 +51,7 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
     }
 
     public void saveProgramClientStatus(ProgramClientStatus status) {
-        this.getHibernateTemplate().saveOrUpdate(status);
+        currentSession().saveOrUpdate(status);
     }
 
     public ProgramClientStatus getProgramClientStatus(String id) {
@@ -67,13 +60,13 @@ public class ProgramClientStatusDAOImpl extends HibernateDaoSupport implements P
         }
 
         ProgramClientStatus pcs = null;
-        pcs = this.getHibernateTemplate().get(ProgramClientStatus.class, Integer.valueOf(id));
+        pcs = currentSession().get(ProgramClientStatus.class, Integer.valueOf(id));
         if (pcs != null) return pcs;
         else return null;
     }
 
     public void deleteProgramClientStatus(String id) {
-        this.getHibernateTemplate().delete(getProgramClientStatus(id));
+        currentSession().delete(getProgramClientStatus(id));
     }
 
     public boolean clientStatusNameExists(Integer programId, String statusName) {

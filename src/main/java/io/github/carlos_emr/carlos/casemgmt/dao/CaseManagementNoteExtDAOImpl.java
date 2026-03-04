@@ -36,16 +36,16 @@ import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class CaseManagementNoteExtDAOImpl extends HibernateDaoSupport implements CaseManagementNoteExtDAO {
+public class CaseManagementNoteExtDAOImpl extends AbstractHibernateDao implements CaseManagementNoteExtDAO {
 
     @Override
     public CaseManagementNoteExt getNoteExt(Long id) {
-        CaseManagementNoteExt noteExt = this.getHibernateTemplate().get(CaseManagementNoteExt.class, id);
+        CaseManagementNoteExt noteExt = currentSession().get(CaseManagementNoteExt.class, id);
         return noteExt;
     }
 
@@ -86,11 +86,11 @@ public class CaseManagementNoteExtDAOImpl extends HibernateDaoSupport implements
 
     @Override
     public void save(CaseManagementNoteExt cExt) {
-        this.getHibernateTemplate().save(cExt);
+        currentSession().save(cExt);
     }
 
     @Override
     public void update(CaseManagementNoteExt cExt) {
-        this.getHibernateTemplate().update(cExt);
+        currentSession().update(cExt);
     }
 }
