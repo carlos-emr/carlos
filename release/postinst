@@ -1,0 +1,971 @@
+#!/bin/bash
+# postinst
+# a script file for OSCAR that installs and tweaks the necessary files
+#===================================================================
+# Copyright Peter Hutten-Czapski 2012-2021 released under the GPL v2
+# v 19.16
+#===================================================================
+
+#set -e
+
+# Source debconf library.
+. /usr/share/debconf/confmodule
+
+# PROGRAM matches the war and properties
+PROGRAM=oscar
+PACKAGE=oscar-emr
+db_name=oscar_15
+VERSION=19
+PREVIOUS=15
+REVISION=4~944
+buildDateTime="May 14, 2019 8:55:27 PM"
+if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+        TOMCAT=tomcat10
+        TOMCAT_USER=tomcat
+    else
+    if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
+            TOMCAT=tomcat9
+            TOMCAT_USER=tomcat
+        else
+        if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
+                TOMCAT=tomcat8
+                TOMCAT_USER=tomcat8
+             else
+             if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
+                    TOMCAT=tomcat7
+                    TOMCAT_USER=tomcat7
+             fi
+         fi
+     fi
+ fi
+C_HOME=/usr/share/${TOMCAT}/
+C_BASE=/var/lib/${TOMCAT}/
+SRC=/usr/share/${PACKAGE}/
+priorschema=oscar_12
+db_password=liyi
+DOCS=OscarDocument
+billregion=ON
+COUNTRY=Unknown
+DEMO=false
+UPGRADE=false
+INSTALL_SSL=true
+signature_tablet=no
+ENABLE_EDIT_APPT_STATUS=yes
+appt_intake_form=off
+NEW_CONTACTS_UI=false
+indivica_rx_enhance=false
+enableFax=false
+DOCUMENT_DIR=${SRC}OscarDocument/${PROGRAM}/document/
+HL7_COMPLETED_DIR=${SRC}OscarDocument/${PROGRAM}/document/
+JAVA=/usr/lib/jvm/java-8-openjdk-amd64/
+newdate=2019-04-18
+
+#for debug
+#SRC=~/Documents/oscar12-1.6/usr/share/OscarEMR/
+
+LOG_FILE=${SRC}Oscar${VERSION}install.log
+
+
+##### COMMON FUNCTIONS ######
+sp="/-\|"
+
+# console echo with logging
+cecho() {
+	echo -e "$1"
+	echo -e "$1" >>"$LOG_FILE"
+	tput sgr0;
+}
+
+# fail with console report
+fail() {
+	cecho "*****failed*****"
+	echo ""
+	echo ""
+	echo -e " [i] Showing the last 8 lines from the logfile ($LOG_FILE)...";
+	tail -n8 "$LOG_FILE"
+	exit 1;
+}
+
+# console echo without new line with logging
+ncecho() {
+	echo -ne "$1"
+	echo -ne "$1" >>"$LOG_FILE"
+	tput sgr0
+}
+
+spinny() {
+	echo -ne "\b${sp:i++%${#sp}:1}"
+}
+
+progress() {
+	ncecho " ";
+	while [ /bin/true ]; do
+		kill -0 $pid 2>/dev/null;
+        	if [[ $? = "0" ]]; then
+			spinny
+			sleep 0.25
+        	else
+			ncecho "\b " 
+			wait $pid  >>$LOG_FILE
+			retcode=$?
+			echo "$pid's retcode: $retcode" >> "$LOG_FILE"
+            		if [[ $retcode = "0" ]] || [[ $retcode = "255" ]]; then
+				cecho success
+	            	else
+				fail
+        	    	fi
+	    	break 1; #2
+        	fi
+    	done
+}
+
+### END COMMON FUNCTIONS ####
+
+# Cleanup the passwords on any condition (error or success).
+#trap cleanup HUP TERM ABRT KILL INT QUIT EXIT
+#cleanup()
+#{
+#	cecho "Cleaning up sensitive data"
+#	db_get oscar-emr/password
+#	db_stop
+#}
+
+# --- log the running of the script appending as necessary
+echo "#########" `date` "#########"  >>$LOG_FILE
+echo postinst of version=${VERSION}-${REVISION}>>$LOG_FILE
+
+
+case "$1" in
+    configure)
+
+
+db_get oscar-emr/upgrade
+UPGRADE=$RET
+echo upgrade = ${UPGRADE}  >>$LOG_FILE
+
+if [ -f "${C_HOME}${PROGRAM}.properties" ]; then
+	#first grep the password
+	echo "grep the password from the properties file" 1>> $LOG_FILE
+	db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+	db_username=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_username'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+else
+	echo "Oops can't find ${C_HOME}${PROGRAM}.properties" >> ${LOG_FILE} ; 
+    db_get oscar-emr/password
+    db_password=$RET
+fi
+
+
+MYSQL="mysql -u root -p${db_password} " 
+#echo password = ${db_password} >> $LOG_FILE
+
+echo "test the obtained password before proceeding!!"  >>$LOG_FILE
+ncecho " [x] Checking the MySQL password "
+($MYSQL -e "SHOW DATABASES;" 1>/dev/null || { echo "'${db_password}' apparently is not the password... exiting! " ; exit 1 ; } )>> "$LOG_FILE" 2>&1 &
+pid=$!;progress $pid
+
+echo "grep the build from the properties file" >> $LOG_FILE
+#  drop lines that start with a comment,
+#  then grep the property, just take the last instance of that, 
+#  on the = delimiter, and trim whitespace to get lastbuild
+lastbuild=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'buildtag'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+echo Build ${lastbuild} found in ${PROGRAM}.properties >> $LOG_FILE
+# 15.73~700
+lastdeb=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'buildtag'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/~.*//') 2>>$LOG_FILE
+echo Last deb ${lastdeb} found in ${PROGRAM}.properties >> $LOG_FILE
+# 15.73
+
+## probe to see if apparmor and wkhtmlto pdf are installed
+## .. and that there is NOT a usr.local.bin.wkhtmltopdf profile installed
+echo Testing for apparmor wkhtmltopdf profile... >> $LOG_FILE
+
+if [ -d /etc/apparmor.d/  ] ; then
+        echo apparmor directory exists >> $LOG_FILE
+    if [ -x /usr/local/bin/wkhtmltopdf ] ; then
+        echo wkhtmltopdf executable in usr local bin exists >> $LOG_FILE
+        if [ ! -f /etc/apparmor.d/usr.local.bin.wkhtmltopdf ] ; then
+	        ncecho " [x] Creating an apparmor profile for wkhtmltopdf " 
+	        cp /usr/share/oscar-emr/usr.local.bin.wkhtmltopdf /etc/apparmor.d/usr.local.bin.wkhtmltopdf 2>>$LOG_FILE 
+	        service apparmor reload  2>>$LOG_FILE &
+	        pid=$!;progress $pid  
+	else
+	        echo  /etc/apparmor.d/usr.local.wkhtmltopd exists >> $LOG_FILE        
+        fi
+    fi
+    ## its in the following location for 24.04
+    if [ -x /usr/bin/wkhtmltopdf ] ; then  
+        echo wkhtmltopdf executable exists in usr bin >> $LOG_FILE
+        if [ ! -f /etc/apparmor.d/usr.bin.wkhtmltopdf ] ; then
+	        ncecho " [x] Creating an apparmor profile for wkhtmltopdf " 
+	        cp /usr/share/oscar-emr/usr.bin.wkhtmltopdf /etc/apparmor.d/usr.bin.wkhtmltopdf 2>>$LOG_FILE 
+	        service apparmor reload  2>>$LOG_FILE &
+	        pid=$!;progress $pid  
+	else
+	        echo  /etc/apparmor.d/usr.local.wkhtmltopd exists >> $LOG_FILE        
+        fi
+    fi
+fi
+
+
+if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
+    # its an upgrade, so there should be existing oscar files expanded from the previous war
+    # as they are not necessarily overwritten with the new war best to delete the expanded files
+    # NOTE this will ALSO delete any files that have been manually added or altered in the expanded directory structure
+
+    # test for the directory prior to deleting
+
+  #      if [ -d "${C_BASE}webapps/oscar" ]; then
+        # if there is no oscar directory and there is an oscar properties file something is definately wrong
+	 #   echo "Oops can't find ${C_BASE}webapps/oscar" >> ${LOG_FILE} ; 
+        # exit 1
+	  #  echo "Something is wrong, we will continue the script as long as we can" >> ${LOG_FILE} ; 
+  #      fi
+   
+
+        
+    if [ $lastdeb \< 18.911 ] ; then
+    	ncecho " [x] Converting OSCAR 15 data to OSCAR 19 "
+	    echo "Converting from OSCAR 15 to OSCAR 19 structure" >> $LOG_FILE
+    	$MYSQL ${db_name} < ${SRC}oscar_15_to_oscar_19.sql >>$LOG_FILE 2>>$LOG_FILE
+    else
+	    ncecho " [x] Patching database to latest schema "
+    fi
+	$MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>>$LOG_FILE &
+	pid=$!;progress $pid
+	# lets first update the server.xml if necessary
+	if [ -f "${C_BASE}conf/server.xml" ]; then
+                if grep -Fq "relaxedQueryChars" ${C_BASE}conf/server.xml ; then	
+                        echo "relaxedQueryChars are set in ${C_BASE}conf/server.xml" >>$LOG_FILE       
+                else
+                        echo "Adding relaxedQueryChars to ${C_BASE}conf/server.xml" >>$LOG_FILE 
+                        sed -i '/SSLEnabled="true"/a relaxedQueryChars="[,]"' ${C_BASE}conf/server.xml 2>>$LOG_FILE
+                fi
+	fi
+
+
+	## echo "Simple revision upgrade detected so upgrading build tags" >> $LOG_FILE
+	## echo buildDateTime=$buildDateTime>> ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
+	## echo buildtag="${VERSION}.${REVISION}">> ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
+
+
+        # oscar.properties file updated so safe to restart
+	## ncecho " [x] Restarting Tomcat "
+	## service $TOMCAT restart >> "$LOG_FILE" 2>&1 &
+	## pid=$!;progress $pid	
+
+
+
+    ## ncecho " [x] Installing Canadian Vaccine Catalog " 
+    ## echo  adding Canadian Vaccine Data to OSCAR >>$LOG_FILE
+    ## $MYSQL ${db_name} <  ${SRC}CVC.sql 2>>$LOG_FILE &
+    ## pid=$!;progress $pid
+    ## echo  CVC updated >>$LOG_FILE
+
+    newtdate=$(date --date="$newdate" +"%s")
+    #olddate="2018-04-18 14:46:23"
+	olddate=$($MYSQL drugref -s -e "SELECT DATE(date_time) FROM drugref.history ORDER BY id DESC LIMIT 1;")
+    oldtdate=$(date --date="$olddate" +"%s")
+    if [ $newtdate -gt $oldtdate ] ; then
+	    ncecho " [x] Updating drugref database " 
+	    echo  Replacing existing Drug database of ${olddate} with ${newdate} >>$LOG_FILE
+	    $MYSQL drugref <  ${SRC}drugref.sql 2>>$LOG_FILE &
+	    pid=$!;progress $pid
+	    echo  drugref populated >>$LOG_FILE
+	    #ncecho " [x] Applying TallMAN rules to drugref " 
+        #echo  patching the Oscar Drug database with tallMAN rules and removing generics from search >>$LOG_FILE
+	    #$MYSQL drugref <  ${SRC}tallMANdrugref.sql 2>>$LOG_FILE &
+	    #pid=$!;progress $pid
+        #echo  drugref patched >>$LOG_FILE
+    else
+	    echo " [x] drugref database of ${olddate} is up to date" 
+	    echo  No need to replace existing Drug database of ${olddate} with ${newdate} >>$LOG_FILE
+    fi
+
+
+    GEOIP2=$(curl --silent -f http://ip-api.com/csv/ |  tr -d '"')
+    STATE=$(echo $GEOIP2 | awk -F "," '{print $4;}')
+
+    echo STATE=${STATE} >>$LOG_FILE
+
+    oldRourke=$($MYSQL ${db_name} -s -e "SELECT COUNT(*) FROM eform WHERE file_name='Rourke-Baby-Record_v3_r1_2014-Aug-22.html' AND status='0';") # 0 or 1
+    echo oldRourke=${oldRourke} >>$LOG_FILE
+
+    if [ "${STATE}" = "ON"  ] ; then
+	opr=$($MYSQL ${db_name} -s -e "SELECT COUNT(*) FROM eform WHERE form_name='OPR-2017' AND form_date IN ('2017-08-24','2017-09-25');") # 0 or 1	
+	    if [ "$opr" = "0" ] ; then
+		    ncecho " [x] Installing Ontario OPR-2017 eForms " 
+            $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('OPR-2017','2017-08-24');"
+            $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('Postpartum Visit','2017-08-24');"
+            $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('Resource','2017-08-24');"
+		    $MYSQL ${db_name} < ${SRC}opr2017.sql 2>>$LOG_FILE &
+		    pid=$!;progress $pid 
+	    fi
+	    if [ "$opr" != "0" ] ; then
+		    ncecho " [x] Updating Ontario OPR-2017 eForms " 
+		    $MYSQL ${db_name} < ${SRC}opr2017.sql 2>>$LOG_FILE &
+		    pid=$!;progress $pid 
+	    fi
+	    if [ "$oldRourke" != "0" ] ; then
+		    ncecho " [x] Updating Rourke previously installed " 
+		    $MYSQL ${db_name} -e "update eform set status='1' where file_name='Rourke-Baby-Record_v3_r1_2014-Aug-22.html';"
+            # this installs the Ontario version
+		    $MYSQL ${db_name} < ${SRC}RourkeEform.sql 2>>$LOG_FILE &
+		    pid=$!;progress $pid 
+	    fi
+    else
+	    if [ "$oldRourke" != "0" ] ; then
+		    ncecho " [x] Updating Rourke previously installed " 
+		    $MYSQL ${db_name} -e "update eform set status='1' where file_name='Rourke-Baby-Record_v3_r1_2014-Aug-22.html';"
+            # this installs the National version
+		    $MYSQL ${db_name} < ${SRC}RourkeEformNational.sql 2>>$LOG_FILE &
+		    pid=$!;progress $pid 
+	    fi
+    fi
+
+	echo "Simple revision upgrade detected so upgrading build tags" >> $LOG_FILE
+	echo buildDateTime=$buildDateTime>> ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
+	echo buildtag="${VERSION}.${REVISION}">> ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE 
+
+	
+	ncecho " [x] Restarting Tomcat "
+	service $TOMCAT restart >> "$LOG_FILE" 2>&1 &
+	pid=$!;progress $pid
+	echo "Upgraded to ${PROGRAM} version ${VERSION} build ${REVISION}"
+
+	rm ${SRC}rbr2014.zip
+	rm ${SRC}RourkeEform.sql
+	rm ${SRC}RourkeEformNational.sql
+	rm ${SRC}ndss.zip
+	rm ${SRC}ndss.sql
+
+	exit 0 ;
+fi
+echo "Full version install or upgrade detected" >> $LOG_FILE
+
+
+db_get oscar-emr/demo
+DEMO=$RET
+echo DEMO=${DEMO}  >>$LOG_FILE
+
+db_get oscar-emr/billregion 
+billregion=$RET
+echo billregion=${billregion}  >>$LOG_FILE
+
+db_get oscar-emr/priorschema 
+priorschema=$RET
+echo priorschema=${priorschema}  >>$LOG_FILE
+
+db_get oscar-emr/triumvirate
+triumvirate=$RET
+
+
+#FOR DEBUG to clear the data
+#db_purge
+
+### AUTOMATED DETECTION SECTION STARTS HERE ###
+
+# "Hack to support inclusion of liscened material when appropriate"
+echo "use curl to get the IP,CA,Canada,ON,Ontario,Town,zip,Lat,Long" >>$LOG_FILE
+# if we want to host the server for this use https://github.com/fiorix/freegeoip
+# -f to allow it to fail quietly
+# pipe to awk using the delimiter "," 
+
+ncecho " [x] Determining locale "
+
+#GEOIP=$(curl --silent -f http://freegeoip.net/csv/ |  tr -d '"')
+#echo GEOIP=$GEOIP >>$LOG_FILE
+#IP=$(echo $GEOIP | awk -F "," '{print $1;}')
+#COUNTRY=$(echo $GEOIP | awk -F "," '{print $2;}')
+#STATE=$(echo $GEOIP | awk -F "," '{print $4;}')
+#LOCALITY=$(echo $GEOIP | awk -F "," '{print $6;}')
+
+GEOIP2=$(curl --silent -f http://ip-api.com/csv/ |  tr -d '"')
+echo GEOIP2=$GEOIP2 >>$LOG_FILE
+IP=$(echo $GEOIP2 | awk -F "," '{print $14;}')
+COUNTRY=$(echo $GEOIP2 | awk -F "," '{print $3;}')
+STATE=$(echo $GEOIP2 | awk -F "," '{print $4;}')
+LOCALITY=$(echo $GEOIP2 | awk -F "," '{print $6;}')
+
+
+sleep 2 &
+pid=$!;progress $pid
+
+echo "### OVERRIDE FROM oscar.cfg SECTION HERE ###"  >>$LOG_FILE
+
+echo Province=${STATE}>>$LOG_FILE
+#echo Demo=${DEMO}
+echo Demo=${DEMO}>>$LOG_FILE
+#echo Upgrade=${UPGRADE}
+echo Upgrade=${UPGRADE}>>$LOG_FILE
+#echo oscarpwd=${db_password}
+
+# for debug
+# echo oscarpwd=${db_password}>>$LOG_FILE
+
+
+
+echo  "see if the database exists before proceeding!!"  >>$LOG_FILE
+result=$($MYSQL -e "SHOW DATABASES LIKE '${db_name}';")
+if [ -z "$result" ]; then 
+	ncecho " [x] Creating the new ${db_name} database "
+	##$MYSQL -e "SET storage_engine=INNODB; CREATE DATABASE IF NOT EXISTS ${db_name} DEFAULT CHARACTER SET utf8  DEFAULT COLLATE utf8_general_ci;" 2>>$LOG_FILE &
+	$MYSQL -e "CREATE DATABASE IF NOT EXISTS ${db_name} DEFAULT CHARACTER SET utf8  DEFAULT COLLATE utf8_general_ci;" 2>>$LOG_FILE &
+	pid=$!;progress $pid
+	## need to disable plugin requirement for root so that OSCAR run with tomcat user can access MySQL
+	# disable in older MariaDB < 10.2
+	# $MYSQL -e "use mysql; update user set plugin='' where User='root';flush privileges;"
+	# disable in newer MariaDB > 10.2
+	# $MYSQL -e "ALTER USER root@localhost IDENTIFIED VIA mysql_native_password USING PASSWORD '${db_password}';flush privileges;"
+else
+	# war upgrade only
+
+	if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then        
+                # some look for /var/lib/tomcatX/webapps/oscar/WEB-INF/classes/ for properties but we are using /usr/share/tomcatX
+                #mkdir -p ${C_BASE}webapps/drugref/WEB-INF/classes
+                #cp -f  /usr/share/${TOMCAT}/drugref2.properties /drugref2.properties
+                # Debian looks for /var/lib/tomcat for properties
+                # -e tests for existance of the file or linked file, -L tests for existance of the Link broken or not
+                if [ ! -e /var/lib/tomcat ] ; then
+                    ln -s /var/lib/${TOMCAT} /var/lib/tomcat 2>>$LOG_FILE
+                fi
+                if [ ! -e /drugref2.properties ] ; then
+                    ln -s -f ${C_BASE}drugref2.properties /drugref2.properties 2>>$LOG_FILE
+                fi                
+                echo /drugref2.properties created >>$LOG_FILE
+                #chown -R ${TOMCAT_USER}:${TOMCAT_USER} /drugref2.properties 2>>$LOG_FILE
+                # some look for /var/lib/tomcatX/webapps/oscar/WEB-INF/classes/oscar.properties but we are using /usr/share/tomcatX
+                # (and will fallback to /var/lib/tomcat9/webapps/oscar/WEB-INF/classes/oscarmcmaster.properties but will fail as the default db and pwd are not used)
+                #mkdir -p ${C_BASE}webapps/oscar/WEB-INF/classes/
+                #cp -f ${C_HOME}/${PROGRAM}.properties ${C_BASE}/webapps/oscar/WEB-INF/classes/${PROGRAM}.properties
+                if [ ! -e /${PROGRAM}.properties ] ; then
+                    ln -s -f ${C_HOME}${PROGRAM}.properties /${PROGRAM}.properties 2>>$LOG_FILE
+                fi               
+                #echo ${C_BASE}/webapps/oscar/WEB-INF/classes/${PROGRAM}.properties created >>$LOG_FILE 
+                #chown -R ${TOMCAT_USER}:${TOMCAT_USER} ${C_BASE}/webapps/oscar/WEB-INF/classes/${PROGRAM}.properties 2>>$LOG_FILE
+        fi
+        
+        ncecho " [x] Restarting Tomcat "
+        service ${TOMCAT} restart >> $LOG_FILE 2>&1 &
+        pid=$!;progress $pid
+
+	cecho  "The Oscar database ${db_name} already exits no further setup needed"
+	cecho "Upgraded to build ${REVISION}"
+	echo buildDateTime=$buildDateTime>> ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
+	echo buildtag="${VERSION}.${REVISION}">> ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE 
+	exit 0 ;
+fi
+
+echo  Created the Oscar database ${db_name} >>$LOG_FILE
+
+if [ "${UPGRADE}" = "true" ] ; then
+
+	# Major version upgrade section
+ 
+	# the following is faster than using mysqldump
+	ncecho " [x] Copying the current structure ${priorschema} to ${db_name} "
+	for table in `$MYSQL -B -N -e "SHOW TABLES" $OLDDB`
+	do
+		$MYSQL -e "RENAME TABLE \`$priorschema\`.\`$table\` to \`$db_name\`.\`$table\`"
+	done 2>>$LOG_FILE &
+ 	pid=$!;progress $pid
+	ncecho " [x] Have new tables in ${db_name} default to utf8 "
+	$MYSQL -e "ALTER DATABASE \`$db_name\` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci"  2>>$LOG_FILE &
+
+	# While if the above works the priorschema will be empty
+	# You *might not* want to uncoment line below since
+	# in case of problems there will be some remaining tables
+	#mysql -e "DROP DATABASE \`$priorschema\`;"
+
+	##ncecho " [x] Adding OLIS "
+	##$MYSQL ${db_name} < ${SRC}OLIS.sql 2>>$LOG_FILE &
+	##pid=$!;progress $pid
+
+	ncecho " [x] Updating the old schema into the new "
+	if [ "${priorschema}" = "oscar_12_1" ] ; then
+		$MYSQL ${db_name} < ${SRC}oscar_12_1_to_oscar_12_1_1.sql 2>&1 >$LOG_FILE
+		$MYSQL ${db_name} < ${SRC}oscar_12_1_1_to_oscar_15.sql 2>&1 >$LOG_FILE
+	else
+		if [ "${priorschema}" = "oscar_12" ] ; then
+			$MYSQL ${db_name} < ${SRC}oscar_12_to_oscar_12_1.sql 2>&1 >$LOG_FILE
+			$MYSQL ${db_name} < ${SRC}oscar_12_1_to_oscar_12_1_1.sql 2>&1 >$LOG_FILE
+			$MYSQL ${db_name} < ${SRC}oscar_12_1_1_to_oscar_15.sql 2>&1 >$LOG_FILE
+		else
+			if  [ "${priorschema}" = "oscar_10_12" ] ; then
+				$MYSQL ${db_name} < ${SRC}oscar10_12_to_Oscar11.sql 2>&1 >$LOG_FILE
+				$MYSQL ${db_name} < ${SRC}Oscar11_to_oscar_12.sql 2>&1 >$LOG_FILE
+				$MYSQL ${db_name} < ${SRC}oscar_12_to_oscar_12_1.sql 2>&1 >$LOG_FILE
+				$MYSQL ${db_name} < ${SRC}oscar_12_1_to_oscar_12_1_1.sql 2>&1 >$LOG_FILE
+				$MYSQL ${db_name} < ${SRC}oscar_12_1_1_to_oscar_15.sql 2>&1 >$LOG_FILE
+			fi
+		fi
+	fi
+	pid=$!;progress $pid
+	ncecho " [x] Patching database to latest schema "
+	$MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>&1 >$LOG_FILE &
+	pid=$!;progress $pid
+	echo Upgraded ${priorschema} to ${db_name}>>$LOG_FILE
+
+else
+	# New Install Section doesn't seem to fully expand so lets leave to the end
+        ## ncecho " [x] Expanding War files"
+        ## service ${TOMCAT} restart >> $LOG_FILE 2>&1 &
+        ## pid=$!;progress $pid
+
+	if [ "${billregion}" = "BC" ] ; then
+		ncecho " [x] Populating database with BC data " 
+# TODO fix this for 20
+#		$MYSQL ${db_name} < ${SRC}OscarBC${VERSION}.sql 2>>$LOG_FILE &
+		$MYSQL ${db_name} < ${SRC}OscarBC19.sql 2>>$LOG_FILE &
+		pid=$!;progress $pid
+		echo  populated the Oscar database with ${billregion} data >>$LOG_FILE
+	else
+		ncecho " [x] Populating database with ON data "
+# TODO fix this for 20
+#		$MYSQL ${db_name} < ${SRC}OscarON${VERSION}.sql 2>>$LOG_FILE &
+		$MYSQL ${db_name} < ${SRC}OscarON19.sql 2>>$LOG_FILE &
+		pid=$!;progress $pid
+		echo  populated database ${db_name} with ${PROVINCE} data >>$LOG_FILE
+		ncecho " [x] Populating database with OLIS data "
+		$MYSQL ${db_name} < ${SRC}OLIS.sql 2>>$LOG_FILE &
+		pid=$!;progress $pid
+		echo  Populated database ${db_name} with OLIS data >>$LOG_FILE
+		#ncecho " [x] Populating database with Office Codes "
+		#$MYSQL ${db_name} < ${SRC}OfficeCodes.sql 2>>$LOG_FILE &
+		#pid=$!;progress $pid
+		#echo  Populated database ${db_name} with Office Codes >>$LOG_FILE
+		#ncecho " [x] Populating database with Special Codes "
+		#$MYSQL ${db_name} < ${SRC}special.sql 2>>$LOG_FILE &
+		#pid=$!;progress $pid
+		#echo  Populated database ${db_name} with special codes >>$LOG_FILE
+	fi
+	#ncecho " [x] Patching database to early ${PROGRAM} schema with patch1"
+	#$MYSQL ${db_name} < ${SRC}oscar_15_to_oscar_19.sql >>$LOG_FILE 2>>$LOG_FILE &
+	#pid=$!;progress $pid
+	
+	
+        if [ "${STATE}" = "BC"  ] ; then
+         	ncecho " [x] Installing BC billing Dashboard Indicators " 
+                $MYSQL ${db_name} <  ${SRC}bc_billing_dashboard.sql 2>>$LOG_FILE &
+	        pid=$!;progress $pid   
+        fi
+	
+	ncecho " [x] Patching database to very latest schema"
+	$MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>>$LOG_FILE &
+	pid=$!;progress $pid
+	#$MYSQL ${db_name} -e "insert into issue (code,description,role,update_date,sortOrderId) select icd9.icd9, icd9.description, 'doctor', now(), '0' from icd9;"
+	#echo  Populated the issues table in ${db_name} with ICD9 codes >>$LOG_FILE
+
+	#SNOMED requires a license from the NIH https://uts.nlm.nih.gov/ and the data that the license provides in the table SnomedCore
+	#$MYSQL ${db_name} -e "INSERT INTO issue (code, description, role, update_date, type) SELECT SnomedCore.SnomedCore, SnomedCore.description, 'doctor', now(), 'SnomedCore' FROM SnomedCore;"
+	#echo  Populated the issues table in ${db_name} with SNOMED codes >>$LOG_FILE
+
+	if [ "${triumvirate}" = "true" ] ; then
+		echo  adding in triumvirate features >>$LOG_FILE
+		# note that activating the RTL will need to 
+		echo "1) update the status of the new RTL eform to 1 " >>$LOG_FILE
+		$MYSQL ${db_name} -e "UPDATE eform SET status='1' WHERE (eform.form_name='Rich Text Letter' AND eform.subject='Rich Text Letter Generator') LIMIT 1;"
+		echo "2) update the status of the old letter eform to 0 " >>$LOG_FILE
+		$MYSQL ${db_name} -e "UPDATE eform SET status='0' WHERE (eform.form_name='letter' AND eform.subject='letter generator') LIMIT 1;"
+		echo "3) update the facilities to enable signatures" >>$LOG_FILE
+		$MYSQL ${db_name} -e "UPDATE Facility SET enableDigitalSignatures =1;"
+		echo "4) update .html templates to .rtl templates" >>$LOG_FILE
+		for filename in ${SRC}OscarDocument/${PROGRAM}/eform/images/*.html
+		do
+			w_o_ext=`basename $filename .html`;
+			if [ "$w_o_ext" != "editor_help" ] ; then
+				if [ ! -e ${SRC}OscarDocument/${PROGRAM}/eform/images/${w_o_ext}.rtl ] ; then
+					cp -p $filename ${SRC}OscarDocument/${PROGRAM}/eform/images/${w_o_ext}.rtl;
+				fi
+			fi 
+		done
+	fi
+
+	if [ "${DEMO}" = "true" ] ; then
+		ncecho " [x] Populating database with Demo data "
+		$MYSQL ${db_name} < ${SRC}demo.sql 2>>$LOG_FILE &
+		pid=$!;progress $pid
+		echo  Populated ${db_name} with demo data>>$LOG_FILE
+	fi
+
+    echo "creating secrets for 2FA" >> $LOG_FILE
+    ## take the top 30 characters from dev/urandom, uencode it
+    SECRET=$(head -c 30 /dev/urandom | base32)
+    $MYSQL ${db_name} -e "UPDATE security SET totp_secret='${SECRET}' WHERE user_name='oscardoc' LIMIT 1;"
+	
+	echo "probing for Java" >>$LOG_FILE
+
+    # About Java
+    # Tomcat 7 requires Java 6 or newer.
+    # Tomcat 8.5 requires Java 7 or newer
+    # Tomcat 9 requires Java 8 or newer 
+    # Tomcat 10 requires Java 8 or newer (unchanged)
+    # OSCAR_14 suggests Java 7
+    # OSCAR_15 suggests Java 8 
+    # OSCAR_19 suggests Java 8 and works with Java 11 oscar_emr19-45~1364.deb and newer
+
+#ln -s /var/lib/tomcat8/common /usr/share/tomcat8/common && \
+#    ln -s /var/lib/tomcat8/server /usr/share/tomcat8/server && \
+#    ln -s /var/lib/tomcat8/shared /usr/share/tomcat8/shared && \
+#    ln -s /etc/tomcat8 /usr/share/tomcat8/conf && \
+#    mkdir /usr/share/tomcat8/temp
+
+    # first check what the system provides at /usr/bin/java by recursive following the links
+    ALT_J=$(readlink -f /usr/bin/java || ${JAVA}/jre/bin/java )
+    JVER=$($ALT_J -version 2>&1 | awk -F '"' '/version/ {print $2}')
+    echo /usr/bin/java is really java ${JVER} at ${ALT_J} >>$LOG_FILE
+    # check that its Java 8 9 10 11
+    # java 8 will show: 1.8.0_191
+    # java 11 will show: 11.0.11
+#JVER="10.0.4"
+    JVER=$(echo $JVER | sed -e 's/^1\.\([0-9]*\)\(.*\)/\1/; 1q' | sed -e 's/\([0-9]*\)\(.*\)/\1/; 1q' )
+    if [ ${JVER} -eq 8 ] || [ ${JVER} -eq 11 ] || [ ${JVER} -eq 17 ]  ; then
+    # deprecated build 46 if [ ${JVER} -eq 8 ]  ; then
+            JAVA_HOME=${ALT_J%/*/*}
+            echo JAVA HOME set to current java $JVER JDK of $JAVA_HOME >>$LOG_FILE
+    else
+
+    # the current JDK is the wrong version, is there any other java to use?
+    JDK_DIRS="$(update-java-alternatives -l | sed -e 's/^.* //')"
+    echo ${JDK_DIRS} >>$LOG_FILE
+    for jdir in $JDK_DIRS; do
+            if [ -r "$jdir/bin/java" ] ; then
+                    JVER=$($jdir/bin/java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+                    JVER=$(echo $JVER | sed -e 's/^1\.\([0-9]*\)\(.*\)/\1/; 1q' | sed -e 's/\([0-9]*\)\(.*\)/\1/; 1q' )
+                    if [ ${JVER} -eq 8 ] || [ ${JVER} -eq 11 ] ; then 
+                    # deprecated build 46 if [ ${JVER} -eq 8 ] ; then  
+                            # 
+                            #echo ${jdir} - ${JVER}
+                            JAVA_HOME="$jdir"
+                    fi
+            fi
+    done
+    echo JAVA HOME is set to the last valid entry in alternatives: $JVER JDK of $JAVA_HOME >>$LOG_FILE
+    fi
+
+	#echo "70" ; sleep 1
+	ncecho " [x] Configuring Tomcat "
+	echo "" >>$LOG_FILE
+	echo "establish 60% of the systems memory for -Xmx<size> maximum Java heap size" >>$LOG_FILE
+	MEMORY="`cat /proc/meminfo | grep MemTotal | awk '{ print int(($2/1024)*0.6) }'`"
+
+##NOTE Tomcat9 default JAVA_OPTS="-Djava.awt.headless=true"
+	if [ "${MEMORY}" -le 1200 ]; then
+    # Perm, MaxPermSize deprecated in Java 8
+		echo Old hardware detected Tomcat java heap memory set at the minimum 640m >>$LOG_FILE
+        echo 'JAVA_OPTS="-Xms640m -Xmx640m -Xss256k -XX:MaxNewSize=64m -Djava.awt.headless=true -server -Dorg.apache.el.parser.COERCE_TO_ZERO=false"' > ${TOMCAT}.tmp 
+		##sed -e 's/-Djava.awt.headless=true/-Xms640m -Xmx640m -Xss256k -XX:MaxNewSize=64m -Djava.awt.headless=true -server -Dorg.apache.el.parser.COERCE_TO_ZERO=false/'  /etc/default/${TOMCAT} > ${TOMCAT}.tmp 
+	fi
+	if [ "${MEMORY}" -gt 6000 ]; then
+		echo Hardware with over 10G detected Tomcat java heap memory set at 6000m >>$LOG_FILE
+        echo 'JAVA_OPTS="-Xmx6000m -Xms6000m -Xss256k -XX:MaxNewSize=128m -Djava.awt.headless=true -server -Dorg.apache.el.parser.COERCE_TO_ZERO=false"' > ${TOMCAT}.tmp 
+		# sed -e 's/-Djava.awt.headless=true/-Xmx6000m -Xms6000m -Xss256k -XX:MaxNewSize=128m -Djava.awt.headless=true -server -Dorg.apache.el.parser.COERCE_TO_ZERO=false/'    /etc/default/${TOMCAT} > ${TOMCAT}.tmp 
+	else
+	    if [ "${MEMORY}" -gt 1200 ]; then
+		    echo Memory constraint noted Tomcat java heap memory configured at ${MEMORY} m >>$LOG_FILE
+            echo JAVA_OPTS=\"-Xmx${MEMORY}m -Xms${MEMORY}m -Xss256k -XX:MaxNewSize=128m -Djava.awt.headless=true -server -Dorg.apache.el.parser.COERCE_TO_ZERO=false\" > ${TOMCAT}.tmp 
+		    #sed -e 's/-Djava.awt.headless=true/-Xmx'"${MEMORY}"'m -Xms'"${MEMORY}"'m -Xss256k -XX:MaxNewSize=128m -Djava.awt.headless=true -server -Dorg.apache.el.parser.COERCE_TO_ZERO=false/'    /etc/default/${TOMCAT} > ${TOMCAT}.tmp 
+	    fi
+	fi
+        ## this garbage collector has been deprecated
+        sed -i 's/-Xincgc //' ${TOMCAT}.tmp
+
+
+    echo "adding JAVA_HOME=${JAVA_HOME}" >>$LOG_FILE
+    echo JAVA_HOME=${JAVA_HOME}>> ${TOMCAT}.tmp 2>>$LOG_FILE
+
+    if [ -r "$JAVA_HOME/bin" ] ; then
+            JAVA_BIN=${JAVA_HOME}/bin/
+    fi
+
+
+
+	#sed -e 's/-Xmx128m/-Xmx1024m -Xms1024m -XX:+CMSClassUnloadingEnabled -XX:+CMSPermGenSweepingEnabled -XX:+UseConcMarkSweepGC -XX:PermSize=128m -XX:MaxPermSize=512m -server/'  /etc/default/tomcat6 > tomcat6.tmp
+	echo "Archiving previous tomcat config file as ${TOMCAT}.old" >> $LOG_FILE
+	mv /etc/default/${TOMCAT} /etc/default/${TOMCAT}.old 2>>$LOG_FILE
+	mv ${TOMCAT}.tmp /etc/default/${TOMCAT} 2>>$LOG_FILE
+ 	chown ${TOMCAT_USER}:${TOMCAT_USER} /etc/default/${TOMCAT} 2>>$LOG_FILE
+
+	echo "Probe /var/lib/${TOMCAT}/conf/server.xml" >>$LOG_FILE
+
+	if [ "${INSTALL_SSL}" = "true" ] ; then
+		if [ -f "${C_BASE}conf/server.xml" ]; then
+			if [ -f "${JAVA_BIN}/keytool" ]; then
+				echo "keytool found" >> $LOG_FILE
+			else
+				# Try for another possible location
+				JAVA_BIN=$(readlink -f /usr/bin/java | sed "s:bin/java:bin:")
+			fi
+			echo "Probe java: $JAVA_BIN" >> $LOG_FILE
+			if [ -f "${JAVA_BIN}/keytool" ]; then
+				echo "Probe /etc/${TOMCAT}/.keystore" >> $LOG_FILE
+				if [ -e "/etc/${TOMCAT}/cert.pem" ]; then
+ 	 				echo "Skipping SSH setup as existing certificate found"  >> $LOG_FILE
+					SSL_INSTALLED=true
+				elif [ -e "/etc/${TOMCAT}/.keystore" ]; then
+ 	 				echo "Skipping SSH setup as existing keystore found"  >> $LOG_FILE
+					SSL_INSTALLED=true
+				elif [[ -e /etc/letsencrypt/live  && ( "${TOMCAT}" = "tomcat8"  || "${TOMCAT}" = "tomcat9" ) ]] ; then
+ 	 				echo "SSH setup using lets encrypt certificate from certbot"  >> $LOG_FILE
+                                        FQDN=$(ls /etc/letsencrypt/live/)
+                                        echo "Copying lets enrypt pems for ${FQDN} to tomcat" >> $LOG_FILE 
+                                        cp /etc/letsencrypt/live/${FQDN}/privkey.pem /etc/${TOMCAT}/
+                                        cp /etc/letsencrypt/live/${FQDN}/cert.pem /etc/${TOMCAT}/
+                                        cp /etc/letsencrypt/live/${FQDN}/chain.pem /etc/${TOMCAT}/
+                                        chown ${TOMCAT_USER} /etc/${TOMCAT}/*.pem
+					echo "Archiving previous tomcat server.xml file as server.old" >> $LOG_FILE
+					mv ${C_BASE}conf/server.xml ${C_BASE}conf/server.old 2>>$LOG_FILE
+                                        cp ${SRC}${TOMCAT}LEserver.xml ${C_BASE}conf/server.xml  2>>$LOG_FILE					
+					chown ${TOMCAT_USER} ${C_BASE}conf/server.xml 2>>$LOG_FILE
+ 	 				echo "Creating ${SRC}letsencrypt.cron"  >> $LOG_FILE
+					echo "#!/bin/bash"  >> ${SRC}letsencrypt.cron
+					echo "#"  >> ${SRC}letsencrypt.cron
+					echo "# ${SRC}letsencrypt.cron"  >> ${SRC}letsencrypt.cron
+					echo "#"  >> ${SRC}letsencrypt.cron
+					echo "# Copyright Peter Hutten-Czapski 2018-2024 #"  >> ${SRC}letsencrypt.cron
+					echo "#"  >> ${SRC}letsencrypt.cron
+					echo "# stop Tomcat only if a new certificate is being installed"  >> ${SRC}letsencrypt.cron
+					echo 'certbot renew --pre-hook "service ${TOMCAT} stop" ' >> ${SRC}letsencrypt.cron 
+					echo "cp /etc/letsencrypt/live/${FQDN}/privkey.pem /etc/${TOMCAT}/" >> ${SRC}letsencrypt.cron 
+					echo "cp /etc/letsencrypt/live/${FQDN}/cert.pem /etc/${TOMCAT}/" >> ${SRC}letsencrypt.cron 
+					echo "cp /etc/letsencrypt/live/${FQDN}/chain.pem /etc/${TOMCAT}/" >> ${SRC}letsencrypt.cron 
+					echo "chown ${TOMCAT_USER} /etc/${TOMCAT}/*.pem" >> ${SRC}letsencrypt.cron 
+					echo "service ${TOMCAT} start" >> ${SRC}letsencrypt.cron                     
+					chmod 711 ${SRC}letsencrypt.cron
+                                        if [ -f /var/spool/cron/crontabs/root ] ; then
+	                                        echo "write out current crontab" >>$LOG_FILE
+	                                        crontab -l > c.temp 2>>$LOG_FILE
+                                        else
+	                                        touch c.temp 2>>$LOG_FILE
+                                        fi               
+                                        if grep -Fq "00 22 * * Fri ${SRC}letsencrypt.cron" c.temp ; then
+                        	                echo "entry for certbot weekly already present" >>$LOG_FILE
+                                        else
+	                                        echo "append certbot weekly job to a new cron file" >>$LOG_FILE
+                        	                echo "00 22 * * Fri ${SRC}letsencrypt.cron" >> c.temp 2>>$LOG_FILE
+                                        fi 
+                                        echo "install new cron file" >>$LOG_FILE
+                                        crontab c.temp 2>>$LOG_FILE
+                                        rm c.temp 2>>$LOG_FILE
+
+					SSL_INSTALLED=true
+                                else
+					echo "creating password for new keystore file" >> $LOG_FILE
+					## take the top 9 characters from dev/urandom, uencode it and drop password problematic characters
+					## note that the password needs to be at least 6 characters long
+					PASS=$(head -c 9 /dev/urandom | base64 | tr -dc _A-Z-a-z-0-9)
+					## for testing
+					## PASS=ZDI4ND4ND
+					echo "creating tomcat keystore entry" >> $LOG_FILE
+					## Generate key for tomcat using the generated password
+					$JAVA_BIN/keytool -genkey -alias tomcat -validity 3650 -keyalg RSA -keystore /etc/${TOMCAT}/.keystore -keypass ${PASS} -storepass ${PASS} -dname "CN=$IP, OU=Oscar, L=$LOCALITY, S=$STATE, C=$COUNTRY" 2>>$LOG_FILE
+					echo "Archiving previous tomcat server.xml file as server.old" >> $LOG_FILE
+					mv ${C_BASE}conf/server.xml ${C_BASE}conf/server.old 2>>$LOG_FILE
+					echo "installing new tomcat server file configured for Oscar" >> $LOG_FILE
+					PASS='"'$PASS'"'
+					
+					sed \
+                    -e 's:^keystoreFile.*:keystoreFile='\"/etc/${TOMCAT}/.keystore\"':' \
+                    -e 's:^keystorePass.*:keystorePass='"$PASS"':' \
+                    ${SRC}${TOMCAT}server.xml > ${C_BASE}conf/server.xml  2>>$LOG_FILE
+					chown ${TOMCAT_USER}:${TOMCAT_USER} ${C_BASE}conf/server.xml 2>>$LOG_FILE
+					SSL_INSTALLED=true
+					##
+                	if [ "${TOMCAT}" = "tomcat8" ]  || [ "${TOMCAT}" = "tomcat9" ]; then
+                        cp ${C_BASE}conf/context.xml ${C_BASE}conf/context.old 2>>$LOG_FILE
+                        ## Cache max in kilobytes. The default value is 10240 (10 megabytes) OSCAR is 369 MB with 217 in work
+                        sed -i 's:^<Context>:<Context> <Resources cachingAllowed="true" cacheMaxSize="255800" />:' ${C_BASE}conf/context.xml  2>>$LOG_FILE
+                        
+                        chown ${TOMCAT_USER}:${TOMCAT_USER} ${C_BASE}conf/context.xml 2>>$LOG_FILE
+                    fi
+				fi
+			else
+				echo "Skipping SSH setup as Java keytool not found" >> $LOG_FILE
+				echo "...we were looking in ${JAVA_BIN}" >> $LOG_FILE
+			fi
+
+		else
+  			echo "Skipping SSH setup as tomcat ${C_BASE}conf/server.xml not found" >>$LOG_FILE
+		fi
+	fi	
+	echo buildDateTime=$buildDateTime>> ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
+	echo buildtag="${VERSION}.${REVISION}">> ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE 	
+	sleep 4 &
+	pid=$!;progress $pid
+
+fi
+
+	#echo "40" ; sleep 1
+	ncecho " [x] Creating Drugref2 Property Files "
+	echo "db_user=root" >> drugref.tmp 2>>$LOG_FILE
+	echo db_password=${db_password} >> drugref.tmp 2>>$LOG_FILE
+	echo "db_url=jdbc:mysql://127.0.0.1:3306/drugref" >> drugref.tmp 2>>$LOG_FILE
+	echo "db_driver=com.mysql.jdbc.Driver" >> drugref.tmp 2>>$LOG_FILE
+	echo "sort_down_mfg_tagged_generics=true" >> drugref.tmp 2>>$LOG_FILE
+	echo "interaction_base_url=https://download.oscar-emr.com/ws/rs/accounts" >> drugref.tmp 2>>$LOG_FILE
+	echo "scheduled_timer=300000" >> drugref.tmp 2>>$LOG_FILE
+	mv drugref.tmp ${C_HOME}drugref2.properties 2>>$LOG_FILE &
+	pid=$!;progress $pid
+	echo ${C_HOME}drugref2.properties created >>$LOG_FILE
+    chown ${TOMCAT_USER} ${C_HOME}drugref2.properties 2>>$LOG_FILE
+
+    # -e tests for existance of the file or linked file, -L tests for existance of the Link broken or not
+    if [ ! -e /var/lib/${TOMCAT}/drugref2.properties ] ; then
+        # some systems look for /var/lib/tomcat8/drugref2.properties
+        # so create a symlink
+        ln -s /usr/share/${TOMCAT}/drugref2.properties /var/lib/${TOMCAT}/drugref2.properties
+    fi
+    if [ ! -e ${C_BASE}${PROGRAM}.properties ] ; then
+        ln -s -f  ${C_HOME}${PROGRAM}.properties ${C_BASE}${PROGRAM}.properties
+    fi
+
+
+    if [ -d /var/lib/tomcat ] ; then
+        # some look for /var/lib/tomcat/drugref2.properties but we are using /usr/share/tomcat8
+        # so create a symlink for that, overwrite if necessary
+        ln -sf ${C_HOME}drugref2.properties /var/lib/tomcat/drugref2.properties
+        chown -R ${TOMCAT_USER}:${TOMCAT_USER} /var/lib/tomcat/drugref.properties 2>>$LOG_FILE
+    fi
+	
+	#echo "60" ; sleep 1
+	ncecho " [x] Updating drugref database " 
+	echo  creating the Oscar Drug database if not exists >>$LOG_FILE
+	$MYSQL -e "CREATE DATABASE IF NOT EXISTS drugref DEFAULT CHARACTER SET utf8  DEFAULT COLLATE utf8_general_ci;" 2>>$LOG_FILE
+	# note that this requires a drugref.sql with DROP TABLE syntax
+	$MYSQL drugref <  ${SRC}drugref.sql 2>>$LOG_FILE &
+	pid=$!;progress $pid
+	echo  drugref populated >>$LOG_FILE
+
+	#ncecho " [x] Applying TallMAN rules to drugref " 
+    #echo  patching the Oscar Drug database with tallMAN rules and removing generics from search >>$LOG_FILE
+	#$MYSQL drugref <  ${SRC}tallMANdrugref.sql 2>>$LOG_FILE &
+	#pid=$!;progress $pid
+    #echo  drugref patched >>$LOG_FILE
+
+
+
+if [ "${COUNTRY}" = CA ] ; then
+
+	if [ "${STATE}" = ON ] ; then
+        ncecho " [x] Installing Ontario Specific eForms " 
+		echo "Installing NDSS eform set under licence"  >>$LOG_FILE
+		unzip ${SRC}ndss.zip -d ${SRC}OscarDocument/${PROGRAM}/eform/images/ >> $LOG_FILE
+		$MYSQL ${db_name} < ${SRC}ndss.sql 2>>$LOG_FILE
+		echo "Installing Ontario Lab 2019 eForm"  >>$LOG_FILE
+		$MYSQL ${db_name} < ${SRC}ontarioLab.sql 2>>$LOG_FILE
+		echo "Installing Ontario FIT 2019 eForm"  >>$LOG_FILE
+		$MYSQL ${db_name} < ${SRC}FIT.sql 2>>$LOG_FILE
+		echo "Installing Ontario OPR 2017 eForm"  >>$LOG_FILE
+        $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('OPR-2017','2017-08-24');"
+        $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('Postpartum Visit','2017-08-24');"
+        $MYSQL ${db_name} -s -e "INSERT INTO eform (form_name, form_date) VALUES ('Resource','2017-08-24');"
+		$MYSQL ${db_name} < ${SRC}opr2017.sql 2>>$LOG_FILE &
+		pid=$!;progress $pid 
+        ncecho " [x] Installing HRM xml files " 
+		echo "Installing current hospital report manager files"  >>$LOG_FILE
+		unzip -j ${C_BASE}/webapps/oscar.war  hospitalReportManager/OMD/report_manager_cds.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE
+		unzip -j ${C_BASE}/webapps/oscar.war  hospitalReportManager/OMD/report_manager_dt.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE
+		unzip -j ${C_BASE}/webapps/oscar.war  hospitalReportManager/OMD/ontariomd_cds_dt.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE &
+		pid=$!;progress $pid
+	    ncecho " [x] Installing Ontario Rourke eForm under licence "
+	    $MYSQL ${db_name} < ${SRC}RourkeEform.sql 2>>$LOG_FILE &
+	    pid=$!;progress $pid
+	    unzip ${SRC}rbr2014.zip -d ${SRC}OscarDocument/${PROGRAM}/eform/images/ >> $LOG_FILE
+    else
+    	ncecho " [x] Installing National Rourke eForm under licence "
+        # TO DO currently this installs the same as the Ontario one ALSO update mechanism!
+	    $MYSQL ${db_name} < ${SRC}RourkeEformNational.sql 2>>$LOG_FILE &
+	    pid=$!;progress $pid
+	    unzip ${SRC}rbr2014.zip -d ${SRC}OscarDocument/${PROGRAM}/eform/images/ >> $LOG_FILE     	
+    fi
+    if [ -f ${SRC}OscarDocument/${PROGRAM}/eform/images/eform.properties ] ; then
+        rm ${SRC}OscarDocument/${PROGRAM}/eform/images/eform.properties
+    fi 
+else
+	echo Country=${COUNTRY} >>$LOG_FILE
+fi
+
+# Cleanup of liscenced additions
+if [ -f "${SRC}rbr2014.zip" ] ; then
+   rm ${SRC}rbr2014.zip
+fi
+if [ -f "${SRC}RourkeEform.sql" ] ; then
+   rm ${SRC}RourkeEform.sql
+fi
+if [ -f "${SRC}ndss.zip" ] ; then
+   rm ${SRC}ndss.zip
+fi
+if [ -f "${SRC}ndss.sql" ] ; then
+   rm ${SRC}ndss.sql
+fi
+if [ -d "${SRC}OscarDocument/${PROGRAM}/eform/images/rbr2015-kideConnect-final-June25-2015" ] ; then
+   rmdir ${SRC}OscarDocument/${PROGRAM}/eform/images/rbr2015-kideConnect-final-June25-2015
+fi
+if [ -d "${SRC}OscarDocument/${PROGRAM}/eform/images/NDDS\ Resource\ eDoc\ Sheets" ] ; then
+   rmdir ${SRC}OscarDocument/${PROGRAM}/eform/images/NDDS\ Resource\ eDoc\ Sheets
+fi
+
+
+# Restore pre-existing configuration
+if [ -f "${C_BASE}/${PACKAGE}/ck.properties" ] ; then
+        echo "Restoring any pre-existing clientKeystore.properties" >> $LOG_FILE
+        mv ${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties ${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.default
+        mv ${C_BASE}/${PACKAGE}/ck.properties ${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties  1>> $LOG_FILE
+fi
+
+
+
+# TO DO need to fix this so that errors will cause this to trip
+if [ "$?" = -1 ] ; then
+	echo "Install Aborted."  >>$LOG_FILE
+	fail
+else
+	if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then 
+        # Tomcat 9 will look for the property files in some other locations
+        # lets provide symbolic links to where we put them for lesser Tomcats       
+        if [ ! -e /drugref2.properties ] ; then
+            ln -s -f ${C_HOME}drugref2.properties /drugref2.properties 2>>$LOG_FILE
+            echo /drugref2.properties created >>$LOG_FILE
+        fi
+        if [ ! -e /${PROGRAM}.properties ] ; then
+            ln -s -f  ${C_HOME}${PROGRAM}.properties /${PROGRAM}.properties 2>>$LOG_FILE
+            echo /${PROGRAM}.properties created >>$LOG_FILE
+        fi
+    fi
+        
+        ncecho " [x] Restarting Tomcat "
+        service ${TOMCAT} restart >> $LOG_FILE 2>&1 &
+        pid=$!;progress $pid
+
+
+	if [ "${UPGRADE}" = "true" ] ; then
+		cecho "Successful upgrade to ${PROGRAM} deb revision ${REVISION}"
+	else
+		cecho "Successful installation of ${PROGRAM} deb revision ${REVISION}"
+		if [ "${SSL_INSTALLED}" = "true" ] ; then
+			cecho "Login at https://localhost:8443/${PROGRAM}"
+		else
+			cecho "THE FOLLOWING IS NOT A SECURE CONNECTION"
+			cecho "Login at http://localhost:8080/${PROGRAM}"
+			cecho "Please configure Tomcat for SSL connections"
+		fi
+		cecho "Your username is oscardoc"
+		cecho "Initial password mac2002"
+		cecho "second level password (pin) 1117"
+	fi
+fi
+
+echo "#########" `date` "#########"  >>$LOG_FILE
+
+	;;
+
+	abort-upgrade|abort-remove|abort-deconfigure)
+		echo "postinst called with argument \`$1'" >&2
+		exit 1
+	;;
+
+	*)
+		echo "postinst called with unknown argument \`$1'" >&2
+		exit 1
+	;;
+esac
+
+
