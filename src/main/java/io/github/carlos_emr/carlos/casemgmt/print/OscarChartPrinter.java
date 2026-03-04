@@ -254,7 +254,7 @@ public class OscarChartPrinter {
 
         //Write title with top and bottom borders on p1
         cb = writer.getDirectContent();
-        cb.setColorStroke(new Color(0, 0, 0));
+        cb.setColorStroke(Color.BLACK);
         cb.setLineWidth(0.5f);
 
         cb.moveTo(document.left(), document.top() - (font.getCalculatedLeading(LINESPACING) * 5f));
