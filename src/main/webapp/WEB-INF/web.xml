@@ -51,13 +51,21 @@
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
 
-    <!-- CSRFGuard MUST be ordered before struts2. StrutsPrepareAndExecuteFilter does not call
-         chain.doFilter() for requests it handles, so filters placed after it are never invoked
-         for Struts action (.do) responses. Placing CSRFGuard here ensures CSRF token validation
-         runs for all Struts action requests. The filter declaration remains in the CSRF section
-         below; only filter-mapping order determines chain position. -->
+    <!-- CSRFGuard and CsrfGuardScriptInjectionFilter MUST be ordered before struts2.
+         StrutsPrepareAndExecuteFilter does not call chain.doFilter() for requests it handles,
+         so filters placed after it in the chain are never invoked for Struts action (.do)
+         responses. Placing both CSRF filters here ensures:
+           1. CSRFGuard validates tokens on all Struts action POST requests
+           2. CsrfGuardScriptInjectionFilter wraps the response BEFORE Struts renders,
+              so csrfguard.js is injected into Struts-rendered HTML pages
+         Filter declarations remain in their respective sections below;
+         only filter-mapping order determines chain position. -->
     <filter-mapping>
         <filter-name>CSRFGuard</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>CsrfGuardScriptInjectionFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
@@ -113,10 +121,8 @@
 		<filter-name>CsrfGuardScriptInjectionFilter</filter-name>
 		<filter-class>io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter</filter-class>
 	</filter>
-	<filter-mapping>
-		<filter-name>CsrfGuardScriptInjectionFilter</filter-name>
-		<url-pattern>/*</url-pattern>
-	</filter-mapping>
+    <!-- filter-mapping for CsrfGuardScriptInjectionFilter is declared earlier in the file,
+         before struts2, so csrfguard.js is injected into Struts-rendered HTML responses. -->
 
 	<filter>
 		<filter-name>LogoutBroadcastFilter</filter-name>
