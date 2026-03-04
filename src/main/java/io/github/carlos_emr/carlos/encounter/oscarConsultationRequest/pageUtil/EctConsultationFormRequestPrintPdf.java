@@ -149,7 +149,7 @@ public class EctConsultationFormRequestPrintPdf {
 
         cb = writer.getDirectContent();
         ct = new ColumnText(cb);
-        cb.setColorStroke(new Color(0, 0, 0));
+        cb.setColorStroke(Color.BLACK);
 
         // start writing the pdf document
         PdfImportedPage page1 = writer.getImportedPage(reader, 1);
