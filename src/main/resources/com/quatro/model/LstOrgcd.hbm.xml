@@ -8,7 +8,7 @@
 	<class name="io.github.carlos_emr.carlos.model.LstOrgcd" table="lst_orgcd">
 		<id name="code" type="java.lang.String">
 			<column name="code" length="8" />
-			<generator class="native" />
+			<generator class="assigned" />
 		</id>
 		<property name="description" type="java.lang.String">
 			<column name="description" length="240" />

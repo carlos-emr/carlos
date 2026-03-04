@@ -34,16 +34,16 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class CaseManagementNoteLinkDAOImpl extends HibernateDaoSupport implements CaseManagementNoteLinkDAO {
+public class CaseManagementNoteLinkDAOImpl extends AbstractHibernateDao implements CaseManagementNoteLinkDAO {
 
     @Override
     public CaseManagementNoteLink getNoteLink(Long id) {
-        CaseManagementNoteLink noteLink = this.getHibernateTemplate().get(CaseManagementNoteLink.class, id);
+        CaseManagementNoteLink noteLink = currentSession().get(CaseManagementNoteLink.class, id);
         return noteLink;
     }
 
@@ -105,11 +105,11 @@ public class CaseManagementNoteLinkDAOImpl extends HibernateDaoSupport implement
 
     @Override
     public void save(CaseManagementNoteLink cLink) {
-        this.getHibernateTemplate().save(cLink);
+        currentSession().save(cLink);
     }
 
     @Override
     public void update(CaseManagementNoteLink cLink) {
-        this.getHibernateTemplate().update(cLink);
+        currentSession().update(cLink);
     }
 }

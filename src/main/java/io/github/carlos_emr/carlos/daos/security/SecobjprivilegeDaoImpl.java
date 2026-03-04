@@ -39,24 +39,21 @@ import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.hibernate.SessionFactory;
 
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+import java.util.Set;
+
 @Transactional
-public class SecobjprivilegeDaoImpl extends HibernateDaoSupport implements SecobjprivilegeDao {
+public class SecobjprivilegeDaoImpl extends AbstractHibernateDao implements SecobjprivilegeDao {
 
     private Logger logger = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
 
-    @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
-    }
+    private static final Set<String> ALLOWED_PROPERTIES = Set.of(
+            "roleusergroup", "objectname_code", "privilege_code", "priority", "providerNo");
 
     @Override
     public void save(Secobjprivilege secobjprivilege) {
@@ -64,7 +61,7 @@ public class SecobjprivilegeDaoImpl extends HibernateDaoSupport implements Secob
             throw new IllegalArgumentException();
         }
 
-        getHibernateTemplate().saveOrUpdate(secobjprivilege);
+        currentSession().saveOrUpdate(secobjprivilege);
 
         if (logger.isDebugEnabled()) {
             logger.debug("SecobjprivilegeDao : save: " + secobjprivilege.getRoleusergroup() + ":"
@@ -134,7 +131,7 @@ public class SecobjprivilegeDaoImpl extends HibernateDaoSupport implements Secob
     public void delete(Secobjprivilege persistentInstance) {
         logger.debug("deleting Secobjprivilege instance");
         try {
-            getHibernateTemplate().delete(persistentInstance);
+            currentSession().delete(persistentInstance);
             logger.debug("delete successful");
         } catch (RuntimeException re) {
             logger.error("delete failed", re);
@@ -192,6 +189,9 @@ public class SecobjprivilegeDaoImpl extends HibernateDaoSupport implements Secob
         logger.debug("finding Secobjprivilege instance with property: " + propertyName
                 + ", value: " + value);
         try {
+            if (!ALLOWED_PROPERTIES.contains(propertyName)) {
+                throw new IllegalArgumentException("Invalid property name: " + propertyName);
+            }
             String queryString = "from Secobjprivilege as model where model."
                     + propertyName + "= ?1 order by objectname_code";
             return HqlQueryHelper.find(currentSession(), queryString, value);
