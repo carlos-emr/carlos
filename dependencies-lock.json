@@ -761,6 +761,14 @@
     "optional" : false,
     "integrity" : "sha512:SJG9ApMssqix8zqwoSfQyCoKYy3w8qg+qH0/mla3puq7605fDHBupi4aqwvi78YyfYblOxF8zf3Jo39VIPgjeg=="
   }, {
+    "groupId" : "dev.samstevens.totp",
+    "artifactId" : "totp",
+    "version" : "1.7.1",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:0uxO6G1rgTNtOqDyqCzMSL4k7TBsjLJxlKpqTri9X7p0OV+ARwJtSjRmlzTpr1Kqc62LeydfJO5CmUkINGunpg=="
+  }, {
     "groupId" : "io.dropwizard.metrics",
     "artifactId" : "metrics-core",
     "version" : "3.1.5",
@@ -2448,14 +2456,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:4o6YOB5H8/H5BMAfUQ8rdk5AKuYULmcOHf+vsf/FSbDCPcQNy6B87UXyBUNxCLsTgslVXaV8o4U85np+nNpn6Q=="
-  }, {
-    "groupId" : "org.jboss.aerogear",
-    "artifactId" : "aerogear-otp-java",
-    "version" : "1.0.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:/g3yVILCax2J+65FjySKQhPrz2tN6mLs3QimukuCZN66zv+4B7bwYsw0BNP+3dqWRQXdDWYbUyB+uJnWEkt+Zg=="
   }, {
     "groupId" : "org.jboss.logging",
     "artifactId" : "jboss-logging",
