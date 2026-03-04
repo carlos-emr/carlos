@@ -203,25 +203,24 @@ public class EFormPDFServlet extends HttpServlet {
 
 
     /**
-     * the form txt file has lines in the form:
-     * <p>
-     * For Checkboxes:
-     * ie.  ohip : left, 76, 193, 0, BaseFont.ZAPFDINGBATS, 8, \u2713
-     * requestParamName : alignment, Xcoord, Ycoord, 0, font, fontSize, textToPrint[if empty, prints the value of the request param]
-     * NOTE: the Xcoord and Ycoord refer to the bottom-left corner of the element
-     * <p>
-     * For single-line text:
-     * ie. patientCity  : left, 242, 261, 0, BaseFont.HELVETICA, 12
-     * See checkbox explanation
-     * <p>
-     * For multi-line text (textarea)
-     * ie.  aci : left, 20, 308, 0, BaseFont.HELVETICA, 8, _, 238, 222, 10
-     * requestParamName : alignment, bottomLeftXcoord, bottomLeftYcoord, 0, font, fontSize, _, topRightXcoord, topRightYcoord, spacingBtwnLines
-     * <p>
-     * NOTE: When working on these forms in linux, it helps to load the PDF file into gimp, switch to pt. coordinate system and use the mouse to find the coordinates.
-     * Prepare to be bored!
+     * Generates a PDF document by overlaying e-form field values onto a PDF template.
      *
-     * @throws Exception
+     * <p>The form txt config file has lines in the form:</p>
+     * <ul>
+     *   <li><strong>Checkboxes:</strong>
+     *     {@code paramName : alignment, X, Y, 0, BaseFont.ZAPFDINGBATS, fontSize, checkmark}</li>
+     *   <li><strong>Single-line text:</strong>
+     *     {@code paramName : alignment, X, Y, 0, font, fontSize}</li>
+     *   <li><strong>Multi-line text:</strong>
+     *     {@code paramName : alignment, X1, Y1, 0, font, fontSize, _, X2, Y2, lineSpacing}</li>
+     * </ul>
+     * <p>Coordinates are in PDF points (1/72 inch) from the bottom-left corner.</p>
+     *
+     * @param req HttpServletRequest containing e-form field values and template parameters
+     * @param ctx ServletContext used for resource resolution of template and config files
+     * @param multiple int zero-based page index for multi-page rendering
+     * @return ByteArrayOutputStream containing the generated PDF bytes
+     * @throws Exception if template reading, PDF generation, or config loading fails
      */
     protected ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx, int multiple) throws Exception {
 
@@ -339,6 +338,14 @@ public class EFormPDFServlet extends HttpServlet {
         return baosPDF;
     }
 
+    /**
+     * Loads a CSV-format config file from the e-form image directory. Each entry maps a
+     * form field name to a CSV line defining alignment, coordinates, font, and size.
+     * The filename is validated against path traversal before access.
+     *
+     * @param cfgFilename String the configuration filename
+     * @return Properties the parsed field layout entries, or empty Properties if not found
+     */
     protected Properties getCfgProp(String cfgFilename) {
         Properties ret = new Properties();
         
@@ -591,6 +598,18 @@ public class EFormPDFServlet extends HttpServlet {
         document.open();
     }
 
+    /**
+     * Core rendering loop that iterates config entries and draws form field content onto
+     * the PDF canvas. Handles multi-line text via ColumnText, rectangles, lines, static
+     * text (__-prefixed), and checkbox glyphs (ZapfDingbats).
+     *
+     * @param printCfg Properties field-name-to-CSV-layout mappings
+     * @param props Properties form field values from the request
+     * @param measurements Properties additional measurement values
+     * @param height float page height in points for coordinate conversion
+     * @param cb PdfContentByte the direct content layer to draw on
+     * @throws Exception if font creation or rendering fails
+     */
     private void writeContent(Properties printCfg, Properties props, Properties measurements, float height, PdfContentByte cb) throws Exception {
         for (Enumeration e = printCfg.propertyNames(); e.hasMoreElements(); ) {
             StringBuilder temp = new StringBuilder(e.nextElement().toString());

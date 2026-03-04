@@ -305,7 +305,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
                 addLabCategory(headers.get(i), specimenSource, specimenDescription);
             }
 
-            // It's not exactly clear that this block does anything.
+            // `handlers` is a secondary handler list for multi-segment lab messages.
+            // In the common single-handler case the list is empty, making this loop a no-op.
             for (MessageHandler extraHandler : handlers) {
                 ArrayList<String> extraHeaders = extraHandler.getHeaders();
                 for (int i = 0; i < extraHeaders.size(); i++)
@@ -383,18 +384,42 @@ public class LabPDFCreator extends PdfPageEventHelper {
         }
     }
 
-    /*
-     * Given the name of a lab category this method will add the category
-     * header, the test result headers and the test results for that category.
+    /**
+     * Convenience overload that renders a lab category using an alternate handler
+     * (for multi-segment lab messages) without specimen metadata.
+     *
+     * @param header String the lab category header name
+     * @param extraHandler MessageHandler the handler for this segment
+     * @throws DocumentException if PDF rendering fails
      */
     private void addLabCategory(String header, MessageHandler extraHandler) throws DocumentException {
         addLabCategory(header, extraHandler, null, null);
     }
 
+    /**
+     * Convenience overload that renders a lab category using the primary handler
+     * with optional MEDITECH specimen source and description metadata.
+     *
+     * @param header String the lab category header name
+     * @param specimenSource String the MEDITECH specimen source text, or null
+     * @param specimenDescription String the MEDITECH specimen description, or null
+     * @throws DocumentException if PDF rendering fails
+     */
     private void addLabCategory(String header, String specimenSource, String specimenDescription) throws DocumentException {
         addLabCategory(header, null, specimenSource, specimenDescription);
     }
 
+    /**
+     * Renders a single lab category to the PDF document. Handles 8+ message types
+     * (PATHL7, CLS, Excelleris, MEDITECH, etc.) with different column layouts,
+     * performs duplicate result suppression, and applies abnormal-flag color coding.
+     *
+     * @param header String the lab category header name
+     * @param extraHandler MessageHandler alternate handler for multi-segment messages, or null for primary
+     * @param specimenSource String MEDITECH specimen source text, or null
+     * @param specimenDescription String MEDITECH specimen description, or null
+     * @throws DocumentException if PDF rendering fails
+     */
     private void addLabCategory(String header, MessageHandler extraHandler, String specimenSource, String specimenDescription) throws DocumentException {
         String currentLicenseNo = null, lastLicenseNo = null;
 
@@ -620,7 +645,9 @@ public class LabPDFCreator extends PdfPageEventHelper {
 					
 					boolean isAllowedDuplicate = false;
 					if (handler.getMsgType().equals("PATHL7")){
-						//if the obxidentifier and result name are any of the following, they must be displayed (they are the Excepetion to Excelleris TX/FT duplicate result name display rules)
+						// Culture (LOINC 6463-4) and Organism (X433, X30011) are Excelleris-specific
+					// OBX identifiers that legitimately repeat across test groups per the TX/FT
+					// format specification — exempt from duplicate result name suppression.
 						if ((handler.getOBXName(j, k).equals("Culture") && handler.getOBXIdentifier(j, k).equals("6463-4")) || 
 								(handler.getOBXName(j, k).equals("Organism") && (handler.getOBXIdentifier(j, k).equals("X433") || handler.getOBXIdentifier(j, k).equals("X30011")))){
 		   					isAllowedDuplicate = true;
@@ -1065,9 +1092,12 @@ public class LabPDFCreator extends PdfPageEventHelper {
     }
 
 
-    /*
-     *  getTextColor will return the the color corresponding to the abnormal
-     *  status of the result.
+    /**
+     * Returns the color corresponding to the abnormal status flag of a lab result.
+     * Red for abnormal/high ("A", "H*"), blue for low ("L*"), black for normal.
+     *
+     * @param abn String the HL7 abnormal flag value
+     * @return Color the display color for the result text
      */
     private Color getTextColor(String abn) {
         Color ret = Color.BLACK;
@@ -1081,9 +1111,11 @@ public class LabPDFCreator extends PdfPageEventHelper {
     }
 
 
-    /*
-     *  createInfoTable creates and adds the table at the top of the document
-     *  which contains the patient and lab information
+    /**
+     * Creates and adds the patient/lab information table at the top of the document.
+     * Contains patient demographics, ordering physician, dates, and report status.
+     *
+     * @throws DocumentException if the table cannot be added to the document
      */
     private void createInfoTable() throws DocumentException {
 
@@ -1271,6 +1303,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
         clientPhrase = new Phrase();
         clientPhrase.add(new Chunk("Report Status: ", boldFont));
+        // "F" and "C" are HL7 OBR result status codes: F = Final, C = Corrected
         clientPhrase.add(new Chunk((handler.getOrderStatus().equals("F") ? "Final" : (handler.getOrderStatus().equals("C") ? "Corrected" : "Preliminary")) + "\t\t\t\t\t\t", font));
         patientInfo.add(clientPhrase);
 
@@ -1297,9 +1330,13 @@ public class LabPDFCreator extends PdfPageEventHelper {
         document.add(patientInfo);
     }
 
-    /*
-     *  addTableToTable(PdfPTable main, PdfPTable add) adds the table 'add' as
-     *  a cell spanning 'colspan' columns to the table main.
+    /**
+     * Nests a table inside another table as a cell spanning the specified number of columns.
+     *
+     * @param main PdfPTable the parent table to add the nested table to
+     * @param add PdfPTable the child table to embed as a cell
+     * @param colspan int the number of columns the nested cell should span
+     * @return PdfPTable the parent table with the nested cell added
      */
     private PdfPTable addTableToTable(PdfPTable main, PdfPTable add, int colspan) {
         PdfPCell cell = new PdfPCell(add);
@@ -1310,9 +1347,12 @@ public class LabPDFCreator extends PdfPageEventHelper {
     }
 
 
-    /*
-     *  onEndPage is a page event that occurs when a page has finished being created.
-     *  It is used to add header and footer information to each page.
+    /**
+     * Page event handler invoked when each page finishes rendering. Adds the patient
+     * identifier and page number to the footer area of every page.
+     *
+     * @param writer PdfWriter the active PDF writer
+     * @param document Document the current document
      */
     public void onEndPage(PdfWriter writer, Document document) {
         try {
@@ -1341,6 +1381,12 @@ public class LabPDFCreator extends PdfPageEventHelper {
         }
     }
 
+	/**
+	 * Builds the patient identifier line for the page footer. Prefers Health Insurance
+	 * Number over demographic number; falls back to name only if neither is available.
+	 *
+	 * @return String the patient identifier text for footer display
+	 */
 	private String getPageIdentifier() {
 		if (handler.getMsgType().equals("ExcellerisON")) {
 			if (!handler.getHealthNum().isEmpty()) {

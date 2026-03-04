@@ -116,14 +116,21 @@ public class FrmPDFServlet extends HttpServlet {
         super();
     }
 
+    /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
             java.io.IOException {
         doPost(req, res);
     }
 
     /**
-     * @param req HTTP request object
-     * @param res HTTP response object
+     * Generates one or more medical form PDFs and streams the result to the response.
+     * If the {@code multiple} request parameter is present, generates that many PDFs
+     * (one per page index) and concatenates them via {@link ConcatPDF}.
+     *
+     * @param req HttpServletRequest containing form field values and configuration parameters
+     * @param res HttpServletResponse to write the generated PDF bytes to
+     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs during PDF generation
      */
     public void doPost(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
             java.io.IOException {
@@ -841,6 +848,14 @@ public class FrmPDFServlet extends HttpServlet {
         return baosPDF;
     }
 
+    /**
+     * Loads a CSV-format property file containing PDF field layout configuration.
+     * Attempts filesystem first (under pdfFORMDIR), then falls back to webapp classpath.
+     * The filename is sanitized to prevent path traversal.
+     *
+     * @param cfgFilename String the configuration filename (e.g., "formRourke2020p1.txt")
+     * @return Properties the parsed field layout entries, or empty Properties if not found
+     */
     protected Properties getCfgProp(String cfgFilename) {
         Properties ret = new Properties();
         

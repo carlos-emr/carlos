@@ -146,10 +146,11 @@ public class PreventionPrintPdf {
         String[] headerIds = null;
         List<String> validImmunizationsIds = new ArrayList<String>();
         List<String> validScreeningsIds = new ArrayList<String>();
+        // Separate preventions into immunizations vs screenings based on their
+        // headingName from PreventionDisplayConfig — they render in separate sections.
         PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
         for (int x = 0; x < headerIds1.length; x++) {
             String pHeader = request.getParameter("preventionHeader" + headerIds1[x]);
-            //check if this is an immunization!
             HashMap<String, String> prev = pdc.getPrevention(pHeader);
             if (prev != null && prev.get("headingName") != null && "Screenings".equals(prev.get("headingName"))) {
                 validScreeningsIds.add(headerIds1[x]);
@@ -441,7 +442,8 @@ public class PreventionPrintPdf {
                     proceedWrite = false;
                 }
 
-                //We can't fit the prevention we are printing into the current column on the current page we are printing to 
+                // Two-column layout: fill left column first, overflow to right column,
+                // then start a new page if both columns are full.
                 if (!proceedWrite) {
 
                     if (onColumnLeft) {
@@ -524,9 +526,18 @@ public class PreventionPrintPdf {
         return headerPhrase.getLeading() * 4f;
     }
 
+    /**
+     * Renders the page number footer on the current page and advances to a new page.
+     *
+     * @param headerPhrase Phrase the section header (used for height calculation)
+     * @param font Font the current font (used for leading calculation)
+     * @return float the Y coordinate of the top of the content area on the new page
+     * @throws DocumentException if page creation fails
+     * @throws IOException if font creation fails
+     */
     private float goToNewPage(Phrase headerPhrase, Font font) throws DocumentException, IOException {
         ColumnText.showTextAligned(cb, Phrase.ALIGN_CENTER, new Phrase("-" + curPage + "-"), document.right() / 2f, document.bottom() - (document.bottomMargin() / 2f), 0f);
-        addPromoText(); // Assuming this method is accessible within your class
+        addPromoText();
         float upperYcoord = document.top() - getHeaderHeight() - font.getCalculatedLeading(LINESPACING);
         document.newPage();
         ct.setSimpleColumn(document.left(), document.bottom(), document.right() / 2f, upperYcoord);
@@ -534,6 +545,14 @@ public class PreventionPrintPdf {
         return upperYcoord;
     }
 
+    /**
+     * Creates a left-aligned paragraph with the given title and font style.
+     *
+     * @param title String the paragraph text
+     * @param size float the font size in points
+     * @param style int OpenPDF Font constant (e.g., Font.BOLD, Font.NORMAL)
+     * @return Paragraph the configured paragraph
+     */
     private Paragraph addParagraph(String title, float size, int style) throws DocumentException, IOException {
         Paragraph paragraph = new Paragraph(LEADING, title, FontFactory.getFont(FontFactory.HELVETICA, size, style, Color.BLACK));
         paragraph.add(Chunk.NEWLINE);
@@ -541,6 +560,19 @@ public class PreventionPrintPdf {
         return paragraph;
     }
 
+    /**
+     * Adds a label-value pair to a prevention procedure entry. Omits the label text
+     * for date fields (preventProcedureDate); defaults provider to "Unknown" when missing.
+     *
+     * @param request HttpServletRequest containing the form parameter values
+     * @param procedure Phrase the procedure phrase to append content to
+     * @param labelParameter String the request parameter name prefix
+     * @param label String the display label text
+     * @param headerIds String[] the prevention header IDs array
+     * @param idx int the current prevention index
+     * @param subIdx int the sub-procedure index
+     * @param font Font the font for the value text
+     */
     private void addLabelsAndValuesToProcedure(HttpServletRequest request, Phrase procedure, String labelParameter, String label, String[] headerIds,
                                                int idx, int subIdx, Font font) throws DocumentException, IOException {
         String labelValue = request.getParameter(labelParameter + headerIds[idx] + "-" + subIdx);

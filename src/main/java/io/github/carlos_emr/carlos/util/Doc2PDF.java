@@ -113,8 +113,11 @@ public class Doc2PDF {
             .charset(StandardCharsets.UTF_8.name())
             .prettyPrint(false);
 
+        // Flying Saucer attempts to execute script content during rendering, causing errors
         doc.select("script").remove();
+        // XHTML requires alt attributes on all img elements; missing ones cause validation failures
         doc.select("img:not([alt])").attr("alt", "");
+        // Flying Saucer's form renderer crashes on input elements without an explicit type attribute
         doc.select("input:not([type])").attr("type", "text");
 
         ITextRenderer renderer = LocalOnlyUserAgent.createRestrictedRenderer();
@@ -143,9 +146,7 @@ public class Doc2PDF {
 
         try {
 
-            // step 2:
-            // we create a writer that listens to the document
-            // and directs a XML-stream to a file
+            // Fetch the rendered JSP page via HTTP and parse it into a clean XHTML document
             BufferedInputStream in = GetInputFromURI(jsessionid, uri);
 
             // Parse directly from InputStream with UTF-8 encoding and base URI
@@ -258,9 +259,6 @@ public class Doc2PDF {
 
         try {
 
-            // step 2:
-            // we create a writer that listens to the document
-            // and directs a XML-stream to a file
             // Parse and clean HTML with Jsoup (handles UTF-8 internally)
             org.jsoup.nodes.Document doc = Jsoup.parse(docText);
             configureJsoupForXhtml(doc);
@@ -289,9 +287,6 @@ public class Doc2PDF {
 
         try {
 
-            // step 2:
-            // we create a writer that listens to the document
-            // and directs a XML-stream to a file
             // Parse and clean HTML with Jsoup (handles UTF-8 internally)
             org.jsoup.nodes.Document doc = Jsoup.parse(docText);
             configureJsoupForXhtml(doc);
@@ -345,6 +340,9 @@ public class Doc2PDF {
         BufferedInputStream in = null;
         try {
 
+                // Append jsessionid to the URL path because this is a server-side HTTP connection
+            // that does not share the browser's session cookie; the session ID must be passed
+            // via URL rewriting so the target JSP executes within the user's authenticated session.
             URL url = new URI(uri + ";jsessionid=" + jsessionid).toURL();
 
             MiscUtils.getLogger().debug(" " + uri + ";jsessionid=" + jsessionid);
@@ -473,6 +471,8 @@ public class Doc2PDF {
 
         String absolutePath = "";
 
+        // Strip leading slashes from src attributes first so that prepending the absolute
+        // path does not produce doubled slashes (e.g., "http://host:8080//images/logo.png").
         docText = docText.replaceAll("src='/", "src='");
         docText = docText.replaceAll("src=\"/", "src=\"");
         docText = docText.replaceAll("src=/", "src=");

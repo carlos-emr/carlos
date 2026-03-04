@@ -86,22 +86,27 @@ public class FooterSupport extends PdfPageEventHelper {
         return baseOffset;
     }
 
+    /** @param baseOffset int the offset in points below the bottom margin */
     public void setBaseOffset(int baseOffset) {
         this.baseOffset = baseOffset;
     }
 
+    /** @return int the font size in points */
     public int getFontSize() {
         return fontSize;
     }
 
+    /** @param fontSize int the font size in points */
     public void setFontSize(int fontSize) {
         this.fontSize = fontSize;
     }
 
+    /** @return BaseFont the font instance used for footer rendering */
     public BaseFont getFont() {
         return font;
     }
 
+    /** @param font BaseFont the font instance to use for footer rendering */
     public void setFont(BaseFont font) {
         this.font = font;
     }

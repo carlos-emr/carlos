@@ -98,6 +98,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
+    /**
+     * Main entry point for prescription PDF generation and fax submission.
+     * Parses request parameters, generates the PDF, and either streams it directly
+     * to the response or persists it for asynchronous fax delivery.
+     *
+     * @param req HttpServletRequest containing prescription form parameters and fax details
+     * @param res HttpServletResponse to write the PDF or fax status HTML to
+     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs during PDF generation
+     */
     @Override
     public void service(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException, java.io.IOException {
 
@@ -298,6 +308,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         public EndPage() {
         }
 
+        /**
+         * Constructs an EndPage event handler with prescription layout data including
+         * clinic info, patient demographics, prescriber signature, and pharmacy details.
+         */
         public EndPage(String clinicName, String clinicTel, String clinicFax, String patientPhone, String patientCityPostal, String patientAddress,
                        String patientName, String patientDOB, String sigDoctorName, String rxDate, String origPrintDate, String numPrint,
                        String imgPath, String patientHIN, String patientChartNo, String pracNo, Locale locale, String billingNumber, String pharmacyInfo) {
@@ -355,6 +369,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return LocaleUtils.getMessage(locale, tag);
         }
 
+        /**
+         * Renders the prescription page frame: prescriber info, patient demographics,
+         * border lines, signature block, and fax disclaimer. Draws all content using
+         * PdfContentByte direct positioning in PDF points from bottom-left origin.
+         */
         public void renderPage(PdfWriter writer, Document document) {
             Rectangle page = document.getPageSize();
             float height = page.getHeight();

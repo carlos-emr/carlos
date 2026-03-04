@@ -125,10 +125,15 @@ public class PDFController {
     private Map<String, Method> methodMap;
     private Object data;
 
+    /** Default constructor. Call {@link #setFilePath(File)} and {@link #_init()} before use. */
     public PDFController() {
-        // default constructor.
     }
 
+    /**
+     * Constructs a controller and initializes the PDF reader from the given template file.
+     *
+     * @param filePath File the PDF template file to read AcroForm fields from
+     */
     public PDFController(File filePath) {
         if (setFilePath(filePath)) {
             _init();
@@ -136,12 +141,18 @@ public class PDFController {
 
     }
 
+    /**
+     * Constructs a controller and initializes the PDF reader from the given template path.
+     *
+     * @param filePath String the absolute path to the PDF template file
+     */
     public PDFController(String filePath) {
         if (setFilePath(new File(filePath))) {
             _init();
         }
     }
 
+    /** Initializes the PdfReader from the current file path and extracts PDF metadata. */
     public void _init() {
         setReader(null);
         setPdfMetaData();
@@ -455,6 +466,12 @@ public class PDFController {
 
     }
 
+    /**
+     * Extracts getter methods from the data object via reflection and stores them
+     * in the method map for later AcroForm field value resolution.
+     *
+     * @param data Object the POJO containing form field values
+     */
     private void digestData(Object data) {
 
         Map<String, Method> getterMethods = getGetterMethods(data);
@@ -486,12 +503,23 @@ public class PDFController {
         return methods;
     }
 
+    /**
+     * Convenience overload that starts recursive getter extraction with an empty prefix.
+     */
     private synchronized static void fillGetterMethods(Object data, Map<String, Method> baseMap)
             throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
         fillGetterMethods(data, baseMap, "");
     }
 
-
+    /**
+     * Recursively extracts getter methods from a data object and its nested beans.
+     * For nested objects in allowed packages, recurses with the parent method name as prefix.
+     * For List-type returns, iterates elements and recurses with indexed notation (e.g., getItems#0).
+     *
+     * @param data Object the POJO to extract getters from
+     * @param baseMap Map to populate with method-name-to-Method mappings
+     * @param prepend String the prefix for nested property paths
+     */
     private synchronized static void fillGetterMethods(Object data, Map<String, Method> baseMap, String prepend)
             throws IllegalArgumentException, IllegalAccessException, InvocationTargetException {
 
@@ -784,6 +812,14 @@ public class PDFController {
         return formattedDate;
     }
 
+    /**
+     * Checks whether a return type's package is in the allowed list for recursive
+     * getter extraction. Only beans in {@link #ALLOWED_BEAN_PACKAGES} are recursed into,
+     * preventing reflection into arbitrary JDK or third-party classes.
+     *
+     * @param packageType Package the return type's package to check
+     * @return Boolean TRUE if the package is allowed for recursion
+     */
     private static final Boolean isPackageAllowed(final Package packageType) {
 
         Boolean allowed = Boolean.FALSE;

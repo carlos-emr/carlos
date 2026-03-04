@@ -131,7 +131,9 @@ public class ManageDocument2Action extends ActionSupport {
 
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
 
-    // Static initializer used to set the actions of the map for the execute function
+    // Method-based dispatch consolidates all document operations (view, update, refile,
+    // add, etc.) under a single action class, keeping struts.xml minimal. Most handlers
+    // return null because they write directly to the response stream (images, PDFs, JSON).
     static {
         ACTIONS.put("refileDocumentAjax", ctx -> ctx.refileDocumentAjax());
         ACTIONS.put("viewDocPage", ctx -> { ctx.viewDocPage(); return null; });
@@ -569,6 +571,13 @@ public class ManageDocument2Action extends ActionSupport {
      * private void savePatientLabRouting(String demog, String docId, String docType){ CommonLabResultData.updatePatientLabRouting(docId, demog, docType); }
      */
 
+    /**
+     * Returns the absolute path of the document cache directory. Uses the explicitly
+     * configured cache directory if available, otherwise derives one from the main
+     * document directory.
+     *
+     * @return String the absolute path to the document cache directory
+     */
     private static String getDocumentCacheDir() {
         if (DOCUMENT_CACHE_DIR != null && !DOCUMENT_CACHE_DIR.isEmpty()) {
             return DOCUMENT_CACHE_DIR;
@@ -576,6 +585,13 @@ public class ManageDocument2Action extends ActionSupport {
         return getDocumentCacheDir(DOCUMENT_DIR).getAbsolutePath();
     }
 
+    /**
+     * Derives a cache directory from the given document directory by appending
+     * {@code _cache} to the directory name. Creates the directory if it does not exist.
+     *
+     * @param docdownload String the document directory path used as the basis
+     * @return File the cache directory
+     */
     private static File getDocumentCacheDir(String docdownload) {
         File docDir = new File(docdownload);
         String documentDirName = docDir.getName();
@@ -593,6 +609,13 @@ public class ManageDocument2Action extends ActionSupport {
         return cacheDir;
     }
 
+    /**
+     * Checks whether a cached PNG rendering exists for the given document page.
+     *
+     * @param d Document the document to look up in the cache
+     * @param pageNum Integer the 1-based page number, may be null
+     * @return File the cached PNG file if it exists, or null
+     */
     private File hasCacheVersion2(Document d, Integer pageNum) {
         Path outFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
         if (!Files.exists(outFile)) {
@@ -618,6 +641,14 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Checks whether a cached PNG rendering exists for the given document page.
+     * Delegates to {@link #hasCacheVersion2(Document, Integer)}.
+     *
+     * @param d Document the document to look up in the cache
+     * @param pageNum int the 1-based page number
+     * @return File the cached PNG file if it exists, or null
+     */
     private File hasCacheVersion(Document d, int pageNum) {
         return hasCacheVersion2(d, pageNum);
     }
@@ -1083,7 +1114,9 @@ public class ManageDocument2Action extends ActionSupport {
             sanitizedFileName = "document_" + timestamp + ".dat";
         }
 
-        // Ensure filename uniqueness by checking if file already exists
+        // Ensure filename uniqueness. The generated filename includes a timestamp, but
+        // collisions can still occur when multiple documents are uploaded in quick succession.
+        // The counter-based suffix (_1, _2, ...) guarantees a unique filename on disk.
         File destFile = new File(savePath + sanitizedFileName);
         String originalSanitized = sanitizedFileName;
         int counter = 1;
@@ -1544,6 +1577,13 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Writes the given byte array directly to the servlet response output stream.
+     *
+     * @param response HttpServletResponse the servlet response to write to
+     * @param pdfBytes byte[] the content bytes to stream to the client
+     * @return HttpServletResponse the same response object
+     */
     private HttpServletResponse setResponse(HttpServletResponse response, byte[] pdfBytes) {
         try (ServletOutputStream outs = response.getOutputStream();
              ByteArrayInputStream fileInputStream = new ByteArrayInputStream(pdfBytes)) {
@@ -1554,6 +1594,13 @@ public class ManageDocument2Action extends ActionSupport {
         return response;
     }
 
+    /**
+     * Writes the contents of the given file directly to the servlet response output stream.
+     *
+     * @param response HttpServletResponse the servlet response to write to
+     * @param output File the file whose contents are streamed to the client
+     * @return HttpServletResponse the same response object
+     */
     private HttpServletResponse setResponse(HttpServletResponse response, File output) {
         try (ServletOutputStream outs = response.getOutputStream();
              FileInputStream fileInputStream = new FileInputStream(output)

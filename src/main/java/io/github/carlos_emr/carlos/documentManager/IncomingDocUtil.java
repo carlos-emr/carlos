@@ -594,6 +594,7 @@ public final class IncomingDocUtil {
                         }
                     }
                 } finally {
+                    // PdfCopy must be closed before Document.close() to flush buffered pages
                     copy.close();
                     deleteCopy.close();
                     document.close();
@@ -681,7 +682,8 @@ public final class IncomingDocUtil {
             File extractFile = new File(extractBasePath, extractFileName);
             extractPath = extractFile.getPath();
 
-            // Initialize extraction flags: "0" = keep in original, "1" = extract
+            // extractList uses 1-based indexing (matching PDF page numbers),
+            // so index 0 is an unused placeholder
             for (int pgIndex = 0; pgIndex <= reader.getNumberOfPages(); pgIndex++) {
                 extractList.add(pgIndex, "0");
             }
@@ -970,6 +972,8 @@ public final class IncomingDocUtil {
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
         int degree = 0;
 
+        // Action naming: "M" prefix means "minus" (counter-clockwise rotation),
+        // e.g., RotateM90 = rotate -90 degrees. "All" prefix applies to every page.
         if (pdfAction.equals("Rotate180")
                 || pdfAction.equals("Rotate90")
                 || pdfAction.equals("RotateM90")) {

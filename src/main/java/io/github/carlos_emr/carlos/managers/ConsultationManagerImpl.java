@@ -587,6 +587,14 @@ public class ConsultationManagerImpl implements ConsultationManager {
         return consultationAttachments;
     }
 
+    /**
+     * Maps a raw JPA projection array to a ConsultationRequestSearchResult DTO.
+     * Array indices match the DAO SELECT column order: [0]=ConsultationRequest,
+     * [1]=ProfessionalSpecialist, [2]=ConsultationServices, [3]=Demographic, [4]=Provider.
+     *
+     * @param items Object[] the JPA projection row
+     * @return ConsultationRequestSearchResult the populated DTO
+     */
     private ConsultationRequestSearchResult convertToRequestSearchResult(Object[] items) {
         ConsultationRequestSearchResult result = new ConsultationRequestSearchResult();
 
@@ -615,6 +623,14 @@ public class ConsultationManagerImpl implements ConsultationManager {
         return result;
     }
 
+    /**
+     * Maps a raw JPA projection array to a ConsultationResponseSearchResult DTO.
+     * Array indices match the DAO SELECT column order: [0]=ConsultationResponse,
+     * [1]=ProfessionalSpecialist, [2]=Demographic, [3]=Provider.
+     *
+     * @param items Object[] the JPA projection row
+     * @return ConsultationResponseSearchResult the populated DTO
+     */
     private ConsultationResponseSearchResult convertToResponseSearchResult(Object[] items) {
         ConsultationResponseSearchResult result = new ConsultationResponseSearchResult();
 
@@ -642,6 +658,14 @@ public class ConsultationManagerImpl implements ConsultationManager {
         return result;
     }
 
+    /**
+     * Merges date-only and time-only Date values into a single Date. The legacy schema
+     * stores appointment date and time in separate columns; this combines them.
+     *
+     * @param date Date the date component (year, month, day)
+     * @param time Date the time component (hour, minute, second)
+     * @return Date the combined date-time, or null if either input is null
+     */
     private Date joinDateAndTime(Date date, Date time) {
 
         if (date == null || time == null) {
@@ -660,6 +684,13 @@ public class ConsultationManagerImpl implements ConsultationManager {
         return cal.getTime();
     }
 
+    /**
+     * Verifies the current user has the specified privilege on the consultation
+     * security object ("_con"). Throws RuntimeException if access is denied.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session
+     * @param privilege String the privilege level (SecurityInfoManager.READ, WRITE, etc.)
+     */
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", privilege, null)) {
             throw new RuntimeException("Access Denied");

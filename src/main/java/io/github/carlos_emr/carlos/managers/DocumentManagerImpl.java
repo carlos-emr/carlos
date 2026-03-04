@@ -273,6 +273,15 @@ public class DocumentManagerImpl implements DocumentManager {
         return savedId;
     }
 
+    /**
+     * Persists a document and creates associated routing records (CtlDocument,
+     * PatientLabRouting, ProviderLabRouting). Uses demographicNo of -1 for
+     * unattached documents.
+     *
+     * @param document Document the document entity to persist
+     * @param demographicNo Integer the patient demographic number, or null/-1 for unattached
+     * @param providerNo String the provider number for inbox routing
+     */
     private void saveDocument(Document document, Integer demographicNo, String providerNo) {
 
         // Saves the document
@@ -301,6 +310,13 @@ public class DocumentManagerImpl implements DocumentManager {
         }
     }
 
+    /**
+     * Persists a new document and logs the action.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session for audit logging
+     * @param document Document the document entity to persist
+     * @return Integer the generated document ID
+     */
     private Integer addDocument(LoggedInInfo loggedInInfo, Document document) {
 
         documentDao.persist(document);
@@ -308,6 +324,13 @@ public class DocumentManagerImpl implements DocumentManager {
         return document.getId();
     }
 
+    /**
+     * Merges an existing document and logs the action.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session for audit logging
+     * @param document Document the document entity to merge
+     * @return Integer the document ID
+     */
     private Integer updateDocument(LoggedInInfo loggedInInfo, Document document) {
         documentDao.merge(document);
         LogAction.addLog(loggedInInfo, "DocumentManager.saveDocument", "Document updated ", "Document No." + document.getDocumentNo(), "", "");
@@ -341,10 +364,18 @@ public class DocumentManagerImpl implements DocumentManager {
         }
     }
 
+    /** @return String the configured parent document directory path */
     public static final String getParentDirectory() {
         return PARENT_DIR;
     }
 
+    /**
+     * Returns the full filesystem path to a document by ID, or null if not found.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session
+     * @param documentId int the document ID
+     * @return String the absolute path, or null if the document doesn't exist
+     */
     public String getPathToDocument(LoggedInInfo loggedInInfo, int documentId) {
         Document document = this.getDocument(loggedInInfo, documentId);
         String path = null;
@@ -356,6 +387,13 @@ public class DocumentManagerImpl implements DocumentManager {
         return path;
     }
 
+    /**
+     * Resolves a document filename to its full filesystem path under DOCUMENT_DIR.
+     * Returns null if the file does not exist on disk.
+     *
+     * @param filename String the document filename
+     * @return String the absolute path, or null if the file doesn't exist
+     */
     public String getFullPathToDocument(String filename) {
 
         String path = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");

@@ -170,12 +170,25 @@ public class LabManagerImpl implements LabManager {
         return path;
     }
 
+    /**
+     * Verifies the current user has the specified privilege on the lab security object ("_lab").
+     *
+     * @param loggedInInfo LoggedInInfo the current user session
+     * @param privilege String the privilege level ("r", "w", etc.)
+     */
     private void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", privilege, null)) {
             throw new RuntimeException("missing required sec object (_lab)");
         }
     }
 
+    /**
+     * Returns a human-readable lab name for error messages. Defaults to "UNLABELLED"
+     * when the discipline field is empty.
+     *
+     * @param segmentId Integer the HL7 segment ID
+     * @return String the discipline name or "UNLABELLED"
+     */
     private String getDisplayLabName(Integer segmentId) {
         Hl7TextInfo hl7TextInfo = hl7textInfoDao.findLabId(segmentId);
         return StringUtils.isNullOrEmpty(hl7TextInfo.getDiscipline()) ? "UNLABELLED" : hl7TextInfo.getDiscipline();
