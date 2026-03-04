@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.SendingUtils;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
-import com.lowagie.text.DocumentException;
+import org.openpdf.text.DocumentException;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;

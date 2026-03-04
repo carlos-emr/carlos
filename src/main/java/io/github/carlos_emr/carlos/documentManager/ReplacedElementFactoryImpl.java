@@ -30,8 +30,8 @@ package io.github.carlos_emr.carlos.documentManager;
 
 
 // Flying Saucer's ITextFSImage requires the old lowagie Image class
-import com.lowagie.text.BadElementException;
-import com.lowagie.text.Image;
+import org.openpdf.text.BadElementException;
+import org.openpdf.text.Image;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;

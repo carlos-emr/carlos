@@ -29,10 +29,10 @@
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
 
-import com.lowagie.text.Element;
-import com.lowagie.text.*;
-import com.lowagie.text.Font;
-import com.lowagie.text.pdf.*;
+import org.openpdf.text.Element;
+import org.openpdf.text.*;
+import org.openpdf.text.Font;
+import org.openpdf.text.pdf.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;

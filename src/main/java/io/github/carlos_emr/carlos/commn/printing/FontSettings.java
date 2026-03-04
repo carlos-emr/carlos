@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.printing;
 
-import com.lowagie.text.pdf.BaseFont;
+import org.openpdf.text.pdf.BaseFont;
 
 public class FontSettings {
 

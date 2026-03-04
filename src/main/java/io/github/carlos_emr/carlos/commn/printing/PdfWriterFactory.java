@@ -50,9 +50,9 @@ public class PdfWriterFactory {
      * @param settings font settings to apply
      * @return the modified PdfContentByte
      */
-    public static com.lowagie.text.pdf.PdfContentByte setFont(com.lowagie.text.pdf.PdfContentByte pdfContentByte, FontSettings settings) {
+    public static org.openpdf.text.pdf.PdfContentByte setFont(org.openpdf.text.pdf.PdfContentByte pdfContentByte, FontSettings settings) {
         try {
-            com.lowagie.text.pdf.BaseFont baseFont = com.lowagie.text.pdf.BaseFont.createFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
+            org.openpdf.text.pdf.BaseFont baseFont = org.openpdf.text.pdf.BaseFont.createFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
             pdfContentByte.setFontAndSize(baseFont, settings.getFontSize());
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed creation of PDF Base Font ", e);
@@ -69,11 +69,11 @@ public class PdfWriterFactory {
      * @param settings font settings for the writer
      * @return PdfWriter instance, or null if creation fails
      */
-    public static com.lowagie.text.pdf.PdfWriter newInstance(com.lowagie.text.Document document, OutputStream stream, FontSettings settings) {
-        com.lowagie.text.pdf.PdfWriter result;
+    public static org.openpdf.text.pdf.PdfWriter newInstance(org.openpdf.text.Document document, OutputStream stream, FontSettings settings) {
+        org.openpdf.text.pdf.PdfWriter result;
         try {
-            result = com.lowagie.text.pdf.PdfWriter.getInstance(document, stream);
-        } catch (com.lowagie.text.DocumentException e) {
+            result = org.openpdf.text.pdf.PdfWriter.getInstance(document, stream);
+        } catch (org.openpdf.text.DocumentException e) {
             MiscUtils.getLogger().error("Unable to create new PdfWriter instance", e);
             return null;
         }

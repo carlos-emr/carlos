@@ -43,8 +43,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.lowagie.text.*;
-import com.lowagie.text.pdf.*;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.*;
 import org.apache.commons.io.FileUtils;
 
 import org.apache.logging.log4j.Logger;
@@ -682,7 +682,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, imgFile, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
         document.addTitle(title);
         document.addSubject("");
-        document.addKeywords("pdf, itext");
+        document.addKeywords("pdf");
         document.addCreator("OSCAR");
         document.addAuthor("");
         document.addHeader("Expires", "0");

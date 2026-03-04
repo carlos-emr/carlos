@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import com.lowagie.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfReader;
 
 import java.io.File;
 import java.io.FileInputStream;

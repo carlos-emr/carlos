@@ -33,15 +33,15 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import com.lowagie.text.*;
-import com.lowagie.text.pdf.BaseFont;
-import com.lowagie.text.pdf.PdfWriter;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.PdfWriter;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
+import org.openpdf.text.pdf.PdfPCell;
+import org.openpdf.text.pdf.PdfPTable;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 
@@ -54,7 +54,6 @@ public class PdfCoverPageCreator {
 
     private static BaseFont basefont;
     private static Font body = new Font(basefont, 12, Font.NORMAL);
-    private static Font heading = new Font(basefont, 13, Font.NORMAL);
     private static Font heading_bold = new Font(basefont, 14, Font.BOLD);
     private ClinicData clinic;
     private Font footer;

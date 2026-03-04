@@ -29,12 +29,12 @@ package io.github.carlos_emr.carlos.documentManager;
 
 
 import io.github.carlos_emr.OscarProperties;
-import com.lowagie.text.Document;
-import com.lowagie.text.pdf.PdfCopy;
-import com.lowagie.text.pdf.PdfName;
-import com.lowagie.text.pdf.PdfNumber;
-import com.lowagie.text.pdf.PdfReader;
-import com.lowagie.text.pdf.PdfStamper;
+import org.openpdf.text.Document;
+import org.openpdf.text.pdf.PdfCopy;
+import org.openpdf.text.pdf.PdfName;
+import org.openpdf.text.pdf.PdfNumber;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfStamper;
 
 import java.io.File;
 import java.io.FileOutputStream;

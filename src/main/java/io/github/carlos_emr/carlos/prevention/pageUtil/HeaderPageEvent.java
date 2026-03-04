@@ -1,14 +1,14 @@
 package io.github.carlos_emr.carlos.prevention.pageUtil;
 
-import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Element;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.Rectangle;
-import com.lowagie.text.pdf.ColumnText;
-import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfPageEventHelper;
-import com.lowagie.text.pdf.PdfWriter;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.Element;
+import org.openpdf.text.Phrase;
+import org.openpdf.text.Rectangle;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfPageEventHelper;
+import org.openpdf.text.pdf.PdfWriter;
 
 import org.apache.logging.log4j.Logger;
 
@@ -46,7 +46,9 @@ public class HeaderPageEvent extends PdfPageEventHelper {
             PdfContentByte contentByte = writer.getDirectContent();
             ColumnText columnText = new ColumnText(contentByte);
 
-            columnText.setSimpleColumn(calculateHeaderSize(document));
+            Rectangle headerRect = calculateHeaderSize(document);
+            columnText.setSimpleColumn(headerRect.getLeft(), headerRect.getBottom(),
+                    headerRect.getRight(), headerRect.getTop());
             columnText.setAlignment(Element.ALIGN_RIGHT);
             columnText.addText(headerPhrase);
 

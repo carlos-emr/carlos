@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.lowagie.text.DocumentException;
+import org.openpdf.text.DocumentException;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;

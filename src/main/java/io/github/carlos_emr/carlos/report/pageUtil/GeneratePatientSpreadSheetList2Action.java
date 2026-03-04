@@ -45,8 +45,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.Paragraph;
+import org.openpdf.text.FontFactory;
+import org.openpdf.text.Paragraph;
 
 /**
  * @author jay

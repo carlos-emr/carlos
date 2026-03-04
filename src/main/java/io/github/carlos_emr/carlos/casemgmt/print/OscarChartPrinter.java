@@ -46,8 +46,8 @@ import javax.servlet.http.HttpServletRequest;
 
 import java.awt.Color;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
-import com.lowagie.text.*;
-import com.lowagie.text.pdf.*;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.*;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;

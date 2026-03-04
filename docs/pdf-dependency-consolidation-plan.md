@@ -1,6 +1,6 @@
 # PDF Dependency Consolidation Plan
 
-> **Status**: Draft — Pending team review
+> **Status**: Phase 1 complete (iText 5 → OpenPDF 3.0.2 migration shipped in PR #536)
 > **Target**: Consolidate from 5+ PDF libraries → 2 (OpenPDF + PDFBox)
 > **Risk Level**: High (healthcare forms, lab reports, prescriptions — visual fidelity is critical)
 > **Estimated Scope**: ~45 Java files, 4 phases, each independently shippable
@@ -9,7 +9,7 @@
 
 CARLOS EMR currently uses **5+ overlapping PDF libraries** for PDF creation, form filling, HTML-to-PDF conversion, and document manipulation. This plan consolidates to **two** libraries:
 
-1. **OpenPDF 2.0.x** (LGPL, `com.github.librepdf:openpdf`) — PDF creation, form filling, stamping, embedded JS
+1. **OpenPDF 3.0.2** (LGPL, `com.github.librepdf:openpdf`) — PDF creation, form filling, stamping, embedded JS (uses `org.openpdf.*` packages)
 2. **Apache PDFBox 2.0.35** (Apache 2.0) — PDF merging, splitting, encryption, rendering
 
 ### Why Consolidate?
@@ -17,7 +17,7 @@ CARLOS EMR currently uses **5+ overlapping PDF libraries** for PDF creation, for
 - **License risk**: iText 5.x is AGPL-licensed (copyleft for server-side use). OpenPDF is LGPL (safe for CARLOS's GPL codebase)
 - **Maintenance**: iText 5.x is EOL; OpenPDF is actively maintained
 - **Dependency sprawl**: Fewer libraries = smaller attack surface, simpler upgrades
-- **API compatibility**: OpenPDF forked from iText 2.1.7 and maintains a nearly identical API under `com.lowagie.*` packages — Flying Saucer already depends on it transitively
+- **API compatibility**: OpenPDF forked from iText 2.1.7 and maintains a nearly identical API — 3.0.x uses `org.openpdf.*` packages (final namespace). Flying Saucer 10.0.7 depends on it.
 
 ---
 
@@ -27,13 +27,13 @@ CARLOS EMR currently uses **5+ overlapping PDF libraries** for PDF creation, for
 
 | Library | GroupId:ArtifactId | Version | License | Usage | Action |
 |---------|-------------------|---------|---------|-------|--------|
-| iText 5 | `com.itextpdf:itextpdf` | 5.5.13.5 | AGPL | PDF creation (45 files) | **REMOVE** |
-| iText XMLWorker | `com.itextpdf.tool:xmlworker` | 5.5.13.5 | AGPL | HTML→PDF in Doc2PDF | **REMOVE** |
+| iText 5 | `com.itextpdf:itextpdf` | 5.5.13.5 | AGPL | HTML→PDF in Doc2PDF only | **REMOVE (deferred)** |
+| iText XMLWorker | `com.itextpdf.tool:xmlworker` | 5.5.13.5 | AGPL | HTML→PDF in Doc2PDF only | **REMOVE (deferred)** |
 | PDFBox | `org.apache.pdfbox:pdfbox` | 2.0.35 | Apache 2.0 | Merge, split, encrypt (11 files) | **KEEP** |
-| Flying Saucer | `org.xhtmlrenderer:flying-saucer-pdf` | 9.13.3 | LGPL | XHTML→PDF (4 files) | **KEEP** |
-| OpenRTF | `com.github.librepdf:openrtf` | 2.0.0 | LGPL | RTF export (1 file) | **KEEP** |
+| Flying Saucer | `org.xhtmlrenderer:flying-saucer-pdf` | 10.0.7 | LGPL | XHTML→PDF (4 files) | **DONE** |
+| OpenRTF | `com.github.librepdf:openrtf` | 3.0.0 | LGPL | RTF export (1 file) | **DONE** |
 | ultrabuk-htmltopdf | `com.github.openosp:ultrabuk-htmltopdf-java` | 1.0.11 | — | wkhtmltopdf wrapper (1 file) | **KEEP (defer)** |
-| OpenPDF | (transitive via Flying Saucer) | ~2.0.x | LGPL | — | **ADD explicit** |
+| OpenPDF | `com.github.librepdf:openpdf` | 3.0.2 | LGPL | PDF creation (46 files, `org.openpdf.*`) | **DONE** |
 
 ### Files by Library Usage
 
@@ -76,7 +76,7 @@ These files open existing PDF templates and fill in AcroForm fields.
 | `form/pharmaForms/formBPMH/pdf/PDFController.java` | BPMH medication form (AcroForm + embedded JS) | **High** |
 | `lab/ca/all/upload/handlers/PDFHandler.java` | Lab PDF form reading | Medium |
 
-#### Group C: PDF Reading / Metadata / Merging (8 files)
+#### Group C: PDF Reading / Metadata / Merging (12 files)
 These use `PdfReader` and `PdfStamper` for reading, stamping, or merging.
 
 | File | Feature | Risk |
@@ -113,7 +113,7 @@ Cross-cutting utilities used by Groups A-C.
 #### Group F: Flying Saucer (already on OpenPDF)
 | File | Feature | Action |
 |------|---------|--------|
-| `documentManager/ReplacedElementFactoryImpl.java` | Flying Saucer image handling (com.lowagie) | **KEEP** |
+| `documentManager/ReplacedElementFactoryImpl.java` | Flying Saucer image handling (`org.openpdf`) | **DONE** |
 
 ### PDFBox Files (11 files — no changes needed)
 
@@ -141,42 +141,45 @@ Three files embed **Acrobat JavaScript** (PDF-internal JS for auto-printing). Th
 2. **`GenerateEnvelopes2Action.java`** — `PdfAction.javaScript()` for envelope auto-print
 3. **`PrinterList2Action.java`** — `PdfAction.javaScript()` for silent printing
 
-OpenPDF supports `PdfAction.javaScript()` and `PdfWriter.addJavaScript()` identically to iText. No changes needed beyond import renaming.
+OpenPDF 3.0.2 supports `PdfAction.javaScript()` and `PdfWriter.addJavaScript()` identically to iText. No changes needed beyond import renaming.
 
 **Answer to your question**: No, we do NOT need browser-side JavaScript execution for any PDF creation. All PDF generation is server-side Java. The embedded JS is purely for PDF viewer auto-print triggers.
 
 ---
 
-## API Migration: iText 5 → OpenPDF 2.0.x
+## API Migration: iText 5 → OpenPDF 3.0.x
 
 ### Package Mapping (Mechanical — import replacement)
 
-| iText 5 (`com.itextpdf.*`) | OpenPDF 2.0.x (`com.lowagie.*`) |
+The migration went through two namespace hops: `com.itextpdf.*` → `com.lowagie.*` → `org.openpdf.*`.
+All 48 files now use the final `org.openpdf.*` namespace (OpenPDF 3.0.2).
+
+| iText 5 (`com.itextpdf.*`) | OpenPDF 3.0.x (`org.openpdf.*`) |
 |----|---|
-| `com.itextpdf.text.Document` | `com.lowagie.text.Document` |
-| `com.itextpdf.text.pdf.PdfWriter` | `com.lowagie.text.pdf.PdfWriter` |
-| `com.itextpdf.text.pdf.PdfReader` | `com.lowagie.text.pdf.PdfReader` |
-| `com.itextpdf.text.pdf.PdfStamper` | `com.lowagie.text.pdf.PdfStamper` |
-| `com.itextpdf.text.pdf.PdfPTable` | `com.lowagie.text.pdf.PdfPTable` |
-| `com.itextpdf.text.pdf.PdfPCell` | `com.lowagie.text.pdf.PdfPCell` |
-| `com.itextpdf.text.pdf.PdfAction` | `com.lowagie.text.pdf.PdfAction` |
-| `com.itextpdf.text.pdf.AcroFields` | `com.lowagie.text.pdf.AcroFields` |
-| `com.itextpdf.text.pdf.PdfContentByte` | `com.lowagie.text.pdf.PdfContentByte` |
-| `com.itextpdf.text.pdf.BaseFont` | `com.lowagie.text.pdf.BaseFont` |
-| `com.itextpdf.text.pdf.ColumnText` | `com.lowagie.text.pdf.ColumnText` |
-| `com.itextpdf.text.pdf.PdfPageEventHelper` | `com.lowagie.text.pdf.PdfPageEventHelper` |
-| `com.itextpdf.text.Paragraph` | `com.lowagie.text.Paragraph` |
-| `com.itextpdf.text.Phrase` | `com.lowagie.text.Phrase` |
-| `com.itextpdf.text.Chunk` | `com.lowagie.text.Chunk` |
-| `com.itextpdf.text.Font` | `com.lowagie.text.Font` |
-| `com.itextpdf.text.Image` | `com.lowagie.text.Image` |
-| `com.itextpdf.text.Element` | `com.lowagie.text.Element` |
-| `com.itextpdf.text.Rectangle` | `com.lowagie.text.Rectangle` |
-| `com.itextpdf.text.PageSize` | `com.lowagie.text.PageSize` |
+| `com.itextpdf.text.Document` | `org.openpdf.text.Document` |
+| `com.itextpdf.text.pdf.PdfWriter` | `org.openpdf.text.pdf.PdfWriter` |
+| `com.itextpdf.text.pdf.PdfReader` | `org.openpdf.text.pdf.PdfReader` |
+| `com.itextpdf.text.pdf.PdfStamper` | `org.openpdf.text.pdf.PdfStamper` |
+| `com.itextpdf.text.pdf.PdfPTable` | `org.openpdf.text.pdf.PdfPTable` |
+| `com.itextpdf.text.pdf.PdfPCell` | `org.openpdf.text.pdf.PdfPCell` |
+| `com.itextpdf.text.pdf.PdfAction` | `org.openpdf.text.pdf.PdfAction` |
+| `com.itextpdf.text.pdf.AcroFields` | `org.openpdf.text.pdf.AcroFields` |
+| `com.itextpdf.text.pdf.PdfContentByte` | `org.openpdf.text.pdf.PdfContentByte` |
+| `com.itextpdf.text.pdf.BaseFont` | `org.openpdf.text.pdf.BaseFont` |
+| `com.itextpdf.text.pdf.ColumnText` | `org.openpdf.text.pdf.ColumnText` |
+| `com.itextpdf.text.pdf.PdfPageEventHelper` | `org.openpdf.text.pdf.PdfPageEventHelper` |
+| `com.itextpdf.text.Paragraph` | `org.openpdf.text.Paragraph` |
+| `com.itextpdf.text.Phrase` | `org.openpdf.text.Phrase` |
+| `com.itextpdf.text.Chunk` | `org.openpdf.text.Chunk` |
+| `com.itextpdf.text.Font` | `org.openpdf.text.Font` |
+| `com.itextpdf.text.Image` | `org.openpdf.text.Image` |
+| `com.itextpdf.text.Element` | `org.openpdf.text.Element` |
+| `com.itextpdf.text.Rectangle` | `org.openpdf.text.Rectangle` |
+| `com.itextpdf.text.PageSize` | `org.openpdf.text.PageSize` |
 | `com.itextpdf.text.BaseColor` | `java.awt.Color` ⚠️ |
-| `com.itextpdf.text.DocumentException` | `com.lowagie.text.DocumentException` |
-| `com.itextpdf.text.FontFactory` | `com.lowagie.text.FontFactory` |
-| `com.itextpdf.text.html.simpleparser.HTMLWorker` | `com.lowagie.text.html.simpleparser.HTMLWorker` ⚠️ (needs `openpdf-html` artifact) |
+| `com.itextpdf.text.DocumentException` | `org.openpdf.text.DocumentException` |
+| `com.itextpdf.text.FontFactory` | `org.openpdf.text.FontFactory` |
+| `com.itextpdf.text.html.simpleparser.HTMLWorker` | `org.openpdf.text.html.simpleparser.HTMLWorker` |
 
 ### Known API Differences Requiring Code Changes
 
@@ -230,21 +233,15 @@ Both exist in OpenPDF. Used for document concatenation in consultation attachmen
 **pom.xml changes:**
 ```xml
 <!-- ADD: Explicit OpenPDF dependency (currently transitive via Flying Saucer) -->
+<!-- HTMLWorker (org.openpdf.text.html.simpleparser.HTMLWorker) is included in the main openpdf artifact -->
 <dependency>
     <groupId>com.github.librepdf</groupId>
     <artifactId>openpdf</artifactId>
-    <version>2.0.3</version>
-</dependency>
-
-<!-- ADD: OpenPDF HTML module (for HTMLWorker in LabPDFCreator) -->
-<dependency>
-    <groupId>com.github.librepdf</groupId>
-    <artifactId>openpdf-html</artifactId>
-    <version>2.0.3</version>
+    <version>3.0.2</version>
 </dependency>
 ```
 
-**Verification**: Build compiles, no classpath conflicts between iText 5 and OpenPDF (different packages, `com.itextpdf.*` vs `com.lowagie.*`).
+**Verification**: Build compiles, no classpath conflicts between iText 5 and OpenPDF (different packages, `com.itextpdf.*` vs `org.openpdf.*`).
 
 **Files changed**: 1 (pom.xml)
 
@@ -254,7 +251,7 @@ Both exist in OpenPDF. Used for document concatenation in consultation attachmen
 **Goal**: Migrate cross-cutting utilities that other files depend on
 
 **Files:**
-1. `commn/printing/PdfWriterFactory.java` — Remove deprecated `com.lowagie` overloads (redundant after migration), migrate iText overloads to OpenPDF
+1. `commn/printing/PdfWriterFactory.java` — Remove deprecated overloads (redundant after migration), migrate iText overloads to OpenPDF
 2. `commn/printing/FontSettings.java` — Update font import if needed
 3. `casemgmt/service/PageNumberStamper.java` — `PdfPageEventHelper` import change + `BaseColor` → `Color`
 4. `casemgmt/service/PromoTextStamper.java` — Same pattern as PageNumberStamper
@@ -269,8 +266,8 @@ import com.itextpdf.text.pdf.PdfWriter;
 import com.itextpdf.text.BaseColor;
 
 // AFTER
-import com.lowagie.text.pdf.PdfPageEventHelper;
-import com.lowagie.text.pdf.PdfWriter;
+import org.openpdf.text.pdf.PdfPageEventHelper;
+import org.openpdf.text.pdf.PdfWriter;
 import java.awt.Color;
 ```
 
@@ -305,8 +302,8 @@ import com.itextpdf.text.pdf.*;
 BaseColor.LIGHT_GRAY
 
 // AFTER
-import com.lowagie.text.*;
-import com.lowagie.text.pdf.*;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.*;
 Color.LIGHT_GRAY  // or new Color(192, 192, 192) for exact match
 ```
 
@@ -329,9 +326,9 @@ Color.LIGHT_GRAY  // or new Color(192, 192, 192) for exact match
 
 **Batch 3b — Lab & Generic Record Printing (3 files):**
 1. `lab/ca/all/pageUtil/LabPDFCreator.java` — **1500+ line lab PDF creator** (highest complexity)
-   - Uses both `com.itextpdf` AND `com.lowagie` (for RTF export)
-   - Uses `HTMLWorker.parseToList()` (needs `openpdf-html` module)
-   - After migration, ALL imports will be `com.lowagie.*` (unified)
+   - Previously used both `com.itextpdf` AND `com.lowagie` (for RTF export)
+   - Uses `HTMLWorker.parseToList()` (included in main openpdf artifact)
+   - After migration, ALL imports are `org.openpdf.*` (unified)
 2. `commn/service/PdfRecordPrinter.java` — Generic record printer (16 iText imports)
 3. `lab/ca/all/upload/handlers/PDFHandler.java` — Lab PDF reading
 
@@ -376,13 +373,12 @@ Color.LIGHT_GRAY  // or new Color(192, 192, 192) for exact match
 11. `lab/ca/all/upload/handlers/FHIRCommunicationRequestHandler.java` — FHIR handler
 
 **Doc2PDF handling** (deferred per user decision):
-- `util/Doc2PDF.java` — Keep but update `com.itextpdf` imports to `com.lowagie`
-- The `XMLWorkerHelper` usage will be replaced with OpenPDF's `HTMLWorker` (basic but sufficient for this deprecated class)
-- This is a minimal-change approach; full Doc2PDF removal is a separate PR
+- `util/Doc2PDF.java` — Stays on iText 5 (`com.itextpdf`) until migrated to Flying Saucer/ConvertToEdoc
+- Full Doc2PDF removal is a separate PR
 
 **PdfWriterFactory cleanup:**
-- Remove the `@Deprecated` com.lowagie overloads (now redundant since everything is com.lowagie)
-- Keep only the active overloads (which are now on com.lowagie too)
+- Remove the `@Deprecated` overloads (now redundant since everything is `org.openpdf`)
+- Keep only the active overloads (which are now on `org.openpdf` too)
 
 **pom.xml changes:**
 ```xml
@@ -399,7 +395,7 @@ Color.LIGHT_GRAY  // or new Color(192, 192, 192) for exact match
 </dependency>
 ```
 
-**Verification**: Full build with tests (`make install --run-tests`). Verify no remaining `com.itextpdf` imports exist. Run comprehensive PDF output tests.
+**Verification**: Full build with tests (`make install --run-tests`). Verify no remaining `com.itextpdf` imports exist (except Doc2PDF.java). Verify zero `com.lowagie` imports remain. Run comprehensive PDF output tests.
 
 ---
 
@@ -456,12 +452,12 @@ PDF template AcroForm fields are identified by string names. OpenPDF's `AcroFiel
 **Mitigation**: Template PDFs are unchanged — they're binary files not affected by this migration. Only the Java code that reads/writes fields changes imports.
 
 ### Font Handling
-Both libraries use `BaseFont.createFont()` with identical signatures. DejaVu fonts (used throughout) are loaded by path.
+All three libraries (iText, OpenPDF 2.x, OpenPDF 3.x) use `BaseFont.createFont()` with identical signatures. DejaVu fonts (used throughout) are loaded by path.
 
 **Mitigation**: Font loading code only needs import changes, not API changes.
 
 ### RTF Export (LabPDFCreator)
-Already uses `com.lowagie.text.rtf.RtfWriter2` from OpenRTF. After migration, LabPDFCreator will consistently use `com.lowagie.*` for both PDF and RTF — actually cleaner than the current mixed state.
+Uses `org.openpdf.text.rtf.RtfWriter2` from OpenRTF 3.0.0. After migration, LabPDFCreator consistently uses `org.openpdf.*` for both PDF and RTF — cleaner than the previous mixed state.
 
 ---
 
@@ -470,8 +466,8 @@ Already uses `com.lowagie.text.rtf.RtfWriter2` from OpenRTF. After migration, La
 1. **Doc2PDF full removal** — Migrate messenger PDF actions to ConvertToEdoc, then delete Doc2PDF (separate PR)
 2. **ultrabuk-htmltopdf-java removal** — Replace wkhtmltopdf wrapper with Flying Saucer as primary HTML→PDF, remove JitPack repo dependency (separate PR)
 3. **PDFBox 2.x → 3.x upgrade** — PDFBox 3.0 is available with significant API changes (separate initiative)
-4. **Flying Saucer 9.x → 10.x upgrade** — v10 requires Java 21 (we have it) and uses `org.openpdf` packages. This would be a follow-up after the OpenPDF 2.x migration stabilizes. Alternatively, go directly to OpenPDF 3.x + Flying Saucer 10.x in a future phase.
-5. **OpenPDF 2.x → 3.x upgrade** — When ready to adopt `org.openpdf.*` packages (replacing `com.lowagie.*`), coordinate with Flying Saucer 10.x upgrade
+4. ~~**Flying Saucer 9.x → 10.x upgrade**~~ — **DONE** (upgraded to 10.0.7 in PR #536)
+5. ~~**OpenPDF 2.x → 3.x upgrade**~~ — **DONE** (upgraded to 3.0.2 with `org.openpdf.*` namespace in PR #536)
 
 ---
 
@@ -485,5 +481,5 @@ Already uses `com.lowagie.text.rtf.RtfWriter2` from OpenRTF. After migration, La
 | 3: Complex PDF Creators | ~12 | **High** | Migrate lab PDFs, clinical notes, medical form servlets |
 | 4: Cleanup | ~11 | Low | Migrate remaining files, remove iText 5 from pom.xml |
 
-**Total**: ~44 files modified, 2 dependencies removed, 2 dependencies added
-**Net result**: 5 PDF libraries → 2 (OpenPDF + PDFBox)
+**Total**: 48 files migrated to `org.openpdf.*`, 3 dependency upgrades (OpenPDF 3.0.2, OpenRTF 3.0.0, Flying Saucer 10.0.7)
+**Net result**: 5 PDF libraries → 2 (OpenPDF + PDFBox), with Doc2PDF iText 5 removal deferred

@@ -44,7 +44,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator;
-import com.lowagie.text.DocumentException;
+import org.openpdf.text.DocumentException;
 import org.apache.commons.io.IOUtils;
 import org.junit.BeforeClass;
 import org.junit.Test;

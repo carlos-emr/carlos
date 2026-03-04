@@ -37,7 +37,7 @@ import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
 
-import com.lowagie.text.pdf.PdfPTable;
+import org.openpdf.text.pdf.PdfPTable;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.util.ExtPrint;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import com.lowagie.text.*;
+import org.openpdf.text.*;
 
 public class MeasurementPrint implements ExtPrint {
 

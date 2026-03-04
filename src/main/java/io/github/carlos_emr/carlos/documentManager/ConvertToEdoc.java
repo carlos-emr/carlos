@@ -28,7 +28,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager;
 
-import com.lowagie.text.DocumentException;
+import org.openpdf.text.DocumentException;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -346,14 +346,7 @@ public final class ConvertToEdoc {
         
         renderer.setDocumentFromString(doc.outerHtml(), null);
         renderer.layout();
-        try {
-            renderer.createPDF(os, true);
-        } catch (com.lowagie.text.DocumentException e) {
-            // Flying Saucer uses OpenPDF library which has a different DocumentException class
-            // Wrap it to maintain API consistency with iText-based PDF generation
-            logger.error("Failed to create PDF with Flying Saucer", e);
-            throw new DocumentException(e);
-        }
+        renderer.createPDF(os, true);
     }
 
     /**

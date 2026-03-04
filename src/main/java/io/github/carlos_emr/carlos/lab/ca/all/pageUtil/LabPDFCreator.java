@@ -52,12 +52,12 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 
 import java.awt.Color;
-import com.lowagie.text.*;
-import com.lowagie.text.Font;
-import com.lowagie.text.Rectangle;
-import com.lowagie.text.html.simpleparser.HTMLWorker;
-import com.lowagie.text.pdf.*;
-import com.lowagie.text.rtf.RtfWriter2;
+import org.openpdf.text.*;
+import org.openpdf.text.Font;
+import org.openpdf.text.Rectangle;
+import org.openpdf.text.html.simpleparser.HTMLWorker;
+import org.openpdf.text.pdf.*;
+import org.openrtf.text.rtf.RtfWriter2;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.io.IOUtils;
@@ -153,9 +153,9 @@ public class LabPDFCreator extends PdfPageEventHelper {
         byte[] rtfBytes = handler.getOBXResult(0, 0).getBytes();
         try (ByteArrayInputStream rtfStream = new ByteArrayInputStream(rtfBytes)) {
             //create & open the document we are going to write to and its writer
-            com.lowagie.text.Document document = new com.lowagie.text.Document();
+            org.openpdf.text.Document document = new org.openpdf.text.Document();
             RtfWriter2 writer = RtfWriter2.getInstance(document, os);
-            document.setPageSize(com.lowagie.text.PageSize.LETTER);
+            document.setPageSize(org.openpdf.text.PageSize.LETTER);
             document.addTitle("Title of the Document");
             document.addCreator("OSCAR");
             document.open();
@@ -172,11 +172,9 @@ public class LabPDFCreator extends PdfPageEventHelper {
             writer.importRtfDocument(rtfStream, null);
 
             document.close();
-        } catch (com.lowagie.text.DocumentException e) {
-            // OpenRTF uses OpenPDF library which has a different DocumentException class
-            // Wrap it to maintain API consistency with iText-based PDF generation
+        } catch (org.openpdf.text.DocumentException e) {
             MiscUtils.getLogger().error("Failed to import RTF document", e);
-            throw new DocumentException(e);
+            throw e;
         }
     }
 

@@ -45,13 +45,13 @@ import java.util.Map;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.pdf.AcroFields;
-import com.lowagie.text.pdf.AcroFields.Item;
-import com.lowagie.text.pdf.PdfDictionary;
-import com.lowagie.text.pdf.PdfName;
-import com.lowagie.text.pdf.PdfReader;
-import com.lowagie.text.pdf.PdfStamper;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.pdf.AcroFields;
+import org.openpdf.text.pdf.AcroFields.Item;
+import org.openpdf.text.pdf.PdfDictionary;
+import org.openpdf.text.pdf.PdfName;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfStamper;
 
 /*
 FIELD_TYPE_CHECKBOX 	2
@@ -225,7 +225,7 @@ public class PDFController {
     @SuppressWarnings("rawtypes")
     private void setPdfMetaData() {
 
-        HashMap pdfInfoMap = getReader().getInfo();
+        Map pdfInfoMap = getReader().getInfo();
         Iterator pdfInfoIt = pdfInfoMap.entrySet().iterator();
 
         numberOfPages = getReader().getNumberOfPages();
@@ -251,7 +251,7 @@ public class PDFController {
     private void addDataToPDF() {
 
         AcroFields acroFields = getStamper().getAcroFields();
-        Map acroFieldsMap = acroFields.getFields();
+        Map acroFieldsMap = acroFields.getAllFields();
         Iterator<String> acroFieldsIt = acroFieldsMap.keySet().iterator();
         String replaceWith = "";
         String key = "";

@@ -21,11 +21,11 @@
  */
 package io.github.carlos_emr.carlos.fax.core;
 
-import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.pdf.PdfWriter;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.PageSize;
+import org.openpdf.text.Paragraph;
+import org.openpdf.text.pdf.PdfWriter;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
@@ -342,7 +342,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
         @DisplayName("should reject PDF with zero pages")
         void shouldRejectPdf_withZeroPages() throws Exception {
             // Given: Malformed PDF structure that might have 0 pages
-            // Note: iTextPDF will throw exception for truly malformed PDFs
+            // Note: OpenPDF's PdfReader will throw exception for truly malformed PDFs
             // This test documents expected behavior
 
             // Create a minimal PDF structure that might parse but have 0 pages

@@ -36,7 +36,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrintPdf;
 
-import com.lowagie.text.DocumentException;
+import org.openpdf.text.DocumentException;
 
 public interface ExtPrint {
 
