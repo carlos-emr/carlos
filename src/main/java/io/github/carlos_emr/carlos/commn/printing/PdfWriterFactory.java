@@ -62,39 +62,48 @@ public class PdfWriterFactory {
 
     /**
      * Creates a new instance of the PDF writer with promo text, confidentiality
-     * statement, and page numbering enabled.
+     * statement, and page numbering enabled. Uses {@link org.openpdf.text.pdf.events.PdfPageEventForwarder}
+     * to chain multiple page event handlers so all stampers run on each page.
      *
      * @param document the PDF document
      * @param stream the output stream to write to
      * @param settings font settings for the writer
-     * @return PdfWriter instance, or null if creation fails
+     * @return PdfWriter instance configured with all page event stampers
+     * @throws IllegalStateException if the PdfWriter cannot be created
      */
     public static org.openpdf.text.pdf.PdfWriter newInstance(org.openpdf.text.Document document, OutputStream stream, FontSettings settings) {
         org.openpdf.text.pdf.PdfWriter result;
         try {
             result = org.openpdf.text.pdf.PdfWriter.getInstance(document, stream);
         } catch (org.openpdf.text.DocumentException e) {
-            MiscUtils.getLogger().error("Unable to create new PdfWriter instance", e);
-            return null;
+            throw new IllegalStateException("Unable to create new PdfWriter instance", e);
         }
+
+        // Use PdfPageEventForwarder to chain all stampers — calling setPageEvent()
+        // multiple times would silently overwrite the previous handler in OpenPDF.
+        org.openpdf.text.pdf.events.PdfPageEventForwarder pageEvents =
+                new org.openpdf.text.pdf.events.PdfPageEventForwarder();
+
         PromoTextStamper pts;
 
         if (confidentialtyStatement != null && !confidentialtyStatement.isEmpty()) {
             pts = new PromoTextStamper(confidentialtyStatement, 30);
             pts.setFontSize(settings.getFontSize());
-            result.setPageEvent(pts);
+            pageEvents.addPageEvent(pts);
         }
         if (promoText != null && !promoText.isEmpty()) {
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
             String promoTextDate = promoText + " " + simpleDateFormat.format(new Date());
             pts = new PromoTextStamper(promoTextDate, 20);
             pts.setFontSize(settings.getFontSize());
-            result.setPageEvent(pts);
+            pageEvents.addPageEvent(pts);
         }
 
         PageNumberStamper pns = new PageNumberStamper(10);
         pns.setFontSize(settings.getFontSize());
-        result.setPageEvent(pns);
+        pageEvents.addPageEvent(pns);
+
+        result.setPageEvent(pageEvents);
 
         return result;
     }

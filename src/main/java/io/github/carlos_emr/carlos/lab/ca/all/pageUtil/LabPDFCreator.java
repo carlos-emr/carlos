@@ -570,7 +570,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 							}
 
                             // add the obx results and info
-                            Font lineFont = new Font(bf, 9, Font.NORMAL, getTextColor(handler, handler.getOBXAbnormalFlag(j, k)));
+                            Font lineFont = new Font(bf, 9, Font.NORMAL, getTextColor(handler.getOBXAbnormalFlag(j, k)));
 
                             if (this.isReportData) {
                                 cell.setColspan(2);
@@ -977,7 +977,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
      *  getTextColor will return the the color corresponding to the abnormal
      *  status of the result.
      */
-    private Color getTextColor(MessageHandler handler, String abn) {
+    private Color getTextColor(String abn) {
         Color ret = Color.BLACK;
         if (abn != null && (abn.equals("A") || abn.startsWith("H"))) {
             ret = Color.RED;

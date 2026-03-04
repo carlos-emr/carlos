@@ -29,7 +29,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 
-// Flying Saucer's ITextFSImage requires the old lowagie Image class
+// Flying Saucer 10.x ITextFSImage works with OpenPDF 3.x (org.openpdf.*)
 import org.openpdf.text.BadElementException;
 import org.openpdf.text.Image;
 import org.apache.commons.io.IOUtils;

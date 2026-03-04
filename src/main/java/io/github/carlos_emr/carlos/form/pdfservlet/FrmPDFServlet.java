@@ -507,11 +507,17 @@ public class FrmPDFServlet extends HttpServlet {
 
                         // write in a rectangle area
                         if (cfgVal.length >= 9) {
+                            int fontSize = 12;
+                            try {
+                                fontSize = Integer.parseInt(cfgVal[5].trim());
+                            } catch (NumberFormatException e) {
+                                log.warn("Invalid font size in form print config '{}': {}", tempName, cfgVal[5]);
+                            }
                             Font font;
                             if (fontFlags == Font.BOLD) { // Hack to stop blue outline from bold text
-                                font = new Font(bf, Integer.parseInt(cfgVal[5].trim()), fontFlags, Color.BLACK);
+                                font = new Font(bf, fontSize, fontFlags, Color.BLACK);
                             } else {
-                                font = new Font(bf, Integer.parseInt(cfgVal[5].trim()), fontFlags);
+                                font = new Font(bf, fontSize, fontFlags);
                             }
                             //ct.setSimpleColumn(60, 300, 200, 500, 10,
                             // Element.ALIGN_LEFT);

@@ -105,12 +105,14 @@ Cross-cutting utilities used by Groups A-C.
 | `utility/ClinicLogoUtility.java` | Clinic logo for PDF headers | Medium |
 
 #### Group E: HTML-to-PDF (Deferred)
+
 | File | Feature | Action |
 |------|---------|--------|
 | `util/Doc2PDF.java` | @Deprecated HTML→PDF via XMLWorker | **DEFER** (separate PR) |
 | `documentManager/ConvertToEdoc.java` | HTML→PDF via ultrabuk+Flying Saucer fallback | **KEEP as-is** |
 
 #### Group F: Flying Saucer (already on OpenPDF)
+
 | File | Feature | Action |
 |------|---------|--------|
 | `documentManager/ReplacedElementFactoryImpl.java` | Flying Saucer image handling (`org.openpdf`) | **DONE** |

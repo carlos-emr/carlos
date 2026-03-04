@@ -144,9 +144,10 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
 
             newDoc.setDocPublic("0");
             newDoc.setContentType("application/pdf");
-            PdfReader reader = new PdfReader(document);
-            int numPages = reader.getNumberOfPages();
-            reader.close();
+            int numPages;
+            try (PdfReader reader = new PdfReader(document)) {
+                numPages = reader.getNumberOfPages();
+            }
             newDoc.setNumberOfPages(numPages);
 
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
@@ -158,7 +159,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload.FHIRCommunicationRequest");
 
         } catch (Exception e) {
-            logger.error("error parsing Document Reference Document from :" + fileName, e);
+            logger.error("error parsing Document Reference Document", e);
         } finally {
             IOUtils.closeQuietly(in);
         }

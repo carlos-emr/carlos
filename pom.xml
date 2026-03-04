@@ -580,6 +580,14 @@
             <artifactId>openpdf</artifactId>
             <version>3.0.2</version>
         </dependency>
+        <!-- openpdf-html: HTML to PDF support (HTMLWorker) used by LabPDFCreator.
+             Declared explicitly since LabPDFCreator directly imports
+             org.openpdf.text.html.simpleparser.HTMLWorker from this module. -->
+        <dependency>
+            <groupId>com.github.librepdf.openpdf</groupId>
+            <artifactId>openpdf-html</artifactId>
+            <version>3.0.2</version>
+        </dependency>
 
         <!-- iText 5 (AGPL) - DEPRECATED, only used by Doc2PDF.java (deferred migration).
              Remove both artifacts when Doc2PDF is migrated to Flying Saucer/ConvertToEdoc. -->

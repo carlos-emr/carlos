@@ -386,9 +386,15 @@ public class FaxImporter {
             tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
 
             try {
-                byte[] decodedBytes = java.util.Base64.getDecoder().decode(faxFile.getDocument());
+                String document = faxFile.getDocument();
+                if (document == null) {
+                    throw new FaxProviderException("Base64 decode failed: missing fax document payload");
+                }
+                // Use getMimeDecoder() to tolerate MIME-formatted (line-wrapped) Base64
+                // payloads that fax providers may return per RFC 2045
+                byte[] decodedBytes = java.util.Base64.getMimeDecoder().decode(document);
                 Files.write(tempFile.toPath(), decodedBytes);
-            } catch (IllegalArgumentException | NullPointerException e) {
+            } catch (IllegalArgumentException e) {
                 throw new FaxProviderException("Base64 decode failed", e);
             }
 
