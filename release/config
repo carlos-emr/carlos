@@ -42,14 +42,12 @@ fi
 tomcat_path=/usr/share/${TOMCAT}/
 C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
-SRC=/usr/share/${PACKAGE}/
+SRC=/var/lib/${PACKAGE}/
 triumvirate=true
 COUNTRY=Unknown
 DEMO=false
 UPGRADE=false
 TMPTY=false
-skip12=false
-skip121=false
 LOG_FILE=${SRC}CARLOS${VERSION}install.log
 LOG_ERR=${SRC}CARLOS.err
 INSTALL_BACKUP=true
@@ -60,7 +58,7 @@ db_switch='?characterEncoding=UTF-8&zeroDateTimeBehavior=round&useOldAliasMetada
 priorschema=none
 db_password=liyi
 login_local_ip=192.168
-DOCS=CARLOSDocument
+DOCS=OscarDocument
 billregion=ON
 billcenter=G
 signature_tablet=no
@@ -93,7 +91,7 @@ eform_signature_enabled=true
 eform_generator_indivica_signature_enabled=true
 eform_generator_indivica_print_enabled=true
 indivica_rich_text_letter_enabled=true
-#DOCUMENT_DIR=${SRC}${DOCS}/${PROGRAM}/document/
+
 HL7_COMPLETED_DIR=${SRC}${DOCS}/${PROGRAM}/document/
 backup_path=${SRC}backup/
 tickler_warn_period=1
@@ -234,21 +232,19 @@ fi
 if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
         echo "WARNING Tomcat 7 is deprecated" 
         echo "WARNING attempting to install on outdated Tomcat 7 !!"  >> $LOG_FILE
+                cp /var/lib/tomcat9/webapps/carlos.war /var/lib/tomcat7/webapps/carlos.war
+                cp /var/lib/tomcat9/webapps/drugref.war /var/lib/tomcat7/webapps/drugref.war
 else
         # if tomcat8 then need to move the wars from the DEB installed directories to the tomcat8 directory
         if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
         echo "WARNING Tomcat 8 is deprecated" 
         echo "WARNING attempting to install on outdated Tomcat 8 !!"  >> $LOG_FILE
-                cp /var/lib/tomcat7/webapps/carlos.war /var/lib/tomcat8/webapps/carlos.war
-                cp /var/lib/tomcat7/webapps/drugref.war /var/lib/tomcat8/webapps/drugref.war
+                cp /var/lib/tomcat9/webapps/carlos.war /var/lib/tomcat8/webapps/carlos.war
+                cp /var/lib/tomcat9/webapps/drugref.war /var/lib/tomcat8/webapps/drugref.war
         else
 
                 # if tomcat 9 its a different move AND we need to add read write paths (tomcat 10 not supported)
                 if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-
-                        # move the wars from the DEB installed directories to the tomcat9 directory
-                        cp /var/lib/tomcat7/webapps/carlos.war /var/lib/tomcat9/webapps/carlos.war
-                        cp /var/lib/tomcat7/webapps/drugref.war /var/lib/tomcat9/webapps/drugref.war
                         
                         # add carlos directory structure to the paths that tomcat9 can read and write to
                         # DO NOT ADD read write to non existing paths or Tomcat will fail to start
@@ -256,20 +252,20 @@ else
                                 if [ ! -f etc/systemd/system/tomcat9.service.d/override.conf ] ; then
                                         touch /etc/systemd/system/tomcat9.service.d/override.conf
                                         echo "[Service]" >> /etc/systemd/system/tomcat9.service.d/override.conf
-                                        echo "ReadWritePaths=/usr/share/carlos-emr/" >> /etc/systemd/system/tomcat9.service.d/override.conf
+                                        echo "ReadWritePaths=/var/lib/OscarDocument/" >> /etc/systemd/system/tomcat9.service.d/override.conf
                                         echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/tomcat9.service.d/override.conf
                                         echo "Created /etc/systemd/system/tomcat9.service.d/override.conf so that tomcat9 read and write on /usr/share/carlos-emr " >>$LOG_FILE
-                                        echo "Allowing tomcat9 read and write on /usr/share/carlos-emr and /tmp by override"
+                                        echo "Allowing tomcat9 read and write on /var/lib/OscarDocument/ and /tmp/ by override"
                                         systemctl daemon-reload
                                 else
                                #test to see if entry present already
                                         if grep -Fq "/usr/share/carlos-emr/" /etc/systemd/system/tomcat9.service.d/override.conf ; then
                                                 echo "Tomcat already has an override set, not modified"
                                         else
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/usr/share/carlos-emr/' /etc/systemd/system/tomcat9.service.d/override.conf
+                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/var/lib/OscarDocument/' /etc/systemd/system/tomcat9.service.d/override.conf
                                                 sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/tmp/' /etc/systemd/system/tomcat9.service.d/override.conf
-                                                echo "Edited override to allow Tomcat read write on /usr/share/carlos-emr and /tmp"
-                                                echo "Added Tomcat read and write on /usr/share/carlos-emr and /tmp to existing override /etc/systemd/system/tomcat9.service.d/override.conf"  >>$LOG_FILE
+                                                echo "Edited override to allow Tomcat read write on /var/lib/OscarDocument and /tmp"
+                                                echo "Added Tomcat read and write on /var/lib/OscarDocument/ and /tmp/ to existing override /etc/systemd/system/tomcat9.service.d/override.conf"  >>$LOG_FILE
                                                 systemctl daemon-reload
                                         fi                
                                 fi
@@ -277,27 +273,27 @@ else
                         if [ ! -d "/etc/systemd/system/tomcat9.service.d" ] ; then
                                 if [ -f /lib/systemd/system/tomcat9.service ] ; then
                                 #test to see if entry present already
-                                        if grep -Fq "/usr/share/carlos-emr/" /lib/systemd/system/tomcat9.service ; then
-                                                echo "Tomcat already has read write on /usr/share/carlos-emr"
+                                        if grep -Fq "/var/lib/OscarDocument/" /lib/systemd/system/tomcat9.service ; then
+                                                echo "Tomcat already has read write on /var/lib/OscarDocument/"
                                         else
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/usr/share/carlos-emr/' /lib/systemd/system/tomcat9.service
+                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/var/lib/OscarDocument/' /lib/systemd/system/tomcat9.service
                                                 sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/tmp/' /lib/systemd/system/tomcat9.service
-                                                echo "Edited tomcat9.service to allow Tomcat read write on /usr/share/carlos-emr and /tmp"
-                                                echo "Edited /lib/systemd/system/tomcat9.service to allow Tomcat read write on /usr/share/carlos-emr and /tmp" >>$LOG_FILE 
+                                                echo "Edited tomcat9.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp/"
+                                                echo "Edited /lib/systemd/system/tomcat9.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp/" >>$LOG_FILE 
                                                 systemctl daemon-reload
                                         fi
                                 fi
                         fi
                         if [ -f /etc/systemd/system/multi-user.target.wants/tomcat9.service ] ; then
                                 #test to see if entry present already
-                                        if grep -Fq "/usr/share/carlos-emr/" /etc/systemd/system/multi-user.target.wants/tomcat9.service ; then
+                                        if grep -Fq "/var/lib/OscarDocument/" /etc/systemd/system/multi-user.target.wants/tomcat9.service ; then
                                                 # in Ubuntu this file is actually a link to tomcatX.service
-                                                echo "Tomcat already has read write on /usr/share/carlos-emr with an entry in tomcatX.service" >>$LOG_FILE 
+                                                echo "Tomcat already has read write on /var/lib/OscarDocument/ with an entry in tomcatX.service" >>$LOG_FILE 
                                         else
-                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/usr/share/carlos-emr/' /etc/systemd/system/multi-user.target.wants/tomcat9.service 
+                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/var/lib/OscarDocument/' /etc/systemd/system/multi-user.target.wants/tomcat9.service 
                                                 sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/tmp/' /etc/systemd/system/multi-user.target.wants/tomcat9.service        
-                                                echo "Edited tomcatX.service to allow Tomcat read write on /usr/share/carlos-emr and /tmp"
-                                                echo "Edited /etc/systemd/system/multi-user.target.wants/tomcatX.service to allow Tomcat read write on /usr/share/carlos-emr and /tmp" >>$LOG_FILE 
+                                                echo "Edited tomcatX.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp"
+                                                echo "Edited /etc/systemd/system/multi-user.target.wants/tomcatX.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp" >>$LOG_FILE 
                                                 systemctl daemon-reload 
                                         fi        
                         fi      
@@ -411,8 +407,6 @@ echo "For a new install from console so probe for some settings" >>$LOG_FILE
 	eyeform=$RET
 	echo "eyeform=${eyeform}" 1>> $LOG_FILE
 fi
-
-
 
 
 if [ "${triumvirate}" = "true" ] ; then
