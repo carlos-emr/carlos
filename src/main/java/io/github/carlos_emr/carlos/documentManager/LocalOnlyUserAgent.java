@@ -98,13 +98,14 @@ public class LocalOnlyUserAgent extends ITextUserAgent {
             return null;
         }
 
+        String lower = uri.toLowerCase(Locale.ROOT);
+
         // Allow data: URIs (inline base64, no network)
-        if (uri.startsWith("data:")) {
+        if (lower.startsWith("data:")) {
             return super.resolveAndOpenStream(uri);
         }
 
         // Block all network schemes
-        String lower = uri.toLowerCase(Locale.ROOT);
         if (lower.startsWith("http:") || lower.startsWith("https:")
                 || lower.startsWith("ftp:") || lower.startsWith("//")) {
             logger.warn("Blocked external resource fetch during PDF rendering: {}",
