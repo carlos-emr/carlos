@@ -36,6 +36,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@page import="org.owasp.encoder.Encode" %>
+<%@page import="org.owasp.csrfguard.CsrfGuard" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -128,7 +129,7 @@
 
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><%=name%>
+                            <div class="DivContentSectionHead"><%=Encode.forHtml(name)%>
                             </div>
                         </td>
                     </tr>
@@ -201,6 +202,9 @@
                                         <input type="hidden" name="ID" value="<%=Encode.forHtmlAttribute(drugrefId)%>"/>
                                         <input type="hidden" name="name" id="name" value="<%=Encode.forHtmlAttribute(name)%>"/>
                                         <input type="hidden" name="allergyToArchive" id="allergyToArchive" value="<%=Encode.forHtmlAttribute(allergyToArchive)%>"/>
+                                        <%-- CSRF token for CSRFGuard validation on form submit --%>
+                                        <% CsrfGuard csrfGuard = CsrfGuard.getInstance(); %>
+                                        <input type="hidden" name="<%= Encode.forHtmlAttribute(csrfGuard.getTokenName()) %>" value="<%= Encode.forHtmlAttribute(csrfGuard.getTokenService().getMasterToken(request.getSession().getId())) %>"/>
                                     </td>
                                 </tr>
 

@@ -42,6 +42,7 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
@@ -103,6 +104,9 @@
             }
         </style>
         <script type="text/javascript">
+            <%-- Server-side CSRF token for AJAX requests --%>
+            var csrfTokenName = '<%= Encode.forJavaScript(org.owasp.csrfguard.CsrfGuard.getInstance().getTokenName()) %>';
+            var csrfTokenValue = '<%= Encode.forJavaScript(org.owasp.csrfguard.CsrfGuard.getInstance().getTokenService().getMasterToken(request.getSession().getId())) %>';
 
             function submitSearchForm() {
                 $("#searchStringButton").click();
@@ -297,6 +301,10 @@
                 } else if (param.indexOf("ID=0") < 0 && iNKDA > 0) {
                     param += "&nkdaId=" + iNKDA;
                 }
+                // Include CSRF token for CSRFGuard validation
+                if (csrfTokenName && csrfTokenValue) {
+                    param += "&" + encodeURIComponent(csrfTokenName) + "=" + encodeURIComponent(csrfTokenValue);
+                }
                 $.ajax({
                     url: path,
                     type: 'POST',
@@ -321,6 +329,18 @@
                 }
 
                 $('.ajax-loader').removeClass('ajax-loader');
+                // Inject CSRF token into any dynamically loaded forms (e.g., AddReaction2.jsp)
+                if (csrfTokenName && csrfTokenValue) {
+                    $('form').each(function() {
+                        if ($(this).find('input[name="' + csrfTokenName + '"]').length === 0) {
+                            var input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = csrfTokenName;
+                            input.value = csrfTokenValue;
+                            $(this).append(input);
+                        }
+                    });
+                }
                 $().bindActionEvents();
             }
 

@@ -796,7 +796,7 @@
         $(editElem).style.top = top + "px";
         if (Prototype.Browser.IE) {
             //IE6 bug of showing select box
-            $("channel").style.visibility = "hidden";
+            if ($("channel")) $("channel").style.visibility = "hidden";
             $(editElem).style.display = "block";
         } else
             $(editElem).style.display = "table";
@@ -966,16 +966,17 @@
     }
 
 function updateCPPNote() {
+    try {
     sanitizeElementByPattern(document.forms["frmIssueNotes"].elements["noteEditTxt"], CONTROL_CHAR_PATTERN_2);
    var url = $("frmIssueNotes").action;
    var reloadUrl = $("reloadUrl").value;
    var div = $("containerDiv").value;
 
-        $('channel').style.visibility = 'visible';
+        if ($('channel')) $('channel').style.visibility = 'visible';
         $('showEditNote').style.display = 'none';
 
         var curItems = document.forms["frmIssueNotes"].elements["issueId"];
-        if (typeof curItems.length != "undefined") {
+        if (curItems != null && typeof curItems.length != "undefined") {
             size = curItems.length;
 
             for (var idx = 0; idx < size; ++idx) {
@@ -1012,7 +1013,10 @@ function updateCPPNote() {
                 }
             }
         );
-        return false;
+    } catch (e) {
+        console.error("updateCPPNote error:", e);
+    }
+    return false;
 
     }
 
