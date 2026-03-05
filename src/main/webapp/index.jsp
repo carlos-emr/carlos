@@ -540,13 +540,23 @@
               mask-position: center;
             }
         </style>
-
+<style>
+body {
+  background-image: url("https://images.pexels.com/photos/531767/pexels-photo-531767.jpeg");
+  background-repeat: no-repeat; /* Prevents the image from tiling */
+  background-size: cover; /* Ensures the image covers the entire element */
+  background-position: center; /* Centers the image in the element */
+  background-attachment: fixed; /* Makes the image fixed while content scrolls (optional parallax effect) */
+}
+</style>
     </head>
 
     <body onLoad="setfocus()">
+
+
     <div class="content">
         <div class="topbar">
-            <span id="buildInfo">
+            <span id="buildInfo" style="color:black;">
             	<c:out value="${ LoginResourceBean.buildTag }"/>
             </span>
         </div>
@@ -562,6 +572,11 @@
                 </a>
             </div>
 
+<div>
+<br>
+<span style="font-size: 40px; font-weight: bold; color: white; text-shadow: 2px 2px 5px rgba(0,0,0,0.7);">CARLOS</span>
+<br>
+</div>
             <!-- Clinic info -->
             <div id="clinic_text">
                 <h2 id="clinic_name">
