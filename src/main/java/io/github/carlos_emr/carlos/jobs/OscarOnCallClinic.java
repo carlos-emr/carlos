@@ -177,56 +177,55 @@ public class OscarOnCallClinic implements OscarRunnable {
      */
     private Boolean makeNoShowApptDocument(String filename, Appointment appointment, Demographic demographic, ProviderData providerData) {
         Document document = new Document();
+        try {
+            try (FileOutputStream fos = new FileOutputStream(DOCUMENTDIR + filename)) {
+                PdfWriter.getInstance(document, fos);
+                Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
+                pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
+                document.setPageSize(pageSize);
+                document.setMargins(36, 72, 108, 180);
+                document.setMarginMirroringTopBottom(true);
+                document.open();
+                Font headerFont = new Font(Font.HELVETICA, 14);
+                Chunk chunkHeader = new Chunk("OSCAR ON CALL CLINIC", headerFont);
+                chunkHeader.setUnderline(2f, -2f);
+                Paragraph header = new Paragraph(chunkHeader);
+                header.setAlignment(Element.ALIGN_CENTER);
+                header.setExtraParagraphSpace(24f);
+                document.add(header);
+                document.add(Chunk.NEWLINE);
+                document.add(Chunk.NEWLINE);
+                document.add(Chunk.NEWLINE);
 
-        try (FileOutputStream fos = new FileOutputStream(DOCUMENTDIR + filename)) {
-            PdfWriter.getInstance(document, fos);
-            Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
-            pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
-            document.setPageSize(pageSize);
-            document.setMargins(36, 72, 108, 180);
-            document.setMarginMirroringTopBottom(true);
-            document.open();
-            Font headerFont = new Font(Font.HELVETICA, 14);
-            Chunk chunkHeader = new Chunk("OSCAR ON CALL CLINIC", headerFont);
-            chunkHeader.setUnderline(2f, -2f);
-            Paragraph header = new Paragraph(chunkHeader);
-            header.setAlignment(Element.ALIGN_CENTER);
-            header.setExtraParagraphSpace(24f);
-            document.add(header);
-            document.add(Chunk.NEWLINE);
-            document.add(Chunk.NEWLINE);
-            document.add(Chunk.NEWLINE);
+                Font bodyFont = new Font(Font.TIMES_ROMAN, 12);
+                Chunk chunkAttn = new Chunk("ATTN: " + demographic.getProvider().getFormattedName(), bodyFont);
+                Paragraph attnParagraph = new Paragraph(chunkAttn);
+                attnParagraph.setAlignment(Element.ALIGN_LEFT);
+                attnParagraph.setExtraParagraphSpace(24f);
+                document.add(attnParagraph);
+                document.add(Chunk.NEWLINE);
+                document.add(Chunk.NEWLINE);
 
-            Font bodyFont = new Font(Font.TIMES_ROMAN, 12);
-            Chunk chunkAttn = new Chunk("ATTN: " + demographic.getProvider().getFormattedName(), bodyFont);
-            Paragraph attnParagraph = new Paragraph(chunkAttn);
-            attnParagraph.setAlignment(Element.ALIGN_LEFT);
-            attnParagraph.setExtraParagraphSpace(24f);
-            document.add(attnParagraph);
-            document.add(Chunk.NEWLINE);
-            document.add(Chunk.NEWLINE);
+                Font patientFont = new Font(Font.HELVETICA, 12, Font.ITALIC, Color.BLUE);
+                Chunk patientChunk = new Chunk(demographic.getFormattedName(), patientFont);
+                Paragraph body = new Paragraph();
+                Chunk body1 = new Chunk("Your patient ", bodyFont);
+                Chunk body2 = new Chunk(" did NOT show for an appointment on " + simpleDateFormat.format(appointment.getAppointmentDate()) +
+                        ".  The appointment was with " + providerData.getFirstName() + " " + providerData.getLastName());
 
-            Font patientFont = new Font(Font.HELVETICA, 12, Font.ITALIC, Color.BLUE);
-            Chunk patientChunk = new Chunk(demographic.getFormattedName(), patientFont);
-            Paragraph body = new Paragraph();
-            Chunk body1 = new Chunk("Your patient ", bodyFont);
-            Chunk body2 = new Chunk(" did NOT show for an appointment on " + simpleDateFormat.format(appointment.getAppointmentDate()) +
-                    ".  The appointment was with " + providerData.getFirstName() + " " + providerData.getLastName());
+                body.add(body1);
+                body.add(patientChunk);
+                body.add(body2);
+                body.setAlignment(Element.ALIGN_LEFT);
+                document.add(body);
 
-            body.add(body1);
-            body.add(patientChunk);
-            body.add(body2);
-            body.setAlignment(Element.ALIGN_LEFT);
-            document.add(body);
-
-            // Close document inside the try body so the PDF trailer is
-            // written to fos BEFORE try-with-resources closes the stream.
-            document.close();
-
+                // Close document inside the try body so the PDF trailer is
+                // written to fos BEFORE try-with-resources closes the stream.
+                document.close();
+            }
         } catch (FileNotFoundException e) {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
-
         } catch (DocumentException | IOException e) {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
@@ -237,7 +236,6 @@ public class OscarOnCallClinic implements OscarRunnable {
         }
 
         return true;
-
     }
 
     /**
@@ -251,56 +249,55 @@ public class OscarOnCallClinic implements OscarRunnable {
      */
     private Boolean makeGoodApptDocument(String filename, Appointment appointment, Demographic demographic, ProviderData providerData) {
         Document document = new Document();
+        try {
+            try (FileOutputStream fos = new FileOutputStream(DOCUMENTDIR + filename)) {
+                PdfWriter.getInstance(document, fos);
+                Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
+                pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
+                document.setPageSize(pageSize);
+                document.setMargins(36, 72, 108, 180);
+                document.setMarginMirroringTopBottom(true);
+                document.open();
+                Font headerFont = new Font(Font.HELVETICA, 14);
+                Chunk chunkHeader = new Chunk("OSCAR ON CALL CLINIC", headerFont);
+                chunkHeader.setUnderline(2f, -2f);
+                Paragraph header = new Paragraph(chunkHeader);
+                header.setAlignment(Element.ALIGN_CENTER);
+                header.setExtraParagraphSpace(24f);
+                document.add(header);
+                document.add(Chunk.NEWLINE);
+                document.add(Chunk.NEWLINE);
+                document.add(Chunk.NEWLINE);
+                String reason = appointment.getReason() == null || "".equals(appointment.getReason()) ? "" : " for \"" + appointment.getReason() + "\"";
+                Font bodyFont = new Font(Font.TIMES_ROMAN, 12);
+                Chunk chunkAttn = new Chunk("ATTN: " + demographic.getProvider().getFormattedName(), bodyFont);
+                Paragraph attnParagraph = new Paragraph(chunkAttn);
+                attnParagraph.setAlignment(Element.ALIGN_LEFT);
+                attnParagraph.setExtraParagraphSpace(24f);
+                document.add(attnParagraph);
+                document.add(Chunk.NEWLINE);
+                document.add(Chunk.NEWLINE);
 
-        try (FileOutputStream fos = new FileOutputStream(DOCUMENTDIR + filename)) {
-            PdfWriter.getInstance(document, fos);
-            Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
-            pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
-            document.setPageSize(pageSize);
-            document.setMargins(36, 72, 108, 180);
-            document.setMarginMirroringTopBottom(true);
-            document.open();
-            Font headerFont = new Font(Font.HELVETICA, 14);
-            Chunk chunkHeader = new Chunk("OSCAR ON CALL CLINIC", headerFont);
-            chunkHeader.setUnderline(2f, -2f);
-            Paragraph header = new Paragraph(chunkHeader);
-            header.setAlignment(Element.ALIGN_CENTER);
-            header.setExtraParagraphSpace(24f);
-            document.add(header);
-            document.add(Chunk.NEWLINE);
-            document.add(Chunk.NEWLINE);
-            document.add(Chunk.NEWLINE);
-            String reason = appointment.getReason() == null || "".equals(appointment.getReason()) ? "" : " for \"" + appointment.getReason() + "\"";
-            Font bodyFont = new Font(Font.TIMES_ROMAN, 12);
-            Chunk chunkAttn = new Chunk("ATTN: " + demographic.getProvider().getFormattedName(), bodyFont);
-            Paragraph attnParagraph = new Paragraph(chunkAttn);
-            attnParagraph.setAlignment(Element.ALIGN_LEFT);
-            attnParagraph.setExtraParagraphSpace(24f);
-            document.add(attnParagraph);
-            document.add(Chunk.NEWLINE);
-            document.add(Chunk.NEWLINE);
+                Font patientFont = new Font(Font.HELVETICA, 12, Font.ITALIC, Color.BLUE);
+                Chunk patientChunk = new Chunk(demographic.getFormattedName(), patientFont);
+                Paragraph body = new Paragraph();
+                Chunk body1 = new Chunk("Your patient ", bodyFont);
+                Chunk body2 = new Chunk(" was seen on " + simpleDateFormat.format(appointment.getAppointmentDate()) + " by " +
+                        providerData.getFirstName() + " " + providerData.getLastName() + reason, bodyFont);
 
-            Font patientFont = new Font(Font.HELVETICA, 12, Font.ITALIC, Color.BLUE);
-            Chunk patientChunk = new Chunk(demographic.getFormattedName(), patientFont);
-            Paragraph body = new Paragraph();
-            Chunk body1 = new Chunk("Your patient ", bodyFont);
-            Chunk body2 = new Chunk(" was seen on " + simpleDateFormat.format(appointment.getAppointmentDate()) + " by " +
-                    providerData.getFirstName() + " " + providerData.getLastName() + reason, bodyFont);
+                body.add(body1);
+                body.add(patientChunk);
+                body.add(body2);
+                body.setAlignment(Element.ALIGN_LEFT);
+                document.add(body);
 
-            body.add(body1);
-            body.add(patientChunk);
-            body.add(body2);
-            body.setAlignment(Element.ALIGN_LEFT);
-            document.add(body);
-
-            // Close document inside the try body so the PDF trailer is
-            // written to fos BEFORE try-with-resources closes the stream.
-            document.close();
-
+                // Close document inside the try body so the PDF trailer is
+                // written to fos BEFORE try-with-resources closes the stream.
+                document.close();
+            }
         } catch (FileNotFoundException e) {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
-
         } catch (DocumentException | IOException e) {
             MiscUtils.getLogger().error("ERROR", e);
             return false;

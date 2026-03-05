@@ -37,7 +37,8 @@ CARLOS EMR currently uses **5+ overlapping PDF libraries** for PDF creation, for
 
 ### Files by Library Usage
 
-**45 files import `com.itextpdf.*`** — the bulk of the migration work:
+**45 files imported `com.itextpdf.*`** (the original migration scope). Including the new
+`LocalOnlyUserAgent.java`, 46 total files now use `org.openpdf.*`:
 
 #### Group A: PDF Creation from Scratch (21 files)
 These files create PDFs programmatically using `Document`, `PdfWriter`, `PdfPTable`, `Paragraph`, `Font`, etc.
@@ -99,7 +100,7 @@ Cross-cutting utilities used by Groups A-C.
 
 | File | Feature | Risk |
 |------|---------|------|
-| `commn/printing/PdfWriterFactory.java` | PdfWriter factory (has both iText and lowagie overloads) | Medium |
+| `commn/printing/PdfWriterFactory.java` | PdfWriter factory with PdfPageEventForwarder chaining | Low (completed) |
 | `commn/printing/FontSettings.java` | Font configuration | Low |
 | `commn/service/PdfRecordPrinter.java` | Generic record printer (16 iText imports) | **High** |
 | `utility/ClinicLogoUtility.java` | Clinic logo for PDF headers | Medium |
@@ -178,21 +179,27 @@ all resource types regardless of what's in the HTML.
   blocked, but messenger HTML contains no images; if needed, the fix is to convert to filesystem
   paths instead
 
-### PDFBox Files (11 files — no changes needed)
+### PDFBox-Only Files (7 files — no changes needed)
 
-These files use `org.apache.pdfbox` and remain unchanged:
+These files use only `org.apache.pdfbox` and were not modified:
 
 - `util/ConcatPDF.java` — PDF merging
 - `documentManager/actions/SplitDocument2Action.java` — PDF splitting
-- `documentManager/actions/ManageDocument2Action.java` — Document management
-- `documentManager/IncomingDocUtil.java` — Page counting via PDFBox
 - `documentManager/EDocUtil.java` — Edoc utilities
 - `documentManager/DocumentAttachmentManagerImpl.java` — Attachment handling
 - `utility/PDFEncryptionUtil.java` — AES-256 encryption
 - `managers/NioFileManagerImpl.java` — PDF rendering for thumbnails
-- `managers/DocumentManagerImpl.java` — Document management
 - `webserv/rest/RxWebService.java` — Prescription PDF export
-- `lab/ca/all/upload/handlers/FHIRCommunicationRequestHandler.java` — FHIR handler
+
+### PDFBox + OpenPDF Files (4 files — iText imports migrated)
+
+These files use **both** PDFBox and OpenPDF. Their `com.itextpdf` imports were migrated
+to `org.openpdf` as part of Group C; their PDFBox usage was unchanged:
+
+- `documentManager/actions/ManageDocument2Action.java` — Document management (PDFBox for rendering, OpenPDF for page insertion)
+- `documentManager/IncomingDocUtil.java` — Incoming document processing (PDFBox for page counting, OpenPDF for rotation/extraction)
+- `managers/DocumentManagerImpl.java` — Document management (PDFBox for page counting, OpenPDF for stamping)
+- `lab/ca/all/upload/handlers/FHIRCommunicationRequestHandler.java` — FHIR handler (PDFBox for parsing, OpenPDF for reading)
 
 ---
 

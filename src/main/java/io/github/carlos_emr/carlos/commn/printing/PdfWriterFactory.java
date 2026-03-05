@@ -46,8 +46,8 @@ import org.openpdf.text.pdf.events.PdfPageEventForwarder;
  * used throughout CARLOS EMR for clinical PDF generation.
  *
  * <p>Each writer produced by {@link #newInstance} is automatically equipped with a
- * {@link PdfPageEventForwarder} that chains three page-event
- * stampers (all rendered on every page):</p>
+ * {@link PdfPageEventForwarder} that chains up to three page-event
+ * stampers (depending on configuration; all enabled stampers render on every page):</p>
  * <ol>
  *   <li><strong>Confidentiality statement</strong> &mdash; from the {@code confidentialityStatement}
  *       property (displayed at y-offset 30)</li>
@@ -79,9 +79,9 @@ public class PdfWriterFactory {
      * statement, and page numbering enabled. Uses {@link PdfPageEventForwarder}
      * to chain multiple page event handlers so all stampers run on each page.
      *
-     * @param document the PDF document
-     * @param stream the output stream to write to
-     * @param settings font settings for the writer
+     * @param document Document the PDF document
+     * @param stream OutputStream the output stream to write to
+     * @param settings FontSettings font settings for the writer (font name, size, encoding, and embedding are all applied to stampers)
      * @return PdfWriter instance configured with all page event stampers
      * @throws DocumentException if the PdfWriter cannot be created
      */
@@ -96,6 +96,7 @@ public class PdfWriterFactory {
 
         if (confidentialityStatement != null && !confidentialityStatement.isEmpty()) {
             pts = new PromoTextStamper(confidentialityStatement, 30);
+            pts.setFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
             pts.setFontSize(settings.getFontSize());
             pageEvents.addPageEvent(pts);
         }
@@ -103,11 +104,13 @@ public class PdfWriterFactory {
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
             String promoTextDate = promoText + " " + simpleDateFormat.format(new Date());
             pts = new PromoTextStamper(promoTextDate, 20);
+            pts.setFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
             pts.setFontSize(settings.getFontSize());
             pageEvents.addPageEvent(pts);
         }
 
         PageNumberStamper pns = new PageNumberStamper(10);
+        pns.setFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
         pns.setFontSize(settings.getFontSize());
         pageEvents.addPageEvent(pns);
 

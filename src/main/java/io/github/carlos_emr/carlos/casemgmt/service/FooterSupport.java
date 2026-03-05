@@ -28,6 +28,9 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import java.io.IOException;
+
+import org.openpdf.text.DocumentException;
 import org.openpdf.text.pdf.BaseFont;
 import org.openpdf.text.pdf.PdfPageEventHelper;
 
@@ -72,7 +75,7 @@ public class FooterSupport extends PdfPageEventHelper {
     public void setFont(String fontName, String encoding, boolean isEmbedded) {
         try {
             font = BaseFont.createFont(fontName, encoding, isEmbedded);
-        } catch (Exception e) {
+        } catch (DocumentException | IOException e) {
             throw new RuntimeException("Unable to create base font", e);
         }
     }

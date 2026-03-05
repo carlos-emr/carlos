@@ -283,6 +283,122 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
     }
 
     /**
+     * Tests for the Base64 decode-and-write pipeline (Priority 9).
+     *
+     * <p><strong>Critical Risk:</strong> The migration from iText's
+     * {@code com.itextpdf.text.pdf.codec.Base64.decodeToFile()} to
+     * {@code java.util.Base64.getMimeDecoder().decode()} changed the decoding behavior.
+     * {@code getMimeDecoder()} specifically handles RFC 2045 MIME-formatted (line-wrapped)
+     * Base64. If it rejects payloads the old decoder accepted, incoming faxes would be
+     * silently corrupted.</p>
+     */
+    @Nested
+    @DisplayName("Base64 Decode and Write Tests (Priority 9)")
+    @Tag("decode")
+    class Base64DecodeAndWriteTests {
+
+        /**
+         * Verifies the full saveToIncoming decode-and-write path: Base64 encode a valid
+         * PDF, set it as the fax document, invoke saveToIncoming, and confirm the decoded
+         * file on disk matches the original PDF byte-for-byte.
+         */
+        @Test
+        @DisplayName("should decode standard Base64 PDF and write identical bytes to disk")
+        void shouldDecodeStandardBase64Pdf_andWriteIdenticalBytes() throws Exception {
+            // Given: A valid 2-page PDF, Base64-encoded (standard, no line wrapping)
+            Path incomingDir = initializeFaxIncomingDir();
+            FaxConfig faxConfig = createFaxConfig();
+            FaxJob receivedFax = createReceivedFax();
+
+            File originalPdf = createValidPdf(2);
+            byte[] originalBytes = Files.readAllBytes(originalPdf.toPath());
+            originalPdf.delete();
+
+            String base64Payload = Base64.getEncoder().encodeToString(originalBytes);
+            FaxJob faxFile = createFaxFile(base64Payload);
+
+            // When: saveToIncoming decodes and writes the file
+            Path result = (Path) saveToIncomingMethod.invoke(
+                    faxImporter, faxConfig, receivedFax, faxFile);
+
+            // Then: File was saved successfully
+            assertThat(result).isNotNull();
+            assertThat(Files.exists(result)).isTrue();
+
+            // Then: Decoded bytes match the original PDF exactly
+            byte[] decodedBytes = Files.readAllBytes(result);
+            assertThat(decodedBytes)
+                    .as("Decoded file must match original PDF byte-for-byte")
+                    .isEqualTo(originalBytes);
+        }
+
+        /**
+         * Verifies that MIME-formatted (line-wrapped at 76 chars per RFC 2045) Base64
+         * payloads are correctly decoded. Some fax providers return Base64 with CRLF
+         * line breaks; {@code getMimeDecoder()} must tolerate this.
+         */
+        @Test
+        @DisplayName("should decode MIME-formatted (line-wrapped) Base64 payload")
+        void shouldDecodeMimeFormattedBase64_withLineWrapping() throws Exception {
+            // Given: A valid PDF, MIME-encoded with 76-char line wrapping + CRLF
+            Path incomingDir = initializeFaxIncomingDir();
+            FaxConfig faxConfig = createFaxConfig();
+            FaxJob receivedFax = createReceivedFax();
+
+            File originalPdf = createValidPdf(1);
+            byte[] originalBytes = Files.readAllBytes(originalPdf.toPath());
+            originalPdf.delete();
+
+            String mimePayload = Base64.getMimeEncoder(76, "\r\n".getBytes())
+                    .encodeToString(originalBytes);
+
+            // Verify the MIME encoding actually has line breaks (sanity check)
+            assertThat(mimePayload).contains("\r\n");
+
+            FaxJob faxFile = createFaxFile(mimePayload);
+
+            // When: saveToIncoming decodes the MIME-formatted payload
+            Path result = (Path) saveToIncomingMethod.invoke(
+                    faxImporter, faxConfig, receivedFax, faxFile);
+
+            // Then: File was saved successfully
+            assertThat(result).isNotNull();
+            assertThat(Files.exists(result)).isTrue();
+
+            // Then: Decoded bytes match the original
+            byte[] decodedBytes = Files.readAllBytes(result);
+            assertThat(decodedBytes)
+                    .as("MIME-wrapped Base64 must decode to identical bytes")
+                    .isEqualTo(originalBytes);
+        }
+
+        /**
+         * Verifies that a null document payload is rejected with an appropriate error
+         * rather than a NullPointerException.
+         */
+        @Test
+        @DisplayName("should reject null document payload with descriptive error")
+        void shouldRejectNullPayload_withDescriptiveError() throws Exception {
+            // Given: FaxJob with null document content
+            initializeFaxIncomingDir();
+            FaxConfig faxConfig = createFaxConfig();
+            FaxJob receivedFax = createReceivedFax();
+            FaxJob faxFile = createFaxFile(null);
+
+            // When: saveToIncoming attempts to decode null
+            Path result = (Path) saveToIncomingMethod.invoke(
+                    faxImporter, faxConfig, receivedFax, faxFile);
+
+            // Then: Should return null (failure) with ERROR status
+            assertThat(result).isNull();
+            assertThat(receivedFax.getStatus()).isEqualTo(FaxJob.STATUS.ERROR);
+            assertThat(receivedFax.getStatusString())
+                    .containsIgnoringCase("Base64")
+                    .containsIgnoringCase("missing");
+        }
+    }
+
+    /**
      * Tests for PDF validation failure handling (Priority 9).
      *
      * <p><strong>Critical Risk:</strong> Accepting corrupted PDFs into the document system

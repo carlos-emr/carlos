@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.openpdf.text.pdf.BaseFont;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 /**
  * Unit tests for {@link FontSettings} — the shared font configuration used
@@ -104,6 +106,38 @@ class FontSettingsUnitTest {
             assertThat(custom.getCodePage()).isEqualTo(BaseFont.CP1252);
             assertThat(custom.isEmbedded()).isTrue();
             assertThat(custom.getFontSize()).isEqualTo(14);
+        }
+
+        @Test
+        @DisplayName("should reject null font name")
+        void shouldRejectNullFont() {
+            assertThatNullPointerException()
+                    .isThrownBy(() -> new FontSettings(null, BaseFont.WINANSI, false, 10))
+                    .withMessageContaining("font");
+        }
+
+        @Test
+        @DisplayName("should reject null code page")
+        void shouldRejectNullCodePage() {
+            assertThatNullPointerException()
+                    .isThrownBy(() -> new FontSettings(BaseFont.HELVETICA, null, false, 10))
+                    .withMessageContaining("codePage");
+        }
+
+        @Test
+        @DisplayName("should reject zero font size")
+        void shouldRejectZeroFontSize() {
+            assertThatThrownBy(() -> new FontSettings(BaseFont.HELVETICA, BaseFont.WINANSI, false, 0))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("fontSize");
+        }
+
+        @Test
+        @DisplayName("should reject negative font size")
+        void shouldRejectNegativeFontSize() {
+            assertThatThrownBy(() -> new FontSettings(BaseFont.HELVETICA, BaseFont.WINANSI, false, -5))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("fontSize");
         }
     }
 }

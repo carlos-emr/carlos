@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.commn.printing;
 
+import java.util.Objects;
+
 import org.openpdf.text.pdf.BaseFont;
 
 /**
@@ -48,7 +50,7 @@ import org.openpdf.text.pdf.BaseFont;
  * @see PdfWriterFactory
  * @since 2012-09-10
  */
-public class FontSettings {
+public final class FontSettings {
 
     /** Helvetica 6 pt &mdash; footers and fine print. */
     public static final FontSettings HELVETICA_6PT =
@@ -68,14 +70,19 @@ public class FontSettings {
     /**
      * Creates a fully specified FontSettings.
      *
-     * @param font     OpenPDF font name (e.g. {@link BaseFont#HELVETICA}, {@link BaseFont#TIMES_ROMAN})
-     * @param codePage character encoding (e.g. {@link BaseFont#WINANSI}, {@link BaseFont#CP1252})
-     * @param embedded {@code true} to embed the font in the PDF, {@code false} otherwise
-     * @param fontSize point size for text rendering
+     * @param font     String OpenPDF font name (e.g. {@link BaseFont#HELVETICA}, {@link BaseFont#TIMES_ROMAN})
+     * @param codePage String character encoding (e.g. {@link BaseFont#WINANSI}, {@link BaseFont#CP1252})
+     * @param embedded boolean {@code true} to embed the font in the PDF, {@code false} otherwise
+     * @param fontSize int point size for text rendering (must be positive)
+     * @throws NullPointerException if {@code font} or {@code codePage} is null
+     * @throws IllegalArgumentException if {@code fontSize} is not positive
      */
     public FontSettings(String font, String codePage, boolean embedded, int fontSize) {
-        this.font = font;
-        this.codePage = codePage;
+        this.font = Objects.requireNonNull(font, "font must not be null");
+        this.codePage = Objects.requireNonNull(codePage, "codePage must not be null");
+        if (fontSize <= 0) {
+            throw new IllegalArgumentException("fontSize must be positive, got: " + fontSize);
+        }
         this.embedded = embedded;
         this.fontSize = fontSize;
     }

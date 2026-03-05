@@ -139,7 +139,7 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
     @Tag("parse")
     @DisplayName("should produce PDF when minimal HTML is provided")
     void shouldProducePdf_whenMinimalHtmlProvided() {
-        // Given - minimal HTML with content (empty body causes XMLWorkerHelper parse failure)
+        // Given - minimal HTML with content (Flying Saucer requires non-empty body for valid PDF output)
         String minimalHtml = "<html><body><p>.</p></body></html>";
 
         // When

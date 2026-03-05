@@ -66,7 +66,14 @@ import java.io.InputStream;
  * <p>Used by {@link ConvertToEdoc#fallbackRender} as the replaced element factory
  * for the Flying Saucer ITextRenderer with OpenPDF backend.
  *
+ * <p><strong>Security note:</strong> The {@link #imageForPDF} method opens files directly
+ * from the HTML {@code src} attribute via {@link java.io.FileInputStream}. This is safe
+ * only when the renderer is created through {@link LocalOnlyUserAgent#createRestrictedRenderer()},
+ * which enforces path containment on all {@code file:} URIs. Do not use this factory with
+ * an unrestricted {@code ITextRenderer} — doing so would allow local file disclosure attacks.
+ *
  * @see ConvertToEdoc
+ * @see LocalOnlyUserAgent
  * @see org.xhtmlrenderer.extend.ReplacedElementFactory
  * @since 2022-05-12
  */
