@@ -102,10 +102,11 @@ public class Doc2PDF {
      *
      * @param html String containing the HTML content to render
      * @param os OutputStream to write the PDF to
+     * @param baseUrl String optional base URL for resolving relative resources (e.g. {@code file:///path/to/webapp/}), or null
      * @throws Exception if rendering fails
      * @since 2026-03-04
      */
-    private static void renderWithFlyingSaucer(String html, OutputStream os) throws Exception {
+    private static void renderWithFlyingSaucer(String html, OutputStream os, String baseUrl) throws Exception {
         org.jsoup.nodes.Document doc = Jsoup.parse(html);
         doc.outputSettings()
             .syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml)
@@ -126,7 +127,7 @@ public class Doc2PDF {
         sharedContext.setInteractive(false);
         sharedContext.getTextRenderer().setSmoothingThreshold(0);
 
-        renderer.setDocumentFromString(doc.outerHtml(), null);
+        renderer.setDocumentFromString(doc.outerHtml(), baseUrl);
         renderer.layout();
         renderer.createPDF(os, true);
     }
@@ -157,7 +158,7 @@ public class Doc2PDF {
             MiscUtils.getLogger().debug("Parsed HTML content, length: {} chars", cleanHtml.length());
             String documentTxt = AddAbsoluteTag(request, cleanHtml, uri);
 
-            PrintPDFFromHTMLString(response, documentTxt);
+            PrintPDFFromHTMLString(response, documentTxt, getFileBaseUrl(request));
 
         } catch (Exception e) {
             logger.error("", e);
@@ -265,7 +266,7 @@ public class Doc2PDF {
 
             String cleanHtml = doc.html();
 
-            PrintPDFFromHTMLString(response, AddAbsoluteTag(request, cleanHtml, ""));
+            PrintPDFFromHTMLString(response, AddAbsoluteTag(request, cleanHtml, ""), getFileBaseUrl(request));
 
         } catch (Exception e) {
             logger.error("Unexpected error", e);
@@ -293,7 +294,7 @@ public class Doc2PDF {
 
             String cleanHtml = doc.html();
 
-            String testFile = GetPDFBin(response, AddAbsoluteTag(request, cleanHtml, ""));
+            String testFile = GetPDFBin(response, AddAbsoluteTag(request, cleanHtml, ""), getFileBaseUrl(request));
 
             return testFile;
 
@@ -362,12 +363,13 @@ public class Doc2PDF {
      *
      * @param response HttpServletResponse unused but maintained for API compatibility
      * @param docText String the HTML content to convert
+     * @param baseUrl String optional {@code file://} base URL for resolving relative resources, or null
      * @return String Base64-encoded PDF data, or null if conversion fails
      */
-    public static String GetPDFBin(HttpServletResponse response, String docText) {
+    public static String GetPDFBin(HttpServletResponse response, String docText, String baseUrl) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            renderWithFlyingSaucer(docText, baos);
+            renderWithFlyingSaucer(docText, baos, baseUrl);
             return (new String(Base64.encodeBase64(baos.toByteArray())));
         } catch (Exception e) {
             logger.error("Unexpected error", e);
@@ -444,11 +446,12 @@ public class Doc2PDF {
      *
      * @param response HttpServletResponse to write the PDF to
      * @param docText String the HTML content to convert and serve
+     * @param baseUrl String optional {@code file://} base URL for resolving relative resources, or null
      */
-    public static void PrintPDFFromHTMLString(HttpServletResponse response, String docText) {
+    public static void PrintPDFFromHTMLString(HttpServletResponse response, String docText, String baseUrl) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            renderWithFlyingSaucer(docText, baos);
+            renderWithFlyingSaucer(docText, baos, baseUrl);
             PrintPDFFromBytes(response, baos.toByteArray());
         } catch (Exception e) {
             logger.error("Unexpected error", e);
@@ -456,39 +459,48 @@ public class Doc2PDF {
     }
 
     /**
-     * Converts relative {@code src} attribute paths in HTML to absolute URLs based on the request context.
+     * Converts relative {@code src} attribute paths in HTML to local file paths
+     * so that Flying Saucer (with {@link LocalOnlyUserAgent}) can resolve images
+     * during PDF rendering without making network requests.
      *
-     * <p>Strips leading slashes from {@code src} attributes and prepends the full server URL
-     * (protocol, host, port, context path) so that Flying Saucer can resolve images and
-     * resources during PDF rendering.</p>
+     * <p>Strips leading slashes from {@code src} attributes so they become relative
+     * paths that Flying Saucer resolves against the {@code file://} base URL passed
+     * to {@link #renderWithFlyingSaucer}. This avoids constructing {@code http://} URLs
+     * that would be blocked by the SSRF-safe {@link LocalOnlyUserAgent}.</p>
      *
-     * @param request HttpServletRequest providing protocol, host, port, and context path
+     * @param request HttpServletRequest providing servlet context for the webapp real path
      * @param docText String the HTML content with potentially relative src attributes
      * @param uri String the original URI (unused in current implementation)
-     * @return String the HTML with absolute src URLs
+     * @return String the HTML with src attributes cleaned for local file resolution
      */
     public static String AddAbsoluteTag(HttpServletRequest request, String docText, String uri) {
 
-        String absolutePath = "";
-
-        // Strip leading slashes from src attributes first so that prepending the absolute
-        // path does not produce doubled slashes (e.g., "http://host:8080//images/logo.png").
+        // Strip leading slashes from src attributes so they become relative paths
+        // that Flying Saucer resolves against the file:// base URL
         docText = docText.replaceAll("src='/", "src='");
         docText = docText.replaceAll("src=\"/", "src=\"");
         docText = docText.replaceAll("src=/", "src=");
 
-        if (request.getProtocol().toString().equals("HTTP/1.1")) {
-            absolutePath = "http://";
-        } else {
-            absolutePath = "https://";
-        }
-
-        absolutePath += request.getRemoteHost() + ":" + request.getServerPort() + "" + request.getContextPath() + "/";
-
-        docText = docText.replaceAll("src='", "src='" + absolutePath);
-        docText = docText.replaceAll("src=\"", "src=\"" + absolutePath);
-
         return docText;
+    }
+
+    /**
+     * Builds a {@code file://} base URL from the servlet context's real path on disk.
+     * Used as the base URL for Flying Saucer so it resolves relative resource paths
+     * (images, CSS) from the deployed webapp directory.
+     *
+     * @param request HttpServletRequest providing access to the servlet context
+     * @return String the {@code file://} base URL, or null if the real path cannot be determined
+     */
+    static String getFileBaseUrl(HttpServletRequest request) {
+        String realPath = request.getServletContext().getRealPath("/");
+        if (realPath == null) {
+            return null;
+        }
+        if (!realPath.endsWith("/")) {
+            realPath += "/";
+        }
+        return "file://" + realPath;
     }
 
     /**

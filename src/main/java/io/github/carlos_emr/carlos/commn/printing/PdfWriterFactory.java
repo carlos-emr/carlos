@@ -66,7 +66,7 @@ import io.github.carlos_emr.OscarProperties;
 public class PdfWriterFactory {
 
     /** Confidentiality statement loaded once from system properties at class init. */
-    private static String confidentialtyStatement = OscarProperties.getConfidentialityStatement();
+    private static String confidentialityStatement = OscarProperties.getConfidentialityStatement();
     /** Promotional text (clinic branding) loaded once from system properties at class init. */
     private static String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 
@@ -110,8 +110,8 @@ public class PdfWriterFactory {
 
         PromoTextStamper pts;
 
-        if (confidentialtyStatement != null && !confidentialtyStatement.isEmpty()) {
-            pts = new PromoTextStamper(confidentialtyStatement, 30);
+        if (confidentialityStatement != null && !confidentialityStatement.isEmpty()) {
+            pts = new PromoTextStamper(confidentialityStatement, 30);
             pts.setFontSize(settings.getFontSize());
             pageEvents.addPageEvent(pts);
         }

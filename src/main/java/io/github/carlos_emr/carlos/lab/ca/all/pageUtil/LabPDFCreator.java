@@ -345,9 +345,9 @@ public class LabPDFCreator extends PdfPageEventHelper {
                 document.add(table2);
             }
         } finally {
-            writer.close();
-            if (document.isOpen()) {
-                document.close();
+            document.close();
+            if (writer != null) {
+                writer.close();
             }
         }
 

@@ -672,6 +672,8 @@ public final class IncomingDocUtil {
         Document document = null;
         PdfCopy copy = null;
         PdfCopy extractCopy = null;
+        FileOutputStream copyFos = null;
+        FileOutputStream extractFos = null;
         String extractPath = null;
 
         try {
@@ -738,8 +740,10 @@ public final class IncomingDocUtil {
             }
 
             document = new Document(reader.getPageSizeWithRotation(1));
-            copy = new PdfCopy(document, new FileOutputStream(validatedTempFile));
-            extractCopy = new PdfCopy(document, new FileOutputStream(validatedExtractFile));
+            copyFos = new FileOutputStream(validatedTempFile);
+            copy = new PdfCopy(document, copyFos);
+            extractFos = new FileOutputStream(validatedExtractFile);
+            extractCopy = new PdfCopy(document, extractFos);
             document.open();
             for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
                 if (!(extractList.get(pageNumber).equals("1"))) {
@@ -754,17 +758,21 @@ public final class IncomingDocUtil {
             throw (e);
         } finally {
             try {
+                if (document != null) {
+                    document.close();
+                }
                 if (copy != null) {
                     copy.close();
                 }
                 if (extractCopy != null) {
                     extractCopy.close();
                 }
-
-                if (document != null) {
-                    document.close();
+                if (copyFos != null) {
+                    copyFos.close();
                 }
-
+                if (extractFos != null) {
+                    extractFos.close();
+                }
                 if (reader != null) {
                     reader.close();
                 }
