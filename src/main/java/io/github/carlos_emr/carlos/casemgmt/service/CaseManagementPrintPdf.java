@@ -88,6 +88,7 @@ public class CaseManagementPrintPdf {
 
     private float upperYcoord;
     private Document document;
+    private PdfWriter writer;
     private PdfContentByte cb;
     private BaseFont bf;
     private Font font;
@@ -156,7 +157,7 @@ public class CaseManagementPrintPdf {
     public void printDocHeaderFooter() throws IOException, DocumentException {
         //Create the document we are going to write to
         document = new Document();
-        PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_12PT);
+        writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_12PT);
 
         // writer.setPageEvent(new EndPage());
         document.setPageSize(PageSize.LETTER);
@@ -591,6 +592,9 @@ public class CaseManagementPrintPdf {
      */
     public void finish() {
         document.close();
+        if (writer != null) {
+            writer.close();
+        }
     }
 
     /*
