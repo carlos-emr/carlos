@@ -65,7 +65,7 @@ import org.springframework.core.io.ClassPathResource;
 
 import org.xml.sax.SAXException;
 
-import omd.hrm.OmdCds;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
 
 import io.github.carlos_emr.OscarProperties;
 

@@ -727,13 +727,9 @@
             <version>4.3.1</version>
         </dependency>
 
-        <!-- HRM module: XSD classes now included directly in codebase -->
-        <!-- HRM module 4.3: can be found in the local_repo folder -->
-        <dependency>
-            <groupId>omd</groupId>
-            <artifactId>hrm</artifactId>
-            <version>4.3</version>
-        </dependency>
+        <!-- HRM module: XSD classes included directly in codebase as
+             io.github.carlos_emr.carlos.hospitalReportManager.xsd -->
+        <!-- omd:hrm:4.3 dependency removed - classes inlined -->
 
 
         <!-- apache xml beans -->
