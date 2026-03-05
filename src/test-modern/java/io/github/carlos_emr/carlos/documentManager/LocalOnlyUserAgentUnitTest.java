@@ -126,19 +126,20 @@ class LocalOnlyUserAgentUnitTest {
         @DisplayName("should delegate to parent when URI starts with data: scheme")
         void shouldDelegateToParent_whenUriStartsWithDataScheme() {
             // data: URIs are inline content — no network request; parent handles decoding.
-            // Verify the method completes without throwing (not blocked by our security check).
+            // Parent returns null without a full rendering context, but the key assertion is
+            // that our security check does not throw (unlike blocked http/https/ftp schemes).
             String dataUri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
-            agent.resolveAndOpenStream(dataUri);
-            // If we reach here, the data: URI was not blocked — it was delegated to the parent.
+            InputStream result = agent.resolveAndOpenStream(dataUri);
+            assertThat(result).as("data: URI should be delegated to parent, not blocked").isNull();
         }
 
         @Test
         @DisplayName("should delegate to parent when URI is a relative path")
         void shouldDelegateToParent_whenUriIsRelativePath() {
             // Relative paths are local resources, should not be blocked.
-            // Verify the method completes without throwing (not blocked by our security check).
-            agent.resolveAndOpenStream("images/logo.png");
-            // If we reach here, the relative path was not blocked — it was delegated to the parent.
+            // Parent may return null without a base URL context, but must not throw.
+            InputStream result = agent.resolveAndOpenStream("images/logo.png");
+            assertThat(result).isNull();
         }
     }
 

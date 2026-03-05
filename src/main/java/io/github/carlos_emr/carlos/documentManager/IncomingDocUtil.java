@@ -448,15 +448,15 @@ public final class IncomingDocUtil {
         }
         
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
-        File tempFile = new File(basePath, "T" + myPdfName);
-        tempFilePathName = tempFile.getPath();
+        File validatedTempFile = PathValidationUtils.validatePath("T" + myPdfName, new File(basePath));
+        tempFilePathName = validatedTempFile.getPath();
         filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
         File f = new File(filePathName);
         lastModified = f.lastModified();
 
         try (PdfReader reader = new PdfReader(filePathName);
-             FileOutputStream fos = new FileOutputStream(tempFilePathName)) {
+             FileOutputStream fos = new FileOutputStream(validatedTempFile)) {
             rot = reader.getPageRotation(Integer.parseInt(MyPdfPageNumber));
             rotatedegrees = rot + degrees;
             rotatedegrees = rotatedegrees % 360;
@@ -504,15 +504,15 @@ public final class IncomingDocUtil {
         }
         
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
-        File tempFile = new File(basePath, "T" + myPdfName);
-        tempFilePathName = tempFile.getPath();
+        File validatedTempFile = PathValidationUtils.validatePath("T" + myPdfName, new File(basePath));
+        tempFilePathName = validatedTempFile.getPath();
         filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
         File f = new File(filePathName);
         lastModified = f.lastModified();
 
         try (PdfReader reader = new PdfReader(filePathName);
-             FileOutputStream fos = new FileOutputStream(tempFilePathName)) {
+             FileOutputStream fos = new FileOutputStream(validatedTempFile)) {
             for (int p = 1; p <= reader.getNumberOfPages(); ++p) {
                 rot = reader.getPageRotation(p);
                 rotatedegrees = rot + degrees;
@@ -560,26 +560,27 @@ public final class IncomingDocUtil {
         }
         
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
-        File tempFile = new File(basePath, "T" + myPdfName);
-        tempFilePathName = tempFile.getPath();
+        File validatedTempFile = PathValidationUtils.validatePath("T" + myPdfName, new File(basePath));
+        tempFilePathName = validatedTempFile.getPath();
         filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
         File f = new File(filePathName);
         lastModified = f.lastModified();
         f.setReadOnly();
 
-        String deletePath = getIncomingDocumentDeletedFilePath(queueId, myPdfDir) + File.separator;
-        String deletePathFileName = "";
+        File deleteDir = new File(getIncomingDocumentDeletedFilePath(queueId, myPdfDir));
+        File validatedDeleteFile = null;
         int index = myPdfName.indexOf(".pdf");
 
         String myPdfNameF = myPdfName.substring(0, index);
         String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
 
         try (PdfReader reader = new PdfReader(filePathName);
-             FileOutputStream copyFos = new FileOutputStream(tempFilePathName)) {
-            deletePathFileName = deletePath + myPdfNameF + "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()) + myPdfNameExt;
+             FileOutputStream copyFos = new FileOutputStream(validatedTempFile)) {
+            String deleteFileName = myPdfNameF + "d" + PageNumberToDelete + "of" + Integer.toString(reader.getNumberOfPages()) + myPdfNameExt;
+            validatedDeleteFile = PathValidationUtils.validatePath(deleteFileName, deleteDir);
 
-            try (FileOutputStream deleteFos = new FileOutputStream(deletePathFileName)) {
+            try (FileOutputStream deleteFos = new FileOutputStream(validatedDeleteFile)) {
                 Document document = new Document(reader.getPageSizeWithRotation(1));
                 PdfCopy copy = new PdfCopy(document, copyFos);
                 PdfCopy deleteCopy = new PdfCopy(document, deleteFos);
@@ -604,10 +605,11 @@ public final class IncomingDocUtil {
 
         boolean success;
         if (!OscarProperties.getInstance().getBooleanProperty("INCOMINGDOCUMENT_RECYCLEBIN", "true")) {
-            File f1 = new File(deletePathFileName);
-            success = f1.delete();
-            if (!success) {
-                throw new Exception("Error in deleting file:" + deletePathFileName);
+            if (validatedDeleteFile != null) {
+                success = validatedDeleteFile.delete();
+                if (!success) {
+                    throw new Exception("Error in deleting file:" + validatedDeleteFile.getPath());
+                }
             }
         }
 
@@ -649,15 +651,15 @@ public final class IncomingDocUtil {
         }
         
         String basePath = getIncomingDocumentFilePath(queueId, myPdfDir);
-        File tempFile = new File(basePath, "T" + myPdfName);
-        tempFilePathName = tempFile.getPath();
+        File validatedTempFile = PathValidationUtils.validatePath("T" + myPdfName, new File(basePath));
+        tempFilePathName = validatedTempFile.getPath();
         filePathName = getIncomingDocumentFilePathName(queueId, myPdfDir, myPdfName);
 
         File f = new File(filePathName);
         lastModified = f.lastModified();
         f.setReadOnly();
 
-        String extractBasePath = getIncomingDocumentFilePath(queueId, myPdfDir);
+        File extractBaseDir = new File(getIncomingDocumentFilePath(queueId, myPdfDir));
         int index = myPdfName.toLowerCase().indexOf(".pdf");
         String myPdfNameF = myPdfName.substring(0, index);
         String myPdfNameExt = myPdfName.substring(index, myPdfName.length());
@@ -675,12 +677,8 @@ public final class IncomingDocUtil {
         try {
             reader = new PdfReader(filePathName);
             String extractFileName = myPdfNameF + "E" + Integer.toString(reader.getNumberOfPages()) + myPdfNameExt;
-            // Validate the extract filename
-            if (!isValidPathComponent(extractFileName)) {
-                throw new IllegalArgumentException("Invalid extract filename: contains illegal characters or path traversal sequences");
-            }
-            File extractFile = new File(extractBasePath, extractFileName);
-            extractPath = extractFile.getPath();
+            File validatedExtractFile = PathValidationUtils.validatePath(extractFileName, extractBaseDir);
+            extractPath = validatedExtractFile.getPath();
 
             // extractList uses 1-based indexing (matching PDF page numbers),
             // so index 0 is an unused placeholder
@@ -740,8 +738,8 @@ public final class IncomingDocUtil {
             }
 
             document = new Document(reader.getPageSizeWithRotation(1));
-            copy = new PdfCopy(document, new FileOutputStream(tempFilePathName));
-            extractCopy = new PdfCopy(document, new FileOutputStream(extractPath));
+            copy = new PdfCopy(document, new FileOutputStream(validatedTempFile));
+            extractCopy = new PdfCopy(document, new FileOutputStream(validatedExtractFile));
             document.open();
             for (int pageNumber = 1; pageNumber <= reader.getNumberOfPages(); pageNumber++) {
                 if (!(extractList.get(pageNumber).equals("1"))) {

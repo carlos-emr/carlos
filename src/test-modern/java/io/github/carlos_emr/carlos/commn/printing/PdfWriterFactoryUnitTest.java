@@ -142,7 +142,7 @@ class PdfWriterFactoryUnitTest extends CarlosUnitTestBase {
             Document doc = new Document();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
-            PdfWriter writer = PdfWriterFactory.newInstance(doc, baos, FontSettings.HELVETICA_10PT);
+            PdfWriterFactory.newInstance(doc, baos, FontSettings.HELVETICA_10PT);
             doc.open();
             doc.add(new Paragraph("Clinical note content"));
             doc.newPage();

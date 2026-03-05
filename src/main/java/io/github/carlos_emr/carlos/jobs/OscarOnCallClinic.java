@@ -228,11 +228,9 @@ public class OscarOnCallClinic implements OscarRunnable {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
         } finally {
+            document.close();
             if (writer != null) {
                 writer.close();
-            }
-            if (document.isOpen()) {
-                document.close();
             }
         }
 
@@ -302,11 +300,9 @@ public class OscarOnCallClinic implements OscarRunnable {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
         } finally {
+            document.close();
             if (writer != null) {
                 writer.close();
-            }
-            if (document.isOpen()) {
-                document.close();
             }
         }
 
