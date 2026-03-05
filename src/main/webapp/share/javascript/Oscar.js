@@ -42,15 +42,16 @@
  */
 function isForceWindowUrl(url) {
     if (!url) return false;
-    var forceWindowPaths = [
+    const forceWindowPaths = [
         'addappointment.jsp',
         'appointmentcontrol.jsp',
         'appointmentsearch.jsp',
         'scratch/index.jsp',
         'CalendarPopup.jsp'
     ];
+    const normalizedUrl = String(url).split('#')[0].split('?')[0];
     return forceWindowPaths.some(function(path) {
-        return url.indexOf(path) !== -1;
+        return normalizedUrl.lastIndexOf(path) === (normalizedUrl.length - path.length);
     });
 }
 
@@ -89,7 +90,7 @@ function popup(height, width, url, windowName) {
  * @returns {Window|null} The opened Window object, or null if the browser blocked the tab
  */
 function popupTab(url) {
-    var win = window.open(url, '_blank');
+    const win = window.open(url, '_blank');
     if (win) {
         // Manually sever the opener relationship to prevent reverse-tabnabbing.
         // All URLs opened via this helper are same-origin CARLOS pages, so the
@@ -117,8 +118,8 @@ function newWindow(url, windowName) {
         return popupTab(url);
     }
     //this way the w&d works with older browsers as well
-    var w = document.getElementsByTagName('body')[0].clientWidth;//window.innerWidth;
-    var h = document.getElementsByTagName('body')[0].clientHeight;//window.innerHeight;
+    let w = document.getElementsByTagName('body')[0].clientWidth;//window.innerWidth;
+    let h = document.getElementsByTagName('body')[0].clientHeight;//window.innerHeight;
     w = Math.max(w, window.innerWidth);
     h = Math.max(h, window.innerHeight);
 
