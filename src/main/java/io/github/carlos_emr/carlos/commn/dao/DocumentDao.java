@@ -113,4 +113,13 @@ public interface DocumentDao extends AbstractDao<Document> {
     public List<Document> findByDemographicAndDoctype(int demographicId, DocumentType documentType);
 
     public Document findByDemographicAndFilename(int demographicId, String fileName);
+
+    /**
+     * Returns distinct document descriptions (docdesc) that contain the given keyword,
+     * ordered descending by document number (most recently created first).
+     *
+     * @param keyword String the search term; use {@code %keyword%} wildcards for partial matching
+     * @return List&lt;String&gt; list of distinct matching document descriptions
+     */
+    public List<String> findDocumentDescriptions(String keyword);
 }

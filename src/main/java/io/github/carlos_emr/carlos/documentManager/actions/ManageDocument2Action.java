@@ -33,7 +33,9 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
-import com.lowagie.text.pdf.PdfReader;
+import com.itextpdf.text.pdf.PdfReader;
+import com.sun.pdfview.PDFFile;
+import com.sun.pdfview.PDFPage;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
@@ -74,7 +76,10 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.RenderedImage;
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -130,6 +135,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
         });
         ACTIONS.put("viewDocumentInfo", ctx -> { ctx.viewDocumentInfo(); return null; });
+        ACTIONS.put("searchDocumentDescriptions", ctx -> { ctx.searchDocumentDescriptions(); return null; });
     }
 
     // Called on default by struts.xml, finds the correct method to use by finding what the URL "method" param is equal to
@@ -578,6 +584,58 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * @Deprecated : use createCacheVersion2
+     */
+    public File createCacheVersion(Document d) throws Exception {
+
+        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File documentDir = new File(docdownload);
+        File documentCacheDir = getDocumentCacheDir(docdownload);
+        log.debug("Document Dir is a dir" + documentDir.isDirectory());
+
+        File file = new File(documentDir, d.getDocfilename());
+        PDFFile pdffile = null;
+
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r");
+             FileChannel channel = raf.getChannel()
+        ) {
+            ByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
+            pdffile = new PDFFile(buf);
+        } catch (Exception e) {
+            throw new Exception(e);
+        }
+
+        // long readfile = System.currentTimeMillis() - start;
+        // draw the first page to an image
+        PDFPage ppage = pdffile.getPage(0);
+
+        log.debug("WIDTH " + (int) ppage.getBBox().getWidth() + " height " + (int) ppage.getBBox().getHeight());
+
+        // get the width and height for the doc at the default zoom
+        Rectangle rect = new Rectangle(0, 0, (int) ppage.getBBox().getWidth(), (int) ppage.getBBox().getHeight());
+
+        log.debug("generate the image");
+        Image img = ppage.getImage(rect.width, rect.height, // width & height
+                rect, // clip rect
+                null, // null for the ImageObserver
+                true, // fill background with white
+                true // block until drawing is done
+        );
+
+        log.debug("about to Print to stream");
+        File outfile = new File(documentCacheDir, d.getDocfilename() + ".png");
+
+        try (OutputStream outs = new FileOutputStream(outfile)) {
+            RenderedImage rendImage = (RenderedImage) img;
+            ImageIO.write(rendImage, "png", outs);
+            outs.flush();
+        }
+
+        return outfile;
+
+    }
+
     public void showPage() throws Exception {
         getPage(Integer.parseInt(request.getParameter("page")));
     }
@@ -660,6 +718,62 @@ public class ManageDocument2Action extends ActionSupport {
             byte[] pdfBytes = createCacheVersion2(d, pn);
             setResponse(response, pdfBytes);
         }
+
+    }
+
+    public void view2() throws Exception {
+
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+
+        String doc_no = request.getParameter("doc_no");
+        log.debug("Document No :" + doc_no);
+
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+
+        String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
+        File documentDir = new File(docdownload);
+        log.debug("Document Dir is a dir" + documentDir.isDirectory());
+
+        Document d = documentDao.getDocument(doc_no);
+        log.debug("Document Name :" + d.getDocfilename());
+
+        // TODO: Right now this assumes it's a pdf which it shouldn't
+
+        response.setContentType("image/png");
+        // response.setHeader("Content-Disposition", "attachment;filename=\"" + filename+ "\"");
+        // read the file name.
+        File file = new File(documentDir, d.getDocfilename());
+
+        java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r");
+        FileChannel channel = raf.getChannel();
+        ByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
+        PDFFile pdffile = new PDFFile(buf);
+        // long readfile = System.currentTimeMillis() - start;
+        // draw the first page to an image
+        PDFPage ppage = pdffile.getPage(0);
+
+        log.debug("WIDTH " + (int) ppage.getBBox().getWidth() + " height " + (int) ppage.getBBox().getHeight());
+
+        // get the width and height for the doc at the default zoom
+        Rectangle rect = new Rectangle(0, 0, (int) ppage.getBBox().getWidth(), (int) ppage.getBBox().getHeight());
+
+        log.debug("generate the image");
+        Image img = ppage.getImage(rect.width, rect.height, // width & height
+                rect, // clip rect
+                null, // null for the ImageObserver
+                true, // fill background with white
+                true // block until drawing is done
+        );
+
+        log.debug("about to Print to stream");
+        ServletOutputStream outs = response.getOutputStream();
+
+        RenderedImage rendImage = (RenderedImage) img;
+        ImageIO.write(rendImage, "png", outs);
+        outs.flush();
+        outs.close();
 
     }
 
@@ -1399,17 +1513,61 @@ public class ManageDocument2Action extends ActionSupport {
         if (value == null) {
             return "";
         }
-        
+
         // Remove all control characters including CR (\r) and LF (\n)
         // This prevents HTTP response splitting attacks
         // Also remove other control characters that could cause issues
         String sanitized = value.replaceAll("[\r\n\u0000-\u001F\u007F-\u009F]", "");
-        
+
         // Ensure the filename is not empty after sanitization
         if (sanitized.trim().isEmpty()) {
             return "document";
         }
-        
+
         return sanitized;
+    }
+
+    /**
+     * AJAX endpoint that returns a JSON array of distinct document descriptions matching
+     * the {@code term} request parameter. Used by the document description typeahead in
+     * showDocument.jsp and incomingDocs.jsp.
+     *
+     * <p>Security: requires {@code _edoc} write privilege.</p>
+     *
+     * <p>Response format (compatible with standard autocomplete {@code label} convention):</p>
+     * <pre>
+     * [{"label":"Blood Work Results"}, {"label":"Referral Letter"}, ...]
+     * </pre>
+     *
+     * @throws IOException if writing the JSON response fails
+     * @since 2026-02-28
+     */
+    public void searchDocumentDescriptions() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+            throw new SecurityException("missing required security object (_edoc)");
+        }
+
+        String keyword = request.getParameter("term");
+        // Wrap keyword with SQL wildcards for partial matching
+        if (keyword == null || keyword.trim().isEmpty()) {
+            keyword = "%";
+        } else {
+            keyword = "%" + keyword.trim() + "%";
+        }
+
+        List<String> descriptions = documentDao.findDocumentDescriptions(keyword);
+
+        com.fasterxml.jackson.databind.node.ArrayNode jsonArray = objectMapper.createArrayNode();
+        for (String desc : descriptions) {
+            com.fasterxml.jackson.databind.node.ObjectNode item = objectMapper.createObjectNode();
+            item.put("label", desc);
+            jsonArray.add(item);
+        }
+
+        log.debug("searchDocumentDescriptions returning {} results for term={}", descriptions.size(), request.getParameter("term"));
+
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().print(jsonArray.toString());
+        response.getWriter().flush();
     }
 }
