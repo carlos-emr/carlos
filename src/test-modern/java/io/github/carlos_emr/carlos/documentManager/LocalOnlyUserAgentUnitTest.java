@@ -24,11 +24,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.xhtmlrenderer.pdf.ITextOutputDevice;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,8 +40,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Unit tests for {@link LocalOnlyUserAgent} — the SSRF-prevention layer
  * for Flying Saucer PDF rendering.
  *
- * <p>Uses a test subclass to expose the protected {@code resolveAndOpenStream()}
- * method for direct verification of URI scheme blocking.</p>
+ * <p>Uses a test subclass to expose the protected {@code resolveAndOpenStream()} and
+ * {@code openStream()} methods for direct verification of URI scheme blocking and
+ * path containment.</p>
  *
  * @since 2026-03-04
  */
@@ -54,7 +59,7 @@ class LocalOnlyUserAgentUnitTest {
     private static final int DEFAULT_DOTS_PER_PIXEL = 20;
 
     /**
-     * Test subclass that exposes the protected resolveAndOpenStream method.
+     * Test subclass that exposes protected methods for direct verification.
      */
     static class TestableUserAgent extends LocalOnlyUserAgent {
         TestableUserAgent() {
@@ -64,6 +69,10 @@ class LocalOnlyUserAgentUnitTest {
         @Override
         public InputStream resolveAndOpenStream(String uri) {
             return super.resolveAndOpenStream(uri);
+        }
+
+        public InputStream testOpenStream(String uri) throws IOException {
+            return super.openStream(uri);
         }
     }
 
@@ -127,7 +136,8 @@ class LocalOnlyUserAgentUnitTest {
         void shouldDelegateToParent_whenUriStartsWithDataScheme() {
             // data: URIs are inline content — no network request; parent handles decoding.
             // Parent returns null without a full rendering context, but the key assertion is
-            // that our security check does not throw (unlike blocked http/https/ftp schemes).
+            // that data: URIs are delegated to the parent (not returned null directly like
+            // blocked http/https/ftp schemes).
             String dataUri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
             InputStream result = agent.resolveAndOpenStream(dataUri);
             assertThat(result).as("data: URI should be delegated to parent, not blocked").isNull();
@@ -162,12 +172,144 @@ class LocalOnlyUserAgentUnitTest {
         }
 
         @Test
-        @DisplayName("should delegate to parent when URI uses file: scheme")
+        @DisplayName("should delegate to parent when URI uses file: scheme (not blocked at scheme level)")
         void shouldDelegateToParent_whenUriUsesFileScheme() {
-            // file: URIs are local resources, should not be blocked.
-            // Parent returns null since the file doesn't exist, but must not throw.
+            // file: URIs pass the scheme check in resolveAndOpenStream (not blocked as external).
+            // They may be subsequently blocked by openStream's path containment, but the
+            // scheme-level filter should not reject them. A nonexistent path returns null
+            // regardless (either blocked by containment or file-not-found in parent).
             InputStream result = agent.resolveAndOpenStream("file:///nonexistent/path.png");
             assertThat(result).isNull();
+        }
+    }
+
+    /** Tests for openStream path containment — blocks file: URIs outside allowed directories. */
+    @Nested
+    @DisplayName("openStream path containment")
+    class OpenStreamPathContainmentTests {
+
+        @TempDir
+        Path tempDir;
+
+        @Test
+        @DisplayName("should allow file URI when under webapp root (base URL)")
+        void shouldAllowFileUri_whenUnderWebappRoot() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+
+            // Create a real file under the temp dir acting as webapp root
+            Path testFile = tempDir.resolve("style.css");
+            Files.writeString(testFile, "body { color: black; }");
+
+            // Set base URL to the temp dir (simulating webapp root)
+            agent.setBaseURL(tempDir.toUri().toString());
+
+            InputStream result = agent.testOpenStream(testFile.toUri().toString());
+            assertThat(result).as("file under webapp root should be allowed").isNotNull();
+            result.close();
+        }
+
+        @Test
+        @DisplayName("should block file URI when outside all allowed directories")
+        void shouldBlockFileUri_whenOutsideAllowedDirectories() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+
+            // Set base URL to a specific directory that does NOT contain /etc
+            agent.setBaseURL(tempDir.toUri().toString());
+
+            InputStream result = agent.testOpenStream("file:///etc/passwd");
+            assertThat(result).as("file outside allowed directories should be blocked").isNull();
+        }
+
+        @Test
+        @DisplayName("should block file URI with path traversal attempting to escape webapp root")
+        void shouldBlockFileUri_withPathTraversalEscape() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+
+            // Use a deep subdirectory as webapp root so traversal escapes BOTH
+            // the webapp root AND the temp dir (reaching /etc which is not allowed)
+            Path webappRoot = tempDir.resolve("webapp");
+            Files.createDirectories(webappRoot);
+            agent.setBaseURL(webappRoot.toUri().toString());
+
+            // Traversal URI that normalizes to /etc/passwd — outside any allowed dir
+            String traversalUri = "file://" + webappRoot.toAbsolutePath() + "/../../../etc/passwd";
+            InputStream result = agent.testOpenStream(traversalUri);
+            assertThat(result).as("path traversal escaping webapp root should be blocked").isNull();
+        }
+
+        @Test
+        @DisplayName("should allow file URI when under system temp directory")
+        void shouldAllowFileUri_whenUnderTempDirectory() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+
+            // Don't set a base URL — temp dir should still be allowed
+            String sysTmpDir = System.getProperty("java.io.tmpdir");
+            Path tmpFile = Path.of(sysTmpDir, "carlos-test-pdf-" + System.nanoTime() + ".css");
+            try {
+                Files.writeString(tmpFile, "body { margin: 0; }");
+
+                InputStream result = agent.testOpenStream(tmpFile.toUri().toString());
+                assertThat(result).as("file under java.io.tmpdir should be allowed").isNotNull();
+                result.close();
+            } finally {
+                Files.deleteIfExists(tmpFile);
+            }
+        }
+
+        @Test
+        @DisplayName("should block file URI targeting patient documents directory")
+        void shouldBlockFileUri_whenTargetingPatientDocuments() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+            agent.setBaseURL(tempDir.toUri().toString());
+
+            // Simulate access to patient document directory
+            InputStream result = agent.testOpenStream("file:///opt/carlos/documents/999/patient_scan.jpg");
+            assertThat(result).as("patient document directory should be blocked").isNull();
+        }
+
+        @Test
+        @DisplayName("should block file URI when base URL is not set and path is outside temp dirs")
+        void shouldBlockFileUri_whenBaseUrlNotSetAndOutsideTempDirs() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+            // Do NOT set base URL
+
+            InputStream result = agent.testOpenStream("file:///etc/shadow");
+            assertThat(result).as("sensitive system file should be blocked even without base URL").isNull();
+        }
+
+        @Test
+        @DisplayName("should block file URI with percent-encoded path traversal sequences")
+        void shouldBlockFileUri_withEncodedPathTraversal() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+            Path webappRoot = tempDir.resolve("webapp");
+            Files.createDirectories(webappRoot);
+            agent.setBaseURL(webappRoot.toUri().toString());
+
+            // %2e%2e = .. — URI decoding followed by normalize/canonicalize should resolve this
+            String encodedTraversalUri = webappRoot.toUri() + "%2e%2e/%2e%2e/%2e%2e/etc/passwd";
+            InputStream result = agent.testOpenStream(encodedTraversalUri);
+            assertThat(result).as("percent-encoded path traversal should be blocked").isNull();
+        }
+
+        @Test
+        @DisplayName("should block file URI when symlink inside webapp root points outside")
+        void shouldBlockFileUri_whenSymlinkEscapesAllowedDirectory() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+            agent.setBaseURL(tempDir.toUri().toString());
+
+            // Create a symlink inside the allowed directory that points to /etc
+            Path symlink = tempDir.resolve("escape");
+            try {
+                Files.createSymbolicLink(symlink, Path.of("/etc"));
+            } catch (UnsupportedOperationException | IOException e) {
+                // Symlinks may not be supported on all filesystems/OS — skip gracefully
+                return;
+            }
+
+            // The symlink resolves to /etc/passwd which is outside allowed dirs
+            Path target = symlink.resolve("passwd");
+            InputStream result = agent.testOpenStream(target.toUri().toString());
+            assertThat(result).as("symlink escaping allowed directory should be blocked by canonical path resolution").isNull();
         }
     }
 
