@@ -1888,16 +1888,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         }
                                     }
 
-                                    if (!h.getMsgType().equals("PFHT")) {
-                                        testNameReportedByLab = null;
-                                        for (int k=0; k < h.getOBRCommentCount(i); k++) {
-                                            if (h.getOBXName(i, 0).equals("")) { testNameReportedByLab = h.getOBRName(i); }
-                                            comments = h.getOBRComment(i, k);
-                                            if (StringUtils.filled(comments)) {
-                                                comments = comments.replace("<br />", "\\.br\\");
-                                            }
-                                            exportLabResult(patientRec, hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, "-", comments, demoNo, i, 0);
+                                    testNameReportedByLab = null;
+                                    for (int k=0; k < h.getOBRCommentCount(i); k++) {
+                                        if (h.getOBXName(i, 0).equals("")) { testNameReportedByLab = h.getOBRName(i); }
+                                        comments = h.getOBRComment(i, k);
+                                        if (StringUtils.filled(comments)) {
+                                            comments = comments.replace("<br />", "\\.br\\");
                                         }
+                                        exportLabResult(patientRec, hl7TextMessage, hl7TxtInfo, h, testNameReportedByLab, "-", comments, demoNo, i, 0);
                                     }
                                 }
                             }

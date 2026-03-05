@@ -231,21 +231,4 @@ public class Utilities {
 
         return retVal;
     }
-
-    /*
-     *  Return a string corresponding to the data in a given InputStream
-     */
-    public static String inputStreamAsString(InputStream stream) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(stream));
-        StringBuilder sb = new StringBuilder();
-        String line = null;
-
-        while ((line = br.readLine()) != null) {
-            sb.append(line + "\n");
-        }
-
-        stream.close();
-        br.close();
-        return sb.toString();
-    }
 }
