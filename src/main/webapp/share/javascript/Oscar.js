@@ -23,22 +23,14 @@
  */
 
 /**
- * Returns true if the given URL must always open in a popup window, regardless of the
- * "Open Encounters in Tab" provider preference.
+ * Determines if the given URL should always open in a popup window.
  *
- * <p>Certain helper pages require access to {@code window.opener} (to read context or
- * post updates back to the calling page) and cannot function correctly as standalone
- * browser tabs. These pages are:
- * <ul>
- *   <li>{@code addappointment.jsp} — appointment booking; needs schedule page context</li>
- *   <li>{@code appointmentcontrol.jsp} — appointment editing; needs schedule page context</li>
- *   <li>{@code appointmentsearch.jsp} — appointment search; needs schedule page context</li>
- *   <li>{@code scratch/index.jsp} — system clipboard; benefits from opener context for copy/paste</li>
- *   <li>{@code CalendarPopup.jsp} — date picker; must update {@code window.opener} with selected date</li>
- * </ul>
+ * This function checks if the provided URL matches any of the predefined paths that require
+ * access to the opener window context. It normalizes the URL by removing any query parameters
+ * and fragment identifiers before performing the check against the list of force window paths.
+ * If a match is found, it returns true; otherwise, it returns false.
  *
  * @param {string} url - URL to test
- * @returns {boolean} true if the URL must always open as a popup window
  */
 function isForceWindowUrl(url) {
     if (!url) return false;
@@ -58,13 +50,14 @@ function isForceWindowUrl(url) {
 
 /**
  * Opens a URL in a named popup window or delegates to popupTab() if tab mode is active.
- * URLs in the force-window list (see {@link isForceWindowUrl}) always open as popup
- * windows regardless of the tab preference.
+ * The function first checks if the tab mode is enabled and if the URL is not in the force-window list.
+ * If both conditions are met, it calls popupTab() to open the URL in a new tab.
+ * Otherwise, it opens the URL in a popup window using popup2() with the specified dimensions.
+ *
  * @param {number} height - Popup window height in pixels
  * @param {number} width - Popup window width in pixels
  * @param {string} url - URL to open
  * @param {string} windowName - Named window target; reused across calls with the same name
- * @returns {Window|null} The opened Window object, or null if tab mode is active
  */
 function popup(height, width, url, windowName) {
     if (typeof openEncounterInTab !== 'undefined' && openEncounterInTab && !isForceWindowUrl(url)) {
@@ -75,17 +68,6 @@ function popup(height, width, url, windowName) {
 
 /**
  * Opens a URL in a new browser tab with opener isolation.
- *
- * <p>Opens the tab without windowFeatures (so the browser returns a real Window reference),
- * then immediately severs the opener relationship by setting {@code win.opener = null}.
- * This achieves the same tabnabbing protection as passing {@code noopener} in windowFeatures,
- * without the side-effect of {@code window.open()} returning {@code null}.
- *
- * <p><strong>Why not pass {@code noopener} as a window feature?</strong> Per the HTML spec,
- * passing {@code noopener} or {@code noreferrer} in the third argument to {@code window.open()}
- * causes all modern browsers to return {@code null}, making it impossible to detect
- * whether the browser's popup blocker prevented the tab from opening, or to call {@code focus()}.
- * See: https://html.spec.whatwg.org/multipage/nav-history-apis.html (window.open, noopener token)
  *
  * @param {string} url - URL to open in a new tab
  * @returns {Window|null} The opened Window object, or null if the browser blocked the tab
@@ -105,14 +87,14 @@ function popupTab(url) {
 }
 
 /**
- * Opens a URL in a full-viewport popup window sized to the current window, or
- * delegates to popupTab() when the provider preference "Open Encounters in Tab" is enabled.
- * URLs in the force-window list (see {@link isForceWindowUrl}) always open as popup
- * windows regardless of the tab preference.
+ * Opens a URL in a popup window or a tab based on user preferences.
+ *
+ * The function checks if the "Open Encounters in Tab" preference is enabled and if the URL is not in the force-window list.
+ * If both conditions are met, it delegates the opening to the popupTab function. Otherwise, it calculates the dimensions
+ * of the current window and opens the URL in a new popup window using the popup2 function.
  *
  * @param {string} url - URL to open
  * @param {string} windowName - Named window target; reused across calls with the same name
- * @returns {Window|null} The opened Window object, or null if tab mode is active
  */
 function newWindow(url, windowName) {
     if (typeof openEncounterInTab !== 'undefined' && openEncounterInTab && !isForceWindowUrl(url)) {
