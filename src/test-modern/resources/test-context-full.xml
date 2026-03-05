@@ -354,6 +354,7 @@
     <bean id="ticklerCategoryDao" class="io.github.carlos_emr.carlos.commn.dao.TicklerCategoryDaoImpl" autowire="byName" />
     <bean id="customFilterDao" class="io.github.carlos_emr.carlos.commn.dao.CustomFilterDaoImpl" autowire="byName" />
     <bean id="oscarLogDao" class="io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl" autowire="byName" />
+    <bean id="facilityDao" class="io.github.carlos_emr.carlos.commn.dao.FacilityDaoImpl" autowire="byName" />
 
     <!-- Additional DAOs required by TicklerManager -->
     <bean id="programAccessDAO" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAOImpl" autowire="byName" />
