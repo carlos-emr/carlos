@@ -51,7 +51,8 @@ function isForceWindowUrl(url) {
     ];
     const normalizedUrl = String(url).split('#')[0].split('?')[0];
     return forceWindowPaths.some(function(path) {
-        return normalizedUrl.lastIndexOf(path) === (normalizedUrl.length - path.length);
+        const index = normalizedUrl.lastIndexOf(path);
+        return index !== -1 && index === (normalizedUrl.length - path.length);
     });
 }
 
