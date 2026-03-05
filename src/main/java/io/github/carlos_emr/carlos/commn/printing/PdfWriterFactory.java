@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -36,13 +36,17 @@ import io.github.carlos_emr.carlos.casemgmt.service.PageNumberStamper;
 import io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper;
 
 import io.github.carlos_emr.OscarProperties;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.pdf.PdfWriter;
+import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 
 /**
- * Factory for creating pre-configured {@link org.openpdf.text.pdf.PdfWriter} instances
+ * Factory for creating pre-configured {@link PdfWriter} instances
  * used throughout CARLOS EMR for clinical PDF generation.
  *
  * <p>Each writer produced by {@link #newInstance} is automatically equipped with a
- * {@link org.openpdf.text.pdf.events.PdfPageEventForwarder} that chains three page-event
+ * {@link PdfPageEventForwarder} that chains three page-event
  * stampers (all rendered on every page):</p>
  * <ol>
  *   <li><strong>Confidentiality statement</strong> &mdash; from the {@code confidentialityStatement}
@@ -71,42 +75,22 @@ public class PdfWriterFactory {
     private static String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 
     /**
-     * Sets font on a PdfContentByte using the provided FontSettings.
-     *
-     * @param pdfContentByte PdfContentByte the content byte to configure with the new font
-     * @param settings FontSettings specifying font name, code page, embedding, and point size
-     * @return PdfContentByte the same content byte instance with the font applied
-     * @throws IllegalStateException if {@link org.openpdf.text.pdf.BaseFont#createFont} fails
-     *                               (wraps the underlying exception with the font name for diagnostics)
-     */
-    public static org.openpdf.text.pdf.PdfContentByte setFont(org.openpdf.text.pdf.PdfContentByte pdfContentByte, FontSettings settings) {
-        try {
-            org.openpdf.text.pdf.BaseFont baseFont = org.openpdf.text.pdf.BaseFont.createFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
-            pdfContentByte.setFontAndSize(baseFont, settings.getFontSize());
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed creation of PDF Base Font: " + settings.getFont(), e);
-        }
-        return pdfContentByte;
-    }
-
-    /**
      * Creates a new instance of the PDF writer with promo text, confidentiality
-     * statement, and page numbering enabled. Uses {@link org.openpdf.text.pdf.events.PdfPageEventForwarder}
+     * statement, and page numbering enabled. Uses {@link PdfPageEventForwarder}
      * to chain multiple page event handlers so all stampers run on each page.
      *
      * @param document the PDF document
      * @param stream the output stream to write to
      * @param settings font settings for the writer
      * @return PdfWriter instance configured with all page event stampers
-     * @throws org.openpdf.text.DocumentException if the PdfWriter cannot be created
+     * @throws DocumentException if the PdfWriter cannot be created
      */
-    public static org.openpdf.text.pdf.PdfWriter newInstance(org.openpdf.text.Document document, OutputStream stream, FontSettings settings) throws org.openpdf.text.DocumentException {
-        org.openpdf.text.pdf.PdfWriter result = org.openpdf.text.pdf.PdfWriter.getInstance(document, stream);
+    public static PdfWriter newInstance(Document document, OutputStream stream, FontSettings settings) throws DocumentException {
+        PdfWriter result = PdfWriter.getInstance(document, stream);
 
         // Use PdfPageEventForwarder to chain all stampers — calling setPageEvent()
         // multiple times would silently overwrite the previous handler in OpenPDF.
-        org.openpdf.text.pdf.events.PdfPageEventForwarder pageEvents =
-                new org.openpdf.text.pdf.events.PdfPageEventForwarder();
+        PdfPageEventForwarder pageEvents = new PdfPageEventForwarder();
 
         PromoTextStamper pts;
 

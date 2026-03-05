@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -51,29 +51,19 @@ import org.openpdf.text.pdf.BaseFont;
 public class FontSettings {
 
     /** Helvetica 6 pt &mdash; footers and fine print. */
-    public static final FontSettings HELVETICA_6PT = new FontSettings();
+    public static final FontSettings HELVETICA_6PT =
+            new FontSettings(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED, 6);
     /** Helvetica 10 pt &mdash; standard body text for lab reports and clinical notes. */
-    public static final FontSettings HELVETICA_10PT = new FontSettings();
+    public static final FontSettings HELVETICA_10PT =
+            new FontSettings(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED, 10);
     /** Helvetica 12 pt &mdash; headings and titles. */
-    public static final FontSettings HELVETICA_12PT = new FontSettings();
+    public static final FontSettings HELVETICA_12PT =
+            new FontSettings(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED, 12);
 
-    static {
-        HELVETICA_6PT.fontSize = 6;
-        HELVETICA_10PT.fontSize = 10;
-        HELVETICA_12PT.fontSize = 12;
-    }
-
-    private String font = BaseFont.HELVETICA;
-    private String codePage = BaseFont.WINANSI;
-    private boolean embedded = BaseFont.NOT_EMBEDDED;
-    private int fontSize;
-
-    /**
-     * Creates a default FontSettings with Helvetica, WinAnsi code page, and no embedding.
-     * Point size must be set separately (see pre-defined constants or the full constructor).
-     */
-    public FontSettings() {
-    }
+    private final String font;
+    private final String codePage;
+    private final boolean embedded;
+    private final int fontSize;
 
     /**
      * Creates a fully specified FontSettings.
@@ -88,21 +78,6 @@ public class FontSettings {
         this.codePage = codePage;
         this.embedded = embedded;
         this.fontSize = fontSize;
-    }
-
-    /**
-     * Creates the OpenPDF {@link BaseFont} represented by this configuration.
-     *
-     * @return BaseFont a new base font instance ready for use with {@link org.openpdf.text.pdf.PdfContentByte}
-     * @throws RuntimeException if the underlying {@link BaseFont#createFont} call fails
-     *                          (e.g. unsupported font name or code page)
-     */
-    public BaseFont createFont() {
-        try {
-            return BaseFont.createFont(getFont(), getCodePage(), isEmbedded());
-        } catch (Exception e) {
-            throw new RuntimeException("Unable to create font", e);
-        }
     }
 
     /**

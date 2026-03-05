@@ -1,6 +1,6 @@
 # PDF Dependency Consolidation Plan
 
-> **Status**: Phase 1 complete (iText 5 → OpenPDF 3.0.2 migration shipped in PR #536)
+> **Status**: All phases complete (iText 5 → OpenPDF 3.0.2 migration shipped in PR #536)
 > **Target**: Consolidate from 5+ PDF libraries → 2 (OpenPDF + PDFBox)
 > **Risk Level**: High (healthcare forms, lab reports, prescriptions — visual fidelity is critical)
 > **Estimated Scope**: ~45 Java files, 4 phases, each independently shippable
@@ -109,7 +109,7 @@ Cross-cutting utilities used by Groups A-C.
 | File | Feature | Action |
 |------|---------|--------|
 | `util/Doc2PDF.java` | @Deprecated HTML→PDF via Flying Saucer (was XMLWorker) | **DONE** |
-| `documentManager/ConvertToEdoc.java` | HTML→PDF via ultrabuk+Flying Saucer fallback | **KEEP as-is** |
+| `documentManager/ConvertToEdoc.java` | HTML→PDF via ultrabuk+Flying Saucer fallback | **DONE** (SSRF hardened with LocalOnlyUserAgent; imports migrated to org.openpdf) |
 
 #### Group F: Flying Saucer (already on OpenPDF)
 
@@ -275,7 +275,7 @@ Both have `new PdfStamper(reader, os)`. No code change needed.
 Only used in `Doc2PDF.java` (deferred). No issue for this plan.
 
 #### 5. `HTMLWorker.parseToList()` — Available in OpenPDF ⚠️
-Used in `LabPDFCreator.java` for TrueNorth lab format. Available in OpenPDF's `openpdf-html` (previously `pdf-html`) submodule. Must add `com.github.librepdf:openpdf-html` dependency.
+Used in `LabPDFCreator.java` for TrueNorth lab format. Available in the main `openpdf` artifact at `org.openpdf.text.html.simpleparser.HTMLWorker` (not in the `openpdf-html` submodule).
 
 #### 6. Font Constants
 Both libraries use `Font.BOLD`, `Font.NORMAL`, `Font.ITALIC`, `Font.BOLDITALIC`. Identical.
@@ -296,7 +296,7 @@ Both exist in OpenPDF. Used for document concatenation in consultation attachmen
 **pom.xml changes:**
 ```xml
 <!-- ADD: Explicit OpenPDF dependency (currently transitive via Flying Saucer) -->
-<!-- HTMLWorker is in the openpdf-html submodule (com.github.librepdf:openpdf-html), not the main openpdf artifact -->
+<!-- HTMLWorker is in the main openpdf artifact at org.openpdf.text.html.simpleparser.HTMLWorker -->
 <dependency>
     <groupId>com.github.librepdf</groupId>
     <artifactId>openpdf</artifactId>

@@ -28,8 +28,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.openpdf.text.Document;
 import org.openpdf.text.Paragraph;
-import org.openpdf.text.pdf.BaseFont;
-import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfWriter;
 import org.openpdf.text.pdf.events.PdfPageEventForwarder;
@@ -37,7 +35,6 @@ import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 import java.io.ByteArrayOutputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link PdfWriterFactory} — the central factory for PDF writers
@@ -49,7 +46,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * in the test environment.</p>
  *
  * <p>When OscarProperties is not configured (test env), the static fields
- * {@code confidentialtyStatement} and {@code promoText} will be null, exercising
+ * {@code confidentialityStatement} and {@code promoText} will be null, exercising
  * the null-check branches in {@link PdfWriterFactory#newInstance}.</p>
  *
  * @since 2026-03-04
@@ -58,50 +55,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("pdf")
 @DisplayName("PdfWriterFactory Unit Tests")
 class PdfWriterFactoryUnitTest extends CarlosUnitTestBase {
-
-    /** Tests for the setFont static method. */
-    @Nested
-    @DisplayName("setFont")
-    class SetFontTests {
-
-        @Test
-        @DisplayName("should set font and size when valid settings provided")
-        void shouldSetFontAndSize_whenValidSettingsProvided() throws Exception {
-            Document doc = new Document();
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(doc, baos);
-            doc.open();
-
-            PdfContentByte cb = writer.getDirectContent();
-            FontSettings settings = FontSettings.HELVETICA_10PT;
-
-            PdfContentByte result = PdfWriterFactory.setFont(cb, settings);
-
-            assertThat(result).isSameAs(cb);
-            doc.add(new Paragraph("test"));
-            doc.close();
-        }
-
-        @Test
-        @DisplayName("should throw IllegalStateException when font creation fails")
-        void shouldThrowIllegalStateException_whenFontCreationFails() throws Exception {
-            Document doc = new Document();
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(doc, baos);
-            doc.open();
-
-            PdfContentByte cb = writer.getDirectContent();
-            FontSettings badSettings = new FontSettings(
-                    "NonExistentFont", BaseFont.WINANSI, BaseFont.NOT_EMBEDDED, 10);
-
-            assertThatThrownBy(() -> PdfWriterFactory.setFont(cb, badSettings))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("Failed creation of PDF Base Font");
-
-            doc.add(new Paragraph("test"));
-            doc.close();
-        }
-    }
 
     /** Tests for the newInstance factory method. */
     @Nested

@@ -27,15 +27,13 @@ import org.junit.jupiter.api.Test;
 import org.openpdf.text.pdf.BaseFont;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link FontSettings} — the shared font configuration used
  * by all PDF generators in CARLOS EMR.
  *
- * <p>Validates that pre-defined constants, the {@link FontSettings#createFont()}
- * method, and default constructor all produce correct OpenPDF {@link BaseFont}
- * instances after the iText 5 to OpenPDF 3.0 migration.</p>
+ * <p>Validates that pre-defined constants and the four-arg constructor produce
+ * correct OpenPDF {@link BaseFont} configurations.</p>
  *
  * @since 2026-03-04
  */
@@ -92,51 +90,20 @@ class FontSettingsUnitTest {
         }
     }
 
-    /** Tests for the createFont() method producing valid OpenPDF BaseFont instances. */
+    /** Tests for the four-arg constructor. */
     @Nested
-    @DisplayName("createFont")
-    class CreateFont {
+    @DisplayName("Constructor")
+    class ConstructorTests {
 
         @Test
-        @DisplayName("should return BaseFont for default Helvetica settings")
-        void shouldReturnBaseFont_forDefaultHelveticaSettings() {
-            BaseFont font = FontSettings.HELVETICA_10PT.createFont();
-            assertThat(font).isNotNull();
-        }
-
-        @Test
-        @DisplayName("should return BaseFont for custom font settings")
-        void shouldReturnBaseFont_forCustomFontSettings() {
+        @DisplayName("should store custom font settings")
+        void shouldStoreCustomFontSettings() {
             FontSettings custom = new FontSettings(
-                    BaseFont.TIMES_ROMAN, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED, 14);
-            BaseFont font = custom.createFont();
-            assertThat(font).isNotNull();
-        }
-
-        @Test
-        @DisplayName("should throw RuntimeException when font name is invalid")
-        void shouldThrowRuntimeException_whenFontNameIsInvalid() {
-            FontSettings invalid = new FontSettings(
-                    "NonExistentFont", BaseFont.WINANSI, BaseFont.NOT_EMBEDDED, 10);
-            assertThatThrownBy(invalid::createFont)
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("Unable to create font");
-        }
-    }
-
-    /** Tests for the default no-arg constructor. */
-    @Nested
-    @DisplayName("Default Constructor")
-    class DefaultConstructor {
-
-        @Test
-        @DisplayName("should use Helvetica defaults when no-arg constructor used")
-        void shouldUseHelveticaDefaults_whenNoArgConstructorUsed() {
-            FontSettings settings = new FontSettings();
-            assertThat(settings.getFont()).isEqualTo(BaseFont.HELVETICA);
-            assertThat(settings.getCodePage()).isEqualTo(BaseFont.WINANSI);
-            assertThat(settings.isEmbedded()).isFalse();
-            assertThat(settings.getFontSize()).isZero();
+                    BaseFont.TIMES_ROMAN, BaseFont.CP1252, true, 14);
+            assertThat(custom.getFont()).isEqualTo(BaseFont.TIMES_ROMAN);
+            assertThat(custom.getCodePage()).isEqualTo(BaseFont.CP1252);
+            assertThat(custom.isEmbedded()).isTrue();
+            assertThat(custom.getFontSize()).isEqualTo(14);
         }
     }
 }

@@ -603,9 +603,10 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <!-- openpdf-html: HTML to PDF support (HTMLWorker) used by LabPDFCreator.
-             Declared explicitly since LabPDFCreator directly imports
-             org.openpdf.text.html.simpleparser.HTMLWorker from this module. -->
+        <!-- openpdf-html: Flying Saucer's XhtmlRenderer integration and HTML schema resources.
+             Note: HTMLWorker (org.openpdf.text.html.simpleparser.HTMLWorker) is in the main
+             openpdf artifact, NOT in this module. This module provides org.openpdf.simple.*
+             classes for advanced HTML rendering. Retained for transitive compatibility. -->
         <dependency>
             <groupId>com.github.librepdf.openpdf</groupId>
             <artifactId>openpdf-html</artifactId>

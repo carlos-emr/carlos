@@ -44,7 +44,7 @@ package io.github.carlos_emr.carlos.util;
 
 
 /**
- * This class demonstrates copying a PDF file using iText.
+ * Concatenates multiple PDF files into a single output document using Apache PDFBox.
  *
  * @author Mark Thompson
  */

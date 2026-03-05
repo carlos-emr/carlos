@@ -159,7 +159,6 @@ public class EctConsultationFormRequestPrintPdf {
 
         //Create the document we are going to write to
         document = new Document();
-        // writer = PdfWriter.getInstance(document,out);
         writer = PdfWriterFactory.newInstance(document, out, FontSettings.HELVETICA_6PT);
 
         //Use the template located at '/oscar/oscarEncounter/oscarConsultationRequest/props'

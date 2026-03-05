@@ -130,7 +130,6 @@ public class ImagePDFCreator extends PdfPageEventHelper {
         // Create the document we are going to write to
         document = new Document();
         PdfWriter writer = PdfWriter.getInstance(document, os);
-        //PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_6PT);
 
         document.setPageSize(PageSize.LETTER);
         document.addCreator("CARLOS EMR");

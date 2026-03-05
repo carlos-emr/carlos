@@ -382,8 +382,6 @@ public class Doc2PDF {
      */
     public static void PrintPDFFromBin(HttpServletResponse response, String docBin) {
 
-        // step 1: creation of a document-object
-
         try {
 
             byte[] binDecodedArray = Base64.decodeBase64(docBin.getBytes(StandardCharsets.UTF_8));

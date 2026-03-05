@@ -158,8 +158,6 @@ public class CaseManagementPrintPdf {
         //Create the document we are going to write to
         document = new Document();
         writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_12PT);
-
-        // writer.setPageEvent(new EndPage());
         document.setPageSize(PageSize.LETTER);
         document.open();
 
@@ -529,18 +527,6 @@ public class CaseManagementPrintPdf {
         String[] headings = {"Social History\n", "Other Meds\n", "Medical History\n", "Ongoing Concerns\n", "Reminders\n", "Family History\n", "Risk Factors\n"};
         String[] issueCodes = {"SocHistory", "OMeds", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors"};
         //String[] content = {cpp.getSocialHistory(), cpp.getFamilyHistory(), cpp.getMedicalHistory(), cpp.getOngoingConcerns(), cpp.getReminders()};
-
-        //init column to left side of page
-        //ct.setSimpleColumn(document.left(), document.bottomMargin()+25f, document.right()/2f, lworkingYcoord);
-
-        //int column = 1;
-        //Chunk chunk;
-        //float bottom = document.bottomMargin()+25f;
-        //float middle;
-        //bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-        //cb.beginText();
-        //String headerContd;
-        //while there are cpp headings to process
 
         for (int idx = 0; idx < headings.length; ++idx) {
             p = new Paragraph();

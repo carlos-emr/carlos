@@ -145,7 +145,6 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         // Create the document we are going to write to
         document = new Document();
         PdfWriter.getInstance(document, os);
-//		PdfWriterFactory.newInstance( document, os, FontSettings.HELVETICA_10PT );
         document.setPageSize(PageSize.LETTER);
         document.addTitle(getResource("msgConsReq"));
         document.addCreator("CARLOS EMR");

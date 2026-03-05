@@ -635,17 +635,8 @@ public class FrmPDFServlet extends HttpServlet {
 
                     //----------
                     if (OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
-//	                    log.info("adding forms_promotext");
-//
-//	                    // remove elements of the PDF file
-//	                    Rectangle rec = new Rectangle(160, 12, 465, 21);
-//	                    rec.setBackgroundColor(java.awt.Color.WHITE);
-//	                    cb.rectangle(rec);
-//
-//	                    cb.beginText();
-//	                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA,BaseFont.CP1252,BaseFont.NOT_EMBEDDED), 6);
-//	                    cb.showTextAligned(PdfContentByte.ALIGN_CENTER, OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT"), width/2, 16, 0);
-//	                    cb.endText();
+                        // Promo text rendering was removed during iText->OpenPDF migration.
+                        // If needed, re-implement using PdfWriterFactory page event stampers.
                     }
 
 
