@@ -138,7 +138,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
  * on-the-fly using {@link LabPDFCreator}.
  *
  * @see ConsultationManager
- * @since 2012 (McMaster University)
+ * @since 2014 (McMaster University)
  */
 @Service
 public class ConsultationManagerImpl implements ConsultationManager {

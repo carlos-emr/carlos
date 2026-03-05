@@ -192,8 +192,14 @@ public class ImagePDFCreator extends PdfPageEventHelper {
                 cb.addImage(image);
             }
         } finally {
-            if (document.isOpen()) {
-                document.close();
+            try {
+                if (document.isOpen()) {
+                    document.close();
+                }
+            } finally {
+                if (writer != null) {
+                    writer.close();
+                }
             }
         }
     }

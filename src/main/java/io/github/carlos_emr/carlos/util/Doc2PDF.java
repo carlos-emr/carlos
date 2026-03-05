@@ -65,9 +65,9 @@ import org.xhtmlrenderer.layout.SharedContext;
  * Flying Saucer ({@link ITextRenderer}) for PDF rendering. Also includes legacy methods
  * for invoking the external {@code htmldoc} command-line tool.</p>
  *
- * <p>Note: Despite the "ITextRenderer" class name in Flying Saucer, this does NOT use
- * iText directly. Flying Saucer's renderer is a separate PDF engine that wraps its own
- * rendering pipeline.</p>
+ * <p>Note: Flying Saucer's {@code ITextRenderer} uses OpenPDF (the LGPL fork of iText)
+ * as its PDF backend. The "iText" in the class name is a historical artifact from when
+ * Flying Saucer used the original iText library.</p>
  *
  * @deprecated Unsafe with potential memory leaks. Consider using
  *     {@link io.github.carlos_emr.carlos.documentManager.ConvertToEdoc} for HTML-to-PDF conversion.
@@ -108,11 +108,8 @@ public class Doc2PDF {
      */
     private static void renderWithFlyingSaucer(String html, OutputStream os, String baseUrl) throws Exception {
         org.jsoup.nodes.Document doc = Jsoup.parse(html);
-        doc.outputSettings()
-            .syntax(org.jsoup.nodes.Document.OutputSettings.Syntax.xml)
-            .escapeMode(Entities.EscapeMode.xhtml)
-            .charset(StandardCharsets.UTF_8.name())
-            .prettyPrint(false);
+        configureJsoupForXhtml(doc);
+        doc.outputSettings().charset(StandardCharsets.UTF_8.name());
 
         // Flying Saucer attempts to execute script content during rendering, causing errors
         doc.select("script").remove();

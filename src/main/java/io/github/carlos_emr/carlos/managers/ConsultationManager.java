@@ -97,7 +97,7 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
  * @see ConsultationManagerImpl
  * @see ConsultationRequest
  * @see ConsultationResponse
- * @since 2012 (McMaster University)
+ * @since 2014 (McMaster University)
  */
 public interface ConsultationManager {
 

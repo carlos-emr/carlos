@@ -141,6 +141,34 @@ class LocalOnlyUserAgentUnitTest {
             InputStream result = agent.resolveAndOpenStream("images/logo.png");
             assertThat(result).isNull();
         }
+
+        @Test
+        @DisplayName("should return null when URI uses jar: scheme (SSRF bypass vector)")
+        void shouldReturnNull_whenUriUsesJarScheme() {
+            // jar:https://... triggers java.net.URL to make an outbound HTTPS request
+            assertThat(agent.resolveAndOpenStream("jar:https://evil.com/malicious.jar!/entry")).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when URI uses gopher: scheme")
+        void shouldReturnNull_whenUriUsesGopherScheme() {
+            assertThat(agent.resolveAndOpenStream("gopher://evil.com/")).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when URI uses ldap: scheme")
+        void shouldReturnNull_whenUriUsesLdapScheme() {
+            assertThat(agent.resolveAndOpenStream("ldap://evil.com/")).isNull();
+        }
+
+        @Test
+        @DisplayName("should delegate to parent when URI uses file: scheme")
+        void shouldDelegateToParent_whenUriUsesFileScheme() {
+            // file: URIs are local resources, should not be blocked.
+            // Parent returns null since the file doesn't exist, but must not throw.
+            InputStream result = agent.resolveAndOpenStream("file:///nonexistent/path.png");
+            assertThat(result).isNull();
+        }
     }
 
     /** Tests for the createRestrictedRenderer static factory method. */

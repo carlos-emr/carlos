@@ -40,9 +40,10 @@ import java.util.Locale;
  * fetching cloud metadata at {@code http://169.254.169.254/}.
  *
  * <p>This subclass overrides {@link #resolveAndOpenStream(String)}, the single chokepoint
- * through which all Flying Saucer resource loading flows. Only {@code data:} URIs (inline
- * base64, no network request) are allowed through; all network schemes ({@code http:},
- * {@code https:}, {@code ftp:}, protocol-relative {@code //}) are blocked.
+ * through which all Flying Saucer resource loading flows. Uses an allowlist approach:
+ * only {@code data:} URIs (inline base64), {@code file:} URIs, and local paths are
+ * permitted. All other schemes ({@code http:}, {@code https:}, {@code ftp:}, {@code jar:},
+ * protocol-relative {@code //}, etc.) are blocked.
  *
  * <p>Usage: call {@link #createRestrictedRenderer()} instead of {@code new ITextRenderer()}.
  *
@@ -83,10 +84,12 @@ public class LocalOnlyUserAgent extends ITextUserAgent {
      *   <li>Local paths — delegated to parent for {@code file:} and relative resolution</li>
      * </ul>
      *
-     * <p>Blocked:
+     * <p>Blocked (everything else):
      * <ul>
      *   <li>{@code http:}, {@code https:}, {@code ftp:} — external network requests</li>
+     *   <li>{@code jar:} — can trigger outbound requests via {@code jar:https://...}</li>
      *   <li>{@code //} — protocol-relative URLs</li>
+     *   <li>Any other scheme ({@code gopher:}, {@code ldap:}, etc.)</li>
      * </ul>
      *
      * @param uri String the resource URI to resolve
@@ -105,16 +108,21 @@ public class LocalOnlyUserAgent extends ITextUserAgent {
             return super.resolveAndOpenStream(uri);
         }
 
-        // Block all network schemes
-        if (lower.startsWith("http:") || lower.startsWith("https:")
-                || lower.startsWith("ftp:") || lower.startsWith("//")) {
-            logger.warn("Blocked external resource fetch during PDF rendering: {}",
-                    uri.substring(0, Math.min(uri.indexOf(':') + 1, 10)));
+        // Block protocol-relative URLs (//evil.com) — inherits scheme from base URL
+        if (uri.startsWith("//")) {
+            logger.warn("Blocked external resource fetch during PDF rendering (scheme: {})", "//");
             return null;
         }
 
-        // Allow local file access (file: scheme and relative paths)
-        return super.resolveAndOpenStream(uri);
+        // Allow file: scheme and relative paths (no scheme or starts with / or .)
+        if (lower.startsWith("file:") || !uri.contains(":") || uri.startsWith("/") || uri.startsWith(".")) {
+            return super.resolveAndOpenStream(uri);
+        }
+
+        // Block everything else (http, https, ftp, jar, gopher, ldap, //, etc.)
+        String scheme = lower.contains(":") ? lower.substring(0, lower.indexOf(':') + 1) : lower.substring(0, Math.min(lower.length(), 6));
+        logger.warn("Blocked external resource fetch during PDF rendering (scheme: {})", scheme);
+        return null;
     }
 
     /**

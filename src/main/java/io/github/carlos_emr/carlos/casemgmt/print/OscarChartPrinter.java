@@ -210,21 +210,25 @@ public class OscarChartPrinter implements java.io.Closeable {
      *
      * @deprecated Use {@link #close()} directly or try-with-resources instead.
      */
+    @Deprecated
     public void finish() {
         close();
     }
 
     /**
-     * Closes the underlying PDF {@link Document} if it is still open.
+     * Closes the underlying PDF {@link Document} and writer.
      * Safe to call multiple times.
      */
     @Override
     public void close() {
-        if (writer != null) {
-            writer.close();
-        }
-        if (document != null && document.isOpen()) {
-            document.close();
+        try {
+            if (document != null && document.isOpen()) {
+                document.close();
+            }
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
         }
     }
 

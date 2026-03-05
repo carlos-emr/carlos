@@ -105,7 +105,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  *
  * @see io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory
  * @see io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory
- * @since 2007-11-27
+ * @since 2007-12-15
  */
 public class LabPDFCreator extends PdfPageEventHelper {
     private OutputStream os;
@@ -216,7 +216,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
             org.openpdf.text.Document document = new org.openpdf.text.Document();
             RtfWriter2 writer = RtfWriter2.getInstance(document, os);
             document.setPageSize(org.openpdf.text.PageSize.LETTER);
-            document.addTitle("Title of the Document");
+            document.addTitle("CARLOS Laboratory Report");
             document.addCreator("CARLOS EMR");
             document.open();
 
@@ -276,7 +276,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
             }
 
             document.setPageSize(PageSize.LETTER);
-            document.addTitle("OSCAR Laboratory Report");
+            document.addTitle("CARLOS Laboratory Report");
             document.addCreator("CARLOS EMR");
             document.open();
 

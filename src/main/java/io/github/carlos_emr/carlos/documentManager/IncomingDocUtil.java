@@ -754,32 +754,22 @@ public final class IncomingDocUtil {
             }
 
 
-        } catch (Exception e) {
-            throw (e);
         } finally {
-            try {
-                if (document != null) {
-                    document.close();
-                }
-                if (copy != null) {
-                    copy.close();
-                }
-                if (extractCopy != null) {
-                    extractCopy.close();
-                }
-                if (copyFos != null) {
-                    copyFos.close();
-                }
-                if (extractFos != null) {
-                    extractFos.close();
-                }
-                if (reader != null) {
-                    reader.close();
-                }
-
-            } catch (Exception e) {
-                throw (e);
-            }
+            // Each close is independently protected so a failure in one
+            // does not prevent cleanup of the remaining resources.
+            // PdfCopy closed before Document to match deletePage ordering.
+            try { if (copy != null) copy.close(); }
+            catch (Exception e) { MiscUtils.getLogger().error("Error closing copy writer during page extraction", e); }
+            try { if (extractCopy != null) extractCopy.close(); }
+            catch (Exception e) { MiscUtils.getLogger().error("Error closing extract writer during page extraction", e); }
+            try { if (document != null) document.close(); }
+            catch (Exception e) { MiscUtils.getLogger().error("Error closing PDF document during page extraction", e); }
+            try { if (copyFos != null) copyFos.close(); }
+            catch (Exception e) { MiscUtils.getLogger().error("Error closing copy output stream during page extraction", e); }
+            try { if (extractFos != null) extractFos.close(); }
+            catch (Exception e) { MiscUtils.getLogger().error("Error closing extract output stream during page extraction", e); }
+            try { if (reader != null) reader.close(); }
+            catch (Exception e) { MiscUtils.getLogger().error("Error closing PDF reader during page extraction", e); }
         }
 
         boolean success = f.delete();

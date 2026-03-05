@@ -816,16 +816,24 @@ public class PdfRecordPrinter {
     }
 
     /**
-     * Closes the PDF document and flushes the output stream. Must be called after all sections are printed.
+     * Closes the PDF document and writer, flushing the output stream. Must be called after all sections are printed.
      */
     public void finish() {
-        document.close();
+        try {
+            if (document != null) {
+                document.close();
+            }
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
+        }
     }
 
     /**
      * OpenPDF page event handler that prints a footer with promotional text, date, and page number
      * on each page. Used as an alternative to the manual {@link #footer()} method when registered
-     * with {@link PdfWriter#setPageEvent(com.lowagie.text.pdf.PdfPageEvent)}.
+     * with {@link PdfWriter#setPageEvent(org.openpdf.text.pdf.PdfPageEvent)}.
      */
     class EndPage extends PdfPageEventHelper {
         private Date now;

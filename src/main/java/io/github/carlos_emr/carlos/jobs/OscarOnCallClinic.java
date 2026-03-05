@@ -177,10 +177,9 @@ public class OscarOnCallClinic implements OscarRunnable {
      */
     private Boolean makeNoShowApptDocument(String filename, Appointment appointment, Demographic demographic, ProviderData providerData) {
         Document document = new Document();
-        PdfWriter writer = null;
 
         try (FileOutputStream fos = new FileOutputStream(DOCUMENTDIR + filename)) {
-            writer = PdfWriter.getInstance(document, fos);
+            PdfWriter.getInstance(document, fos);
             Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
             pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
             document.setPageSize(pageSize);
@@ -220,6 +219,10 @@ public class OscarOnCallClinic implements OscarRunnable {
             body.setAlignment(Element.ALIGN_LEFT);
             document.add(body);
 
+            // Close document inside the try body so the PDF trailer is
+            // written to fos BEFORE try-with-resources closes the stream.
+            document.close();
+
         } catch (FileNotFoundException e) {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
@@ -228,9 +231,8 @@ public class OscarOnCallClinic implements OscarRunnable {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
         } finally {
-            document.close();
-            if (writer != null) {
-                writer.close();
+            if (document.isOpen()) {
+                document.close();
             }
         }
 
@@ -249,10 +251,9 @@ public class OscarOnCallClinic implements OscarRunnable {
      */
     private Boolean makeGoodApptDocument(String filename, Appointment appointment, Demographic demographic, ProviderData providerData) {
         Document document = new Document();
-        PdfWriter writer = null;
 
         try (FileOutputStream fos = new FileOutputStream(DOCUMENTDIR + filename)) {
-            writer = PdfWriter.getInstance(document, fos);
+            PdfWriter.getInstance(document, fos);
             Rectangle pageSize = new Rectangle(PageSize.A5.getWidth(), PageSize.A5.getHeight());
             pageSize.setBackgroundColor(new Color(0xCC, 0xCC, 0xFF));
             document.setPageSize(pageSize);
@@ -292,6 +293,10 @@ public class OscarOnCallClinic implements OscarRunnable {
             body.setAlignment(Element.ALIGN_LEFT);
             document.add(body);
 
+            // Close document inside the try body so the PDF trailer is
+            // written to fos BEFORE try-with-resources closes the stream.
+            document.close();
+
         } catch (FileNotFoundException e) {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
@@ -300,9 +305,8 @@ public class OscarOnCallClinic implements OscarRunnable {
             MiscUtils.getLogger().error("ERROR", e);
             return false;
         } finally {
-            document.close();
-            if (writer != null) {
-                writer.close();
+            if (document.isOpen()) {
+                document.close();
             }
         }
 

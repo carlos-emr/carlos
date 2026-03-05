@@ -389,7 +389,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                  *  Create the special CARLOS Rx logo at the top
                  *  left side of the prescription
                  */
-                writeDirectContent(cb, bf, 12, PdfContentByte.ALIGN_LEFT, "o s c a r", 21, height - 60, 90);
+                writeDirectContent(cb, bf, 12, PdfContentByte.ALIGN_LEFT, "c a r l o s", 21, height - 60, 90);
                 // draw R
                 writeDirectContent(cb, bf, 50, PdfContentByte.ALIGN_LEFT, "P", 24, height - 53, 0);
                 // draw X

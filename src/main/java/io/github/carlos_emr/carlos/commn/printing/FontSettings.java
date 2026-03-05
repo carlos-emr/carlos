@@ -46,7 +46,7 @@ import org.openpdf.text.pdf.BaseFont;
  * </ul>
  *
  * @see PdfWriterFactory
- * @since 2012-02-20
+ * @since 2012-09-10
  */
 public class FontSettings {
 

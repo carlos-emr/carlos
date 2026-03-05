@@ -591,9 +591,12 @@ public class CaseManagementPrintPdf {
      * Closes the PDF document and flushes all content to the output stream.
      */
     public void finish() {
-        document.close();
-        if (writer != null) {
-            writer.close();
+        try {
+            document.close();
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
         }
     }
 

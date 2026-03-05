@@ -159,7 +159,7 @@ public class PdfCoverPageCreator {
                 document.addCreator(sender.getLetterheadName());
             }
 
-            document.addAuthor("OSCAR EMR");
+            document.addAuthor("CARLOS EMR");
             document.open();
 
             PdfPTable maintable = new PdfPTable(1);
@@ -401,7 +401,7 @@ public class PdfCoverPageCreator {
      * @param main PdfPTable the host table to add into
      * @param add PdfPTable the table being added as a nested cell
      * @param borderarray int[] array of {@link PdfPCell} border constants (e.g., {@code PdfPCell.TOP})
-     * @param paddingarray int[] padding values in CSS clockwise order (left, top, right, bottom), or null for defaults
+     * @param paddingarray int[] padding values as {left, top, right, bottom}, or null for defaults
      * @return PdfPCell the cell containing the nested table
      */
     private PdfPCell addToTable(PdfPTable main, PdfPTable add, int[] borderarray, int[] paddingarray) {

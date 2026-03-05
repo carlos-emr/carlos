@@ -53,7 +53,7 @@ public class FooterSupport extends PdfPageEventHelper {
     private BaseFont font;
 
     /**
-     * Creates a new instance with as the Helvetica 12pt base font.
+     * Creates a new instance with Helvetica 12pt as the default base font.
      */
     public FooterSupport() {
         super();

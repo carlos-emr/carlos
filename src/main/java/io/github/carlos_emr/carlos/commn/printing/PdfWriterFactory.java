@@ -61,7 +61,7 @@ import io.github.carlos_emr.OscarProperties;
  * @see FontSettings
  * @see PageNumberStamper
  * @see PromoTextStamper
- * @since 2012-02-20
+ * @since 2012-09-10
  */
 public class PdfWriterFactory {
 
