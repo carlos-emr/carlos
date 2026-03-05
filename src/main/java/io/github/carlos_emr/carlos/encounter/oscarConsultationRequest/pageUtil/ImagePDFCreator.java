@@ -157,6 +157,9 @@ public class ImagePDFCreator extends PdfPageEventHelper {
                     try {
                         reader.setInput(iis);
                         int comps = reader.getNumImages(true);
+                        if (comps <= 0) {
+                            throw new DocumentException("TIFF image contains no readable pages");
+                        }
                         PdfContentByte cb = writer.getDirectContent();
                         for (int c = 0; c < comps; c++) {
                             BufferedImage bufferedImage = reader.read(c);
