@@ -242,6 +242,27 @@
                 <value>io.github.carlos_emr.carlos.commn.model.ConsultationServices</value>
                 <value>io.github.carlos_emr.carlos.commn.model.ConsultDocs</value>
                 <value>io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MyGroup</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey</value>
+                <!-- Billing entities for Phase 1 DAO integration tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.BillingONCHeader1</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillingONItem</value>
+                <value>io.github.carlos_emr.carlos.commn.model.Billing</value>
+                <!-- EForm entities -->
+                <value>io.github.carlos_emr.carlos.commn.model.EFormData</value>
+                <!-- Document entities -->
+                <value>io.github.carlos_emr.carlos.commn.model.Document</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DocumentReview</value>
+                <!-- MeasurementType for Measurement query tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.MeasurementType</value>
+                <!-- CtlDocument entities for DocumentDao JPQL join tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.CtlDocument</value>
+                <!-- ProviderLabRoutingModel for InboxResultsDao native SQL tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel</value>
+                <!-- EFormDocs for DocumentDao findDocsAndEFormDocsByFdid tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.EFormDocs</value>
+                <!-- SystemPreferences for InboxResultsDao date search config -->
+                <value>io.github.carlos_emr.carlos.commn.model.SystemPreferences</value>
             </list>
         </property>
         <property name="mappingResources">
@@ -514,5 +535,27 @@
     <bean id="populationReportDao" class="io.github.carlos_emr.carlos.commn.dao.PopulationReportDaoImpl" autowire="byName">
         <property name="sessionFactory" ref="sessionFactory" />
     </bean>
+
+    <!-- Admission DAO for AdmissionDao integration tests -->
+    <bean id="admissionDao" class="io.github.carlos_emr.carlos.commn.dao.AdmissionDaoImpl" autowire="byName" />
+
+    <!-- Billing DAOs for Phase 1 integration tests -->
+    <bean id="billingONCHeader1Dao" class="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1DaoImpl" autowire="byName" />
+    <bean id="billingDao" class="io.github.carlos_emr.carlos.commn.dao.BillingDaoImpl" autowire="byName" />
+
+    <!-- EForm DAO for EFormDataDao integration tests -->
+    <bean id="eFormDataDao" class="io.github.carlos_emr.carlos.commn.dao.EFormDataDaoImpl" autowire="byName" />
+
+    <!-- Document DAO for DocumentDao integration tests -->
+    <bean id="documentDao" class="io.github.carlos_emr.carlos.commn.dao.DocumentDaoImpl" autowire="byName" />
+
+    <!-- Inbox Results DAO for InboxResultsDao integration tests -->
+    <bean id="inboxResultsDao" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsDaoImpl" autowire="byName" />
+
+    <!-- CtlDocument DAO for DocumentDao CtlDocument join tests -->
+    <bean id="ctlDocumentDao" class="io.github.carlos_emr.carlos.commn.dao.CtlDocumentDaoImpl" autowire="byName" />
+
+    <!-- SystemPreferences DAO for InboxResultsDao date search type config -->
+    <bean id="systemPreferencesDao" class="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDaoImpl" autowire="byName" />
 
 </beans>
