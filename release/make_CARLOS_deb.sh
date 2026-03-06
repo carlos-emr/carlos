@@ -136,7 +136,6 @@ echo  ${D_COMMIT} >> tmp3
 sed -r 's/(^.{80}).*/\1/' tmp3 > tmp4
 tail -n 1 tmp > tmp5
 
-
 cat tmp2 \
 tmp4 \
 tmp5 \
@@ -144,7 +143,6 @@ tmp5 \
 
 cat latestStable >> cumulative
 cat latestDrugref >> cumulative
-
 
 echo "+++++++++++++++++++++++"
 echo build=$BUILD
@@ -186,7 +184,6 @@ chmod 755 ./${DEBNAME}/DEBIAN/config
 echo "Configuring control"
 sed -e 's/Version: 8-x.x/Version: '"$VERSION"'-'"$REVISION"'/' \
 control > ./${DEBNAME}/DEBIAN/control
-
 chmod 644 ./${DEBNAME}/DEBIAN/control
 
 echo "Configuring postinst"
@@ -237,7 +234,6 @@ sed -e 's/^PROGRAM.*/PROGRAM='"$PROGRAM"'/' \
 -e 's/^REVISION.*/REVISION='"$REVISION"'/' \
 prerm > ./${DEBNAME}/DEBIAN/prerm
 
-
 chmod 755 ./${DEBNAME}/DEBIAN/prerm
 
 cp -R templates ./${DEBNAME}/DEBIAN/
@@ -249,7 +245,6 @@ mkdir -p ./${DEBNAME}/var/lib/${PACKAGE}/
 
 echo "make up the appropriate source.txt for this build"
 echo SHA1=${SHA1}
-
 
 sed -e 's/SHA1/'"$SHA1"'/' \
 -e 's/yyy-x.x/'"$VERSION"'-'"$REVISION"'/' \
@@ -269,10 +264,8 @@ cp letsencrypt.cron ./${DEBNAME}/var/lib/${PACKAGE}/letsencrypt.sh
 chmod 755 ./${DEBNAME}/var/lib/${PACKAGE}/gateway.sh
 chmod 755 ./${DEBNAME}/var/lib/${PACKAGE}/letsencrypt.sh
 
-
 echo "copying over utility scripts"
 cp -R ExcellerisDownload.sh ./${DEBNAME}/var/lib/${PACKAGE}/
-
 cp -R demo.sql ./${DEBNAME}/var/lib/${PACKAGE}/
 cp -R OfficeCodes.sql ./${DEBNAME}/var/lib/${PACKAGE}/
 cp -R rbr2014.zip ./${DEBNAME}/var/lib/${PACKAGE}/
@@ -280,30 +273,22 @@ cp -R ndss.zip ./${DEBNAME}/var/lib/${PACKAGE}/
 cp -R RourkeEform.sql ./${DEBNAME}/var/lib/${PACKAGE}/
 cp -R RourkeEformNational.sql ./${DEBNAME}/var/lib/${PACKAGE}/
 cp -R ndss.sql ./${DEBNAME}/var/lib/${PACKAGE}/
-
 cp -R tallMAN.sql ./${DEBNAME}/var/lib/${PACKAGE}/
 cp -R tallMANdrugref.sql ./${DEBNAME}/var/lib/${PACKAGE}/
-
 cp -R ontarioLab.sql ./${DEBNAME}/var/lib/${PACKAGE}/
 cp -R FIT.sql ./${DEBNAME}/var/lib/${PACKAGE}/
 cp -R opr2017.sql ./${DEBNAME}/var/lib/${PACKAGE}/
 
-
 chmod 644 ./${DEBNAME}/var/lib/${PACKAGE}/rbr2014.zip
 chmod 644 ./${DEBNAME}/var/lib/${PACKAGE}/ndss.zip
-
 
 cp -R patch19.sql ./${DEBNAME}/var/lib/${PACKAGE}/patch.sql
 cp -R OpenO_compatibility.sql ./${DEBNAME}/var/lib/${PACKAGE}/OpenO_compatibility.sql
 
-
 # use the stock properties file as config will fix as needed
-
 cp -R ${SRC}/src/main/resources/carlos.properties ./${DEBNAME}/var/lib/${PACKAGE}/carlos.properties
 
-
 cp -R README.txt ./${DEBNAME}/var/lib/${PACKAGE}/
-
 cp -R RNGPA.sql ./${DEBNAME}/var/lib/${PACKAGE}/
 cp -R special.sql ./${DEBNAME}/var/lib/${PACKAGE}/
 cp -R unDemo.sql ./${DEBNAME}/var/lib/${PACKAGE}/
@@ -330,19 +315,13 @@ chmod 711 ./${DEBNAME}/var/lib/${PACKAGE}/restore.sh
 cp -R drugrefUpdate.cron ./${DEBNAME}/var/lib/${PACKAGE}/
 chmod +x ./${DEBNAME}/var/lib/${PACKAGE}/drugrefUpdate.cron
 
-echo "getting and loading wars"
+echo "build directory made to receive wars"
 mkdir -p ./${DEBNAME}${C_BASE}webapps/
 
-echo "build directory made to receive wars"
-
-
-
-cp drugref2-1.0-SNAPSHOT.war drugref.war
-cp drugref.war ./${DEBNAME}${C_BASE}webapps/drugref.war
+echo "getting and loading wars"
+curl -o https://bitbucket.org/oscaremr/drugref2/downloads/drugref2.48.war ./${DEBNAME}${C_BASE}webapps/drugref.war
 cp $TARGET ./${DEBNAME}${C_BASE}webapps/$PROGRAM.war
 
-
- 
 mkdir -p ./${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/${PROGRAM}/
 cp -r Document/oscar/ ./${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/
 
