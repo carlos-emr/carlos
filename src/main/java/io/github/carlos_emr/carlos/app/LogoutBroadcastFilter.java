@@ -26,6 +26,9 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Locale;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 import java.util.Set;
 
 import javax.servlet.Filter;
@@ -188,7 +191,7 @@ public class LogoutBroadcastFilter implements Filter {
             return;
         }
 
-        appendScript(response, delegatingResponse, httpRequest.getContextPath());
+        appendScript(response, delegatingResponse, httpRequest.getContextPath(), httpRequest.getLocale());
     }
 
     /**
@@ -218,12 +221,13 @@ public class LogoutBroadcastFilter implements Filter {
      * @param response ServletResponse the original response for output
      * @param delegatingResponse DelegatingServletResponse the wrapped response
      * @param contextPath String the servlet context path
+     * @param locale Locale the user's locale for i18n message lookup
      * @throws IOException if I/O error occurs writing the script
      */
     private void appendScript(ServletResponse response, DelegatingServletResponse delegatingResponse,
-                              String contextPath) throws IOException {
+                              String contextPath, Locale locale) throws IOException {
 
-        String script = buildScript(contextPath);
+        String script = buildScript(contextPath, locale);
 
         if (delegatingResponse.isResponseOutputStreamObtained()) {
             response.getOutputStream().write(script.getBytes());
@@ -235,19 +239,35 @@ public class LogoutBroadcastFilter implements Filter {
     }
 
     /**
+     * Returns the localized "logged out" message for the logout overlay, falling back
+     * to English if the key is missing or the locale is unsupported.
+     *
+     * @param locale Locale the user's locale
+     * @return String the localized message
+     */
+    private String getLoggedOutMessage(Locale locale) {
+        try {
+            return ResourceBundle.getBundle("oscarResources", locale).getString("logoutBroadcast.loggedOut");
+        } catch (MissingResourceException e) {
+            return "Logged out";
+        }
+    }
+
+    /**
      * Builds the inline JavaScript for logout broadcast and session heartbeat.
      *
      * <p>The script uses an IIFE to avoid polluting the global scope. It sets a
      * {@code window.__carlosLogoutActive} guard to prevent duplicate injection
      * (e.g., from nested frames or multiple filter passes).
      *
-     * <p>The context path is encoded with {@link Encode#forJavaScript(String)} to
-     * prevent XSS in the JavaScript string literal.
+     * <p>The context path and logout message are encoded with
+     * {@link Encode#forJavaScript(String)} to prevent XSS in JavaScript string literals.
      *
      * @param contextPath String the servlet context path for URL construction
+     * @param locale Locale the user's locale for the logout overlay message
      * @return String the complete {@code <script>} block to inject
      */
-    private String buildScript(String contextPath) {
+    private String buildScript(String contextPath, Locale locale) {
         int inactivityLimitMins = getInactivityLimitMins();
 
         return "<script>" +
@@ -260,6 +280,7 @@ public class LogoutBroadcastFilter implements Filter {
                 "var lastOk=Date.now();" +
                 "var loginUrl=cp+'/index.jsp';" +
                 "var done=false;" +
+                "var logoutMsg='" + Encode.forJavaScript(getLoggedOutMessage(locale)) + "';" +
 
                 // BroadcastChannel listener (feature detection — may not exist in all browsers)
                 "var bc;" +
@@ -305,10 +326,16 @@ public class LogoutBroadcastFilter implements Filter {
                 // handleLogout — received broadcast from another window
                 "function hL(){if(done)return;done=true;dL()}" +
 
-                // doLogout — close popup or redirect tab to login
+                // doLogout — show logged-out overlay, close popup or redirect tab to login
                 "function dL(){" +
+                "try{var ov=document.createElement('div');" +
+                "ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:#fff;" +
+                "z-index:999999;display:flex;align-items:center;justify-content:center;" +
+                "font-family:sans-serif;font-size:1.5em;color:#333;';" +
+                "ov.textContent=logoutMsg;" +
+                "document.body.appendChild(ov);}catch(e){}" +
                 "try{window.close()}catch(e){}" +
-                "setTimeout(function(){window.location.href=loginUrl},200)" +
+                "setTimeout(function(){window.location.href=loginUrl},500)" +
                 "}" +
 
                 "})();" +
