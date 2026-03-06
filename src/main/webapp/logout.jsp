@@ -44,16 +44,23 @@
 
 --%>
 <%@ page session="false" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html><head>
 <meta http-equiv="refresh" content="1;url=logout.do">
+<style>
+body{margin:0;display:flex;align-items:center;justify-content:center;
+height:100vh;font-family:sans-serif;font-size:1.5em;color:#333;background:#fff;}
+</style>
 </head><body>
+<span><fmt:message key="logoutBroadcast.loggedOut"/></span>
 <script>
 (function(){
     try { var bc = new BroadcastChannel('carlos_logout'); bc.postMessage('logout'); bc.close(); } catch(e) {}
     try { localStorage.setItem('carlos_logout_signal', '' + Date.now()); } catch(e) {}
     try { localStorage.removeItem('carlos_logout_signal'); } catch(e) {}
-    setTimeout(function(){ window.location.href = 'logout.do'; }, 200);
+    setTimeout(function(){ window.location.href = 'logout.do'; }, 500);
 })();
 </script>
 </body></html>
