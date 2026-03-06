@@ -107,7 +107,7 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         drug.setRxDate(today);
         drug.setEndDate(nextWeek);
         drug.setWrittenDate(today);
-        drug.setDataField("1 tab PO daily");
+        drug.setSpecial("1 tab PO daily");
         drug.setCustomName("");
         drug.setGenericName("");
         drug.setRegionalIdentifier("");
@@ -119,7 +119,7 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         drug.setUnitName("tab");
         drug.setNoSubs(false);
         drug.setPrn(false);
-        drug.setCreator(PROVIDER_NO);
+        drug.setCreateDate(today);
         return drug;
     }
 

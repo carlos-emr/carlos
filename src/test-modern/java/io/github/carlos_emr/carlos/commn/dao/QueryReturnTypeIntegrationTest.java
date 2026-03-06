@@ -222,7 +222,7 @@ public class QueryReturnTypeIntegrationTest extends CarlosTestBase {
             // Given — pattern from DocumentDaoImpl: SELECT d, c FROM Document d, CtlDocument c WHERE ...
             Document doc = new Document();
             doc.setDoctype("consult");
-            doc.setDocCreator("999998");
+            doc.setDoccreator("999998");
             doc.setResponsible("999998");
             doc.setStatus('A');
             entityManager.persist(doc);
@@ -324,7 +324,7 @@ public class QueryReturnTypeIntegrationTest extends CarlosTestBase {
             // Given — Document has @Table(name = "document")
             Document doc = new Document();
             doc.setDoctype("lab");
-            doc.setDocCreator("999998");
+            doc.setDoccreator("999998");
             doc.setResponsible("999998");
             doc.setStatus('A');
             entityManager.persist(doc);
