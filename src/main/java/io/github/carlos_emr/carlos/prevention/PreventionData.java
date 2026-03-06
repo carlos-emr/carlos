@@ -298,7 +298,7 @@ public class PreventionData {
                  * force case sensitive comparison of name; MySQL by default does case INsensitive
                  * DTaP and dTap are considered the same by MySQL
                  */
-                if (preventionType != null && !prevention.getPreventionType().equals(preventionType)) {
+                if (preventionType == null || (preventionType != null && !prevention.getPreventionType().equals(preventionType))) {
                     continue;
                 }
 
