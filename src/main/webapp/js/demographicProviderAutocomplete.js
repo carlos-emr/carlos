@@ -26,6 +26,18 @@
 const selectedDemos = [];
 
 /**
+ * Escape a value for safe insertion into HTML content.
+ *
+ * @param {*} value - The value to escape
+ * @returns {string} HTML-safe string
+ */
+function escapeHtml(value) {
+    var div = document.createElement('div');
+    div.textContent = value == null ? '' : String(value);
+    return div.innerHTML;
+}
+
+/**
  * Highlight a query substring within a full string by wrapping it in a
  * {@code <span class="match">} element.
  *
@@ -35,11 +47,11 @@ const selectedDemos = [];
  * @returns {string} HTML string with the match wrapped in a highlight span
  */
 function highlightMatch(full, snippet, matchindex) {
-    return full.substring(0, matchindex) +
+    return escapeHtml(full.substring(0, matchindex)) +
         "<span class='match'>" +
-        full.substr(matchindex, snippet.length) +
+        escapeHtml(full.substring(matchindex, matchindex + snippet.length)) +
         "</span>" +
-        full.substring(matchindex + snippet.length);
+        escapeHtml(full.substring(matchindex + snippet.length));
 }
 
 /**
@@ -59,8 +71,8 @@ function resultFormatter2(oResultData, sQuery, sResultMatch) {
     const fnameMatchIndex = fname.toLowerCase().indexOf(query);
     const displayfname = fnameMatchIndex > -1
         ? highlightMatch(fname, query, fnameMatchIndex)
-        : fname;
-    return displayfname + " (" + dob + ") - " + status;
+        : escapeHtml(fname);
+    return displayfname + " (" + escapeHtml(dob) + ") - " + escapeHtml(status);
 }
 
 /**
@@ -80,10 +92,10 @@ function resultFormatter(oResultData, sQuery, sResultMatch) {
     const lnameMatchIndex = lname.toLowerCase().indexOf(query);
     const displayfname = fnameMatchIndex > -1
         ? highlightMatch(fname, query, fnameMatchIndex)
-        : fname;
+        : escapeHtml(fname);
     const displaylname = lnameMatchIndex > -1
         ? highlightMatch(lname, query, lnameMatchIndex)
-        : lname;
+        : escapeHtml(lname);
     return displayfname + " " + displaylname;
 }
 
@@ -104,10 +116,10 @@ function resultFormatter3(oResultData, sQuery, sResultMatch) {
     const lnameMatchIndex = lname.toLowerCase().indexOf(query);
     const displayfname = fnameMatchIndex > -1
         ? highlightMatch(fname, query, fnameMatchIndex)
-        : fname;
+        : escapeHtml(fname);
     const displaylname = lnameMatchIndex > -1
         ? highlightMatch(lname, query, lnameMatchIndex)
-        : lname;
+        : escapeHtml(lname);
     return displaylname + "," + displayfname;
 }
 

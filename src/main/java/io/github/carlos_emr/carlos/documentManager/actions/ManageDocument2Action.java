@@ -603,7 +603,7 @@ public class ManageDocument2Action extends ActionSupport {
             ByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
             pdffile = new PDFFile(buf);
         } catch (Exception e) {
-            throw new Exception(e);
+            throw new Exception("Failed to create cache version for document: " + d.getDocfilename(), e);
         }
 
         // long readfile = System.currentTimeMillis() - start;
@@ -737,43 +737,49 @@ public class ManageDocument2Action extends ActionSupport {
         log.debug("Document Dir is a dir" + documentDir.isDirectory());
 
         Document d = documentDao.getDocument(doc_no);
+        if (d == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Document not found");
+            return;
+        }
         log.debug("Document Name :" + d.getDocfilename());
 
-        // TODO: Right now this assumes it's a pdf which it shouldn't
+        if (!"application/pdf".equalsIgnoreCase(d.getContenttype())) {
+            log.warn("view2 called for non-PDF document: {}", d.getDocfilename());
+            response.sendError(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE, "This view only supports PDF documents.");
+            return;
+        }
 
         response.setContentType("image/png");
-        // response.setHeader("Content-Disposition", "attachment;filename=\"" + filename+ "\"");
         // read the file name.
-        File file = new File(documentDir, d.getDocfilename());
+        File file = PathValidationUtils.validateExistingPath(new File(documentDir, d.getDocfilename()), documentDir);
 
-        java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r");
-        FileChannel channel = raf.getChannel();
-        ByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
-        PDFFile pdffile = new PDFFile(buf);
-        // long readfile = System.currentTimeMillis() - start;
-        // draw the first page to an image
-        PDFPage ppage = pdffile.getPage(0);
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(file, "r");
+             FileChannel channel = raf.getChannel()) {
+            ByteBuffer buf = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
+            PDFFile pdffile = new PDFFile(buf);
+            // draw the first page to an image
+            PDFPage ppage = pdffile.getPage(0);
 
-        log.debug("WIDTH " + (int) ppage.getBBox().getWidth() + " height " + (int) ppage.getBBox().getHeight());
+            log.debug("WIDTH " + (int) ppage.getBBox().getWidth() + " height " + (int) ppage.getBBox().getHeight());
 
-        // get the width and height for the doc at the default zoom
-        Rectangle rect = new Rectangle(0, 0, (int) ppage.getBBox().getWidth(), (int) ppage.getBBox().getHeight());
+            // get the width and height for the doc at the default zoom
+            Rectangle rect = new Rectangle(0, 0, (int) ppage.getBBox().getWidth(), (int) ppage.getBBox().getHeight());
 
-        log.debug("generate the image");
-        Image img = ppage.getImage(rect.width, rect.height, // width & height
-                rect, // clip rect
-                null, // null for the ImageObserver
-                true, // fill background with white
-                true // block until drawing is done
-        );
+            log.debug("generate the image");
+            Image img = ppage.getImage(rect.width, rect.height, // width & height
+                    rect, // clip rect
+                    null, // null for the ImageObserver
+                    true, // fill background with white
+                    true // block until drawing is done
+            );
 
-        log.debug("about to Print to stream");
-        ServletOutputStream outs = response.getOutputStream();
-
-        RenderedImage rendImage = (RenderedImage) img;
-        ImageIO.write(rendImage, "png", outs);
-        outs.flush();
-        outs.close();
+            log.debug("about to Print to stream");
+            try (ServletOutputStream outs = response.getOutputStream()) {
+                RenderedImage rendImage = (RenderedImage) img;
+                ImageIO.write(rendImage, "png", outs);
+                outs.flush();
+            }
+        }
 
     }
 
@@ -1557,6 +1563,8 @@ public class ManageDocument2Action extends ActionSupport {
 
         List<String> descriptions = documentDao.findDocumentDescriptions(keyword);
 
+        LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, "document_description_lookup", request.getRemoteAddr());
+
         com.fasterxml.jackson.databind.node.ArrayNode jsonArray = objectMapper.createArrayNode();
         for (String desc : descriptions) {
             com.fasterxml.jackson.databind.node.ObjectNode item = objectMapper.createObjectNode();
@@ -1564,7 +1572,7 @@ public class ManageDocument2Action extends ActionSupport {
             jsonArray.add(item);
         }
 
-        log.debug("searchDocumentDescriptions returning {} results for term={}", descriptions.size(), request.getParameter("term"));
+        log.debug("searchDocumentDescriptions returning {} results", descriptions.size());
 
         response.setContentType("application/json;charset=UTF-8");
         response.getWriter().print(jsonArray.toString());

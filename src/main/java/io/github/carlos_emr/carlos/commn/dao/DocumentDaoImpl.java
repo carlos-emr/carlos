@@ -533,8 +533,8 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         if (keyword == null) {
             keyword = "%";
         }
-        Query query = entityManager.createQuery(
-                "SELECT DISTINCT d.docdesc FROM Document d WHERE d.docdesc LIKE ?1 AND d.docdesc IS NOT NULL AND d.docdesc <> '' ORDER BY d.documentNo DESC");
+        String jpql = "SELECT d.docdesc FROM Document d WHERE d.status != 'D' AND d.docdesc LIKE ?1 AND d.docdesc IS NOT NULL AND d.docdesc <> '' GROUP BY d.docdesc ORDER BY MAX(d.documentNo) DESC";
+        Query query = entityManager.createQuery(jpql);
         query.setParameter(1, keyword);
         query.setMaxResults(20);
         return query.getResultList();

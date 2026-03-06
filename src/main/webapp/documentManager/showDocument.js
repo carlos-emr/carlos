@@ -31,6 +31,16 @@ function setupDemoAutoCompletion(docId, contextPath) {
 
     inputEl.addEventListener('input', function () {
         var term = inputEl.value.trim();
+        // Clear any previous demographic selection to prevent saving against wrong chart
+        var demoIdEl = document.getElementById('demofind' + docId);
+        var demoNameEl = document.getElementById('demofindName' + docId);
+        if (demoIdEl) demoIdEl.value = '';
+        if (demoNameEl) demoNameEl.value = '';
+        ['save', 'saveNext', 'msgBtn_', 'mainTickler_', 'mainEchart_', 'mainMaster_', 'mainApptHistory_']
+            .forEach(function (prefix) {
+                var el = document.getElementById(prefix + docId);
+                if (el) el.disabled = true;
+            });
         if (term.length < 2) {
             dropdownEl.innerHTML = '';
             dropdownEl.style.display = 'none';
@@ -58,7 +68,6 @@ function setupDemoAutoCompletion(docId, contextPath) {
                         document.getElementById('demofind' + docId).value = item.value;
                         document.getElementById('demofindName' + docId).value = item.formattedName;
                         selectedDemos.push(item.label);
-                        console.log(item.providerNo);
 
                         if (item.providerNo !== undefined && item.providerNo !== null && item.providerNo !== '' && item.providerNo !== 'null') {
                             addDocToList(item.providerNo, item.provider + ' (MRP)', docId);

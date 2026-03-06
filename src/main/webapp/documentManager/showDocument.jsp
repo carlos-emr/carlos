@@ -203,9 +203,11 @@
     if ((demographicID != null) && !demographicID.isEmpty() && !demographicID.equals("-1")) {
         DemographicDao demographicDao = (DemographicDao)SpringUtils.getBean(DemographicDao.class);
         Demographic demographic = demographicDao.getDemographic(demographicID);
-				demoName = demographic.getLastName()+","+demographic.getFirstName();
-        mrpProviderName = demographic.getProviderNo() == null || demographic.getProviderNo().isEmpty() ? "Unknown" : providerDao.getProviderNameLastFirst(demographic.getProviderNo());
-        mrpProviderName = " (MRP: " + mrpProviderName + ")";
+        if (demographic != null) {
+            demoName = demographic.getLastName()+","+demographic.getFirstName();
+            mrpProviderName = demographic.getProviderNo() == null || demographic.getProviderNo().isEmpty() ? "Unknown" : providerDao.getProviderNameLastFirst(demographic.getProviderNo());
+            mrpProviderName = " (MRP: " + mrpProviderName + ")";
+        }
     } else {
       demoName = EDocUtil.getProviderName(providerNo);
     }
@@ -430,12 +432,12 @@
             }
         }
     %>
-    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<%=ackFunc%>" method="post"
+    <form name="acknowledgeForm_<%=docId%>" id="acknowledgeForm_<%=docId%>" onsubmit="<%=Encode.forHtmlAttribute(ackFunc)%>" method="post"
           action="javascript:void(0);">
 
-        <input type="hidden" name="segmentID" value="<%= docId%>">
-        <input type="hidden" name="multiID" value="<%= docId%>">
-        <input type="hidden" name="providerNo" value="<%= providerNo%>">
+        <input type="hidden" name="segmentID" value="<%=Encode.forHtmlAttribute(docId)%>">
+        <input type="hidden" name="multiID" value="<%=Encode.forHtmlAttribute(docId)%>">
+        <input type="hidden" name="providerNo" value="<%=Encode.forHtmlAttribute(providerNo)%>">
         <input type="hidden" name="status" value="A" id="status_<%=docId%>">
         <input type="hidden" name="labType" value="DOC">
         <input type="hidden" name="ajaxcall" value="yes">
@@ -472,7 +474,7 @@
         <% if (demographicID != null && !demographicID.equals("") && !demographicID.equalsIgnoreCase("null") && !ackedOrFiled) {%>
         <input type="submit" class="btn btn-outline-primary btn-sm" id="ackBtn_<%=docId%>"
                value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>">
-        <input type="button" class="btn btn-outline-secondary btn-sm" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>" onclick="addDocComment('<%=Encode.forJavaScript(docId)%>','<%=Encode.forJavaScript(providerNo)%>')">
+        <input type="button" class="btn btn-outline-secondary btn-sm" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>" onclick="addDocComment('<%=Encode.forJavaScriptAttribute(docId)%>','<%=Encode.forJavaScriptAttribute(providerNo)%>')">
 
         <%}%>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="fwdBtn_<%=docId%>" value="<fmt:message key="oscarMDS.index.btnForward"/>"
@@ -514,7 +516,7 @@
 
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainEchart_<%=docId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/oscarEncounter/IncomingEncounter.do?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=docId%>')" <%=btnDisabled %>>
+               onClick="popupPatient(710, 1024,'${pageContext.servletContext.contextPath}/oscarEncounter/IncomingEncounter.do?reason=<fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=docId%>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainMaster_<%=docId%>" value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
                onClick="popupPatient(710,1024,'${pageContext.servletContext.contextPath}/demographic/demographiccontrol.jsp?displaymode=edit&dboperation=search_detail&demographic_no=','master','<%=docId%>')" <%=btnDisabled %>>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainApptHistory_<%=docId%>"
@@ -710,7 +712,7 @@
                                            id="demofindName<%=docId%>">
 
                                     <input type="checkbox" id="activeOnly<%=docId%>" name="activeOnly" checked="checked"
-                                           value="true" onclick="setupDemoAutoCompletion()"><fmt:message key="showDocument.lblActiveOnly"/><br>
+                                           value="true"><fmt:message key="showDocument.lblActiveOnly"/><br>
                                     <input type="text" id="autocompletedemo<%=docId%>"
                                            onchange="checkSave('<%=Encode.forJavaScript(docId)%>');" name="demographicKeyword"
                                            placeholder="Search Demographic">
@@ -720,7 +722,7 @@
                                     <input type="button" class=" btn btn-light btn-sm" id="createNewDemo" value="<fmt:message key="dms.incomingDocs.createNewDemographic"/>"
                                            onclick="popup(700,960,'${pageContext.servletContext.contextPath}/demographic/demographicaddarecordhtm.jsp','demographic')">
 
-                                    <input id="saved_<%=docId%>" type="hidden" name="saved" value="false">
+                                    <input id="saved_<%=docId%>" type="hidden" value="false">
                                     <br><input id="mrp_<%=docId%>" style="display: none;" type="checkbox"
                                                onclick="sendMRP(this)" name="demoLink">
                                     <a id="mrp_fail_<%=docId%>"
@@ -803,11 +805,11 @@
                                         ReportStatus report = (ReportStatus) ackList.get(i); %>
                                     <%=Encode.forHtml(report.getProviderName())%> :
 
-                                    <% String ackStatus = report.getStatus();
+                                    <% String ackStatus = report.getStatus() == null ? "" : report.getStatus();
                                         String ackStatusKey;
-                                        if (ackStatus.equals("A")) {
+                                        if ("A".equals(ackStatus)) {
                                             ackStatusKey = "showDocument.statusAcknowledged";
-                                        } else if (ackStatus.equals("F")) {
+                                        } else if ("F".equals(ackStatus)) {
                                             ackStatusKey = "showDocument.statusFiledNotAck";
                                         } else {
                                             ackStatusKey = "showDocument.statusNotAck";
@@ -926,23 +928,35 @@
      * @param {string} providerNo - The provider number to unlink
      * @param {HTMLElement} e - The clicked anchor element
      */
-    function removeLink(docTypeStr, docId, providerNo, e) {
-        var data = new URLSearchParams({
-            method: 'removeLinkFromDocument',
-            docType: docTypeStr,
-            docId: docId,
-            providerNo: providerNo
-        });
-        fetch(contextpath + '/documentManager/ManageDocument.do', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: data.toString()
-        }).catch(function(error) {
-            console.error('Error removing provider link:', error);
-        });
-        if (e && e.parentNode) {
-            e.parentNode.remove();
-        }
+    if (_in_window) {
+        /**
+         * Override removeLink for the single-document popup view only.
+         * Only active when _in_window is true (inWindow=true parameter).
+         * The inbox list view keeps its original removeLink from oscarMDSIndex.js.
+         */
+        window.removeLink = function(docTypeStr, docId, providerNo, e) {
+            var data = new URLSearchParams({
+                method: 'removeLinkFromDocument',
+                docType: docTypeStr,
+                docId: docId,
+                providerNo: providerNo
+            });
+            fetch(contextpath + '/documentManager/ManageDocument.do', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: data.toString()
+            }).then(function(response) {
+                if (response.ok) {
+                    if (e && e.parentNode) {
+                        e.parentNode.remove();
+                    }
+                } else {
+                    console.error('Error removing provider link: ' + response.statusText);
+                }
+            }).catch(function(error) {
+                console.error('Error removing provider link:', error);
+            });
+        };
     }
 
     var displayDocAsEl = document.getElementById('displayDocumentAs_<%=docId%>');
@@ -961,6 +975,14 @@
 
         inputEl.addEventListener('input', function () {
             var term = inputEl.value.trim();
+            // Clear any previous demographic selection to prevent saving against wrong chart
+            document.getElementById('demofind<%=docId%>').value = '';
+            document.getElementById('demofindName<%=docId%>').value = '';
+            ['save<%=docId%>', 'saveNext<%=docId%>', 'msgBtn_<%=docId%>', 'mainTickler_<%=docId%>', 'mainEchart_<%=docId%>', 'mainMaster_<%=docId%>', 'mainApptHistory_<%=docId%>']
+                .forEach(function(id) {
+                    var el = document.getElementById(id);
+                    if (el) el.disabled = true;
+                });
             if (term.length < 2) {
                 dropdownEl.innerHTML = '';
                 dropdownEl.style.display = 'none';
@@ -988,7 +1010,6 @@
                             document.getElementById('demofind<%=docId%>').value = item.value;
                             document.getElementById('demofindName<%=docId%>').value = item.formattedName;
                             selectedDemos.push(item.label);
-                            console.log(item.providerNo);
                             if (item.providerNo !== undefined && item.providerNo !== null && item.providerNo !== '' && item.providerNo !== 'null') {
                                 addDocToList(item.providerNo, item.provider + ' (MRP)', '<%=docId%>');
                             }
