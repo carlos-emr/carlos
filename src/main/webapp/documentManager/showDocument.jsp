@@ -460,7 +460,7 @@
                                 boolean closeOnSuccess = macro.has("closeOnSuccess") && macro.get("closeOnSuccess").asBoolean();
                 %>
                 <li><a class="dropdown-item" href="javascript:void(0);"
-                       onclick="runDocMacro('<%=Encode.forJavaScript(macroName)%>','acknowledgeForm_<%=Encode.forJavaScript(docId)%>',<%=closeOnSuccess%>)"><%=Encode.forHtml(macroName)%></a></li>
+                       onclick="runDocMacro('<%=Encode.forJavaScriptAttribute(macroName)%>','acknowledgeForm_<%=Encode.forJavaScriptAttribute(docId)%>',<%=closeOnSuccess%>)"><%=Encode.forHtml(macroName)%></a></li>
                 <%
                             }
                         }
@@ -495,7 +495,7 @@
 
         %>
         <input type="button" class="btn btn-outline-secondary btn-sm" id="msgBtn_<%=docId%>" value="<fmt:message key="showDocument.btnMsg"/>"
-               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=Encode.forJavaScript(docId)%>')" <%=btnDisabled %>>
+               onclick="popupPatient(700,960,'${pageContext.servletContext.contextPath}/messenger/SendDemoMessage.do?demographic_no=','msg', '<%=Encode.forJavaScriptAttribute(docId)%>')" <%=btnDisabled %>>
 
         <!--input type="button" class="btn btn-outline-secondary btn-sm" id="ticklerBtn_<%=docId%>" value="Tickler" onclick="handleDocSave('<%=docId%>','addTickler')"/-->
         <input type="button" class="btn btn-outline-secondary btn-sm" id="mainTickler_<%=docId%>" value="<fmt:message key="showDocument.btnTickler"/>" onClick="popupPatientTickler(710, 1024,'${pageContext.servletContext.contextPath}/tickler/ticklerAdd.jsp?', 'Tickler','<%=docId%>')" <%=btnDisabled %>>
@@ -779,7 +779,7 @@
                                                 if (!s.equals("0") && !s.equals("null") && !pItem.getStatus().equals("X")) {
                                         %>
                                         <li><%=Encode.forHtml(s)%><a href="#"
-                                                     onclick="removeLink('DOC', '<%=Encode.forJavaScript(docId)%>', '<%=Encode.forJavaScript(pItem.getProviderNo())%>', this);return false;"><fmt:message key="inboxmanager.document.RemoveLinkedProviderMsg"/></a></li>
+                                                     onclick="removeLink('DOC', '<%=Encode.forJavaScriptAttribute(docId)%>', '<%=Encode.forJavaScriptAttribute(pItem.getProviderNo())%>', this);return false;"><fmt:message key="inboxmanager.document.RemoveLinkedProviderMsg"/></a></li>
                                         <%
                                                 }
                                             }
@@ -1128,10 +1128,19 @@
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: data
         })
-        .then(function() {
+        .then(function(response) {
+            if (!response.ok) {
+                console.error('Macro execution failed: ' + response.status + ' ' + response.statusText);
+                alert('Macro execution failed. Please try again.');
+                return;
+            }
             if (closeOnSuccess) {
                 window.close();
             }
+        })
+        .catch(function(err) {
+            console.error('Error executing macro:', err);
+            alert('Macro execution failed. Please try again.');
         });
     }
 

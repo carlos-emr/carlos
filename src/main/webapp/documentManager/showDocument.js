@@ -96,7 +96,11 @@ function setupDemoAutoCompletion(docId, contextPath) {
                 });
                 dropdownEl.style.display = 'block';
             })
-            .catch(function () {});
+            .catch(function (err) {
+                if (err.name !== 'AbortError') {
+                    console.error('Demographic search error:', err);
+                }
+            });
     });
 
     inputEl.addEventListener('blur', function () {
