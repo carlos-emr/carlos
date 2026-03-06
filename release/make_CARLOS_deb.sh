@@ -11,16 +11,37 @@
 # for CARLOS
 # v 1 - pre-release
 
-# --- sanity check
+# Debian versioning conventions don't allow _ so use .
+VERSION=0.1
+PREVIOUS=0.1
+DEB_SUBVERSION=1
+
+# you can tick up when a newer build of the installer is made 
+# or when the release tag needs to change eg beta to RC
+BUILD=alpha
+REVISION=${DEB_SUBVERSION}~${BUILD}
+echo REVISION=$REVISION
+
+# --- sanity checks
 if [ "$(id -u)" != "0" ];
 then
 	echo "This script must be run as root" 1>&2
 	exit 1
 fi
 
+# Get the absolute path of the script's directory, handling symlinks and different invocation methods
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+# Get the basename of the script's directory
+DIR_BASENAME="$(basename "$SCRIPT_DIR")"
+# Check if the directory name is "release"
+if [ "$DIR_BASENAME" = "release" ]; then
+    echo "Directory is release"
+else
+    echo "This needs to be run in release/ but its $DIR_BASENAME"
+    exit;
+fi
 echo "#########" `date` "#########" 
 
-DEB_SUBVERSION=1
 PROGRAM=carlos
 PACKAGE=carlos-emr
 custom=true
@@ -35,15 +56,9 @@ db_name=oscar_15
 ## tolerate fields without default values that are not named in the query
 db_switch=\'?characterEncoding=UTF-8\\\&zeroDateTimeBehavior=round\\\&useOldAliasMetadataBehavior=true\\\&jdbcCompliantTruncation=false\'
 
-# Debian versioning conventions don't allow _ so use .
-VERSION=0.1
-PREVIOUS=0.1
-
 # and the target of mvn 3 is
 TARGET=carlos-0-SNAPSHOT.war
 
-echo build is custom
-BUILD=alpha
 buildDateTime=date 
 SHA1=""
 
@@ -52,11 +67,6 @@ echo "+++++++++++++++++++++++"
 echo buildDateTime=$buildDateTime
 echo "current date="$(date)
 
-# you can tick up when a newer build of the installer is made 
-# or when the release tag needs to change eg beta to RC
-# TRUNK
-REVISION=${DEB_SUBVERSION}~${BUILD}
-echo REVISION=$REVISION
 ICD=9
 
 # For simplicity lets pick Tomcat 9
@@ -69,25 +79,7 @@ TODAY=$(date)
 # used to pick up virgin properties file and if building a deb directly from source
 SRC=carlos
 
-
-#Check the dir from which you are being called
-
-# Get the absolute path of the script's directory, handling symlinks and different invocation methods
-SCRIPT_DIR="$(dirname "$(realpath "$0")")"
-
-# Get the basename of the script's directory
-DIR_BASENAME="$(basename "$SCRIPT_DIR")"
-
-# Check if the directory name is "release"
-if [ "$DIR_BASENAME" = "release" ]; then
-    echo "Directory is release"
-else
-    echo "This needs to be run in release/ but its $DIR_BASENAME"
-    exit;
-fi
-
 DEBNAME="carlos_emr${VERSION}-${REVISION}"
-
 
 if [ -d "$DEBNAME" ]; then
 	echo prexisting directory with this build found
@@ -104,9 +96,6 @@ else
 fi
 
 echo "cleaning up"
-
-
-
 
 rm tmp*
 rm -R -f ./oscar_documents
