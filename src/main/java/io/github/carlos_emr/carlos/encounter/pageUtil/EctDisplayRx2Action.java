@@ -87,9 +87,6 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                 if (drug.isHideCpp()) {
                     continue;
                 }
-                if (!drug.isLongTerm()) {
-                    continue;
-                }
 
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
 
