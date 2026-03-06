@@ -78,7 +78,7 @@ function Framingham1991(age, female, smoking, systolic, lipid_ratio, predict_len
  
  	var u = (Math.log(predict_length) - mean ) / Math.exp(log_var);
  
- 	chd_risk = (1.0 - Math.exp( -Math.exp( u ) )) * 0.75;  // the calculation is the simpler 1991 Framingham which is 20-30% high
+ 	var chd_risk = (1.0 - Math.exp( -Math.exp( u ) )) * 0.75;  // the calculation is the simpler 1991 Framingham which is 20-30% high
  
 	return chd_risk;
 }

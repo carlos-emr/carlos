@@ -271,8 +271,8 @@ function editControlContents(editorname) {
 // this function sets the HTML contents of the edit control "editorname" to "value"
 function seteditControlContents(editorname, value){
 
-	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.	
-	value = jQuery().convertImagePaths(value);
+	// Converting image paths with template style tag to URL format using 'cfg_isrc' using imageControl library.
+	value = jQuery().convertImagePaths(value, cfg_isrc);
 	
     if (document.designMode) {
 		if (isIE()){
@@ -347,10 +347,8 @@ function loadTemplate(selectname){
 
 function parseTemplate(){
 	//replace template placeholders with database pulls
-	var temp = new Array();
 	var contents=editControlContents(cfg_editorname);
-	temp = contents.split('##'); //parse for template place holders identified by ##value##
-	contents='';
+	var temp = contents.split('##'); //parse for template place holders identified by ##value##
 	var keys = [];
 	var needLookup = false;
 	var x;
@@ -381,9 +379,8 @@ function parseTemplate(){
 
 function populateTemplate(){
 	//replace template placeholders with database pulls
-	var temp = new Array();
 	var contents=editControlContents(cfg_editorname);
-	temp = contents.split('##'); //parse for template place holders identified by ##value##
+	var temp = contents.split('##'); //parse for template place holders identified by ##value##
 	contents='';
 	var x;
 	for (x in temp) {		 
@@ -398,9 +395,8 @@ function populateTemplate(){
 					temp[x]=document.getElementById(temp[x]).value;
 				} else {
 				//get the placeholder value from the user
-				var prompttext=new Array();
-				prompttext=temp[x].split('=');
-				if (prompttext[1]==undefined){prompttext[1]="";}
+				var prompttext = temp[x].split('=');
+					if (prompttext[1]==undefined){prompttext[1]="";}
 				temp[x]= prompt("Please supply a value for "+ prompttext[0], prompttext[1]);
 				if (temp[x] == null) { temp[x] = ""; }
 				}
@@ -1022,7 +1018,7 @@ function getMeasures(measure, max) {
             if (!str) {
                 return;
             }
-            var myRe = /<td width="10">([\S,\d,\.]+)<\/td>/g; //for the measurement
+            var myRe = /<td width="10">([0-9.,]+)<\/td>/g; //for the measurement
             var myArray;
             measureArray = []
             measureDateArray = []
@@ -1101,8 +1097,6 @@ function collapseFooter() {
             request.setRequestHeader("Content-Type", "application/json");
             request.onload = function() {
 
-                var data = this.response;
-                var results_html = "";
                 if (request.status >= 200 && request.status < 400) {
 
                     // Request finished. Do processing here.
@@ -1148,7 +1142,7 @@ function collapseFooter() {
 
         function toggleTempBin(a, parentElement) {
             if (a === 1) {
-                position = getOffset(document.getElementById(parentElement));
+                var position = getOffset(document.getElementById(parentElement));
                 new_top = position.top + document.getElementById(parentElement).offsetHeight
                 new_left = position.left - 10;
                 document.getElementById("tempBin").style.top = "58px";
@@ -1298,7 +1292,7 @@ var saveAs = _global.saveAs || (
       if (a.origin !== location.origin) {
         corsEnabled(a.href)
           ? download(blob, name, opts)
-          : click(a, a.target = '_blank')
+          : (a.target = '_blank', click(a))
       } else {
         click(a)
       }

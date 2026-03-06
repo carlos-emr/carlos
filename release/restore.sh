@@ -67,6 +67,19 @@ if [ -f ${C_HOME}${PROGRAM}.properties ] ; then
 	db_name=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_name'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 fi
 
+# DB_PASSWORD is derived from the properties file above.
+# If not found there, it can be set as an environment variable before running this script.
+# Example: export DB_PASSWORD=yourpassword
+# Or add to /etc/environment: DB_PASSWORD=yourpassword
+# Or add to your shell profile (~/.bashrc or ~/.profile): export DB_PASSWORD=yourpassword
+db_password="${db_password:-${DB_PASSWORD}}"
+if [ -z "${db_password}" ]; then
+    echo "ERROR: Database password could not be determined." >&2
+    echo "Set DB_PASSWORD before running this script, e.g.:" >&2
+    echo "  export DB_PASSWORD=yourpassword" >&2
+    echo "  or add it to /etc/environment or your shell profile (~/.bashrc, ~/.profile)" >&2
+    exit 1
+fi
 export DB_PASSWORD="${db_password}"
 
 # --- prevent *.enc to be run through if there are no files in the directory

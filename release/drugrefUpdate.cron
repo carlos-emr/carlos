@@ -3,7 +3,18 @@
 # drugrefUpdate.cron
 # drugref updater
 # to run at 7PM every first Sunday of the month set the crontab to 0 19 1-7 * Sun  [ $(date +%d) -le 07 ] && drugrefUpdate.cron
-# NOTE: Set DRUGREF_DB_PASSWORD environment variable or configure ~/.my.cnf before running
+# NOTE: Set DRUGREF_DB_PASSWORD environment variable before running this script.
+# Example: export DRUGREF_DB_PASSWORD=yourpassword
+# Or add to /etc/environment: DRUGREF_DB_PASSWORD=yourpassword
+# Or add to your shell profile (~/.bashrc or ~/.profile): export DRUGREF_DB_PASSWORD=yourpassword
+
+if [ -z "${DRUGREF_DB_PASSWORD}" ]; then
+    echo "ERROR: DRUGREF_DB_PASSWORD is not set." >&2
+    echo "Set it before running this script, e.g.:" >&2
+    echo "  export DRUGREF_DB_PASSWORD=yourpassword" >&2
+    echo "  or add it to /etc/environment or your shell profile (~/.bashrc, ~/.profile)" >&2
+    exit 1
+fi
 
 wget --no-check-certificate https://localhost:8443/drugref/Update.jsp && MYSQL_PWD="${DRUGREF_DB_PASSWORD}" mysql -uroot drugref < /usr/share/oscar-emr/tallMANdrugref.sql
 
