@@ -59,6 +59,9 @@ public class AccumulatorMap<K> extends TreeMap<K, Integer> {
         return total;
     }
 
+    /**
+     * Counts the number of instances of a specified value in the collection.
+     */
     public int countInstancesOfValue(int value) {
         int count = 0;
         Iterator i$ = this.values().iterator();
