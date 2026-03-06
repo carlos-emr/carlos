@@ -63,11 +63,6 @@ public class OntarioMD {
         return OscarProperties.getInstance().getProperty("ONTARIO_MD_INCOMINGREQUESTOR");
     }
 
-    public boolean showOntarioMDLink() {
-        return true;
-    }
-
-
     //HACKED SOAP CALL.  THIS SHOULD BE REPLACED BUT IT'S SO SIMPLE
     public Hashtable loginToOntarioMD(String username, String password, String incomingRequestor) throws Exception {
         //public ArrayList soapHttpCall(int siteCode, String userId, String passwd,		String xml) throws Exception

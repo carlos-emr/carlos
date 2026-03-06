@@ -40,19 +40,6 @@ public class IsPropertiesOn {
 
     }
 
-    public static boolean propertiesOff(String proName) {
-
-        OscarProperties proper = OscarProperties.getInstance();
-
-        if (proper.getProperty(proName, null) == null
-                || proper.getProperty(proName, "").equalsIgnoreCase("off")
-                || proper.getProperty(proName, "").equalsIgnoreCase("false"))
-            return true;
-        else
-            return false;
-
-    }
-
     public static String getProperty(String proName) {
         OscarProperties proper = OscarProperties.getInstance();
         return proper.getProperty(proName, null);
