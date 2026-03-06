@@ -65,7 +65,7 @@ import org.springframework.core.io.ClassPathResource;
 
 import org.xml.sax.SAXException;
 
-import omd.hrm.OmdCds;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
 
 import io.github.carlos_emr.OscarProperties;
 
@@ -132,7 +132,7 @@ public class HRMReportParser {
                 Schema schema = factory.newSchema(schemaSource);
 
                 // Unmarshal into JAXB model
-                JAXBContext jc = JAXBContext.newInstance("omd.hrm");
+                JAXBContext jc = JAXBContext.newInstance(OmdCds.class);
                 Unmarshaller u = jc.createUnmarshaller();
                 u.setSchema(schema);
                 try (FileInputStream fileInputStream = new FileInputStream(tmpXMLholder)) {
