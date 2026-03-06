@@ -247,9 +247,9 @@ public class LabPDFCreator extends PdfPageEventHelper {
      * document is closed even on exceptions.
      *
      * <p>This method registers itself as a page event handler via
-     * {@link PdfPageEventForwarder} chaining (rather than replacing factory-installed
-     * stampers) so that promo text, confidentiality notices, and page numbers from
-     * {@link PdfWriterFactory} are preserved.
+     * {@link PdfPageEventForwarder} chaining so that promo text, confidentiality
+     * notices, and page numbers from {@link PdfWriterFactory} are preserved with
+     * deterministic ordering.
      *
      * @throws IOException if an I/O error occurs during PDF generation
      * @throws DocumentException if the handler is null or an OpenPDF error occurs
@@ -267,7 +267,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
         try {
             // Add this class's onEndPage handler to the factory-installed PdfPageEventForwarder
-            // rather than overwriting it (which would discard promo/confidentiality/page-number stampers)
+            // to preserve deterministic ordering of promo/confidentiality/page-number stampers
             PdfPageEvent existingEvent = writer.getPageEvent();
             if (existingEvent instanceof PdfPageEventForwarder forwarder) {
                 forwarder.addPageEvent(this);

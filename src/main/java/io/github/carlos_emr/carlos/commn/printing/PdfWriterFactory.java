@@ -56,11 +56,11 @@ import org.openpdf.text.pdf.events.PdfPageEventForwarder;
  *   <li><strong>Page numbers</strong> &mdash; rendered at y-offset 10 via {@link PageNumberStamper}</li>
  * </ol>
  *
- * <p><strong>Important:</strong> OpenPDF's {@code PdfWriter.setPageEvent()} silently overwrites
- * any previously set handler. This factory uses {@code PdfPageEventForwarder} to ensure all
- * stampers coexist. Callers that need additional page events (e.g. {@code LabPDFCreator})
- * should retrieve the existing forwarder via {@code writer.getPageEvent()} and add to it
- * rather than calling {@code setPageEvent()} again.</p>
+ * <p><strong>Important:</strong> OpenPDF 3.x auto-wraps multiple {@code setPageEvent()} calls
+ * in a {@code PdfPageEventForwarder}, but this factory creates the forwarder explicitly for
+ * clarity and to guarantee deterministic stamper ordering. Callers that need additional page
+ * events (e.g. {@code LabPDFCreator}) should retrieve the existing forwarder via
+ * {@code writer.getPageEvent()} and add to it for consistency.</p>
  *
  * @see FontSettings
  * @see PageNumberStamper
@@ -96,8 +96,8 @@ public final class PdfWriterFactory {
 
         PdfWriter result = PdfWriter.getInstance(document, stream);
 
-        // Use PdfPageEventForwarder to chain all stampers — calling setPageEvent()
-        // multiple times would silently overwrite the previous handler in OpenPDF.
+        // Use an explicit PdfPageEventForwarder to guarantee deterministic stamper ordering.
+        // OpenPDF 3.x auto-chains setPageEvent() calls, but explicit wiring is clearer.
         PdfPageEventForwarder pageEvents = new PdfPageEventForwarder();
 
         PromoTextStamper pts;

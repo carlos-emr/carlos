@@ -93,10 +93,8 @@ public class PdfCoverPageCreator {
             footer = new Font(basefont, 10, Font.NORMAL);
             heading_bold = new Font(basefont, 11, Font.BOLD);
             LETTERHEAD = new Font(basefont, 11, Font.NORMAL);
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("PDF COVER PAGE ERROR", e);
-        } catch (DocumentException e) {
-            MiscUtils.getLogger().error("PDF COVER PAGE ERROR", e);
+        } catch (IOException | DocumentException e) {
+            throw new RuntimeException("Cannot create PDF cover page fonts", e);
         }
     }
 

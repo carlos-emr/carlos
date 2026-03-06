@@ -158,7 +158,14 @@ public class Doc2PDF {
             PrintPDFFromHTMLString(response, documentTxt, getFileBaseUrl(request));
 
         } catch (Exception e) {
-            logger.error("", e);
+            logger.error("Failed to convert JSP to PDF for URI: {}", uri, e);
+            try {
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
+                }
+            } catch (IOException ioEx) {
+                logger.error("Could not send error response", ioEx);
+            }
         }
 
     }
@@ -309,20 +316,12 @@ public class Doc2PDF {
      * @param docBin String the binary PDF data to write
      */
     public static void SavePDF2File(String fileName, String docBin) {
-
-        try {
-
-            FileOutputStream ostream = new FileOutputStream(fileName);
-
-            ObjectOutputStream p = new ObjectOutputStream(ostream);
-
+        try (FileOutputStream ostream = new FileOutputStream(fileName);
+             ObjectOutputStream p = new ObjectOutputStream(ostream)) {
             p.writeBytes(docBin);
-
             p.flush();
-            ostream.close();
-
         } catch (IOException ioe) {
-            MiscUtils.getLogger().debug("IO error: " + ioe);
+            logger.error("Failed to save PDF to file: {}", fileName, ioe);
         }
     }
 

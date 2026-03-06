@@ -100,8 +100,14 @@ public class FooterSupport extends PdfPageEventHelper {
         return fontSize;
     }
 
-    /** @param fontSize int the font size in points */
+    /**
+     * @param fontSize int the font size in points (must be positive)
+     * @throws IllegalArgumentException if fontSize is not positive
+     */
     public void setFontSize(int fontSize) {
+        if (fontSize <= 0) {
+            throw new IllegalArgumentException("fontSize must be positive, got: " + fontSize);
+        }
         this.fontSize = fontSize;
     }
 

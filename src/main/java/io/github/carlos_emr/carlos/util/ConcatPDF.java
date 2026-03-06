@@ -78,6 +78,9 @@ public class ConcatPDF {
     public static void concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream) {
         PDFMergerUtility pdfMerger = new PDFMergerUtility();
         PDDocument documentReader;
+        int totalFiles = fileOrInputStreamPdfList.size();
+        int skippedFiles = 0;
+
         for (Object o : fileOrInputStreamPdfList) {
             //load pdf file
             try {
@@ -93,6 +96,7 @@ public class ConcatPDF {
                     documentReader.setAllSecurityToBeRemoved(true);
                 }
             } catch (IOException e) {
+                skippedFiles++;
                 MiscUtils.getLogger().error("Failed to open file for concatenation: " + o, e);
                 continue;
             }
@@ -107,8 +111,14 @@ public class ConcatPDF {
                     }
                 }
             } catch (IOException e) {
+                skippedFiles++;
                 MiscUtils.getLogger().error("Document could not be added to merge " + o, e);
             }
+        }
+
+        if (skippedFiles > 0) {
+            MiscUtils.getLogger().error("PDF merge: {} of {} documents could not be included in the merged output",
+                    skippedFiles, totalFiles);
         }
 
         try {

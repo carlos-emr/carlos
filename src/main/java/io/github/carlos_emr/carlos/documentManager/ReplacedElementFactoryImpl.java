@@ -107,10 +107,10 @@ public class ReplacedElementFactoryImpl implements ReplacedElementFactory {
                 fsImage = imageForPDF(attribute, userAgentCallback);
             } catch (BadElementException e1) {
                 fsImage = null;
-                logger.debug("Could not create image element: " + e1.getMessage());
+                logger.warn("Could not create image element: {}", e1.getMessage());
             } catch (IOException e1) {
                 fsImage = null;
-                logger.debug("Could not load image: " + e1.getMessage());
+                logger.warn("Could not load image: {}", e1.getMessage());
             }
             if (fsImage != null) {
                 if (width != -1 || height != -1) {

@@ -64,7 +64,7 @@ import java.util.Locale;
  * @see ITextUserAgent
  * @since 2026-03-04
  */
-public class LocalOnlyUserAgent extends ITextUserAgent {
+public final class LocalOnlyUserAgent extends ITextUserAgent {
 
     private static final Logger logger = MiscUtils.getLogger();
 
