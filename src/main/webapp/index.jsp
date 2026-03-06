@@ -542,11 +542,11 @@
         </style>
 <style>
 body {
-  background-image: url("https://images.pexels.com/photos/531767/pexels-photo-531767.jpeg");
-  background-repeat: no-repeat; /* Prevents the image from tiling */
-  background-size: cover; /* Ensures the image covers the entire element */
-  background-position: center; /* Centers the image in the element */
-  background-attachment: fixed; /* Makes the image fixed while content scrolls (optional parallax effect) */
+  background-image: url("${pageContext.request.contextPath}/images/cloud-bg.svg");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
 }
 </style>
     </head>
