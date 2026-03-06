@@ -70,13 +70,14 @@ public class FooterSupport extends PdfPageEventHelper {
      * @param fontName   Name of the font
      * @param encoding   Text encoding
      * @param isEmbedded Boolean flag indicating if font is embedded
+     * @throws RuntimeException if the font cannot be created (wraps DocumentException or IOException)
      * @see BaseFont
      */
     public void setFont(String fontName, String encoding, boolean isEmbedded) {
         try {
             font = BaseFont.createFont(fontName, encoding, isEmbedded);
         } catch (DocumentException | IOException e) {
-            throw new RuntimeException("Unable to create base font", e);
+            throw new RuntimeException("Unable to create base font: " + fontName + " / " + encoding, e);
         }
     }
 
@@ -109,8 +110,12 @@ public class FooterSupport extends PdfPageEventHelper {
         return font;
     }
 
-    /** @param font BaseFont the font instance to use for footer rendering */
+    /**
+     * @param font BaseFont the font instance to use for footer rendering
+     * @throws NullPointerException if font is null
+     */
     public void setFont(BaseFont font) {
+        java.util.Objects.requireNonNull(font, "font must not be null");
         this.font = font;
     }
 }

@@ -35,6 +35,7 @@ import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 import java.io.ByteArrayOutputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link PdfWriterFactory} — the central factory for PDF writers
@@ -87,6 +88,30 @@ class PdfWriterFactoryUnitTest extends CarlosUnitTestBase {
             doc.open();
             doc.add(new Paragraph("test"));
             doc.close();
+        }
+
+        @Test
+        @DisplayName("should throw NullPointerException when document is null")
+        void shouldThrowNpe_whenDocumentIsNull() {
+            assertThatThrownBy(() -> PdfWriterFactory.newInstance(null, new ByteArrayOutputStream(), FontSettings.HELVETICA_10PT))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessageContaining("document");
+        }
+
+        @Test
+        @DisplayName("should throw NullPointerException when stream is null")
+        void shouldThrowNpe_whenStreamIsNull() {
+            assertThatThrownBy(() -> PdfWriterFactory.newInstance(new Document(), null, FontSettings.HELVETICA_10PT))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessageContaining("stream");
+        }
+
+        @Test
+        @DisplayName("should throw NullPointerException when settings is null")
+        void shouldThrowNpe_whenSettingsIsNull() {
+            assertThatThrownBy(() -> PdfWriterFactory.newInstance(new Document(), new ByteArrayOutputStream(), null))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessageContaining("settings");
         }
 
         @Test

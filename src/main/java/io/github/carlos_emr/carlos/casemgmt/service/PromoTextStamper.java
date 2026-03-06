@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import java.util.Objects;
+
 import org.openpdf.text.Document;
 import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfWriter;
@@ -52,6 +54,7 @@ public class PromoTextStamper extends FooterSupport {
      * @param offset    int the vertical distance (in points) below the document bottom margin
      */
     public PromoTextStamper(String promoText, int offset) {
+        Objects.requireNonNull(promoText, "promoText must not be null");
         setBaseOffset(offset);
         this.text = promoText;
     }

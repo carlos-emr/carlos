@@ -635,7 +635,7 @@ public class FrmPDFServlet extends HttpServlet {
 
                     //----------
                     if (OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
-                        // Promo text rendering was removed during iText->OpenPDF migration.
+                        // Promo text rendering was already disabled (commented out) before the OpenPDF migration.
                         // If needed, re-implement using PdfWriterFactory page event stampers.
                     }
 

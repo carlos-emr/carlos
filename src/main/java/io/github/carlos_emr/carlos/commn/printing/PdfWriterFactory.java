@@ -67,12 +67,16 @@ import org.openpdf.text.pdf.events.PdfPageEventForwarder;
  * @see PromoTextStamper
  * @since 2012-09-10
  */
-public class PdfWriterFactory {
+public final class PdfWriterFactory {
 
     /** Confidentiality statement loaded once from system properties at class init. */
     private static String confidentialityStatement = OscarProperties.getConfidentialityStatement();
     /** Promotional text (clinic branding) loaded once from system properties at class init. */
     private static String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+
+    private PdfWriterFactory() {
+        throw new AssertionError("utility class");
+    }
 
     /**
      * Creates a new instance of the PDF writer with promo text, confidentiality
@@ -86,6 +90,10 @@ public class PdfWriterFactory {
      * @throws DocumentException if the PdfWriter cannot be created
      */
     public static PdfWriter newInstance(Document document, OutputStream stream, FontSettings settings) throws DocumentException {
+        java.util.Objects.requireNonNull(document, "document must not be null");
+        java.util.Objects.requireNonNull(stream, "stream must not be null");
+        java.util.Objects.requireNonNull(settings, "settings must not be null");
+
         PdfWriter result = PdfWriter.getInstance(document, stream);
 
         // Use PdfPageEventForwarder to chain all stampers — calling setPageEvent()

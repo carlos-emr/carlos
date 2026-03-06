@@ -53,7 +53,7 @@ import org.openpdf.text.pdf.PdfWriter;
 public class PageNumberStamper extends FooterSupport {
 
     /** Deferred template that receives the total page count when the document closes. */
-    protected PdfTemplate total;
+    private PdfTemplate total;
 
     /**
      * Creates a new stamper with the specified vertical offset from the page bottom.

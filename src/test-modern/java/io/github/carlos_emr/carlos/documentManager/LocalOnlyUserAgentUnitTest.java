@@ -172,6 +172,35 @@ class LocalOnlyUserAgentUnitTest {
         }
 
         @Test
+        @DisplayName("should return null when URI uses javascript: scheme")
+        void shouldReturnNull_whenUriUsesJavascriptScheme() {
+            assertThat(agent.resolveAndOpenStream("javascript:alert(1)")).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when URI uses vbscript: scheme")
+        void shouldReturnNull_whenUriUsesVbscriptScheme() {
+            assertThat(agent.resolveAndOpenStream("vbscript:MsgBox")).isNull();
+        }
+
+        @Test
+        @DisplayName("should return null when URI uses mailto: scheme")
+        void shouldReturnNull_whenUriUsesMailtoScheme() {
+            assertThat(agent.resolveAndOpenStream("mailto:attacker@evil.com")).isNull();
+        }
+
+        @Test
+        @DisplayName("should delegate to parent when URI is empty string (not blocked)")
+        void shouldDelegateToParent_whenUriIsEmptyString() {
+            // Empty string has no scheme (no colon), so it is treated as a relative path
+            // and delegated to the parent — it must NOT be blocked as a dangerous scheme.
+            // Parent may return a non-null stream even for empty input.
+            InputStream result = agent.resolveAndOpenStream("");
+            // The key assertion: no exception thrown — empty string is handled gracefully.
+            // We do not assert null vs non-null since that depends on the parent implementation.
+        }
+
+        @Test
         @DisplayName("should delegate to parent when URI uses file: scheme (not blocked at scheme level)")
         void shouldDelegateToParent_whenUriUsesFileScheme() {
             // file: URIs pass the scheme check in resolveAndOpenStream (not blocked as external).
@@ -310,6 +339,87 @@ class LocalOnlyUserAgentUnitTest {
             Path target = symlink.resolve("passwd");
             InputStream result = agent.testOpenStream(target.toUri().toString());
             assertThat(result).as("symlink escaping allowed directory should be blocked by canonical path resolution").isNull();
+        }
+    }
+
+    /** Tests for openStream defense-in-depth — blocks non-file/non-data schemes. */
+    @Nested
+    @DisplayName("openStream defense-in-depth")
+    class OpenStreamDefenseInDepthTests {
+
+        @Test
+        @DisplayName("should block http: URI in openStream even if it bypassed resolveAndOpenStream")
+        void shouldBlockHttpUri_inOpenStream() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+            InputStream result = agent.testOpenStream("http://evil.com/payload");
+            assertThat(result).as("http: URI should be blocked in openStream defense-in-depth").isNull();
+        }
+
+        @Test
+        @DisplayName("should block https: URI in openStream")
+        void shouldBlockHttpsUri_inOpenStream() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+            InputStream result = agent.testOpenStream("https://evil.com/payload");
+            assertThat(result).as("https: URI should be blocked in openStream defense-in-depth").isNull();
+        }
+
+        @Test
+        @DisplayName("should block javascript: URI in openStream")
+        void shouldBlockJavascriptUri_inOpenStream() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+            InputStream result = agent.testOpenStream("javascript:alert(1)");
+            assertThat(result).as("javascript: URI should be blocked in openStream").isNull();
+        }
+
+        @Test
+        @DisplayName("should block ftp: URI in openStream")
+        void shouldBlockFtpUri_inOpenStream() throws Exception {
+            TestableUserAgent agent = new TestableUserAgent();
+            InputStream result = agent.testOpenStream("ftp://evil.com/file.txt");
+            assertThat(result).as("ftp: URI should be blocked in openStream defense-in-depth").isNull();
+        }
+    }
+
+    /** Tests for setBaseURL — rejects non-file base URLs to prevent SSRF via relative resolution. */
+    @Nested
+    @DisplayName("setBaseURL")
+    class SetBaseURLTests {
+
+        @Test
+        @DisplayName("should accept file: base URL")
+        void shouldAcceptFileBaseUrl() {
+            TestableUserAgent agent = new TestableUserAgent();
+            agent.setBaseURL("file:///opt/webapp/");
+            assertThat(agent.getBaseURL()).isEqualTo("file:///opt/webapp/");
+        }
+
+        @Test
+        @DisplayName("should accept null base URL")
+        void shouldAcceptNullBaseUrl() {
+            TestableUserAgent agent = new TestableUserAgent();
+            agent.setBaseURL(null);
+            assertThat(agent.getBaseURL()).isNull();
+        }
+
+        @Test
+        @DisplayName("should reject http: base URL")
+        void shouldRejectHttpBaseUrl() {
+            TestableUserAgent agent = new TestableUserAgent();
+            agent.setBaseURL("file:///safe/path/");
+            agent.setBaseURL("http://evil.com/");
+            assertThat(agent.getBaseURL())
+                    .as("http: base URL should be rejected, keeping previous value")
+                    .isEqualTo("file:///safe/path/");
+        }
+
+        @Test
+        @DisplayName("should reject https: base URL")
+        void shouldRejectHttpsBaseUrl() {
+            TestableUserAgent agent = new TestableUserAgent();
+            agent.setBaseURL("https://evil.com/");
+            assertThat(agent.getBaseURL())
+                    .as("https: base URL should be rejected")
+                    .isNotEqualTo("https://evil.com/");
         }
     }
 

@@ -103,8 +103,11 @@ public class LocalOnlyUserAgent extends ITextUserAgent {
      *   <li>{@code http:}, {@code https:}, {@code ftp:} — external network requests</li>
      *   <li>{@code jar:} — can trigger outbound requests via {@code jar:https://...}</li>
      *   <li>{@code //} — protocol-relative URLs</li>
-     *   <li>Any other scheme ({@code gopher:}, {@code ldap:}, etc.)</li>
+     *   <li>Any other scheme ({@code javascript:}, {@code vbscript:}, {@code gopher:}, {@code ldap:}, etc.)</li>
      * </ul>
+     *
+     * <p>Local paths allowed through this method are further validated by
+     * {@link #openStream(String)} which enforces path containment to allowed directories.
      *
      * @param uri String the resource URI to resolve
      * @return InputStream for the resource, or null if blocked or unresolvable
@@ -160,8 +163,17 @@ public class LocalOnlyUserAgent extends ITextUserAgent {
      */
     @Override
     protected InputStream openStream(String uri) throws IOException {
-        if (uri != null && uri.toLowerCase(Locale.ROOT).startsWith("file:")) {
-            if (!isAllowedLocalPath(uri)) {
+        if (uri != null) {
+            String lower = uri.toLowerCase(Locale.ROOT);
+
+            // Defense-in-depth: block non-file, non-data schemes even if they somehow
+            // bypassed resolveAndOpenStream (e.g., via a future code path or parent resolution)
+            if (lower.contains(":") && !lower.startsWith("file:") && !lower.startsWith("data:")) {
+                logger.warn("Blocked non-local URI in openStream during PDF rendering: {}", uri);
+                return null;
+            }
+
+            if (lower.startsWith("file:") && !isAllowedLocalPath(uri)) {
                 logger.warn("Blocked file access outside allowed directories during PDF rendering: {}", uri);
                 return null;
             }
@@ -257,5 +269,22 @@ public class LocalOnlyUserAgent extends ITextUserAgent {
         ITextOutputDevice outputDevice = new ITextOutputDevice(DEFAULT_DOTS_PER_POINT);
         LocalOnlyUserAgent userAgent = new LocalOnlyUserAgent(outputDevice, DEFAULT_DOTS_PER_PIXEL);
         return new ITextRenderer(DEFAULT_DOTS_PER_POINT, DEFAULT_DOTS_PER_PIXEL, outputDevice, userAgent);
+    }
+
+    /**
+     * Rejects non-{@code file:} base URLs to prevent relative URI resolution against
+     * an HTTP origin. If the base URL were {@code http://...}, any relative path
+     * ({@code images/logo.png}) allowed through {@link #resolveAndOpenStream} would
+     * resolve to an HTTP URL — enabling SSRF.
+     *
+     * @param url String the base URL to set (only {@code file:} and {@code null} are accepted)
+     */
+    @Override
+    public void setBaseURL(String url) {
+        if (url != null && !url.toLowerCase(Locale.ROOT).startsWith("file:")) {
+            logger.warn("Rejected non-file base URL to prevent SSRF via relative URI resolution: {}", url);
+            return;
+        }
+        super.setBaseURL(url);
     }
 }
