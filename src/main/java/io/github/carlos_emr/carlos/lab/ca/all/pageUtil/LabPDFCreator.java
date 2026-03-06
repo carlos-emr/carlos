@@ -533,7 +533,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 						boolean showOBRTestName = ( !(obxName.contains(obrName) && obxCount < 2 && !isUnstructuredDoc) );
 						// For 'ExcellerisON' type reports, showing test names (OBR4.2) for all OBRs is required.
 						if (handler.getMsgType().equals("ExcellerisON")) {
-							showOBRTestName = !isUnstructuredDoc && obxCount > 0;
+							showOBRTestName = !isUnstructuredDoc;
 						}
 						if ( !obrFlag && !obrName.equals("") && showOBRTestName) {
 							cell.setPhrase(new Phrase(obrName, boldFont));
@@ -648,7 +648,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
                             }
 
                             if (handler.getMsgType().equals("ExcellerisON")) {
-                                cell.setPhrase(new Phrase(!currentLicenseNo.equals(lastLicenseNo) ? currentLicenseNo : "", lineFont));
+                                cell.setPhrase(new Phrase(!StringUtils.equals(currentLicenseNo, lastLicenseNo) ? StringUtils.defaultString(currentLicenseNo) : "", lineFont));
                                 table.addCell(cell);
                             }
                             cell.setBorder(Rectangle.BOTTOM);
@@ -680,7 +680,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
                             boolean isLongText = false;
 
                             if ((handler.getMsgType().equals("ExcellerisON") || handler.getMsgType().equals("PATHL7")) && StringUtils.isEmpty(handler.getOBXReferenceRange(j, k))) {
-                                if ("FT".equals(handler.getOBXValueType(j, k)) && (handler.getOBXReferenceRange(j, k).isEmpty() && handler.getOBXUnits(j, k).isEmpty())) {
+                                if ("FT".equals(handler.getOBXValueType(j, k)) && (StringUtils.isEmpty(handler.getOBXReferenceRange(j, k)) && StringUtils.isEmpty(handler.getOBXUnits(j, k)))) {
                                     isLongText = true;
                                 }
                             }
@@ -790,7 +790,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
                             table.addCell(cell);
 
                             if (handler.getMsgType().equals("ExcellerisON")) {
-                                cell.setPhrase(new Phrase(!currentLicenseNo.equals(lastLicenseNo) ? currentLicenseNo : "", lineFont));
+                                cell.setPhrase(new Phrase(!StringUtils.equals(currentLicenseNo, lastLicenseNo) ? StringUtils.defaultString(currentLicenseNo) : "", lineFont));
                                 table.addCell(cell);
 
                             }
