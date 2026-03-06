@@ -245,7 +245,7 @@ function isIE(){
 }
 
 function exprompt(command, promptText){
-    value = prompt(promptText);
+    var value = prompt(promptText);
     ex(command,value);
 }
 
@@ -348,7 +348,7 @@ function loadTemplate(selectname){
 function parseTemplate(){
 	//replace template placeholders with database pulls
 	var temp = new Array();
-	contents=editControlContents(cfg_editorname);
+	var contents=editControlContents(cfg_editorname);
 	temp = contents.split('##'); //parse for template place holders identified by ##value##
 	contents='';
 	var keys = [];
@@ -382,7 +382,7 @@ function parseTemplate(){
 function populateTemplate(){
 	//replace template placeholders with database pulls
 	var temp = new Array();
-	contents=editControlContents(cfg_editorname);
+	var contents=editControlContents(cfg_editorname);
 	temp = contents.split('##'); //parse for template place holders identified by ##value##
 	contents='';
 	var x;
@@ -434,7 +434,7 @@ function doHtml(value) {
 
 function block(blockElements) {
 	for(i=0; i<blockElements.length; i++) {
-		htm='<div>'+blockElements[i]+'<\div>';
+		var htm='<div>'+blockElements[i]+'<\div>';
 		doHtml(htm);
 	}
 }
@@ -555,7 +555,7 @@ jQuery(document).ready(function(){
 });
 
 function popup(location) {
-    DocPopup = window.open(location,"_blank","height=380,width=580");
+    var DocPopup = window.open(location,"_blank","height=380,width=580");
     if (DocPopup != null) {
 	     if (DocPopup.opener == null) {
 	     DocPopup.opener = self;
@@ -835,7 +835,6 @@ function submitFaxButton() {
 				cache.put("gender", "male");
 				break;
 			case 'O':
-				break;
 				cache.put("sex", "O");
 				cache.put("he_she", "they");
 				cache.put("his_her", "their");
@@ -1014,7 +1013,7 @@ var measureArray = [];
 var measureDateArray = [];
 
 function getMeasures(measure, max) {
-    xmlhttp = new XMLHttpRequest();
+    var xmlhttp = new XMLHttpRequest();
     var pathArray = window.location.pathname.split('/');
     var newURL = "..//oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=" + measure;
     xmlhttp.onreadystatechange = function() {
@@ -1047,16 +1046,16 @@ function getMeasures(measure, max) {
     //alert(this.patient_name.value)
     if (measureArray.length > 0) {
         //myGraphWindow = "<a href=" + formPath + measure + "&GraphType=Bar" + "&mA=" + measureArray + "&mDA=" + measureDateArray + " target='_blank'>" + measure + ": " + "</a>"
-       myGraphWindow = measure + ": "
+       var myGraphWindow = measure + ": "
 
        
  //myGraphWindow = formPath + measure + measureArray + measureDateArray + measure + ": "
          doHtml("<font size='3'>"+myGraphWindow +"</font>");
-        displaynum = measureArray.length
+        var displaynum = measureArray.length
         if (measureArray.length > max) {
             displaynum = max
         }
-        for (jj = 0; jj < displaynum; jj++) {
+        for (var jj = 0; jj < displaynum; jj++) {
             var d = new Date(measureDateArray[jj])
             var LabDate = "(" + d.getFullYear() + "/" + (d.getMonth() + 1) + "); "
             doHtml("<font size='3'>"+measureArray[jj].bold()+ "</font>"+"<font size='2'>"+LabDate+ "</font>")
@@ -1090,7 +1089,7 @@ function collapseFooter() {
                 return false;
             }
 
-            tmpBin = document.getElementById('tempBin');
+            var tmpBin = document.getElementById('tempBin');
 
             loaderImg(tmpBin);
 

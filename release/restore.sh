@@ -62,10 +62,12 @@ trap 'rm -rf "$LOCKDIR"' 0 1 2   # remove directory when script finishes EXIT(0)
 if [ -f ${C_HOME}${PROGRAM}.properties ] ; then
 	# --- drop lines that start with a comment, then grep the property, just take the last instance of that, cut on the = delimiter, and trim whitespace
 	echo "grep the password from the properties file"
-	db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 
-	echo "grep the db_name from the properties file" 
-	db_name=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_name'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 
+	db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+	echo "grep the db_name from the properties file"
+	db_name=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_name'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 fi
+
+export DB_PASSWORD="${db_password}"
 
 # --- prevent *.enc to be run through if there are no files in the directory
 shopt -s nullglob
@@ -73,7 +75,7 @@ shopt -s nullglob
 for f in *.tar.gz.enc
 do
 	echo "Decrypting file - $f"
-        openssl enc -d -aes-256-cbc -salt -in $f -out ${f%%.*} -pass pass:${db_password}
+        openssl enc -d -aes-256-cbc -salt -in $f -out ${f%%.*} -pass env:DB_PASSWORD
 	echo "Expanding contents of file - ${f%%.*}"
 	# --- use p to preserve permissions in the untarring
 	tar -pxzf ${f%%.*} -C $DOCS

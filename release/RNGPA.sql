@@ -2,66 +2,19 @@
 
 INSERT INTO `cssStyles` (`id`, `name`, `style`, `status`) VALUES (3, 'Out of Basket', 'color:#CC3300;', 'A');
 
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='C989A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='E079A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='E409A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='E410A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='E411A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G002A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G004A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G005A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G010A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G014A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G310A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G319A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G365A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G440A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G480A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G481A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G482A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G489A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='G700A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K018A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K021A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K031A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K035A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K036A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K038A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K050A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K051A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K052A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K053A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K054A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K055A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K061A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K070A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K071A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K072A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K101A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K102A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K111A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K112A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K623A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K624A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='K629A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='P006A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='P009A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='P011A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='P018A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='P020A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='P030A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='P038A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='P041A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q003A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q012A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q013A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q023A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q040A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q042A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q043A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q050A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q053A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q054A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q055A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Q150A';
-UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code`='Z555A';
+UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code` IN (
+'C989A','E079A','E409A','E410A','E411A',
+'G002A','G004A','G005A','G010A','G014A',
+'G310A','G319A','G365A','G440A','G480A',
+'G481A','G482A','G489A','G700A',
+'K018A','K021A','K031A','K035A','K036A',
+'K038A','K050A','K051A','K052A','K053A',
+'K054A','K055A','K061A','K070A','K071A',
+'K072A','K101A','K102A','K111A','K112A',
+'K623A','K624A','K629A',
+'P006A','P009A','P011A','P018A','P020A',
+'P030A','P038A','P041A',
+'Q003A','Q012A','Q013A','Q023A','Q040A',
+'Q042A','Q043A','Q050A','Q053A','Q054A',
+'Q055A','Q150A','Z555A'
+);

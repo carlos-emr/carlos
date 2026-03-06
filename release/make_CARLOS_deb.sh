@@ -254,7 +254,7 @@ source.txt > ./${DEBNAME}/var/lib/${PACKAGE}/source.txt
 
 echo "make up the appropriate rebooting script"
 sed -e 's/^PROGRAM.*/PROGRAM='"$PROGRAM"'/' \
-reOscar.sh > ./${DEBNAME}/var/lib/${PACKAGE}/reOscar.sh
+reOscar.sh > ./${DEBNAME}/var/lib/${PACKAGE}/reCarlos.sh
 # note that the origional scripts are .sh
 # end users should rename to prevent overwrites
 
@@ -319,7 +319,7 @@ echo "build directory made to receive wars"
 mkdir -p ./${DEBNAME}${C_BASE}webapps/
 
 echo "getting and loading wars"
-curl -o https://bitbucket.org/oscaremr/drugref2/downloads/drugref2.48.war ./${DEBNAME}${C_BASE}webapps/drugref.war
+curl -o ./${DEBNAME}${C_BASE}webapps/drugref.war https://bitbucket.org/oscaremr/drugref2/downloads/drugref2.48.war
 cp $TARGET ./${DEBNAME}${C_BASE}webapps/$PROGRAM.war
 
 mkdir -p ./${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/${PROGRAM}/

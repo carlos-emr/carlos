@@ -5,15 +5,16 @@ KEY=test
 
 DBNAME=oscar_15
 USERNAME=oscar
-PASSWORD=oscar
+# Set DB_PASSWORD environment variable before running this script
+PASSWORD="${DB_PASSWORD:-}"
 
 rm -f results.txt
 
 #run query
-echo "SELECT count(*) from drugs where create_date >= DATE_SUB(NOW(), INTERVAL 30 day) and customName is not NULL;" | mysql -u $USERNAME --password=$PASSWORD $DBNAME | tail -1 >  results.txt
+echo "SELECT count(*) from drugs where create_date >= DATE_SUB(NOW(), INTERVAL 30 day) and customName is not NULL;" | MYSQL_PWD="${PASSWORD}" mysql -u $USERNAME $DBNAME | tail -1 > results.txt
 
 DATA=`cat results.txt`
 
-#ftp upload the file to oscar
-wget "https://download.oscar-emr.com/MedispanQueryService/uploadResults.jsp?sender=$SENDER&key=$KEY&data=$DATA"
+#upload results using POST to avoid sensitive data in URL/logs
+wget --post-data="sender=${SENDER}&key=${KEY}&data=${DATA}" "https://download.oscar-emr.com/MedispanQueryService/uploadResults.jsp"
 

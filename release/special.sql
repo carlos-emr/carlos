@@ -3,71 +3,23 @@
 
 INSERT INTO `cssStyles` (`id`, `name`, `style`, `status`) VALUES (2, 'Special Payment', 'font-weight:bold;', 'A');
 
+UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code` IN (
 -- palliative care
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='K023A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C882A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='A945A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C945A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W882A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W872A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='B998A';
+'K023A','C882A','A945A','C945A','W882A','W872A','B998A',
 -- prenatal
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='P003A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='P004A';
+'P003A','P004A',
 -- housecall
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='A901A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='A902A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='B990A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='B992A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='B994A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='B996A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='A900A';
+'A901A','A902A','B990A','B992A','B994A','B996A','A900A',
 -- Long Term Care
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W010A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W102A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W002A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W008A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W121A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W003A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W001A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W109A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W107A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W777A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W903A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W004A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='W104A';
+'W010A','W102A','W002A','W008A','W121A','W003A','W001A',
+'W109A','W107A','W777A','W903A','W004A','W104A',
 -- serious mental illness
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='Q021A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='Q020A';
+'Q021A','Q020A',
 -- hospital special payment codes
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='A933A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C002A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C003A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C004A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C005A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C006A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C007A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C008A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C009A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C010A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C121A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C122A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C123A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C124A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C142A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C143A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C777A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C905A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='C933A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='H001A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='E082A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='E083A';
+'A933A','C002A','C003A','C004A','C005A','C006A','C007A',
+'C008A','C009A','C010A','C121A','C122A','C123A','C124A',
+'C142A','C143A','C777A','C905A','C933A','H001A','E082A','E083A',
 -- OB special payment codes
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='P006A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='P007A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='P009A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='P018A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='P020A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='P038A';
-UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code`='P041A';
+'P006A','P007A','P009A','P018A','P020A','P038A','P041A'
+);
 

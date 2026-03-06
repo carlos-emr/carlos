@@ -1,9 +1,10 @@
-!/bin/bash
+#!/bin/bash
 #
 # drugrefUpdate.cron
 # drugref updater
 # to run at 7PM every first Sunday of the month set the crontab to 0 19 1-7 * Sun  [ $(date +%d) -le 07 ] && drugrefUpdate.cron
+# NOTE: Set DRUGREF_DB_PASSWORD environment variable or configure ~/.my.cnf before running
 
-wget --no-check-certificate https://localhost:8443/drugref/Update.jsp && mysql -uroot -ppass4mysql drugref < /usr/share/oscar-emr/tallMANdrugref.sql
+wget --no-check-certificate https://localhost:8443/drugref/Update.jsp && MYSQL_PWD="${DRUGREF_DB_PASSWORD}" mysql -uroot drugref < /usr/share/oscar-emr/tallMANdrugref.sql
 
 

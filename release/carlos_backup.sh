@@ -44,7 +44,7 @@ BWLIMIT="0" # rsynch bandwith limit in kbps, 0 means no limit
 # --- sanity check run as root
 if [ "$(id -u)" != "0" ];
 then
-        echo "The ${SCRIPTFILE} script must be run as root" 1>&2
+        echo "The ${SCRIPT_FILE} script must be run as root" 1>&2
         exit 1
 fi
 
@@ -122,7 +122,7 @@ REMOTE_UPLOAD_FLAG=0
 #EMAIL=valid.admin.email@server.org
 
 # NOTE review or change the code execution as some options will trump others
-while getopts ":c:u:p:d:b:t:f:n:r:" optionName; do
+while getopts ":c:u:p:d:b:t:f:n:r" optionName; do
 case "$optionName" in
   f) PROPFILE="$OPTARG";;
   n) NO_GZIP_MYSQLDUMP_FLAG=1;;
@@ -165,7 +165,7 @@ LOG_ERR="${LOG_PATH}/${LOG_FILE}"
 
 confirmVar ${db_password}
 export DB_PASSWORD_6606913a="${db_password}"
-MyISAM_TABLES=$(mysql -s -u${db_username} -p${db_password} -e "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA='${DATABASE}' AND ENGINE='MyISAM';")
+MyISAM_TABLES=$(MYSQL_PWD="${db_password}" mysql -s -u"${db_username}" -e "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA='${DATABASE}' AND ENGINE='MyISAM';")
 
 IGNORED_TABLES_STRING=""
 T=(${MyISAM_TABLES})

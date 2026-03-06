@@ -10,8 +10,8 @@
 . /usr/share/debconf/confmodule
 
 # PROGRAM matches the war and properties name
-PROGRAM=oscar
-PACKAGE=oscar-emr
+PROGRAM=carlos
+PACKAGE=carlos-emr
 db_name=oscar_15
 VERSION=19
 PREVIOUS=15
