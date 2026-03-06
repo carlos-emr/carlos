@@ -96,12 +96,13 @@ public abstract class FooterSupport extends PdfPageEventHelper {
         this.baseOffset = baseOffset;
     }
 
-    /** @return int the font size in points */
+    /** Returns the font size in points. */
     public int getFontSize() {
         return fontSize;
     }
 
     /**
+     * Sets the font size to the specified positive value.
      * @param fontSize int the font size in points (must be positive)
      * @throws IllegalArgumentException if fontSize is not positive
      */
@@ -112,12 +113,13 @@ public abstract class FooterSupport extends PdfPageEventHelper {
         this.fontSize = fontSize;
     }
 
-    /** @return BaseFont the font instance used for footer rendering */
+    /** Returns the font instance used for footer rendering. */
     public BaseFont getFont() {
         return font;
     }
 
     /**
+     * Sets the font instance for footer rendering.
      * @param font BaseFont the font instance to use for footer rendering
      * @throws NullPointerException if font is null
      */
@@ -127,11 +129,10 @@ public abstract class FooterSupport extends PdfPageEventHelper {
     }
 
     /**
-     * Applies all font properties from the given settings in a single call.
+     * Applies font properties from the given settings.
      *
      * @param settings FontSettings the font configuration to apply
      * @throws NullPointerException if settings is null
-     * @throws RuntimeException if the font cannot be created
      */
     public void applyFont(FontSettings settings) {
         java.util.Objects.requireNonNull(settings, "settings must not be null");
