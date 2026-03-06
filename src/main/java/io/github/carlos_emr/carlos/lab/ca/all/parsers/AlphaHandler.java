@@ -57,7 +57,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
 
 
     /**
-     * Creates a new instance of ICLHandler
+     * Creates a new instance of AlphaHandler
      */
     public AlphaHandler() {
     }
@@ -521,7 +521,7 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
                     return "";
                 }
             } else {
-                // ICL likes to thrown reserved characters in their comments -- this is to compensate
+                // Some HL7 sources include reserved characters in NTE comments -- concatenate sub-components to compensate
                 String obxComment = getString(Terser.get(msg23.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k), 3, 0, 1, 1)) + " " +
                         getString(Terser.get(msg23.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k), 3, 0, 2, 1)).trim();
 

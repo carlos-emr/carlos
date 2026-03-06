@@ -30,7 +30,15 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
-public class CreateLabelTDIS2Action extends ActionSupport {
+/**
+ * Struts2 action that creates or updates a lab label for an HL7 lab result.
+ *
+ * <p>Mapped to {@code /lab/CA/ALL/createLabLabel.do}. Requires {@code _lab}
+ * write privilege via {@link SecurityInfoManager}.</p>
+ *
+ * @since 2008-01-01
+ */
+public class CreateLabLabel2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -64,7 +72,7 @@ public class CreateLabelTDIS2Action extends ActionSupport {
 
 
         } catch (Exception e) {
-            logger.error("Error inserting label into hl7TextInfo" + e);
+            logger.error("Error inserting label into hl7TextInfo", e);
             request.setAttribute("error", "There was an error creating a label.");
 
         }
