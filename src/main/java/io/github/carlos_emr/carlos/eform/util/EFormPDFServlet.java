@@ -187,13 +187,13 @@ public class EFormPDFServlet extends HttpServlet {
             }
 
         } catch (Exception e) {
-            res.setContentType("text/html");
-            PrintWriter writer = res.getWriter();
-            writer.println("Exception from: " + this.getClass().getName() + " " + e.getClass().getName() + "<br>");
-            writer.println("<pre>");
-            writer.println(e.getMessage());
-            writer.println("</pre>");
-            writer.close();
+            log.error("Error generating eForm PDF", e);
+            if (!res.isCommitted()) {
+                res.setContentType("text/html");
+                PrintWriter writer = res.getWriter();
+                writer.println("<p>An error occurred while generating the PDF. Please try again or contact support.</p>");
+                writer.close();
+            }
         } finally {
             if (baosPDF != null) baosPDF.close();
             if (fis != null) fis.close();
@@ -230,6 +230,7 @@ public class EFormPDFServlet extends HttpServlet {
         ByteArrayOutputStream baosPDF = new ByteArrayOutputStream();
         Document document = new Document();
         PdfWriter writer = null;
+        PdfReader reader = null;
         try {
             writer = PdfWriterFactory.newInstance(document, baosPDF, FontSettings.HELVETICA_6PT);
 
@@ -266,13 +267,13 @@ public class EFormPDFServlet extends HttpServlet {
 
             // create a reader for a certain document
             String propFilename = OscarProperties.getInstance().getEformImageDirectory() + "/" + template;
-            PdfReader reader = null;
 
             try {
                 reader = new PdfReader(propFilename);
                 log.debug("Found template at " + propFilename);
             } catch (Exception dex) {
-                log.warn("Cannot find template at : " + propFilename);
+                log.warn("Cannot find template at: {}", propFilename);
+                throw new IOException("Cannot load PDF template: " + propFilename, dex);
             }
 
             // retrieve the total number of pages
@@ -333,6 +334,8 @@ public class EFormPDFServlet extends HttpServlet {
                 document.close();
             if (writer != null)
                 writer.close();
+            if (reader != null)
+                reader.close();
         }
 
         return baosPDF;
@@ -496,7 +499,7 @@ public class EFormPDFServlet extends HttpServlet {
                 FrmPDFPostValueProcessor pp = (FrmPDFPostValueProcessor) Class.forName(className).newInstance();
                 props = pp.process(props);
             } catch (Exception e) {
-                //ignore
+                log.warn("Post-processor {} could not be loaded or failed during execution - form rendered without post-processing", className, e);
             }
         }
 

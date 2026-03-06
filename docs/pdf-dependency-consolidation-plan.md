@@ -1,13 +1,13 @@
 # PDF Dependency Consolidation Plan
 
 > **Status**: All phases complete (iText 5 → OpenPDF 3.0.2 migration shipped in PR #536)
-> **Target**: Consolidate from 5+ PDF libraries → 2 (OpenPDF + PDFBox)
+> **Target**: Consolidated from 5+ PDF libraries → 2 (OpenPDF + PDFBox)
 > **Risk Level**: High (healthcare forms, lab reports, prescriptions — visual fidelity is critical)
-> **Estimated Scope**: ~45 Java files, 4 phases, each independently shippable
+> **Scope**: 49 production Java files (including 1 new SSRF prevention class), 4 phases
 
 ## Executive Summary
 
-CARLOS EMR currently uses **5+ overlapping PDF libraries** for PDF creation, form filling, HTML-to-PDF conversion, and document manipulation. This plan consolidates to **two** libraries:
+CARLOS EMR previously used **5+ overlapping PDF libraries** for PDF creation, form filling, HTML-to-PDF conversion, and document manipulation. This migration consolidated to **two** libraries:
 
 1. **OpenPDF 3.0.2** (LGPL, `com.github.librepdf:openpdf`) — PDF creation, form filling, stamping, embedded JS (uses `org.openpdf.*` packages)
 2. **Apache PDFBox 2.0.35** (Apache 2.0) — PDF merging, splitting, encryption, rendering
@@ -39,7 +39,7 @@ CARLOS EMR currently uses **5+ overlapping PDF libraries** for PDF creation, for
 
 ### Files by Library Usage
 
-**45 files imported `com.itextpdf.*`** and were migrated to `org.openpdf.*`. Additionally,
+**44 files imported `com.itextpdf.*`** (plus 2 files with `com.lowagie.*` imports) and were migrated to `org.openpdf.*`. Additionally,
 `LocalOnlyUserAgent.java` was added as an SSRF-prevention layer using Flying Saucer
 (`org.xhtmlrenderer.*`) classes — it does not import `org.openpdf.*` directly:
 
@@ -178,9 +178,9 @@ all resource types regardless of what's in the HTML.
   filesystem paths and strips `http://` URLs from the DOM; local paths still work
 - **Inline CSS**: CSS embedded directly in `<style>` tags (not via `@import`) doesn't require
   fetching — only `@import url("...")` referencing external resources is affected
-- **AddAbsoluteTag in Doc2PDF**: Converts `src` to `http://localhost:...` URLs which will be
-  blocked, but messenger HTML contains no images; if needed, the fix is to convert to filesystem
-  paths instead
+- **AddAbsoluteTag in Doc2PDF**: Strips leading slashes from `src` attributes to make them
+  relative paths that resolve against the `file://` base URL. Despite its name, this method
+  does not create HTTP URLs
 
 ### PDFBox-Only Files (7 files — no import migration needed)
 
@@ -225,8 +225,8 @@ OpenPDF 3.0.2 supports `PdfAction.javaScript()` and `PdfWriter.addJavaScript()` 
 
 ### Package Mapping (Mechanical — import replacement)
 
-The migration went through two namespace hops: `com.itextpdf.*` → `com.lowagie.*` → `org.openpdf.*`.
-All 46 files now use the final `org.openpdf.*` namespace (OpenPDF 3.0.2).
+OpenPDF's package namespace evolved through two historical hops (`com.lowagie.*` in 1.x/2.x → `org.openpdf.*` in 3.x). This migration replaced both `com.itextpdf.*` and any remaining `com.lowagie.*` imports directly with `org.openpdf.*`.
+All 49 production files now use the final `org.openpdf.*` namespace (OpenPDF 3.0.2).
 
 | iText 5 (`com.itextpdf.*`) | OpenPDF 3.0.x (`org.openpdf.*`) |
 |----|---|
@@ -560,5 +560,5 @@ Uses `org.openpdf.text.rtf.RtfWriter2` from OpenRTF 3.0.0. After migration, LabP
 | 3: Complex PDF Creators | ~12 | **High** | Migrate lab PDFs, clinical notes, medical form servlets |
 | 4: Cleanup | ~11 | Low | Migrate remaining files, remove iText 5 from pom.xml |
 
-**Total**: 45 files migrated to `org.openpdf.*`, 3 dependency upgrades (OpenPDF 3.0.2, OpenRTF 3.0.0, Flying Saucer 10.0.7) + 2 new dependencies (OpenPDF HTML 3.0.2, TwelveMonkeys ImageIO TIFF 3.13.0)
+**Total**: 49 production files migrated to `org.openpdf.*`, 3 dependency upgrades (OpenPDF 3.0.2, OpenRTF 3.0.0, Flying Saucer 10.0.7) + 2 new dependencies (OpenPDF HTML 3.0.2, TwelveMonkeys ImageIO TIFF 3.13.0)
 **Net result**: 5 PDF libraries → 2 (OpenPDF + PDFBox). iText 5 fully removed (Doc2PDF migrated to Flying Saucer).

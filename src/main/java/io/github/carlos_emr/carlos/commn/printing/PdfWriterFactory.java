@@ -50,10 +50,10 @@ import org.openpdf.text.pdf.events.PdfPageEventForwarder;
  * stampers (depending on configuration; all enabled stampers render on every page):</p>
  * <ol>
  *   <li><strong>Confidentiality statement</strong> &mdash; from the {@code confidentialityStatement}
- *       property (displayed at y-offset 30)</li>
+ *       property (displayed 30 points below the bottom margin)</li>
  *   <li><strong>Promotional / clinic text</strong> &mdash; from the {@code FORMS_PROMOTEXT} property
- *       with the current date appended (displayed at y-offset 20)</li>
- *   <li><strong>Page numbers</strong> &mdash; rendered at y-offset 10 via {@link PageNumberStamper}</li>
+ *       with the current date appended (displayed 20 points below the bottom margin)</li>
+ *   <li><strong>Page numbers</strong> &mdash; rendered 10 points below the bottom margin via {@link PageNumberStamper}</li>
  * </ol>
  *
  * <p><strong>Important:</strong> OpenPDF 3.x auto-wraps multiple {@code setPageEvent()} calls
@@ -70,9 +70,9 @@ import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 public final class PdfWriterFactory {
 
     /** Confidentiality statement loaded once from system properties at class init. */
-    private static String confidentialityStatement = OscarProperties.getConfidentialityStatement();
+    private static final String confidentialityStatement = OscarProperties.getConfidentialityStatement();
     /** Promotional text (clinic branding) loaded once from system properties at class init. */
-    private static String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+    private static final String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 
     private PdfWriterFactory() {
         throw new AssertionError("utility class");
@@ -104,22 +104,19 @@ public final class PdfWriterFactory {
 
         if (confidentialityStatement != null && !confidentialityStatement.isEmpty()) {
             pts = new PromoTextStamper(confidentialityStatement, 30);
-            pts.setFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
-            pts.setFontSize(settings.getFontSize());
+            pts.applyFont(settings);
             pageEvents.addPageEvent(pts);
         }
         if (promoText != null && !promoText.isEmpty()) {
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
             String promoTextDate = promoText + " " + simpleDateFormat.format(new Date());
             pts = new PromoTextStamper(promoTextDate, 20);
-            pts.setFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
-            pts.setFontSize(settings.getFontSize());
+            pts.applyFont(settings);
             pageEvents.addPageEvent(pts);
         }
 
         PageNumberStamper pns = new PageNumberStamper(10);
-        pns.setFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
-        pns.setFontSize(settings.getFontSize());
+        pns.applyFont(settings);
         pageEvents.addPageEvent(pns);
 
         result.setPageEvent(pageEvents);

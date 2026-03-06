@@ -242,8 +242,10 @@ public class ManageDocument2Action extends ActionSupport {
 
                 // Removes the link to the "0" providers so that the document no longer shows up as "unclaimed"
                 providerInboxRoutingDAO.removeLinkFromDocument("DOC", Integer.parseInt(documentId), "0");
+            } catch (NumberFormatException e) {
+                log.error("Invalid document ID format during provider routing: {}", documentId, e);
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                log.error("Failed to route document {} to providers", documentId, e);
             }
         }
 
@@ -297,8 +299,10 @@ public class ManageDocument2Action extends ActionSupport {
                     saveDocNote(request, d.getDocdesc(), demog, documentId);
                 }
             }
+        } catch (NumberFormatException e) {
+            log.error("Invalid number format during CTL document update for documentId: {}", documentId, e);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            log.error("Failed to update CTL document for documentId: {}", documentId, e);
         }
 
         HashMap hm = new HashMap();
@@ -380,7 +384,7 @@ public class ManageDocument2Action extends ActionSupport {
         try {
             EDocUtil.refileDocument(documentId, queueId);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            log.error("Failed to refile document {} to queue {}", documentId, queueId, e);
         }
         return null;
     }
@@ -438,7 +442,7 @@ public class ManageDocument2Action extends ActionSupport {
                 addActionError("Invalid document ID format. Please check the document ID and try again.");
                 return "error";
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                log.error("Failed to route document {} to providers", documentId, e);
             }
         }
         Document d = documentDao.getDocument(documentId);
@@ -474,7 +478,7 @@ public class ManageDocument2Action extends ActionSupport {
             } catch (NumberFormatException e) {
                 log.error("Invalid number format for documentId: " + documentId + " or demog: " + demog, e);
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                log.error("Failed to update CTL document for documentId: {}", documentId, e);
             }
         } else {
             log.warn("Document ID is null or empty, skipping ctlDocument operations");
@@ -668,33 +672,29 @@ public class ManageDocument2Action extends ActionSupport {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             PDFParser parser = new PDFParser(new RandomAccessFile(pdfPath.toFile(), "rw"), new ScratchFile(MemoryUsageSetting.setupTempFileOnly()));
             parser.parse();
-            PDDocument pdf = parser.getPDDocument();
 
-            // Validate page number is within bounds
-            if (pageNum == null) {
-                log.error("Page number is null for document " + d.getDocfilename());
-                pdf.close();
-                return null;
+            try (PDDocument pdf = parser.getPDDocument()) {
+                // Validate page number is within bounds
+                if (pageNum == null) {
+                    log.error("Page number is null for document " + d.getDocfilename());
+                    return null;
+                }
+
+                int pageIndex = pageNum - 1;
+                int totalPages = pdf.getNumberOfPages();
+                if (pageIndex < 0 || pageIndex >= totalPages) {
+                    log.error("Invalid page number " + pageNum + " for document " + d.getDocfilename() + " with " + totalPages + " pages");
+                    return null;
+                }
+
+                PDFRenderer rend = new PDFRenderer(pdf);
+                BufferedImage image = rend.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
+
+                ImageIO.write(image, "png", pngFile.toFile());
+                ImageIO.write(image, "png", baos);
+
+                image.flush();
             }
-
-            int pageIndex = pageNum - 1;
-            int totalPages = pdf.getNumberOfPages();
-            if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number " + pageNum + " for document " + d.getDocfilename() + " with " + totalPages + " pages");
-                pdf.close();
-                return null;
-            }
-
-            PDFRenderer rend = new PDFRenderer(pdf);
-            //Page index starts at 0, subtracts 1 to account for that
-            BufferedImage image = rend.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
-
-            // write cache file
-            ImageIO.write(image, "png", pngFile.toFile());
-            ImageIO.write(image, "png", baos);
-
-            pdf.close();
-            image.flush();
 
             return baos.toByteArray();
         } catch (Exception e) {
@@ -1283,33 +1283,29 @@ public class ManageDocument2Action extends ActionSupport {
         response.setContentType("application/pdf");
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(sanitizedPdfName + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf") + "\"");
 
-        try {
-            PDDocument reader = PDDocument.load(file);
-
+        try (PDDocument reader = PDDocument.load(file)) {
             // Validate page number is within bounds
             int pageIndex = pageNumber - 1;
             int totalPages = reader.getNumberOfPages();
             if (pageIndex < 0 || pageIndex >= totalPages) {
                 log.error("Invalid page number " + pageNumber + " for PDF " + sanitizedPdfName + " with " + totalPages + " pages");
-                reader.close();
                 response.setContentType("text/html;charset=UTF-8");
                 response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
                 response.getWriter().print("<br>Invalid page number");
                 return;
             }
 
-            PDDocument extractedPage = new PDDocument();
-            extractedPage.addPage(reader.getDocumentCatalog().getPages().get(pageIndex));
-            extractedPage.save(response.getOutputStream());
-            extractedPage.close();
-            reader.close();
+            try (PDDocument extractedPage = new PDDocument()) {
+                extractedPage.addPage(reader.getDocumentCatalog().getPages().get(pageIndex));
+                extractedPage.save(response.getOutputStream());
+            }
         } catch (Exception ex) {
             response.setContentType("text/html;charset=UTF-8");
             // Sanitize the filename to prevent XSS and response splitting
             response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
             response.getWriter().print("<br>" + props.getString("dms.incomingDocs.PDFCouldBeCorrupted"));
 
-            MiscUtils.getLogger().error("Error", ex);
+            MiscUtils.getLogger().error("Failed to extract page {} from PDF: {}", pageNumber, sanitizedPdfName, ex);
         }
 
     }
@@ -1331,13 +1327,10 @@ public class ManageDocument2Action extends ActionSupport {
 
         String filePath = docdownload + fileName;
 
-        try {
-            PDDocument reader = PDDocument.load(new File(filePath));
+        try (PDDocument reader = PDDocument.load(new File(filePath))) {
             numOfPage = reader.getNumberOfPages();
-
-            reader.close();
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to count pages for document: {}", fileName, e);
         }
         return numOfPage;
     }

@@ -196,18 +196,12 @@ public final class IncomingDocUtil {
     public static int getNumOfPages(String queueId, String pdfDir, String pdfName) {
         String filePath = getIncomingDocumentFilePathName(queueId, pdfDir, pdfName);
         int numOfPages = 0;
-        PdfReader reader = null;
-        try {
-            reader = new PdfReader(filePath);
+        try (PdfReader reader = new PdfReader(filePath)) {
             numOfPages = reader.getNumberOfPages();
         } catch (org.openpdf.text.exceptions.BadPasswordException e) {
             MiscUtils.getLogger().error("Cannot read page count - PDF is password-protected: {}", filePath, e);
         } catch (IOException e) {
             MiscUtils.getLogger().error("Cannot read page count for PDF file: {}", filePath, e);
-        }  finally {
-            if (reader != null) {
-                reader.close();
-            }
         }
         return numOfPages;
     }

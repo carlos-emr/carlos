@@ -306,7 +306,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
         @DisplayName("should decode standard Base64 PDF and write identical bytes to disk")
         void shouldDecodeStandardBase64Pdf_andWriteIdenticalBytes() throws Exception {
             // Given: A valid 2-page PDF, Base64-encoded (standard, no line wrapping)
-            Path incomingDir = initializeFaxIncomingDir();
+            initializeFaxIncomingDir();
             FaxConfig faxConfig = createFaxConfig();
             FaxJob receivedFax = createReceivedFax();
 
@@ -341,7 +341,7 @@ class FaxImporterCriticalGapsTest extends CarlosUnitTestBase {
         @DisplayName("should decode MIME-formatted (line-wrapped) Base64 payload")
         void shouldDecodeMimeFormattedBase64_withLineWrapping() throws Exception {
             // Given: A valid PDF, MIME-encoded with 76-char line wrapping + CRLF
-            Path incomingDir = initializeFaxIncomingDir();
+            initializeFaxIncomingDir();
             FaxConfig faxConfig = createFaxConfig();
             FaxJob receivedFax = createReceivedFax();
 

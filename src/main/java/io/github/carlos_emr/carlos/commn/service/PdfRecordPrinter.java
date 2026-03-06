@@ -73,12 +73,9 @@ import org.openpdf.text.Image;
 import org.openpdf.text.PageSize;
 import org.openpdf.text.Paragraph;
 import org.openpdf.text.Phrase;
-import org.openpdf.text.Rectangle;
 import org.openpdf.text.pdf.BaseFont;
-import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfPCell;
 import org.openpdf.text.pdf.PdfPTable;
-import org.openpdf.text.pdf.PdfPageEventHelper;
 import org.openpdf.text.pdf.PdfWriter;
 
 import net.sf.jasperreports.engine.JasperPrint;
@@ -118,7 +115,10 @@ import java.io.FileInputStream;
  * </ul>
  *
  * <p>Uses OpenPDF ({@code org.openpdf.*}) for PDF generation and JasperReports for
- * billing invoice rendering. The {@link EndPage} inner class handles per-page footer rendering
+ * billing invoice rendering. Footer rendering uses
+ * {@link io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory PdfWriterFactory},
+ * which installs {@link io.github.carlos_emr.carlos.casemgmt.service.PageNumberStamper PageNumberStamper}
+ * and {@link io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper PromoTextStamper}
  * via the OpenPDF page event mechanism.</p>
  *
  * @see io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory
@@ -255,39 +255,6 @@ public class PdfRecordPrinter {
     /** @param signingProvider String the name of the provider who signed the encounter */
     public void setSigningProvider(String signingProvider) {
         this.signingProvider = signingProvider;
-    }
-
-    /**
-     * Renders a footer on the current page with promotional text, date, and page number.
-     *
-     * <p>Writes directly to the PDF content layer below the document's bottom margin.
-     * The promotional text is configured via the {@code FORMS_PROMOTEXT} property.</p>
-     */
-    public void footer() {
-        PdfContentByte cb = writer.getDirectContent();
-        cb.saveState();
-
-        Date now = new Date();
-        String promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
-        if (promoTxt == null) {
-            promoTxt = new String();
-        }
-
-        String strFooter = promoTxt + " " + formatter.format(now);
-
-        float textBase = document.bottom();
-        cb.beginText();
-        cb.setFontAndSize(font.getBaseFont(), FONTSIZE);
-        Rectangle page = document.getPageSize();
-        float width = page.getWidth();
-
-        cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 20, 0);
-
-        strFooter = "-" + writer.getPageNumber() + "-";
-        cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 10, 0);
-
-        cb.endText();
-        cb.restoreState();
     }
 
     /**
@@ -815,47 +782,6 @@ public class PdfRecordPrinter {
             }
         }
     }
-
-    /**
-     * OpenPDF page event handler that prints a footer with promotional text, date, and page number
-     * on each page. Used as an alternative to the manual {@link #footer()} method when registered
-     * with {@link PdfWriter#setPageEvent(org.openpdf.text.pdf.PdfPageEvent)}.
-     */
-    class EndPage extends PdfPageEventHelper {
-        private Date now;
-        private String promoTxt;
-
-        public EndPage() {
-            now = new Date();
-            promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
-            if (promoTxt == null) {
-                promoTxt = new String();
-            }
-        }
-
-        public void onEndPage(PdfWriter writer, Document document) {
-            //Footer contains page numbers and date printed on all pages
-            PdfContentByte cb = writer.getDirectContent();
-            cb.saveState();
-
-            String strFooter = promoTxt + " " + formatter.format(now);
-
-            float textBase = document.bottom();
-            cb.beginText();
-            cb.setFontAndSize(font.getBaseFont(), FONTSIZE);
-            Rectangle page = document.getPageSize();
-            float width = page.getWidth();
-            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 20, 0);
-
-            strFooter = "-" + writer.getPageNumber() + "-";
-            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 10, 0);
-
-            cb.endText();
-            cb.restoreState();
-        }
-    }
-
-
 
     /**
      * Prints the patient's allergy list with an "Allergies" heading.

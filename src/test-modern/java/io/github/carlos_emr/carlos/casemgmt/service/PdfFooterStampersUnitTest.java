@@ -60,7 +60,7 @@ class PdfFooterStampersUnitTest {
         @Test
         @DisplayName("should create default Helvetica font when constructed")
         void shouldCreateDefaultHelveticaFont_whenConstructed() {
-            FooterSupport footer = new FooterSupport();
+            FooterSupport footer = new FooterSupport() {};
             assertThat(footer.getFont()).isNotNull();
             assertThat(footer.getFontSize()).isEqualTo(12);
         }
@@ -68,7 +68,7 @@ class PdfFooterStampersUnitTest {
         @Test
         @DisplayName("should update font size when setFontSize called")
         void shouldUpdateFontSize_whenSetFontSizeCalled() {
-            FooterSupport footer = new FooterSupport();
+            FooterSupport footer = new FooterSupport() {};
             footer.setFontSize(8);
             assertThat(footer.getFontSize()).isEqualTo(8);
         }
@@ -76,7 +76,7 @@ class PdfFooterStampersUnitTest {
         @Test
         @DisplayName("should create custom font when setFont called with valid args")
         void shouldCreateCustomFont_whenSetFontCalledWithValidArgs() {
-            FooterSupport footer = new FooterSupport();
+            FooterSupport footer = new FooterSupport() {};
             footer.setFont(BaseFont.COURIER, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED);
             assertThat(footer.getFont()).isNotNull();
         }
@@ -84,7 +84,7 @@ class PdfFooterStampersUnitTest {
         @Test
         @DisplayName("should throw RuntimeException when setFont called with invalid font")
         void shouldThrowRuntimeException_whenSetFontCalledWithInvalidFont() {
-            FooterSupport footer = new FooterSupport();
+            FooterSupport footer = new FooterSupport() {};
             assertThatThrownBy(() ->
                     footer.setFont("BogusFont", BaseFont.WINANSI, BaseFont.NOT_EMBEDDED))
                     .isInstanceOf(RuntimeException.class)
@@ -117,7 +117,7 @@ class PdfFooterStampersUnitTest {
 
         @Test
         @DisplayName("should produce valid PDF with page numbers when multi-page document closed")
-        void shouldProduceValidPdf_withPageNumbers_whenMultiPageDocumentClosed() throws Exception {
+        void shouldProduceValidPdfWithPageNumbers_whenMultiPageDocumentClosed() throws Exception {
             Document doc = new Document();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             PdfWriter writer = PdfWriter.getInstance(doc, baos);

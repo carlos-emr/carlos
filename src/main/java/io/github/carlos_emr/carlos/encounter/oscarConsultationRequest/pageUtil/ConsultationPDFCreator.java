@@ -97,17 +97,13 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      */
     public ConsultationPDFCreator(HttpServletRequest request, OutputStream os) {
 
-        // Instantiate dependencies
         try {
             bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             font = new Font(bf, 10, Font.NORMAL);
-            // boldFont = new Font(bf, 10, Font.BOLD);
             heading = new Font(bf, 12, Font.NORMAL);
             boldFontHeading = new Font(bf, 12, Font.BOLD);
-        } catch (DocumentException e) {
-            logger.error("error", e);
-        } catch (IOException e) {
-            logger.error("error", e);
+        } catch (DocumentException | IOException e) {
+            throw new RuntimeException("Cannot create consultation PDF fonts", e);
         }
 
         this.os = os;

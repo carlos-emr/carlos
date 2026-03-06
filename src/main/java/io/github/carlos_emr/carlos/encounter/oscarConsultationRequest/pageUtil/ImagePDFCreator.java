@@ -162,6 +162,10 @@ public class ImagePDFCreator extends PdfPageEventHelper {
                         PdfContentByte cb = writer.getDirectContent();
                         for (int c = 0; c < comps; c++) {
                             BufferedImage bufferedImage = reader.read(c);
+                            if (bufferedImage == null) {
+                                logger.warn("Skipping unreadable TIFF page {}", c + 1);
+                                continue;
+                            }
                             Image img = Image.getInstance(bufferedImage, null);
                             if (img.getScaledWidth() > 500 || img.getScaledHeight() > 700) {
                                 img.scaleToFit(500, 700);

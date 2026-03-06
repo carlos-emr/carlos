@@ -115,4 +115,20 @@ public final class FontSettings {
         return embedded;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof FontSettings)) return false;
+        FontSettings that = (FontSettings) o;
+        return embedded == that.embedded
+                && fontSize == that.fontSize
+                && font.equals(that.font)
+                && codePage.equals(that.codePage);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(font, codePage, embedded, fontSize);
+    }
+
 }

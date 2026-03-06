@@ -29,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.openpdf.text.DocumentException;
@@ -206,10 +207,7 @@ class ImagePDFCreatorUnitTest {
         @DisplayName("should produce multi-page PDF from multi-page TIFF")
         void shouldProduceMultiPagePdf_fromMultiPageTiff() throws Exception {
             Path tiff = createMultiPageTiff("multi.tiff", 3);
-            if (tiff == null) {
-                // TwelveMonkeys writer not on classpath — skip
-                return;
-            }
+            Assumptions.assumeTrue(tiff != null, "TwelveMonkeys TIFF writer not available");
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             ImagePDFCreator creator = new ImagePDFCreator(tiff.toAbsolutePath().toString(), "Multi-page TIFF", out);
@@ -225,9 +223,7 @@ class ImagePDFCreatorUnitTest {
         @DisplayName("should produce single-page PDF from single-page TIFF")
         void shouldProduceSinglePagePdf_fromSinglePageTiff() throws Exception {
             Path tiff = createMultiPageTiff("single.tif", 1);
-            if (tiff == null) {
-                return;
-            }
+            Assumptions.assumeTrue(tiff != null, "TwelveMonkeys TIFF writer not available");
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             ImagePDFCreator creator = new ImagePDFCreator(tiff.toAbsolutePath().toString(), "Single TIFF", out);
@@ -242,9 +238,7 @@ class ImagePDFCreatorUnitTest {
         @DisplayName("should detect TIFF by .tif extension (case-insensitive)")
         void shouldDetectTiff_byTifExtension() throws Exception {
             Path tiff = createMultiPageTiff("scan.TIF", 2);
-            if (tiff == null) {
-                return;
-            }
+            Assumptions.assumeTrue(tiff != null, "TwelveMonkeys TIFF writer not available");
 
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             ImagePDFCreator creator = new ImagePDFCreator(tiff.toAbsolutePath().toString(), "Case test", out);

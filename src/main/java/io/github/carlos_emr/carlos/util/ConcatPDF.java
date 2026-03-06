@@ -124,8 +124,9 @@ public class ConcatPDF {
         try {
             pdfMerger.setDestinationStream(outputStream);
             pdfMerger.mergeDocuments(MemoryUsageSetting.setupMainMemoryOnly());
-        } catch (Exception e) {
+        } catch (IOException e) {
             MiscUtils.getLogger().error("Document merge failed.", e);
+            throw new RuntimeException("PDF merge failed after processing " + totalFiles + " documents", e);
         }
     }
 

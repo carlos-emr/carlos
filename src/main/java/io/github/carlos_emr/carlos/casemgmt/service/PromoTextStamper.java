@@ -45,7 +45,7 @@ import org.openpdf.text.pdf.PdfWriter;
  */
 public class PromoTextStamper extends FooterSupport {
 
-    private String text;
+    private final String text;
 
     /**
      * Creates a new stamper with the specified promotional text and vertical offset.
@@ -65,6 +65,7 @@ public class PromoTextStamper extends FooterSupport {
      * @param writer PdfWriter the active PDF writer for the document
      * @param document Document the current OpenPDF document
      */
+    @Override
     public void onEndPage(PdfWriter writer, Document document) {
         PdfContentByte cb = writer.getDirectContent();
         cb.saveState();

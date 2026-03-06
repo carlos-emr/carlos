@@ -83,6 +83,36 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
     /** Pattern matching control characters (newlines, tabs, etc.) that could be used for log forging. */
     private static final Pattern CONTROL_CHARS = Pattern.compile("[\\x00-\\x1f\\x7f]");
 
+    /** Cached system temp directory path (stable after JVM startup). */
+    private static final Path CACHED_TMPDIR;
+
+    /** Cached Catalina work directory path (stable after JVM startup). */
+    private static final Path CACHED_CATALINA_WORK;
+
+    static {
+        Path tmpDir = null;
+        String tmp = System.getProperty("java.io.tmpdir");
+        if (tmp != null) {
+            try {
+                tmpDir = Path.of(tmp).normalize().toAbsolutePath();
+            } catch (IllegalArgumentException e) {
+                logger.warn("Could not parse java.io.tmpdir as allowed directory path: {}", e.getMessage());
+            }
+        }
+        CACHED_TMPDIR = tmpDir;
+
+        Path catalinaWork = null;
+        String catalinaBase = System.getProperty("catalina.base");
+        if (catalinaBase != null) {
+            try {
+                catalinaWork = Path.of(catalinaBase, "work").normalize().toAbsolutePath();
+            } catch (IllegalArgumentException e) {
+                logger.warn("Could not parse catalina.base work directory as allowed path: {}", e.getMessage());
+            }
+        }
+        CACHED_CATALINA_WORK = catalinaWork;
+    }
+
     /**
      * Constructs a LocalOnlyUserAgent with the given output device and pixel ratio.
      *
@@ -99,7 +129,9 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
      * <p>Allowed:
      * <ul>
      *   <li>{@code data:} URIs — inline base64 content, no network request</li>
-     *   <li>Local paths — delegated to parent for {@code file:} and relative resolution</li>
+     *   <li>{@code file:} URIs — delegated to parent (validated by {@link #openStream} path containment)</li>
+     *   <li>Absolute paths starting with {@code /} — delegated to parent (validated by {@link #openStream})</li>
+     *   <li>Relative paths (no scheme) and dot-relative paths ({@code ./}, {@code ../}) — delegated to parent</li>
      * </ul>
      *
      * <p>Blocked (everything else):
@@ -135,15 +167,22 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
             return null;
         }
 
-        String safeUri = sanitizeForLog(uri);
+        // Allow file: scheme, absolute paths, relative paths (no scheme), and dot-relative paths.
+        // The colon check uses indexOf to find scheme-like prefixes; single-letter prefixes
+        // (e.g. "C:" on Windows) are treated as drive letters, not schemes, for portability.
+        if (lower.startsWith("file:") || uri.startsWith("/") || uri.startsWith(".")) {
+            return super.resolveAndOpenStream(uri);
+        }
 
-        // Allow file: scheme and relative paths (no scheme or starts with / or .)
-        if (lower.startsWith("file:") || !uri.contains(":") || uri.startsWith("/") || uri.startsWith(".")) {
+        int colonIdx = uri.indexOf(':');
+        if (colonIdx < 0 || colonIdx == 1) {
+            // No colon at all (relative path) or single-letter before colon (drive letter)
             return super.resolveAndOpenStream(uri);
         }
 
         // Block everything else (http, https, ftp, jar, gopher, ldap, etc.)
-        String scheme = lower.substring(0, lower.indexOf(':') + 1);
+        String scheme = lower.substring(0, colonIdx + 1);
+        String safeUri = sanitizeForLog(uri);
         logger.warn("Blocked external resource fetch during PDF rendering (scheme: {}, uri: {})", scheme, safeUri);
         return null;
     }
@@ -219,15 +258,17 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
     /**
      * Builds the list of directories that {@code file:} URIs are permitted to access.
      *
-     * <p>Computed on each call since {@link #getBaseURL()} is set lazily by Flying Saucer
-     * after document loading begins.
+     * <p>The webapp root (from {@link #getBaseURL()}) is computed on each call because
+     * Flying Saucer sets it lazily after document loading begins. The system temp directory
+     * and Catalina work directory are cached in static fields since they are stable after
+     * JVM startup.
      *
      * @return List of Path objects representing allowed directory roots
      */
     private List<Path> getAllowedDirectories() {
         List<Path> dirs = new ArrayList<>(3);
 
-        // Webapp root from the base URL set by Flying Saucer
+        // Webapp root from the base URL set by Flying Saucer (dynamic — set lazily)
         String baseUrl = getBaseURL();
         if (baseUrl != null) {
             try {
@@ -239,24 +280,14 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
             }
         }
 
-        // System temp directory
-        String tmpDir = System.getProperty("java.io.tmpdir");
-        if (tmpDir != null) {
-            try {
-                dirs.add(Path.of(tmpDir).normalize().toAbsolutePath());
-            } catch (IllegalArgumentException e) {
-                logger.warn("Could not parse java.io.tmpdir as allowed directory path: {}", e.getMessage());
-            }
+        // System temp directory (cached at class init — stable after JVM startup)
+        if (CACHED_TMPDIR != null) {
+            dirs.add(CACHED_TMPDIR);
         }
 
-        // Catalina work directory (Tomcat compilation artifacts)
-        String catalinaBase = System.getProperty("catalina.base");
-        if (catalinaBase != null) {
-            try {
-                dirs.add(Path.of(catalinaBase, "work").normalize().toAbsolutePath());
-            } catch (IllegalArgumentException e) {
-                logger.warn("Could not parse catalina.base work directory as allowed path: {}", e.getMessage());
-            }
+        // Catalina work directory (cached at class init — stable after JVM startup)
+        if (CACHED_CATALINA_WORK != null) {
+            dirs.add(CACHED_CATALINA_WORK);
         }
 
         return Collections.unmodifiableList(dirs);

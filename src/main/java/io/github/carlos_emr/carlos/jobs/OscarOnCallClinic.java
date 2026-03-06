@@ -268,7 +268,7 @@ public class OscarOnCallClinic implements OscarRunnable {
                 document.add(Chunk.NEWLINE);
                 document.add(Chunk.NEWLINE);
                 document.add(Chunk.NEWLINE);
-                String reason = appointment.getReason() == null || "".equals(appointment.getReason()) ? "" : " for \"" + appointment.getReason() + "\"";
+                String reason = appointment.getReason() == null || appointment.getReason().isEmpty() ? "" : " for \"" + appointment.getReason() + "\"";
                 Font bodyFont = new Font(Font.TIMES_ROMAN, 12);
                 Chunk chunkAttn = new Chunk("ATTN: " + demographic.getProvider().getFormattedName(), bodyFont);
                 Paragraph attnParagraph = new Paragraph(chunkAttn);

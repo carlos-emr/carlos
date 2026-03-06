@@ -71,6 +71,7 @@ public class PageNumberStamper extends FooterSupport {
      * @param writer PdfWriter the active PDF writer for the document
      * @param document Document the current OpenPDF document
      */
+    @Override
     public void onEndPage(PdfWriter writer, Document document) {
         PdfContentByte cb = writer.getDirectContent();
         cb.saveState();
@@ -101,6 +102,7 @@ public class PageNumberStamper extends FooterSupport {
      * @param writer PdfWriter the active PDF writer
      * @param document Document the document being closed
      */
+    @Override
     public void onCloseDocument(PdfWriter writer, Document document) {
         total.beginText();
         total.setFontAndSize(getFont(), getFontSize());
@@ -116,6 +118,7 @@ public class PageNumberStamper extends FooterSupport {
      * @param writer PdfWriter the active PDF writer
      * @param document Document the document being opened
      */
+    @Override
     public void onOpenDocument(PdfWriter writer, Document document) {
         total = writer.getDirectContent().createTemplate(100, 100);
         total.setBoundingBox(new Rectangle(-40, -40, 100, 100));

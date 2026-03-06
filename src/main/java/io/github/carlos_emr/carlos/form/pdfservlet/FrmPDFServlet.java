@@ -347,7 +347,7 @@ public class FrmPDFServlet extends HttpServlet {
                     FrmPDFPostValueProcessor pp = (FrmPDFPostValueProcessor) Class.forName(className).newInstance();
                     props = pp.process(props);
                 } catch (Exception e) {
-                    //ignore
+                    log.warn("Post-processor {} could not be loaded or failed during execution - form rendered without post-processing", className, e);
                 }
             }
 

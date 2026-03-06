@@ -34,6 +34,7 @@ import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectOutputStream;
@@ -177,95 +178,9 @@ public class Doc2PDF {
 
         } catch (Exception e) {
             logger.error("Failed to convert JSP to PDF for URI: {}", uri, e);
-            try {
-                if (!response.isCommitted()) {
-                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
-                }
-            } catch (IOException ioEx) {
-                logger.error("Could not send error response", ioEx);
-            }
+            sendErrorIfPossible(response);
         }
 
-    }
-
-    /**
-     * Converts a file to PDF using the external {@code htmldoc} command-line tool.
-     *
-     * @param request HttpServletRequest the current request (unused, kept for API compatibility)
-     * @param response HttpServletResponse to write the generated PDF to
-     * @param filename String the file path to convert
-     * @return int the exit status from the htmldoc process (0 = success)
-     */
-    public static int topdf(HttpServletRequest request, HttpServletResponse response, String filename)// I - Name of file to convert
-    {
-        String command; // Command string
-        Process process; // Process for HTMLDOC
-        Runtime runtime; // Local runtime object
-        java.io.InputStream input; // Output from HTMLDOC
-        int bytes; // Number of bytes
-
-        // Construct the command string
-        command = "htmldoc --quiet --webpage -t pdf " + filename;
-
-        try {
-
-            // Run the process and wait for it to complete...
-            runtime = Runtime.getRuntime();
-
-            // Create a new HTMLDOC process...
-            process = runtime.exec(command);
-
-            // Get stdout from the process and a buffer for the data...
-            input = process.getInputStream();
-
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-
-            // Compress the data
-            byte[] buf = new byte[1024];
-
-            // Read output from HTMLDOC until we have it all...
-            while ((bytes = input.read(buf)) > 0)
-                bos.write(buf, 0, bytes);
-
-            PrintPDFFromBytes(response, bos.toByteArray());
-
-            // Return the exit status from HTMLDOC...
-            return (process.waitFor());
-        } catch (Exception e) {
-            // An error occurred - send it to stderr for the www server...
-            logger.error(e.toString() + " caught while running:\n\n");
-            logger.error("    " + command + "\n");
-            logger.error("", e);
-            return (1);
-        }
-    }
-
-    /**
-     * Main entry point for the htmldoc external converter. Appends QUERY_STRING if available
-     * and delegates to {@link #topdf(HttpServletRequest, HttpServletResponse, String)}.
-     *
-     * @param request HttpServletRequest the current request
-     * @param response HttpServletResponse to write the generated PDF to
-     * @param url String the URL of the document to convert
-     */
-    public static void HTMLDOC(HttpServletRequest request, HttpServletResponse response, String url)// I - Command-line args
-    {
-        //String server_name, // SERVER_NAME env var
-        //server_port, // SERVER_PORT env var
-        //path_info, // PATH_INFO env var
-        String query_string, // QUERY_STRING env var
-                filename; // File to convert
-
-        filename = url;
-
-        if ((query_string = System.getProperty("QUERY_STRING")) != null) {
-            filename = filename + "?" + query_string;
-        }
-
-        // Convert the file to PDF and send to the www client...
-        topdf(request, response, filename);
-
-        return;
     }
 
     /**
@@ -353,24 +268,39 @@ public class Doc2PDF {
      */
     public static BufferedInputStream GetInputFromURI(String jsessionid, String uri) {
 
-        BufferedInputStream in = null;
+        HttpURLConnection conn = null;
         try {
-
-                // Append jsessionid to the URL path because this is a server-side HTTP connection
+            // Append jsessionid to the URL path because this is a server-side HTTP connection
             // that does not share the browser's session cookie; the session ID must be passed
             // via URL rewriting so the target JSP executes within the user's authenticated session.
             URL url = new URI(uri + ";jsessionid=" + jsessionid).toURL();
 
             MiscUtils.getLogger().debug(" " + uri + ";jsessionid=" + jsessionid);
 
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn = (HttpURLConnection) url.openConnection();
 
-            in = new BufferedInputStream(conn.getInputStream());
+            // Wrap the stream so that closing it also disconnects the HTTP connection,
+            // preventing connection pool leaks when the caller closes the returned stream.
+            final HttpURLConnection connection = conn;
+            InputStream wrapped = new FilterInputStream(new BufferedInputStream(connection.getInputStream())) {
+                @Override
+                public void close() throws IOException {
+                    try {
+                        super.close();
+                    } finally {
+                        connection.disconnect();
+                    }
+                }
+            };
+            return new BufferedInputStream(wrapped);
 
         } catch (Exception e) {
             logger.error("Failed to open HTTP connection to fetch URI content", e);
+            if (conn != null) {
+                conn.disconnect();
+            }
+            return null;
         }
-        return in;
     }
 
     /**
@@ -475,17 +405,18 @@ public class Doc2PDF {
     }
 
     /**
-     * Converts relative {@code src} attribute paths in HTML to local file paths
-     * so that Flying Saucer (with {@link LocalOnlyUserAgent}) can resolve images
-     * during PDF rendering without making network requests.
+     * Strips leading slashes from {@code src} attributes so they become relative paths
+     * that Flying Saucer resolves against the {@code file://} base URL passed to
+     * {@link #renderWithFlyingSaucer}.
      *
-     * <p>Strips leading slashes from {@code src} attributes so they become relative
-     * paths that Flying Saucer resolves against the {@code file://} base URL passed
-     * to {@link #renderWithFlyingSaucer}. This avoids constructing {@code http://} URLs
-     * that would be blocked by the SSRF-safe {@link LocalOnlyUserAgent}.</p>
+     * <p>Note: The method name {@code AddAbsoluteTag} is a legacy artifact. The original
+     * implementation constructed absolute HTTP URLs from src attributes; the current
+     * implementation strips leading slashes so paths resolve relatively against a
+     * {@code file://} base URL, which avoids HTTP requests blocked by
+     * {@link LocalOnlyUserAgent}.</p>
      *
      * @param request HttpServletRequest unused, retained for API compatibility with existing callers
-     * @param docText String the HTML content with potentially relative src attributes
+     * @param docText String the HTML content with potentially absolute src attributes
      * @param uri String the original URI (unused in current implementation)
      * @return String the HTML with src attributes cleaned for local file resolution
      */

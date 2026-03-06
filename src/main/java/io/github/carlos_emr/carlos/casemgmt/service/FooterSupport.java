@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.casemgmt.service;
 
 import java.io.IOException;
 
+import io.github.carlos_emr.carlos.commn.printing.FontSettings;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.pdf.BaseFont;
 import org.openpdf.text.pdf.PdfPageEventHelper;
@@ -49,7 +50,7 @@ import org.openpdf.text.pdf.PdfPageEventHelper;
  * @see PromoTextStamper
  * @since 2012-09-10
  */
-public class FooterSupport extends PdfPageEventHelper {
+public abstract class FooterSupport extends PdfPageEventHelper {
 
     private int baseOffset;
     private int fontSize;
@@ -123,5 +124,18 @@ public class FooterSupport extends PdfPageEventHelper {
     public void setFont(BaseFont font) {
         java.util.Objects.requireNonNull(font, "font must not be null");
         this.font = font;
+    }
+
+    /**
+     * Applies all font properties from the given settings in a single call.
+     *
+     * @param settings FontSettings the font configuration to apply
+     * @throws NullPointerException if settings is null
+     * @throws RuntimeException if the font cannot be created
+     */
+    public void applyFont(FontSettings settings) {
+        java.util.Objects.requireNonNull(settings, "settings must not be null");
+        setFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
+        setFontSize(settings.getFontSize());
     }
 }

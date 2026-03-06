@@ -45,6 +45,8 @@ import javax.servlet.http.HttpServletRequest;
 
 
 import java.awt.Color;
+import io.github.carlos_emr.carlos.commn.printing.FontSettings;
+import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import org.openpdf.text.*;
 import org.openpdf.text.pdf.*;
@@ -77,7 +79,6 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
@@ -94,9 +95,11 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
  * the underlying PDF {@link Document} is always closed, even if an exception occurs during
  * rendering.</p>
  *
- * <p>Uses OpenPDF ({@code org.openpdf.*}) for all PDF generation, with an inner
- * {@link EndPage} page-event handler that renders promotional text and page numbers
- * in the footer of every page.</p>
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) for all PDF generation, with
+ * {@link io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory PdfWriterFactory}-installed
+ * page-event handlers ({@link io.github.carlos_emr.carlos.casemgmt.service.PageNumberStamper PageNumberStamper}
+ * and {@link io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper PromoTextStamper})
+ * that render promotional text and page numbers in the footer of every page.</p>
  *
  * @see io.github.carlos_emr.carlos.casemgmt.web.EChartPrint2Action
  * @see io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint
@@ -151,9 +154,8 @@ public class OscarChartPrinter implements java.io.Closeable {
         this.os = os;
 
         document = new Document();
-        writer = PdfWriter.getInstance(document, os);
-        writer.setPageEvent(new EndPage());
         document.setPageSize(PageSize.LETTER);
+        writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
         document.open();
         //Create the font we are going to print to
         bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
@@ -1022,46 +1024,5 @@ public class OscarChartPrinter implements java.io.Closeable {
         }
         return results;
     }
-
-    /**
-     * Inner OpenPDF page event handler that renders a footer on every page containing
-     * the promotional text (from the {@code FORMS_PROMOTEXT} property), the current
-     * date, and the page number centered at the bottom.
-     */
-    class EndPage extends PdfPageEventHelper {
-        private Date now;
-        private String promoTxt;
-
-        public EndPage() {
-            now = new Date();
-            promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
-            if (promoTxt == null) {
-                promoTxt = new String();
-            }
-        }
-
-        public void onEndPage(PdfWriter writer, Document document) {
-            //Footer contains page numbers and date printed on all pages
-            PdfContentByte cb = writer.getDirectContent();
-            cb.saveState();
-
-            String strFooter = promoTxt + " " + formatter.format(now);
-
-            float textBase = document.bottom();
-            cb.beginText();
-            cb.setFontAndSize(font.getBaseFont(), FONTSIZE);
-            Rectangle page = document.getPageSize();
-            float width = page.getWidth();
-
-            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 20, 0);
-
-            strFooter = "-" + writer.getPageNumber() + "-";
-            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 10, 0);
-
-            cb.endText();
-            cb.restoreState();
-        }
-    }
-
 
 }

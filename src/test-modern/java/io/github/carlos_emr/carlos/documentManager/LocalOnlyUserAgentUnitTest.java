@@ -195,6 +195,12 @@ class LocalOnlyUserAgentUnitTest {
         }
 
         @Test
+        @DisplayName("should return null when URI uses jar:http: scheme (SSRF bypass vector)")
+        void shouldReturnNull_whenUriUsesJarHttpScheme() {
+            assertThat(invokeResolveAndOpenStream(agent,"jar:http://evil.com/malicious.jar!/entry")).isNull();
+        }
+
+        @Test
         @DisplayName("should return null when URI uses ldap: scheme")
         void shouldReturnNull_whenUriUsesLdapScheme() {
             assertThat(invokeResolveAndOpenStream(agent,"ldap://evil.com/")).isNull();
@@ -224,9 +230,8 @@ class LocalOnlyUserAgentUnitTest {
             // Empty string has no scheme (no colon), so it is treated as a relative path
             // and delegated to the parent — it must NOT be blocked as a dangerous scheme.
             // Parent may return a non-null stream even for empty input.
-            InputStream result = invokeResolveAndOpenStream(agent,"");
+            invokeResolveAndOpenStream(agent,"");
             // The key assertion: no exception thrown — empty string is handled gracefully.
-            // We do not assert null vs non-null since that depends on the parent implementation.
         }
 
         @Test
