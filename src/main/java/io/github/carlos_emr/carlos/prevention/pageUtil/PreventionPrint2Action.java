@@ -42,7 +42,7 @@ import java.io.IOException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.itextpdf.text.DocumentException;
+import org.openpdf.text.DocumentException;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -51,7 +51,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 
 /**
- * Convert submitted preventions into pdf and return file
+ * Struts2 action that generates a PDF of selected prevention/immunization records for a patient.
+ *
+ * <p>Delegates PDF generation to {@link PreventionPrintPdf} and streams the result directly
+ * to the HTTP response as an {@code application/pdf} attachment. Requires the
+ * {@code _prevention} read privilege.</p>
+ *
+ * @see PreventionPrintPdf
+ * @see PreventionDisplayConfig
+ * @since 2007-03-14
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -68,6 +76,13 @@ public class PreventionPrint2Action extends ActionSupport {
     public PreventionPrint2Action() {
     }
 
+    /**
+     * Validates security privileges and generates the prevention PDF.
+     *
+     * @return String {@code null} on success (response written directly), or {@code "error"} if
+     *         PDF generation fails due to a {@link DocumentException} or {@link IOException}
+     * @throws SecurityException if the logged-in user lacks {@code _prevention} read privilege
+     */
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_prevention", "r", null)) {

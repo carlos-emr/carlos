@@ -31,7 +31,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import com.itextpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfReader;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -53,11 +53,38 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 
 /**
- * @author mweston4
+ * Handles uploaded PDF documents by saving them as EDoc records in the CARLOS document
+ * management system.
+ *
+ * <p>This handler validates the uploaded file path using {@link PathValidationUtils},
+ * counts pages using OpenPDF's {@link PdfReader}, persists the document metadata via
+ * {@link EDocUtil}, and routes the document to the configured provider inbox.
+ *
+ * <p>Provider routing is determined by either:
+ * <ul>
+ *   <li>The {@code batch_pdf_provider_no} system property (routes to a single provider
+ *       and default queue)</li>
+ *   <li>The {@code serviceName} parameter prefixed with "providerNo" (routes to one or
+ *       more space-separated provider numbers)</li>
+ * </ul>
+ *
+ * @see MessageHandler
+ * @see EDocUtil
+ * @since 2012 (McMaster University)
  */
 public class PDFHandler implements MessageHandler {
     protected static Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Parses an uploaded PDF file and saves it as an EDoc in the document management system.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * @param serviceName String optional provider routing directive (e.g., "providerNo999001")
+     * @param fileName String the full path to the uploaded PDF file
+     * @param fileId int the file identifier (unused in this handler)
+     * @param ipAddr String the client IP address for audit logging
+     * @return String "success" if the document was saved, or {@code null} on error
+     */
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
 
@@ -117,9 +144,10 @@ public class PDFHandler implements MessageHandler {
             newDoc.setContentType("application/pdf");
 
             //Find the number of pages
-            PdfReader reader = new PdfReader(filePath);
-            int numPages = reader.getNumberOfPages();
-            reader.close();
+            int numPages;
+            try (PdfReader reader = new PdfReader(filePath)) {
+                numPages = reader.getNumberOfPages();
+            }
             newDoc.setNumberOfPages(numPages);
 
             String doc_no = EDocUtil.addDocumentSQL(newDoc);

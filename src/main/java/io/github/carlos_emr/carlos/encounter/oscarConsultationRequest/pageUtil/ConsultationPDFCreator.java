@@ -15,8 +15,8 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.*;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.*;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -49,6 +49,26 @@ import java.nio.file.Paths;
 import java.util.ResourceBundle;
 import java.util.Set;
 
+/**
+ * Generates a formatted PDF document for a clinical consultation request (referral letter).
+ *
+ * <p>Produces a letter-sized PDF containing a tabular layout with clinic letterhead, specialist
+ * and patient information, clinical details (reason for consultation, medications, allergies,
+ * concurrent problems), provider digital signature, and referring practitioner / MRP footer.
+ * Supports multi-site configurations with per-site logos and letterhead customization.</p>
+ *
+ * <p>The PDF is built using OpenPDF's table-based layout ({@link PdfPTable}/{@link PdfPCell})
+ * and extends {@link PdfPageEventHelper} for page lifecycle participation. Consultation data
+ * is loaded via {@link EctConsultationFormRequestUtil} from the request ID parameter.</p>
+ *
+ * <p>When used for fax transmission, an {@link EctConsultationFaxForm} can be provided to
+ * include fax copy-to recipient information in the specialist section.</p>
+ *
+ * @see ImagePDFCreator
+ * @see EctConsultationFormRequestUtil
+ * @see EctConsultationFaxForm
+ * @since 2012-04-09
+ */
 public class ConsultationPDFCreator extends PdfPageEventHelper {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -65,24 +85,25 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     private EctConsultationFaxForm ectConsultationFaxForm;
 
     /**
-     * Prepares a ConsultationPDFCreator instance to print a consultation request to PDF.
+     * Constructs a ConsultationPDFCreator for generating a consultation request PDF.
      *
-     * @param request contains the information necessary to construct the consultation request
-     * @param os      the output stream where the PDF will be written
+     * <p>Initializes fonts (Helvetica at 10pt and 12pt), loads consultation request data from
+     * the {@code reqId} parameter, and resolves the locale-specific resource bundle for
+     * localized field labels.</p>
+     *
+     * @param request HttpServletRequest containing the {@code reqId} parameter (or attribute)
+     *                identifying the consultation request to render
+     * @param os      OutputStream where the generated PDF will be written
      */
     public ConsultationPDFCreator(HttpServletRequest request, OutputStream os) {
 
-        // Instantiate dependencies
         try {
             bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
             font = new Font(bf, 10, Font.NORMAL);
-            // boldFont = new Font(bf, 10, Font.BOLD);
             heading = new Font(bf, 12, Font.NORMAL);
             boldFontHeading = new Font(bf, 12, Font.BOLD);
-        } catch (DocumentException e) {
-            logger.error("error", e);
-        } catch (IOException e) {
-            logger.error("error", e);
+        } catch (DocumentException | IOException e) {
+            throw new RuntimeException("Cannot create consultation PDF fonts", e);
         }
 
         this.os = os;
@@ -93,23 +114,36 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         oscarR = ResourceBundle.getBundle("oscarResources", request.getLocale());
     }
 
+    /**
+     * Constructs a ConsultationPDFCreator for fax transmission with copy-to recipient details.
+     *
+     * @param ectConsultationFaxForm EctConsultationFaxForm containing the HTTP request and
+     *                               fax-specific data including copy-to recipients
+     * @param os                     OutputStream where the generated PDF will be written
+     */
     public ConsultationPDFCreator(EctConsultationFaxForm ectConsultationFaxForm, OutputStream os) {
         this(ectConsultationFaxForm.getRequest(), os);
         this.ectConsultationFaxForm = ectConsultationFaxForm;
     }
 
     /**
-     * Prints the consultation request.
+     * Generates the consultation request PDF and writes it to the configured output stream.
+     *
+     * <p>Creates a letter-sized PDF document containing the full consultation request layout:
+     * clinic header, specialist/patient details, clinical information, signature, and
+     * referring practitioner footer.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context for the current provider
+     * @throws DocumentException when OpenPDF encounters an error constructing the PDF
      */
     public void printPdf(LoggedInInfo loggedInInfo) throws DocumentException {
 
         // Create the document we are going to write to
         document = new Document();
         PdfWriter.getInstance(document, os);
-//		PdfWriterFactory.newInstance( document, os, FontSettings.HELVETICA_10PT );
         document.setPageSize(PageSize.LETTER);
         document.addTitle(getResource("msgConsReq"));
-        document.addCreator("OSCAR");
+        document.addCreator("CARLOS EMR");
         document.open();
 
         PdfPTable maintable = createConsultationRequest(loggedInInfo);
@@ -118,8 +152,14 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     }
 
     /**
-     * Creates and adds the table at the top of the document
-     * which contains the consultation request.
+     * Builds the main table structure containing all sections of the consultation request.
+     *
+     * <p>Assembles the full-page layout in order: logo/clinic header, consultation request
+     * title, date line, reply instructions, specialist and patient info side-by-side,
+     * clinical detail sections, digital signature, and referring practitioner/MRP footer.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @return PdfPTable the fully assembled consultation request table
      */
     private PdfPTable createConsultationRequest(LoggedInInfo loggedInInfo) {
 
@@ -252,6 +292,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         return cell;
     }
 
+    /**
+     * Creates a single-row table displaying the referral date or "Patient Will Book" indicator.
+     *
+     * @param alignment Integer horizontal alignment constant (e.g., {@link PdfPCell#ALIGN_RIGHT})
+     * @return PdfPTable containing the formatted date line
+     */
     protected PdfPTable createDateLine(Integer alignment) {
 
         PdfPTable datelineborder = new PdfPTable(1);
@@ -272,6 +318,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         return datelineborder;
     }
 
+    /**
+     * Creates the "Consultation Request" heading row.
+     *
+     * @param alignment Integer horizontal alignment constant (e.g., {@link PdfPCell#ALIGN_CENTER})
+     * @return PdfPTable containing the bold heading text
+     */
     protected PdfPTable createConsultationRequestHeader(Integer alignment) {
 
         PdfPTable headerborder = new PdfPTable(1);
@@ -327,6 +379,14 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
     }
 
+    /**
+     * Reads an image file and adds it as a scaled element to the given PDF table.
+     *
+     * @param pdfPTable PdfPTable the table to add the image cell to
+     * @param filename  String absolute path to the image file
+     * @param width     float maximum width in points to scale the image to
+     * @param height    float maximum height in points to scale the image to
+     */
     protected void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
 
         try (FileInputStream fileInputStream = new FileInputStream(filename)) {
@@ -353,6 +413,16 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
     }
 
+    /**
+     * Creates the reply instruction header based on booking configuration.
+     *
+     * <p>Displays different messages depending on whether the patient will book their own
+     * appointment, custom appointment instructions are configured, or multi-site mode is
+     * active. Falls back to the standard "Please reply to [clinic name]" message.</p>
+     *
+     * @param alignment Integer horizontal alignment constant
+     * @return PdfPTable containing the reply instruction header
+     */
     protected PdfPTable createReplyHeader(Integer alignment) {
 
         PdfPTable infoTable = new PdfPTable(1);
@@ -650,6 +720,14 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         return infoTable;
     }
 
+    /**
+     * Adds the provider's digital signature image to the PDF if available.
+     *
+     * <p>Retrieves the {@link DigitalSignature} by ID from the consultation request form data,
+     * renders it as a scaled image, and appends it to the main table with a "Signature:" label.</p>
+     *
+     * @param pdfPTable PdfPTable the main consultation request table to append the signature to
+     */
     private void addSignature(PdfPTable pdfPTable) {
         DigitalSignature digitalSignature = null;
         String signatureImageId = reqFrm.getSignatureImg();
@@ -700,6 +778,16 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
     }
 
+    /**
+     * Creates the footer table showing the referring practitioner and Most Responsible Provider (MRP).
+     *
+     * <p>Display of each field is controlled by the {@code printPDF_referring_prac} and
+     * {@code mrp_model} properties respectively. Provider OHIP numbers are appended
+     * in parentheses when available.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context for demographic lookup
+     * @return PdfPTable a two-column table with referring practitioner and family doctor details
+     */
     private PdfPTable createReferringPracAndMRPDetailTable(LoggedInInfo loggedInInfo) {
         ProviderDao proDAO = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
         io.github.carlos_emr.carlos.commn.model.Provider pro = proDAO.getProvider(reqFrm.providerNo);
@@ -747,6 +835,14 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         return setInfoCell(cell, phrase, null);
     }
 
+    /**
+     * Configures a cell with the given text and font, removing all borders.
+     *
+     * @param cell   PdfPCell the cell to configure
+     * @param phrase String the text content (null-safe, defaults to empty string)
+     * @param font   Font the font to use, or null to use the default 10pt Helvetica
+     * @return PdfPCell the configured cell
+     */
     private PdfPCell setInfoCell(PdfPCell cell, String phrase, Font font) {
 
         if (phrase == null) {
