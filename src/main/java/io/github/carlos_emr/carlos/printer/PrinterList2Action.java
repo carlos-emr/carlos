@@ -35,23 +35,54 @@ import java.io.OutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.itextpdf.text.pdf.PdfAction;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.pdf.PdfWriter;
+import org.openpdf.text.pdf.PdfAction;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.Paragraph;
+import org.openpdf.text.pdf.PdfWriter;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that generates a minimal PDF with embedded JavaScript to retrieve the list
+ * of available printers from the PDF viewer's host environment.
+ *
+ * <p>Creates a nearly empty PDF document with an open-action JavaScript that calls
+ * {@code app.printerNames} and posts the result back to the host container via
+ * {@code hostContainer.postMessage()}. This enables the web application to discover
+ * printers available to the client's PDF viewer (e.g., Adobe Acrobat).</p>
+ *
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) for PDF generation with {@link PdfAction}
+ * for JavaScript injection.</p>
+ *
+ * @since 2015-08-12
+ */
 public class PrinterList2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
+    /**
+     * Delegates to {@link #generatePrinterListInPDF()}.
+     *
+     * @return String {@code null} (response is written directly)
+     * @throws IOException if PDF generation or response writing fails
+     */
     public String execute() throws IOException {
         return generatePrinterListInPDF();
     }
 
+    /**
+     * Generates a PDF with embedded JavaScript to query available printers and streams it
+     * to the HTTP response.
+     *
+     * <p>The JavaScript uses the PDF viewer's {@code app.printerNames} API and posts
+     * the result to the host container. The PDF is served with no-cache headers
+     * and {@code application/pdf} content type.</p>
+     *
+     * @return String {@code null} (response is written directly as PDF)
+     * @throws IOException if response output stream writing fails
+     */
     public String generatePrinterListInPDF() throws IOException {
         ByteArrayOutputStream baos = null;
         Document document = null;
