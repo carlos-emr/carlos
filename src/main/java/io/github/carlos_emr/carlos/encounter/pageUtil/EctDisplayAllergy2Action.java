@@ -38,6 +38,7 @@ import javax.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import org.owasp.encoder.Encode;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.util.DateUtils;
@@ -105,6 +106,7 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
         } else if (severity != null && severity.equals("2")) {
             item.setColour("orange");
         }
+        item.setDate(entryDate);
 
         String customDescription = description;
         if (prefsBean != null && "on".equals(prefsBean.getAllergyStartDate())) {
@@ -113,8 +115,8 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
         if (prefsBean != null && "on".equals(prefsBean.getAllergySeverity())) {
             customDescription = customDescription + " Severity:" + severityDescription;
         }
-        item.setTitle(customDescription);
-        item.setLinkTitle(customDescription);
+        item.setTitle(Encode.forHtml(customDescription));
+        item.setLinkTitle(Encode.forHtml(customDescription));
         item.setURL("return false;");
 
         return (item);

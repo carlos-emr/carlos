@@ -283,8 +283,10 @@
     function setupNotes() {
         //need to set focus after rounded is called
         adjustCaseNote();
-        var $caseNoteElement = jQuery("#" + caseNote);
-        setCaretPosition($caseNoteElement, $caseNoteElement.val().length);
+        var noteEl = document.getElementById(caseNote);
+        if (!noteEl) return;
+        var $caseNoteElement = jQuery(noteEl);
+        setCaretPosition(noteEl, noteEl.value.length);
 
         // Scroll the wrapper so the note textarea is visible at the top
         scrollToNote();
@@ -321,8 +323,11 @@
 
     function enableNavBarPassthroughScroll() {
         jQuery('#leftNavBar, #rightNavBar').off('wheel.navpassthrough').on('wheel.navpassthrough', function(e) {
-            window.scrollBy(0, e.originalEvent.deltaY);
-            e.preventDefault();
+            var wrapper = document.getElementById('encMainDivWrapper');
+            if (wrapper) {
+                wrapper.scrollTop += e.originalEvent.deltaY;
+                e.preventDefault();
+            }
         });
     }
 
@@ -3185,6 +3190,10 @@ function autoSave(async) {
         // Use jQuery to get the computed line-height of the element
         var lineHeightCSS = $note.css('line-height');
         var lineHeight = parseFloat(lineHeightCSS);
+        if (isNaN(lineHeight) || lineHeight <= 0) {
+            lineHeight = parseFloat($note.css('font-size')) * 1.2;
+            if (isNaN(lineHeight) || lineHeight <= 0) lineHeight = 16;
+        }
 
         var arrLines = payload.split("\n");
 

@@ -104,9 +104,7 @@
             }
         </style>
         <script type="text/javascript">
-            <%-- Server-side CSRF token for AJAX requests --%>
-            var csrfTokenName = '<%= Encode.forJavaScript(org.owasp.csrfguard.CsrfGuard.getInstance().getTokenName()) %>';
-            var csrfTokenValue = '<%= Encode.forJavaScript(org.owasp.csrfguard.CsrfGuard.getInstance().getTokenService().getMasterToken(request.getSession().getId())) %>';
+            <%-- CSRF tokens auto-injected by CSRFGuard (injectIntoForms=true, Ajax=true) --%>
 
             function submitSearchForm() {
                 $("#searchStringButton").click();
@@ -301,10 +299,6 @@
                 } else if (param.indexOf("ID=0") < 0 && iNKDA > 0) {
                     param += "&nkdaId=" + iNKDA;
                 }
-                // Include CSRF token for CSRFGuard validation
-                if (csrfTokenName && csrfTokenValue) {
-                    param += "&" + encodeURIComponent(csrfTokenName) + "=" + encodeURIComponent(csrfTokenValue);
-                }
                 $.ajax({
                     url: path,
                     type: 'POST',
@@ -329,18 +323,7 @@
                 }
 
                 $('.ajax-loader').removeClass('ajax-loader');
-                // Inject CSRF token into any dynamically loaded forms (e.g., AddReaction2.jsp)
-                if (csrfTokenName && csrfTokenValue) {
-                    $('form').each(function() {
-                        if ($(this).find('input[name="' + csrfTokenName + '"]').length === 0) {
-                            var input = document.createElement('input');
-                            input.type = 'hidden';
-                            input.name = csrfTokenName;
-                            input.value = csrfTokenValue;
-                            $(this).append(input);
-                        }
-                    });
-                }
+                // CSRF tokens for dynamically loaded forms auto-injected by CSRFGuard MutationObserver
                 $().bindActionEvents();
             }
 

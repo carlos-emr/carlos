@@ -230,7 +230,7 @@ function writeToEncounterNote(request) {
     }
 
     document.encForm.enTextarea.value = document.encForm.enTextarea.value + text;
-    setTimeout("document.encForm.enTextarea.scrollTop=document.encForm.enTextarea.scrollHeight", 0);
+    setTimeout(function () { document.encForm.enTextarea.scrollTop = document.encForm.enTextarea.scrollHeight; }, 0);
     document.encForm.enTextarea.focus();
     setCaretPosition(document.encForm.enTextarea, curPos);
 }
@@ -258,7 +258,7 @@ function insertTemplate(text) {
     document.encForm.enTextarea.value = document.encForm.enTextarea.value.replace(/\\u005C/g, "\\");
     document.encForm.enTextarea.value = document.encForm.enTextarea.value.replace(/\\u0022/g, "\"");
     document.encForm.enTextarea.value = document.encForm.enTextarea.value.replace(/\\u0027/g, "'");
-    window.setTimeout("document.encForm.enTextarea.scrollTop=2147483647", 0);
+    window.setTimeout(function () { document.encForm.enTextarea.scrollTop = 2147483647; }, 0);
     document.encForm.enTextarea.focus();
 }
 
@@ -274,7 +274,9 @@ function refresh() {
     } else {
         history.go(0);
     }
-    self.opener.refresh();
+    if (self.opener && !self.opener.closed && typeof self.opener.refresh === 'function') {
+        self.opener.refresh();
+    }
 }
 
 function onUnbilled(url) {
@@ -318,14 +320,14 @@ function updateDiv() {
         popLeftColumn(encounterConfig.urls.navSections[div], div, div);
         updateNeeded = false;
     }
-    setTimeout("updateDiv();", 1000);
+    setTimeout(updateDiv, 1000);
 }
 
 function clickLoadDiv(e) {
     var data = $A(arguments);
     Event.stop(e);
     data.shift();
-    loadDiv(data[0], data[1], 0);
+    loadDiv(data[0], data[1]);
 }
 
 function loadDiv(div, url) {
@@ -476,17 +478,14 @@ function navBarLoader() {
     this.display = function (navBar, div) {
         var reported = 0;
         var numDivs = 0;
-        var arrDivs;
         if (navBar == "leftNavbar") {
             this.leftTotal += parseInt($F(div + "num")) + 1;
             reported = ++this.leftReported;
             numDivs = this.leftDivs;
-            arrDivs = this.arrLeftDivs;
         } else if (navBar == "rightNavBar") {
             this.rightTotal += parseInt($F(div + "num")) + 1;
             reported = ++this.rightReported;
             numDivs = this.rightDivs;
-            arrDivs = this.arrRightDivs;
         }
         if (reported == numDivs) {
             var overflow = this.leftTotal - this.maxLeftNumLines;
@@ -663,7 +662,7 @@ function loader() {
     document.encForm.enTextarea.scrollTop = document.encForm.enTextarea.scrollHeight;
 
     if (encounterConfig.popUrl) {
-        window.setTimeout("popupPage(700,900,'" + encounterConfig.popUrl + "')", 2);
+        window.setTimeout(function () { popupPage(700, 900, encounterConfig.popUrl); }, 2);
     }
 
     initTemplateAutocompleter();
@@ -675,7 +674,6 @@ function loader() {
 // ============================================================
 // Event Listeners
 // ============================================================
-if (!document.all) document.captureEvents(Event.MOUSEUP);
 document.onmouseup = getActiveText;
 document.onclick = hideAllMenus;
 
@@ -683,4 +681,4 @@ window.addEventListener('load', loader);
 window.addEventListener('beforeunload', onClosing);
 
 initAutoComplete();
-setTimeout("updateDiv();", 1000);
+setTimeout(updateDiv, 1000);

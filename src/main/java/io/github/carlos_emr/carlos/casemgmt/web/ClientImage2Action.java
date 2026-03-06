@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -61,7 +62,11 @@ public class ClientImage2Action extends ActionSupport {
 
     // Execute on struts action call — routes to saveImage or deleteImage based on method parameter
     public String execute() {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("User session is not valid");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required security object (_demographic)");
         }
 
@@ -76,7 +81,7 @@ public class ClientImage2Action extends ActionSupport {
         HttpSession session = request.getSession(true);
         String id = (String) session.getAttribute("clientId");
 
-        log.info("client image upload: id={}", id);
+        log.info("client image upload requested");
 
         // Get file extension from original filename
         String type = null;
@@ -118,10 +123,18 @@ public class ClientImage2Action extends ActionSupport {
         HttpSession session = request.getSession(true);
         String id = (String) session.getAttribute("clientId");
 
-        log.info("client image delete: id={}", id);
+        log.info("client image delete requested");
+
+        if (id == null || id.isEmpty()) {
+            log.error("No clientId found in session for image delete");
+            addActionError("No client selected.");
+            return ERROR;
+        }
 
         try {
             clientImageManager.deleteClientImage(Integer.parseInt(id));
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            LogAction.addLogSynchronous(loggedInInfo, "ClientImage2Action.deleteImage", "clientId=" + id);
         } catch (Exception e) {
             log.error("Error deleting image", e);
             addActionError("Error deleting image.");

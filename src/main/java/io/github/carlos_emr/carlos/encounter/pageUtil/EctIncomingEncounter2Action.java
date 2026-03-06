@@ -279,8 +279,13 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         // Family doctor info
         if (bean.familyDoctorNo != null && !bean.familyDoctorNo.isEmpty()) {
             EctProviderData.Provider prov = new EctProviderData().getProvider(bean.familyDoctorNo);
-            request.setAttribute("famDocName", prov.getFirstName());
-            request.setAttribute("famDocSurname", prov.getSurname());
+            if (prov != null) {
+                request.setAttribute("famDocName", prov.getFirstName());
+                request.setAttribute("famDocSurname", prov.getSurname());
+            } else {
+                request.setAttribute("famDocName", "");
+                request.setAttribute("famDocSurname", "");
+            }
         } else {
             request.setAttribute("famDocName", "");
             request.setAttribute("famDocSurname", "");
@@ -301,15 +306,24 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         request.setAttribute("splitChart", splitChart);
         request.setAttribute("hasSplitChart", splitChart != null && !splitChart.isEmpty());
 
-        // Allergies
-        Allergy[] allergies = RxPatientData.getPatient(loggedInInfo,
-                Integer.parseInt(bean.demographicNo)).getAllergies(loggedInInfo);
-        request.setAttribute("allergies", allergies);
+        // Allergies and Prescriptions — guard against non-numeric demographicNo and null patient
+        int demoNoInt = -1;
+        try {
+            demoNoInt = Integer.parseInt(bean.demographicNo);
+        } catch (NumberFormatException e) {
+            log.error("Non-numeric demographicNo in session bean; skipping allergies/prescriptions");
+        }
 
-        // Prescriptions
-        RxPrescriptionData prescriptData = new RxPrescriptionData();
-        RxPrescriptionData.Prescription[] prescriptions = prescriptData
-                .getUniquePrescriptionsByPatient(Integer.parseInt(bean.demographicNo));
+        Allergy[] allergies = new Allergy[0];
+        RxPrescriptionData.Prescription[] prescriptions = new RxPrescriptionData.Prescription[0];
+        if (demoNoInt >= 0) {
+            RxPatientData patient = RxPatientData.getPatient(loggedInInfo, demoNoInt);
+            if (patient != null) {
+                allergies = patient.getAllergies(loggedInInfo);
+            }
+            prescriptions = new RxPrescriptionData().getUniquePrescriptionsByPatient(demoNoInt);
+        }
+        request.setAttribute("allergies", allergies);
         request.setAttribute("prescriptions", prescriptions);
 
         // Encounter text and consumption
@@ -332,8 +346,13 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         request.setAttribute("medHistLabel", oscarProps.getProperty("medicalHistory", ""));
         request.setAttribute("ongoingConcernsLabel", oscarProps.getProperty("ongoingConcerns", ""));
 
-        // Popup URL
-        request.setAttribute("popUrl", request.getParameter("popupUrl"));
+        // Popup URL — only allow http/https to prevent javascript: URI injection
+        String rawPopUrl = request.getParameter("popupUrl");
+        if (rawPopUrl != null && (rawPopUrl.startsWith("http://") || rawPopUrl.startsWith("https://"))) {
+            request.setAttribute("popUrl", rawPopUrl);
+        } else {
+            request.setAttribute("popUrl", "");
+        }
 
         // Template names (escaped for JS)
         int maxLen = 25;

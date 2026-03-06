@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import org.owasp.encoder.Encode;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -117,7 +118,7 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     descr = "<span " + getClassColour(drug, now, month) + ">" + descr + "</span>";
 
                     item.setTitle(descr);
-                    item.setLinkTitle(tmp);
+                    item.setLinkTitle(Encode.forHtml(tmp));
 
                 } else {
                     String tmp = "";
@@ -128,7 +129,7 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     String strTitle = StringUtils.maxLenString(tmp, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     strTitle = "<span " + getClassColour(drug, now, month) + ">" + strTitle + "</span>";
                     item.setTitle(strTitle);
-                    item.setLinkTitle(tmp);
+                    item.setLinkTitle(Encode.forHtml(tmp));
                 }
 
                 item.setURL("return false;");
