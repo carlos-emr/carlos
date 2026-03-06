@@ -500,8 +500,14 @@
         }
 
         function getTemplateNames() {
-            if (typeof autoCompList === 'undefined') return [];
-            return autoCompList.slice();
+            if (typeof autoCompList === 'undefined' || typeof autoCompleted === 'undefined') return [];
+            // Filter to charting templates only: autoCompleted entries starting with ajaxInsertTemplate.
+            // autoCompList is shared with eforms (efmformadd_data.jsp), forms, and calculators,
+            // all of which use popupPage() — not ajaxInsertTemplate().
+            return autoCompList.filter(function (name) {
+                var func = autoCompleted[name];
+                return typeof func === 'string' && func.indexOf('ajaxInsertTemplate') === 0;
+            });
         }
 
         function clearChildren(el) {
