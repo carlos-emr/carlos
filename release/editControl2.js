@@ -451,9 +451,6 @@ function doTime() {
 	return time;
 }
 
-// Call doTime once to ensure it is treated as used by static analysis.
-var _editControlTimeExample = doTime();
-
 function doDate() {
 	// need to supply the date!
 	var digital = new Date();
@@ -463,6 +460,17 @@ function doDate() {
 	var date =" " + days + "/" + months + "/" + years + " " ;
 	return date;
 }
+
+// Public API reference block.
+// The functions and variables below are part of the public API consumed by external JSP pages
+// that include this script (e.g. via <script src="editControl2.js">). Static analysis tools
+// cannot see those call sites and incorrectly flag them as unused. This void expression
+// references each item without calling any function or producing any side-effects at runtime.
+void [
+	cfg_isrc, cfg_bstyle, cfg_boutstyle, cfg_sepstyle,
+	insertEditControl, exprompt, Select, loadTemplate,
+	parseText, block, doTime, doDate
+];
 
 function doTable() {
 	var rowstext = prompt("enter rows");
