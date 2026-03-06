@@ -43,8 +43,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.*;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.*;
 import org.apache.commons.io.FileUtils;
 
 import org.apache.logging.log4j.Logger;
@@ -69,6 +69,27 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.prescript.data.RxPharmacyData;
 
+/**
+ * Servlet that generates customized prescription PDF documents with support for faxing.
+ *
+ * <p>This servlet handles two primary workflows:
+ * <ul>
+ *   <li><strong>PDF Generation</strong> -- Renders prescription content into a bordered PDF
+ *       with clinic/patient headers, prescriber signature, and optional QR codes using OpenPDF
+ *       direct content rendering.</li>
+ *   <li><strong>Fax Submission</strong> -- Persists the generated PDF and creates a
+ *       {@link FaxJob} record for asynchronous fax delivery to a pharmacy.</li>
+ * </ul>
+ *
+ * <p>PDF layout is constructed entirely through {@link PdfContentByte} direct drawing
+ * (lines, text, images) and {@link PdfPTable} cell placement, rather than template-based
+ * AcroForm filling. Page events are handled by the inner {@link EndPage} class which
+ * extends {@link PdfPageEventHelper}.
+ *
+ * @see FrmPDFServlet
+ * @see io.github.carlos_emr.carlos.web.PrescriptionQrCodeUIBean
+ * @since 2001 (McMaster University)
+ */
 public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -77,6 +98,16 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private final FaxConfigDao faxConfigDao = SpringUtils.getBean(FaxConfigDao.class);
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
+    /**
+     * Main entry point for prescription PDF generation and fax submission.
+     * Parses request parameters, generates the PDF, and either streams it directly
+     * to the response or persists it for asynchronous fax delivery.
+     *
+     * @param req HttpServletRequest containing prescription form parameters and fax details
+     * @param res HttpServletResponse to write the PDF or fax status HTML to
+     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs during PDF generation
+     */
     @Override
     public void service(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException, java.io.IOException {
 
@@ -150,7 +181,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
                         if (faxConfig.getFaxNumber().equals(faxNumber)) {
 
-                            PdfReader pdfReader = new PdfReader(filepath.toString());
+                            int numPages;
+                            try (PdfReader pdfReader = new PdfReader(filepath.toString())) {
+                                numPages = pdfReader.getNumberOfPages();
+                            }
 
                             faxJob = new FaxJob();
                             faxJob.setDestination(faxNo);
@@ -158,7 +192,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                             faxJob.setFile_name(pdfFile);
                             faxJob.setUser(faxConfig.getFaxUser());
                             faxJob.setRecipient(pharmaName);
-                            faxJob.setNumPages(pdfReader.getNumberOfPages());
+                            faxJob.setNumPages(numPages);
                             faxJob.setStamp(new Date());
                             faxJob.setStatus(FaxJob.STATUS.WAITING);
                             faxJob.setOscarUser(provider_no);
@@ -231,12 +265,22 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
 
     /**
-     * the form txt file has lines in the form: For Checkboxes: ie. ohip : left, 76, 193, 0, BaseFont.ZAPFDINGBATS, 8, \u2713 requestParamName : alignment, Xcoord, Ycoord, 0, font, fontSize, textToPrint[if empty, prints the value of the request param]
-     * NOTE: the Xcoord and Ycoord refer to the bottom-left corner of the element For single-line text: ie. patientCity : left, 242, 261, 0, BaseFont.HELVETICA, 12 See checkbox explanation For multi-line text (textarea) ie. aci : left, 20, 308, 0,
-     * BaseFont.HELVETICA, 8, _, 238, 222, 10 requestParamName : alignment, bottomLeftXcoord, bottomLeftYcoord, 0, font, fontSize, _, topRightXcoord, topRightYcoord, spacingBtwnLines NOTE: When working on these forms in linux, it helps to load the PDF file
-     * into gimp, switch to pt. coordinate system and use the mouse to find the coordinates. Prepare to be bored!
+     * OpenPDF page event handler that renders the prescription page layout on each page end.
+     *
+     * <p>Draws the complete prescription frame including:
+     * <ul>
+     *   <li>Rx logo and prescriber information header</li>
+     *   <li>Pharmacy attention block (when a pharmacy is selected)</li>
+     *   <li>Patient demographics (name, DOB, address, HIN, chart number)</li>
+     *   <li>Black border around the prescription area</li>
+     *   <li>Signature line with optional signature image overlay</li>
+     *   <li>Reprint information and page numbers</li>
+     *   <li>Fax confidentiality disclaimer</li>
+     * </ul>
+     *
+     * <p>All coordinates use the OpenPDF coordinate system where (0,0) is the
+     * bottom-left corner of the page, measured in points (1/72 inch).
      */
-
     class EndPage extends PdfPageEventHelper {
 
         private String clinicName;
@@ -264,6 +308,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         public EndPage() {
         }
 
+        /**
+         * Constructs an EndPage event handler with prescription layout data including
+         * clinic info, patient demographics, prescriber signature, and pharmacy details.
+         */
         public EndPage(String clinicName, String clinicTel, String clinicFax, String patientPhone, String patientCityPostal, String patientAddress,
                        String patientName, String patientDOB, String sigDoctorName, String rxDate, String origPrintDate, String numPrint,
                        String imgPath, String patientHIN, String patientChartNo, String pracNo, Locale locale, String billingNumber, String pharmacyInfo) {
@@ -321,6 +369,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return LocaleUtils.getMessage(locale, tag);
         }
 
+        /**
+         * Renders the prescription page frame: prescriber info, patient demographics,
+         * border lines, signature block, and fax disclaimer. Draws all content using
+         * PdfContentByte direct positioning in PDF points from bottom-left origin.
+         */
         public void renderPage(PdfWriter writer, Document document) {
             Rectangle page = document.getPageSize();
             float height = page.getHeight();
@@ -333,10 +386,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                 BaseFont bfBold = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
 
                 /*
-                 *  Create the special OSCAR Rx logo at the top
+                 *  Create the special CARLOS Rx logo at the top
                  *  left side of the prescription
                  */
-                writeDirectContent(cb, bf, 12, PdfContentByte.ALIGN_LEFT, "o s c a r", 21, height - 60, 90);
+                writeDirectContent(cb, bf, 12, PdfContentByte.ALIGN_LEFT, "c a r l o s", 21, height - 60, 90);
                 // draw R
                 writeDirectContent(cb, bf, 50, PdfContentByte.ALIGN_LEFT, "P", 24, height - 53, 0);
                 // draw X
@@ -543,6 +596,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         }
     }
 
+    /**
+     * Parses a satellite clinic address from an HTML-formatted string.
+     *
+     * <p>Expects a format with bold name followed by {@code <br>}-delimited address lines
+     * containing clinic name (3 lines), telephone, and fax.
+     *
+     * @param s String the HTML-formatted satellite clinic address
+     * @return HashMap containing "clinicName", "clinicTel", and "clinicFax" entries
+     */
     private HashMap<String, String> parseSCAddress(String s) {
         HashMap<String, String> hm = new HashMap<String, String>();
         String[] ar = s.split("</b>");
@@ -565,6 +627,21 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     }
 
+    /**
+     * Generates the prescription PDF document as a byte array output stream.
+     *
+     * <p>Extracts all prescription parameters from the HTTP request (clinic info, patient
+     * demographics, prescription text, signature image path, QR code settings), constructs
+     * an OpenPDF {@link Document} with the appropriate page size and margins, and writes
+     * prescription entries as paragraphs with an {@link EndPage} event handler for the
+     * page frame rendering.
+     *
+     * @param req HttpServletRequest containing all prescription form parameters
+     * @param ctx ServletContext for resource resolution
+     * @return ByteArrayOutputStream containing the generated PDF bytes
+     * @throws DocumentException if an OpenPDF document error occurs during PDF generation
+     * @throws IOException if an I/O error occurs during PDF generation
+     */
     private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx) throws DocumentException, IOException {
         logger.debug("***in generatePDFDocumentBytes2 FrmCustomedPDFServlet.java***");
 
@@ -678,12 +755,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // document.setMargins(15, pageSize.getWidth() - 285f + 5f, 170, 60); // left, right, top, bottom
         document.setMargins(15, pageSize.getWidth() - 285f + 5f, 185, 60); // left, right, top, bottom
 
-        //writer = PdfWriter.getInstance(document, baosPDF);
         writer.setPageEvent(new EndPage(clinicName, clinicTel, clinicFax, patientPhone, patientCityPostal, patientAddress, patientName, patientDOB, sigDoctorName, rxDate, origPrintDate, numPrint, imgFile, patientHIN, patientChartNo, pracNo, locale, billingNumber, pharmacyInfo));
         document.addTitle(title);
         document.addSubject("");
-        document.addKeywords("pdf, itext");
-        document.addCreator("OSCAR");
+        document.addKeywords("pdf");
+        document.addCreator("CARLOS EMR");
         document.addAuthor("");
         document.addHeader("Expires", "0");
 

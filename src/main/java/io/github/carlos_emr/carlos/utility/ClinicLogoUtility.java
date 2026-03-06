@@ -30,11 +30,11 @@
 package io.github.carlos_emr.carlos.utility;
 
 import io.github.carlos_emr.carlos.commn.model.Document;
-import com.itextpdf.text.BadElementException;
-import com.itextpdf.text.Image;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.pdf.PdfPCell;
-import com.itextpdf.text.pdf.PdfPTable;
+import org.openpdf.text.BadElementException;
+import org.openpdf.text.Image;
+import org.openpdf.text.PageSize;
+import org.openpdf.text.pdf.PdfPCell;
+import org.openpdf.text.pdf.PdfPTable;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
@@ -52,7 +52,20 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Utility for fetching and creating clinic logo images into PDF documents.
+ * Utility for loading clinic logo images and embedding them into PDF document headers.
+ *
+ * <p>Resolves the clinic logo from multiple sources in order of priority:</p>
+ * <ol>
+ *   <li>Multi-site configuration: site-specific logo from the document database</li>
+ *   <li>Property {@code clinicLetterheadLogo}: file path to a letterhead logo image</li>
+ *   <li>Property {@code faxLogoInConsultation}: fallback logo file path</li>
+ * </ol>
+ *
+ * <p>Creates an OpenPDF {@link PdfPTable} containing the scaled logo image, suitable for
+ * insertion into fax cover pages, consultation letters, and other PDF documents.</p>
+ *
+ * @see io.github.carlos_emr.carlos.fax.util.PdfCoverPageCreator
+ * @since 2022-04-21
  */
 public final class ClinicLogoUtility {
 
@@ -62,11 +75,13 @@ public final class ClinicLogoUtility {
     private static final float LOGO_HEIGHT = 65f;
 
     /**
-     * Create a PDF TABLE that contains the predetermined logo image set
-     * in the carlos properties file as "clinicLetterheadLogo".  This logo image
-     * is normally located in OscarDocuments
+     * Creates a PDF table containing the clinic logo image configured in CARLOS properties.
      *
-     * @return IText PDF TABLE element for insert into a PDF
+     * <p>Resolves the logo from site-specific settings (multi-site mode) or the
+     * {@code clinicLetterheadLogo} / {@code faxLogoInConsultation} properties.
+     * The logo is normally stored in the document directory.</p>
+     *
+     * @return PdfPTable an OpenPDF table element containing the logo image, for insertion into a PDF
      */
     public static PdfPTable createLogoHeader() {
 
@@ -106,16 +121,32 @@ public final class ClinicLogoUtility {
 
     }
 
+    /**
+     * Creates a logo header table using the site context from a consultation form request.
+     *
+     * <p>Sets the consultation form utility for multi-site logo resolution, then delegates
+     * to {@link #createLogoHeader()}.</p>
+     *
+     * @param ectConsultationFormRequestUtil EctConsultationFormRequestUtil providing site context
+     * @return PdfPTable the logo header table
+     */
     public static PdfPTable createLogoHeader(EctConsultationFormRequestUtil ectConsultationFormRequestUtil) {
         ClinicLogoUtility.ectConsultationFormRequestUtil = ectConsultationFormRequestUtil;
         return createLogoHeader();
     }
 
+    /**
+     * Loads an image file and adds it as a scaled cell to the given PDF table.
+     *
+     * @param pdfPTable PdfPTable the table to add the image cell to
+     * @param filename String the absolute file path of the image
+     * @param width float the maximum width to scale the image to (in points)
+     * @param height float the maximum height to scale the image to (in points)
+     */
     private static void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
         try (FileInputStream fileInputStream = new FileInputStream(filename)) {
             PdfPCell cell = new PdfPCell();
-            byte[] faxLogImage = new byte[1024 * 256];
-            fileInputStream.read(faxLogImage);
+            byte[] faxLogImage = fileInputStream.readAllBytes();
             Image image = Image.getInstance(faxLogImage);
             image.scaleToFit(width, height);
             image.setBorder(0);

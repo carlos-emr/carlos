@@ -14,7 +14,7 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
-import com.itextpdf.text.DocumentException;
+import org.openpdf.text.DocumentException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
@@ -54,6 +54,25 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action that handles faxing consultation requests to specialists and copy-to recipients.
+ *
+ * <p>Renders the consultation form (with all attachments) as a PDF via
+ * {@link DocumentAttachmentManager}, then creates {@link FaxJob} entries for each recipient.
+ * Supports optional cover pages prepended to the fax PDF. Each fax job is persisted and
+ * logged for audit purposes.</p>
+ *
+ * <p>Fax recipients include the primary specialist plus any additional copy-to recipients
+ * parsed from JSON-encoded form parameters. The sender's fax line is validated against
+ * configured {@link FaxConfig} entries.</p>
+ *
+ * <p>Requires {@code _con} read privilege via {@link SecurityInfoManager}.</p>
+ *
+ * @see ConsultationPDFCreator
+ * @see DocumentAttachmentManager
+ * @see FaxManager
+ * @since 2012-04-09
+ */
 public class EctConsultationFormFax2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -75,6 +94,21 @@ public class EctConsultationFormFax2Action extends ActionSupport {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Renders the consultation form PDF and queues fax jobs for all recipients.
+     *
+     * <p>Processing flow:</p>
+     * <ol>
+     *   <li>Validates {@code _con} read privilege</li>
+     *   <li>Renders the consultation form with attachments into a PDF</li>
+     *   <li>Copies the PDF to the CARLOS documents directory</li>
+     *   <li>For each fax recipient: validates the fax number, optionally prepends a cover page,
+     *       creates and persists a {@link FaxJob}, and logs the transaction</li>
+     * </ol>
+     *
+     * @return String "success" on successful fax queuing, "cancel" if cancelled,
+     *         "error" on failure, or null on unexpected error
+     */
     @Override
     public String execute() {
 
@@ -352,6 +386,15 @@ public class EctConsultationFormFax2Action extends ActionSupport {
     public void setCoverpage(boolean coverpage) {
         this.coverpage = coverpage;
     }
+    /**
+     * Returns all fax recipients, including the primary recipient and any copy-to entries.
+     *
+     * <p>Lazily initialized on first access. Combines the primary recipient (from
+     * {@link #getRecipient()} and {@link #getRecipientFaxNumber()}) with all copy-to
+     * recipients from {@link #getCopiedTo()}.</p>
+     *
+     * @return Set of FaxRecipient all fax recipients for this consultation
+     */
     public Set<FaxRecipient> getAllFaxRecipients() {
         if (allFaxRecipients == null) {
             allFaxRecipients = new HashSet<FaxRecipient>();
@@ -362,6 +405,14 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         return allFaxRecipients;
     }
 
+    /**
+     * Parses and returns the copy-to fax recipients from the JSON-encoded form parameters.
+     *
+     * <p>Each entry in the {@code faxRecipients} array is a JSON fragment containing
+     * recipient name and fax number, parsed into {@link FaxRecipient} objects.</p>
+     *
+     * @return Set of FaxRecipient the copy-to recipients (empty set if none)
+     */
     public Set<FaxRecipient> getCopiedTo() {
         if (copiedTo == null) {
             copiedTo = new HashSet<FaxRecipient>();
@@ -386,6 +437,11 @@ public class EctConsultationFormFax2Action extends ActionSupport {
         this.request = request;
     }
 
+    /**
+     * Builds and returns the sender's fax account details from form parameters.
+     *
+     * @return FaxAccount the sender account with fax number, letterhead name, and phone
+     */
     public FaxAccount getSender() {
         if (sender == null) {
             sender = new FaxAccount();
