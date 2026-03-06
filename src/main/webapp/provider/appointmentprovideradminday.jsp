@@ -2494,4 +2494,5 @@
     if (unclaimedLabLink) {
         unclaimedLabLink.setAttribute("onclick", unclaimedLabLinkClickEvent);
     }
+
 </script>

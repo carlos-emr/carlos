@@ -29,7 +29,6 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.util.Iterator;
 import java.util.TreeMap;
-import java.util.Map.Entry;
 
 public class AccumulatorMap<K> extends TreeMap<K, Integer> {
     public AccumulatorMap() {
@@ -58,16 +57,6 @@ public class AccumulatorMap<K> extends TreeMap<K, Integer> {
         }
 
         return total;
-    }
-
-    public void addAccumulator(AccumulatorMap<K> accumulatorMap) {
-        Iterator i$ = accumulatorMap.entrySet().iterator();
-
-        while (i$.hasNext()) {
-            Entry<K, Integer> entry = (Entry) i$.next();
-            this.increment(entry.getKey(), (Integer) entry.getValue());
-        }
-
     }
 
     public int countInstancesOfValue(int value) {

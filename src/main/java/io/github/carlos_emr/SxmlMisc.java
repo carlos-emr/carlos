@@ -178,47 +178,6 @@ public class SxmlMisc extends Properties {
     }
 
     /**
-     * Replaces the content between specified XML tags with a new value.
-     * If either tag is not found, returns the original string unchanged.
-     * 
-     * @param str the original string
-     * @param sTag the start tag (including angle brackets)
-     * @param eTag the end tag (including angle brackets)
-     * @param newVal the new value to insert between the tags
-     * @return the string with replaced content, or original string if tags not found
-     */
-    public static String replaceXmlContent(String str, String sTag, String eTag, String newVal) {
-        int s = str.indexOf(sTag);
-        int e = str.indexOf(eTag);
-        String newStr = str;
-        if (s != -1 && e != -1)
-            newStr = str.substring(0, s + sTag.length()) + newVal + str.substring(e);
-
-        return newStr;
-    }
-
-    /**
-     * Replaces the content between XML tags, or adds the tags with content if they don't exist.
-     * 
-     * @param str the original string
-     * @param sTag the start tag (including angle brackets)
-     * @param eTag the end tag (including angle brackets)
-     * @param newVal the value to insert between the tags
-     * @return the string with replaced/added content
-     */
-    public static String replaceOrAddXmlContent(String str, String sTag, String eTag, String newVal) {
-        int s = str.indexOf(sTag);
-        int e = str.indexOf(eTag);
-        String newStr = str;
-        if (s != -1 && e != -1)
-            newStr = str.substring(0, s + sTag.length()) + newVal + str.substring(e);
-        else
-            newStr = str + sTag + newVal + eTag;
-
-        return newStr;
-    }
-
-    /**
      * Replaces all occurrences of a substring with a new substring.
      * 
      * @param str the original string

@@ -36,11 +36,12 @@
 
 package io.github.carlos_emr.carlos.prevention.pageUtil;
 
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfWriter;
+import java.awt.Color;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfWriter;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -57,8 +58,22 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.*;
 
-/*
- * @author rjonasz
+/**
+ * Generates a multi-page PDF document containing a patient's prevention and immunization records.
+ *
+ * <p>Produces a two-column, paginated PDF with clinic letterhead, patient demographics,
+ * and categorized prevention entries (immunizations and screenings). Each entry includes
+ * date, age, status, result, comments, shot location, manufacturer, vaccine name, lot ID,
+ * and dose information.</p>
+ *
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) for PDF generation with {@link HeaderPageEvent}
+ * for repeating page headers. Prevention categories are configured via
+ * {@link PreventionDisplayConfig} and status codes are mapped to human-readable labels.</p>
+ *
+ * @see PreventionPrint2Action
+ * @see HeaderPageEvent
+ * @see PreventionDisplayConfig
+ * @since 2007-03-14
  */
 public class PreventionPrintPdf {
 
@@ -89,6 +104,17 @@ public class PreventionPrintPdf {
         readableStatusesForHistoryTypeLayout.put("2", "Previous");
     }
 
+    /**
+     * Generates a prevention PDF and writes it directly to the HTTP response.
+     *
+     * <p>Sets the response content type to {@code application/pdf} with a download
+     * attachment filename of {@code Prevention.pdf}.</p>
+     *
+     * @param request HttpServletRequest containing prevention data parameters
+     * @param response HttpServletResponse to write the PDF output to
+     * @throws IOException if an I/O error occurs writing to the response
+     * @throws DocumentException if a PDF generation error occurs
+     */
     public void printPdf(HttpServletRequest request, HttpServletResponse response) throws IOException, DocumentException {
         response.setContentType("application/pdf");  //octet-stream
         response.setHeader("Content-Disposition", "attachment; filename=\"Prevention.pdf\"");
@@ -96,6 +122,20 @@ public class PreventionPrintPdf {
         printPdf(headerIds, request, response.getOutputStream());
     }
 
+    /**
+     * Generates the full prevention PDF document to the given output stream.
+     *
+     * <p>Separates prevention entries into immunizations and screenings, builds a two-column
+     * layout with automatic pagination, and includes clinic address, patient demographics,
+     * and page numbering. Each prevention entry includes status, dates, vaccine details,
+     * and optional comments.</p>
+     *
+     * @param headerIds1 String[] array of prevention header IDs to include in the PDF
+     * @param request HttpServletRequest containing all prevention procedure parameters
+     * @param outputStream OutputStream to write the generated PDF to
+     * @throws IOException if an I/O error occurs
+     * @throws DocumentException if the PDF document is empty or generation fails
+     */
     public void printPdf(String[] headerIds1, HttpServletRequest request, OutputStream outputStream) throws IOException, DocumentException {
 
         //make sure we have data to print      
@@ -106,10 +146,11 @@ public class PreventionPrintPdf {
         String[] headerIds = null;
         List<String> validImmunizationsIds = new ArrayList<String>();
         List<String> validScreeningsIds = new ArrayList<String>();
+        // Separate preventions into immunizations vs screenings based on their
+        // headingName from PreventionDisplayConfig — they render in separate sections.
         PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
         for (int x = 0; x < headerIds1.length; x++) {
             String pHeader = request.getParameter("preventionHeader" + headerIds1[x]);
-            //check if this is an immunization!
             HashMap<String, String> prev = pdc.getPrevention(pHeader);
             if (prev != null && prev.get("headingName") != null && "Screenings".equals(prev.get("headingName"))) {
                 validScreeningsIds.add(headerIds1[x]);
@@ -140,7 +181,7 @@ public class PreventionPrintPdf {
         document.setMargins(36, 36, 80, 36);
 
         //Create the font we are going to print to       
-        Font font = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, BaseColor.BLACK);
+        Font font = FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, Color.BLACK);
 
         StringBuilder demoInfo = new StringBuilder(demo.getSexDesc())
                 .append(" Age: ")
@@ -157,17 +198,17 @@ public class PreventionPrintPdf {
 
         //Header will be printed at top of every page beginning with p2
         String heading = ("true".equals(request.getParameter("immunizationOnly"))) ? "Immunizations" : "Immunizations and Screenings";
-        Phrase titlePhrase = new Phrase(HEADER_LEADING, heading, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, BaseColor.BLACK));
+        Phrase titlePhrase = new Phrase(HEADER_LEADING, heading, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, Color.BLACK));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demo.getFormattedName(), FontFactory.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, BaseColor.BLACK)));
+        titlePhrase.add(new Chunk(demo.getFormattedName(), FontFactory.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, Color.BLACK)));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demoInfo.toString(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, BaseColor.BLACK)));
+        titlePhrase.add(new Chunk(demoInfo.toString(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, Color.BLACK)));
 
         String mrp = request.getParameter("mrp");
         if (mrp != null && OscarProperties.getInstance().getBooleanProperty("mrp_model", "yes")) {
             Properties prop = (Properties) request.getSession().getAttribute("providerBean");
             titlePhrase.add(Chunk.NEWLINE);
-            titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, BaseColor.BLACK)));
+            titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK)));
         }
 
         // Store header phrase, border flag, header padding, and border spacing for the header
@@ -187,16 +228,16 @@ public class PreventionPrintPdf {
 
         StringBuilder clinicAddrCont = new StringBuilder(clinicData.getClinicCity()).append(", ").append(clinicData.getClinicProvince()).append(" ").append(clinicData.getClinicPostal());
 
-        Paragraph clinicParagraph = new Paragraph(LEADING, clinicData.getClinicName(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, BaseColor.BLACK));
+        Paragraph clinicParagraph = new Paragraph(LEADING, clinicData.getClinicName(), FontFactory.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicData.getClinicAddress(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicAddress(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicAddrCont.toString(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
+        clinicParagraph.add(new Chunk(clinicAddrCont.toString(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk("Ph.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, BaseColor.BLACK)));
-        clinicParagraph.add(new Chunk(clinicData.getClinicPhone(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
-        clinicParagraph.add(new Chunk(" Fax.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, BaseColor.BLACK)));
-        clinicParagraph.add(new Chunk(clinicData.getClinicFax(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK)));
+        clinicParagraph.add(new Chunk("Ph.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicPhone(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        clinicParagraph.add(new Chunk(" Fax.", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
+        clinicParagraph.add(new Chunk(clinicData.getClinicFax(), FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
         clinicParagraph.setAlignment(Paragraph.ALIGN_CENTER);
         document.add(clinicParagraph);
 
@@ -268,7 +309,7 @@ public class PreventionPrintPdf {
                 isScreeningsHeaderAdded = true;
             }
 
-            Phrase procHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + "\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, BaseColor.BLACK));
+            Phrase procHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + "\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, Color.BLACK));
             ct.addText(procHeader);
             ct.setAlignment(Element.ALIGN_LEFT);
             ct.setIndent(0);
@@ -296,7 +337,7 @@ public class PreventionPrintPdf {
                     procedureStatus = "N/A";
                 }
 
-                Phrase procedure = new Phrase(LEADING, "Date: ", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, BaseColor.BLACK));
+                Phrase procedure = new Phrase(LEADING, "Date: ", FontFactory.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK));
                 addLabelsAndValuesToProcedure(request, procedure, "preventProcedureDate", "Date: ", headerIds, idx, subIdx, font);
                 addLabelsAndValuesToProcedure(request, procedure, "preventProcedureAge", "Age: ", headerIds, idx, subIdx, font);
 
@@ -401,7 +442,8 @@ public class PreventionPrintPdf {
                     proceedWrite = false;
                 }
 
-                //We can't fit the prevention we are printing into the current column on the current page we are printing to 
+                // Two-column layout: fill left column first, overflow to right column,
+                // then start a new page if both columns are full.
                 if (!proceedWrite) {
 
                     if (onColumnLeft) {
@@ -417,7 +459,7 @@ public class PreventionPrintPdf {
                     //Title (if we are starting to print a new prevention, use the Prevention name as title, otherwise if we 
                     //are in the middle of printing a prevention that has multiple items, identify this as a continued prevention
                     if (subIdx != 0) {
-                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + " (cont'd)\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, BaseColor.BLACK));
+                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + " (cont'd)\n", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, Color.BLACK));
                         ct.setText(contdProcHeader);
                     } else {
                         ct.setText(procHeader);
@@ -469,7 +511,11 @@ public class PreventionPrintPdf {
 
     /**
      * Calculates the approximate height of the header phrase.
-     * This replaces HeaderFooter.getHeight() which was removed in iText 5.x.
+     *
+     * <p>This replaces {@code HeaderFooter.getHeight()} which was removed in newer
+     * PDF library versions. Estimates height based on phrase leading for multi-line headers.</p>
+     *
+     * @return float the estimated header height in points, or 0 if no header phrase is set
      */
     private float getHeaderHeight() {
         if (headerPhrase == null) {
@@ -480,9 +526,18 @@ public class PreventionPrintPdf {
         return headerPhrase.getLeading() * 4f;
     }
 
+    /**
+     * Renders the page number footer on the current page and advances to a new page.
+     *
+     * @param headerPhrase Phrase the section header (used for height calculation)
+     * @param font Font the current font (used for leading calculation)
+     * @return float the Y coordinate of the top of the content area on the new page
+     * @throws DocumentException if page creation fails
+     * @throws IOException if font creation fails
+     */
     private float goToNewPage(Phrase headerPhrase, Font font) throws DocumentException, IOException {
         ColumnText.showTextAligned(cb, Phrase.ALIGN_CENTER, new Phrase("-" + curPage + "-"), document.right() / 2f, document.bottom() - (document.bottomMargin() / 2f), 0f);
-        addPromoText(); // Assuming this method is accessible within your class
+        addPromoText();
         float upperYcoord = document.top() - getHeaderHeight() - font.getCalculatedLeading(LINESPACING);
         document.newPage();
         ct.setSimpleColumn(document.left(), document.bottom(), document.right() / 2f, upperYcoord);
@@ -490,13 +545,34 @@ public class PreventionPrintPdf {
         return upperYcoord;
     }
 
+    /**
+     * Creates a left-aligned paragraph with the given title and font style.
+     *
+     * @param title String the paragraph text
+     * @param size float the font size in points
+     * @param style int OpenPDF Font constant (e.g., Font.BOLD, Font.NORMAL)
+     * @return Paragraph the configured paragraph
+     */
     private Paragraph addParagraph(String title, float size, int style) throws DocumentException, IOException {
-        Paragraph paragraph = new Paragraph(LEADING, title, FontFactory.getFont(FontFactory.HELVETICA, size, style, BaseColor.BLACK));
+        Paragraph paragraph = new Paragraph(LEADING, title, FontFactory.getFont(FontFactory.HELVETICA, size, style, Color.BLACK));
         paragraph.add(Chunk.NEWLINE);
         paragraph.setAlignment(Paragraph.ALIGN_LEFT);
         return paragraph;
     }
 
+    /**
+     * Adds a label-value pair to a prevention procedure entry. Omits the label text
+     * for date fields (preventProcedureDate); defaults provider to "Unknown" when missing.
+     *
+     * @param request HttpServletRequest containing the form parameter values
+     * @param procedure Phrase the procedure phrase to append content to
+     * @param labelParameter String the request parameter name prefix
+     * @param label String the display label text
+     * @param headerIds String[] the prevention header IDs array
+     * @param idx int the current prevention index
+     * @param subIdx int the sub-procedure index
+     * @param font Font the font for the value text
+     */
     private void addLabelsAndValuesToProcedure(HttpServletRequest request, Phrase procedure, String labelParameter, String label, String[] headerIds,
                                                int idx, int subIdx, Font font) throws DocumentException, IOException {
         String labelValue = request.getParameter(labelParameter + headerIds[idx] + "-" + subIdx);

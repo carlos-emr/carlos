@@ -37,7 +37,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
-import java.awt.*;
+import java.awt.Color;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -51,13 +51,13 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
-import com.itextpdf.text.*;
-import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Font;
-import com.itextpdf.text.Rectangle;
-import com.itextpdf.text.html.simpleparser.HTMLWorker;
-import com.itextpdf.text.pdf.*;
-import com.lowagie.text.rtf.RtfWriter2;
+import org.openpdf.text.*;
+import org.openpdf.text.Font;
+import org.openpdf.text.Rectangle;
+import org.openpdf.text.html.simpleparser.HTMLWorker;
+import org.openpdf.text.pdf.*;
+import org.openpdf.text.pdf.events.PdfPageEventForwarder;
+import org.openrtf.text.rtf.RtfWriter2;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.io.IOUtils;
@@ -126,7 +126,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
         this.os = os;
         this.id = segmentId;
 
-        //Need date lab was received by OSCAR
+        // Retrieve date lab was received by CARLOS
         Hl7TextMessageDao hl7TxtMsgDao = (Hl7TextMessageDao) SpringUtils.getBean(Hl7TextMessageDao.class);
         Hl7TextMessage hl7TextMessage = hl7TxtMsgDao.find(Integer.parseInt(segmentId));
         java.util.Date date = hl7TextMessage.getCreated();
@@ -153,11 +153,11 @@ public class LabPDFCreator extends PdfPageEventHelper {
         byte[] rtfBytes = handler.getOBXResult(0, 0).getBytes();
         try (ByteArrayInputStream rtfStream = new ByteArrayInputStream(rtfBytes)) {
             //create & open the document we are going to write to and its writer
-            com.lowagie.text.Document document = new com.lowagie.text.Document();
+            org.openpdf.text.Document document = new org.openpdf.text.Document();
             RtfWriter2 writer = RtfWriter2.getInstance(document, os);
-            document.setPageSize(com.lowagie.text.PageSize.LETTER);
-            document.addTitle("Title of the Document");
-            document.addCreator("OSCAR");
+            document.setPageSize(org.openpdf.text.PageSize.LETTER);
+            document.addTitle("CARLOS Laboratory Report");
+            document.addCreator("CARLOS EMR");
             document.open();
 
             //Create the fonts that we are going to use
@@ -172,11 +172,9 @@ public class LabPDFCreator extends PdfPageEventHelper {
             writer.importRtfDocument(rtfStream, null);
 
             document.close();
-        } catch (com.lowagie.text.DocumentException e) {
-            // OpenRTF uses OpenPDF library which has a different DocumentException class
-            // Wrap it to maintain API consistency with iText-based PDF generation
+        } catch (org.openpdf.text.DocumentException e) {
             MiscUtils.getLogger().error("Failed to import RTF document", e);
-            throw new DocumentException(e);
+            throw e;
         }
     }
 
@@ -184,88 +182,98 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
         // check that we have data to print
         if (handler == null) {
-            throw new DocumentException();
+            throw new DocumentException("No lab handler available for PDF generation");
         }
 
         //Create the document we are going to write to
         document = new Document();
         PdfWriter writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
 
-
-        //Set page event, function onEndPage will execute each time a page is finished being created
-        writer.setPageEvent(this);
-
-        document.setPageSize(PageSize.LETTER);
-        document.addTitle("OSCAR Laboratory Report");
-        document.addCreator("OSCAR");
-        document.open();
-
-        //Create the fonts that we are going to use
-        bf = BaseFont.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
-        font = new Font(bf, 9, Font.NORMAL);
-        boldFont = new Font(bf, 10, Font.BOLD);
-
-        // add the header table containing the patient and lab info to the document
-        createInfoTable();
-
-        // add the tests and test info for each header
-        ArrayList<String> headers = handler.getHeaders();
-        for (int i = 0; i < headers.size(); i++) {
-
-            String specimenSource = null;
-            String specimenDescription = null;
-
-            if ((handler instanceof MEDITECHHandler) && ("MIC".equals(((MEDITECHHandler) handler).getSendingApplication()))) {
-                specimenSource = ((MEDITECHHandler) handler).getSpecimenSource(i);
-                specimenSource = "SPECIMEN SOURCE: " + specimenSource;
-                specimenDescription = ((MEDITECHHandler) handler).getSpecimenDescription(i);
-                specimenDescription = "SPECIMEN DESCRIPTION: " + specimenDescription;
+        try {
+            // Add this class's onEndPage handler to the factory-installed PdfPageEventForwarder
+            // to preserve deterministic ordering of promo/confidentiality/page-number stampers
+            PdfPageEvent existingEvent = writer.getPageEvent();
+            if (existingEvent instanceof PdfPageEventForwarder forwarder) {
+                forwarder.addPageEvent(this);
+            } else {
+                writer.setPageEvent(this);
             }
 
-            addLabCategory(headers.get(i), specimenSource, specimenDescription);
-        }
+            document.setPageSize(PageSize.LETTER);
+            document.addTitle("CARLOS Laboratory Report");
+            document.addCreator("CARLOS EMR");
+            document.open();
 
-        // It's not exactly clear that this block does anything. 
-        for (MessageHandler extraHandler : handlers) {
-            ArrayList<String> extraHeaders = extraHandler.getHeaders();
-            for (int i = 0; i < extraHeaders.size(); i++)
-                addLabCategory(extraHeaders.get(i), extraHandler);
-        }
+            //Create the fonts that we are going to use
+            bf = BaseFont.createFont(BaseFont.TIMES_ROMAN, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            font = new Font(bf, 9, Font.NORMAL);
+            boldFont = new Font(bf, 10, Font.BOLD);
 
+            // add the header table containing the patient and lab info to the document
+            createInfoTable();
 
-        // add end of report table
-        PdfPTable table = new PdfPTable(1);
-        table.setWidthPercentage(100);
-        PdfPCell cell = new PdfPCell();
-        cell.setBorder(0);
-        cell.setPhrase(new Phrase("  "));
-        table.addCell(cell);
-        cell.setBorder(15);
-        cell.setBackgroundColor(new BaseColor(210, 212, 255));
-        if (handler.getMsgType().equals("CLS")) {
-            cell.setPhrase(new Phrase("Legend:  A=Abnormal  L=Low  H=High  C=Critical", boldFont));
-        } else {
-            cell.setPhrase(new Phrase("END OF REPORT", boldFont));
-        }
-        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-        cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        table.addCell(cell);
-        document.add(table);
+            // add the tests and test info for each header
+            ArrayList<String> headers = handler.getHeaders();
+            for (int i = 0; i < headers.size(); i++) {
 
-        if (handler.getMsgType().equals("ExcellerisON")) {
-            PdfPTable table2 = new PdfPTable(1);
-            table2.setWidthPercentage(100);
-            for (String x : allLicenseNames) {
-                PdfPCell cell2 = new PdfPCell();
-                cell2.setBorder(0);
-                cell2.setPhrase(new Phrase(x, new Font(bf, 9, Font.NORMAL)));
-                table2.addCell(cell2);
+                String specimenSource = null;
+                String specimenDescription = null;
+
+                if ((handler instanceof MEDITECHHandler) && ("MIC".equals(((MEDITECHHandler) handler).getSendingApplication()))) {
+                    specimenSource = ((MEDITECHHandler) handler).getSpecimenSource(i);
+                    specimenSource = "SPECIMEN SOURCE: " + specimenSource;
+                    specimenDescription = ((MEDITECHHandler) handler).getSpecimenDescription(i);
+                    specimenDescription = "SPECIMEN DESCRIPTION: " + specimenDescription;
+                }
+
+                addLabCategory(headers.get(i), specimenSource, specimenDescription);
             }
-            document.add(table2);
+
+            // `handlers` is a secondary handler list for multi-segment lab messages.
+            // In the common single-handler case the list is empty, making this loop a no-op.
+            for (MessageHandler extraHandler : handlers) {
+                ArrayList<String> extraHeaders = extraHandler.getHeaders();
+                for (int i = 0; i < extraHeaders.size(); i++)
+                    addLabCategory(extraHeaders.get(i), extraHandler);
+            }
+
+
+            // add end of report table
+            PdfPTable table = new PdfPTable(1);
+            table.setWidthPercentage(100);
+            PdfPCell cell = new PdfPCell();
+            cell.setBorder(0);
+            cell.setPhrase(new Phrase("  "));
+            table.addCell(cell);
+            cell.setBorder(15);
+            cell.setBackgroundColor(new Color(210, 212, 255));
+            if (handler.getMsgType().equals("CLS")) {
+                cell.setPhrase(new Phrase("Legend:  A=Abnormal  L=Low  H=High  C=Critical", boldFont));
+            } else {
+                cell.setPhrase(new Phrase("END OF REPORT", boldFont));
+            }
+            cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+            cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            table.addCell(cell);
+            document.add(table);
+
+            if (handler.getMsgType().equals("ExcellerisON")) {
+                PdfPTable table2 = new PdfPTable(1);
+                table2.setWidthPercentage(100);
+                for (String x : allLicenseNames) {
+                    PdfPCell cell2 = new PdfPCell();
+                    cell2.setBorder(0);
+                    cell2.setPhrase(new Phrase(x, new Font(bf, 9, Font.NORMAL)));
+                    table2.addCell(cell2);
+                }
+                document.add(table2);
+            }
+        } finally {
+            document.close();
+            if (writer != null) {
+                writer.close();
+            }
         }
-
-
-        document.close();
 
         os.flush();
     }
@@ -395,7 +403,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
                 cell.setColspan(1);
                 cell.setBorder(Rectangle.BOX);
                 cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-                cell.setBackgroundColor(new BaseColor(210, 212, 255));
+                cell.setBackgroundColor(new Color(210, 212, 255));
                 cell.setPhrase(new Phrase("Test Name(s)", boldFont));
                 table.addCell(cell);
                 cell.setPhrase(new Phrase("Result", boldFont));
@@ -437,7 +445,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
                 cell.setColspan(1);
                 cell.setBorder(Rectangle.BOX);
                 cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-                cell.setBackgroundColor(new BaseColor(210, 212, 255));
+                cell.setBackgroundColor(new Color(210, 212, 255));
                 cell.setPhrase(new Phrase("Test Name(s)", boldFont));
                 table.addCell(cell);
                 cell.setPhrase(new Phrase("Result", boldFont));
@@ -483,7 +491,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
 					if (obxCount == 0 && (!orderRequestStatus.isEmpty() || obrCommentCount > 0)) {
 						cell.setHorizontalAlignment(Element.ALIGN_LEFT);
-						cell.setBackgroundColor( BaseColor.WHITE );
+						cell.setBackgroundColor( Color.WHITE );
 						cell.setPhrase(new Phrase(handler.getOBRName(j), boldFont));
 						cell.setColspan(1);
 						table.addCell(cell);
@@ -510,8 +518,8 @@ public class LabPDFCreator extends PdfPageEventHelper {
 					if (handler.getOBXCommentCount(j, k) > 0) {
 						cell.setBorder( Rectangle.NO_BORDER );
 					}
-					cell.setBorderColor( BaseColor.LIGHT_GRAY );
-					cell.setBackgroundColor( BaseColor.WHITE );
+					cell.setBorderColor( Color.LIGHT_GRAY );
+					cell.setBackgroundColor( Color.WHITE );
 					
 					String obxName = handler.getOBXName(j, k);
 					
@@ -542,7 +550,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 							} else {
 								cell.setColspan(7);
 							}
-							cell.setBorderColor(BaseColor.BLACK);
+							cell.setBorderColor(Color.BLACK);
 							table.setWidthPercentage(100);
 							table.addCell(cell);
 							if (handler.getMsgType().equals("ExcellerisON")) {
@@ -550,18 +558,18 @@ public class LabPDFCreator extends PdfPageEventHelper {
 								cell.setColspan(7);
 								table.addCell(cell);
 							}
-							cell.setBorderColor( BaseColor.LIGHT_GRAY );
+							cell.setBorderColor( Color.LIGHT_GRAY );
 							cell.setColspan(1);
 							obrFlag = true;
 						}
 
                         // add the obx results and info
-                        Font lineFont = new Font(bf, 9, Font.NORMAL, getTextColor(handler, handler.getOBXAbnormalFlag(j, k)));
+                        Font lineFont = new Font(bf, 9, Font.NORMAL, getTextColor(handler.getOBXAbnormalFlag(j, k)));
 
                         if (this.isReportData) {
                             cell.setColspan(2);
                             cell.setBorder(Rectangle.NO_BORDER);
-                            cell.setBorderColor(BaseColor.WHITE);
+                            cell.setBorderColor(Color.WHITE);
                             cell.setPadding(0);
                             cell.setPaddingLeft(10);
 
@@ -818,7 +826,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
                             }
 
-                            cell.setBorderColor(BaseColor.LIGHT_GRAY);
+                            cell.setBorderColor(Color.LIGHT_GRAY);
                             cell.setColspan(1);
                         }
                         cell.setColspan(1);
@@ -829,7 +837,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
                     ) {
 
                         cell.setBorder(Rectangle.NO_BORDER);
-                        cell.setBorderColor(BaseColor.WHITE);
+                        cell.setBorderColor(Color.WHITE);
                         cell.setPadding(0);
                         cell.setPaddingLeft(10);
                         cell.setColspan(7);
@@ -840,7 +848,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
 
                         cell.setColspan(1);
                         cell.setBorder(Rectangle.BOTTOM);
-                        cell.setBorderColor(BaseColor.LIGHT_GRAY);
+                        cell.setBorderColor(Color.LIGHT_GRAY);
                         cell.setPadding(5);
                     }
 
@@ -907,12 +915,12 @@ public class LabPDFCreator extends PdfPageEventHelper {
      *  getTextColor will return the the color corresponding to the abnormal
      *  status of the result.
      */
-    private BaseColor getTextColor(MessageHandler handler, String abn) {
-        BaseColor ret = BaseColor.BLACK;
+    private Color getTextColor(String abn) {
+        Color ret = Color.BLACK;
         if (abn != null && (abn.equals("A") || abn.startsWith("H"))) {
-            ret = BaseColor.RED;
+            ret = Color.RED;
         } else if (abn != null && abn.startsWith("L")) {
-            ret = BaseColor.BLUE;
+            ret = Color.BLUE;
         }
 
         return ret;
@@ -1024,13 +1032,13 @@ public class LabPDFCreator extends PdfPageEventHelper {
         PdfPTable table = new PdfPTable(tableWidths);
         if (multiID != null && multiID.length > 1) {
             cell = new PdfPCell(new Phrase("Version: " + versionNum + " of " + multiID.length, boldFont));
-            cell.setBackgroundColor(new BaseColor(210, 212, 255));
+            cell.setBackgroundColor(new Color(210, 212, 255));
             cell.setPadding(3);
             cell.setColspan(2);
             table.addCell(cell);
         }
         cell = new PdfPCell(new Phrase("Detail Results: Patient Info", boldFont));
-        cell.setBackgroundColor(new BaseColor(210, 212, 255));
+        cell.setBackgroundColor(new Color(210, 212, 255));
         cell.setPadding(3);
         table.addCell(cell);
         cell.setPhrase(new Phrase("Results Info", boldFont));

@@ -24,15 +24,15 @@ import java.util.List;
 
 import javax.xml.datatype.XMLGregorianCalendar;
 
-import omd.hrm.PersonNameSimple;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.PersonNameSimple;
 import org.apache.commons.codec.binary.Base64;
-import omd.hrm.DateFullOrPartial;
-import omd.hrm.Demographics;
-import omd.hrm.OmdCds;
-import omd.hrm.PersonNameStandard;
-import omd.hrm.PersonNameStandard.LegalName.OtherName;
-import omd.hrm.ReportFormat;
-import omd.hrm.ReportsReceived.OBRContent;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.DateFullOrPartial;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.Demographics;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.PersonNameStandard;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.PersonNameStandard.LegalName.OtherName;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportFormat;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived.OBRContent;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
