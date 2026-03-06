@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.app;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Locale;
@@ -230,7 +231,7 @@ public class LogoutBroadcastFilter implements Filter {
         String script = buildScript(contextPath, locale);
 
         if (delegatingResponse.isResponseOutputStreamObtained()) {
-            response.getOutputStream().write(script.getBytes());
+            response.getOutputStream().write(script.getBytes(StandardCharsets.UTF_8));
         } else if (delegatingResponse.isResponseWriterObtained()) {
             response.getWriter().print(script);
         }

@@ -2494,8 +2494,5 @@
     if (unclaimedLabLink) {
         unclaimedLabLink.setAttribute("onclick", unclaimedLabLinkClickEvent);
     }
-    // If THIS window is unloaded, ie closed with the X, it should signal a logout equivalent
-    window.addEventListener('beforeunload', function() {
-        try { localStorage.setItem('carlos_logout_signal', '' + Date.now()); } catch(e) {}
-    });
+
 </script>
