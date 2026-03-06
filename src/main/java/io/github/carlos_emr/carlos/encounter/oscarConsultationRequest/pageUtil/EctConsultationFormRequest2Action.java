@@ -53,7 +53,7 @@ import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.SendingUtils;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
-import com.itextpdf.text.DocumentException;
+import org.openpdf.text.DocumentException;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
@@ -80,6 +80,37 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * Struts2 action that handles creating, updating, printing, faxing, and electronically
+ * sending consultation requests (clinical referrals).
+ *
+ * <p>This is the primary controller for the consultation request form. It processes form
+ * submissions based on the {@code submission} parameter prefix:</p>
+ * <ul>
+ *   <li><b>"Submit..."</b> - creates a new {@link ConsultationRequest}, persists it with all
+ *       attached documents (labs, forms, eForms, HRM reports), and processes digital signatures</li>
+ *   <li><b>"Update..."</b> - archives the existing consultation request, updates it with new
+ *       form data, and re-attaches documents</li>
+ *   <li><b>"...And Print Preview"</b> - renders the consultation form with attachments as a
+ *       base64-encoded PDF for inline preview</li>
+ *   <li><b>"...And Fax"</b> - prepares fax parameters (accounts, recipients, attached document
+ *       descriptions) and forwards to the fax confirmation page</li>
+ *   <li><b>"...esend"</b> - transmits the consultation via HL7 REF_I12 message to the
+ *       specialist's remote EMR system, with attached documents sent as ORU_R01 messages</li>
+ * </ul>
+ *
+ * <p>Supports the Health Care Team integration when the
+ * {@code ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS} property is enabled,
+ * bridging between the newer DemographicContact model and the legacy ProfessionalSpecialist
+ * module for backward compatibility.</p>
+ *
+ * <p>Requires {@code _con} write privilege via {@link SecurityInfoManager}.</p>
+ *
+ * @see ConsultationPDFCreator
+ * @see DocumentAttachmentManager
+ * @see ConsultationManager
+ * @since 2003-07-21
+ */
 public class EctConsultationFormRequest2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -95,6 +126,16 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Processes the consultation request form submission.
+     *
+     * <p>Dispatches to create, update, print preview, fax, or HL7 e-send based on the
+     * {@code submission} parameter. All paths enforce {@code _con} write privilege.</p>
+     *
+     * @return String the Struts2 result name ("success", "fax", "error", or NONE for redirects)
+     * @throws ServletException when form rendering encounters a servlet error
+     * @throws IOException      when an I/O error occurs during response writing or HL7 sending
+     */
     @Override
     public String execute() throws ServletException, IOException {
 
@@ -522,6 +563,17 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return NONE;
     }
 
+    /**
+     * Creates a consultation request extension entry for storing custom form fields.
+     *
+     * <p>Extension entries store additional key-value data beyond the core consultation
+     * request fields, identified by the {@code ext_} parameter name prefix.</p>
+     *
+     * @param requestId String the consultation request ID
+     * @param name      String the extension key (parameter name after "ext_" prefix)
+     * @param value     String the extension value
+     * @return ConsultationRequestExt the new extension entry ready for persistence
+     */
     private ConsultationRequestExt createExtEntry(String requestId, String name, String value) {
         ConsultationRequestExt obj = new ConsultationRequestExt();
         obj.setDateCreated(new Date());
@@ -531,6 +583,27 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return obj;
     }
 
+    /**
+     * Sends the consultation request and its attachments to the specialist's remote EMR via HL7.
+     *
+     * <p>Constructs an HL7 REF_I12 referral message for the consultation request and sends
+     * it to the specialist's remote endpoint. Then iterates over attached documents and lab
+     * results, wrapping each as an ORU_R01 observation message with the binary data payload,
+     * and sends them individually.</p>
+     *
+     * @param loggedInInfo          LoggedInInfo the authenticated session context
+     * @param consultationRequestId Integer the consultation request ID to send
+     * @throws InvalidKeyException      when cryptographic key validation fails
+     * @throws SignatureException        when digital signature operation fails
+     * @throws NoSuchAlgorithmException  when a required cryptographic algorithm is unavailable
+     * @throws NoSuchPaddingException    when a required padding scheme is unavailable
+     * @throws IllegalBlockSizeException when block cipher input size is incorrect
+     * @throws BadPaddingException       when decrypted data padding is incorrect
+     * @throws InvalidKeySpecException   when key specification is invalid
+     * @throws IOException               when an I/O error occurs during transmission
+     * @throws HL7Exception              when HL7 message construction or parsing fails
+     * @throws ServletException          when the remote server returns a non-OK status
+     */
     private void doHl7Send(LoggedInInfo loggedInInfo, Integer consultationRequestId) throws InvalidKeyException, SignatureException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, IOException, HL7Exception, ServletException {
 
         ConsultationRequestDao consultationRequestDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
@@ -594,6 +667,19 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Renders the consultation form with all attachments as a base64-encoded PDF.
+     *
+     * <p>Sets the generated PDF and a suggested filename as request attributes for
+     * the print preview page. Returns false and sets an error message attribute
+     * if PDF generation fails.</p>
+     *
+     * @param request       HttpServletRequest the current request
+     * @param response      HttpServletResponse the current response
+     * @param requestId     String the consultation request ID
+     * @param demographicNo String the patient demographic number
+     * @return boolean true if PDF generation succeeded, false on error
+     */
     private boolean renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response, String requestId, String demographicNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -617,6 +703,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return true;
     }
 
+    /**
+     * Writes a JSON response containing the base64-encoded PDF, filename, and any error message.
+     *
+     * @param request  HttpServletRequest containing the PDF data and filename as attributes
+     * @param response HttpServletResponse where the JSON is written
+     */
     private void generatePDFResponse(HttpServletRequest request, HttpServletResponse response) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
@@ -630,6 +722,13 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Generates a PDF filename in the format {@code yyyy_MM_dd_LastName.pdf} for the given patient.
+     *
+     * @param loggedInInfo  LoggedInInfo the authenticated session context
+     * @param demographicNo int the patient demographic number
+     * @return String the generated filename
+     */
     private String generateFileName(LoggedInInfo loggedInInfo, int demographicNo) {
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         String demographicLastName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo).split(", ")[0];
@@ -1124,7 +1223,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     }
 
     /**
-     * This url will include the context path.
+     * Builds the URL for the ORU_R01 lab sending page, including the context path and
+     * patient demographic query parameters. The returned URL is HTML-escaped for safe
+     * embedding in JSP output.
+     *
+     * @param request HttpServletRequest used to obtain the context path
+     * @return String the HTML-escaped URL string with query parameters
      */
     public String getOruR01UrlString(HttpServletRequest request) {
         // /lab/CA/ALL/sendOruR01.jsp
@@ -1150,14 +1254,18 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     }
 
     /**
-     * @return the followUpDate
+     * Returns the follow-up date for the consultation request.
+     *
+     * @return String the follow-up date in yyyy-MM-dd or yyyy/MM/dd format
      */
     public String getFollowUpDate() {
         return followUpDate;
     }
 
     /**
-     * @param followUpDate the followUpDate to set
+     * Sets the follow-up date for the consultation request.
+     *
+     * @param followUpDate String the follow-up date in yyyy-MM-dd or yyyy/MM/dd format
      */
     @StrutsParameter
     public void setFollowUpDate(String followUpDate) {

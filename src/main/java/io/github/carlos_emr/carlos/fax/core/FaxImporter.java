@@ -59,8 +59,7 @@ import io.github.carlos_emr.carlos.fax.provider.FaxProviderException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-import com.itextpdf.text.pdf.codec.Base64;
-import com.itextpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfReader;
 
 import io.github.carlos_emr.OscarProperties;
 import javax.annotation.PostConstruct;
@@ -386,8 +385,17 @@ public class FaxImporter {
             // Decode to temp file first (atomic write pattern)
             tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
 
-            if (!Base64.decodeToFile(faxFile.getDocument(), tempFile.getAbsolutePath())) {
-                throw new FaxProviderException("Base64 decode failed");
+            try {
+                String document = faxFile.getDocument();
+                if (document == null) {
+                    throw new FaxProviderException("Base64 decode failed: missing fax document payload");
+                }
+                // Use getMimeDecoder() to tolerate MIME-formatted (line-wrapped) Base64
+                // payloads that fax providers may return per RFC 2045
+                byte[] decodedBytes = java.util.Base64.getMimeDecoder().decode(document);
+                Files.write(tempFile.toPath(), decodedBytes);
+            } catch (IllegalArgumentException e) {
+                throw new FaxProviderException("Base64 decode failed", e);
             }
 
             if (tempFile.length() == 0) {
@@ -731,7 +739,7 @@ public class FaxImporter {
     }
 
     /**
-     * Validates PDF and counts pages using iTextPDF.
+     * Validates PDF and counts pages using OpenPDF's PdfReader.
      *
      * @param pdfFile PDF file to validate
      * @return number of pages if valid PDF
@@ -750,7 +758,7 @@ public class FaxImporter {
             log.debug("PDF validation successful: {} pages", pages);
             return pages;
 
-        } catch (com.itextpdf.text.exceptions.BadPasswordException e) {
+        } catch (org.openpdf.text.exceptions.BadPasswordException e) {
             throw new FaxProviderException("PDF is password-protected - cannot process");
         } catch (IOException e) {
             throw new FaxProviderException("Cannot read PDF file: " + e.getMessage());

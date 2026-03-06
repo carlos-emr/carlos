@@ -29,7 +29,7 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
-import com.itextpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfReader;
 
 import ca.uhn.fhir.context.FhirContext;
 
@@ -66,6 +66,26 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 
+/**
+ * Handles FHIR STU3 CommunicationRequest resources containing PDF document attachments.
+ *
+ * <p>This handler parses a JSON-encoded {@link CommunicationRequest} from an uploaded file,
+ * extracts the embedded PDF attachment, saves it to the document directory via
+ * {@link Utilities#savePdfFile}, and creates an EDoc record linked to the referenced
+ * patient demographic. The document is then routed to the recipient providers specified
+ * in the CommunicationRequest.
+ *
+ * <p>File path validation is performed using {@link PathValidationUtils} to prevent
+ * path traversal attacks. Page count is determined using OpenPDF's {@link PdfReader}
+ * on the decoded attachment byte data.
+ *
+ * <p>The document type is extracted from the CommunicationRequest category coding
+ * using the {@code http://oscarehr.org/documentType} system URI.
+ *
+ * @see MessageHandler
+ * @see org.hl7.fhir.dstu3.model.CommunicationRequest
+ * @since 2019 (McMaster University)
+ */
 public class FHIRCommunicationRequestHandler implements MessageHandler {
 
     protected static Logger logger = MiscUtils.getLogger();
@@ -74,6 +94,17 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
     private static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
 
+    /**
+     * Parses a FHIR CommunicationRequest JSON file and saves the embedded PDF attachment
+     * as an EDoc, routing it to the specified recipient providers.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * @param serviceName String the service name (unused in this handler)
+     * @param fileName String the full path to the FHIR JSON file
+     * @param fileId int the file identifier (unused in this handler)
+     * @param ipAddr String the client IP address for audit logging
+     * @return String "success" if the document was saved, or {@code null} on error
+     */
     @Override
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
         String providerNo = "-1";
@@ -144,9 +175,10 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
 
             newDoc.setDocPublic("0");
             newDoc.setContentType("application/pdf");
-            PdfReader reader = new PdfReader(document);
-            int numPages = reader.getNumberOfPages();
-            reader.close();
+            int numPages;
+            try (PdfReader reader = new PdfReader(document)) {
+                numPages = reader.getNumberOfPages();
+            }
             newDoc.setNumberOfPages(numPages);
 
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
@@ -158,7 +190,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload.FHIRCommunicationRequest");
 
         } catch (Exception e) {
-            logger.error("error parsing Document Reference Document from :" + fileName, e);
+            logger.error("error parsing Document Reference Document", e);
         } finally {
             IOUtils.closeQuietly(in);
         }

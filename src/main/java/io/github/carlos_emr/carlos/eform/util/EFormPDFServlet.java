@@ -28,8 +28,6 @@
  */
 
 
-// javac -classpath .;..\lib\itext-1.01.jar -d . FrmPDFServlet.java
-// form/createpdf?__title=British+Columbia+Antenatal+Record+Part+1&__cfgfile=bcar1PrintCfgPg1&__cfgfile=bcar1PrintCfgPg2&__template=bcar1
 package io.github.carlos_emr.carlos.eform.util;
 
 import java.io.ByteArrayOutputStream;
@@ -52,7 +50,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.itextpdf.text.*;
+import java.awt.Color;
+import org.openpdf.text.*;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.logging.log4j.Logger;
@@ -67,35 +66,69 @@ import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
 import io.github.carlos_emr.carlos.form.pdfservlet.FrmPDFPostValueProcessor;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfImportedPage;
-import com.itextpdf.text.pdf.PdfReader;
-import com.itextpdf.text.pdf.PdfWriter;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfImportedPage;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfWriter;
 
 /**
+ * Servlet that generates PDF documents from electronic form (e-form) templates.
  *
+ * <p>Overlays form field values onto a pre-existing PDF template using coordinate-based
+ * positioning defined in text configuration files. Supports single-line text, multi-line
+ * text areas, checkboxes (ZapfDingbats), rectangles, lines, and graphical plots
+ * (e.g., growth charts for Rourke forms).</p>
+ *
+ * <p>Configuration files ({@code .txt}) define field placement using a CSV format:
+ * {@code paramName : alignment, X, Y, 0, font, fontSize [, textToPrint] [, topRightX, topRightY, lineSpacing]}.
+ * Coordinates reference the bottom-left corner of each element and are measured in PDF points.
+ * Graphic configuration files drive measurement plotting via {@link FrmPdfGraphic} implementations.</p>
+ *
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) for PDF template reading, content overlay,
+ * and multi-page document generation.</p>
+ *
+ * @see io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic
+ * @see io.github.carlos_emr.carlos.form.graphic.FrmGraphicFactory
+ * @see io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory
+ * @since 2013-07-26
  */
 public class EFormPDFServlet extends HttpServlet {
 
     Logger log = MiscUtils.getLogger();
 
     /**
-     *
+     * Default constructor.
      */
     public EFormPDFServlet() {
         super();
     }
 
+    /**
+     * Delegates GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}.
+     *
+     * @param req HttpServletRequest the incoming request
+     * @param res HttpServletResponse the outgoing response
+     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs
+     */
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
             java.io.IOException {
         doPost(req, res);
     }
 
     /**
-     * @param req HTTP request object
-     * @param res HTTP response object
+     * Generates one or more e-form PDFs and streams the result to the HTTP response.
+     *
+     * <p>If the {@code multiple} parameter is present, generates multiple PDFs and
+     * concatenates them via {@link ConcatPDF}. Otherwise generates a single PDF.
+     * The response is set to {@code application/pdf} with inline content disposition.</p>
+     *
+     * @param req HttpServletRequest containing e-form field values and configuration parameters
+     * @param res HttpServletResponse to write the generated PDF to
+     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs
      */
     public void doPost(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
             java.io.IOException {
@@ -154,13 +187,13 @@ public class EFormPDFServlet extends HttpServlet {
             }
 
         } catch (Exception e) {
-            res.setContentType("text/html");
-            PrintWriter writer = res.getWriter();
-            writer.println("Exception from: " + this.getClass().getName() + " " + e.getClass().getName() + "<br>");
-            writer.println("<pre>");
-            writer.println(e.getMessage());
-            writer.println("</pre>");
-            writer.close();
+            log.error("Error generating eForm PDF", e);
+            if (!res.isCommitted()) {
+                res.setContentType("text/html");
+                PrintWriter writer = res.getWriter();
+                writer.println("<p>An error occurred while generating the PDF. Please try again or contact support.</p>");
+                writer.close();
+            }
         } finally {
             if (baosPDF != null) baosPDF.close();
             if (fis != null) fis.close();
@@ -170,25 +203,24 @@ public class EFormPDFServlet extends HttpServlet {
 
 
     /**
-     * the form txt file has lines in the form:
-     * <p>
-     * For Checkboxes:
-     * ie.  ohip : left, 76, 193, 0, BaseFont.ZAPFDINGBATS, 8, \u2713
-     * requestParamName : alignment, Xcoord, Ycoord, 0, font, fontSize, textToPrint[if empty, prints the value of the request param]
-     * NOTE: the Xcoord and Ycoord refer to the bottom-left corner of the element
-     * <p>
-     * For single-line text:
-     * ie. patientCity  : left, 242, 261, 0, BaseFont.HELVETICA, 12
-     * See checkbox explanation
-     * <p>
-     * For multi-line text (textarea)
-     * ie.  aci : left, 20, 308, 0, BaseFont.HELVETICA, 8, _, 238, 222, 10
-     * requestParamName : alignment, bottomLeftXcoord, bottomLeftYcoord, 0, font, fontSize, _, topRightXcoord, topRightYcoord, spacingBtwnLines
-     * <p>
-     * NOTE: When working on these forms in linux, it helps to load the PDF file into gimp, switch to pt. coordinate system and use the mouse to find the coordinates.
-     * Prepare to be bored!
+     * Generates a PDF document by overlaying e-form field values onto a PDF template.
      *
-     * @throws Exception
+     * <p>The form txt config file has lines in the form:</p>
+     * <ul>
+     *   <li><strong>Checkboxes:</strong>
+     *     {@code paramName : alignment, X, Y, 0, BaseFont.ZAPFDINGBATS, fontSize, checkmark}</li>
+     *   <li><strong>Single-line text:</strong>
+     *     {@code paramName : alignment, X, Y, 0, font, fontSize}</li>
+     *   <li><strong>Multi-line text:</strong>
+     *     {@code paramName : alignment, X1, Y1, 0, font, fontSize, _, X2, Y2, lineSpacing}</li>
+     * </ul>
+     * <p>Coordinates are in PDF points (1/72 inch) from the bottom-left corner.</p>
+     *
+     * @param req HttpServletRequest containing e-form field values and template parameters
+     * @param ctx ServletContext used for resource resolution of template and config files
+     * @param multiple int zero-based page index for multi-page rendering
+     * @return ByteArrayOutputStream containing the generated PDF bytes
+     * @throws Exception if template reading, PDF generation, or config loading fails
      */
     protected ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx, int multiple) throws Exception {
 
@@ -198,6 +230,7 @@ public class EFormPDFServlet extends HttpServlet {
         ByteArrayOutputStream baosPDF = new ByteArrayOutputStream();
         Document document = new Document();
         PdfWriter writer = null;
+        PdfReader reader = null;
         try {
             writer = PdfWriterFactory.newInstance(document, baosPDF, FontSettings.HELVETICA_6PT);
 
@@ -234,13 +267,13 @@ public class EFormPDFServlet extends HttpServlet {
 
             // create a reader for a certain document
             String propFilename = OscarProperties.getInstance().getEformImageDirectory() + "/" + template;
-            PdfReader reader = null;
 
             try {
                 reader = new PdfReader(propFilename);
                 log.debug("Found template at " + propFilename);
             } catch (Exception dex) {
-                log.warn("Cannot find template at : " + propFilename);
+                log.warn("Cannot find template at: {}", propFilename);
+                throw new IOException("Cannot load PDF template: " + propFilename, dex);
             }
 
             // retrieve the total number of pages
@@ -301,11 +334,21 @@ public class EFormPDFServlet extends HttpServlet {
                 document.close();
             if (writer != null)
                 writer.close();
+            if (reader != null)
+                reader.close();
         }
 
         return baosPDF;
     }
 
+    /**
+     * Loads a CSV-format config file from the e-form image directory. Each entry maps a
+     * form field name to a CSV line defining alignment, coordinates, font, and size.
+     * The filename is validated against path traversal before access.
+     *
+     * @param cfgFilename String the configuration filename
+     * @return Properties the parsed field layout entries, or empty Properties if not found
+     */
     protected Properties getCfgProp(String cfgFilename) {
         Properties ret = new Properties();
         
@@ -456,7 +499,7 @@ public class EFormPDFServlet extends HttpServlet {
                 FrmPDFPostValueProcessor pp = (FrmPDFPostValueProcessor) Class.forName(className).newInstance();
                 props = pp.process(props);
             } catch (Exception e) {
-                //ignore
+                log.warn("Post-processor {} could not be loaded or failed during execution - form rendered without post-processing", className, e);
             }
         }
 
@@ -541,8 +584,8 @@ public class EFormPDFServlet extends HttpServlet {
     private void addDocumentProps(Document document, String title, Properties props) {
         document.addTitle(title);
         document.addSubject("");
-        document.addKeywords("pdf, itext");
-        document.addCreator("OSCAR");
+        document.addKeywords("pdf");
+        document.addCreator("CARLOS EMR");
         document.addAuthor("");
 
         // A0-A10, LEGAL, LETTER, HALFLETTER, _11x17, LEDGER, NOTE, B0-B5, ARCH_A-ARCH_E, FLSA
@@ -558,6 +601,18 @@ public class EFormPDFServlet extends HttpServlet {
         document.open();
     }
 
+    /**
+     * Core rendering loop that iterates config entries and draws form field content onto
+     * the PDF canvas. Handles multi-line text via ColumnText, rectangles, lines, static
+     * text (__-prefixed), and checkbox glyphs (ZapfDingbats).
+     *
+     * @param printCfg Properties field-name-to-CSV-layout mappings
+     * @param props Properties form field values from the request
+     * @param measurements Properties additional measurement values
+     * @param height float page height in points for coordinate conversion
+     * @param cb PdfContentByte the direct content layer to draw on
+     * @throws Exception if font creation or rendering fails
+     */
     private void writeContent(Properties printCfg, Properties props, Properties measurements, float height, PdfContentByte cb) throws Exception {
         for (Enumeration e = printCfg.propertyNames(); e.hasMoreElements(); ) {
             StringBuilder temp = new StringBuilder(e.nextElement().toString());
@@ -630,7 +685,7 @@ public class EFormPDFServlet extends HttpServlet {
                 float ury = Float.parseFloat(cfgVal[3].trim());
 
                 Rectangle rec = new Rectangle(llx, lly, urx, ury);
-                rec.setBackgroundColor(BaseColor.WHITE);
+                rec.setBackgroundColor(Color.WHITE);
                 cb.rectangle(rec);
 
             } else if (temp.toString().startsWith("__$line")) {

@@ -33,7 +33,7 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
-import com.lowagie.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfReader;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
@@ -82,12 +82,37 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.*;
 
-/**
- * @author jaygallagher
- */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action for document viewing, updating, routing, and incoming document processing
+ * in the CARLOS EMR document management system.
+ *
+ * <p>Uses a method-based routing pattern via a static {@code ACTIONS} map that dispatches
+ * the request parameter "method" to the corresponding handler. Supported operations include:
+ * <ul>
+ *   <li>Document viewing as PDF or rendered PNG images with caching</li>
+ *   <li>Document metadata updates (description, type, observation date)</li>
+ *   <li>Provider inbox routing and demographic linking</li>
+ *   <li>Incoming document filing from the incoming document queue to the document store</li>
+ *   <li>Document refiling between queues</li>
+ *   <li>Document info/annotation/tickler display</li>
+ * </ul>
+ *
+ * <p>PDF page counting uses OpenPDF {@link PdfReader} for existing documents in the
+ * document store. Incoming document rendering uses Apache PDFBox for PDF-to-PNG conversion.
+ *
+ * <p>Security: All operations require the {@code _edoc} read or write privilege. File
+ * paths are validated using {@link PathValidationUtils}. HTTP response headers are
+ * sanitized to prevent response splitting attacks.
+ *
+ * @see AddEditDocument2Action
+ * @see IncomingDocUtil
+ * @see EDocUtil
+ * @see PathValidationUtils
+ * @since 2008-09-10
+ */
 public class ManageDocument2Action extends ActionSupport {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -106,7 +131,9 @@ public class ManageDocument2Action extends ActionSupport {
 
     private static final Map<String, ActionHandler> ACTIONS = new HashMap<>();
 
-    // Static initializer used to set the actions of the map for the execute function
+    // Method-based dispatch consolidates all document operations (view, update, refile,
+    // add, etc.) under a single action class, keeping struts.xml minimal. Most handlers
+    // return null because they write directly to the response stream (images, PDFs, JSON).
     static {
         ACTIONS.put("refileDocumentAjax", ctx -> ctx.refileDocumentAjax());
         ACTIONS.put("viewDocPage", ctx -> { ctx.viewDocPage(); return null; });
@@ -132,7 +159,13 @@ public class ManageDocument2Action extends ActionSupport {
         ACTIONS.put("viewDocumentInfo", ctx -> { ctx.viewDocumentInfo(); return null; });
     }
 
-    // Called on default by struts.xml, finds the correct method to use by finding what the URL "method" param is equal to
+    /**
+     * Main Struts2 entry point. Dispatches to the appropriate handler method based on the
+     * "method" request parameter using the static {@code ACTIONS} map. Falls back to
+     * {@link #documentUpdate()} if no method is specified and document parameters are present.
+     *
+     * @return String the Struts2 result name, or "error" if no valid handler is found
+     */
     public String execute() {
         String method = request.getParameter("method");
         ActionHandler handler = ACTIONS.get(method);
@@ -163,12 +196,19 @@ public class ManageDocument2Action extends ActionSupport {
         return "error";
     }
 
-    // Functional interface for our handlers.
+    /** Functional interface for method-based action dispatch handlers. */
     @FunctionalInterface
     private interface ActionHandler {
         String handle(ManageDocument2Action ctx) throws Exception;
     }
 
+    /**
+     * AJAX handler for updating document metadata (description, type, observation date),
+     * routing to provider inboxes, and linking to patient demographics. Responds with
+     * a JSON object containing the patient ID.
+     *
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
     public void documentUpdateAjax() {
         String observationDate = request.getParameter("observationDate"); // :2008-08-22<
         String documentDescription = request.getParameter("documentDescription"); // :test2<
@@ -202,8 +242,10 @@ public class ManageDocument2Action extends ActionSupport {
 
                 // Removes the link to the "0" providers so that the document no longer shows up as "unclaimed"
                 providerInboxRoutingDAO.removeLinkFromDocument("DOC", Integer.parseInt(documentId), "0");
+            } catch (NumberFormatException e) {
+                log.error("Invalid document ID format during provider routing: {}", documentId, e);
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                log.error("Failed to route document {} to providers", documentId, e);
             }
         }
 
@@ -257,8 +299,10 @@ public class ManageDocument2Action extends ActionSupport {
                     saveDocNote(request, d.getDocdesc(), demog, documentId);
                 }
             }
+        } catch (NumberFormatException e) {
+            log.error("Invalid number format during CTL document update for documentId: {}", documentId, e);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            log.error("Failed to update CTL document for documentId: {}", documentId, e);
         }
 
         HashMap hm = new HashMap();
@@ -272,6 +316,12 @@ public class ManageDocument2Action extends ActionSupport {
 
     }
 
+    /**
+     * AJAX handler that returns the demographic (patient) name for the specified
+     * demographic number as a JSON response.
+     *
+     * @throws SecurityException if the user lacks _demographic read privilege
+     */
     public void getDemoNameAjax() {
         String dn = request.getParameter("demo_no");
 
@@ -289,6 +339,12 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Removes a provider's inbox routing link from a document and returns the remaining
+     * linked providers as a JSON response.
+     *
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
     public void removeLinkFromDocument() {
         String docType = request.getParameter("docType");
         String docId = request.getParameter("docId");
@@ -310,6 +366,12 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * AJAX handler that refiles a document to a different queue.
+     *
+     * @return String null (no Struts2 result forwarding)
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
     public String refileDocumentAjax() {
 
         String documentId = request.getParameter("documentId");
@@ -322,11 +384,18 @@ public class ManageDocument2Action extends ActionSupport {
         try {
             EDocUtil.refileDocument(documentId, queueId);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            log.error("Failed to refile document {} to queue {}", documentId, queueId, e);
         }
         return null;
     }
 
+    /**
+     * Updates document metadata and routing, then forwards to the single document display view.
+     * Handles description, type, observation date, provider routing, and demographic linking.
+     *
+     * @return String the Struts2 result name ("displaySingleDoc" or "error")
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
     public String documentUpdate() {
         String observationDate = request.getParameter("observationDate"); // :2008-08-22<
         String documentDescription = request.getParameter("documentDescription"); // :test2<
@@ -373,7 +442,7 @@ public class ManageDocument2Action extends ActionSupport {
                 addActionError("Invalid document ID format. Please check the document ID and try again.");
                 return "error";
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                log.error("Failed to route document {} to providers", documentId, e);
             }
         }
         Document d = documentDao.getDocument(documentId);
@@ -409,7 +478,7 @@ public class ManageDocument2Action extends ActionSupport {
             } catch (NumberFormatException e) {
                 log.error("Invalid number format for documentId: " + documentId + " or demog: " + demog, e);
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                log.error("Failed to update CTL document for documentId: {}", documentId, e);
             }
         } else {
             log.warn("Document ID is null or empty, skipping ctlDocument operations");
@@ -429,11 +498,28 @@ public class ManageDocument2Action extends ActionSupport {
 
     }
 
+    /**
+     * Retrieves the formatted demographic (patient) name for the given demographic number.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session information
+     * @param demog String the patient demographic number
+     * @return String the formatted patient name
+     */
     private String getDemoName(LoggedInInfo loggedInInfo, String demog) {
         // Get demographic name based on login info and the demographic number of patient
         return EDocUtil.getDemographicName(loggedInInfo, demog);
     }
 
+    /**
+     * Creates a case management note recording that a document was filed or updated
+     * for a patient. The note is signed by the system user ("-1") and linked to the
+     * document via a {@link CaseManagementNoteLink}.
+     *
+     * @param request HttpServletRequest the current request for session access
+     * @param docDesc String the document description to include in the note text
+     * @param demog String the patient demographic number
+     * @param documentId String the document ID to link the note to
+     */
     private void saveDocNote(final HttpServletRequest request, String docDesc, String demog, String documentId) {
 
         Date now = EDocUtil.getDmsDateTimeAsDate();
@@ -489,6 +575,13 @@ public class ManageDocument2Action extends ActionSupport {
      * private void savePatientLabRouting(String demog, String docId, String docType){ CommonLabResultData.updatePatientLabRouting(docId, demog, docType); }
      */
 
+    /**
+     * Returns the absolute path of the document cache directory. Uses the explicitly
+     * configured cache directory if available, otherwise derives one from the main
+     * document directory.
+     *
+     * @return String the absolute path to the document cache directory
+     */
     private static String getDocumentCacheDir() {
         if (DOCUMENT_CACHE_DIR != null && !DOCUMENT_CACHE_DIR.isEmpty()) {
             return DOCUMENT_CACHE_DIR;
@@ -496,6 +589,13 @@ public class ManageDocument2Action extends ActionSupport {
         return getDocumentCacheDir(DOCUMENT_DIR).getAbsolutePath();
     }
 
+    /**
+     * Derives a cache directory from the given document directory by appending
+     * {@code _cache} to the directory name. Creates the directory if it does not exist.
+     *
+     * @param docdownload String the document directory path used as the basis
+     * @return File the cache directory
+     */
     private static File getDocumentCacheDir(String docdownload) {
         File docDir = new File(docdownload);
         String documentDirName = docDir.getName();
@@ -513,6 +613,13 @@ public class ManageDocument2Action extends ActionSupport {
         return cacheDir;
     }
 
+    /**
+     * Checks whether a cached PNG rendering exists for the given document page.
+     *
+     * @param d Document the document to look up in the cache
+     * @param pageNum Integer the 1-based page number, may be null
+     * @return File the cached PNG file if it exists, or null
+     */
     private File hasCacheVersion2(Document d, Integer pageNum) {
         Path outFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
         if (!Files.exists(outFile)) {
@@ -521,6 +628,12 @@ public class ManageDocument2Action extends ActionSupport {
         return outFile.toFile();
     }
 
+    /**
+     * Deletes the cached PNG image for a specific page of a document.
+     *
+     * @param d Document the document whose cache entry should be deleted
+     * @param pageNum int the 1-based page number of the cache entry to delete
+     */
     public static void deleteCacheVersion(Document d, int pageNum) {
         Path documentCacheDir = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
         if (Files.exists(documentCacheDir)) {
@@ -532,10 +645,26 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Checks whether a cached PNG rendering exists for the given document page.
+     * Delegates to {@link #hasCacheVersion2(Document, Integer)}.
+     *
+     * @param d Document the document to look up in the cache
+     * @param pageNum int the 1-based page number
+     * @return File the cached PNG file if it exists, or null
+     */
     private File hasCacheVersion(Document d, int pageNum) {
         return hasCacheVersion2(d, pageNum);
     }
 
+    /**
+     * Renders a specific page of a PDF document as a PNG image using Apache PDFBox,
+     * saves it to the document cache directory, and returns the image bytes.
+     *
+     * @param d Document the document to render
+     * @param pageNum Integer the 1-based page number to render
+     * @return byte[] the PNG image bytes, or null if rendering fails or page number is invalid
+     */
     public byte[] createCacheVersion2(Document d, Integer pageNum) {
         Path pdfPath = Paths.get(DOCUMENT_DIR, d.getDocfilename());
         Path pngFile = Paths.get(getDocumentCacheDir(), d.getDocfilename() + "_" + pageNum + ".png");
@@ -543,33 +672,29 @@ public class ManageDocument2Action extends ActionSupport {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             PDFParser parser = new PDFParser(new RandomAccessFile(pdfPath.toFile(), "rw"), new ScratchFile(MemoryUsageSetting.setupTempFileOnly()));
             parser.parse();
-            PDDocument pdf = parser.getPDDocument();
 
-            // Validate page number is within bounds
-            if (pageNum == null) {
-                log.error("Page number is null for document " + d.getDocfilename());
-                pdf.close();
-                return null;
+            try (PDDocument pdf = parser.getPDDocument()) {
+                // Validate page number is within bounds
+                if (pageNum == null) {
+                    log.error("Page number is null for document " + d.getDocfilename());
+                    return null;
+                }
+
+                int pageIndex = pageNum - 1;
+                int totalPages = pdf.getNumberOfPages();
+                if (pageIndex < 0 || pageIndex >= totalPages) {
+                    log.error("Invalid page number " + pageNum + " for document " + d.getDocfilename() + " with " + totalPages + " pages");
+                    return null;
+                }
+
+                PDFRenderer rend = new PDFRenderer(pdf);
+                BufferedImage image = rend.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
+
+                ImageIO.write(image, "png", pngFile.toFile());
+                ImageIO.write(image, "png", baos);
+
+                image.flush();
             }
-
-            int pageIndex = pageNum - 1;
-            int totalPages = pdf.getNumberOfPages();
-            if (pageIndex < 0 || pageIndex >= totalPages) {
-                log.error("Invalid page number " + pageNum + " for document " + d.getDocfilename() + " with " + totalPages + " pages");
-                pdf.close();
-                return null;
-            }
-
-            PDFRenderer rend = new PDFRenderer(pdf);
-            //Page index starts at 0, subtracts 1 to account for that
-            BufferedImage image = rend.renderImageWithDPI(pageIndex, 96, ImageType.RGB);
-
-            // write cache file
-            ImageIO.write(image, "png", pngFile.toFile());
-            ImageIO.write(image, "png", baos);
-
-            pdf.close();
-            image.flush();
 
             return baos.toByteArray();
         } catch (Exception e) {
@@ -578,15 +703,28 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Renders a specific document page as a PNG image based on the "page" request parameter.
+     *
+     * @throws Exception if page rendering fails
+     */
     public void showPage() throws Exception {
         getPage(Integer.parseInt(request.getParameter("page")));
     }
 
+    /**
+     * Renders the first page of a document as a PNG image.
+     */
     public void view() {
         getPage(1);
     }
 
-    // PNG version
+    /**
+     * Retrieves or generates a cached PNG rendering of the specified document page
+     * and writes it to the HTTP response. Uses the document cache for performance.
+     *
+     * @param pageNum int the 1-based page number to render
+     */
     public void getPage(int pageNum) {
 
         String doc_no = request.getParameter("doc_no");
@@ -609,6 +747,12 @@ public class ManageDocument2Action extends ActionSupport {
         response.setHeader("Content-Disposition", "attachment;filename=\"" + sanitizeHeaderValue(d.getDocfilename()) + "\"");
     }
 
+    /**
+     * Views a specific page of a document as a PNG image. For non-PDF documents,
+     * delegates to {@link #display()}. Uses caching for PDF page rendering.
+     *
+     * @throws SecurityException if the user lacks _edoc read privilege
+     */
     public void viewDocPage() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -663,6 +807,12 @@ public class ManageDocument2Action extends ActionSupport {
 
     }
 
+    /**
+     * Returns the total page count of a PDF document as a JSON response.
+     * Uses OpenPDF PdfReader with try-with-resources for page counting.
+     *
+     * @throws SecurityException if the user lacks _edoc read privilege
+     */
     public void getDocPageNumber() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -676,8 +826,7 @@ public class ManageDocument2Action extends ActionSupport {
         String filePath = docdownload + d.getDocfilename();
 
         int numOfPage = 0;
-        try {
-            PdfReader reader = new PdfReader(filePath);
+        try (PdfReader reader = new PdfReader(filePath)) {
             numOfPage = reader.getNumberOfPages();
 
             HashMap hm = new HashMap();
@@ -689,6 +838,14 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Previously handled CDS (Clinical Document Sharing) downloads. The Sharing Center
+     * functionality has been removed; this method now returns a 503 Service Unavailable.
+     *
+     * @return String null (response is sent directly)
+     * @throws Exception if response writing fails
+     * @throws SecurityException if the user lacks _edoc read privilege
+     */
     public String downloadCDS() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -701,6 +858,14 @@ public class ManageDocument2Action extends ActionSupport {
         return null;
     }
 
+    /**
+     * Displays a document by writing its binary content to the HTTP response with
+     * the appropriate content type. Supports both file-system-stored documents and
+     * legacy HTML documents stored in the docxml database field.
+     *
+     * @throws Exception if the document file does not exist and no docxml fallback is available
+     * @throws SecurityException if the user lacks _edoc read privilege
+     */
     public void display() throws Exception {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -767,22 +932,50 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Renders both document annotations/acknowledgements/ticklers and document description
+     * metadata as an HTML fragment.
+     *
+     * @throws Exception if response writing fails
+     */
     public void viewDocumentInfo() throws Exception {
         response.setContentType("text/html;charset=UTF-8");
         doViewDocumentInfo(request, response.getWriter(), true, true);
 
     }
 
+    /**
+     * Renders only the document description metadata (dates, type, creator, etc.)
+     * as an HTML fragment, without annotations or ticklers.
+     *
+     * @throws Exception if response writing fails
+     */
     public void viewDocumentDescription() throws Exception {
         response.setContentType("text/html;charset=UTF-8");
         doViewDocumentInfo(request, response.getWriter(), false, true);
     }
 
+    /**
+     * Renders only the document annotations, acknowledgements, and ticklers as an HTML
+     * fragment, without the document description metadata.
+     *
+     * @throws Exception if response writing fails
+     */
     public void viewAnnotationAcknowledgementTickler() throws Exception {
         response.setContentType("text/html;charset=UTF-8");
         doViewDocumentInfo(request, response.getWriter(), true, false);
     }
 
+    /**
+     * Renders document information as an HTML page, with configurable sections for
+     * annotations/acknowledgements/ticklers and document description metadata.
+     *
+     * @param request HttpServletRequest the current request for session and locale access
+     * @param out PrintWriter the response writer to output HTML to
+     * @param viewAnnotationAcknowledgementTicklerFlag boolean whether to include annotations, acknowledgements, and ticklers
+     * @param viewDocumentDescriptionFlag boolean whether to include document description metadata
+     * @throws SecurityException if the user lacks _edoc read privilege
+     */
     public void doViewDocumentInfo(HttpServletRequest request, PrintWriter out, boolean viewAnnotationAcknowledgementTicklerFlag, boolean viewDocumentDescriptionFlag) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -839,6 +1032,15 @@ public class ManageDocument2Action extends ActionSupport {
 
     }
 
+    /**
+     * Processes an incoming document from the incoming document queue: moves the PDF to
+     * the permanent document store, creates the EDoc record, routes to provider inboxes,
+     * links to the patient demographic, and creates a case management note.
+     *
+     * @return String the Struts2 result name ("nextIncomingDoc" on success, "error" on failure)
+     * @throws Exception if parameter validation or file operations fail
+     * @throws SecurityException if the user lacks _edoc write privilege or path traversal is detected
+     */
     public String addIncomingDocument() throws Exception {
 
         String pdfDir = request.getParameter("pdfDir");
@@ -912,7 +1114,9 @@ public class ManageDocument2Action extends ActionSupport {
             sanitizedFileName = "document_" + timestamp + ".dat";
         }
 
-        // Ensure filename uniqueness by checking if file already exists
+        // Ensure filename uniqueness. The generated filename includes a timestamp, but
+        // collisions can still occur when multiple documents are uploaded in quick succession.
+        // The counter-based suffix (_1, _2, ...) guarantees a unique filename on disk.
         File destFile = new File(savePath + sanitizedFileName);
         String originalSanitized = sanitizedFileName;
         int counter = 1;
@@ -1018,6 +1222,14 @@ public class ManageDocument2Action extends ActionSupport {
         return "nextIncomingDoc";
     }
 
+    /**
+     * Serves a single page of an incoming PDF document as a standalone PDF using
+     * Apache PDFBox. Validates file paths against the INCOMINGDOCUMENT_DIR using
+     * {@link PathValidationUtils}.
+     *
+     * @throws Exception if path validation or PDF extraction fails
+     * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
+     */
     public void viewIncomingDocPageAsPdf() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -1071,38 +1283,41 @@ public class ManageDocument2Action extends ActionSupport {
         response.setContentType("application/pdf");
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(sanitizedPdfName + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf") + "\"");
 
-        try {
-            PDDocument reader = PDDocument.load(file);
-
+        try (PDDocument reader = PDDocument.load(file)) {
             // Validate page number is within bounds
             int pageIndex = pageNumber - 1;
             int totalPages = reader.getNumberOfPages();
             if (pageIndex < 0 || pageIndex >= totalPages) {
                 log.error("Invalid page number " + pageNumber + " for PDF " + sanitizedPdfName + " with " + totalPages + " pages");
-                reader.close();
                 response.setContentType("text/html;charset=UTF-8");
                 response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
                 response.getWriter().print("<br>Invalid page number");
                 return;
             }
 
-            PDDocument extractedPage = new PDDocument();
-            extractedPage.addPage(reader.getDocumentCatalog().getPages().get(pageIndex));
-            extractedPage.save(response.getOutputStream());
-            extractedPage.close();
-            reader.close();
+            try (PDDocument extractedPage = new PDDocument()) {
+                extractedPage.addPage(reader.getDocumentCatalog().getPages().get(pageIndex));
+                extractedPage.save(response.getOutputStream());
+            }
         } catch (Exception ex) {
             response.setContentType("text/html;charset=UTF-8");
             // Sanitize the filename to prevent XSS and response splitting
             response.getWriter().print(props.getString("dms.incomingDocs.errorInOpening") + Encode.forHtml(sanitizedPdfName));
             response.getWriter().print("<br>" + props.getString("dms.incomingDocs.PDFCouldBeCorrupted"));
 
-            MiscUtils.getLogger().error("Error", ex);
+            MiscUtils.getLogger().error("Failed to extract page {} from PDF: {}", pageNumber, sanitizedPdfName, ex);
         }
 
     }
 
-    public int countNumOfPages(String fileName) { // count number of pages in a pdf file
+    /**
+     * Counts the number of pages in a PDF file using Apache PDFBox.
+     * The file is located in the configured DOCUMENT_DIR.
+     *
+     * @param fileName String the PDF filename (relative to DOCUMENT_DIR)
+     * @return int the number of pages, or 0 if the file cannot be read
+     */
+    public int countNumOfPages(String fileName) {
         int numOfPage = 0;
         String docdownload = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
 
@@ -1112,17 +1327,21 @@ public class ManageDocument2Action extends ActionSupport {
 
         String filePath = docdownload + fileName;
 
-        try {
-            PDDocument reader = PDDocument.load(new File(filePath));
+        try (PDDocument reader = PDDocument.load(new File(filePath))) {
             numOfPage = reader.getNumberOfPages();
-
-            reader.close();
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to count pages for document: {}", fileName, e);
         }
         return numOfPage;
     }
 
+    /**
+     * Serves the raw PDF content of an incoming document for inline display.
+     * Validates file paths against the INCOMINGDOCUMENT_DIR using {@link PathValidationUtils}.
+     *
+     * @throws Exception if path validation or file I/O fails
+     * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
+     */
     public void displayIncomingDocs() throws Exception {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
@@ -1188,6 +1407,14 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Renders a specific page of an incoming PDF document as a PNG image using
+     * Apache PDFBox via {@link #createIncomingCacheVersion}. Validates file paths
+     * to prevent path traversal attacks.
+     *
+     * @throws Exception if path validation, rendering, or I/O fails
+     * @throws SecurityException if the user lacks _edoc read privilege or path traversal is detected
+     */
     public void viewIncomingDocPageAsImage() throws Exception {
 
 
@@ -1253,6 +1480,19 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Renders a page of an incoming PDF as a cached PNG image using Apache PDFBox.
+     * The image is saved to a cache directory adjacent to the incoming document directory.
+     * Validates all input parameters and file paths to prevent path traversal.
+     *
+     * @param queueId String the incoming document queue identifier
+     * @param pdfDir String the subdirectory type (Fax, Mail, File, or Refile)
+     * @param pdfName String the PDF filename
+     * @param pageNum Integer the 1-based page number to render
+     * @return File the generated PNG cache file, or null if rendering fails
+     * @throws Exception if parameter validation fails
+     * @throws SecurityException if path traversal is detected or file type is not PDF
+     */
     public File createIncomingCacheVersion(String queueId, String pdfDir, String pdfName, Integer pageNum) throws Exception {
         
         // Validate input parameters to prevent path traversal
@@ -1330,6 +1570,13 @@ public class ManageDocument2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Writes the given byte array directly to the servlet response output stream.
+     *
+     * @param response HttpServletResponse the servlet response to write to
+     * @param pdfBytes byte[] the content bytes to stream to the client
+     * @return HttpServletResponse the same response object
+     */
     private HttpServletResponse setResponse(HttpServletResponse response, byte[] pdfBytes) {
         try (ServletOutputStream outs = response.getOutputStream();
              ByteArrayInputStream fileInputStream = new ByteArrayInputStream(pdfBytes)) {
@@ -1340,6 +1587,13 @@ public class ManageDocument2Action extends ActionSupport {
         return response;
     }
 
+    /**
+     * Writes the contents of the given file directly to the servlet response output stream.
+     *
+     * @param response HttpServletResponse the servlet response to write to
+     * @param output File the file whose contents are streamed to the client
+     * @return HttpServletResponse the same response object
+     */
     private HttpServletResponse setResponse(HttpServletResponse response, File output) {
         try (ServletOutputStream outs = response.getOutputStream();
              FileInputStream fileInputStream = new FileInputStream(output)
