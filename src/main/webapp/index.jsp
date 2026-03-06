@@ -94,6 +94,10 @@
                 document.loginForm.username.select();
             }
 
+            // Clear any stale logout signal from a previous session so it does not
+            // cause an immediate logout loop if the user logs in again in this tab.
+            try { localStorage.removeItem('carlos_logout_signal'); } catch(e) {}
+
             function popupPage(vheight, vwidth, varpage) {
                 var page = "" + varpage;
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
