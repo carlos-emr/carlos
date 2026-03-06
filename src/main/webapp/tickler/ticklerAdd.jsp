@@ -457,7 +457,9 @@
                     return false;
                 }
                 <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
-                else if (document.serviceform.site.value == "none" || document.serviceform.site.value == "0") {
+                else if (!document.serviceform.task_assigned_to ||
+                         document.serviceform.task_assigned_to.options.length === 0 ||
+                         document.serviceform.task_assigned_to.value === "") {
                     document.getElementById("error").insertAdjacentText("beforeend", '<%=Encode.forJavaScript(oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider"))%>');
                     document.getElementById("error").style.display = 'block';
                     return false;
