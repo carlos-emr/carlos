@@ -38,7 +38,6 @@ import org.openpdf.text.pdf.BaseFont;
 import org.openpdf.text.pdf.PdfWriter;
 import io.github.carlos_emr.carlos.fax.core.FaxAccount;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import org.openpdf.text.pdf.PdfPCell;
 import org.openpdf.text.pdf.PdfPTable;
@@ -136,7 +135,8 @@ public class PdfCoverPageCreator {
      *   <li>Confidentiality statement footer</li>
      * </ul>
      *
-     * @return byte[] the generated PDF cover page, or an empty array if generation fails
+     * @return byte[] the generated PDF cover page
+     * @throws RuntimeException if PDF generation fails due to a DocumentException or IOException
      */
     public byte[] createCoverPage() {
         byte[] bytearray = new byte[]{};
@@ -214,7 +214,7 @@ public class PdfCoverPageCreator {
             bytearray = os.toByteArray();
 
         } catch (DocumentException | IOException e) {
-            MiscUtils.getLogger().error("PDF COVER PAGE ERROR", e);
+            throw new RuntimeException("Failed to generate fax cover page PDF", e);
         }
 
         return bytearray;

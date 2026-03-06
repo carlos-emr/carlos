@@ -200,9 +200,11 @@ public final class IncomingDocUtil {
         try {
             reader = new PdfReader(filePath);
             numOfPages = reader.getNumberOfPages();
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
+        } catch (org.openpdf.text.exceptions.BadPasswordException e) {
+            MiscUtils.getLogger().error("Cannot read page count - PDF is password-protected: {}", filePath, e);
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Cannot read page count for PDF file: {}", filePath, e);
+        }  finally {
             if (reader != null) {
                 reader.close();
             }

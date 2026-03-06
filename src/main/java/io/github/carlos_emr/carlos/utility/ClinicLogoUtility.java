@@ -146,8 +146,7 @@ public final class ClinicLogoUtility {
     private static void addImage(PdfPTable pdfPTable, String filename, float width, float height) {
         try (FileInputStream fileInputStream = new FileInputStream(filename)) {
             PdfPCell cell = new PdfPCell();
-            byte[] faxLogImage = new byte[1024 * 256];
-            fileInputStream.read(faxLogImage);
+            byte[] faxLogImage = fileInputStream.readAllBytes();
             Image image = Image.getInstance(faxLogImage);
             image.scaleToFit(width, height);
             image.setBorder(0);

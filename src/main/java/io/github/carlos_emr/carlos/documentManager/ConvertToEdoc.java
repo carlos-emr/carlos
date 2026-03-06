@@ -121,7 +121,7 @@ public final class ConvertToEdoc {
         EDoc edoc = null;
         Path path = execute(eformString, filename);
 
-        if (Files.isReadable(path)) {
+        if (path != null && Files.isReadable(path)) {
             edoc = buildEDoc(path.getFileName().toString(),
                     eDocDescription,
                     null,
@@ -200,7 +200,7 @@ public final class ConvertToEdoc {
         EDoc edoc = null;
         Path path = execute(htmlString, filename);
 
-        if (Files.isReadable(path)) {
+        if (path != null && Files.isReadable(path)) {
             edoc = buildEDoc(filename,
                     subject,
                     null,

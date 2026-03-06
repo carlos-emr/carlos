@@ -78,6 +78,21 @@ public class Doc2PDF {
     private static Logger logger = MiscUtils.getLogger();
 
     /**
+     * Sends an HTTP 500 error response if the response has not yet been committed.
+     * Used by PDF generation methods to signal failure to the client instead of
+     * returning a blank page.
+     */
+    private static void sendErrorIfPossible(HttpServletResponse response) {
+        try {
+            if (response != null && !response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
+            }
+        } catch (IOException ioEx) {
+            logger.error("Could not send error response", ioEx);
+        }
+    }
+
+    /**
      * Configure Jsoup document for XHTML output compatible with Flying Saucer ITextRenderer.
      * This ensures consistent HTML cleaning across all PDF conversion methods.
      *
@@ -103,10 +118,10 @@ public class Doc2PDF {
      * @param html String containing the HTML content to render
      * @param os OutputStream to write the PDF to
      * @param baseUrl String optional base URL for resolving relative resources (e.g. {@code file:///path/to/webapp/}), or null
-     * @throws Exception if rendering fails
+     * @throws org.openpdf.text.DocumentException if the PDF document structure cannot be created
      * @since 2026-03-04
      */
-    private static void renderWithFlyingSaucer(String html, OutputStream os, String baseUrl) throws Exception {
+    private static void renderWithFlyingSaucer(String html, OutputStream os, String baseUrl) throws org.openpdf.text.DocumentException {
         org.jsoup.nodes.Document doc = Jsoup.parse(html);
         configureJsoupForXhtml(doc);
         doc.outputSettings().charset(StandardCharsets.UTF_8.name());
@@ -146,6 +161,9 @@ public class Doc2PDF {
 
             // Fetch the rendered JSP page via HTTP and parse it into a clean XHTML document
             BufferedInputStream in = GetInputFromURI(jsessionid, uri);
+            if (in == null) {
+                throw new IOException("Failed to fetch JSP content from the given URI");
+            }
 
             // Parse directly from InputStream with UTF-8 encoding and base URI
             org.jsoup.nodes.Document doc = Jsoup.parse(in, StandardCharsets.UTF_8.name(), uri);
@@ -273,7 +291,8 @@ public class Doc2PDF {
             PrintPDFFromHTMLString(response, AddAbsoluteTag(request, cleanHtml, ""), getFileBaseUrl(request));
 
         } catch (Exception e) {
-            logger.error("Unexpected error", e);
+            logger.error("Failed to convert HTML string to PDF", e);
+            sendErrorIfPossible(response);
         }
 
     }
@@ -303,7 +322,7 @@ public class Doc2PDF {
             return testFile;
 
         } catch (Exception e) {
-            logger.error("Unexpected error", e);
+            logger.error("Failed to convert HTML string to Base64 PDF binary", e);
             return null;
         }
 
@@ -349,7 +368,7 @@ public class Doc2PDF {
             in = new BufferedInputStream(conn.getInputStream());
 
         } catch (Exception e) {
-            logger.error("Unexpected error", e);
+            logger.error("Failed to open HTTP connection to fetch URI content", e);
         }
         return in;
     }
@@ -368,7 +387,7 @@ public class Doc2PDF {
             renderWithFlyingSaucer(docText, baos, baseUrl);
             return (new String(Base64.encodeBase64(baos.toByteArray())));
         } catch (Exception e) {
-            logger.error("Unexpected error", e);
+            logger.error("Failed to render HTML to Base64 PDF binary", e);
         }
         return null;
     }
@@ -389,7 +408,8 @@ public class Doc2PDF {
             return;
 
         } catch (Exception e) {
-            logger.error("Unexpected error", e);
+            logger.error("Failed to decode and print Base64 PDF", e);
+            sendErrorIfPossible(response);
         }
 
     }
@@ -430,7 +450,8 @@ public class Doc2PDF {
             o.close(); // *important* to ensure no more jsp output
             return;
         } catch (Exception e) {
-            logger.error("Unexpected error", e);
+            logger.error("Failed to write PDF bytes to HTTP response", e);
+            sendErrorIfPossible(response);
         }
 
     }
@@ -448,7 +469,8 @@ public class Doc2PDF {
             renderWithFlyingSaucer(docText, baos, baseUrl);
             PrintPDFFromBytes(response, baos.toByteArray());
         } catch (Exception e) {
-            logger.error("Unexpected error", e);
+            logger.error("Failed to render HTML string to PDF", e);
+            sendErrorIfPossible(response);
         }
     }
 
@@ -462,7 +484,7 @@ public class Doc2PDF {
      * to {@link #renderWithFlyingSaucer}. This avoids constructing {@code http://} URLs
      * that would be blocked by the SSRF-safe {@link LocalOnlyUserAgent}.</p>
      *
-     * @param request HttpServletRequest providing servlet context for the webapp real path
+     * @param request HttpServletRequest unused, retained for API compatibility with existing callers
      * @param docText String the HTML content with potentially relative src attributes
      * @param uri String the original URI (unused in current implementation)
      * @return String the HTML with src attributes cleaned for local file resolution

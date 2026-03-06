@@ -33,12 +33,15 @@ CARLOS EMR currently uses **5+ overlapping PDF libraries** for PDF creation, for
 | Flying Saucer | `org.xhtmlrenderer:flying-saucer-pdf` | 10.0.7 | LGPL | XHTML→PDF (4 files) | **DONE** |
 | OpenRTF | `com.github.librepdf:openrtf` | 3.0.0 | LGPL | RTF export (1 file) | **DONE** |
 | ultrabuk-htmltopdf | `com.github.openosp:ultrabuk-htmltopdf-java` | 1.0.11 | — | wkhtmltopdf wrapper (1 file) | **KEEP (defer)** |
-| OpenPDF | `com.github.librepdf:openpdf` | 3.0.2 | LGPL | PDF creation (46 files, `org.openpdf.*`) | **DONE** |
+| OpenPDF | `com.github.librepdf:openpdf` | 3.0.2 | LGPL | PDF creation (45 files, `org.openpdf.*`) | **DONE** |
+| OpenPDF HTML | `com.github.librepdf.openpdf:openpdf-html` | 3.0.2 | LGPL | Flying Saucer XhtmlRenderer integration and HTML schema resources | **ADDED** |
+| TwelveMonkeys ImageIO TIFF | `com.twelvemonkeys.imageio:imageio-tiff` | 3.13.0 | BSD | Multi-page TIFF handling (replaces OpenPDF 3.0's removed TiffImage codec) | **ADDED** |
 
 ### Files by Library Usage
 
-**45 files imported `com.itextpdf.*`** (the original migration scope). Including the new
-`LocalOnlyUserAgent.java`, 46 total files now use `org.openpdf.*`:
+**45 files imported `com.itextpdf.*`** and were migrated to `org.openpdf.*`. Additionally,
+`LocalOnlyUserAgent.java` was added as an SSRF-prevention layer using Flying Saucer
+(`org.xhtmlrenderer.*`) classes — it does not import `org.openpdf.*` directly:
 
 #### Group A: PDF Creation from Scratch (21 files)
 These files create PDFs programmatically using `Document`, `PdfWriter`, `PdfPTable`, `Paragraph`, `Font`, etc.
@@ -179,11 +182,12 @@ all resource types regardless of what's in the HTML.
   blocked, but messenger HTML contains no images; if needed, the fix is to convert to filesystem
   paths instead
 
-### PDFBox-Only Files (7 files — no changes needed)
+### PDFBox-Only Files (7 files — no import migration needed)
 
-These files use only `org.apache.pdfbox` and were not modified:
+These files use only `org.apache.pdfbox` and required no import migration.
+`ConcatPDF.java` received a comment correction and error-counting enhancement:
 
-- `util/ConcatPDF.java` — PDF merging
+- `util/ConcatPDF.java` — PDF merging (comment fix: "iText" → "PDFBox"; added skip-count logging)
 - `documentManager/actions/SplitDocument2Action.java` — PDF splitting
 - `documentManager/EDocUtil.java` — Edoc utilities
 - `documentManager/DocumentAttachmentManagerImpl.java` — Attachment handling
@@ -538,7 +542,7 @@ Uses `org.openpdf.text.rtf.RtfWriter2` from OpenRTF 3.0.0. After migration, LabP
 
 ## Out of Scope (Future Work)
 
-1. ~~**Doc2PDF full removal**~~ — **DONE** (migrated to Flying Saucer, iText 5 removed)
+1. ~~**Doc2PDF iText 5 migration**~~ — **DONE** (migrated from XMLWorkerHelper to Flying Saucer ITextRenderer, iText 5 dependencies removed from pom.xml)
 2. **ultrabuk-htmltopdf-java removal** — Replace wkhtmltopdf wrapper with Flying Saucer as primary HTML→PDF, remove JitPack repo dependency (separate PR)
 3. **PDFBox 2.x → 3.x upgrade** — PDFBox 3.0 is available with significant API changes (separate initiative)
 4. ~~**Flying Saucer 9.x → 10.x upgrade**~~ — **DONE** (upgraded to 10.0.7 in PR #536)
@@ -556,5 +560,5 @@ Uses `org.openpdf.text.rtf.RtfWriter2` from OpenRTF 3.0.0. After migration, LabP
 | 3: Complex PDF Creators | ~12 | **High** | Migrate lab PDFs, clinical notes, medical form servlets |
 | 4: Cleanup | ~11 | Low | Migrate remaining files, remove iText 5 from pom.xml |
 
-**Total**: 46 files migrated to `org.openpdf.*`, 3 dependency upgrades (OpenPDF 3.0.2, OpenRTF 3.0.0, Flying Saucer 10.0.7)
+**Total**: 45 files migrated to `org.openpdf.*`, 3 dependency upgrades (OpenPDF 3.0.2, OpenRTF 3.0.0, Flying Saucer 10.0.7) + 2 new dependencies (OpenPDF HTML 3.0.2, TwelveMonkeys ImageIO TIFF 3.13.0)
 **Net result**: 5 PDF libraries → 2 (OpenPDF + PDFBox). iText 5 fully removed (Doc2PDF migrated to Flying Saucer).

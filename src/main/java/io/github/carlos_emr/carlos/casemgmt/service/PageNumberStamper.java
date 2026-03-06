@@ -121,12 +121,8 @@ public class PageNumberStamper extends FooterSupport {
         total.setBoundingBox(new Rectangle(-40, -40, 100, 100));
     }
 
-    public PdfTemplate getTotal() {
+    PdfTemplate getTotal() {
         return total;
-    }
-
-    public void setTotal(PdfTemplate total) {
-        this.total = total;
     }
 
 }

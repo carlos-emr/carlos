@@ -176,13 +176,11 @@ public class LabPDFCreatorTest {
     private static String createPDF(ZipEntry zipEntry, MessageHandler handler) {
 
         String hl7Body = getHL7Body(zipEntry);
-        LabPDFCreator lpdfc = null;
-        FileOutputStream output = null;
         String filePath = "";
 
         if (!hl7Body.isEmpty()) {
 
-            lpdfc = new LabPDFCreator();
+            LabPDFCreator lpdfc = new LabPDFCreator();
             lpdfc.setOs(new ByteArrayOutputStream());
             String filename = zipEntry.getName();
 
@@ -196,29 +194,18 @@ public class LabPDFCreatorTest {
                     filename = filename.replaceAll("/", "_");
                 }
                 filePath = outputFilePath + filename + ".pdf";
-                output = new FileOutputStream(filePath);
-                output.write(((ByteArrayOutputStream) lpdfc.getOs()).toByteArray());
+                try (FileOutputStream output = new FileOutputStream(filePath)) {
+                    output.write(((ByteArrayOutputStream) lpdfc.getOs()).toByteArray());
+                }
 
                 MiscUtils.getLogger().info("PDF file created at " + filePath);
-            } catch (HL7Exception e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (DocumentException e) {
-                e.printStackTrace();
+            } catch (HL7Exception | IOException | DocumentException e) {
+                throw new AssertionError("PDF creation failed for " + filename, e);
             } finally {
                 try {
-                    if (output != null) {
-                        output.close();
-                    }
+                    lpdfc.closeOs();
                 } catch (IOException e) {
-                    e.printStackTrace();
-                } finally {
-                    try {
-                        lpdfc.closeOs();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                    MiscUtils.getLogger().warn("Failed to close LabPDFCreator output stream", e);
                 }
             }
         }

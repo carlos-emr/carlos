@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 /**
  * SSRF-safe {@link ITextUserAgent} that blocks all external network resource fetching
@@ -78,6 +79,9 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
      * Default dots-per-pixel value matching {@link ITextRenderer}'s no-arg constructor.
      */
     private static final int DEFAULT_DOTS_PER_PIXEL = 20;
+
+    /** Pattern matching control characters (newlines, tabs, etc.) that could be used for log forging. */
+    private static final Pattern CONTROL_CHARS = Pattern.compile("[\\x00-\\x1f\\x7f]");
 
     /**
      * Constructs a LocalOnlyUserAgent with the given output device and pixel ratio.
@@ -131,6 +135,8 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
             return null;
         }
 
+        String safeUri = sanitizeForLog(uri);
+
         // Allow file: scheme and relative paths (no scheme or starts with / or .)
         if (lower.startsWith("file:") || !uri.contains(":") || uri.startsWith("/") || uri.startsWith(".")) {
             return super.resolveAndOpenStream(uri);
@@ -138,7 +144,7 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
 
         // Block everything else (http, https, ftp, jar, gopher, ldap, etc.)
         String scheme = lower.substring(0, lower.indexOf(':') + 1);
-        logger.warn("Blocked external resource fetch during PDF rendering (scheme: {})", scheme);
+        logger.warn("Blocked external resource fetch during PDF rendering (scheme: {}, uri: {})", scheme, safeUri);
         return null;
     }
 
@@ -166,15 +172,17 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
         if (uri != null) {
             String lower = uri.toLowerCase(Locale.ROOT);
 
+            String safeUri = sanitizeForLog(uri);
+
             // Defense-in-depth: block non-file, non-data schemes even if they somehow
             // bypassed resolveAndOpenStream (e.g., via a future code path or parent resolution)
             if (lower.contains(":") && !lower.startsWith("file:") && !lower.startsWith("data:")) {
-                logger.warn("Blocked non-local URI in openStream during PDF rendering: {}", uri);
+                logger.warn("Blocked non-local URI in openStream during PDF rendering: {}", safeUri);
                 return null;
             }
 
             if (lower.startsWith("file:") && !isAllowedLocalPath(uri)) {
-                logger.warn("Blocked file access outside allowed directories during PDF rendering: {}", uri);
+                logger.warn("Blocked file access outside allowed directories during PDF rendering: {}", safeUri);
                 return null;
             }
         }
@@ -282,9 +290,23 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
     @Override
     public void setBaseURL(String url) {
         if (url != null && !url.toLowerCase(Locale.ROOT).startsWith("file:")) {
-            logger.warn("Rejected non-file base URL to prevent SSRF via relative URI resolution: {}", url);
+            logger.warn("Rejected non-file base URL to prevent SSRF via relative URI resolution: {}", sanitizeForLog(url));
             return;
         }
         super.setBaseURL(url);
+    }
+
+    /**
+     * Strips control characters (newlines, tabs, etc.) from a URI string before logging
+     * to prevent log forging via embedded control characters in user-controlled URIs.
+     *
+     * @param uri String the URI to sanitize
+     * @return String the URI with control characters replaced by underscores
+     */
+    private static String sanitizeForLog(String uri) {
+        if (uri == null) {
+            return "null";
+        }
+        return CONTROL_CHARS.matcher(uri).replaceAll("_");
     }
 }
