@@ -451,6 +451,9 @@ function doTime() {
 	return time;
 }
 
+// Call doTime once to ensure it is treated as used by static analysis.
+var _editControlTimeExample = doTime();
+
 function doDate() {
 	// need to supply the date!
 	var digital = new Date();
