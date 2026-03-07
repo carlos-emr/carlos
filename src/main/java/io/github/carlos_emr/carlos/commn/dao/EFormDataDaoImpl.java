@@ -352,7 +352,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     @SuppressWarnings("unchecked")
     @Override
     public List<EFormData> findByDemographicIdAndFormName(Integer demographicNo, String formName) {
-        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formName LIKE ?2 and status = '1' ORDER BY e.formDate, e.formTime DESC";
+        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formName LIKE ?2 and e.status = '1' ORDER BY e.formDate, e.formTime DESC";
         Query query = entityManager.createQuery(queryString);
         query.setParameter(1, demographicNo);
         query.setParameter(2, formName);
@@ -362,7 +362,7 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     @SuppressWarnings("unchecked")
     @Override
     public List<EFormData> findByDemographicIdAndFormId(Integer demographicNo, Integer fid) {
-        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formId = ?2 and status = '1' ORDER BY e.formDate DESC, e.formTime DESC";
+        String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formId = ?2 and e.status = '1' ORDER BY e.formDate DESC, e.formTime DESC";
         Query query = entityManager.createQuery(queryString);
         query.setParameter(1, demographicNo);
         query.setParameter(2, fid);

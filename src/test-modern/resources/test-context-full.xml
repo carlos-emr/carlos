@@ -248,11 +248,15 @@
                 <value>io.github.carlos_emr.carlos.commn.model.BillingONCHeader1</value>
                 <value>io.github.carlos_emr.carlos.commn.model.BillingONItem</value>
                 <value>io.github.carlos_emr.carlos.commn.model.Billing</value>
+                <value>io.github.carlos_emr.carlos.commn.model.BillingService</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit</value>
+                <value>io.github.carlos_emr.carlos.billing.CA.model.BillingDetail</value>
                 <!-- EForm entities -->
                 <value>io.github.carlos_emr.carlos.commn.model.EFormData</value>
                 <!-- Document entities -->
                 <value>io.github.carlos_emr.carlos.commn.model.Document</value>
                 <value>io.github.carlos_emr.carlos.commn.model.DocumentReview</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MeasurementsExt</value>
                 <!-- MeasurementType for Measurement query tests -->
                 <value>io.github.carlos_emr.carlos.commn.model.MeasurementType</value>
                 <!-- CtlDocument entities for DocumentDao JPQL join tests -->
@@ -541,6 +545,7 @@
     <bean id="admissionDao" class="io.github.carlos_emr.carlos.commn.dao.AdmissionDaoImpl" autowire="byName" />
 
     <!-- Billing DAOs for Phase 1 integration tests -->
+    <bean id="billingServiceDao" class="io.github.carlos_emr.carlos.commn.dao.BillingServiceDaoImpl" autowire="byName" />
     <bean id="billingONCHeader1Dao" class="io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1DaoImpl" autowire="byName" />
     <bean id="billingDao" class="io.github.carlos_emr.carlos.commn.dao.BillingDaoImpl" autowire="byName" />
 

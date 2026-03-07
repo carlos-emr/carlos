@@ -224,6 +224,7 @@ public class QueryReturnTypeIntegrationTest extends CarlosTestBase {
             doc.setDoctype("consult");
             doc.setDoccreator("999998");
             doc.setResponsible("999998");
+            doc.setContenttype("text/plain");
             doc.setStatus('A');
             entityManager.persist(doc);
             entityManager.flush();
@@ -326,6 +327,7 @@ public class QueryReturnTypeIntegrationTest extends CarlosTestBase {
             doc.setDoctype("lab");
             doc.setDoccreator("999998");
             doc.setResponsible("999998");
+            doc.setContenttype("text/plain");
             doc.setStatus('A');
             entityManager.persist(doc);
             entityManager.flush();

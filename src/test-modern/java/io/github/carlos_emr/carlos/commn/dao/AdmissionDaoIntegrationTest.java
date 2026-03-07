@@ -90,6 +90,21 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
         cal.setTime(today);
         cal.add(Calendar.DAY_OF_MONTH, 7);
         nextWeek = cal.getTime();
+
+        // Create parent records required by FK constraints on admission table
+        entityManager.createNativeQuery(
+                "INSERT INTO demographic (demographic_no, first_name, last_name, sex) VALUES (:id, 'Test', 'Patient', 'M')")
+                .setParameter("id", DEMO_NO)
+                .executeUpdate();
+        entityManager.createNativeQuery(
+                "INSERT INTO program (id) VALUES (:id)")
+                .setParameter("id", PROGRAM_ID)
+                .executeUpdate();
+        entityManager.createNativeQuery(
+                "INSERT INTO program (id) VALUES (:id)")
+                .setParameter("id", PROGRAM_ID_2)
+                .executeUpdate();
+        entityManager.flush();
     }
 
     private Admission createAdmission(int clientId, int programId, String status, Date admissionDate) {

@@ -225,7 +225,7 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         void shouldReturnLatest_whenMultipleMeasurementsExist() {
             // Given
             createAndPersist(DEMO_NO, "BP", "110/70", yesterday);
-            Measurement latest = createAndPersist(DEMO_NO, "BP", "120/80", today);
+            createAndPersist(DEMO_NO, "BP", "120/80", today);
 
             // When
             Measurement result = measurementDao.findLatestByDemographicNoAndType(DEMO_NO, "BP");
@@ -385,7 +385,7 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return measurements created after date with limit")
         void shouldReturnMeasurements_whenCreatedAfterDate() {
             // Given
-            Measurement m = createAndPersist(DEMO_NO, "BP", "120/80", today);
+            createAndPersist(DEMO_NO, "BP", "120/80", today);
 
             // When
             List<Measurement> result = measurementDao.findByCreateDate(lastWeek, 10);

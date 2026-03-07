@@ -557,7 +557,7 @@ public class AbstractDaoImplIntegrationTest extends CarlosTestBase {
             facility1.setName("SaveEntity Updated");
 
             // When
-            Facility result = facilityDao.saveEntity(facility1);
+            facilityDao.saveEntity(facility1);
             entityManager.flush();
             entityManager.clear();
 

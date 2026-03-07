@@ -350,7 +350,7 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
         void shouldReturnPairs_whenFutureAppointmentsExist() {
             // Given
             createAndPersistProvider(PROVIDER_NO, "John", "Smith");
-            Appointment appt = createAndPersist(tomorrow, PROVIDER_NO, 100, "A");
+            createAndPersist(tomorrow, PROVIDER_NO, 100, "A");
 
             // When
             List<Object[]> result = oscarAppointmentDao.search_appt_future(100, today, nextWeek);

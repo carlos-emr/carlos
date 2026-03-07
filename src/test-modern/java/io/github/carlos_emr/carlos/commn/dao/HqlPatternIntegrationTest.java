@@ -75,8 +75,8 @@ public class HqlPatternIntegrationTest extends CarlosTestBase {
     private static final String IMPLICIT_JOIN_HQL =
             "SELECT d FROM Document d, CtlDocument c WHERE c.id.documentNo = d.documentNo AND c.id.module = 'demographic' AND c.id.moduleId = :moduleId";
 
-    private static final String IMPLICIT_JOIN_EMPTY_HQL =
-            "SELECT d FROM Document d, CtlDocument c WHERE c.id.documentNo = d.documentNo AND c.id.module = 'demographic' AND c.id.moduleId = :moduleId";
+    // Same query as IMPLICIT_JOIN_HQL — empty-result scenarios are distinguished by parameter values
+    private static final String IMPLICIT_JOIN_EMPTY_HQL = IMPLICIT_JOIN_HQL;
 
     private static final String COMPOSITE_ID_SINGLE_HQL =
             "SELECT x FROM CtlDocument x WHERE x.id.documentNo = :docNo";
@@ -111,6 +111,7 @@ public class HqlPatternIntegrationTest extends CarlosTestBase {
             doc.setDoctype("consult");
             doc.setDoccreator("999998");
             doc.setResponsible("999998");
+            doc.setContenttype("text/plain");
             doc.setStatus('A');
             entityManager.persist(doc);
             entityManager.flush();
@@ -172,6 +173,7 @@ public class HqlPatternIntegrationTest extends CarlosTestBase {
             doc.setDoctype("lab");
             doc.setDoccreator("999998");
             doc.setResponsible("999998");
+            doc.setContenttype("text/plain");
             doc.setStatus('A');
             entityManager.persist(doc);
             entityManager.flush();

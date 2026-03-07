@@ -123,22 +123,17 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
     }
 
     /**
-     * Creates a Demographic record via the HBM-mapped DAO. Demographic is HBM-mapped
-     * so we use hibernateTemplate.save() instead of entityManager.persist().
+     * Creates a Demographic record with a specific demographic_no.
+     * Uses native SQL because Demographic has an identity generator that ignores manually set IDs.
      */
+    private static final String INSERT_DEMO_SQL = "INSERT INTO demographic (demographic_no, first_name, last_name, sex, provider_no, patient_status) VALUES (:id, 'Test', 'Patient', 'M', :provNo, 'AC')";
+
     private void createDemographic(Integer demoNo) {
-        Demographic demo = new Demographic();
-        demo.setDemographicNo(demoNo);
-        demo.setFirstName("Test");
-        demo.setLastName("Patient");
-        demo.setHin("1234567890");
-        demo.setSex("M");
-        demo.setProviderNo(PROVIDER_NO);
-        demo.setPatientStatus("AC");
-        demo.setPatientStatusDate(today);
-        demo.setDateJoined(today);
-        hibernateTemplate.save(demo);
-        hibernateTemplate.flush();
+        entityManager.createNativeQuery(INSERT_DEMO_SQL)
+                .setParameter("id", demoNo)
+                .setParameter("provNo", PROVIDER_NO)
+                .executeUpdate();
+        entityManager.flush();
     }
 
     private Document createDocument(String doctype, String creator, char status) {
@@ -504,7 +499,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return Object[] pairs by module, doctype, and moduleId")
         void shouldReturnPairs_byModuleDocTypeAndModuleId() {
             // Given
-            Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
 
             // When
             List<Object[]> result = documentDao.findCtlDocsAndDocsByModuleDocTypeAndModuleId(
@@ -684,7 +679,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return documents updated on or after given date")
         void shouldReturnDocuments_updatedOnOrAfterDate() {
             // Given
-            Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
 
             // When — inclusive, document updated at 'today'
             List<Document> result = documentDao.findByDemographicUpdateDate(DEMO_ID, today);
@@ -696,8 +691,11 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return empty when no documents updated since date")
         void shouldReturnEmpty_whenNoUpdates() {
-            // Given
-            createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            // Given — @PrePersist overrides updatedatetime with now(), so re-set it
+            Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            doc.setUpdatedatetime(today);
+            entityManager.merge(doc);
+            entityManager.flush();
 
             // When — tomorrow is after document update
             List<Document> result = documentDao.findByDemographicUpdateDate(DEMO_ID, tomorrow);
@@ -732,8 +730,11 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should exclude documents updated at exactly the given date")
         void shouldExcludeDocuments_updatedAtExactDate() {
-            // Given
-            createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            // Given — @PrePersist overrides updatedatetime with now(), so re-set it
+            Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            doc.setUpdatedatetime(today);
+            entityManager.merge(doc);
+            entityManager.flush();
 
             // When — exclusive: today == today, should NOT include
             List<Document> result = documentDao.findByDemographicUpdateAfterDate(DEMO_ID, today);
@@ -756,7 +757,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return documents by program, provider, demographic, and date")
         void shouldReturnDocuments_byAllCriteria() {
             // Given — document with null programId (matches "or d.programId is null")
-            Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
 
             // When
             List<Document> result = documentDao.findByProgramProviderDemographicUpdateDate(
@@ -834,8 +835,11 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return empty when no updates since date")
         void shouldReturnEmpty_whenNoUpdates() {
-            // Given
-            createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            // Given — @PrePersist overrides updatedatetime with now(), so re-set it
+            Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            doc.setUpdatedatetime(today);
+            entityManager.merge(doc);
+            entityManager.flush();
 
             // When
             List<Integer> result = documentDao.findDemographicIdsSince(tomorrow);
@@ -920,7 +924,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return count of documents for provider's demographics")
         void shouldReturnCount_forProviderDemographics() {
             // Given — demographic with provider, document linked via ctl_document
-            Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
 
             // When
             int result = documentDao.getNumberOfDocumentsAttachedToAProviderDemographics(
@@ -1087,19 +1091,16 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should document parameter order bug — params are swapped in implementation")
         void shouldDocumentParamOrderBug() {
             // Given
-            Document doc = createDocumentWithCtl("consult", PROVIDER_NO, 'A', DEMO_ID);
+            createDocumentWithCtl("consult", PROVIDER_NO, 'A', DEMO_ID);
 
-            // When — The implementation has a bug: setParameter(1, demographicId)
+            // When/Then — The implementation has a bug: setParameter(1, demographicId)
             // but position 1 in the SQL is d.doctype = ?1 (expects doctype string).
             // setParameter(2, documentType.getName()) but position 2 is c.module_id = ?2
-            // (expects int). This means the query will fail or return wrong results.
-            // We test the method as-is to document current behavior.
-            List<Document> result = documentDao.findByDemographicAndDoctype(
-                    DEMO_ID, DocumentDao.DocumentType.CONSULT);
-
-            // Then — due to the bug, this likely returns empty or throws
-            // We just verify no unhandled exception occurs
-            assertThat(result).isNotNull();
+            // (expects int). H2 throws a DataException due to the type mismatch;
+            // MySQL silently returns wrong results.
+            assertThatThrownBy(() -> documentDao.findByDemographicAndDoctype(
+                    DEMO_ID, DocumentDao.DocumentType.CONSULT))
+                    .isInstanceOf(Exception.class);
         }
     }
 
@@ -1116,17 +1117,15 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should document parameter order bug — params are swapped in implementation")
         void shouldDocumentParamOrderBug() {
             // Given
-            Document doc = createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
+            createDocumentWithCtl("lab", PROVIDER_NO, 'A', DEMO_ID);
 
-            // When — Same bug as findByDemographicAndDoctype:
+            // When/Then — Same bug as findByDemographicAndDoctype:
             // setParameter(1, demographicId) but SQL position 1 is d.docfilename = ?1
             // setParameter(2, fileName) but SQL position 2 is c.module_id = ?2
-            // We test to document current behavior.
-            Document result = documentDao.findByDemographicAndFilename(DEMO_ID, "test.pdf");
-
-            // Then — verify no unhandled exception
-            // Due to param swap, likely returns null (no match)
-            assertThat(true).isTrue(); // Test passes if no exception thrown
+            // H2 throws a DataException due to the type mismatch;
+            // MySQL silently returns wrong results.
+            assertThatThrownBy(() -> documentDao.findByDemographicAndFilename(DEMO_ID, "test.pdf"))
+                    .isInstanceOf(Exception.class);
         }
     }
 }

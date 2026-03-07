@@ -210,6 +210,7 @@ public class DualFlushContextIntegrationTest extends CarlosTestBase {
             provider.setFirstName("Test");
             provider.setProviderType("doctor");
             provider.setSpecialty("GP");
+            provider.setSex("M");
             provider.setStatus("1");
             hibernateTemplate.save(provider);
             // intentionally NOT calling hibernateTemplate.flush()
@@ -222,12 +223,11 @@ public class DualFlushContextIntegrationTest extends CarlosTestBase {
             query.setParameter("provNo", "DFC02");
             int count = ((Number) query.getSingleResult()).intValue();
 
-            // Then — the Hibernate Session data may or may not be visible depending on
-            // auto-flush behavior. This test pins the current behavior.
-            // In Hibernate 5, the Session may auto-flush before native SQL queries.
-            // This is important to track for Hibernate 6 migration.
-            // We just assert no exception and record the count
-            assertThat(count).isGreaterThanOrEqualTo(0);
+            // Then — in Hibernate 5 with our dual-context setup, a save via Hibernate
+            // Session without explicit hibernateTemplate.flush() is NOT visible via JPA
+            // native SQL, even after entityManager.flush(). This pins the current behavior
+            // so Hibernate 6 migration will surface any change in auto-flush semantics.
+            assertThat(count).isEqualTo(0);
         }
     }
 
@@ -272,6 +272,7 @@ public class DualFlushContextIntegrationTest extends CarlosTestBase {
             provider.setFirstName("Test");
             provider.setProviderType("doctor");
             provider.setSpecialty("GP");
+            provider.setSex("M");
             provider.setStatus("1");
             hibernateTemplate.save(provider);
             hibernateTemplate.flush();
@@ -306,6 +307,7 @@ public class DualFlushContextIntegrationTest extends CarlosTestBase {
             p1.setFirstName("One");
             p1.setProviderType("doctor");
             p1.setSpecialty("GP");
+            p1.setSex("M");
             p1.setStatus("1");
             hibernateTemplate.save(p1);
             hibernateTemplate.flush();

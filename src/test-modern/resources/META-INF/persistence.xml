@@ -110,11 +110,15 @@
         <class>io.github.carlos_emr.carlos.commn.model.BillingONCHeader1</class>
         <class>io.github.carlos_emr.carlos.commn.model.BillingONItem</class>
         <class>io.github.carlos_emr.carlos.commn.model.Billing</class>
+        <class>io.github.carlos_emr.carlos.commn.model.BillingService</class>
+        <class>io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit</class>
+        <class>io.github.carlos_emr.carlos.billing.CA.model.BillingDetail</class>
         <!-- EForm entities for EFormDataDao integration tests -->
         <class>io.github.carlos_emr.carlos.commn.model.EFormData</class>
         <!-- Document entities for DocumentDao integration tests -->
         <class>io.github.carlos_emr.carlos.commn.model.Document</class>
         <class>io.github.carlos_emr.carlos.commn.model.DocumentReview</class>
+        <class>io.github.carlos_emr.carlos.commn.model.MeasurementsExt</class>
         <!-- MeasurementType for MeasurementDao query tests -->
         <class>io.github.carlos_emr.carlos.commn.model.MeasurementType</class>
         <!-- CtlDocument entities for DocumentDao JPQL join tests -->

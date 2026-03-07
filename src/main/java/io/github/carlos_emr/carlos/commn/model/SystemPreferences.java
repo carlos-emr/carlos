@@ -65,7 +65,7 @@ public class SystemPreferences extends AbstractModel<Integer> {
     @Column(name = "name")
     private String name;
 
-    @Column(name = "value")
+    @Column(name = "`value`")
     private String value;
 
     @Column(name = "updateDate")
