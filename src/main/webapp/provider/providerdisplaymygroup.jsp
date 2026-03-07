@@ -42,6 +42,7 @@
     MyGroupDao dao = SpringUtils.getBean(MyGroupDao.class);
 %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 
 
 <html>
@@ -65,6 +66,7 @@
     <form name="UPDATEPRE" method="post" action="providercontrol.jsp">
         <input type="hidden" name="submit_form" value="">
         <input type="hidden" name="displaymode" value="newgroup">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <div>

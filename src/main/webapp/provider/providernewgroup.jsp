@@ -32,6 +32,7 @@
 <%@ page import="java.util.*,java.sql.*" errorPage="/errorpage.jsp" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
@@ -94,6 +95,7 @@
 
     <FORM NAME="UPDATEPRE" METHOD="post" ACTION="providercontrol.jsp"
           onSubmit="return checkForm();">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
         <table border=0 cellspacing=0 cellpadding=0 width="100%">
             <tr bgcolor="#486ebd">
                 <th align=CENTER NOWRAP><font face="Helvetica" color="#FFFFFF"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.msgTitle"/></font></th>
