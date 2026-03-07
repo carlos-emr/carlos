@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.hospitalReportManager.xsd.DateFullOrPartial;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.Demographics;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.PersonNameStandard;
-import io.github.carlos_emr.carlos.hospitalReportManager.xsd.PersonNameStandard.LegalName.OtherName;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportFormat;
 import io.github.carlos_emr.carlos.hospitalReportManager.xsd.ReportsReceived.OBRContent;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -87,16 +86,6 @@ public class HRMReport {
     public String getLegalFirstName() {
         PersonNameStandard name = demographics.getNames();
         return name.getLegalName().getFirstName().getPart();
-    }
-
-    public List<String> getLegalOtherNames() {
-        LinkedList<String> otherNames = new LinkedList<String>();
-        PersonNameStandard name = demographics.getNames();
-        for (OtherName otherName : name.getLegalName().getOtherName()) {
-            otherNames.add(otherName.getPart());
-        }
-
-        return otherNames;
     }
 
     public List<Integer> getDateOfBirth() {
