@@ -1245,6 +1245,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result).isZero();
         }
     }
 

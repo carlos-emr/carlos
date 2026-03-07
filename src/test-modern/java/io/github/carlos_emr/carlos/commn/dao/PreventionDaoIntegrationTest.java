@@ -192,7 +192,9 @@ public class PreventionDaoIntegrationTest extends CarlosTestBase {
             createSimplePrevention(DEMO_1, true);
 
             List<Prevention> results = preventionDao.findActiveByDemoId(DEMO_1);
-            assertThat(results).isNotNull();
+            assertThat(results).hasSize(1);
+            assertThat(results).allMatch(p -> !p.isDeleted());
+            assertThat(results).allMatch(p -> p.getDemographicId() == DEMO_1);
         }
 
         @Test
@@ -200,7 +202,7 @@ public class PreventionDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return non-null result for demographic with no records")
         void shouldReturnNonNullResult_forDemographicWithNoRecords() {
             List<Prevention> results = preventionDao.findActiveByDemoId(99999);
-            assertThat(results).isNotNull();
+            assertThat(results).isEmpty();
         }
     }
 
