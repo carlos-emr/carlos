@@ -1264,7 +1264,7 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
         @DisplayName("should exclude appointments with demographic 0")
         void shouldExcludeDemoZero_whenBilledAppointmentsQueried() {
             // Given
-            Appointment billedZero = createAndPersist(today, PROVIDER_NO, 0, "B");
+            createAndPersist(today, PROVIDER_NO, 0, "B");
             entityManager.flush();
 
             // When
