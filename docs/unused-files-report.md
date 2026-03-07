@@ -36,7 +36,7 @@ Each file was checked against ALL possible referencing sources:
 
 ### False Positives Removed During Verification
 
-The following 17 files were originally listed as unused but are **actively referenced** and have been removed:
+The following 17 files were originally listed as unused but are **actively referenced** and were therefore removed from the deletion list:
 
 | File | How it's referenced |
 |------|-------------------|
