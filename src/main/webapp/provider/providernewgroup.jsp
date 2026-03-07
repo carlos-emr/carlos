@@ -115,8 +115,8 @@
             <table class="table table-sm table-bordered mb-0">
                 <thead class="table-light">
                 <tr>
-                    <th>Provider</th>
                     <th style="width: 80px;" class="text-center">Select</th>
+                    <th>Provider</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -126,18 +126,26 @@
                         i++;
                 %>
                 <tr>
-                    <td><%=p.getLastName()%>, <%=p.getFirstName()%></td>
                     <td class="text-center">
-                        <input type="checkbox" class="form-check-input" name="data<%=i%>" value="<%=i%>">
+                        <input type="checkbox" class="form-check-input provider-check" name="data<%=i%>" value="<%=i%>">
                         <input type="hidden" name="provider_no<%=i%>" value="<%=p.getProviderNo()%>">
                         <input type="hidden" name="last_name<%=i%>" value='<%=p.getLastName()%>'>
                         <input type="hidden" name="first_name<%=i%>" value='<%=p.getFirstName()%>'>
                     </td>
+                    <td><%=p.getLastName()%>, <%=p.getFirstName()%></td>
                 </tr>
                 <%
                     }
                 %>
                 </tbody>
+                <tfoot>
+                <tr class="table-light">
+                    <td class="text-center" colspan="2">
+                        <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=true}); return false;">Check All</a>
+                        | <a href="#" onclick="document.querySelectorAll('.provider-check').forEach(function(c){c.checked=false}); return false;">Clear All</a>
+                    </td>
+                </tr>
+                </tfoot>
             </table>
         </div>
 
@@ -145,6 +153,9 @@
             <div>
                 <input type="submit" class="btn btn-primary btn-sm"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.btnSave"/>">
+                <input type="button" class="btn btn-secondary btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                       onClick="window.history.go(-1);return false;">
             </div>
             <div>
                 <input type="button" class="btn btn-link btn-sm"
