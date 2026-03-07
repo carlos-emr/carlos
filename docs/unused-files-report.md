@@ -197,12 +197,12 @@ js/custom/default/main.js                   # DELETED — Custom main JS
 js/fancybox/jquery.easing-1.3.pack.js       # DELETED — Fancybox dependency
 js/fancybox/jquery.fancybox-1.3.4.js        # DELETED — Non-min version (jquery.fancybox-1.3.4.pack.js IS used)
 js/fancybox/jquery.mousewheel-3.0.4.pack.js # DELETED — Fancybox dependency
-js/jquery-3.1.0.min.js                      # Old jQuery 3.1.0 (newer version in use)
-js/jquery.dataTables.1.10.11.min.js          # Old DataTables (1.13.4 is current)
-js/jquery.metadata.js                       # jQuery metadata plugin
-js/jquery.tablesorter.js                    # Non-min version (jquery.tablesorter.min.js IS used by Index.jsp)
-js/jquery.tablesorter.pager.js              # TableSorter pager (Index.jsp uses widgets, not pager)
-js/jquery.treeview.js                       # jQuery treeview plugin
+js/jquery-3.1.0.min.js                      # DELETED — Old jQuery 3.1.0 (newer version in use)
+js/jquery.dataTables.1.10.11.min.js          # DELETED — Old DataTables (1.13.4 is current)
+js/jquery.metadata.js                       # DELETED — jQuery metadata plugin
+js/jquery.tablesorter.js                    # DELETED — Non-min version (jquery.tablesorter.min.js IS used by Index.jsp)
+js/jquery.tablesorter.pager.js              # DELETED — TableSorter pager (Index.jsp uses widgets, not pager)
+js/jquery.treeview.js                       # DELETED — jQuery treeview plugin
 js/menuExpandable.js                       # DELETED — orphaned by JSP deletion (missed in initial report, caught by cascade audit)
 js/quatroLookup.js                         # DELETED — orphaned by JSP deletion (missed in initial report, caught by cascade audit)
 js/loading-bar.js                           # DELETED — Loading bar animation
