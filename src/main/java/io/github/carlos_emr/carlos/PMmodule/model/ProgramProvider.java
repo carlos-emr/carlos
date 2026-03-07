@@ -205,10 +205,6 @@ public class ProgramProvider implements Serializable {
         this._teams = _teams;
     }
 
-    public void addToTeams(Object obj) {
-        if (null == this._teams) this._teams = new java.util.HashSet<ProgramTeam>();
-        this._teams.add((ProgramTeam) obj);
-    }
 
     public boolean equals(Object obj) {
         if (null == obj) return false;

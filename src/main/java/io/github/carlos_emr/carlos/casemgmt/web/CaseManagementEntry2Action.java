@@ -3271,15 +3271,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return caseManagementMgr.getDemoDOB(demoNo);
     }
 
-    protected boolean inCaseIssue(Issue iss, List<CaseManagementIssue> issues) {
-        Iterator<CaseManagementIssue> itr = issues.iterator();
-        while (itr.hasNext()) {
-            CaseManagementIssue cIss = itr.next();
-            if (iss.getId().longValue() == cIss.getIssue_id())
-                return true;
-        }
-        return false;
-    }
+
 
     protected void SetChecked(List<CheckBoxBean> checkedlist, int id) {
         for (int i = 0; i < checkedlist.size(); i++) {
