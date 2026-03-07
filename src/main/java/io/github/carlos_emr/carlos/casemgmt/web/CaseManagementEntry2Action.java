@@ -43,10 +43,14 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.SessionAware;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramAccess;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
@@ -765,7 +769,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         boolean programSet = false;
 
         List<ProviderDefaultProgram> programs = defaultProgramDao.getProgramByProviderNo(providerNo);
-        HashMap<Program, List<Secrole>> rolesForDemo = NotePermissions2Action.getAllProviderAccessibleRolesForDemo(providerNo, demographicNo);
+        HashMap<Program, List<Secrole>> rolesForDemo = getAllProviderAccessibleRolesForDemo(providerNo, demographicNo);
         for (ProviderDefaultProgram pdp : programs) {
             for (Program p : rolesForDemo.keySet()) {
                 if (pdp.getProgramId() == p.getId().intValue()) {
@@ -1436,23 +1440,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         note.setUpdate_date(now);
-
-        // Checks whether the user can set the program via the UI - if so, make sure that they can't screw it up if they do
-        if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
-            String noteProgramNo = request.getParameter("_note_program_no");
-            String noteRoleId = request.getParameter("_note_role_id");
-
-            if (noteProgramNo != null && noteRoleId != null && noteProgramNo.trim().length() > 0 && noteRoleId.trim().length() > 0) {
-                if (noteProgramNo.equalsIgnoreCase("-2") || noteRoleId.equalsIgnoreCase("-2")) {
-                    throw new Exception("Patient is not admitted to any programs user has access to. [roleId=-2, programNo=-2]");
-                } else if (!noteProgramNo.equalsIgnoreCase("-1") && !noteRoleId.equalsIgnoreCase("-1")) {
-                    note.setProgram_no(noteProgramNo);
-                    note.setReporter_caisi_role(noteRoleId);
-                }
-            } else {
-                throw new Exception("Missing role id or program number. [roleId=" + noteRoleId + ", programNo=" + noteProgramNo + "]");
-            }
-        }
 
         if (sessionBean.appointmentNo != null && sessionBean.appointmentNo.length() > 0) {
             note.setAppointmentNo(Integer.parseInt(sessionBean.appointmentNo));
@@ -3216,7 +3203,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         if (!programSet) {
             List<ProviderDefaultProgram> programs = defaultProgramDao.getProgramByProviderNo(providerNo);
-            HashMap<Program, List<Secrole>> rolesForDemo = NotePermissions2Action.getAllProviderAccessibleRolesForDemo(providerNo, demographicNo);
+            HashMap<Program, List<Secrole>> rolesForDemo = getAllProviderAccessibleRolesForDemo(providerNo, demographicNo);
             for (ProviderDefaultProgram pdp : programs) {
                 for (Program p : rolesForDemo.keySet()) {
                     if (pdp.getProgramId() == p.getId().intValue()) {
@@ -3917,6 +3904,65 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // Default to rejecting unknown patterns
         return false;
+    }
+
+    /**
+     * Returns a map of programs and accessible roles for a given provider and demographic.
+     * This is an independent copy of the equivalent method formerly in NotePermissions2Action (GPL2-only),
+     * mirroring the private copy already present in NotesService (GPL2+).
+     */
+    private static HashMap<Program, List<Secrole>> getAllProviderAccessibleRolesForDemo(String providerNo, String demoNo) {
+        ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
+        ProgramAccessDAO programAccessDAO = (ProgramAccessDAO) SpringUtils.getBean(ProgramAccessDAO.class);
+        SecroleDao secroleDao = (SecroleDao) SpringUtils.getBean(SecroleDao.class);
+        RoleProgramAccessDAO roleProgramAccessDao = (RoleProgramAccessDAO) SpringUtils.getBean(RoleProgramAccessDAO.class);
+        AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
+
+        HashMap<Program, List<Secrole>> visibleRoles = new HashMap<Program, List<Secrole>>();
+
+        @SuppressWarnings("unchecked")
+        List<ProgramProvider> programProviderList = programProviderDao.getProgramProvidersByProvider(providerNo);
+
+        List<Integer> demoPrograms = new ArrayList<Integer>();
+        for (Admission a : admissionDao.getCurrentAdmissions(Integer.parseInt(demoNo))) {
+            demoPrograms.add(a.getProgramId());
+        }
+
+        for (ProgramProvider provider : programProviderList) {
+            if (!demoPrograms.contains(provider.getProgram().getId()))
+                continue;
+
+            if (!visibleRoles.containsKey(provider.getProgram())) {
+                visibleRoles.put(provider.getProgram(), new ArrayList<Secrole>());
+            }
+
+            List<Secrole> roleList = visibleRoles.get(provider.getProgram());
+            if (!roleList.contains(provider.getRole())) {
+                roleList.add(provider.getRole());
+
+                // This role definitely has access to these permissions -> get role names and add to list
+                List<DefaultRoleAccess> defaultAccess = roleProgramAccessDao.getDefaultSpecificAccessRightByRole(provider.getRoleId(), "read%notes");
+                for (DefaultRoleAccess access : defaultAccess) {
+                    String roleName = access.getAccess_type().getName().substring(5, access.getAccess_type().getName().length() - 6);
+                    Secrole role = secroleDao.getRoleByName(roleName);
+                    if (!roleList.contains(role))
+                        roleList.add(role);
+                }
+
+                // This role also has access to these permissions -> add them to the list as well
+                List<ProgramAccess> programAccess = programAccessDAO.getProgramAccessListByType(provider.getProgramId(), "read%notes");
+                for (ProgramAccess access : programAccess) {
+                    if (access.getRoles().contains(provider.getRole())) {
+                        String roleName = access.getAccessType().getName().substring(5, access.getAccessType().getName().length() - 6);
+                        Secrole role = secroleDao.getRoleByName(roleName);
+                        if (!roleList.contains(role))
+                            roleList.add(role);
+                    }
+                }
+            }
+        }
+
+        return visibleRoles;
     }
 
 }
