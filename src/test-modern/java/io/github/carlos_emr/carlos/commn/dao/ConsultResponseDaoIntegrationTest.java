@@ -245,6 +245,12 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
             assertThat(results).hasSize(2);
             for (Object[] result : results) {
                 assertThat(result[0]).isInstanceOf(ConsultationResponse.class);
+                ConsultationResponse cr = (ConsultationResponse) result[0];
+                assertThat(cr.getDemographicNo()).isEqualTo(d1.getDemographicNo());
+                assertThat(result[1]).isInstanceOf(ProfessionalSpecialist.class);
+                assertThat(result[2]).isInstanceOf(Demographic.class);
+                Demographic demo = (Demographic) result[2];
+                assertThat(demo.getDemographicNo()).isEqualTo(d1.getDemographicNo());
             }
         }
 
