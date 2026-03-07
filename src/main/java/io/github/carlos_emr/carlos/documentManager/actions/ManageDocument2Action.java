@@ -157,6 +157,7 @@ public class ManageDocument2Action extends ActionSupport {
             }
         });
         ACTIONS.put("viewDocumentInfo", ctx -> { ctx.viewDocumentInfo(); return null; });
+        ACTIONS.put("searchDocumentDescriptions", ctx -> { ctx.searchDocumentDescriptions(); return null; });
     }
 
     /**
@@ -1653,17 +1654,63 @@ public class ManageDocument2Action extends ActionSupport {
         if (value == null) {
             return "";
         }
-        
+
         // Remove all control characters including CR (\r) and LF (\n)
         // This prevents HTTP response splitting attacks
         // Also remove other control characters that could cause issues
         String sanitized = value.replaceAll("[\r\n\u0000-\u001F\u007F-\u009F]", "");
-        
+
         // Ensure the filename is not empty after sanitization
         if (sanitized.trim().isEmpty()) {
             return "document";
         }
-        
+
         return sanitized;
+    }
+
+    /**
+     * AJAX endpoint that returns a JSON array of distinct document descriptions matching
+     * the {@code term} request parameter. Used by the document description typeahead in
+     * showDocument.jsp and incomingDocs.jsp.
+     *
+     * <p>Security: requires {@code _edoc} write privilege.</p>
+     *
+     * <p>Response format (compatible with standard autocomplete {@code label} convention):</p>
+     * <pre>
+     * [{"label":"Blood Work Results"}, {"label":"Referral Letter"}, ...]
+     * </pre>
+     *
+     * @throws IOException if writing the JSON response fails
+     * @since 2026-02-28
+     */
+    public void searchDocumentDescriptions() throws IOException {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
+            throw new SecurityException("missing required security object (_edoc)");
+        }
+
+        String keyword = request.getParameter("term");
+        // Wrap keyword with SQL wildcards for partial matching
+        if (keyword == null || keyword.trim().isEmpty()) {
+            keyword = "%";
+        } else {
+            keyword = "%" + keyword.trim() + "%";
+        }
+
+        List<String> descriptions = documentDao.findDocumentDescriptions(keyword);
+
+        LogAction.addLogSynchronous((String) request.getSession().getAttribute("user"), LogConst.READ, LogConst.CON_DOCUMENT, "document_description_lookup", request.getRemoteAddr());
+
+        com.fasterxml.jackson.databind.node.ArrayNode jsonArray = objectMapper.createArrayNode();
+        for (String desc : descriptions) {
+            com.fasterxml.jackson.databind.node.ObjectNode item = objectMapper.createObjectNode();
+            item.put("label", desc);
+            jsonArray.add(item);
+        }
+
+        log.debug("searchDocumentDescriptions returning {} results", descriptions.size());
+
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().print(jsonArray.toString());
+        response.getWriter().flush();
     }
 }

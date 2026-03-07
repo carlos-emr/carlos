@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.util.StringBuilderUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import java.util.ArrayList;
 import java.util.Date;
 
 public class EFormBase {
@@ -62,8 +61,6 @@ public class EFormBase {
     protected String roleType;
     private Document document;
     private String realPath;
-
-    protected ArrayList<String> updateFields = new ArrayList<String>();
 
     public EFormBase() {
 

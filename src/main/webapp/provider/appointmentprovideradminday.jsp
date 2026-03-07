@@ -652,16 +652,6 @@
             }
         </style>
 
-        <%
-            if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) {
-        %>
-        <script src="${pageContext.servletContext.contextPath}/hcHandler/hcHandler.js"></script>
-        <script src="${pageContext.servletContext.contextPath}/hcHandler/hcHandlerAppointment.js"></script>
-        <link rel="stylesheet" href="${pageContext.servletContext.contextPath}/hcHandler/hcHandler.css"
-              type="text/css"/>
-        <%
-            }
-        %>
 
     </head>
     <%
@@ -2461,9 +2451,6 @@
         });
     </script>
     <!-- end of keycode block -->
-    <% if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
-    <jsp:include page="/hcHandler/hcHandler.html"/>
-    <% } %>
     </body>
 </html>
 

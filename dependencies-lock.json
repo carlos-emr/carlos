@@ -2249,14 +2249,6 @@
     "optional" : false,
     "integrity" : "sha512:n9tGwCkyX775Ekk5PMFLdmFL8oVQPtyp0GWSu0gHP+FwE4rEt5RpVuwH+BuSu/m/jWtvByIN6idq4E/u/rcgqw=="
   }, {
-    "groupId" : "org.dom4j",
-    "artifactId" : "dom4j",
-    "version" : "2.2.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:nmnYxTuC1i1lidVsaGFFWWOsZOocdKc7Lmd75Sl8EE6hrCbrhxrJLy7lQRazARMESBBwriGlcNOyQb4cwTOQqw=="
-  }, {
     "groupId" : "org.drools",
     "artifactId" : "drools-compiler",
     "version" : "7.74.1.Final",
@@ -2592,14 +2584,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:gWQtt2NY+/Ex3+nC8dnCgPwjtr/eahai022sxJChoq9OD7Srtc14AFcYux0VikL9aDTNK/5hbsWWJd8BlR8keA=="
-  }, {
-    "groupId" : "org.jetbrains.kotlin",
-    "artifactId" : "kotlin-stdlib",
-    "version" : "2.2.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:FRTK7w9Oq2t2CMphiMicJ5VeS04/8Gqw8qb5lEyoT/kXLio34XFG+S47a+7gvXYcbGcgcAME3hkc3YHeETw57g=="
   }, {
     "groupId" : "org.jetbrains",
     "artifactId" : "annotations",
@@ -3160,14 +3144,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:rA94Jqmh3Upf+6QZyBkU8WOm1jj3PBvyNt3oIIo0N4x8wtgke4xD3b0txAorBh3G9if2S6hs/qLUJef7nzvSUg=="
-  }, {
-    "groupId" : "org.swinglabs",
-    "artifactId" : "pdf-renderer",
-    "version" : "1.0.5",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:urXSaGh82l/2WmfYVYvI1IqWhqtdqK5eswgADAFXxqnjoq2uGRQcS9o8HynmpvtcVgnhk+Y8n0W5qAP9SEvdRg=="
   }, {
     "groupId" : "org.testng",
     "artifactId" : "testng",

@@ -122,7 +122,6 @@
     }
 
     thisEForm.setContextPath(request.getContextPath());
-    thisEForm.setupInputFields();
     thisEForm.setImagePath();
     thisEForm.setDatabaseAPs();
     thisEForm.setOscarOPEN(request.getRequestURI());
