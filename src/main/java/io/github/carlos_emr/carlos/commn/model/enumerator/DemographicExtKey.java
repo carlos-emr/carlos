@@ -13,9 +13,7 @@ package io.github.carlos_emr.carlos.commn.model.enumerator;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -138,10 +136,6 @@ public enum DemographicExtKey {
     }
 
 
-    private String getDefaultValue() {
-        return this.defaultValue;
-    }
-
     @NotNull
     public static Map<String, DemographicExtKey> demographicExtKeyMap() {
         Map map = new HashMap<String, DemographicExtKey>();
@@ -149,17 +143,6 @@ public enum DemographicExtKey {
             map.put(key.getKey(), key);
         }
         return map;
-    }
-
-    @NotNull
-    public static List<DemographicExtKey> keysWithDefaultValues() {
-        List keys = new ArrayList<DemographicExtKey>();
-        for (DemographicExtKey key : DemographicExtKey.values()) {
-            if (key.getDefaultValue() != null) {
-                keys.add(key);
-            }
-        }
-        return keys;
     }
 
 
