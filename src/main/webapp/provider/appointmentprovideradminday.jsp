@@ -1192,7 +1192,7 @@
                     <input type="button" value="M-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthBack"/>"/>
                     <input type="button" value="W-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekBack"/>"/>
                     <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"
-                           onchange="try{localStorage.setItem('dateMultiplier',this.value)}catch(e){}"/>
+                           oninput="try{localStorage.setItem('dateMultiplier',this.value)}catch(e){}"/>
                     <script>try{var sv=localStorage.getItem('dateMultiplier');if(sv){var dm=document.getElementById('dateMultiplier');var n=parseInt(sv,10);if(n>=1&&n<=99)dm.value=n;}}catch(e){}</script>
                     <input type="button" value="W+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekForward"/>"/>
                     <input type="button" value="M+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthForward"/>"/>
