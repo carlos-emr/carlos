@@ -69,7 +69,6 @@
     String curProvider_no = request.getParameter("provider_no");
     ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
     String mygroupno = providerPreference.getMyGroupNo();
-    String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF", tableTitle = "#99ccff";
     boolean bEdit = request.getParameter("appointment_no") != null ? true : false;
 %>
 <%@ page
@@ -321,11 +320,14 @@
 %>
 <html>
     <head>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
-        <script language="JavaScript">
-            <!--
-
+        <style>
+            .provider-current { background-color: var(--carlos-bg-light, #e8f0fe); }
+            .provider-available { background-color: #f8f9fa; }
+            .provider-unavailable { background-color: #e9ecef; }
+        </style>
+        <script type="text/javascript">
             function onCheck(a) {
                 if (a.checked) {
                     var s;
@@ -390,47 +392,52 @@
                     return (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>"));
                 }
             }
-
-            //-->
         </script>
     </head>
 
-    <body bgcolor="ivory" onLoad="setfocus()" topmargin="0" leftmargin="0"
-          rightmargin="0">
-    <form name="groupappt" method="POST"
-          action="appointmentgrouprecords.jsp" onSubmit="return ( onSub());">
-        <INPUT TYPE="hidden" NAME="groupappt" value="">
-        <table width="100%" BGCOLOR="silver">
-            <tr>
-                <TD>
-                    <% if (bEdit) { %> <INPUT TYPE="button"
-                                              onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                                              VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
-                    <INPUT TYPE="button"
-                           onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
-                    <INPUT TYPE="button"
-                           onclick="document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
-                           onClick="onButDelete()"> <% } else { %> <INPUT
-                        TYPE="button"
-                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
-                    <% } %>
-                </TD>
-                <TD align="right"><INPUT TYPE="button"
-                                         VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/> "
-                                         onClick="window.history.go(-1);return false;"> <INPUT
-                        TYPE="button" VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/> "
-                        onClick="onExit()"></TD>
-            </tr>
-        </table>
+    <body onLoad="setfocus()">
+    <div class="container-fluid p-3">
 
-        <table border=0 cellspacing=0 cellpadding=0 width="100%">
-            <tr bgcolor="<%=deepcolor%>">
-                <th><font face="Helvetica"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgLabel"/></font></th>
-            </tr>
-        </table>
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
+                    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgLabel"/>
+            </h4>
+        </div>
+
+    <form name="groupappt" method="POST"
+          action="appointmentgrouprecords.jsp" onSubmit="return onSub();">
+        <input type="hidden" name="groupappt" value="">
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <% if (bEdit) { %>
+                <input type="button" class="btn btn-primary btn-sm"
+                       onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
+                <input type="button" class="btn btn-secondary btn-sm"
+                       onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
+                <input type="button" class="btn btn-danger btn-sm"
+                       onclick="onButDelete(); document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>">
+                <% } else { %>
+                <input type="button" class="btn btn-primary btn-sm"
+                       onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
+                <% } %>
+            </div>
+            <div>
+                <input type="button" class="btn btn-secondary btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                       onClick="window.history.go(-1);return false;">
+                <input type="button" class="btn btn-link btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>"
+                       onClick="onExit()">
+            </div>
+        </div>
 
         <%
             Properties otherAppt = new Properties();
@@ -478,13 +485,13 @@
                 if (bOne || bTwo) {
                     otherAppt.setProperty(other.getProviderNo() + "apptno", String.valueOf(other.getId()));
                     appt += "<b>" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getStartTime())).substring(0, 5) + "-" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getEndTime())).substring(0, 5) + "|"
-                            + dotStr + other.getName() + "</b>|"; //+	rsdemo.getString("reason") + "<br>";
+                            + dotStr + other.getName() + "</b>|";
                 } else {
                     appt += String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getStartTime())).substring(0, 5) + "-" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getEndTime())).substring(0, 5) + "|"
-                            + dotStr + other.getName() + "|"; //+	rsdemo.getString("reason") + "<br>";
+                            + dotStr + other.getName() + "|";
                 }
 
-                if (!String.valueOf(other.getProviderNo()).equals(temp)) { //new providers record
+                if (!String.valueOf(other.getProviderNo()).equals(temp)) {
                     otherAppt.setProperty(other.getProviderNo() + "appt", appt);
                     temp = String.valueOf(other.getProviderNo());
                     appt = "";
@@ -504,24 +511,25 @@
                 out.println("<input type='hidden' name='" + temp + "' value=\"" + UtilMisc.htmlEscape(request.getParameter(temp)) + "\">");
             }
         %>
-        <table border=0 cellspacing=0 cellpadding=0 width="100%">
+
+        <div class="d-flex justify-content-between align-items-center bg-light border rounded p-2 mb-2">
+            <span><%=request.getParameter("appointment_date")%>
+                | <%=request.getParameter("start_time")%> - <%=request.getParameter("end_time")%>
+                | <%=UtilMisc.toUpperLowerCase(request.getParameter("keyword"))%>
+            </span>
+            <span class="text-muted">Group: <%=mygroupno%></span>
+        </div>
+
+        <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light">
             <tr>
-                <td nowrap><font color='black'><%=request.getParameter("appointment_date")%>
-                    | <%=request.getParameter("start_time")%> - <%=request.getParameter("end_time")%>
-                    | <%=UtilMisc.toUpperLowerCase(request.getParameter("keyword"))%>
-                </font></td>
-                <td align='right' nowrap>Group : <%=mygroupno%>
-                </td>
+                <th style="width:30%"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgProviderName"/></th>
+                <th style="width:11%" class="text-center"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgFirstAppointment"/></th>
+                <th style="width:11%" class="text-center"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgSecondAppointment"/></th>
+                <th style="width:48%"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgExistedAppointment"/></th>
             </tr>
-        </table>
-        <table BORDER="0" CELLPADDING="2" CELLSPACING="2" WIDTH="100%"
-               BGCOLOR="white">
-            <tr BGCOLOR="<%=tableTitle%>">
-                <th width=30% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgProviderName"/></th>
-                <th width=11% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgFirstAppointment"/></th>
-                <th width=11% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgSecondAppointment"/></th>
-                <th width=48% nowrap><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgExistedAppointment"/></th>
-            </tr>
+            </thead>
+            <tbody>
             <%
 
                 int i = 0;
@@ -542,36 +550,31 @@
 
                         bDefProvider = curProvider_no.equals(provider.getProviderNo()) ? true : false;
             %>
-            <tr
-                    BGCOLOR="<%=bDefProvider?deepcolor:(bAvailProvider?weakcolor:"#e0e0e0")%>">
-                <td align='right'>&nbsp;<%=provider.getFormattedName()%>
-                </td>
-                <td align='center'>&nbsp; <input type="checkbox" name="one<%=i%>"
-                                                 value="<%=i%>"
+            <tr class="<%=bDefProvider?"provider-current":(bAvailProvider?"provider-available":"provider-unavailable")%>">
+                <td class="text-end"><%=provider.getFormattedName()%></td>
+                <td class="text-center">
+                    <input type="checkbox" class="form-check-input" name="one<%=i%>"
+                           value="<%=i%>"
                         <%=bEdit ? (otherAppt.getProperty(provider.getProviderNo()+"one")
 		!= null ? otherAppt.getProperty(provider.getProviderNo()+"one") : "") : (bDefProvider? "checked":"")%>
-                                                 onclick="onCheck(this)"> <input type="hidden"
-                                                                                 name="provider_no<%=i%>"
-                                                                                 value="<%=provider.getProviderNo()%>">
-                    <INPUT
-                            TYPE="hidden" NAME="last_name<%=i%>"
-                            VALUE='<%=provider.getLastName()%>'> <INPUT
-                            TYPE="hidden" NAME="first_name<%=i%>"
-                            VALUE='<%=provider.getFirstName()%>'> <% if (otherAppt.getProperty(provider.getProviderNo() + "apptno") != null) {%>
+                           onclick="onCheck(this)">
+                    <input type="hidden" name="provider_no<%=i%>" value="<%=provider.getProviderNo()%>">
+                    <input type="hidden" name="last_name<%=i%>" value='<%=provider.getLastName()%>'>
+                    <input type="hidden" name="first_name<%=i%>" value='<%=provider.getFirstName()%>'>
+                    <% if (otherAppt.getProperty(provider.getProviderNo() + "apptno") != null) {%>
                     <input type="hidden" name="appointment_no<%=i%>"
                            value="<%=otherAppt.getProperty(provider.getProviderNo()+"apptno")%>">
                     <% } %>
                 </td>
-                <td align='center'>&nbsp; <input type="checkbox" name="two<%=i%>"
-                                                 value="<%=i%>"
+                <td class="text-center">
+                    <input type="checkbox" class="form-check-input" name="two<%=i%>"
+                           value="<%=i%>"
                         <%=bEdit ? (otherAppt.getProperty(provider.getProviderNo()+"two")
 		!= null ? otherAppt.getProperty(provider.getProviderNo()+"two") : "") : ""%>
-                                                 onclick="onCheck(this)"></td>
-                <td nowrap><%=otherAppt.getProperty(provider.getProviderNo() + "appt")
+                           onclick="onCheck(this)">
+                </td>
+                <td><%=otherAppt.getProperty(provider.getProviderNo() + "appt")
                         != null ? otherAppt.getProperty(provider.getProviderNo() + "appt") : ""%>
-                        <%--
-                    // <input type="text" name="orig<%=i%>" value="<%=bDefProvider? request.getParameter("reason"):""%>" style="width:100%">
-                --%> &nbsp;
                 </td>
             </tr>
             <%
@@ -580,44 +583,50 @@
                     i = 0;
                 }
             %>
-            <tr bgcolor='silver'>
-                <td align='right' colspan=2><a href=#
-                                               onClick='checkAll("one", "true", "two"); return false;'>Check All</a>
-                    |<a href=# onClick='checkAll("one", "false", "two"); return false;'>Clear
-                        All</a></td>
-                <td colspan=2><a href=#
-                                 onClick='checkAll("two", "true", "one"); return false;'>Check All</a>
-                    |<a href=# onClick='checkAll("two", "false", "one"); return false;'>Clear
-                        All</a></td>
+            </tbody>
+            <tfoot>
+            <tr class="table-light">
+                <td class="text-end" colspan="2">
+                    <a href="#" onClick='checkAll("one", "true", "two"); return false;'>Check All</a>
+                    | <a href="#" onClick='checkAll("one", "false", "two"); return false;'>Clear All</a>
+                </td>
+                <td colspan="2">
+                    <a href="#" onClick='checkAll("two", "true", "one"); return false;'>Check All</a>
+                    | <a href="#" onClick='checkAll("two", "false", "one"); return false;'>Clear All</a>
+                </td>
             </tr>
+            </tfoot>
         </table>
 
-        <table width="100%" BGCOLOR="silver">
-            <tr>
-                <TD>
-                    <% if (bEdit) { %> <INPUT TYPE="button"
-                                              onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                                              VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
-                    <INPUT TYPE="button"
-                           onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
-                    <INPUT TYPE="button"
-                           onclick="document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                           VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>"
-                           onClick="onButDelete()"> <% } else { %> <INPUT
-                        TYPE="button"
-                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
-                    <% } %>
-                </TD>
-                <TD align="right"><INPUT TYPE="button"
-                                         VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/> "
-                                         onClick="window.history.go(-1);return false;"> <INPUT
-                        TYPE="button" VALUE=" <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/> "
-                        onClick="onExit()"></TD>
-            </tr>
-        </table>
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <div>
+                <% if (bEdit) { %>
+                <input type="button" class="btn btn-primary btn-sm"
+                       onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
+                <input type="button" class="btn btn-secondary btn-sm"
+                       onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
+                <input type="button" class="btn btn-danger btn-sm"
+                       onclick="onButDelete(); document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>">
+                <% } else { %>
+                <input type="button" class="btn btn-primary btn-sm"
+                       onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
+                <% } %>
+            </div>
+            <div>
+                <input type="button" class="btn btn-secondary btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                       onClick="window.history.go(-1);return false;">
+                <input type="button" class="btn btn-link btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>"
+                       onClick="onExit()">
+            </div>
+        </div>
 
     </form>
+    </div>
     </body>
 </html>
