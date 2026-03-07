@@ -150,7 +150,7 @@ public class SecObjPrivilegeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return results for findByFormNamePrivilegeAndProviderNo")
         void shouldReturnResults_whenFindByFormNamePrivilegeAndProviderNo() {
             List<Object[]> result = dao.findByFormNamePrivilegeAndProviderNo("frm", "priv", "prov");
-            assertThat(result).isNotNull();
+            assertThat(result).isEmpty();
         }
     }
 }

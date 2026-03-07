@@ -75,7 +75,9 @@ public class SecurityDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist security record with generated ID")
         void shouldPersistSecurityRecord_whenValidDataProvided() {
             Security sec = createSecurity("100001", "testuser1", "hashed_pw");
-            assertThat(sec.getSecurityNo()).isNotNull();
+            assertThat(sec.getSecurityNo()).isPositive();
+            assertThat(sec.getUserName()).isEqualTo("testuser1");
+            assertThat(sec.getProviderNo()).isEqualTo("100001");
         }
 
         @Test
@@ -208,7 +210,9 @@ public class SecurityDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             List<Security> results = securityDao.findByOneIdKey("SSO-KEY-12345");
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getUserName()).isEqualTo("ssouser");
+            assertThat(results.get(0).getProviderNo()).isEqualTo("700001");
         }
 
         @Test
@@ -232,7 +236,9 @@ public class SecurityDaoIntegrationTest extends CarlosTestBase {
             createSecurity("800002", "auser", "pw2");
 
             List<Security> results = securityDao.findAllOrderBy("user_name");
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSize(2);
+            assertThat(results.get(0).getUserName()).isEqualTo("auser");
+            assertThat(results.get(1).getUserName()).isEqualTo("zuser");
         }
     }
 }

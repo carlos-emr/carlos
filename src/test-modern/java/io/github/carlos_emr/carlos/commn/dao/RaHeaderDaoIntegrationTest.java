@@ -222,7 +222,7 @@ public class RaHeaderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return results for findByStatusAndProviderMagic")
         void shouldReturnResults_whenFindByStatusAndProviderMagic() {
             List<RaHeader> result = dao.findByStatusAndProviderMagic("STS", "100");
-            assertThat(result).isNotNull();
+            assertThat(result).isEmpty();
         }
     }
 }

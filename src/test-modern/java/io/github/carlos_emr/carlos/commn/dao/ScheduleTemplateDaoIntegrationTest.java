@@ -112,7 +112,8 @@ public class ScheduleTemplateDaoIntegrationTest extends CarlosTestBase {
             scheduleTemplateCodeDao.persist(code1);
 
             List<ScheduleTemplateCode> all = scheduleTemplateCodeDao.findAll(0, 100);
-            assertThat(all).isNotEmpty();
+            assertThat(all).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(all).extracting(ScheduleTemplateCode::getCode).contains("X");
         }
     }
 

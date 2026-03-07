@@ -239,6 +239,7 @@ class RuleBaseCreatorUnitTest {
             KieBase second = creator.getRuleBase("testPkg", Collections.singletonList(rule));
 
             assertThat(first).isNotNull();
+            assertThat(first.getKiePackages()).isNotEmpty();
             // Same DRL content = same SHA-256 hash = same cached KieBase instance
             assertThat(second).isSameAs(first);
         }
@@ -261,6 +262,9 @@ class RuleBaseCreatorUnitTest {
             KieBase kieBase = creator.getRuleBase("testPkg", Arrays.asList(rule1, rule2));
 
             assertThat(kieBase).isNotNull();
+            // Both rules should be compiled into the KieBase
+            int totalRules = kieBase.getKiePackages().stream().mapToInt(p -> p.getRules().size()).sum();
+            assertThat(totalRules).isEqualTo(2);
         }
 
         /**
@@ -283,7 +287,9 @@ class RuleBaseCreatorUnitTest {
             KieBase baseB = creator.getRuleBase("pkg", Collections.singletonList(ruleB));
 
             assertThat(baseA).isNotNull();
+            assertThat(baseA.getKiePackages()).isNotEmpty();
             assertThat(baseB).isNotNull();
+            assertThat(baseB.getKiePackages()).isNotEmpty();
             // Different DRL content should produce different cached entries
             assertThat(baseB).isNotSameAs(baseA);
         }
