@@ -432,11 +432,7 @@ Ontario, Canada
                     if (document.forms[0].groupButton) {
                         document.forms[0].groupButton.style.display = "none";
                     }
-                    if (document.forms[0].addPrintPreviewButton) {
-                        document.forms[0].addPrintPreviewButton.style.display = "none";
-                    }
                     document.forms[0].addButton.style.display = "none";
-                    document.forms[0].printButton.style.display = "none";
 
                     if (document.forms[0].pasteButton) {
                         document.forms[0].pasteButton.style.display = "none";
@@ -793,20 +789,14 @@ Ontario, Canada
 
                             if (haveLock == true) { //i have the lock
                                 $("#addButton").show();
-                                $("#printButton").show();
-                                $("#addPrintPreviewButton").show();
                                 $("#pasteButton").show();
                                 $("#apptRepeatButton").show();
                             } else if (locked && !haveLock) { //someone else has lock.
                                 $("#addButton").hide();
-                                $("#printButton").hide();
-                                $("#addPrintPreviewButton").hide();
                                 $("#pasteButton").hide();
                                 $("#apptRepeatButton").hide();
                             } else { //no lock
                                 $("#addButton").show();
-                                $("#printButton").show();
-                                $("#addPrintPreviewButton").show();
                                 $("#pasteButton").show();
                                 $("#apptRepeatButton").show();
                             }
@@ -1406,30 +1396,6 @@ Ontario, Canada
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnGroupAppt"/>"
                             <%=disabled%>>
                     <% }
-
-                        if (dateString2.equals(inform.format(inform.parse(now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DAY_OF_MONTH))))
-
-                                || dateString2.equals(inform.format(inform.parse(cal.get(Calendar.YEAR) + "-" + (cal.get(Calendar.MONTH) + 1) + "-" + cal.get(Calendar.DAY_OF_MONTH))))) {
-                    %> <input type="submit" id="addPrintPreviewButton" class="btn"
-                              onclick="document.forms['ADDAPPT'].displaymode.value='Add Appt & PrintPreview'"
-                              value="<fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.btnAddApptPrintPreview'/>"
-                        <%=disabled%>>
-
-
-                    <%
-                        }
-
-                    %>
-
-                    <input type="submit" id="printReceiptButton" class="btn"
-                           onclick="document.forms['ADDAPPT'].displaymode.value='Add Appointment';document.forms['ADDAPPT'].printReceipt.value='1';"
-                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='appointment.addappointment.btnPrintReceipt'/>"
-                            <%=disabled%>>
-                    <input type="hidden" name="printReceipt" value="">
-                    <input type="submit" id="printButton"
-                           onclick="document.forms['ADDAPPT'].displaymode.value='Add Appt & PrintCard'" class="btn"
-                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='global.btnPrint'/>"
-                            <%=disabled%>>
 
 
                     <% } %>
