@@ -212,18 +212,18 @@ js/topnav.js                                # Legacy top navigation (topnav.css 
 
 ---
 
-## Category 4: Unused JS/JSON in `share/` directory
+## Category 4: Unused JS/JSON in `share/` directory — REMOVED
 
 ```
-share/calendar/calendar-setup_stripped.js    # Stripped calendar setup (full version used)
-share/calendar/calendar_stripped.js          # Stripped calendar core (full version used)
-share/documentUploader/jquery.iframe-transport.js  # Old file upload transport
-share/javascript/dragdrop.js                # script.aculo.us drag & drop
-share/javascript/jquery/jquery-ui-1.8.15.custom.draggable.slider.min.js  # Very old jQuery UI
-share/javascript/jquery/jquery-ui-1.8.4.custom_full.min.js               # Very old jQuery UI
-share/javascript/jquery/jquery.autogrow-textarea.js                      # Not referenced
-share/javascript/sorttable.js               # Sort table library (note: sortable.js is a different, used file)
-share/javascript/sound.js                   # script.aculo.us sound library
+share/calendar/calendar-setup_stripped.js    # DELETED — Stripped calendar setup (full version used)
+share/calendar/calendar_stripped.js          # DELETED — Stripped calendar core (full version used)
+share/documentUploader/jquery.iframe-transport.js  # DELETED — Old file upload transport
+share/javascript/dragdrop.js                # DELETED — script.aculo.us drag & drop
+share/javascript/jquery/jquery-ui-1.8.15.custom.draggable.slider.min.js  # DELETED — Very old jQuery UI
+share/javascript/jquery/jquery-ui-1.8.4.custom_full.min.js               # DELETED — Very old jQuery UI
+share/javascript/jquery/jquery.autogrow-textarea.js                      # DELETED — Not referenced
+share/javascript/sorttable.js               # DELETED — Sort table library (sortable.js is a different, used file)
+share/javascript/sound.js                   # DELETED — script.aculo.us sound library
 ```
 
 ### `share/calendar/lang/` — Unused locale files (only `en` and `fr` are configured)
@@ -467,7 +467,7 @@ schedule/scheduletemplatesetting1.jsp       # Schedule template settings
 | Unused eform libraries | 2 | ~50 KB | **Verified** — jSignature duplicates |
 | Other unused libraries | 3 | ~100 KB | **Verified** |
 | `js/` directory unused | 15 | ~400 KB | **Verified** — old plugins/non-min versions (1 REMOVED) |
-| `share/` unused JS | 9 | ~200 KB | **Verified** — legacy |
+| `share/` unused JS | 9 | ~200 KB | **REMOVED** — legacy |
 | `share/calendar/lang/` (28 locales) | 28 | ~50 KB | **Verified** — only en/fr used, no dynamic loading |
 | PMmodule/Admin JSPs | 35 | ~200 KB | **Verified** — dead Tiles references |
 | admin/ migration JSPs | 11 | ~100 KB | **Verified** — self-referencing only |
