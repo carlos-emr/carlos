@@ -531,6 +531,9 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(h.getId());
+            assertThat(result.getDemographicNo()).isEqualTo(DEMO_NO);
+            assertThat(result.getPayProgram()).isEqualTo("HCP");
         }
 
         @Test
@@ -647,7 +650,11 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, yesterday, nextWeek);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            Object[] row = result.get(0);
+            assertThat(row).hasSize(2);
+            assertThat(row[0]).isEqualTo("00");
+            assertThat(((Number) row[1]).longValue()).isEqualTo(1L);
         }
     }
 
@@ -754,7 +761,9 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
                     "O", null, null, null, null);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(result).allSatisfy(h ->
+                    assertThat(h.getStatus()).isEqualTo("O"));
         }
 
         @Test

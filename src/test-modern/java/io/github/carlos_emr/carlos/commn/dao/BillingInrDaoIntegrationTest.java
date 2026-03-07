@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,8 @@ public class BillingInrDaoIntegrationTest extends CarlosTestBase {
     @Tag("read")
     @DisplayName("should return results when searching by billing INR number")
     void shouldReturnResults_whenSearchingByBillingInrNo() {
-        assertThat(dao.search_inrbilling_dt_billno(1)).isNotNull();
+        List<Object[]> results = dao.search_inrbilling_dt_billno(1);
+        assertThat(results).isNotNull();
+        assertThat(results).isInstanceOf(List.class);
     }
 }

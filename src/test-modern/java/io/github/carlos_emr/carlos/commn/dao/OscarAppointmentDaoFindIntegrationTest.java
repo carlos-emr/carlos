@@ -367,7 +367,9 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
             List<Appointment> result = oscarAppointmentDao.findByUpdateDate(yesterday, 100);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(result).allSatisfy(a ->
+                    assertThat(a.getUpdateDateTime()).isAfterOrEqualTo(yesterday));
         }
 
         @Test
@@ -451,7 +453,8 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
             List<Appointment> result = oscarAppointmentDao.getAllByDemographicNoSince(110, yesterday);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(110);
         }
     }
 
@@ -759,8 +762,10 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
                     createDt, "doc1", 134);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
             assertThat(result.get(0).getName()).isEqualTo("Exact Match");
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(134);
+            assertThat(result.get(0).getProviderNo()).isEqualTo(PROVIDER_NO);
         }
 
         @Test
@@ -1020,6 +1025,7 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result.getAppointmentDate()).isBeforeOrEqualTo(today);
         }
 
         @Test
@@ -1086,7 +1092,8 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, today, PROGRAM_ID, "none");
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(152);
         }
 
         @Test
