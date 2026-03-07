@@ -1052,12 +1052,7 @@
             <result name="success">/oscarEncounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
             <result name="failure">/oscarEncounter/oscarMeasurements/Measurements.jsp</result>
         </action>
-        <action name="oscarEncounter/FormUpdate" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/close.jsp</result>
-            <result name="reload">/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/FlowUpdate.jsp</result>
-        </action>
-        <action name="oscarEncounter/Measurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action">
+<action name="oscarEncounter/Measurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action">
             <result name="success">/oscarEncounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
             <result name="failure">/oscarEncounter/oscarMeasurements/Measurements.jsp</result>
         </action>
