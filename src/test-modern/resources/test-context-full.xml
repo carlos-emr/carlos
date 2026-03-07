@@ -267,6 +267,17 @@
                 <value>io.github.carlos_emr.carlos.commn.model.EFormDocs</value>
                 <!-- SystemPreferences for InboxResultsDao date search config -->
                 <value>io.github.carlos_emr.carlos.commn.model.SystemPreferences</value>
+                <!-- Security entities for SecurityDao integration tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.Security</value>
+                <!-- HRM entities for HRMDocumentDao integration tests -->
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentSubClass</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentComment</value>
+                <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory</value>
+                <!-- Scheduling entities for ScheduleDao integration tests -->
+                <value>io.github.carlos_emr.carlos.commn.model.RSchedule</value>
             </list>
         </property>
         <property name="mappingResources">
@@ -563,5 +574,19 @@
 
     <!-- SystemPreferences DAO for InboxResultsDao date search type config -->
     <bean id="systemPreferencesDao" class="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDaoImpl" autowire="byName" />
+
+    <!-- Security DAO for SecurityDao integration tests -->
+    <bean id="securityDao" class="io.github.carlos_emr.carlos.commn.dao.SecurityDaoImpl" autowire="byName" />
+
+    <!-- HRM DAOs for HRMDocument integration tests -->
+    <bean id="hrmDocumentDao" class="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao" autowire="byName" />
+    <bean id="hrmDocumentSubClassDao" class="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentSubClassDao" autowire="byName" />
+    <bean id="hrmDocumentToDemographicDao" class="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao" autowire="byName" />
+    <bean id="hrmDocumentToProviderDao" class="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao" autowire="byName" />
+    <bean id="hrmDocumentCommentDao" class="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentCommentDao" autowire="byName" />
+    <bean id="hrmCategoryDao" class="io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMCategoryDao" autowire="byName" />
+
+    <!-- Schedule DAO for ScheduleDao integration tests -->
+    <bean id="rScheduleDao" class="io.github.carlos_emr.carlos.commn.dao.RScheduleDaoImpl" autowire="byName" />
 
 </beans>
