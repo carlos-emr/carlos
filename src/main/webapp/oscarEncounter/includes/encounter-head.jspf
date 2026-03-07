@@ -50,6 +50,7 @@
                         eforms: "<c:out value='${ctx}'/>/oscarEncounter/displayEForms.do?hC=11CC00",
                         docs: "<c:out value='${ctx}'/>/oscarEncounter/displayDocuments.do?hC=476BB3",
                         labs: "<c:out value='${ctx}'/>/oscarEncounter/displayLabs.do?hC=A0509C",
+                        HRM: "<c:out value='${ctx}'/>/oscarEncounter/displayHRM.do?hC=28A0A8",
                         msgs: "<c:out value='${ctx}'/>/oscarEncounter/displayMessages.do?hC=DDDD00",
                         measurements: "<c:out value='${ctx}'/>/oscarEncounter/displayMeasurements.do?hC=344887",
                         consultation: "<c:out value='${ctx}'/>/oscarEncounter/displayConsultation.do"
@@ -62,6 +63,7 @@
                         eforms: "<c:out value='${ctx}'/>/oscarEncounter/displayEForms.do?hC=11CC00",
                         docs: "<c:out value='${ctx}'/>/oscarEncounter/displayDocuments.do?hC=476BB3",
                         labs: "<c:out value='${ctx}'/>/oscarEncounter/displayLabs.do?hC=A0509C",
+                        HRM: "<c:out value='${ctx}'/>/oscarEncounter/displayHRM.do?hC=28A0A8",
                         msgs: "<c:out value='${ctx}'/>/oscarEncounter/displayMessages.do?hC=DDDD00",
                         measurements: "<c:out value='${ctx}'/>/oscarEncounter/displayMeasurements.do?hC=344887",
                         consultation: "<c:out value='${ctx}'/>/oscarEncounter/displayConsultation.do?hC=",
