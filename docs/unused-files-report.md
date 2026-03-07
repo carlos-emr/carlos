@@ -24,8 +24,15 @@ Each file was checked against ALL possible referencing sources:
 11. **Database SQL updates** — eform HTML stored in `update-*.sql` files
 12. **CSS files** — `url()` references
 13. **Dynamic include patterns** — tab systems, locale-based loading, `${variable}` path construction
+14. **CSS companion files** — JS libraries often have matching CSS files that must be checked
+15. **Cascade analysis** — when deleting files, check if they were the sole consumer of other resources (JS/CSS/images) that would become orphaned
 
 **Intensive verification pass**: 6 parallel verification agents searched for every filename (with and without path, with and without extension, partial matches) across all file types. 17 false positives were identified and removed from the original 399-file list, resulting in 382 verified unused files.
+
+**Post-deletion audit** (2026-03-07): A second cross-file-type audit checked ALL remaining file types (JS, CSS, XML, properties, HTML, JSON, Java) for references to deleted files and identified:
+- 3 orphaned CSS companion files (Angular.js ecosystem) missed in initial deletion
+- 2 orphaned CSS files whose only consumers were deleted JSPs
+- All struts.xml, Java, and JSP references to deleted files confirmed as non-breaking (class names, i18n keys, commented code, or already-broken URLs)
 
 ### False Positives Removed During Verification
 
@@ -122,18 +129,21 @@ library/DataTables/datatables.js           # Bundled all-in-one (non-min); only 
 
 ## Category 2: Unused Individual JavaScript Libraries (~2.0 MB)
 
-### Angular.js ecosystem (project doesn't use Angular)
+### Angular.js ecosystem (project doesn't use Angular) — REMOVED
 ```
-library/angular-datatables.min.js
-library/angular-resource.js
-library/angular-resource.min.js
-library/angular-route.js
-library/angular-route.min.js
-library/angular-ui-router.js
-library/ng-infinite-scroll.min.js
-library/ng-table/ng-table.js
-library/ng-table/ng-table.min.js
-library/ui-bootstrap-tpls-2.5.0.js         # Angular UI Bootstrap (version 0.11.0 IS used, but NOT 2.5.0)
+library/angular-datatables.min.js           # DELETED
+library/angular-resource.js                 # DELETED
+library/angular-resource.min.js             # DELETED
+library/angular-route.js                    # DELETED
+library/angular-route.min.js                # DELETED
+library/angular-ui-router.js               # DELETED
+library/ng-infinite-scroll.min.js          # DELETED
+library/ng-table/ng-table.js               # DELETED
+library/ng-table/ng-table.min.js           # DELETED
+library/ui-bootstrap-tpls-2.5.0.js         # DELETED — Angular UI Bootstrap (version 0.11.0 IS used, but NOT 2.5.0)
+css/angular-datatables.min.css             # DELETED — CSS companion (missed in initial deletion, caught by post-audit)
+library/ng-table/ng-table.css              # DELETED — CSS companion (missed in initial deletion, caught by post-audit)
+library/ng-table/ng-table.min.css          # DELETED — CSS companion (missed in initial deletion, caught by post-audit)
 ```
 
 ### Bootstrap 3.0.0 assets (project uses Bootstrap 5.3.0 from CDN)
@@ -443,7 +453,7 @@ schedule/scheduletemplatesetting1.jsp       # Schedule template settings
 | DataTables 1.10.12 media/js (excl. 2 used min files) | 14 | ~600 KB | **Verified** |
 | DataTables 1.13.4 framework builds | 13 | ~400 KB | **Verified** — bootstrap5.min.js IS used |
 | DataTables bundled non-min | 1 | ~50 KB | **Verified** — only min version used |
-| Angular.js ecosystem | 10 | ~500 KB | **Verified** — Angular not used |
+| Angular.js ecosystem + CSS | 13 | ~510 KB | **REMOVED** — Angular not used, includes 3 CSS companions |
 | Bootstrap 3.0.0 assets | 6 | ~200 KB | **Verified** — BS 5.3 from CDN |
 | Old jQuery/library duplicates | 8 | ~500 KB | **Verified** — duplicates of used versions |
 | Unused eform libraries | 2 | ~50 KB | **Verified** — jSignature duplicates |
@@ -466,6 +476,17 @@ schedule/scheduletemplatesetting1.jsp       # Schedule template settings
 3. **Phase 3 — Admin/migration JSPs**: Remove one-time migration tools in `admin/` (~100 KB)
 4. **Phase 4 — Module JSPs**: Remove PMmodule/Admin (dead Tiles), billing, casemgmt (minus 5 tab JSPs), report JSPs (~900 KB)
 5. **Phase 5 — Remaining JSPs**: Remove other individual unused JSPs (~550 KB)
+
+## Category 6: CSS Files Orphaned by JSP Deletions — REMOVED
+
+These CSS files became orphaned when the JSPs that used them were deleted in Phase 4/5:
+
+```
+provider/antenatalrecordprint.css          # DELETED — only consumer was deleted antenatal print JSPs
+share/documentUploader/jquery.fileupload-ui.css  # DELETED — only consumer was deleted documentUploaderFirefox36.jsp
+```
+
+---
 
 ## Bugs Discovered During Verification
 
