@@ -47,9 +47,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.eform.EFormLoader;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
-import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.util.StringUtils;
@@ -128,62 +126,6 @@ public class AddEForm2Action extends ActionSupport {
         String recipient = request.getParameter("recipient");
         String recipientFaxNumber = request.getParameter("recipientFaxNumber");
         String letterheadFax = request.getParameter("letterheadFax");
-
-        boolean doDatabaseUpdate = false;
-        List<String> oscarUpdateFields = new ArrayList<>();
-        if (request.getParameter("_oscardodatabaseupdate") != null && request.getParameter("_oscardodatabaseupdate").equalsIgnoreCase("on")) {
-            doDatabaseUpdate = true;
-        }
-
-        // The fields in the _oscarupdatefields parameter are separated by %s.
-        if (!print && !fax && doDatabaseUpdate && request.getParameter("_oscarupdatefields") != null) {
-
-            oscarUpdateFields = Arrays.asList(request.getParameter("_oscarupdatefields").split("%"));
-
-            boolean validationError = false;
-
-            for (String field : oscarUpdateFields) {
-                EFormLoader.getInstance();
-                // Check for existence of appropriate databaseap
-                DatabaseAP currentAP = EFormLoader.getAP(field);
-                if (currentAP != null) {
-                    if (!currentAP.isInputField()) {
-                        // Abort! This field can't be updated
-                        addActionError(getText("errors.richeForms.noInputMethodError", new String[]{field}));
-                        validationError = true;
-                    }
-                } else {
-                    // Field doesn't exit
-                    addActionError(getText("errors.richeForms.noSuchFieldError", new String[]{field}));
-                    validationError = true;
-                }
-            }
-
-            if (!validationError) {
-                for (String field : oscarUpdateFields) {
-                    EFormLoader.getInstance();
-                    DatabaseAP currentAP = EFormLoader.getAP(field);
-                    // We can add more of these later...
-                    if (currentAP != null) {
-                        String inSQL = currentAP.getApInSQL();
-
-                        inSQL = DatabaseAP.parserReplace("demographic", demographic_no, inSQL);
-                        inSQL = DatabaseAP.parserReplace("providers", providerNo, inSQL);
-                        inSQL = DatabaseAP.parserReplace("fid", fid, inSQL);
-
-                        inSQL = DatabaseAP.parserReplace("value", request.getParameter(field), inSQL);
-
-                        //if(currentAP.getArchive() != null && currentAP.getArchive().equals("demographic")) {
-                        //	demographicArchiveDao.archiveRecord(demographicManager.getDemographic(loggedInInfo,demographic_no));
-                        //}
-
-                        // Run the SQL query against the database
-                        //TODO: do this a different way.
-                        MiscUtils.getLogger().error("Error", new Exception("EForm is using disabled functionality for updating fields..update not performed"));
-                    }
-                }
-            }
-        }
 
         if (subject == null) subject = "";
         String curField = "";

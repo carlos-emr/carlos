@@ -261,12 +261,6 @@
         <script type="text/javascript" src="<%=request.getContextPath()%>/library/jquery/jquery-1.12.0.min.js"></script>
         <script type="text/javascript"
                 src="<%=request.getContextPath()%>/library/jquery/jquery-ui-1.12.1.min.js"></script>
-        <% if (oscarProps.getBooleanProperty("workflow_enhance", "true")) { %>
-        <script language="javascript" src="<%=request.getContextPath() %>/hcHandler/hcHandler.js"></script>
-        <script language="javascript"
-                src="<%=request.getContextPath() %>/hcHandler/hcHandlerUpdateDemographic.js"></script>
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/hcHandler/hcHandler.css" type="text/css"/>
-        <% } %>
         <link rel="stylesheet" href="<%=request.getContextPath() %>/demographic/demographiceditdemographic.css"
               type="text/css"/>
 
@@ -1408,19 +1402,12 @@
                                                             </security:oscarSec>
                                                         </td>
                                                         <td width="30%" align='center' valign="top">
-                                                            <% if (oscarProps.getBooleanProperty("workflow_enhance", "true")) { %>
-                                                            <span style="position: relative; float: right; font-style: italic; background: black; color: white; padding: 4px; font-size: 12px; border-radius: 3px;">
-										<span class="_hc_status_icon _hc_status_success"></span>Ready for Card Swipe
-									</span>
-                                                            <% } %>
-                                                            <% if (!oscarProps.getBooleanProperty("workflow_enhance", "true")) { %>
                                                             <span id="swipeButton" style="display: inline;">
                                     <input type="button" name="Button"
                                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>"
                                            onclick="window.open('demographic/zdemographicswipe.jsp','', 'scrollbars=yes,resizable=yes,width=600,height=300, top=360, left=0')">
                                 </span>
                                                             <!--input type="button" name="Button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiceditdemographic.btnSwipeCard"/>" onclick="javascript:window.alert('Health Card Number Already Inuse');"-->
-                                                            <% } %>
                                                         </td>
                                                         <td width="40%" align='right' valign="top">
                                                             <input type="button" size="110" name="Button"

@@ -320,49 +320,6 @@ public class EForm extends EFormBase {
         }
     }
 
-    // Gets all the fields that are "input" (i.e. write-to-database) fields.
-    public void setupInputFields() {
-        String marker = EFormLoader.getInputMarker();
-        StringBuilder html = new StringBuilder(this.formHtml);
-        int markerLoc;
-        int pointer = 0;
-        while ((markerLoc = StringBuilderUtils.indexOfIgnoreCase(html, marker, pointer)) >= 0) {
-            pointer = (markerLoc + marker.length());
-            updateFields.add(getFieldName(html, pointer));
-        }
-
-        generateInputCode();
-    }
-
-    private void generateInputCode() {
-        if (updateFields.size() > 0) {
-
-            StringBuilder html = new StringBuilder(this.formHtml);
-            int formEndLoc = StringBuilderUtils.indexOfIgnoreCase(html, "</form>", 0);
-            int scriptEndLoc = StringBuilderUtils.indexOfIgnoreCase(html, "</script>", 0);
-
-            if (formEndLoc < 0) formEndLoc = 1;
-
-            if (scriptEndLoc < 0) scriptEndLoc = 0;
-            else scriptEndLoc += 9;
-
-            String fieldValue = "";
-            for (String field : updateFields) {
-                fieldValue += field + "%";
-            }
-
-            html.insert(formEndLoc - 1, "<span id='_oscardodatabaseupdatespan' style='position: absolute;' class='DoNotPrint'><input type='checkbox' name='_oscardodatabaseupdate' onchange='_togglehighlight()' /> Update Fields in Database<br />" +
-                    "<input type='button' id='_oscarrefreshfieldsbtn' name='_oscarrefreshfieldsbtn' value='Refresh DB Fields' onclick='_refreshfields()' /></span> " +
-                    "<input type='hidden' id='_oscarupdatefields' name='_oscarupdatefields' value='" + fieldValue + "' />" +
-                    "<input type='hidden' id='_oscardemographicno' name='_oscardemographicno' value='" + this.demographicNo + "' />" +
-                    "<input type='hidden' id='_oscarproviderno' name='_oscarproviderno' value='" + this.providerNo + "' />" +
-                    "<input type='hidden' id='_oscarfid' name='_oscarfid' value='" + this.fid + "' />");
-
-            this.formHtml = html.insert(scriptEndLoc, "<script type='text/javascript' src='oscar/library/jquery/jquery-3.6.4.min.js'></script>" +
-                    "<script type='text/javascript' src='oscar/js/eform_highlight.js'></script>").toString();
-        }
-    }
-
     // --------------------------Setting oscarOPEN behaviours ----------------------------------------
     public void setOscarOPEN(String requestURI) {
         StringBuilder html = new StringBuilder(this.formHtml);

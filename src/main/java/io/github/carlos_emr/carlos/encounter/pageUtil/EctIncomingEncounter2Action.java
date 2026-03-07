@@ -317,7 +317,7 @@ public class EctIncomingEncounter2Action extends ActionSupport {
         Allergy[] allergies = new Allergy[0];
         RxPrescriptionData.Prescription[] prescriptions = new RxPrescriptionData.Prescription[0];
         if (demoNoInt >= 0) {
-            RxPatientData patient = RxPatientData.getPatient(loggedInInfo, demoNoInt);
+            RxPatientData.Patient patient = RxPatientData.getPatient(loggedInInfo, demoNoInt);
             if (patient != null) {
                 allergies = patient.getAllergies(loggedInInfo);
             }
