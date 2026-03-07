@@ -344,14 +344,9 @@
                            onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
                     <% } %>
-                </div>
-                <div>
                     <input type="button" class="btn btn-secondary btn-sm"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
                            onClick="window.history.go(-1);return false;">
-                    <input type="button" class="btn btn-link btn-sm"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>"
-                           onClick="onExit()">
                 </div>
             </div>
 

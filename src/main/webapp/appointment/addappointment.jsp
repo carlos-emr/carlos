@@ -1391,7 +1391,7 @@ Ontario, Canada
                            value="<% if (isMobileOptimized) { %><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnAddAppointmentMobile"/>
                    <% } else { %><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnAddAppointment"/><% } %>"
                             <%=disabled%>>
-                    <input type="submit" id="groupButton" class="btn"
+                    <input type="submit" id="groupButton" class="btn btn-primary"
                            onclick="document.forms['ADDAPPT'].displaymode.value='Group Appt'"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnGroupAppt"/>"
                             <%=disabled%>>
@@ -1423,12 +1423,12 @@ Ontario, Canada
                     <% }%>
 
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
-                    <input type="button" id="apptRepeatButton" class="btn"
+                    <input type="button" id="apptRepeatButton" class="btn btn-primary"
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnRepeat"/>"
                            onclick="onButRepeat()" <%=disabled%>>
                     <% } %>
-                    <input type="RESET" id="backButton" class="btn btn-link"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>" onClick="cancelPageLock();window.close();">
+                    <input type="button" id="backButton" class="btn btn-secondary"
+                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>" onClick="cancelPageLock();window.close();">
 
                 </div>
             </div>

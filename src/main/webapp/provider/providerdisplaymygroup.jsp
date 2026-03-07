@@ -37,12 +37,14 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     MyGroupDao dao = SpringUtils.getBean(MyGroupDao.class);
 %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 
 <html>
@@ -68,22 +70,6 @@
         <input type="hidden" name="displaymode" value="newgroup">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <input type="submit" class="btn btn-danger btn-sm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnDelete"/>"
-                       onclick="document.forms['UPDATEPRE'].submit_form.value='Delete';">
-                <input type="submit" class="btn btn-primary btn-sm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
-                       onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">
-            </div>
-            <div>
-                <input type="button" class="btn btn-link btn-sm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnClose"/>"
-                       onClick="window.close();">
-            </div>
-        </div>
-
         <table class="table table-sm table-bordered mb-0">
             <thead class="table-light">
             <tr>
@@ -108,17 +94,29 @@
             <tr class="<%=bNewNo?"":"table-light"%>">
                 <td style="width:10%" class="text-center">
                     <input type="checkbox" class="form-check-input"
-                           name="<%=groupNo+myGroup.getId().getProviderNo()%>"
-                           value="<%=groupNo%>">
+                           name="<%=Encode.forHtmlAttribute(groupNo+myGroup.getId().getProviderNo())%>"
+                           value="<%=Encode.forHtmlAttribute(groupNo)%>">
                 </td>
-                <td class="text-center"><%=groupNo%></td>
-                <td class="text-center"><%=myGroup.getLastName() + ", " + myGroup.getFirstName()%></td>
+                <td class="text-center"><%=Encode.forHtml(groupNo)%></td>
+                <td class="text-center"><%=Encode.forHtml(myGroup.getLastName() + ", " + myGroup.getFirstName())%></td>
             </tr>
             <%
                 }
             %>
             </tbody>
         </table>
+
+        <div class="d-flex align-items-center mt-3">
+            <input type="submit" class="btn btn-danger btn-sm"
+                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnDelete"/>"
+                   onclick="if(!confirm('Are you sure you want to delete the selected group members?')){return false;} document.forms['UPDATEPRE'].submit_form.value='Delete';">
+            <input type="submit" class="btn btn-primary btn-sm ms-2"
+                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
+                   onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">
+            <input type="button" class="btn btn-secondary btn-sm ms-2"
+                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                   onClick="window.history.go(-1);return false;">
+        </div>
 
     </form>
     </div>

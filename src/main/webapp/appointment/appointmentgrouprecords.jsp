@@ -78,7 +78,9 @@
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 
 <%
@@ -411,34 +413,6 @@
           action="appointmentgrouprecords.jsp" onSubmit="return onSub();">
         <input type="hidden" name="groupappt" value="">
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <% if (bEdit) { %>
-                <input type="button" class="btn btn-primary btn-sm"
-                       onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
-                <input type="button" class="btn btn-secondary btn-sm"
-                       onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
-                <input type="button" class="btn btn-danger btn-sm"
-                       onclick="onButDelete(); document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>">
-                <% } else { %>
-                <input type="button" class="btn btn-primary btn-sm"
-                       onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
-                <% } %>
-            </div>
-            <div>
-                <input type="button" class="btn btn-secondary btn-sm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
-                       onClick="window.history.go(-1);return false;">
-                <input type="button" class="btn btn-link btn-sm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>"
-                       onClick="onExit()">
-            </div>
-        </div>
-
         <%
             Properties otherAppt = new Properties();
             String eApptDate = request.getParameter("appointment_date");
@@ -513,11 +487,18 @@
         %>
 
         <div class="d-flex justify-content-between align-items-center bg-light border rounded p-2 mb-2">
-            <span><%=request.getParameter("appointment_date")%>
-                | <%=request.getParameter("start_time")%> - <%=request.getParameter("end_time")%>
-                | <%=UtilMisc.toUpperLowerCase(request.getParameter("keyword"))%>
-            </span>
-            <span class="text-muted">Group: <%=mygroupno%></span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-secondary"><%=Encode.forHtml(request.getParameter("appointment_date"))%></span>
+                <span class="badge bg-info text-dark"><%=Encode.forHtml(request.getParameter("start_time"))%> - <%=Encode.forHtml(request.getParameter("end_time"))%></span>
+                <span class="fw-bold"><%=Encode.forHtml(UtilMisc.toUpperLowerCase(request.getParameter("keyword")))%></span>
+            </div>
+            <span class="badge bg-primary">Group: <%=Encode.forHtml(mygroupno)%></span>
+        </div>
+
+        <div class="d-flex gap-3 mb-2 small">
+            <span><span class="d-inline-block border rounded px-2 me-1 provider-current">&nbsp;</span> Current provider</span>
+            <span><span class="d-inline-block border rounded px-2 me-1 provider-available">&nbsp;</span> Available</span>
+            <span><span class="d-inline-block border rounded px-2 me-1 provider-unavailable">&nbsp;</span> Unavailable</span>
         </div>
 
         <table class="table table-sm table-bordered mb-0">
@@ -551,16 +532,16 @@
                         bDefProvider = curProvider_no.equals(provider.getProviderNo()) ? true : false;
             %>
             <tr class="<%=bDefProvider?"provider-current":(bAvailProvider?"provider-available":"provider-unavailable")%>">
-                <td class="text-end"><%=provider.getFormattedName()%></td>
+                <td class="text-end"><%=Encode.forHtml(provider.getFormattedName())%></td>
                 <td class="text-center">
                     <input type="checkbox" class="form-check-input" name="one<%=i%>"
                            value="<%=i%>"
                         <%=bEdit ? (otherAppt.getProperty(provider.getProviderNo()+"one")
 		!= null ? otherAppt.getProperty(provider.getProviderNo()+"one") : "") : (bDefProvider? "checked":"")%>
                            onclick="onCheck(this)">
-                    <input type="hidden" name="provider_no<%=i%>" value="<%=provider.getProviderNo()%>">
-                    <input type="hidden" name="last_name<%=i%>" value='<%=provider.getLastName()%>'>
-                    <input type="hidden" name="first_name<%=i%>" value='<%=provider.getFirstName()%>'>
+                    <input type="hidden" name="provider_no<%=i%>" value="<%=Encode.forHtmlAttribute(provider.getProviderNo())%>">
+                    <input type="hidden" name="last_name<%=i%>" value="<%=Encode.forHtmlAttribute(provider.getLastName())%>">
+                    <input type="hidden" name="first_name<%=i%>" value="<%=Encode.forHtmlAttribute(provider.getFirstName())%>">
                     <% if (otherAppt.getProperty(provider.getProviderNo() + "apptno") != null) {%>
                     <input type="hidden" name="appointment_no<%=i%>"
                            value="<%=otherAppt.getProperty(provider.getProviderNo()+"apptno")%>">
@@ -608,21 +589,16 @@
                        onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
                 <input type="button" class="btn btn-danger btn-sm"
-                       onclick="onButDelete(); document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
+                       onclick="if(!confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>')){return false;} document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>">
                 <% } else { %>
                 <input type="button" class="btn btn-primary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
                 <% } %>
-            </div>
-            <div>
                 <input type="button" class="btn btn-secondary btn-sm"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
                        onClick="window.history.go(-1);return false;">
-                <input type="button" class="btn btn-link btn-sm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>"
-                       onClick="onExit()">
             </div>
         </div>
 

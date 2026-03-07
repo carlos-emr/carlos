@@ -82,7 +82,8 @@
                 myGroupDao.deleteGroupMember(param[0], param[1]);
                 rowsAffected = 1;
             }
-            out.println("<script type='text/javascript'>self.close();</script>");
+            response.sendRedirect(request.getContextPath() + "/provider/providercontrol.jsp?displaymode=displaymygroup");
+            return;
         }
     %>
 
@@ -149,19 +150,12 @@
             </table>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <input type="submit" class="btn btn-primary btn-sm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.btnSave"/>">
-                <input type="button" class="btn btn-secondary btn-sm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
-                       onClick="window.history.go(-1);return false;">
-            </div>
-            <div>
-                <input type="button" class="btn btn-link btn-sm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.btnExit"/>"
-                       onClick="window.close();">
-            </div>
+        <div class="d-flex align-items-center">
+            <input type="submit" class="btn btn-primary btn-sm"
+                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providernewgroup.btnSave"/>">
+            <input type="button" class="btn btn-secondary btn-sm ms-2"
+                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                   onClick="window.history.go(-1);return false;">
         </div>
 
     </form>
