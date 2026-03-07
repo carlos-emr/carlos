@@ -97,7 +97,7 @@ function fallbackCopy(text) {
 <div id="header-top-row">
     <div id="left-column">
         <div id="branding-logo">
-            <img alt="OSCAR EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
+            <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
         </div>
         <%= demographic.getStandardIdentificationHTML(request.getContextPath()) %>
     </div>
