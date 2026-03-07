@@ -21,19 +21,23 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ProviderDefaultProgram;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ProviderDefaultProgramDao} with full method coverage matching legacy tests.
+ * Integration tests for {@link ProviderDefaultProgramDao} covering
+ * persist, getProgramByProviderNo, setDefaultProgram, getProviderSig,
+ * saveProviderDefaultProgram, and toggleSig.
  *
  * <p>Migrated from legacy {@code ProviderDefaultProgramDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -49,21 +53,168 @@ public class ProviderDefaultProgramDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ProviderDefaultProgramDao dao;
 
-    @Test
-    @Tag("create")
-    @DisplayName("should persist provider default program with generated ID")
-    void shouldPersistProviderDefaultProgram_whenValidDataProvided() {
+    private ProviderDefaultProgram createPdp(String providerNo, int programId, boolean sign) {
         ProviderDefaultProgram entity = new ProviderDefaultProgram();
-        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setProviderNo(providerNo);
+        entity.setProgramId(programId);
+        entity.setSign(sign);
         dao.persist(entity);
-
-        assertThat(entity.getId()).isNotNull();
+        return entity;
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should return non-null result when finding programs by provider number")
-    void shouldReturnNonNullResult_whenFindingProgramsByProviderNo() {
-        assertThat(dao.findProgramsByProvider("100")).isNotNull();
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist provider default program with generated ID")
+        void shouldPersistProviderDefaultProgram_whenValidDataProvided() {
+            ProviderDefaultProgram entity = createPdp("100001", 10, false);
+
+            assertThat(entity.getId()).isNotNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find provider default program by ID")
+        void shouldFindProviderDefaultProgram_whenValidIdProvided() {
+            ProviderDefaultProgram saved = createPdp("100002", 20, true);
+
+            ProviderDefaultProgram found = dao.find(saved.getId());
+
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getProviderNo()).isEqualTo("100002");
+            assertThat(found.getProgramId()).isEqualTo(20);
+            assertThat(found.isSign()).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("getProgramByProviderNo")
+    class GetProgramByProviderNo {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return programs for matching provider number")
+        void shouldReturnPrograms_whenProviderNoMatches() {
+            createPdp("200001", 30, false);
+            createPdp("200001", 40, true);
+            createPdp("200002", 50, false);
+
+            List<ProviderDefaultProgram> results = dao.getProgramByProviderNo("200001");
+
+            assertThat(results).hasSize(2);
+            assertThat(results).allMatch(p -> p.getProviderNo().equals("200001"));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no matching provider number")
+        void shouldReturnEmptyList_whenNoMatchingProviderNo() {
+            List<ProviderDefaultProgram> results = dao.getProgramByProviderNo("999999");
+
+            assertThat(results).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("getProviderSig")
+    class GetProviderSig {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return provider signature settings")
+        void shouldReturnProviderSig_whenProviderExists() {
+            createPdp("300001", 60, true);
+
+            List<ProviderDefaultProgram> results = dao.getProviderSig("300001");
+
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).isSign()).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("toggleSig")
+    class ToggleSig {
+
+        @Test
+        @Tag("update")
+        @DisplayName("should toggle sign flag for all provider programs")
+        void shouldToggleSignFlag_whenProviderHasPrograms() {
+            createPdp("400001", 70, false);
+            createPdp("400001", 80, false);
+
+            dao.toggleSig("400001");
+
+            List<ProviderDefaultProgram> results = dao.getProgramByProviderNo("400001");
+            assertThat(results).hasSize(2);
+            assertThat(results).allMatch(ProviderDefaultProgram::isSign);
+        }
+    }
+
+    @Nested
+    @DisplayName("saveProviderDefaultProgram")
+    class SaveProviderDefaultProgram {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist new program when ID is null")
+        void shouldPersistNewProgram_whenIdIsNull() {
+            ProviderDefaultProgram entity = new ProviderDefaultProgram();
+            entity.setProviderNo("500001");
+            entity.setProgramId(90);
+            entity.setSign(false);
+
+            dao.saveProviderDefaultProgram(entity);
+
+            assertThat(entity.getId()).isNotNull();
+            ProviderDefaultProgram found = dao.find(entity.getId());
+            assertThat(found.getProviderNo()).isEqualTo("500001");
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should merge existing program when ID is set")
+        void shouldMergeExistingProgram_whenIdIsSet() {
+            ProviderDefaultProgram saved = createPdp("500002", 100, false);
+
+            saved.setProgramId(200);
+            dao.saveProviderDefaultProgram(saved);
+
+            ProviderDefaultProgram found = dao.find(saved.getId());
+            assertThat(found.getProgramId()).isEqualTo(200);
+        }
+    }
+
+    @Nested
+    @DisplayName("setDefaultProgram")
+    class SetDefaultProgram {
+
+        @Test
+        @Tag("update")
+        @DisplayName("should create new default program when provider has none")
+        void shouldCreateNewDefaultProgram_whenProviderHasNone() {
+            dao.setDefaultProgram("600001", 110);
+
+            List<ProviderDefaultProgram> results = dao.getProgramByProviderNo("600001");
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getProgramId()).isEqualTo(110);
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update existing program when provider already has one")
+        void shouldUpdateExistingProgram_whenProviderAlreadyHasOne() {
+            createPdp("600002", 120, false);
+
+            dao.setDefaultProgram("600002", 130);
+
+            List<ProviderDefaultProgram> results = dao.getProgramByProviderNo("600002");
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getProgramId()).isEqualTo(130);
+        }
     }
 }

@@ -38,8 +38,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Integration tests for {@link BillingDetailDao}.
  *
  * <p>Migrated from legacy {@code BillingDetailDaoTest} (JUnit 4 / DaoTestFixtures).
- * Replicates exact legacy test coverage: persist entity and query by billing number
- * and status.</p>
+ * Tests all DAO methods: findByBillingNo(int), findByBillingNo(Integer),
+ * and findByBillingNoAndStatus.</p>
  *
  * @since 2026-03-07
  * @see BillingDetailDao
@@ -54,6 +54,15 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private BillingDetailDao dao;
 
+    private BillingDetail createEntity(int billingNo, String status, String serviceCode) {
+        BillingDetail entity = new BillingDetail();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setBillingNo(billingNo);
+        entity.setStatus(status);
+        entity.setServiceCode(serviceCode);
+        return entity;
+    }
+
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
@@ -66,9 +75,74 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
-    @DisplayName("should return result list when queried by billing number and status")
-    void shouldReturnResultList_whenQueriedByBillingNoAndStatus() {
-        List<BillingDetail> result = dao.findByBillingNoAndStatus(100, "STS");
-        assertThat(result).isNotNull();
+    @DisplayName("should find billing details by billing number (int)")
+    void shouldReturnMatchingRecords_byBillingNoInt() {
+        BillingDetail match1 = createEntity(3000, "A", "SVC1");
+        BillingDetail match2 = createEntity(3000, "B", "SVC2");
+        BillingDetail noMatch = createEntity(4000, "A", "SVC3");
+        dao.persist(match1);
+        dao.persist(match2);
+        dao.persist(noMatch);
+
+        List<BillingDetail> results = dao.findByBillingNo(3000);
+        assertThat(results).hasSize(2);
+        assertThat(results).allSatisfy(bd -> assertThat(bd.getBillingNo()).isEqualTo(3000));
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when billing number not found (int)")
+    void shouldReturnEmptyList_whenBillingNoIntNotFound() {
+        BillingDetail entity = createEntity(3000, "A", "SVC1");
+        dao.persist(entity);
+
+        List<BillingDetail> results = dao.findByBillingNo(99999);
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find billing details by billing number and status")
+    void shouldReturnMatchingRecords_byBillingNoAndStatus() {
+        BillingDetail match = createEntity(5000, "PAID", "SVC1");
+        BillingDetail diffStatus = createEntity(5000, "PEND", "SVC2");
+        BillingDetail diffBilling = createEntity(6000, "PAID", "SVC3");
+        dao.persist(match);
+        dao.persist(diffStatus);
+        dao.persist(diffBilling);
+
+        List<BillingDetail> results = dao.findByBillingNoAndStatus(5000, "PAID");
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getBillingNo()).isEqualTo(5000);
+        assertThat(results.get(0).getStatus()).isEqualTo("PAID");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when no matching billing number and status")
+    void shouldReturnEmptyList_whenNoMatchingBillingNoAndStatus() {
+        BillingDetail entity = createEntity(5000, "PAID", "SVC1");
+        dao.persist(entity);
+
+        List<BillingDetail> results = dao.findByBillingNoAndStatus(5000, "VOID");
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find billing details by Integer billing number excluding status D")
+    void shouldReturnNonDeletedRecords_byBillingNoInteger() {
+        BillingDetail active = createEntity(7000, "A", "SVC1");
+        BillingDetail deleted = createEntity(7000, "D", "SVC2");
+        BillingDetail otherBilling = createEntity(8000, "A", "SVC3");
+        dao.persist(active);
+        dao.persist(deleted);
+        dao.persist(otherBilling);
+
+        // findByBillingNo(Integer) excludes status 'D'
+        List<BillingDetail> results = dao.findByBillingNo(Integer.valueOf(7000));
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getStatus()).isNotEqualTo("D");
+        assertThat(results.get(0).getBillingNo()).isEqualTo(7000);
     }
 }

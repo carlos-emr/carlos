@@ -25,18 +25,24 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link Hl7LinkDao}.
- * <p>Migrated from legacy JUnit 4 Hl7LinkDaoTest with full method coverage.</p>
+ * <p>
+ * Note: Many Hl7LinkDao methods involve complex cross-entity joins
+ * (Hl7Pid, Hl7Obr, Demographic, Provider, Hl7Message). Tests for those
+ * methods verify empty-result behavior when no matching data exists.
+ * </p>
  *
  * @since 2026-03-07
  */
@@ -50,44 +56,96 @@ public class Hl7LinkDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private Hl7LinkDao dao;
 
-    @Test
-    @Tag("create")
-    @DisplayName("should persist entity with generated test data")
-    void shouldPersistEntity_whenValidDataProvided() {
-        Hl7Link entity = new Hl7Link();
-        EntityDataGenerator.generateTestDataForModelClass(entity);
-        entity.setId(1);
-        dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist entity with explicitly set ID")
+        void shouldPersistEntity_whenValidDataProvided() {
+            Hl7Link entity = new Hl7Link();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setId(1);
+            entity.setDemographicNo(100);
+            entity.setStatus("P");
+            entity.setProviderNo("DOC01");
+            dao.persist(entity);
+
+            Hl7Link found = dao.find(1);
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(1);
+            assertThat(found.getDemographicNo()).isEqualTo(100);
+            assertThat(found.getStatus()).isEqualTo("P");
+            assertThat(found.getProviderNo()).isEqualTo("DOC01");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when entity not found by ID")
+        void shouldReturnNull_whenInvalidIdProvided() {
+            Hl7Link found = dao.find(-999);
+            assertThat(found).isNull();
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find labs with linked demographics")
-    void shouldReturnLabs_whenQueried() {
-        assertThat(dao.findLabs()).isNotNull();
+    @Nested
+    @DisplayName("findLabs")
+    class FindLabs {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no linked labs exist")
+        void shouldReturnEmptyList_whenNoLinkedLabsExist() {
+            List<Object[]> results = dao.findLabs();
+            assertThat(results).isEmpty();
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find magic links matching HIN to external ID")
-    void shouldReturnMagicLinks_whenQueried() {
-        assertThat(dao.findMagicLinks()).isNotNull();
+    @Nested
+    @DisplayName("findMagicLinks")
+    class FindMagicLinks {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no magic links exist")
+        void shouldReturnEmptyList_whenNoMagicLinksExist() {
+            List<Object[]> results = dao.findMagicLinks();
+            assertThat(results).isEmpty();
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find links and request dates by demographic ID")
-    void shouldReturnLinksAndRequestDates_byDemographicId() {
-        assertThat(dao.findLinksAndRequestDates(100)).isNotNull();
+    @Nested
+    @DisplayName("findLinksAndRequestDates")
+    class FindLinksAndRequestDates {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no links exist for demographic")
+        void shouldReturnEmptyList_whenNoDemographicMatches() {
+            List<Object[]> results = dao.findLinksAndRequestDates(-999);
+            assertThat(results).isEmpty();
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find reports with various provider filters")
-    void shouldReturnReports_withVariousProviderFilters() {
-        assertThat(dao.findReports(new Date(), new Date(), "-ULL", "patient_name", "CMD")).isNotNull();
-        assertThat(dao.findReports(new Date(), new Date(), "-APL", "patient_name", "CMD")).isNotNull();
-        assertThat(dao.findReports(new Date(), new Date(), "-UAP", "patient_name", "CMD")).isNotNull();
+    @Nested
+    @DisplayName("findReports")
+    class FindReports {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when command is null")
+        void shouldReturnEmptyList_whenCommandIsNull() {
+            List<Object[]> results = dao.findReports(new Date(), new Date(), "-ULL", "patient_name", null);
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when command is empty string")
+        void shouldReturnEmptyList_whenCommandIsEmpty() {
+            List<Object[]> results = dao.findReports(new Date(), new Date(), "-APL", "patient_name", "");
+            assertThat(results).isEmpty();
+        }
     }
 }

@@ -22,7 +22,8 @@
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.billing.CA.BC.model.SupServiceCodeAssoc;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingTrayFee;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.SupServiceCodeAssocDAO;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -54,23 +55,86 @@ public class SupServiceCodeAssocDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist entity with generated ID")
+        @DisplayName("should persist BillingTrayFee entity with generated ID")
         void shouldPersist_whenValidDataProvided() {
-            SupServiceCodeAssoc entity = new SupServiceCodeAssoc();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
+            BillingTrayFee entity = new BillingTrayFee("SVC001", "TRAY001");
             supServiceCodeAssocDAO.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            SupServiceCodeAssoc saved = new SupServiceCodeAssoc();
-            EntityDataGenerator.generateTestDataForModelClass(saved);
+        @DisplayName("should find BillingTrayFee entity by ID with correct fields")
+        void shouldReturnMatchingEntity_whenFoundById() {
+            BillingTrayFee saved = new BillingTrayFee("SVC100", "TRAY100");
             supServiceCodeAssocDAO.persist(saved);
-            SupServiceCodeAssoc found = supServiceCodeAssocDAO.find(saved.getId());
+
+            BillingTrayFee found = supServiceCodeAssocDAO.find(saved.getId());
+
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getBillingServiceNo()).isEqualTo("SVC100");
+            assertThat(found.getBillingServiceTrayNo()).isEqualTo("TRAY100");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when entity not found by ID")
+        void shouldReturnNull_whenEntityNotFound() {
+            BillingTrayFee found = supServiceCodeAssocDAO.find(-999);
+            assertThat(found).isNull();
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update BillingTrayFee fields after merge")
+        void shouldUpdateFields_whenMerged() {
+            BillingTrayFee entity = new BillingTrayFee("SVC200", "TRAY200");
+            supServiceCodeAssocDAO.persist(entity);
+
+            entity.setBillingServiceTrayNo("TRAY999");
+            supServiceCodeAssocDAO.merge(entity);
+            supServiceCodeAssocDAO.flush();
+
+            BillingTrayFee found = supServiceCodeAssocDAO.find(entity.getId());
+            assertThat(found.getBillingServiceTrayNo()).isEqualTo("TRAY999");
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should remove entity from database")
+        void shouldRemoveEntity_whenDeleted() {
+            BillingTrayFee entity = new BillingTrayFee("SVC300", "TRAY300");
+            supServiceCodeAssocDAO.persist(entity);
+            Integer savedId = entity.getId();
+            assertThat(savedId).isNotNull();
+
+            supServiceCodeAssocDAO.remove(entity);
+            supServiceCodeAssocDAO.flush();
+
+            BillingTrayFee found = supServiceCodeAssocDAO.find(savedId);
+            assertThat(found).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteServiceCodeAssociation")
+    class DeleteServiceCodeAssociation {
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete association by string ID")
+        void shouldDeleteAssociation_whenValidIdProvided() {
+            BillingTrayFee entity = new BillingTrayFee("SVC400", "TRAY400");
+            supServiceCodeAssocDAO.persist(entity);
+            supServiceCodeAssocDAO.flush();
+            Integer savedId = entity.getId();
+
+            supServiceCodeAssocDAO.deleteServiceCodeAssociation(String.valueOf(savedId));
+            supServiceCodeAssocDAO.flush();
+
+            BillingTrayFee found = supServiceCodeAssocDAO.find(savedId);
+            assertThat(found).isNull();
         }
     }
 }

@@ -35,10 +35,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link FileUploadCheckDao} covering full method coverage
- * matching the legacy {@code FileUploadCheckDaoTest}.
- *
- * <p>Tests cover persist (create) and findByMd5Sum (find) operations.</p>
+ * Integration tests for {@link FileUploadCheckDao} covering persist and findByMd5Sum.
  *
  * @since 2026-03-07
  * @see FileUploadCheckDao
@@ -65,10 +62,46 @@ public class FileUploadCheckDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
-    @DisplayName("should return results when searching by MD5 sum")
-    void shouldReturnResults_whenSearchingByMd5Sum() {
-        List<FileUploadCheck> result = dao.findByMd5Sum("MD");
+    @DisplayName("should find entities matching the MD5 sum")
+    void shouldFindEntities_whenMatchingMd5SumExists() {
+        FileUploadCheck entity1 = new FileUploadCheck();
+        EntityDataGenerator.generateTestDataForModelClass(entity1);
+        entity1.setMd5sum("abc123def456");
+        entity1.setFilename("file1.pdf");
+        dao.persist(entity1);
 
-        assertThat(result).isNotNull();
+        FileUploadCheck entity2 = new FileUploadCheck();
+        EntityDataGenerator.generateTestDataForModelClass(entity2);
+        entity2.setMd5sum("abc123def456");
+        entity2.setFilename("file2.pdf");
+        dao.persist(entity2);
+
+        FileUploadCheck entity3 = new FileUploadCheck();
+        EntityDataGenerator.generateTestDataForModelClass(entity3);
+        entity3.setMd5sum("different789");
+        entity3.setFilename("file3.pdf");
+        dao.persist(entity3);
+
+        hibernateTemplate.flush();
+
+        List<FileUploadCheck> result = dao.findByMd5Sum("abc123def456");
+
+        assertThat(result).hasSize(2);
+        assertThat(result).allMatch(f -> f.getMd5sum().equals("abc123def456"));
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when no matching MD5 sum exists")
+    void shouldReturnEmptyList_whenNoMatchingMd5SumExists() {
+        FileUploadCheck entity = new FileUploadCheck();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setMd5sum("exists123");
+        dao.persist(entity);
+        hibernateTemplate.flush();
+
+        List<FileUploadCheck> result = dao.findByMd5Sum("nonexistent999");
+
+        assertThat(result).isEmpty();
     }
 }

@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.OtherId;
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -31,12 +30,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link OtherIdDAO} covering basic CRUD operations.
+ * Integration tests for {@link OtherIdDAO} covering CRUD operations,
+ * getOtherId, searchTable, and save.
  *
  * <p>Migrated from legacy {@code OtherIdDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -53,6 +51,13 @@ public class OtherIdDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private OtherIdDAO otherIdDAO;
 
+    private OtherId createOtherId(int tableName, String tableId, String otherKey, String otherIdValue) {
+        OtherId entity = new OtherId(tableName, tableId, otherKey, otherIdValue);
+        entity.setDeleted(false);
+        otherIdDAO.persist(entity);
+        return entity;
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
@@ -61,37 +66,139 @@ public class OtherIdDaoIntegrationTest extends CarlosTestBase {
         @Tag("create")
         @DisplayName("should persist otherid with generated ID")
         void shouldPersistOtherId_whenValidDataProvided() {
-            OtherId entity = new OtherId();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
-            otherIdDAO.persist(entity);
+            OtherId entity = createOtherId(1, "100", "KEY1", "VAL1");
+
             assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should find otherid by ID")
+        @DisplayName("should find otherid by ID with correct field values")
         void shouldFindOtherId_whenValidIdProvided() {
-            OtherId saved = new OtherId();
-            EntityDataGenerator.generateTestDataForModelClass(saved);
-            otherIdDAO.persist(saved);
+            OtherId saved = createOtherId(2, "200", "KEY2", "VAL2");
+
             OtherId found = otherIdDAO.find(saved.getId());
+
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getTableName()).isEqualTo(2);
+            assertThat(found.getTableId()).isEqualTo("200");
+            assertThat(found.getOtherKey()).isEqualTo("KEY2");
+            assertThat(found.getOtherId()).isEqualTo("VAL2");
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("getOtherId")
+    class GetOtherId {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all otherid records")
-        void shouldCountAllOtherIds() {
-            OtherId entity = new OtherId();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
-            otherIdDAO.persist(entity);
-            long count = otherIdDAO.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return OtherId matching tableName, tableId, and otherKey")
+        void shouldReturnOtherId_whenAllParametersMatch() {
+            createOtherId(3, "300", "MATCH_KEY", "MATCH_VAL");
+            createOtherId(3, "300", "OTHER_KEY", "OTHER_VAL");
+
+            OtherId result = otherIdDAO.getOtherId(3, "300", "MATCH_KEY");
+
+            assertThat(result).isNotNull();
+            assertThat(result.getOtherKey()).isEqualTo("MATCH_KEY");
+            assertThat(result.getOtherId()).isEqualTo("MATCH_VAL");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return null when no matching OtherId exists")
+        void shouldReturnNull_whenNoMatchingOtherId() {
+            OtherId result = otherIdDAO.getOtherId(999, "999", "NOPE");
+
+            assertThat(result).isNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should not return deleted OtherId records")
+        void shouldNotReturnDeleted_whenOtherIdIsDeleted() {
+            OtherId entity = createOtherId(4, "400", "DEL_KEY", "DEL_VAL");
+            entity.setDeleted(true);
+            otherIdDAO.merge(entity);
+
+            OtherId result = otherIdDAO.getOtherId(4, "400", "DEL_KEY");
+
+            assertThat(result).isNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should accept Integer tableId parameter")
+        void shouldAcceptIntegerTableId_whenCalledWithIntegerOverload() {
+            createOtherId(5, "500", "INT_KEY", "INT_VAL");
+
+            OtherId result = otherIdDAO.getOtherId(5, 500, "INT_KEY");
+
+            assertThat(result).isNotNull();
+            assertThat(result.getOtherId()).isEqualTo("INT_VAL");
+        }
+    }
+
+    @Nested
+    @DisplayName("searchTable")
+    class SearchTable {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return OtherId matching tableName, otherKey, and otherValue")
+        void shouldReturnOtherId_whenSearchCriteriaMatch() {
+            createOtherId(6, "600", "SRCH_KEY", "SRCH_VAL");
+            createOtherId(6, "601", "SRCH_KEY", "DIFF_VAL");
+
+            OtherId result = otherIdDAO.searchTable(6, "SRCH_KEY", "SRCH_VAL");
+
+            assertThat(result).isNotNull();
+            assertThat(result.getTableId()).isEqualTo("600");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return null when no matching search result")
+        void shouldReturnNull_whenNoMatchingSearchResult() {
+            OtherId result = otherIdDAO.searchTable(999, "NO_KEY", "NO_VAL");
+
+            assertThat(result).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("save")
+    class Save {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist new OtherId when ID is null")
+        void shouldPersistNewOtherId_whenIdIsNull() {
+            OtherId entity = new OtherId(7, "700", "SAVE_KEY", "SAVE_VAL");
+            entity.setDeleted(false);
+
+            otherIdDAO.save(entity);
+
+            assertThat(entity.getId()).isNotNull();
+
+            OtherId found = otherIdDAO.find(entity.getId());
+            assertThat(found.getOtherKey()).isEqualTo("SAVE_KEY");
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should merge existing OtherId when ID is set")
+        void shouldMergeOtherId_whenIdIsSet() {
+            OtherId entity = createOtherId(8, "800", "UPD_KEY", "OLD_VAL");
+            Integer savedId = entity.getId();
+
+            entity.setOtherId("NEW_VAL");
+            otherIdDAO.save(entity);
+
+            OtherId found = otherIdDAO.find(savedId);
+            assertThat(found.getOtherId()).isEqualTo("NEW_VAL");
         }
     }
 }

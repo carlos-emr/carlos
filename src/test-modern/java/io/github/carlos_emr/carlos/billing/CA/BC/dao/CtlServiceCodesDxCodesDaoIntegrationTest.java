@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.*;
 
 /**
@@ -58,19 +60,116 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
         void shouldPersist_whenValidDataProvided() {
             CtlServiceCodesDxCodes entity = new CtlServiceCodesDxCodes();
             EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setServiceCode("SVC100");
+            entity.setDxCode("DX200");
             ctlServiceCodesDxCodesDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
+        @DisplayName("should find entity by ID with matching field values")
+        void shouldReturnMatchingEntity_whenFoundById() {
             CtlServiceCodesDxCodes saved = new CtlServiceCodesDxCodes();
             EntityDataGenerator.generateTestDataForModelClass(saved);
+            saved.setServiceCode("SVC101");
+            saved.setDxCode("DX201");
             ctlServiceCodesDxCodesDao.persist(saved);
+
             CtlServiceCodesDxCodes found = ctlServiceCodesDxCodesDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getServiceCode()).isEqualTo("SVC101");
+            assertThat(found.getDxCode()).isEqualTo("DX201");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when entity not found by ID")
+        void shouldReturnNull_whenInvalidIdProvided() {
+            CtlServiceCodesDxCodes found = ctlServiceCodesDxCodesDao.find(-999);
+            assertThat(found).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("findAll")
+    class FindAll {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return all persisted entities")
+        void shouldReturnAllEntities_whenMultipleExist() {
+            CtlServiceCodesDxCodes e1 = new CtlServiceCodesDxCodes();
+            EntityDataGenerator.generateTestDataForModelClass(e1);
+            e1.setServiceCode("ALL1");
+            e1.setDxCode("DXA");
+            ctlServiceCodesDxCodesDao.persist(e1);
+
+            CtlServiceCodesDxCodes e2 = new CtlServiceCodesDxCodes();
+            EntityDataGenerator.generateTestDataForModelClass(e2);
+            e2.setServiceCode("ALL2");
+            e2.setDxCode("DXB");
+            ctlServiceCodesDxCodesDao.persist(e2);
+
+            List<CtlServiceCodesDxCodes> results = ctlServiceCodesDxCodesDao.findAll();
+            assertThat(results).hasSize(2);
+            assertThat(results).extracting(CtlServiceCodesDxCodes::getServiceCode)
+                    .containsExactlyInAnyOrder("ALL1", "ALL2");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no entities exist")
+        void shouldReturnEmptyList_whenNoEntitiesExist() {
+            List<CtlServiceCodesDxCodes> results = ctlServiceCodesDxCodesDao.findAll();
+            assertThat(results).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("findByServiceCode")
+    class FindByServiceCode {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return entities matching the service code")
+        void shouldReturnEntities_whenServiceCodeMatches() {
+            CtlServiceCodesDxCodes match1 = new CtlServiceCodesDxCodes();
+            EntityDataGenerator.generateTestDataForModelClass(match1);
+            match1.setServiceCode("MATCH");
+            match1.setDxCode("DX1");
+            ctlServiceCodesDxCodesDao.persist(match1);
+
+            CtlServiceCodesDxCodes match2 = new CtlServiceCodesDxCodes();
+            EntityDataGenerator.generateTestDataForModelClass(match2);
+            match2.setServiceCode("MATCH");
+            match2.setDxCode("DX2");
+            ctlServiceCodesDxCodesDao.persist(match2);
+
+            CtlServiceCodesDxCodes nonMatch = new CtlServiceCodesDxCodes();
+            EntityDataGenerator.generateTestDataForModelClass(nonMatch);
+            nonMatch.setServiceCode("OTHER");
+            nonMatch.setDxCode("DX3");
+            ctlServiceCodesDxCodesDao.persist(nonMatch);
+
+            List<CtlServiceCodesDxCodes> results = ctlServiceCodesDxCodesDao.findByServiceCode("MATCH");
+            assertThat(results).hasSize(2);
+            assertThat(results).extracting(CtlServiceCodesDxCodes::getDxCode)
+                    .containsExactlyInAnyOrder("DX1", "DX2");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no entities match service code")
+        void shouldReturnEmptyList_whenNoServiceCodeMatches() {
+            CtlServiceCodesDxCodes entity = new CtlServiceCodesDxCodes();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setServiceCode("EXISTS");
+            entity.setDxCode("DX1");
+            ctlServiceCodesDxCodesDao.persist(entity);
+
+            List<CtlServiceCodesDxCodes> results = ctlServiceCodesDxCodesDao.findByServiceCode("NONEXISTENT");
+            assertThat(results).isEmpty();
         }
     }
 }

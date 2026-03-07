@@ -38,7 +38,8 @@ import static org.assertj.core.api.Assertions.*;
 /**
  * Integration tests for {@link EFormGroupDao}.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Tests cover persist, find, getByGroupName, getGroupNames,
+ * deleteByNameAndFormId, and deleteByName operations.</p>
  *
  * @since 2026-03-07
  * @see EFormGroupDao
@@ -53,6 +54,18 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private EFormGroupDao eFormGroupDao;
 
+    /**
+     * Helper to create and persist an EFormGroup with specific group name and form ID.
+     */
+    private EFormGroup createEFormGroup(String groupName, int formId) {
+        EFormGroup entity = new EFormGroup();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setGroupName(groupName);
+        entity.setFormId(formId);
+        eFormGroupDao.persist(entity);
+        return entity;
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
@@ -64,18 +77,23 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
             EFormGroup entity = new EFormGroup();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             eFormGroupDao.persist(entity);
+
             assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should find eformgroup by ID")
+        @DisplayName("should find eformgroup by ID with correct fields")
         void shouldFindEFormGroup_whenValidIdProvided() {
-            EFormGroup saved = new EFormGroup();
-            EntityDataGenerator.generateTestDataForModelClass(saved);
-            eFormGroupDao.persist(saved);
+            EFormGroup saved = createEFormGroup("TestGroup", 42);
+            hibernateTemplate.flush();
+
             EFormGroup found = eFormGroupDao.find(saved.getId());
+
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getGroupName()).isEqualTo("TestGroup");
+            assertThat(found.getFormId()).isEqualTo(42);
         }
     }
 
@@ -85,13 +103,99 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all records")
+        @DisplayName("should count all records accurately")
         void shouldCountAllRecords() {
-            EFormGroup entity = new EFormGroup();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
-            eFormGroupDao.persist(entity);
-            long count = eFormGroupDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            int initialCount = eFormGroupDao.getCountAll();
+
+            createEFormGroup("CountGroup", 1);
+            createEFormGroup("CountGroup", 2);
+            hibernateTemplate.flush();
+
+            int newCount = eFormGroupDao.getCountAll();
+
+            assertThat(newCount).isEqualTo(initialCount + 2);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return groups filtered by group name")
+        void shouldReturnGroups_byGroupName() {
+            createEFormGroup("AlphaGroup", 10);
+            createEFormGroup("AlphaGroup", 20);
+            createEFormGroup("BetaGroup", 30);
+            hibernateTemplate.flush();
+
+            List<EFormGroup> result = eFormGroupDao.getByGroupName("AlphaGroup");
+
+            assertThat(result).hasSize(2);
+            assertThat(result).allMatch(g -> g.getGroupName().equals("AlphaGroup"));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when group name does not exist")
+        void shouldReturnEmptyList_whenGroupNameNotFound() {
+            List<EFormGroup> result = eFormGroupDao.getByGroupName("NonExistentGroup");
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return distinct group names")
+        void shouldReturnDistinctGroupNames() {
+            createEFormGroup("UniqueGroupA", 1);
+            createEFormGroup("UniqueGroupA", 2);
+            createEFormGroup("UniqueGroupB", 3);
+            hibernateTemplate.flush();
+
+            List<String> groupNames = eFormGroupDao.getGroupNames();
+
+            assertThat(groupNames).contains("UniqueGroupA", "UniqueGroupB");
+            // UniqueGroupA should appear only once (distinct)
+            assertThat(groupNames.stream().filter("UniqueGroupA"::equals).count()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("Delete operations")
+    class DeleteOperations {
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete by group name and form ID")
+        void shouldDeleteByNameAndFormId() {
+            createEFormGroup("DeleteGroup", 100);
+            createEFormGroup("DeleteGroup", 200);
+            hibernateTemplate.flush();
+
+            int deleted = eFormGroupDao.deleteByNameAndFormId("DeleteGroup", 100);
+
+            assertThat(deleted).isEqualTo(1);
+
+            List<EFormGroup> remaining = eFormGroupDao.getByGroupName("DeleteGroup");
+            assertThat(remaining).hasSize(1);
+            assertThat(remaining.get(0).getFormId()).isEqualTo(200);
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should delete all entries by group name")
+        void shouldDeleteAllEntries_byGroupName() {
+            createEFormGroup("DeleteAllGroup", 10);
+            createEFormGroup("DeleteAllGroup", 20);
+            createEFormGroup("KeepGroup", 30);
+            hibernateTemplate.flush();
+
+            int deleted = eFormGroupDao.deleteByName("DeleteAllGroup");
+
+            assertThat(deleted).isEqualTo(2);
+
+            List<EFormGroup> remaining = eFormGroupDao.getByGroupName("DeleteAllGroup");
+            assertThat(remaining).isEmpty();
+
+            List<EFormGroup> kept = eFormGroupDao.getByGroupName("KeepGroup");
+            assertThat(kept).hasSize(1);
         }
     }
 }

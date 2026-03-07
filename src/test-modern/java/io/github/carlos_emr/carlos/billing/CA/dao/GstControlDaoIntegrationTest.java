@@ -31,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,8 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Integration tests for {@link GstControlDao}.
  *
  * <p>Migrated from legacy {@code GstControlDaoTest} (JUnit 4 / DaoTestFixtures).
- * Replicates exact legacy test coverage: persist entity with explicit BigDecimal
- * gstPercent value and verify generated ID.</p>
+ * Tests persist and findAll methods.</p>
  *
  * @since 2026-03-07
  * @see GstControlDao
@@ -54,14 +54,57 @@ public class GstControlDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private GstControlDao dao;
 
+    private GstControl createEntity(BigDecimal gstPercent, Boolean gstFlag) {
+        GstControl entity = new GstControl();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setGstPercent(gstPercent);
+        entity.setGstFlag(gstFlag);
+        return entity;
+    }
+
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
     void shouldPersistEntity_whenValidDataProvided() {
-        GstControl entity = new GstControl();
-        EntityDataGenerator.generateTestDataForModelClass(entity);
-        entity.setGstPercent(new BigDecimal("13.00"));
+        GstControl entity = createEntity(new BigDecimal("13.00"), true);
         dao.persist(entity);
         assertThat(entity.getId()).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find entity by ID with correct GST values")
+    void shouldReturnEntity_whenValidIdProvided() {
+        GstControl saved = createEntity(new BigDecimal("5.00"), true);
+        dao.persist(saved);
+
+        GstControl found = dao.find(saved.getId());
+        assertThat(found).isNotNull();
+        assertThat(found.getId()).isEqualTo(saved.getId());
+        assertThat(found.getGstPercent()).isEqualByComparingTo(new BigDecimal("5.00"));
+        assertThat(found.getGstFlag()).isTrue();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return all persisted GST control records")
+    void shouldReturnAllRecords_whenFindAllCalled() {
+        GstControl entity1 = createEntity(new BigDecimal("5.00"), true);
+        GstControl entity2 = createEntity(new BigDecimal("7.00"), false);
+        GstControl entity3 = createEntity(new BigDecimal("13.00"), true);
+        dao.persist(entity1);
+        dao.persist(entity2);
+        dao.persist(entity3);
+
+        List<GstControl> results = dao.findAll();
+        assertThat(results).hasSize(3);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when no records exist")
+    void shouldReturnEmptyList_whenNoRecordsExist() {
+        List<GstControl> results = dao.findAll();
+        assertThat(results).isEmpty();
     }
 }

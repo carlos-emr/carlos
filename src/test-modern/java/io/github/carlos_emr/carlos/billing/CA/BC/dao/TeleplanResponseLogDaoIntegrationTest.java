@@ -31,11 +31,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.*;
 
 /**
  * Integration tests for {@link TeleplanResponseLogDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>
+ * This DAO only inherits CRUD operations from {@link io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl},
+ * so tests cover persist, find, merge, and remove.
+ * </p>
  * @since 2026-03-07
  */
 @DisplayName("TeleplanResponseLog Dao Integration Tests")
@@ -58,19 +63,99 @@ public class TeleplanResponseLogDaoIntegrationTest extends CarlosTestBase {
         void shouldPersist_whenValidDataProvided() {
             TeleplanResponseLog entity = new TeleplanResponseLog();
             EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setTransactionNo("TX-001");
+            entity.setResult("SUCCESS");
             teleplanResponseLogDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
+        @DisplayName("should find entity by ID with correct fields")
+        void shouldReturnMatchingEntity_whenFoundById() {
             TeleplanResponseLog saved = new TeleplanResponseLog();
             EntityDataGenerator.generateTestDataForModelClass(saved);
+            saved.setTransactionNo("TX-100");
+            saved.setResult("OK");
+            saved.setFilename("response_file.dat");
+            saved.setRealFilename("actual_file.dat");
+            saved.setMsgs("Processing complete");
             teleplanResponseLogDao.persist(saved);
+
             TeleplanResponseLog found = teleplanResponseLogDao.find(saved.getId());
+
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getTransactionNo()).isEqualTo("TX-100");
+            assertThat(found.getResult()).isEqualTo("OK");
+            assertThat(found.getFilename()).isEqualTo("response_file.dat");
+            assertThat(found.getRealFilename()).isEqualTo("actual_file.dat");
+            assertThat(found.getMsgs()).isEqualTo("Processing complete");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when entity not found by ID")
+        void shouldReturnNull_whenEntityNotFound() {
+            TeleplanResponseLog found = teleplanResponseLogDao.find(-999);
+            assertThat(found).isNull();
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update entity fields after merge")
+        void shouldUpdateFields_whenMerged() {
+            TeleplanResponseLog entity = new TeleplanResponseLog();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setResult("PENDING");
+            entity.setTransactionNo("TX-200");
+            teleplanResponseLogDao.persist(entity);
+
+            entity.setResult("COMPLETED");
+            entity.setMsgs("Updated message");
+            teleplanResponseLogDao.merge(entity);
+            teleplanResponseLogDao.flush();
+
+            TeleplanResponseLog found = teleplanResponseLogDao.find(entity.getId());
+            assertThat(found.getResult()).isEqualTo("COMPLETED");
+            assertThat(found.getMsgs()).isEqualTo("Updated message");
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should remove entity from database")
+        void shouldRemoveEntity_whenDeleted() {
+            TeleplanResponseLog entity = new TeleplanResponseLog();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            teleplanResponseLogDao.persist(entity);
+            Integer savedId = entity.getId();
+            assertThat(savedId).isNotNull();
+
+            teleplanResponseLogDao.remove(entity);
+            teleplanResponseLogDao.flush();
+
+            TeleplanResponseLog found = teleplanResponseLogDao.find(savedId);
+            assertThat(found).isNull();
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist multiple entities with distinct IDs")
+        void shouldPersistMultipleEntities_withDistinctIds() {
+            TeleplanResponseLog entity1 = new TeleplanResponseLog();
+            EntityDataGenerator.generateTestDataForModelClass(entity1);
+            entity1.setTransactionNo("TX-301");
+            teleplanResponseLogDao.persist(entity1);
+
+            TeleplanResponseLog entity2 = new TeleplanResponseLog();
+            EntityDataGenerator.generateTestDataForModelClass(entity2);
+            entity2.setTransactionNo("TX-302");
+            teleplanResponseLogDao.persist(entity2);
+
+            assertThat(entity1.getId()).isNotEqualTo(entity2.getId());
+
+            List<TeleplanResponseLog> all = teleplanResponseLogDao.findAll(null, null);
+            assertThat(all).hasSizeGreaterThanOrEqualTo(2);
         }
     }
 }

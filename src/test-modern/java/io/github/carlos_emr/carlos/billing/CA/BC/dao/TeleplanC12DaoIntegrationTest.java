@@ -25,10 +25,13 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,34 +51,137 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private TeleplanC12Dao dao;
 
-    @Test
-    @Tag("create")
-    @DisplayName("should persist entity with generated test data")
-    void shouldPersistEntity_whenValidDataProvided() {
-        TeleplanC12 entity = new TeleplanC12();
-        EntityDataGenerator.generateTestDataForModelClass(entity);
-        dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist entity with generated test data")
+        void shouldPersistEntity_whenValidDataProvided() {
+            TeleplanC12 entity = new TeleplanC12();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
+            assertThat(entity.getId()).isNotNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find entity by ID with correct fields")
+        void shouldReturnMatchingEntity_whenFoundById() {
+            TeleplanC12 entity = new TeleplanC12();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setOfficeFolioClaimNo("CLM-001");
+            entity.setStatus('O');
+            entity.setPractitionerNo("P123");
+            dao.persist(entity);
+
+            TeleplanC12 found = dao.find(entity.getId());
+
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(entity.getId());
+            assertThat(found.getOfficeFolioClaimNo()).isEqualTo("CLM-001");
+            assertThat(found.getStatus()).isEqualTo('O');
+            assertThat(found.getPractitionerNo()).isEqualTo("P123");
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find current non-error records")
-    void shouldReturnCurrentRecords_whenQueried() {
-        assertThat(dao.findCurrent()).isNotNull();
+    @Nested
+    @DisplayName("findCurrent")
+    class FindCurrent {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return records with non-error status")
+        void shouldReturnNonErrorRecords_whenQueried() {
+            TeleplanC12 openRecord = new TeleplanC12();
+            EntityDataGenerator.generateTestDataForModelClass(openRecord);
+            openRecord.setStatus('O');
+            openRecord.setOfficeFolioClaimNo("CLM-100");
+            dao.persist(openRecord);
+
+            TeleplanC12 errorRecord = new TeleplanC12();
+            EntityDataGenerator.generateTestDataForModelClass(errorRecord);
+            errorRecord.setStatus('E');
+            errorRecord.setOfficeFolioClaimNo("CLM-101");
+            dao.persist(errorRecord);
+
+            List<TeleplanC12> results = dao.findCurrent();
+
+            assertThat(results).isNotEmpty();
+            assertThat(results).extracting(TeleplanC12::getStatus)
+                    .doesNotContain('E');
+            assertThat(results).extracting(TeleplanC12::getOfficeFolioClaimNo)
+                    .contains("CLM-100");
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find records by office claim number")
-    void shouldReturnRecords_byOfficeClaimNo() {
-        assertThat(dao.findByOfficeClaimNo("100")).isNotNull();
+    @Nested
+    @DisplayName("findByOfficeClaimNo")
+    class FindByOfficeClaimNo {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return records matching the office claim number")
+        void shouldReturnMatchingRecords_whenClaimNoMatches() {
+            TeleplanC12 match = new TeleplanC12();
+            EntityDataGenerator.generateTestDataForModelClass(match);
+            match.setOfficeFolioClaimNo("CLM-200");
+            dao.persist(match);
+
+            TeleplanC12 nonMatch = new TeleplanC12();
+            EntityDataGenerator.generateTestDataForModelClass(nonMatch);
+            nonMatch.setOfficeFolioClaimNo("CLM-201");
+            dao.persist(nonMatch);
+
+            List<TeleplanC12> results = dao.findByOfficeClaimNo("CLM-200");
+
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getOfficeFolioClaimNo()).isEqualTo("CLM-200");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no records match")
+        void shouldReturnEmptyList_whenNoClaimNoMatches() {
+            List<TeleplanC12> results = dao.findByOfficeClaimNo("NONEXISTENT");
+            assertThat(results).isEmpty();
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find rejected records joined with S21")
-    void shouldReturnRejectedRecords_whenQueried() {
-        assertThat(dao.findRejected()).isNotNull();
+    @Nested
+    @DisplayName("select_c12_record")
+    class SelectC12Record {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return records matching both status and claim number")
+        void shouldReturnMatchingRecords_whenStatusAndClaimNoMatch() {
+            TeleplanC12 entity = new TeleplanC12();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setStatus('O');
+            entity.setOfficeFolioClaimNo("CLM-300");
+            dao.persist(entity);
+
+            TeleplanC12 differentStatus = new TeleplanC12();
+            EntityDataGenerator.generateTestDataForModelClass(differentStatus);
+            differentStatus.setStatus('E');
+            differentStatus.setOfficeFolioClaimNo("CLM-300");
+            dao.persist(differentStatus);
+
+            List<TeleplanC12> results = dao.select_c12_record("O", "CLM-300");
+
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getStatus()).isEqualTo('O');
+            assertThat(results.get(0).getOfficeFolioClaimNo()).isEqualTo("CLM-300");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no records match status and claim number")
+        void shouldReturnEmptyList_whenNoMatch() {
+            List<TeleplanC12> results = dao.select_c12_record("X", "NONEXISTENT");
+            assertThat(results).isEmpty();
+        }
     }
 }

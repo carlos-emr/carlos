@@ -68,7 +68,7 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist vacancy template with generated ID")
-        void shouldPersistEntity_whenValidDataProvided() {
+        void shouldPersistEntity_whenValidDataProvided() throws Exception {
             VacancyTemplate entity = new VacancyTemplate();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);

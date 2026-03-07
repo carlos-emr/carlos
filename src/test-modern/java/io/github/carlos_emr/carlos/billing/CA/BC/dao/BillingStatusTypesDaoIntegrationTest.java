@@ -23,13 +23,18 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingStatusTypes;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,20 +55,96 @@ public class BillingStatusTypesDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private BillingStatusTypesDao dao;
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find all billing status types")
-    void shouldReturnAllStatusTypes_whenQueried() {
-        List<BillingStatusTypes> billingTypes = dao.findAll();
-        assertThat(billingTypes).isNotNull();
-        assertThat(billingTypes).isNotEmpty();
+    @PersistenceContext(unitName = "testPersistenceUnit")
+    private EntityManager entityManager;
+
+    @BeforeEach
+    void setUp() {
+        entityManager.persist(new BillingStatusTypes('N', "Not Billed", "Not Billed Extended", 1));
+        entityManager.persist(new BillingStatusTypes('A', "Approved", "Approved Extended", 2));
+        entityManager.persist(new BillingStatusTypes('H', "Hold", "Hold Extended", 3));
+        entityManager.persist(new BillingStatusTypes('Z', "Archived", "Archived Extended", 4));
+        entityManager.persist(new BillingStatusTypes('T', "Transferred", "Transferred Extended", 5));
+        entityManager.flush();
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find billing status types by codes")
-    void shouldReturnStatusTypes_byCodes() {
-        List<BillingStatusTypes> billingTypes = dao.findByCodes(Arrays.asList("N", "A", "H", "Z", "T"));
-        assertThat(billingTypes).isNotEmpty();
+    @Nested
+    @DisplayName("findAll")
+    class FindAll {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return all billing status types")
+        void shouldReturnAllStatusTypes_whenQueried() {
+            List<BillingStatusTypes> billingTypes = dao.findAll();
+            assertThat(billingTypes).hasSize(5);
+            assertThat(billingTypes).extracting(BillingStatusTypes::getId)
+                    .containsExactlyInAnyOrder('N', 'A', 'H', 'Z', 'T');
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return status types with correct display names")
+        void shouldReturnStatusTypes_withCorrectDisplayNames() {
+            List<BillingStatusTypes> billingTypes = dao.findAll();
+
+            BillingStatusTypes notBilled = billingTypes.stream()
+                    .filter(bt -> bt.getId() == 'N')
+                    .findFirst()
+                    .orElseThrow();
+            assertThat(notBilled.getDisplayName()).isEqualTo("Not Billed");
+            assertThat(notBilled.getDisplayNameExt()).isEqualTo("Not Billed Extended");
+            assertThat(notBilled.getSortOrder()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("findByCodes")
+    class FindByCodes {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return status types matching the provided codes")
+        void shouldReturnStatusTypes_whenCodesMatch() {
+            List<BillingStatusTypes> results = dao.findByCodes(Arrays.asList("N", "A", "H"));
+            assertThat(results).hasSize(3);
+            assertThat(results).extracting(BillingStatusTypes::getId)
+                    .containsExactlyInAnyOrder('N', 'A', 'H');
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return all five status types when all codes provided")
+        void shouldReturnAllFive_whenAllCodesProvided() {
+            List<BillingStatusTypes> results = dao.findByCodes(Arrays.asList("N", "A", "H", "Z", "T"));
+            assertThat(results).hasSize(5);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return single status type when one code provided")
+        void shouldReturnSingleType_whenOneCodeProvided() {
+            List<BillingStatusTypes> results = dao.findByCodes(Collections.singletonList("Z"));
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isEqualTo(Character.valueOf('Z'));
+            assertThat(results.get(0).getDisplayName()).isEqualTo("Archived");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no codes match")
+        void shouldReturnEmptyList_whenNoCodesMatch() {
+            List<BillingStatusTypes> results = dao.findByCodes(Collections.singletonList("X"));
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return only matching codes ignoring non-existent ones")
+        void shouldReturnOnlyMatching_whenMixedCodesProvided() {
+            List<BillingStatusTypes> results = dao.findByCodes(Arrays.asList("N", "X", "Y"));
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isEqualTo(Character.valueOf('N'));
+        }
     }
 }

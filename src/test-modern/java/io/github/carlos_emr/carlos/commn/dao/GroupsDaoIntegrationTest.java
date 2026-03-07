@@ -25,15 +25,18 @@ import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Groups;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link GroupsDao} with full method coverage matching legacy tests.
+ * Integration tests for {@link GroupsDao} covering persist, find, and findByParentId.
  *
  * <p>Migrated from legacy {@code GroupsDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -49,21 +52,90 @@ public class GroupsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private GroupsDao dao;
 
-    @Test
-    @Tag("create")
-    @DisplayName("should persist groups entity with generated ID")
-    void shouldPersistGroups_whenValidDataProvided() {
+    /**
+     * Helper to create and persist a Groups entity with specific parent ID and description.
+     */
+    private Groups createGroup(int parentId, String description) {
         Groups entity = new Groups();
         EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setParentId(parentId);
+        entity.setGroupDesc(description);
         dao.persist(entity);
-
-        assertThat(entity.getId()).isNotNull();
+        return entity;
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should return non-null result when finding by parent ID")
-    void shouldReturnNonNullResult_whenFindingByParentId() {
-        assertThat(dao.findByParentId(100)).isNotNull();
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist groups entity with generated ID")
+        void shouldPersistGroups_whenValidDataProvided() {
+            Groups entity = new Groups();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
+
+            assertThat(entity.getId()).isNotNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find group by ID with correct fields")
+        void shouldFindGroup_whenValidIdProvided() {
+            Groups saved = createGroup(50, "TestDescription");
+            hibernateTemplate.flush();
+
+            Groups found = dao.find(saved.getId());
+
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getParentId()).isEqualTo(50);
+            assertThat(found.getGroupDesc()).isEqualTo("TestDescription");
+        }
+    }
+
+    @Nested
+    @DisplayName("Query operations")
+    class QueryOperations {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find groups by parent ID")
+        void shouldFindGroups_byParentId() {
+            createGroup(1000, "Child1");
+            createGroup(1000, "Child2");
+            createGroup(2000, "OtherChild");
+            hibernateTemplate.flush();
+
+            List<Groups> result = dao.findByParentId(1000);
+
+            assertThat(result).hasSize(2);
+            assertThat(result).allMatch(g -> g.getParentId() == 1000);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no groups match parent ID")
+        void shouldReturnEmptyList_whenNoGroupsMatchParentId() {
+            List<Groups> result = dao.findByParentId(99999);
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should count all records accurately")
+        void shouldCountAllRecords() {
+            int initialCount = dao.getCountAll();
+
+            createGroup(3000, "New1");
+            createGroup(3000, "New2");
+            hibernateTemplate.flush();
+
+            int newCount = dao.getCountAll();
+
+            assertThat(newCount).isEqualTo(initialCount + 2);
+        }
     }
 }
