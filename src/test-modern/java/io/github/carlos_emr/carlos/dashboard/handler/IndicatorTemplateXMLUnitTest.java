@@ -157,6 +157,8 @@ class IndicatorTemplateXMLUnitTest {
         @DisplayName("should return non-null indicator query string")
         void shouldReturnIndicatorQuery_whenParsed() {
             assertThat(indicatorTemplateXML.getIndicatorQuery()).isNotNull();
+            assertThat(indicatorTemplateXML.getIndicatorQuery()).contains("SELECT");
+            assertThat(indicatorTemplateXML.getIndicatorQuery()).contains("demographic");
         }
 
         @Test
@@ -237,6 +239,8 @@ class IndicatorTemplateXMLUnitTest {
         @DisplayName("should return non-null drilldown query string")
         void shouldReturnDrilldownQuery_whenParsed() {
             assertThat(indicatorTemplateXML.getDrilldownQuery()).isNotNull();
+            assertThat(indicatorTemplateXML.getDrilldownQuery()).contains("SELECT");
+            assertThat(indicatorTemplateXML.getDrilldownQuery()).contains("demographic");
         }
 
         @Test

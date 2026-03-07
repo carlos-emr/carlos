@@ -59,7 +59,7 @@ public class BillingreferralDaoIntegrationTest extends CarlosTestBase {
         entity.setBillingreferralNo(null);
         dao.updateBillingreferral(entity);
 
-        assertThat(entity.getBillingreferralNo()).isNotNull();
+        assertThat(entity.getBillingreferralNo()).isPositive();
     }
 
     @Test

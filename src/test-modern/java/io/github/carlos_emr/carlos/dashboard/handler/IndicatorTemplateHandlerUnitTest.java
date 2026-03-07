@@ -203,7 +203,10 @@ class IndicatorTemplateHandlerUnitTest {
         void shouldParseIndicatorRanges_fromXml() {
             IndicatorTemplateXML xmlBean = templateHandler.getIndicatorTemplateXML();
             assertThat(xmlBean.getIndicatorRanges()).isNotNull();
-            assertThat(xmlBean.getIndicatorRanges()).hasSizeGreaterThanOrEqualTo(3);
+            assertThat(xmlBean.getIndicatorRanges()).hasSize(5);
+            assertThat(xmlBean.getIndicatorRanges())
+                    .extracting(r -> r.getId())
+                    .contains("a1c");
         }
 
         @Test

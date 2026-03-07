@@ -391,7 +391,9 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             List<Measurement> result = measurementDao.findByCreateDate(lastWeek, 10);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getType()).isEqualTo("BP");
+            assertThat(result.get(0).getDataField()).isEqualTo("120/80");
         }
 
         @Test

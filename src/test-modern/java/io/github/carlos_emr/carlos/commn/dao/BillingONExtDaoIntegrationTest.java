@@ -338,5 +338,6 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     void shouldReturnNonNullResult_whenFindingByBillingNoKeyAndDateRange() {
         List<BillingONExt> result = dao.find(100, "KEY", new Date(), new Date());
         assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
     }
 }
