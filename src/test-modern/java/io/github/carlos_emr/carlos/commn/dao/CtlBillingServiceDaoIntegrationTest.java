@@ -117,6 +117,16 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
+        @DisplayName("should return non-null and non-empty unique service types with default status")
+        void shouldReturnNonEmptyUniqueServiceTypes_withDefaultStatus() {
+            List<Object[]> serviceTypes = dao.getUniqueServiceTypes();
+
+            assertThat(serviceTypes).isNotNull();
+            assertThat(serviceTypes).isNotEmpty();
+        }
+
+        @Test
+        @Tag("query")
         @DisplayName("should return all service types grouped by type")
         void shouldReturnAllServiceTypes() {
             List<Object[]> serviceTypes = dao.getAllServiceTypes();
