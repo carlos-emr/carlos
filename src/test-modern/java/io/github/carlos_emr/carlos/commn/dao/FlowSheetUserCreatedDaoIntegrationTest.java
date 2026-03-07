@@ -21,21 +21,22 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.FlowSheetUserCreated;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link FlowSheetUserCreatedDao} covering basic CRUD operations.
+ * Integration tests for {@link FlowSheetUserCreatedDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code FlowSheetUserCreatedDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +46,50 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("FlowSheetUserCreated Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("flowsheet")
 @Transactional
 public class FlowSheetUserCreatedDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private FlowSheetUserCreatedDao flowSheetUserCreatedDao;
+    private FlowSheetUserCreatedDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist flow sheet user created with generated ID")
+    void shouldPersistFlowSheetUserCreated_whenValidDataProvided() {
+        FlowSheetUserCreated entity = new FlowSheetUserCreated();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist flowsheetusercreated with generated ID")
-        void shouldPersistFlowSheetUserCreated_whenValidDataProvided() {
-            FlowSheetUserCreated entity = new FlowSheetUserCreated();
-            flowSheetUserCreatedDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find flowsheetusercreated by ID")
-        void shouldFindFlowSheetUserCreated_whenValidIdProvided() {
-            FlowSheetUserCreated saved = new FlowSheetUserCreated();
-            flowSheetUserCreatedDao.persist(saved);
-            FlowSheetUserCreated found = flowSheetUserCreatedDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return only non-archived flow sheets when getting all user created")
+    void shouldReturnNonArchivedFlowSheets_whenGettingAllUserCreated() {
+        boolean isArchived = true;
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all flowsheetusercreated records")
-        void shouldCountAllFlowSheetUserCreateds() {
-            FlowSheetUserCreated entity = new FlowSheetUserCreated();
-            flowSheetUserCreatedDao.persist(entity);
-            long count = flowSheetUserCreatedDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        FlowSheetUserCreated flowSheetUserCreated1 = new FlowSheetUserCreated();
+        EntityDataGenerator.generateTestDataForModelClass(flowSheetUserCreated1);
+        flowSheetUserCreated1.setArchived(!isArchived);
+        dao.persist(flowSheetUserCreated1);
+
+        FlowSheetUserCreated flowSheetUserCreated2 = new FlowSheetUserCreated();
+        EntityDataGenerator.generateTestDataForModelClass(flowSheetUserCreated2);
+        flowSheetUserCreated2.setArchived(isArchived);
+        dao.persist(flowSheetUserCreated2);
+
+        FlowSheetUserCreated flowSheetUserCreated3 = new FlowSheetUserCreated();
+        EntityDataGenerator.generateTestDataForModelClass(flowSheetUserCreated3);
+        flowSheetUserCreated3.setArchived(!isArchived);
+        dao.persist(flowSheetUserCreated3);
+
+        List<FlowSheetUserCreated> expectedResult = Arrays.asList(flowSheetUserCreated1, flowSheetUserCreated3);
+        List<FlowSheetUserCreated> result = dao.getAllUserCreatedFlowSheets();
+
+        assertThat(result).hasSize(expectedResult.size());
+        for (int i = 0; i < expectedResult.size(); i++) {
+            assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
         }
     }
 }

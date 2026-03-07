@@ -21,21 +21,25 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.PageMonitor;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link PageMonitorDao} covering basic CRUD operations.
+ * Integration tests for {@link PageMonitorDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code PageMonitorDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +49,95 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("PageMonitor Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("admin")
 @Transactional
 public class PageMonitorDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private PageMonitorDao pageMonitorDao;
+    private PageMonitorDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist pagemonitor with generated ID")
-        void shouldPersistPageMonitor_whenValidDataProvided() {
-            PageMonitor entity = new PageMonitor();
-            pageMonitorDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return matching monitors ordered by date when filtered by page name and ID")
+    void shouldReturnMatchingMonitors_whenFilteredByPageNameAndId() throws Exception {
+        String pageId1 = "100";
+        String pageId2 = "200";
+        String pageName1 = "alpha";
+        String pageName2 = "bravo";
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find pagemonitor by ID")
-        void shouldFindPageMonitor_whenValidIdProvided() {
-            PageMonitor saved = new PageMonitor();
-            pageMonitorDao.persist(saved);
-            PageMonitor found = pageMonitorDao.find(saved.getId());
-            assertThat(found).isNotNull();
+        PageMonitor pageMonitor1 = new PageMonitor();
+        EntityDataGenerator.generateTestDataForModelClass(pageMonitor1);
+        pageMonitor1.setPageId(pageId1);
+        pageMonitor1.setPageName(pageName1);
+        Date updateDate1 = new Date(dfm.parse("20010701").getTime());
+        pageMonitor1.setUpdateDate(updateDate1);
+        dao.persist(pageMonitor1);
+
+        PageMonitor pageMonitor2 = new PageMonitor();
+        EntityDataGenerator.generateTestDataForModelClass(pageMonitor2);
+        pageMonitor2.setPageId(pageId2);
+        pageMonitor2.setPageName(pageName2);
+        Date updateDate2 = new Date(dfm.parse("20100701").getTime());
+        pageMonitor2.setUpdateDate(updateDate2);
+        dao.persist(pageMonitor2);
+
+        PageMonitor pageMonitor3 = new PageMonitor();
+        EntityDataGenerator.generateTestDataForModelClass(pageMonitor3);
+        pageMonitor3.setPageId(pageId1);
+        pageMonitor3.setPageName(pageName1);
+        Date updateDate3 = new Date(dfm.parse("20110701").getTime());
+        pageMonitor3.setUpdateDate(updateDate3);
+        dao.persist(pageMonitor3);
+
+        List<PageMonitor> expectedResult = Arrays.asList(pageMonitor3, pageMonitor1);
+        List<PageMonitor> result = dao.findByPage(pageName1, pageId1);
+
+        assertThat(result).hasSize(expectedResult.size());
+        for (int i = 0; i < expectedResult.size(); i++) {
+            assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
         }
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return matching monitors ordered by date when filtered by page name only")
+    void shouldReturnMatchingMonitors_whenFilteredByPageNameOnly() throws Exception {
+        String pageId1 = "100";
+        String pageId2 = "200";
+        String pageName1 = "alpha";
+        String pageName2 = "bravo";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all pagemonitor records")
-        void shouldCountAllPageMonitors() {
-            PageMonitor entity = new PageMonitor();
-            pageMonitorDao.persist(entity);
-            long count = pageMonitorDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        PageMonitor pageMonitor1 = new PageMonitor();
+        EntityDataGenerator.generateTestDataForModelClass(pageMonitor1);
+        pageMonitor1.setPageId(pageId1);
+        pageMonitor1.setPageName(pageName1);
+        Date updateDate1 = new Date(dfm.parse("20010701").getTime());
+        pageMonitor1.setUpdateDate(updateDate1);
+        dao.persist(pageMonitor1);
+
+        PageMonitor pageMonitor2 = new PageMonitor();
+        EntityDataGenerator.generateTestDataForModelClass(pageMonitor2);
+        pageMonitor2.setPageId(pageId2);
+        pageMonitor2.setPageName(pageName2);
+        Date updateDate2 = new Date(dfm.parse("20100701").getTime());
+        pageMonitor2.setUpdateDate(updateDate2);
+        dao.persist(pageMonitor2);
+
+        PageMonitor pageMonitor3 = new PageMonitor();
+        EntityDataGenerator.generateTestDataForModelClass(pageMonitor3);
+        pageMonitor3.setPageId(pageId1);
+        pageMonitor3.setPageName(pageName1);
+        Date updateDate3 = new Date(dfm.parse("20110701").getTime());
+        pageMonitor3.setUpdateDate(updateDate3);
+        dao.persist(pageMonitor3);
+
+        List<PageMonitor> expectedResult = Arrays.asList(pageMonitor3, pageMonitor1);
+        List<PageMonitor> result = dao.findByPageName(pageName1);
+
+        assertThat(result).hasSize(expectedResult.size());
+        for (int i = 0; i < expectedResult.size(); i++) {
+            assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
         }
     }
 }

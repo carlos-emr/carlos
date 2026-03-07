@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Queue;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,19 +31,23 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.Hashtable;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link QueueDao}.
+ * Integration tests for {@link QueueDao} covering
+ * getHashMapOfQueues, getQueues, getLastId, getQueueName,
+ * getQueueid, and addNewQueue.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code QueueDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see QueueDao
  */
-@DisplayName("Queue Dao Integration Tests")
+@DisplayName("QueueDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("admin")
@@ -50,30 +55,14 @@ import static org.assertj.core.api.Assertions.*;
 public class QueueDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private QueueDao queueDao;
+    private QueueDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist queue with generated ID")
-        void shouldPersistQueue_whenValidDataProvided() {
-            Queue entity = new Queue();
-            queueDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find queue by ID")
-        void shouldFindQueue_whenValidIdProvided() {
-            Queue saved = new Queue();
-            queueDao.persist(saved);
-            Queue found = queueDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    private Queue createQueue(String name) {
+        Queue q = new Queue();
+        EntityDataGenerator.generateTestDataForModelClass(q);
+        q.setName(name);
+        dao.persist(q);
+        return q;
     }
 
     @Nested
@@ -82,12 +71,78 @@ public class QueueDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            Queue entity = new Queue();
-            queueDao.persist(entity);
-            long count = queueDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return hash map of queues with id-to-name mapping")
+        void shouldReturnHashMap_whenGetHashMapOfQueuesCalled() {
+            Queue q1 = createQueue("alpha");
+
+            HashMap<Integer, String> expectedResult = new HashMap<>();
+            expectedResult.put(q1.getId(), "alpha");
+
+            HashMap<Integer, String> result = dao.getHashMapOfQueues();
+
+            assertThat(result).isEqualTo(expectedResult);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return list of queues as hashtables")
+        void shouldReturnQueueList_whenGetQueuesCalled() {
+            createQueue("alpha");
+            createQueue("bravo");
+
+            List<Hashtable> result = dao.getQueues();
+
+            assertThat(result).hasSize(2);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return the last (max) queue ID")
+        void shouldReturnLastId_whenGetLastIdCalled() {
+            Queue q1 = createQueue("alpha");
+            Queue q2 = createQueue("bravo");
+            Queue q3 = createQueue("charlie");
+
+            int latestId = Math.max(q1.getId(), Math.max(q2.getId(), q3.getId()));
+
+            String result = dao.getLastId();
+
+            assertThat(result).isEqualTo(String.valueOf(latestId));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return queue name by ID")
+        void shouldReturnQueueName_byId() {
+            createQueue("alpha");
+            Queue q2 = createQueue("bravo");
+            createQueue("charlie");
+
+            String result = dao.getQueueName(q2.getId());
+
+            assertThat(result).isEqualTo("bravo");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return queue ID by name")
+        void shouldReturnQueueId_byName() {
+            createQueue("alpha");
+            Queue q2 = createQueue("10001");
+            createQueue("charlie");
+
+            String result = dao.getQueueid("10001");
+
+            assertThat(result).isEqualTo(q2.getId().toString());
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should add new queue successfully")
+        void shouldReturnTrue_whenAddNewQueueCalled() {
+            boolean result = dao.addNewQueue("Sigma");
+
+            assertThat(result).isTrue();
         }
     }
 }

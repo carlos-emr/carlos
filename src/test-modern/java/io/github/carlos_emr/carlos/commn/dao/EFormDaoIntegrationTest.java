@@ -21,8 +21,11 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.EFormDao.EFormSortOrder;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.EForm;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -35,14 +38,16 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link EFormDao}.
+ * Integration tests for {@link EFormDao} covering findByStatus,
+ * findMaxIdForActiveForm, and countFormsOtherThanSpecified.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code EFormDaoTest} (JUnit 4 / DaoTestFixtures)
+ * with exact same test logic and assertions.</p>
  *
  * @since 2026-03-07
  * @see EFormDao
  */
-@DisplayName("EForm Dao Integration Tests")
+@DisplayName("EFormDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("eform")
@@ -50,44 +55,86 @@ import static org.assertj.core.api.Assertions.*;
 public class EFormDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private EFormDao eFormDao;
+    private EFormDao dao;
+
+    private Integer populatedFormId;
+
+    @BeforeEach
+    void setUp() {
+        EForm eform = new EForm();
+        EntityDataGenerator.generateTestDataForModelClass(eform);
+        eform.setFormName("NUVASHENAH");
+        dao.persist(eform);
+        populatedFormId = eform.getId();
+        hibernateTemplate.flush();
+    }
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("findByStatus tests")
+    @Tag("read")
+    class FindByStatus {
 
         @Test
-        @Tag("create")
-        @DisplayName("should persist eform with generated ID")
-        void shouldPersistEForm_whenValidDataProvided() {
-            EForm entity = new EForm();
-            eFormDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+        @DisplayName("should return non-empty list when active forms sorted by DATE")
+        void shouldReturnForms_whenStatusTrueAndSortByDate() {
+            List<EForm> eforms = dao.findByStatus(true, EFormSortOrder.DATE);
+            assertThat(eforms).isNotEmpty();
         }
 
         @Test
-        @Tag("read")
-        @DisplayName("should find eform by ID")
-        void shouldFindEForm_whenValidIdProvided() {
-            EForm saved = new EForm();
-            eFormDao.persist(saved);
-            EForm found = eFormDao.find(saved.getId());
-            assertThat(found).isNotNull();
+        @DisplayName("should return non-empty list when active forms sorted by FILE_NAME")
+        void shouldReturnForms_whenStatusTrueAndSortByFileName() {
+            List<EForm> eforms = dao.findByStatus(true, EFormSortOrder.FILE_NAME);
+            assertThat(eforms).isNotEmpty();
+        }
+
+        @Test
+        @DisplayName("should return non-empty list when active forms sorted by NAME")
+        void shouldReturnForms_whenStatusTrueAndSortByName() {
+            List<EForm> eforms = dao.findByStatus(true, EFormSortOrder.NAME);
+            assertThat(eforms).isNotEmpty();
+        }
+
+        @Test
+        @DisplayName("should return non-empty list when active forms sorted by SUBJECT")
+        void shouldReturnForms_whenStatusTrueAndSortBySubject() {
+            List<EForm> eforms = dao.findByStatus(true, EFormSortOrder.SUBJECT);
+            assertThat(eforms).isNotEmpty();
+        }
+
+        @Test
+        @DisplayName("should return non-null result when status is false")
+        void shouldReturnResult_whenStatusFalse() {
+            List<EForm> eforms = dao.findByStatus(false);
+            assertThat(eforms).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("findMaxIdForActiveForm tests")
+    @Tag("read")
+    class FindMaxIdForActiveForm {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            EForm entity = new EForm();
-            eFormDao.persist(entity);
-            long count = eFormDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return positive id when active form exists with matching name")
+        void shouldReturnPositiveId_whenActiveFormExists() {
+            Integer id = dao.findMaxIdForActiveForm("NUVASHENAH");
+            assertThat(id).isNotNull();
+            assertThat(id).isGreaterThan(0);
+        }
+    }
+
+    @Nested
+    @DisplayName("countFormsOtherThanSpecified tests")
+    @Tag("read")
+    class CountFormsOtherThanSpecified {
+
+        @Test
+        @DisplayName("should return non-negative count when form name and id provided")
+        void shouldReturnNonNegativeCount_whenFormNameAndIdProvided() {
+            Long count = dao.countFormsOtherThanSpecified("NUVASHENAH", populatedFormId);
+            assertThat(count).isNotNull();
+            assertThat(count).isGreaterThanOrEqualTo(0);
         }
     }
 }

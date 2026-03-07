@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -32,12 +33,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link DiagnosticCodeDao}.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code DiagnosticCodeDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see DiagnosticCodeDao
@@ -50,7 +51,7 @@ import static org.assertj.core.api.Assertions.*;
 public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private DiagnosticCodeDao diagnosticCodeDao;
+    private DiagnosticCodeDao dao;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -58,21 +59,13 @@ public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist diagnosticcode with generated ID")
-        void shouldPersistDiagnosticCode_whenValidDataProvided() {
+        @DisplayName("should persist diagnostic code with generated ID")
+        void shouldPersistDiagnosticCode_whenValidDataProvided() throws Exception {
             DiagnosticCode entity = new DiagnosticCode();
-            diagnosticCodeDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find diagnosticcode by ID")
-        void shouldFindDiagnosticCode_whenValidIdProvided() {
-            DiagnosticCode saved = new DiagnosticCode();
-            diagnosticCodeDao.persist(saved);
-            DiagnosticCode found = diagnosticCodeDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
@@ -82,12 +75,42 @@ public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
+        @DisplayName("should find diagnostic codes by diagnostic code value")
+        void shouldFindDiagnosticCodes_byDiagnosticCode() throws Exception {
             DiagnosticCode entity = new DiagnosticCode();
-            diagnosticCodeDao.persist(entity);
-            long count = diagnosticCodeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setDiagnosticCode("a");
+            dao.persist(entity);
+
+            assertThat(dao.findByDiagnosticCode(entity.getDiagnosticCode())).hasSize(1);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find diagnostic codes by diagnostic code and region")
+        void shouldFindDiagnosticCodes_byDiagnosticCodeAndRegion() throws Exception {
+            DiagnosticCode entity = new DiagnosticCode();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setDiagnosticCode("a");
+            entity.setRegion("b");
+            dao.persist(entity);
+
+            assertThat(dao.findByDiagnosticCodeAndRegion(entity.getDiagnosticCode(), entity.getRegion())).hasSize(1);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find diagnostic codes by region and type")
+        void shouldFindDiagnosticCodes_byRegionAndType() {
+            List<DiagnosticCode> codes = dao.findByRegionAndType("REG", "TYPE");
+            assertThat(codes).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find diagnostics and ctl diag codes by service type")
+        void shouldFindDiagnosticsAndCtlDiagCodes_byServiceType() {
+            assertThat(dao.findDiagnosictsAndCtlDiagCodesByServiceType("TYPE")).isNotNull();
         }
     }
 }

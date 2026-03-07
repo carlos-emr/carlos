@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -32,10 +33,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ProviderDataDao} covering basic CRUD operations.
+ * Integration tests for {@link ProviderDataDao}.
  *
  * <p>Migrated from legacy {@code ProviderDataDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -50,30 +51,17 @@ import static org.assertj.core.api.Assertions.*;
 public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ProviderDataDao providerDataDao;
+    private ProviderDataDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist providerdata with generated ID")
-        void shouldPersistProviderData_whenValidDataProvided() {
-            ProviderData entity = new ProviderData();
-            providerDataDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+    private ProviderData newProvider(String id) {
+        ProviderData result = new ProviderData();
+        result.set(id);
+        try {
+            EntityDataGenerator.generateTestDataForModelClass(result);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find providerdata by ID")
-        void shouldFindProviderData_whenValidIdProvided() {
-            ProviderData saved = new ProviderData();
-            providerDataDao.persist(saved);
-            ProviderData found = providerDataDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        return result;
     }
 
     @Nested
@@ -82,12 +70,60 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all providerdata records")
-        void shouldCountAllProviderDatas() {
-            ProviderData entity = new ProviderData();
-            providerDataDao.persist(entity);
-            long count = providerDataDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should find providers by type and OHIP number")
+        void shouldFindProviders_byTypeAndOhip() {
+            List<ProviderData> data = dao.findByTypeAndOhip("doctor", "OHIP NO");
+            assertThat(data).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find providers by type")
+        void shouldFindProviders_byType() {
+            List<ProviderData> data = dao.findByType("doctor");
+            assertThat(data).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find providers by name with various parameter combinations")
+        void shouldFindProviders_byName() {
+            assertThat(dao.findByName(null, null, false)).isNotNull();
+            assertThat(dao.findByName(null, null, true)).isNotNull();
+            assertThat(dao.findByName(null, "FIRST", true)).isNotNull();
+            assertThat(dao.findByName(null, "FIRST", false)).isNotNull();
+            assertThat(dao.findByName("LAST", null, false)).isNotNull();
+            assertThat(dao.findByName("LAST", null, true)).isNotNull();
+            assertThat(dao.findByName("LAST", "FIRST", true)).isNotNull();
+            assertThat(dao.findByName("LAST", "FIRST", false)).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find all providers with active flag")
+        void shouldFindAllProviders_withActiveFlag() {
+            List<ProviderData> data = dao.findAll(true);
+            assertThat(data).isNotNull();
+
+            data = dao.findAll(false);
+            assertThat(data).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return last provider ID")
+        void shouldReturnLastId_whenProvidersExist() {
+            ProviderData pd = newProvider("-1001");
+            dao.persist(pd);
+
+            pd = newProvider("-2");
+            dao.persist(pd);
+
+            pd = newProvider("1");
+            dao.persist(pd);
+
+            Integer id = dao.getLastId();
+            assertThat(id).isEqualTo(Integer.valueOf(-1001));
         }
     }
 }

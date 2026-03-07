@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.SnomedCore;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class SnomedCoreDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist snomedcore with generated ID")
         void shouldPersistSnomedCore_whenValidDataProvided() {
             SnomedCore entity = new SnomedCore();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             snomedCoreDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class SnomedCoreDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find snomedcore by ID")
         void shouldFindSnomedCore_whenValidIdProvided() {
             SnomedCore saved = new SnomedCore();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             snomedCoreDao.persist(saved);
             SnomedCore found = snomedCoreDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class SnomedCoreDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all snomedcore records")
         void shouldCountAllSnomedCores() {
             SnomedCore entity = new SnomedCore();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             snomedCoreDao.persist(entity);
             long count = snomedCoreDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

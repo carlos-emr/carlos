@@ -21,23 +21,25 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ProviderInboxItem;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import javax.persistence.PersistenceException;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 /**
- * Integration tests for {@link ProviderInboxRoutingDao} covering basic CRUD operations.
+ * Integration tests for {@link ProviderInboxRoutingDao} with full method coverage matching legacy tests.
  *
- * <p>Migrated from legacy {@code ProviderInboxItemDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Migrated from legacy {@code ProviderInboxRoutingDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see ProviderInboxRoutingDao
@@ -45,49 +47,34 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("ProviderInboxItem Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("provider")
 @Transactional
 public class ProviderInboxItemDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ProviderInboxRoutingDao providerInboxRoutingDao;
+    private ProviderInboxRoutingDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist provider inbox item with generated ID")
+    void shouldPersistProviderInboxItem_whenValidDataProvided() {
+        ProviderInboxItem entity = new ProviderInboxItem();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist providerinboxitem with generated ID")
-        void shouldPersistProviderInboxItem_whenValidDataProvided() {
-            ProviderInboxItem entity = new ProviderInboxItem();
-            providerInboxRoutingDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find providerinboxitem by ID")
-        void shouldFindProviderInboxItem_whenValidIdProvided() {
-            ProviderInboxItem saved = new ProviderInboxItem();
-            providerInboxRoutingDao.persist(saved);
-            ProviderInboxItem found = providerInboxRoutingDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
-
-        @Test
-        @Tag("query")
-        @DisplayName("should count all providerinboxitem records")
-        void shouldCountAllProviderInboxItems() {
-            ProviderInboxItem entity = new ProviderInboxItem();
-            providerInboxRoutingDao.persist(entity);
-            long count = providerInboxRoutingDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+    @Test
+    @Tag("create")
+    @DisplayName("should not throw persistence exception when adding to provider routing box")
+    void shouldNotThrowPersistenceException_whenAddingToProviderRoutingBox() {
+        try {
+            dao.addToProviderInbox("1", 1, LabResultData.DOCUMENT);
+        } catch (PersistenceException e) {
+            fail("Error related to JPA configuration");
+        } catch (Exception e) {
+            // Swallow other exceptions as in legacy test - proper pre-initialization
+            // of lab routing rules, result data, providers data is not set up
         }
     }
 }

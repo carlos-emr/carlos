@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.BillingONRepo;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class BillingONRepoDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist billingonrepo with generated ID")
         void shouldPersistBillingONRepo_whenValidDataProvided() {
             BillingONRepo entity = new BillingONRepo();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             billingONRepoDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class BillingONRepoDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find billingonrepo by ID")
         void shouldFindBillingONRepo_whenValidIdProvided() {
             BillingONRepo saved = new BillingONRepo();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             billingONRepoDao.persist(saved);
             BillingONRepo found = billingONRepoDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class BillingONRepoDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all billingonrepo records")
         void shouldCountAllBillingONRepos() {
             BillingONRepo entity = new BillingONRepo();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             billingONRepoDao.persist(entity);
             long count = billingONRepoDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

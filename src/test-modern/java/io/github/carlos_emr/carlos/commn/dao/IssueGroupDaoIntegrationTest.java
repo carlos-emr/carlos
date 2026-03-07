@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.IssueGroup;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class IssueGroupDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist issuegroup with generated ID")
         void shouldPersistIssueGroup_whenValidDataProvided() {
             IssueGroup entity = new IssueGroup();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             issueGroupDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class IssueGroupDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find issuegroup by ID")
         void shouldFindIssueGroup_whenValidIdProvided() {
             IssueGroup saved = new IssueGroup();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             issueGroupDao.persist(saved);
             IssueGroup found = issueGroupDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class IssueGroupDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all issuegroup records")
         void shouldCountAllIssueGroups() {
             IssueGroup entity = new IssueGroup();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             issueGroupDao.persist(entity);
             long count = issueGroupDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.WorkFlow;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,14 +31,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link WorkFlowDao}.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code WorkFlowDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see WorkFlowDao
@@ -50,7 +52,7 @@ import static org.assertj.core.api.Assertions.*;
 public class WorkFlowDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private WorkFlowDao workFlowDao;
+    private WorkFlowDao dao;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -59,20 +61,12 @@ public class WorkFlowDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist workflow with generated ID")
-        void shouldPersistWorkFlow_whenValidDataProvided() {
+        void shouldPersistWorkFlow_whenValidDataProvided() throws Exception {
             WorkFlow entity = new WorkFlow();
-            workFlowDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find workflow by ID")
-        void shouldFindWorkFlow_whenValidIdProvided() {
-            WorkFlow saved = new WorkFlow();
-            workFlowDao.persist(saved);
-            WorkFlow found = workFlowDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
@@ -82,12 +76,123 @@ public class WorkFlowDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            WorkFlow entity = new WorkFlow();
-            workFlowDao.persist(entity);
-            long count = workFlowDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should find workflows by workflow type")
+        void shouldFindWorkFlows_byWorkflowType() throws Exception {
+            String workflowType1 = "alpha";
+            String workflowType2 = "bravo";
+
+            WorkFlow workFlow1 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow1);
+            workFlow1.setWorkflowType(workflowType1);
+            dao.persist(workFlow1);
+
+            WorkFlow workFlow2 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow2);
+            workFlow2.setWorkflowType(workflowType2);
+            dao.persist(workFlow2);
+
+            WorkFlow workFlow3 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow3);
+            workFlow3.setWorkflowType(workflowType1);
+            dao.persist(workFlow3);
+
+            List<WorkFlow> expectedResult = Arrays.asList(workFlow1, workFlow3);
+            List<WorkFlow> result = dao.findByWorkflowType(workflowType1);
+
+            assertThat(result).hasSize(expectedResult.size());
+            for (int i = 0; i < expectedResult.size(); i++) {
+                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
+            }
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find active workflows by workflow type excluding completed state")
+        void shouldFindActiveWorkFlows_byWorkflowType() throws Exception {
+            String workflowType1 = "alpha";
+            String workflowType2 = "bravo";
+            String currentState1 = "C";
+            String currentState2 = "B";
+
+            WorkFlow workFlow1 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow1);
+            workFlow1.setWorkflowType(workflowType1);
+            workFlow1.setCurrentState(currentState2);
+            dao.persist(workFlow1);
+
+            WorkFlow workFlow2 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow2);
+            workFlow2.setWorkflowType(workflowType2);
+            workFlow2.setCurrentState(currentState1);
+            dao.persist(workFlow2);
+
+            WorkFlow workFlow3 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow3);
+            workFlow3.setWorkflowType(workflowType1);
+            workFlow3.setCurrentState(currentState2);
+            dao.persist(workFlow3);
+
+            WorkFlow workFlow4 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow4);
+            workFlow4.setWorkflowType(workflowType1);
+            workFlow4.setCurrentState(currentState1);
+            dao.persist(workFlow4);
+
+            List<WorkFlow> expectedResult = Arrays.asList(workFlow1, workFlow3);
+            List<WorkFlow> result = dao.findActiveByWorkflowType(workflowType1);
+
+            assertThat(result).hasSize(expectedResult.size());
+            for (int i = 0; i < expectedResult.size(); i++) {
+                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
+            }
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find active workflows by workflow type and demographic number")
+        void shouldFindActiveWorkFlows_byWorkflowTypeAndDemographicNo() throws Exception {
+            String workflowType1 = "alpha";
+            String workflowType2 = "bravo";
+            String currentState1 = "C";
+            String currentState2 = "B";
+            String demographicNo1 = "100";
+            String demographicNo2 = "200";
+
+            WorkFlow workFlow1 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow1);
+            workFlow1.setWorkflowType(workflowType1);
+            workFlow1.setCurrentState(currentState2);
+            workFlow1.setDemographicNo(demographicNo1);
+            dao.persist(workFlow1);
+
+            WorkFlow workFlow2 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow2);
+            workFlow2.setWorkflowType(workflowType2);
+            workFlow2.setCurrentState(currentState1);
+            workFlow2.setDemographicNo(demographicNo2);
+            dao.persist(workFlow2);
+
+            WorkFlow workFlow3 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow3);
+            workFlow3.setWorkflowType(workflowType1);
+            workFlow3.setCurrentState(currentState2);
+            workFlow3.setDemographicNo(demographicNo1);
+            dao.persist(workFlow3);
+
+            WorkFlow workFlow4 = new WorkFlow();
+            EntityDataGenerator.generateTestDataForModelClass(workFlow4);
+            workFlow4.setWorkflowType(workflowType1);
+            workFlow4.setCurrentState(currentState1);
+            workFlow4.setDemographicNo(demographicNo1);
+            dao.persist(workFlow4);
+
+            List<WorkFlow> expectedResult = Arrays.asList(workFlow1, workFlow3);
+            List<WorkFlow> result = dao.findActiveByWorkflowTypeAndDemographicNo(workflowType1, demographicNo1);
+
+            assertThat(result).hasSize(expectedResult.size());
+            for (int i = 0; i < expectedResult.size(); i++) {
+                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
+            }
         }
     }
 }

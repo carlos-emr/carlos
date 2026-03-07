@@ -21,21 +21,23 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.SecurityToken;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link SecurityTokenDao} covering basic CRUD operations.
+ * Integration tests for {@link SecurityTokenDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code SecurityTokenDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +47,66 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("SecurityToken Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("security")
 @Transactional
 public class SecurityTokenDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private SecurityTokenDao securityTokenDao;
+    private SecurityTokenDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist securitytoken with generated ID")
-        void shouldPersistSecurityToken_whenValidDataProvided() {
-            SecurityToken entity = new SecurityToken();
-            securityTokenDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("create")
+    @DisplayName("should persist security token with generated ID")
+    void shouldPersistSecurityToken_whenValidDataProvided() throws Exception {
+        SecurityToken entity = new SecurityToken();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find securitytoken by ID")
-        void shouldFindSecurityToken_whenValidIdProvided() {
-            SecurityToken saved = new SecurityToken();
-            securityTokenDao.persist(saved);
-            SecurityToken found = securityTokenDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return matching token when filtered by token string and expiry after date")
+    void shouldReturnMatchingToken_whenFilteredByTokenAndExpiry() throws Exception {
+        String token1 = "alpha";
+        String token2 = "bravo";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all securitytoken records")
-        void shouldCountAllSecurityTokens() {
-            SecurityToken entity = new SecurityToken();
-            securityTokenDao.persist(entity);
-            long count = securityTokenDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        Date date1 = new Date(dfm.parse("20100301").getTime());
+        Date date2 = new Date(dfm.parse("20110301").getTime());
+        Date date3 = new Date(dfm.parse("20130301").getTime());
+        Date date4 = new Date(dfm.parse("20080301").getTime());
+
+        Date expiry = new Date(dfm.parse("20090301").getTime());
+
+        SecurityToken securityToken1 = new SecurityToken();
+        EntityDataGenerator.generateTestDataForModelClass(securityToken1);
+        securityToken1.setToken(token1);
+        securityToken1.setExpiry(date1);
+        dao.persist(securityToken1);
+
+        SecurityToken securityToken2 = new SecurityToken();
+        EntityDataGenerator.generateTestDataForModelClass(securityToken2);
+        securityToken2.setToken(token2);
+        securityToken2.setExpiry(date2);
+        dao.persist(securityToken2);
+
+        SecurityToken securityToken3 = new SecurityToken();
+        EntityDataGenerator.generateTestDataForModelClass(securityToken3);
+        securityToken3.setToken(token1);
+        securityToken3.setExpiry(date3);
+        dao.persist(securityToken3);
+
+        SecurityToken securityToken4 = new SecurityToken();
+        EntityDataGenerator.generateTestDataForModelClass(securityToken4);
+        securityToken4.setToken(token1);
+        securityToken4.setExpiry(date4);
+        dao.persist(securityToken4);
+
+        SecurityToken result = dao.getByTokenAndExpiry(token1, expiry);
+        SecurityToken expectedResult = securityToken1;
+
+        assertThat(result).isEqualTo(expectedResult);
     }
 }

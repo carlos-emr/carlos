@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.OtherId;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class OtherIdDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist otherid with generated ID")
         void shouldPersistOtherId_whenValidDataProvided() {
             OtherId entity = new OtherId();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             otherIdDAO.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class OtherIdDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find otherid by ID")
         void shouldFindOtherId_whenValidIdProvided() {
             OtherId saved = new OtherId();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             otherIdDAO.persist(saved);
             OtherId found = otherIdDAO.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class OtherIdDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all otherid records")
         void shouldCountAllOtherIds() {
             OtherId entity = new OtherId();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             otherIdDAO.persist(entity);
             long count = otherIdDAO.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

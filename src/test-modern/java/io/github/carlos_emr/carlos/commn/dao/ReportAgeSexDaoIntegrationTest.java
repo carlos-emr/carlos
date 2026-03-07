@@ -21,21 +21,25 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ReportAgeSex;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ReportAgeSexDao} covering basic CRUD operations.
+ * Integration tests for {@link ReportAgeSexDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code ReportAgeSexDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +49,67 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("ReportAgeSex Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("reporting")
 @Transactional
 public class ReportAgeSexDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ReportAgeSexDao reportAgeSexDao;
+    private ReportAgeSexDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist reportagesex with generated ID")
-        void shouldPersistReportAgeSex_whenValidDataProvided() {
-            ReportAgeSex entity = new ReportAgeSex();
-            reportAgeSexDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return records matching the report date when finding before report date")
+    void shouldReturnMatchingRecords_whenFindingBeforeReportDate() throws Exception {
+        Date date1 = new Date(dfm.parse("20110101").getTime());
+        Date date2 = new Date(dfm.parse("20100101").getTime());
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find reportagesex by ID")
-        void shouldFindReportAgeSex_whenValidIdProvided() {
-            ReportAgeSex saved = new ReportAgeSex();
-            reportAgeSexDao.persist(saved);
-            ReportAgeSex found = reportAgeSexDao.find(saved.getId());
-            assertThat(found).isNotNull();
+        ReportAgeSex reportAgeSex1 = new ReportAgeSex();
+        EntityDataGenerator.generateTestDataForModelClass(reportAgeSex1);
+        reportAgeSex1.setReportDate(date1);
+        dao.persist(reportAgeSex1);
+
+        ReportAgeSex reportAgeSex2 = new ReportAgeSex();
+        EntityDataGenerator.generateTestDataForModelClass(reportAgeSex2);
+        reportAgeSex2.setReportDate(date2);
+        dao.persist(reportAgeSex2);
+
+        ReportAgeSex reportAgeSex3 = new ReportAgeSex();
+        EntityDataGenerator.generateTestDataForModelClass(reportAgeSex3);
+        reportAgeSex3.setReportDate(date1);
+        dao.persist(reportAgeSex3);
+
+        List<ReportAgeSex> expectedResult = Arrays.asList(reportAgeSex1, reportAgeSex3);
+        List<ReportAgeSex> result = dao.findBeforeReportDate(date1);
+
+        assertThat(result).hasSize(expectedResult.size());
+        for (int i = 0; i < expectedResult.size(); i++) {
+            assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
         }
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("delete")
+    @DisplayName("should remove all records for date when deleting all by date")
+    void shouldRemoveAllRecords_whenDeletingAllByDate() throws Exception {
+        Date date1 = new Date(dfm.parse("20110101").getTime());
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all reportagesex records")
-        void shouldCountAllReportAgeSexs() {
-            ReportAgeSex entity = new ReportAgeSex();
-            reportAgeSexDao.persist(entity);
-            long count = reportAgeSexDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        ReportAgeSex reportAgeSex1 = new ReportAgeSex();
+        EntityDataGenerator.generateTestDataForModelClass(reportAgeSex1);
+        reportAgeSex1.setReportDate(date1);
+        dao.persist(reportAgeSex1);
+
+        List<ReportAgeSex> expectedResult = Arrays.asList(reportAgeSex1);
+        List<ReportAgeSex> result = dao.findBeforeReportDate(date1);
+
+        assertThat(result).hasSize(expectedResult.size());
+        for (int i = 0; i < expectedResult.size(); i++) {
+            assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
         }
+
+        dao.deleteAllByDate(date1);
+
+        List<ReportAgeSex> newResult = dao.findBeforeReportDate(date1);
+        assertThat(newResult).isEmpty();
     }
 }

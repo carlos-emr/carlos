@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Episode;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class EpisodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist episode with generated ID")
         void shouldPersistEpisode_whenValidDataProvided() {
             Episode entity = new Episode();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             episodeDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class EpisodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find episode by ID")
         void shouldFindEpisode_whenValidIdProvided() {
             Episode saved = new Episode();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             episodeDao.persist(saved);
             Episode found = episodeDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class EpisodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all episode records")
         void shouldCountAllEpisodes() {
             Episode entity = new Episode();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             episodeDao.persist(entity);
             long count = episodeDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

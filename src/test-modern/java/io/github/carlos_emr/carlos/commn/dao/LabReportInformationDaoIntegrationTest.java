@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.LabReportInformation;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class LabReportInformationDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist labreportinformation with generated ID")
         void shouldPersistLabReportInformation_whenValidDataProvided() {
             LabReportInformation entity = new LabReportInformation();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             labReportInformationDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class LabReportInformationDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find labreportinformation by ID")
         void shouldFindLabReportInformation_whenValidIdProvided() {
             LabReportInformation saved = new LabReportInformation();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             labReportInformationDao.persist(saved);
             LabReportInformation found = labReportInformationDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class LabReportInformationDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all labreportinformation records")
         void shouldCountAllLabReportInformations() {
             LabReportInformation entity = new LabReportInformation();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             labReportInformationDao.persist(entity);
             long count = labReportInformationDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

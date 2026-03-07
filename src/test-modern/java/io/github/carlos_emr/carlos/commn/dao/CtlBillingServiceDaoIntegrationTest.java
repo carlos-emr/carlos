@@ -21,8 +21,8 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingService;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -35,14 +35,16 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CtlBillingServiceDao} covering basic CRUD operations.
+ * Integration tests for {@link CtlBillingServiceDao} covering
+ * getAllServiceTypes, findByServiceGroupAndServiceType, findUniqueServiceTypesByCode,
+ * findServiceTypes, findServiceCodesByType, and findServiceTypesByStatus.
  *
  * <p>Migrated from legacy {@code CtlBillingServiceDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see CtlBillingServiceDao
  */
-@DisplayName("CtlBillingService Dao Integration Tests")
+@DisplayName("CtlBillingServiceDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing")
@@ -50,31 +52,7 @@ import static org.assertj.core.api.Assertions.*;
 public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CtlBillingServiceDao ctlBillingServiceDao;
-
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist ctlbillingservice with generated ID")
-        void shouldPersistCtlBillingService_whenValidDataProvided() {
-            CtlBillingService entity = new CtlBillingService();
-            ctlBillingServiceDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find ctlbillingservice by ID")
-        void shouldFindCtlBillingService_whenValidIdProvided() {
-            CtlBillingService saved = new CtlBillingService();
-            ctlBillingServiceDao.persist(saved);
-            CtlBillingService found = ctlBillingServiceDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
-    }
+    private CtlBillingServiceDao dao;
 
     @Nested
     @DisplayName("Query operations")
@@ -82,12 +60,54 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all ctlbillingservice records")
-        void shouldCountAllCtlBillingServices() {
-            CtlBillingService entity = new CtlBillingService();
-            ctlBillingServiceDao.persist(entity);
-            long count = ctlBillingServiceDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return all service types")
+        void shouldReturnAllServiceTypes() {
+            List<Object[]> serviceTypes = dao.getAllServiceTypes();
+            assertThat(serviceTypes).isNotNull();
+            assertThat(serviceTypes).isNotEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find by service group and service type")
+        void shouldFindServices_byServiceGroupAndServiceType() {
+            List<CtlBillingService> services = dao.findByServiceGroupAndServiceType("Group2", null);
+            assertThat(services).isNotEmpty();
+
+            services = dao.findByServiceGroupAndServiceType("Group1", "MFP");
+            assertThat(services).isNotEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find unique service types by code")
+        void shouldReturnUniqueServiceTypes_byCode() {
+            List<Object[]> result = dao.findUniqueServiceTypesByCode("CODE");
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find service types")
+        void shouldReturnServiceTypes() {
+            List<Object[]> result = dao.findServiceTypes();
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find service codes by type")
+        void shouldReturnServiceCodes_byType() {
+            List<Object> result = dao.findServiceCodesByType("SRV_TY");
+            assertThat(result).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find service types by status")
+        void shouldReturnServiceTypes_byStatus() {
+            List<Object[]> result = dao.findServiceTypesByStatus("A");
+            assertThat(result).isNotNull();
         }
     }
 }

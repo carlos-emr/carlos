@@ -23,21 +23,20 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link ClinicDAO} covering basic CRUD operations.
+ * Integration tests for {@link ClinicDAO} covering full method coverage
+ * matching the legacy {@code ClinicDAOTest}.
  *
- * <p>Migrated from legacy {@code ClinicDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and getClinic operations.</p>
  *
  * @since 2026-03-07
  * @see ClinicDAO
@@ -45,49 +44,42 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("Clinic Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("admin")
 @Transactional
 public class ClinicDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ClinicDAO clinicDAO;
+    private ClinicDAO dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        Clinic entity = new Clinic();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist clinic with generated ID")
-        void shouldPersistClinic_whenValidDataProvided() {
-            Clinic entity = new Clinic();
-            clinicDAO.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find clinic by ID")
-        void shouldFindClinic_whenValidIdProvided() {
-            Clinic saved = new Clinic();
-            clinicDAO.persist(saved);
-            Clinic found = clinicDAO.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return first clinic when getClinic called")
+    void shouldReturnFirstClinic_whenGetClinicCalled() {
+        Clinic clinic1 = new Clinic();
+        EntityDataGenerator.generateTestDataForModelClass(clinic1);
+        dao.persist(clinic1);
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all clinic records")
-        void shouldCountAllClinics() {
-            Clinic entity = new Clinic();
-            clinicDAO.persist(entity);
-            long count = clinicDAO.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        Clinic clinic2 = new Clinic();
+        EntityDataGenerator.generateTestDataForModelClass(clinic2);
+        dao.persist(clinic2);
+
+        Clinic clinic3 = new Clinic();
+        EntityDataGenerator.generateTestDataForModelClass(clinic3);
+        dao.persist(clinic3);
+
+        Clinic expectedResult = clinic1;
+        Clinic result = dao.getClinic();
+
+        assertThat(result).isEqualTo(expectedResult);
     }
 }

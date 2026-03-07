@@ -23,21 +23,23 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.BillingCdmServiceCodes;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link BillingCdmServiceCodesDao} covering basic CRUD operations.
+ * Integration tests for {@link BillingCdmServiceCodesDao} covering full method coverage
+ * matching the legacy {@code BillingCdmServiceCodesDaoTest}.
  *
- * <p>Migrated from legacy {@code BillingCdmServiceCodesDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and findAll operations.</p>
  *
  * @since 2026-03-07
  * @see BillingCdmServiceCodesDao
@@ -45,49 +47,44 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("BillingCdmServiceCodes Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("billing")
 @Transactional
 public class BillingCdmServiceCodesDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingCdmServiceCodesDao billingCdmServiceCodesDao;
+    private BillingCdmServiceCodesDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with null ID and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        BillingCdmServiceCodes entity = new BillingCdmServiceCodes();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setId(null);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist billingcdmservicecodes with generated ID")
-        void shouldPersistBillingCdmServiceCodes_whenValidDataProvided() {
-            BillingCdmServiceCodes entity = new BillingCdmServiceCodes();
-            billingCdmServiceCodesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find billingcdmservicecodes by ID")
-        void shouldFindBillingCdmServiceCodes_whenValidIdProvided() {
-            BillingCdmServiceCodes saved = new BillingCdmServiceCodes();
-            billingCdmServiceCodesDao.persist(saved);
-            BillingCdmServiceCodes found = billingCdmServiceCodesDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return all billing CDM service codes")
+    void shouldReturnAllCodes_whenFindAllCalled() {
+        BillingCdmServiceCodes bCSC1 = new BillingCdmServiceCodes();
+        EntityDataGenerator.generateTestDataForModelClass(bCSC1);
+        dao.persist(bCSC1);
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all billingcdmservicecodes records")
-        void shouldCountAllBillingCdmServiceCodess() {
-            BillingCdmServiceCodes entity = new BillingCdmServiceCodes();
-            billingCdmServiceCodesDao.persist(entity);
-            long count = billingCdmServiceCodesDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        BillingCdmServiceCodes bCSC2 = new BillingCdmServiceCodes();
+        EntityDataGenerator.generateTestDataForModelClass(bCSC2);
+        dao.persist(bCSC2);
+
+        BillingCdmServiceCodes bCSC3 = new BillingCdmServiceCodes();
+        EntityDataGenerator.generateTestDataForModelClass(bCSC3);
+        dao.persist(bCSC3);
+
+        List<BillingCdmServiceCodes> expectedResult = Arrays.asList(bCSC1, bCSC2, bCSC3);
+        List<BillingCdmServiceCodes> result = dao.findAll();
+
+        assertThat(result).hasSameSizeAs(expectedResult);
+        assertThat(result).containsExactlyElementsOf(expectedResult);
     }
 }

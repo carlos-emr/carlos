@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.MdsOBR;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class MdsOBRDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist mdsobr with generated ID")
         void shouldPersistMdsOBR_whenValidDataProvided() {
             MdsOBR entity = new MdsOBR();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsOBRDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class MdsOBRDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find mdsobr by ID")
         void shouldFindMdsOBR_whenValidIdProvided() {
             MdsOBR saved = new MdsOBR();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             mdsOBRDao.persist(saved);
             MdsOBR found = mdsOBRDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class MdsOBRDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all mdsobr records")
         void shouldCountAllMdsOBRs() {
             MdsOBR entity = new MdsOBR();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsOBRDao.persist(entity);
             long count = mdsOBRDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

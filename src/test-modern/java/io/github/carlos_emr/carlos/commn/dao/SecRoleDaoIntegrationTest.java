@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -32,12 +33,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link SecRoleDao}.
+ * Integration tests for {@link SecRoleDao} covering findAll, findByName, and findAllOrderByRole.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code SecRoleDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see SecRoleDao
@@ -50,44 +51,89 @@ import static org.assertj.core.api.Assertions.*;
 public class SecRoleDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private SecRoleDao secRoleDao;
+    private SecRoleDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist secrole with generated ID")
-        void shouldPersistSecRole_whenValidDataProvided() {
-            SecRole entity = new SecRole();
-            secRoleDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @DisplayName("findAll")
+    class FindAll {
 
         @Test
         @Tag("read")
-        @DisplayName("should find secrole by ID")
-        void shouldFindSecRole_whenValidIdProvided() {
-            SecRole saved = new SecRole();
-            secRoleDao.persist(saved);
-            SecRole found = secRoleDao.find(saved.getId());
-            assertThat(found).isNotNull();
+        @DisplayName("should return all persisted sec roles")
+        void shouldReturnAllSecRoles_whenMultipleExist() {
+            SecRole secRole1 = new SecRole();
+            EntityDataGenerator.generateTestDataForModelClass(secRole1);
+            secRole1.setName("alpha");
+            dao.persist(secRole1);
+
+            SecRole secRole2 = new SecRole();
+            EntityDataGenerator.generateTestDataForModelClass(secRole2);
+            secRole2.setName("bravo");
+            dao.persist(secRole2);
+
+            SecRole secRole3 = new SecRole();
+            EntityDataGenerator.generateTestDataForModelClass(secRole3);
+            secRole3.setName("charlie");
+            dao.persist(secRole3);
+
+            List<SecRole> result = dao.findAll();
+
+            assertThat(result).hasSize(3);
+            assertThat(result).containsExactly(secRole1, secRole2, secRole3);
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("findByName")
+    class FindByName {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            SecRole entity = new SecRole();
-            secRoleDao.persist(entity);
-            long count = secRoleDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @Tag("read")
+        @DisplayName("should return sec role matching the given name")
+        void shouldReturnSecRole_whenNameMatches() {
+            SecRole secRole1 = new SecRole();
+            EntityDataGenerator.generateTestDataForModelClass(secRole1);
+            secRole1.setName("alpha");
+            dao.persist(secRole1);
+
+            SecRole secRole2 = new SecRole();
+            EntityDataGenerator.generateTestDataForModelClass(secRole2);
+            secRole2.setName("bravo");
+            dao.persist(secRole2);
+
+            SecRole result = dao.findByName("alpha");
+
+            assertThat(result).isEqualTo(secRole1);
+        }
+    }
+
+    @Nested
+    @DisplayName("findAllOrderByRole")
+    class FindAllOrderByRole {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return all sec roles ordered by role name")
+        void shouldReturnSecRoles_orderedByRoleName() {
+            SecRole secRole1 = new SecRole();
+            EntityDataGenerator.generateTestDataForModelClass(secRole1);
+            secRole1.setName("charlie");
+            dao.persist(secRole1);
+
+            SecRole secRole2 = new SecRole();
+            EntityDataGenerator.generateTestDataForModelClass(secRole2);
+            secRole2.setName("alpha");
+            dao.persist(secRole2);
+
+            SecRole secRole3 = new SecRole();
+            EntityDataGenerator.generateTestDataForModelClass(secRole3);
+            secRole3.setName("bravo");
+            dao.persist(secRole3);
+
+            List<SecRole> result = dao.findAllOrderByRole();
+
+            assertThat(result).hasSize(3);
+            assertThat(result).containsExactly(secRole2, secRole3, secRole1);
         }
     }
 }

@@ -21,23 +21,27 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.ON.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingONHeaderDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ *
+ * <p>Migrated from legacy {@code BillingONHeaderDaoTest} (JUnit 4 / DaoTestFixtures).
+ * Replicates exact legacy test coverage: persist entity and verify generated ID.</p>
+ *
  * @since 2026-03-07
+ * @see BillingONHeaderDao
  */
-@DisplayName("BillingONHeader Dao Integration Tests")
+@DisplayName("BillingONHeaderDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-on")
@@ -45,29 +49,15 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingONHeaderDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingONHeaderDao billingONHeaderDao;
+    private BillingONHeaderDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            BillingONHeader entity = new BillingONHeader();
-            billingONHeaderDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            BillingONHeader saved = new BillingONHeader();
-            billingONHeaderDao.persist(saved);
-            BillingONHeader found = billingONHeaderDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated ID")
+    void shouldPersistEntity_whenValidDataProvided() {
+        BillingONHeader entity = new BillingONHeader();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
     }
 }

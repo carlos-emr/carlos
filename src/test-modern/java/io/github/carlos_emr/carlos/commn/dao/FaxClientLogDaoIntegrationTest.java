@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.FaxClientLog;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class FaxClientLogDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist faxclientlog with generated ID")
         void shouldPersistFaxClientLog_whenValidDataProvided() {
             FaxClientLog entity = new FaxClientLog();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             faxClientLogDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class FaxClientLogDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find faxclientlog by ID")
         void shouldFindFaxClientLog_whenValidIdProvided() {
             FaxClientLog saved = new FaxClientLog();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             faxClientLogDao.persist(saved);
             FaxClientLog found = faxClientLogDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class FaxClientLogDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all faxclientlog records")
         void shouldCountAllFaxClientLogs() {
             FaxClientLog entity = new FaxClientLog();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             faxClientLogDao.persist(entity);
             long count = faxClientLogDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

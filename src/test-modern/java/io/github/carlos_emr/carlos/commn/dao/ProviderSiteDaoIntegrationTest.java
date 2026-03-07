@@ -21,8 +21,11 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderSite;
+import io.github.carlos_emr.carlos.commn.model.ProviderSitePK;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -32,10 +35,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ProviderSiteDao} covering basic CRUD operations.
+ * Integration tests for {@link ProviderSiteDao} covering create,
+ * findByProviderNo, and findActiveProvidersWithSites.
  *
  * <p>Migrated from legacy {@code ProviderSiteDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -50,44 +54,68 @@ import static org.assertj.core.api.Assertions.*;
 public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ProviderSiteDao providerSiteDao;
+    private ProviderSiteDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("Create operations")
+    class CreateOperations {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist providersite with generated ID")
+        @DisplayName("should persist provider site with composite key")
         void shouldPersistProviderSite_whenValidDataProvided() {
             ProviderSite entity = new ProviderSite();
-            providerSiteDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            entity.setId(new ProviderSitePK());
+            entity.getId().setProviderNo("000001");
+            entity.getId().setSiteId(1);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find providersite by ID")
-        void shouldFindProviderSite_whenValidIdProvided() {
-            ProviderSite saved = new ProviderSite();
-            providerSiteDao.persist(saved);
-            ProviderSite found = providerSiteDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
+            assertThat(dao.find(entity.getId())).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("findByProviderNo")
+    class FindByProviderNo {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all providersite records")
-        void shouldCountAllProviderSites() {
-            ProviderSite entity = new ProviderSite();
-            providerSiteDao.persist(entity);
-            long count = providerSiteDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @Tag("read")
+        @DisplayName("should return sites for the given provider number")
+        void shouldReturnSites_whenProviderNoMatches() {
+            String providerNo1 = "101";
+            String providerNo2 = "202";
+
+            ProviderSite ps1 = new ProviderSite();
+            EntityDataGenerator.generateTestDataForModelClass(ps1);
+            ps1.setId(new ProviderSitePK());
+            ps1.getId().setProviderNo(providerNo1);
+            dao.persist(ps1);
+
+            ProviderSite ps2 = new ProviderSite();
+            EntityDataGenerator.generateTestDataForModelClass(ps2);
+            ps2.setId(new ProviderSitePK());
+            ps2.getId().setProviderNo(providerNo2);
+            dao.persist(ps2);
+
+            List<ProviderSite> result = dao.findByProviderNo(providerNo1);
+
+            assertThat(result).hasSize(1);
+            assertThat(result).containsExactly(ps1);
+        }
+    }
+
+    @Nested
+    @DisplayName("findActiveProvidersWithSites")
+    class FindActiveProvidersWithSites {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return non-null result for any provider number")
+        void shouldReturnNonNullResult_whenCalled() {
+            List<Provider> result = dao.findActiveProvidersWithSites("100");
+
+            assertThat(result).isNotNull();
         }
     }
 }

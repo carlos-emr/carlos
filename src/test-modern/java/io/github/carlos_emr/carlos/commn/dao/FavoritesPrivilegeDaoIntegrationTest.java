@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.FavoritesPrivilege;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -32,10 +33,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link FavoritesPrivilegeDao} covering basic CRUD operations.
+ * Integration tests for {@link FavoritesPrivilegeDao} covering create,
+ * getProviders, and findByProviderNo.
  *
  * <p>Migrated from legacy {@code FavoritesPrivilegeDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -50,44 +52,91 @@ import static org.assertj.core.api.Assertions.*;
 public class FavoritesPrivilegeDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private FavoritesPrivilegeDao favoritesPrivilegeDao;
+    private FavoritesPrivilegeDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("Create operations")
+    class CreateOperations {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist favoritesprivilege with generated ID")
+        @DisplayName("should persist favorites privilege with generated ID")
         void shouldPersistFavoritesPrivilege_whenValidDataProvided() {
             FavoritesPrivilege entity = new FavoritesPrivilege();
-            favoritesPrivilegeDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find favoritesprivilege by ID")
-        void shouldFindFavoritesPrivilege_whenValidIdProvided() {
-            FavoritesPrivilege saved = new FavoritesPrivilege();
-            favoritesPrivilegeDao.persist(saved);
-            FavoritesPrivilege found = favoritesPrivilegeDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("getProviders")
+    class GetProviders {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all favoritesprivilege records")
-        void shouldCountAllFavoritesPrivileges() {
-            FavoritesPrivilege entity = new FavoritesPrivilege();
-            favoritesPrivilegeDao.persist(entity);
-            long count = favoritesPrivilegeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @Tag("read")
+        @DisplayName("should return provider numbers where open to public is true")
+        void shouldReturnPublicProviders_whenOpenToPublicIsTrue() {
+            String providerNo1 = "111";
+            String providerNo2 = "222";
+            String providerNo3 = "333";
+
+            FavoritesPrivilege fp1 = new FavoritesPrivilege();
+            EntityDataGenerator.generateTestDataForModelClass(fp1);
+            fp1.setOpenToPublic(true);
+            fp1.setProviderNo(providerNo1);
+            dao.persist(fp1);
+
+            FavoritesPrivilege fp2 = new FavoritesPrivilege();
+            EntityDataGenerator.generateTestDataForModelClass(fp2);
+            fp2.setOpenToPublic(false);
+            fp2.setProviderNo(providerNo2);
+            dao.persist(fp2);
+
+            FavoritesPrivilege fp3 = new FavoritesPrivilege();
+            EntityDataGenerator.generateTestDataForModelClass(fp3);
+            fp3.setOpenToPublic(true);
+            fp3.setProviderNo(providerNo3);
+            dao.persist(fp3);
+
+            List<String> result = dao.getProviders();
+
+            assertThat(result).hasSize(2);
+            assertThat(result).containsExactly(providerNo1, providerNo3);
+        }
+    }
+
+    @Nested
+    @DisplayName("findByProviderNo")
+    class FindByProviderNo {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return favorites privilege for the given provider")
+        void shouldReturnFavoritesPrivilege_whenProviderNoMatches() {
+            String providerNo1 = "111";
+            String providerNo2 = "222";
+            String providerNo3 = "333";
+
+            FavoritesPrivilege fp1 = new FavoritesPrivilege();
+            EntityDataGenerator.generateTestDataForModelClass(fp1);
+            fp1.setProviderNo(providerNo1);
+            dao.persist(fp1);
+
+            FavoritesPrivilege fp2 = new FavoritesPrivilege();
+            EntityDataGenerator.generateTestDataForModelClass(fp2);
+            fp2.setProviderNo(providerNo2);
+            dao.persist(fp2);
+
+            FavoritesPrivilege fp3 = new FavoritesPrivilege();
+            EntityDataGenerator.generateTestDataForModelClass(fp3);
+            fp3.setProviderNo(providerNo3);
+            dao.persist(fp3);
+
+            FavoritesPrivilege result = dao.findByProviderNo(providerNo2);
+
+            assertThat(result).isEqualTo(fp2);
         }
     }
 }

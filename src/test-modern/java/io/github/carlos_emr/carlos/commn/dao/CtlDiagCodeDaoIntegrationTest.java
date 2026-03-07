@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CtlDiagCode;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class CtlDiagCodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist ctldiagcode with generated ID")
         void shouldPersistCtlDiagCode_whenValidDataProvided() {
             CtlDiagCode entity = new CtlDiagCode();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             ctlDiagCodeDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class CtlDiagCodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find ctldiagcode by ID")
         void shouldFindCtlDiagCode_whenValidIdProvided() {
             CtlDiagCode saved = new CtlDiagCode();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             ctlDiagCodeDao.persist(saved);
             CtlDiagCode found = ctlDiagCodeDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class CtlDiagCodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all ctldiagcode records")
         void shouldCountAllCtlDiagCodes() {
             CtlDiagCode entity = new CtlDiagCode();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             ctlDiagCodeDao.persist(entity);
             long count = ctlDiagCodeDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

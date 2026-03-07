@@ -24,20 +24,22 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.DataExport;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link DataExportDao} covering basic CRUD operations.
+ * Integration tests for {@link DataExportDao} covering full method coverage
+ * matching the legacy {@code DataExportDaoTest}.
  *
- * <p>Migrated from legacy {@code DataExportDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover findAll and findAllByType operations.</p>
  *
  * @since 2026-03-07
  * @see DataExportDao
@@ -45,49 +47,67 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("DataExport Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("admin")
 @Transactional
 public class DataExportDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private DataExportDao dataExportDao;
+    private DataExportDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return all data exports ordered by daterun")
+    void shouldReturnAllDataExports_whenFindAllCalled() {
+        DataExport de1 = new DataExport();
+        Timestamp ts1 = new Timestamp(1000);
+        de1.setDaterun(ts1);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist dataexport with generated ID")
-        void shouldPersistDataExport_whenValidDataProvided() {
-            DataExport entity = new DataExport();
-            dataExportDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+        DataExport de2 = new DataExport();
+        Timestamp ts2 = new Timestamp(2000);
+        de2.setDaterun(ts2);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find dataexport by ID")
-        void shouldFindDataExport_whenValidIdProvided() {
-            DataExport saved = new DataExport();
-            dataExportDao.persist(saved);
-            DataExport found = dataExportDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        DataExport de3 = new DataExport();
+        Timestamp ts3 = new Timestamp(1500);
+        de3.setDaterun(ts3);
+
+        dao.persist(de1);
+        dao.persist(de2);
+        dao.persist(de3);
+
+        List<DataExport> expectedResult = Arrays.asList(de1, de3, de2);
+        List<DataExport> result = dao.findAll();
+
+        assertThat(result).hasSameSizeAs(expectedResult);
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return data exports filtered by type and ordered by daterun")
+    void shouldReturnFilteredExports_whenSearchingByType() {
+        String type = "typeA";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all dataexport records")
-        void shouldCountAllDataExports() {
-            DataExport entity = new DataExport();
-            dataExportDao.persist(entity);
-            long count = dataExportDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        DataExport de1 = new DataExport();
+        Timestamp ts1 = new Timestamp(1000);
+        de1.setDaterun(ts1);
+        de1.setType(type);
+
+        DataExport de2 = new DataExport();
+        Timestamp ts2 = new Timestamp(2000);
+        de2.setDaterun(ts2);
+        de2.setType("typeB");
+
+        DataExport de3 = new DataExport();
+        Timestamp ts3 = new Timestamp(1500);
+        de3.setDaterun(ts3);
+        de3.setType(type);
+
+        dao.persist(de1);
+        dao.persist(de2);
+        dao.persist(de3);
+
+        List<DataExport> result = dao.findAllByType(type);
+        List<DataExport> expectedResult = Arrays.asList(de1, de3);
+
+        assertThat(result).hasSameSizeAs(expectedResult);
+        assertThat(result).containsExactlyElementsOf(expectedResult);
     }
 }

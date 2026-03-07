@@ -21,8 +21,10 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
+import io.github.carlos_emr.carlos.commn.model.SecObjPrivilegePrimaryKey;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,19 +32,24 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link SecObjPrivilegeDao}.
+ * Integration tests for {@link SecObjPrivilegeDao} covering
+ * findByRoleUserGroupAndObjectName, findByObjectNames, findByRoleUserGroup,
+ * findByObjectName, countObjectsByName, and findByFormNamePrivilegeAndProviderNo.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code SecObjPrivilegeDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see SecObjPrivilegeDao
  */
-@DisplayName("SecObjPrivilege Dao Integration Tests")
+@DisplayName("SecObjPrivilegeDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("security")
@@ -50,30 +57,17 @@ import static org.assertj.core.api.Assertions.*;
 public class SecObjPrivilegeDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private SecObjPrivilegeDao secObjPrivilegeDao;
+    private SecObjPrivilegeDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist secobjprivilege with generated ID")
-        void shouldPersistSecObjPrivilege_whenValidDataProvided() {
-            SecObjPrivilege entity = new SecObjPrivilege();
-            secObjPrivilegeDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find secobjprivilege by ID")
-        void shouldFindSecObjPrivilege_whenValidIdProvided() {
-            SecObjPrivilege saved = new SecObjPrivilege();
-            secObjPrivilegeDao.persist(saved);
-            SecObjPrivilege found = secObjPrivilegeDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    private SecObjPrivilege createPrivilege(String objectName, String roleUserGroup) {
+        SecObjPrivilege sop = new SecObjPrivilege();
+        EntityDataGenerator.generateTestDataForModelClass(sop);
+        SecObjPrivilegePrimaryKey pk = new SecObjPrivilegePrimaryKey();
+        pk.setObjectName(objectName);
+        pk.setRoleUserGroup(roleUserGroup);
+        sop.setId(pk);
+        dao.persist(sop);
+        return sop;
     }
 
     @Nested
@@ -82,12 +76,81 @@ public class SecObjPrivilegeDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            SecObjPrivilege entity = new SecObjPrivilege();
-            secObjPrivilegeDao.persist(entity);
-            long count = secObjPrivilegeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should find privileges by role user group and object name")
+        void shouldFindPrivileges_byRoleUserGroupAndObjectName() {
+            SecObjPrivilege sop1 = createPrivilege("alphaName1", "sigmaGroup1");
+            createPrivilege("alphaName2", "sigmaGroup2");
+            createPrivilege("alphaName1", "sigmaGroup2");
+            createPrivilege("alphaName2", "sigmaGroup1");
+
+            List<SecObjPrivilege> result = dao.findByRoleUserGroupAndObjectName("sigmaGroup1", "alphaName1");
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0)).isEqualTo(sop1);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find privileges by object names collection")
+        void shouldFindPrivileges_byObjectNames() {
+            SecObjPrivilege sop1 = createPrivilege("alphaName1", "sigmaGroup1");
+            SecObjPrivilege sop2 = createPrivilege("alphaName2", "sigmaGroup1");
+            createPrivilege("alphaName3", "sigmaGroup2");
+
+            Collection<String> objectNames = new ArrayList<>(Arrays.asList("alphaName1", "alphaName2"));
+
+            List<SecObjPrivilege> result = dao.findByObjectNames(objectNames);
+
+            assertThat(result).hasSize(2);
+            assertThat(result).containsExactlyInAnyOrder(sop1, sop2);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find privileges by role user group")
+        void shouldFindPrivileges_byRoleUserGroup() {
+            SecObjPrivilege sop1 = createPrivilege("alphaName1", "sigmaGroup1");
+            createPrivilege("alphaName2", "sigmaGroup2");
+            createPrivilege("alphaName1", "sigmaGroup2");
+            SecObjPrivilege sop4 = createPrivilege("alphaName2", "sigmaGroup1");
+
+            List<SecObjPrivilege> result = dao.findByRoleUserGroup("sigmaGroup1");
+
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0)).isEqualTo(sop1);
+            assertThat(result.get(1)).isEqualTo(sop4);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find privileges by object name")
+        void shouldFindPrivileges_byObjectName() {
+            SecObjPrivilege sop1 = createPrivilege("alphaName1", "sigmaGroup1");
+            createPrivilege("alphaName2", "sigmaGroup1");
+            SecObjPrivilege sop3 = createPrivilege("alphaName1", "sigmaGroup2");
+            createPrivilege("alphaName2", "sigmaGroup2");
+
+            List<SecObjPrivilege> result = dao.findByObjectName("alphaName1");
+
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0)).isEqualTo(sop1);
+            assertThat(result.get(1)).isEqualTo(sop3);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should count objects by name without error")
+        void shouldCountObjects_byName() {
+            dao.countObjectsByName("OBJ NAME");
+            // Legacy test only verified no exception was thrown
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return results for findByFormNamePrivilegeAndProviderNo")
+        void shouldReturnResults_whenFindByFormNamePrivilegeAndProviderNo() {
+            List<Object[]> result = dao.findByFormNamePrivilegeAndProviderNo("frm", "priv", "prov");
+            assertThat(result).isNotNull();
         }
     }
 }

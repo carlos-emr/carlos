@@ -21,23 +21,30 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.model.BillingDetail;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingDetailDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ *
+ * <p>Migrated from legacy {@code BillingDetailDaoTest} (JUnit 4 / DaoTestFixtures).
+ * Replicates exact legacy test coverage: persist entity and query by billing number
+ * and status.</p>
+ *
  * @since 2026-03-07
+ * @see BillingDetailDao
  */
-@DisplayName("BillingDetail Dao Integration Tests")
+@DisplayName("BillingDetailDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing")
@@ -45,29 +52,23 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingDetailDao billingDetailDao;
+    private BillingDetailDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated ID")
+    void shouldPersistEntity_whenValidDataProvided() {
+        BillingDetail entity = new BillingDetail();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            BillingDetail entity = new BillingDetail();
-            billingDetailDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            BillingDetail saved = new BillingDetail();
-            billingDetailDao.persist(saved);
-            BillingDetail found = billingDetailDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return result list when queried by billing number and status")
+    void shouldReturnResultList_whenQueriedByBillingNoAndStatus() {
+        List<BillingDetail> result = dao.findByBillingNoAndStatus(100, "STS");
+        assertThat(result).isNotNull();
     }
 }

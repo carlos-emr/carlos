@@ -23,21 +23,20 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.DesAnnualReviewPlan;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link DesAnnualReviewPlanDao} covering basic CRUD operations.
+ * Integration tests for {@link DesAnnualReviewPlanDao} covering full method coverage
+ * matching the legacy {@code DesAnnualReviewPlanDaoTest}.
  *
- * <p>Migrated from legacy {@code DesAnnualReviewPlanDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and search operations.</p>
  *
  * @since 2026-03-07
  * @see DesAnnualReviewPlanDao
@@ -45,49 +44,41 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("DesAnnualReviewPlan Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("clinical")
 @Transactional
 public class DesAnnualReviewPlanDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private DesAnnualReviewPlanDao desAnnualReviewPlanDao;
+    private DesAnnualReviewPlanDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        DesAnnualReviewPlan entity = new DesAnnualReviewPlan();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist desannualreviewplan with generated ID")
-        void shouldPersistDesAnnualReviewPlan_whenValidDataProvided() {
-            DesAnnualReviewPlan entity = new DesAnnualReviewPlan();
-            desAnnualReviewPlanDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find desannualreviewplan by ID")
-        void shouldFindDesAnnualReviewPlan_whenValidIdProvided() {
-            DesAnnualReviewPlan saved = new DesAnnualReviewPlan();
-            desAnnualReviewPlanDao.persist(saved);
-            DesAnnualReviewPlan found = desAnnualReviewPlanDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should find entity by formNo and demographicNo")
+    void shouldFindEntity_whenSearchingByFormNoAndDemographicNo() {
+        DesAnnualReviewPlan entity = new DesAnnualReviewPlan();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setDemographicNo(1);
+        entity.setFormNo(1);
+        dao.persist(entity);
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all desannualreviewplan records")
-        void shouldCountAllDesAnnualReviewPlans() {
-            DesAnnualReviewPlan entity = new DesAnnualReviewPlan();
-            desAnnualReviewPlanDao.persist(entity);
-            long count = desAnnualReviewPlanDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        entity = new DesAnnualReviewPlan();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setDemographicNo(1);
+        entity.setFormNo(2);
+        dao.persist(entity);
+
+        DesAnnualReviewPlan darp = dao.search(2, 1);
+
+        assertThat(darp).isNotNull();
     }
 }

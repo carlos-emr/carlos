@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class EFormValueDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist eformvalue with generated ID")
         void shouldPersistEFormValue_whenValidDataProvided() {
             EFormValue entity = new EFormValue();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             eFormValueDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class EFormValueDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find eformvalue by ID")
         void shouldFindEFormValue_whenValidIdProvided() {
             EFormValue saved = new EFormValue();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             eFormValueDao.persist(saved);
             EFormValue found = eFormValueDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class EFormValueDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all records")
         void shouldCountAllRecords() {
             EFormValue entity = new EFormValue();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             eFormValueDao.persist(entity);
             long count = eFormValueDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

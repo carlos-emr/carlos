@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.FunctionalCentre;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class FunctionalCentreDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist functionalcentre with generated ID")
         void shouldPersistFunctionalCentre_whenValidDataProvided() {
             FunctionalCentre entity = new FunctionalCentre();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             functionalCentreDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class FunctionalCentreDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find functionalcentre by ID")
         void shouldFindFunctionalCentre_whenValidIdProvided() {
             FunctionalCentre saved = new FunctionalCentre();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             functionalCentreDao.persist(saved);
             FunctionalCentre found = functionalCentreDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class FunctionalCentreDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all records")
         void shouldCountAllRecords() {
             FunctionalCentre entity = new FunctionalCentre();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             functionalCentreDao.persist(entity);
             long count = functionalCentreDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.BatchEligibility;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class BatchEligibilityDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist batcheligibility with generated ID")
         void shouldPersistBatchEligibility_whenValidDataProvided() {
             BatchEligibility entity = new BatchEligibility();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             batchEligibilityDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class BatchEligibilityDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find batcheligibility by ID")
         void shouldFindBatchEligibility_whenValidIdProvided() {
             BatchEligibility saved = new BatchEligibility();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             batchEligibilityDao.persist(saved);
             BatchEligibility found = batchEligibilityDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class BatchEligibilityDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all batcheligibility records")
         void shouldCountAllBatchEligibilitys() {
             BatchEligibility entity = new BatchEligibility();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             batchEligibilityDao.persist(entity);
             long count = batchEligibilityDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

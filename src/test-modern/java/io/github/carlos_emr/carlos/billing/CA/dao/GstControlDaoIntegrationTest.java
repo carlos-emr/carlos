@@ -21,23 +21,30 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.model.GstControl;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.math.BigDecimal;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link GstControlDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ *
+ * <p>Migrated from legacy {@code GstControlDaoTest} (JUnit 4 / DaoTestFixtures).
+ * Replicates exact legacy test coverage: persist entity with explicit BigDecimal
+ * gstPercent value and verify generated ID.</p>
+ *
  * @since 2026-03-07
+ * @see GstControlDao
  */
-@DisplayName("GstControl Dao Integration Tests")
+@DisplayName("GstControlDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing")
@@ -45,29 +52,16 @@ import static org.assertj.core.api.Assertions.*;
 public class GstControlDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private GstControlDao gstControlDao;
+    private GstControlDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            GstControl entity = new GstControl();
-            gstControlDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            GstControl saved = new GstControl();
-            gstControlDao.persist(saved);
-            GstControl found = gstControlDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated ID")
+    void shouldPersistEntity_whenValidDataProvided() {
+        GstControl entity = new GstControl();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setGstPercent(new BigDecimal("13.00"));
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
     }
 }

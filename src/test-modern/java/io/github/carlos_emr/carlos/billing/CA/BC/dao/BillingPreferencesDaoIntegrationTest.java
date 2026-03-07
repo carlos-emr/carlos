@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingPreferences;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -56,6 +57,7 @@ public class BillingPreferencesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist entity with generated ID")
         void shouldPersist_whenValidDataProvided() {
             BillingPreferences entity = new BillingPreferences();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             billingPreferencesDAO.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -65,6 +67,7 @@ public class BillingPreferencesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find entity by ID")
         void shouldFind_whenValidIdProvided() {
             BillingPreferences saved = new BillingPreferences();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             billingPreferencesDAO.persist(saved);
             BillingPreferences found = billingPreferencesDAO.find(saved.getId());
             assertThat(found).isNotNull();

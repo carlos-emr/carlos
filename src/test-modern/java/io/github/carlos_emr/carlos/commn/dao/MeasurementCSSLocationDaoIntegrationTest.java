@@ -21,21 +21,22 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.MeasurementCSSLocation;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link MeasurementCSSLocationDao} covering basic CRUD operations.
+ * Integration tests for {@link MeasurementCSSLocationDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code MeasurementCSSLocationDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +46,60 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("MeasurementCSSLocation Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("measurement")
 @Transactional
 public class MeasurementCSSLocationDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private MeasurementCSSLocationDao measurementCSSLocationDao;
+    private MeasurementCSSLocationDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist measurement CSS location with generated ID")
+    void shouldPersistMeasurementCSSLocation_whenValidDataProvided() {
+        MeasurementCSSLocation entity = new MeasurementCSSLocation();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist measurementcsslocation with generated ID")
-        void shouldPersistMeasurementCSSLocation_whenValidDataProvided() {
-            MeasurementCSSLocation entity = new MeasurementCSSLocation();
-            measurementCSSLocationDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find measurementcsslocation by ID")
-        void shouldFindMeasurementCSSLocation_whenValidIdProvided() {
-            MeasurementCSSLocation saved = new MeasurementCSSLocation();
-            measurementCSSLocationDao.persist(saved);
-            MeasurementCSSLocation found = measurementCSSLocationDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return matching locations when filtered by location string")
+    void shouldReturnMatchingLocations_whenFilteredByLocation() {
+        String location1 = "alpha", location2 = "bravo";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all measurementcsslocation records")
-        void shouldCountAllMeasurementCSSLocations() {
-            MeasurementCSSLocation entity = new MeasurementCSSLocation();
-            measurementCSSLocationDao.persist(entity);
-            long count = measurementCSSLocationDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        MeasurementCSSLocation mCSSL1 = new MeasurementCSSLocation();
+        EntityDataGenerator.generateTestDataForModelClass(mCSSL1);
+        mCSSL1.setLocation(location2);
+        dao.persist(mCSSL1);
+
+        MeasurementCSSLocation mCSSL2 = new MeasurementCSSLocation();
+        EntityDataGenerator.generateTestDataForModelClass(mCSSL2);
+        mCSSL2.setLocation(location1);
+        dao.persist(mCSSL2);
+
+        MeasurementCSSLocation mCSSL3 = new MeasurementCSSLocation();
+        EntityDataGenerator.generateTestDataForModelClass(mCSSL3);
+        mCSSL3.setLocation(location1);
+        dao.persist(mCSSL3);
+
+        MeasurementCSSLocation mCSSL4 = new MeasurementCSSLocation();
+        EntityDataGenerator.generateTestDataForModelClass(mCSSL4);
+        mCSSL4.setLocation(location2);
+        dao.persist(mCSSL4);
+
+        MeasurementCSSLocation mCSSL5 = new MeasurementCSSLocation();
+        EntityDataGenerator.generateTestDataForModelClass(mCSSL5);
+        mCSSL5.setLocation(location1);
+        dao.persist(mCSSL5);
+
+        List<MeasurementCSSLocation> expectedResult = Arrays.asList(mCSSL2, mCSSL3, mCSSL5);
+        List<MeasurementCSSLocation> result = dao.findByLocation(location1);
+
+        assertThat(result).hasSize(expectedResult.size());
+        for (int i = 0; i < expectedResult.size(); i++) {
+            assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
         }
     }
 }

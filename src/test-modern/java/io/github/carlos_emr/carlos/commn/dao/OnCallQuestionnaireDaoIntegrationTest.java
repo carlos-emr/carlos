@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.OnCallQuestionnaire;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class OnCallQuestionnaireDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist oncallquestionnaire with generated ID")
         void shouldPersistOnCallQuestionnaire_whenValidDataProvided() {
             OnCallQuestionnaire entity = new OnCallQuestionnaire();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             onCallQuestionnaireDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class OnCallQuestionnaireDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find oncallquestionnaire by ID")
         void shouldFindOnCallQuestionnaire_whenValidIdProvided() {
             OnCallQuestionnaire saved = new OnCallQuestionnaire();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             onCallQuestionnaireDao.persist(saved);
             OnCallQuestionnaire found = onCallQuestionnaireDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class OnCallQuestionnaireDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all oncallquestionnaire records")
         void shouldCountAllOnCallQuestionnaires() {
             OnCallQuestionnaire entity = new OnCallQuestionnaire();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             onCallQuestionnaireDao.persist(entity);
             long count = onCallQuestionnaireDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

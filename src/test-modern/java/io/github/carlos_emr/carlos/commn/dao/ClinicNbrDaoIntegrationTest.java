@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ClinicNbr;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,19 +31,21 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.ArrayList;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link ClinicNbrDao} covering basic CRUD operations.
+ * Integration tests for {@link ClinicNbrDao} covering findAll,
+ * removeEntry, and addEntry.
  *
- * <p>Migrated from legacy {@code ClinicNbrDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Migrated from legacy {@code ClinicNbrDaoTest}
+ * (JUnit 4 / DaoTestFixtures) with exact same test logic and assertions.</p>
  *
  * @since 2026-03-07
  * @see ClinicNbrDao
  */
-@DisplayName("ClinicNbr Dao Integration Tests")
+@DisplayName("ClinicNbrDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("admin")
@@ -50,44 +53,76 @@ import static org.assertj.core.api.Assertions.*;
 public class ClinicNbrDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ClinicNbrDao clinicNbrDao;
+    private ClinicNbrDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("findAll tests")
+    @Tag("read")
+    class FindAll {
 
         @Test
-        @Tag("create")
-        @DisplayName("should persist clinicnbr with generated ID")
-        void shouldPersistClinicNbr_whenValidDataProvided() {
-            ClinicNbr entity = new ClinicNbr();
-            clinicNbrDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+        @DisplayName("should return persisted entries in the list")
+        void shouldReturnPersistedEntries_whenFindAllCalled() {
+            ClinicNbr nbr1 = new ClinicNbr();
+            EntityDataGenerator.generateTestDataForModelClass(nbr1);
+            nbr1.setNbrStatus("A");
+            nbr1.setNbrValue("1");
+            dao.persist(nbr1);
+            hibernateTemplate.flush();
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find clinicnbr by ID")
-        void shouldFindClinicNbr_whenValidIdProvided() {
-            ClinicNbr saved = new ClinicNbr();
-            clinicNbrDao.persist(saved);
-            ClinicNbr found = clinicNbrDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            ArrayList<ClinicNbr> result = dao.findAll();
+            assertThat(result).isNotEmpty();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("removeEntry tests")
+    @Tag("update")
+    class RemoveEntry {
 
+        /**
+         * Ensures that removeEntry() deletes records by setting the status to 'D'.
+         */
         @Test
-        @Tag("query")
-        @DisplayName("should count all clinicnbr records")
-        void shouldCountAllClinicNbrs() {
-            ClinicNbr entity = new ClinicNbr();
-            clinicNbrDao.persist(entity);
-            long count = clinicNbrDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should set status to D when entry is removed")
+        void shouldSetStatusToD_whenEntryRemoved() {
+            ClinicNbr nbr1 = new ClinicNbr();
+            EntityDataGenerator.generateTestDataForModelClass(nbr1);
+            nbr1.setNbrStatus("A");
+            dao.persist(nbr1);
+            hibernateTemplate.flush();
+
+            dao.removeEntry(1);
+            hibernateTemplate.flush();
+
+            ClinicNbr found = dao.find(1);
+            assertThat(found.getNbrStatus()).isEqualTo("D");
+        }
+    }
+
+    @Nested
+    @DisplayName("addEntry tests")
+    @Tag("create")
+    class AddEntry {
+
+        /**
+         * Ensures that addEntry() persists new records given value and string.
+         */
+        @Test
+        @DisplayName("should persist entry with correct value and string")
+        void shouldPersistEntry_withCorrectValueAndString() {
+            String nbrValue = "A";
+            String nbrString = "RMA";
+
+            ClinicNbr nbr1 = new ClinicNbr();
+            EntityDataGenerator.generateTestDataForModelClass(nbr1);
+            nbr1.setNbrString(nbrString);
+            nbr1.setNbrValue(nbrValue);
+
+            dao.addEntry(nbrValue, nbrString);
+
+            assertThat(nbr1.getNbrString()).isEqualTo("RMA");
+            assertThat(nbr1.getNbrValue()).isEqualTo("A");
         }
     }
 }

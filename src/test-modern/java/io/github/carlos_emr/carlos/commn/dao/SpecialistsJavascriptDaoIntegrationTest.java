@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.SpecialistsJavascript;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class SpecialistsJavascriptDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist specialistsjavascript with generated ID")
         void shouldPersistSpecialistsJavascript_whenValidDataProvided() {
             SpecialistsJavascript entity = new SpecialistsJavascript();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             specialistsJavascriptDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class SpecialistsJavascriptDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find specialistsjavascript by ID")
         void shouldFindSpecialistsJavascript_whenValidIdProvided() {
             SpecialistsJavascript saved = new SpecialistsJavascript();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             specialistsJavascriptDao.persist(saved);
             SpecialistsJavascript found = specialistsJavascriptDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class SpecialistsJavascriptDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all specialistsjavascript records")
         void shouldCountAllSpecialistsJavascripts() {
             SpecialistsJavascript entity = new SpecialistsJavascript();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             specialistsJavascriptDao.persist(entity);
             long count = specialistsJavascriptDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

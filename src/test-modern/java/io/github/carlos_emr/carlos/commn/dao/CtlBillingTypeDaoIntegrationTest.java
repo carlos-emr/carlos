@@ -23,21 +23,23 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingType;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CtlBillingTypeDao} covering basic CRUD operations.
+ * Integration tests for {@link CtlBillingTypeDao} covering full method coverage
+ * matching the legacy {@code CtlBillingTypeDaoTest}.
  *
- * <p>Migrated from legacy {@code CtlBillingTypeDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and findByServiceType operations.</p>
  *
  * @since 2026-03-07
  * @see CtlBillingTypeDao
@@ -45,49 +47,45 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("CtlBillingType Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("billing")
 @Transactional
 public class CtlBillingTypeDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CtlBillingTypeDao ctlBillingTypeDao;
+    private CtlBillingTypeDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with explicit string ID")
+    void shouldPersistEntity_withExplicitStringId() {
+        CtlBillingType entity = new CtlBillingType();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setId("test");
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist ctlbillingtype with generated ID")
-        void shouldPersistCtlBillingType_whenValidDataProvided() {
-            CtlBillingType entity = new CtlBillingType();
-            ctlBillingTypeDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find ctlbillingtype by ID")
-        void shouldFindCtlBillingType_whenValidIdProvided() {
-            CtlBillingType saved = new CtlBillingType();
-            ctlBillingTypeDao.persist(saved);
-            CtlBillingType found = ctlBillingTypeDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return billing types matching service type")
+    void shouldReturnMatchingTypes_whenSearchingByServiceType() {
+        String id1 = "alpha";
+        String id2 = "bravo";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all ctlbillingtype records")
-        void shouldCountAllCtlBillingTypes() {
-            CtlBillingType entity = new CtlBillingType();
-            ctlBillingTypeDao.persist(entity);
-            long count = ctlBillingTypeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        CtlBillingType cBT1 = new CtlBillingType();
+        EntityDataGenerator.generateTestDataForModelClass(cBT1);
+        cBT1.setId(id1);
+        dao.persist(cBT1);
+
+        CtlBillingType cBT2 = new CtlBillingType();
+        EntityDataGenerator.generateTestDataForModelClass(cBT2);
+        cBT2.setId(id2);
+        dao.persist(cBT2);
+
+        List<CtlBillingType> expectedResult = Arrays.asList(cBT1);
+        List<CtlBillingType> result = dao.findByServiceType(id1);
+
+        assertThat(result).hasSameSizeAs(expectedResult);
+        assertThat(result).containsExactlyElementsOf(expectedResult);
     }
 }

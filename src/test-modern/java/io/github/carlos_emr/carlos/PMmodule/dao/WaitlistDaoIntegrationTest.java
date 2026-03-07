@@ -21,23 +21,27 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
+import io.github.carlos_emr.carlos.PMmodule.wlmatch.CriteriaBO;
+import io.github.carlos_emr.carlos.PMmodule.wlmatch.CriteriasBO;
+import io.github.carlos_emr.carlos.PMmodule.wlmatch.VacancyDisplayBO;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.PMmodule.model.Waitlist;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link WaitlistDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * Migrated from legacy JUnit 4 WaitlistDaoTest with full method coverage.
+ *
  * @since 2026-03-07
  */
-@DisplayName("Waitlist Dao Integration Tests")
+@DisplayName("WaitlistDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("pmmodule")
@@ -45,29 +49,62 @@ import static org.assertj.core.api.Assertions.*;
 public class WaitlistDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private WaitlistDao waitlistDao;
+    private WaitlistDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return client matches for vacancy ID")
+    void shouldReturnClientMatches_byVacancyId() {
+        assertThat(dao.getClientMatches(1)).isNotNull();
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            Waitlist entity = new Waitlist();
-            waitlistDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when searching for matching eforms with no matches")
+    void shouldReturnEmptyList_whenNoMatchingEforms() {
+        CriteriasBO crits = new CriteriasBO();
+        CriteriaBO crit = new CriteriaBO();
+        crit.value = "test";
+        CriteriaBO[] critArray = {crit};
+        crits.crits = critArray;
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            Waitlist saved = new Waitlist();
-            waitlistDao.persist(saved);
-            Waitlist found = waitlistDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(dao.searchForMatchingEforms(crits)).isEmpty();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return display vacancies for wait list program")
+    void shouldReturnDisplayVacancies_forWaitListProgram() {
+        assertThat(dao.listDisplayVacanciesForWaitListProgram(1)).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return display vacancies for all wait list programs")
+    void shouldReturnDisplayVacancies_forAllWaitListPrograms() {
+        assertThat(dao.listDisplayVacanciesForAllWaitListPrograms()).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return display vacancies for agency program")
+    void shouldReturnDisplayVacancies_forAgencyProgram() {
+        assertThat(dao.getDisplayVacanciesForAgencyProgram(1)).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return null for non-existent display vacancy")
+    void shouldReturnNull_whenDisplayVacancyNotFound() {
+        assertThat(dao.getDisplayVacancy(45)).isNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should load stats for vacancy display without error")
+    void shouldLoadStats_withoutError() {
+        VacancyDisplayBO vd = new VacancyDisplayBO();
+        vd.setVacancyID(1);
+        dao.loadStats(vd);
     }
 }

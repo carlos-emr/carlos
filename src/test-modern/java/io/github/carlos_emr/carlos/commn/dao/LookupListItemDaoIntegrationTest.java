@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist lookuplistitem with generated ID")
         void shouldPersistLookupListItem_whenValidDataProvided() {
             LookupListItem entity = new LookupListItem();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             lookupListItemDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find lookuplistitem by ID")
         void shouldFindLookupListItem_whenValidIdProvided() {
             LookupListItem saved = new LookupListItem();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             lookupListItemDao.persist(saved);
             LookupListItem found = lookupListItemDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all records")
         void shouldCountAllRecords() {
             LookupListItem entity = new LookupListItem();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             lookupListItemDao.persist(entity);
             long count = lookupListItemDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

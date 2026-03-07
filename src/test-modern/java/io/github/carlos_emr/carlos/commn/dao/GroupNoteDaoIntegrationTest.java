@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.GroupNoteLink;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -32,62 +33,144 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link GroupNoteDao}.
+ * Integration tests for {@link GroupNoteDao} covering findLinksByDemographic,
+ * findLinksByNoteId, and getNumberOfLinksByNoteId.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code GroupNoteDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see GroupNoteDao
  */
-@DisplayName("GroupNoteLink Dao Integration Tests")
+@DisplayName("GroupNote Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("admin")
 @Transactional
 public class GroupNoteDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private GroupNoteDao groupNoteDao;
+    private GroupNoteDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist groupnotelink with generated ID")
-        void shouldPersistGroupNoteLink_whenValidDataProvided() {
-            GroupNoteLink entity = new GroupNoteLink();
-            groupNoteDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @DisplayName("findLinksByDemographic")
+    class FindLinksByDemographic {
 
         @Test
         @Tag("read")
-        @DisplayName("should find groupnotelink by ID")
-        void shouldFindGroupNoteLink_whenValidIdProvided() {
-            GroupNoteLink saved = new GroupNoteLink();
-            groupNoteDao.persist(saved);
-            GroupNoteLink found = groupNoteDao.find(saved.getId());
-            assertThat(found).isNotNull();
+        @DisplayName("should return active links for the given demographic")
+        void shouldReturnActiveLinks_whenDemographicNoMatches() {
+            int demographicNo1 = 101;
+            int demographicNo2 = 202;
+
+            GroupNoteLink gnl1 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl1);
+            gnl1.setDemographicNo(demographicNo1);
+            gnl1.setActive(true);
+            dao.persist(gnl1);
+
+            GroupNoteLink gnl2 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl2);
+            gnl2.setDemographicNo(demographicNo2);
+            gnl2.setActive(true);
+            dao.persist(gnl2);
+
+            GroupNoteLink gnl3 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl3);
+            gnl3.setDemographicNo(demographicNo1);
+            gnl3.setActive(true);
+            dao.persist(gnl3);
+
+            GroupNoteLink gnl4 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl4);
+            gnl4.setDemographicNo(demographicNo1);
+            gnl4.setActive(false);
+            dao.persist(gnl4);
+
+            List<GroupNoteLink> result = dao.findLinksByDemographic(demographicNo1);
+
+            assertThat(result).hasSize(2);
+            assertThat(result).containsExactly(gnl1, gnl3);
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("findLinksByNoteId")
+    class FindLinksByNoteId {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            GroupNoteLink entity = new GroupNoteLink();
-            groupNoteDao.persist(entity);
-            long count = groupNoteDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @Tag("read")
+        @DisplayName("should return active links for the given note ID")
+        void shouldReturnActiveLinks_whenNoteIdMatches() {
+            int noteId1 = 101;
+            int noteId2 = 202;
+
+            GroupNoteLink gnl1 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl1);
+            gnl1.setNoteId(noteId1);
+            gnl1.setActive(true);
+            dao.persist(gnl1);
+
+            GroupNoteLink gnl2 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl2);
+            gnl2.setNoteId(noteId2);
+            gnl2.setActive(true);
+            dao.persist(gnl2);
+
+            GroupNoteLink gnl3 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl3);
+            gnl3.setNoteId(noteId1);
+            gnl3.setActive(true);
+            dao.persist(gnl3);
+
+            GroupNoteLink gnl4 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl4);
+            gnl4.setNoteId(noteId1);
+            gnl4.setActive(false);
+            dao.persist(gnl4);
+
+            List<GroupNoteLink> result = dao.findLinksByNoteId(noteId1);
+
+            assertThat(result).hasSize(2);
+            assertThat(result).containsExactly(gnl1, gnl3);
+        }
+    }
+
+    @Nested
+    @DisplayName("getNumberOfLinksByNoteId")
+    class GetNumberOfLinksByNoteId {
+
+        @Test
+        @Tag("aggregate")
+        @DisplayName("should return count of all links for the given note ID")
+        void shouldReturnLinkCount_whenNoteIdMatches() {
+            int noteId1 = 101;
+            int noteId2 = 202;
+
+            GroupNoteLink gnl1 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl1);
+            gnl1.setNoteId(noteId1);
+            dao.persist(gnl1);
+
+            GroupNoteLink gnl2 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl2);
+            gnl2.setNoteId(noteId2);
+            dao.persist(gnl2);
+
+            GroupNoteLink gnl3 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl3);
+            gnl3.setNoteId(noteId1);
+            dao.persist(gnl3);
+
+            GroupNoteLink gnl4 = new GroupNoteLink();
+            EntityDataGenerator.generateTestDataForModelClass(gnl4);
+            gnl4.setNoteId(noteId1);
+            dao.persist(gnl4);
+
+            int result = dao.getNumberOfLinksByNoteId(noteId1);
+
+            assertThat(result).isEqualTo(3);
         }
     }
 }

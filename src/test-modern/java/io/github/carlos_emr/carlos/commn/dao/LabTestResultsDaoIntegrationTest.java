@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.LabTestResults;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -35,14 +36,16 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link LabTestResultsDao} covering basic CRUD operations.
+ * Integration tests for {@link LabTestResultsDao} covering
+ * create, findByTitleAndLabInfoId, findByLabInfoId, findByAbnAndLabInfoId,
+ * findUniqueTestNames, findByAbnAndPhysicianId, and findByLabPatientPhysicialInfoId.
  *
  * <p>Migrated from legacy {@code LabTestResultsDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see LabTestResultsDao
  */
-@DisplayName("LabTestResults Dao Integration Tests")
+@DisplayName("LabTestResultsDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("lab")
@@ -50,7 +53,7 @@ import static org.assertj.core.api.Assertions.*;
 public class LabTestResultsDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private LabTestResultsDao labTestResultsDao;
+    private LabTestResultsDao dao;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -58,21 +61,13 @@ public class LabTestResultsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist labtestresults with generated ID")
+        @DisplayName("should persist lab test results with generated ID")
         void shouldPersistLabTestResults_whenValidDataProvided() {
             LabTestResults entity = new LabTestResults();
-            labTestResultsDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find labtestresults by ID")
-        void shouldFindLabTestResults_whenValidIdProvided() {
-            LabTestResults saved = new LabTestResults();
-            labTestResultsDao.persist(saved);
-            LabTestResults found = labTestResultsDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
@@ -82,12 +77,50 @@ public class LabTestResultsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all labtestresults records")
-        void shouldCountAllLabTestResultss() {
-            LabTestResults entity = new LabTestResults();
-            labTestResultsDao.persist(entity);
-            long count = labTestResultsDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return results for findByTitleAndLabInfoId")
+        void shouldReturnResults_whenFindByTitleAndLabInfoId() {
+            List<LabTestResults> results = dao.findByTitleAndLabInfoId(100);
+            assertThat(results).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return results for findByLabInfoId")
+        void shouldReturnResults_whenFindByLabInfoId() {
+            List<LabTestResults> results = dao.findByLabInfoId(100);
+            assertThat(results).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return results for findByAbnAndLabInfoId")
+        void shouldReturnResults_whenFindByAbnAndLabInfoId() {
+            List<LabTestResults> results = dao.findByAbnAndLabInfoId("A", 100);
+            assertThat(results).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return results for findUniqueTestNames")
+        void shouldReturnResults_whenFindUniqueTestNames() {
+            List<Object[]> results = dao.findUniqueTestNames(100, "CML");
+            assertThat(results).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return results for findByAbnAndPhysicianId")
+        void shouldReturnResults_whenFindByAbnAndPhysicianId() {
+            List<LabTestResults> results = dao.findByAbnAndPhysicianId("ABN", 199);
+            assertThat(results).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return results for findByLabPatientPhysicialInfoId")
+        void shouldReturnResults_whenFindByLabPatientPhysicialInfoId() {
+            List<LabTestResults> results = dao.findByLabPatientPhysicialInfoId(199);
+            assertThat(results).isNotNull();
         }
     }
 }

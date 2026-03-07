@@ -21,23 +21,27 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.model.VacancyClientMatch;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.util.Date;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link VacancyClientMatchDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * Migrated from legacy JUnit 4 VacancyClientMatchDaoTest with full method coverage.
+ *
  * @since 2026-03-07
  */
-@DisplayName("VacancyClientMatch Dao Integration Tests")
+@DisplayName("VacancyClientMatchDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("pmmodule")
@@ -45,29 +49,109 @@ import static org.assertj.core.api.Assertions.*;
 public class VacancyClientMatchDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private VacancyClientMatchDao vacancyClientMatchDao;
+    private VacancyClientMatchDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist vacancy client match with generated ID")
+    void shouldPersistEntity_whenValidDataProvided() {
+        VacancyClientMatch entity = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            VacancyClientMatch entity = new VacancyClientMatch();
-            vacancyClientMatchDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            VacancyClientMatch saved = new VacancyClientMatch();
-            vacancyClientMatchDao.persist(saved);
-            VacancyClientMatch found = vacancyClientMatchDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return vacancy client matches filtered by client ID")
+    void shouldReturnMatches_byClientId() {
+        int clientId1 = 101, clientId2 = 202;
+
+        VacancyClientMatch vCM1 = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(vCM1);
+        vCM1.setClient_id(clientId1);
+        dao.persist(vCM1);
+
+        VacancyClientMatch vCM2 = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(vCM2);
+        vCM2.setClient_id(clientId2);
+        dao.persist(vCM2);
+
+        VacancyClientMatch vCM3 = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(vCM3);
+        vCM3.setClient_id(clientId1);
+        dao.persist(vCM3);
+
+        VacancyClientMatch vCM4 = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(vCM4);
+        vCM4.setClient_id(clientId2);
+        dao.persist(vCM4);
+
+        VacancyClientMatch vCM5 = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(vCM5);
+        vCM5.setClient_id(clientId2);
+        dao.persist(vCM5);
+
+        List<VacancyClientMatch> result = dao.findByClientId(clientId2);
+
+        assertThat(result).hasSize(3);
+        assertThat(result).containsExactly(vCM2, vCM4, vCM5);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return vacancy client matches filtered by status")
+    void shouldReturnMatches_byStatus() {
+        int clientId1 = 101, clientId2 = 202;
+
+        VacancyClientMatch vCM1 = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(vCM1);
+        vCM1.setClient_id(clientId1);
+        dao.persist(vCM1);
+
+        VacancyClientMatch vCM2 = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(vCM2);
+        vCM2.setClient_id(clientId2);
+        dao.persist(vCM2);
+
+        VacancyClientMatch vCM3 = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(vCM3);
+        vCM3.setClient_id(clientId1);
+        dao.persist(vCM3);
+
+        VacancyClientMatch vCM4 = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(vCM4);
+        vCM4.setClient_id(clientId2);
+        dao.persist(vCM4);
+
+        VacancyClientMatch vCM5 = new VacancyClientMatch();
+        EntityDataGenerator.generateTestDataForModelClass(vCM5);
+        vCM5.setClient_id(clientId2);
+        dao.persist(vCM5);
+
+        List<VacancyClientMatch> result = dao.findByClientId(clientId2);
+
+        assertThat(result).hasSize(3);
+        assertThat(result).containsExactly(vCM2, vCM4, vCM5);
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should update status of vacancy client match")
+    void shouldUpdateStatus_whenValidClientAndVacancyProvided() {
+        VacancyClientMatch v = new VacancyClientMatch();
+        v.setVacancy_id(1);
+        v.setClient_id(1);
+        v.setContactAttempts(0);
+        v.setForm_id(1);
+        v.setLast_contact_date(new Date());
+        v.setMatchPercentage(0);
+        v.setStatus(VacancyClientMatch.ACCEPTED);
+        dao.persist(v);
+
+        dao.updateStatus(VacancyClientMatch.REJECTED, 1, 1);
+
+        assertThat(dao.findBystatus(VacancyClientMatch.REJECTED)).hasSize(1);
     }
 }

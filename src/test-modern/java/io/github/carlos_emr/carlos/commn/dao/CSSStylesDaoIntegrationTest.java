@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CSSStyles;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist cssstyles with generated ID")
         void shouldPersistCSSStyles_whenValidDataProvided() {
             CSSStyles entity = new CSSStyles();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             cSSStylesDAO.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find cssstyles by ID")
         void shouldFindCSSStyles_whenValidIdProvided() {
             CSSStyles saved = new CSSStyles();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             cSSStylesDAO.persist(saved);
             CSSStyles found = cSSStylesDAO.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all cssstyles records")
         void shouldCountAllCSSStyless() {
             CSSStyles entity = new CSSStyles();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             cSSStylesDAO.persist(entity);
             long count = cSSStylesDAO.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

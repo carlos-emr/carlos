@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Institution;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class InstitutionDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist institution with generated ID")
         void shouldPersistInstitution_whenValidDataProvided() {
             Institution entity = new Institution();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             institutionDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class InstitutionDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find institution by ID")
         void shouldFindInstitution_whenValidIdProvided() {
             Institution saved = new Institution();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             institutionDao.persist(saved);
             Institution found = institutionDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class InstitutionDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all institution records")
         void shouldCountAllInstitutions() {
             Institution entity = new Institution();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             institutionDao.persist(entity);
             long count = institutionDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

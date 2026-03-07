@@ -21,21 +21,19 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ServiceSpecialists;
+import io.github.carlos_emr.carlos.commn.model.ServiceSpecialistsPK;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ServiceSpecialistsDao} covering basic CRUD operations.
+ * Integration tests for {@link ServiceSpecialistsDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code ServiceSpecialistsDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +43,28 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("ServiceSpecialists Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("consultation")
 @Transactional
 public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ServiceSpecialistsDao serviceSpecialistsDao;
+    private ServiceSpecialistsDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist service specialists with composite key")
+    void shouldPersistServiceSpecialists_whenCompositeKeyProvided() {
+        ServiceSpecialists entity = new ServiceSpecialists();
+        ServiceSpecialistsPK key = new ServiceSpecialistsPK(1, 1);
+        entity.setId(key);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist servicespecialists with generated ID")
-        void shouldPersistServiceSpecialists_whenValidDataProvided() {
-            ServiceSpecialists entity = new ServiceSpecialists();
-            serviceSpecialistsDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find servicespecialists by ID")
-        void shouldFindServiceSpecialists_whenValidIdProvided() {
-            ServiceSpecialists saved = new ServiceSpecialists();
-            serviceSpecialistsDao.persist(saved);
-            ServiceSpecialists found = serviceSpecialistsDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
-
-        @Test
-        @Tag("query")
-        @DisplayName("should count all servicespecialists records")
-        void shouldCountAllServiceSpecialistss() {
-            ServiceSpecialists entity = new ServiceSpecialists();
-            serviceSpecialistsDao.persist(entity);
-            long count = serviceSpecialistsDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return non-null result when finding specialists by service ID")
+    void shouldReturnNonNullResult_whenFindingSpecialistsByServiceId() {
+        assertThat(dao.findSpecialists(1000)).isNotNull();
     }
 }

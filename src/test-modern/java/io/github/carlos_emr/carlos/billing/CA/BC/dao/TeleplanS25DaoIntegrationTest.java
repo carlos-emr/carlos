@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS25;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -56,6 +57,7 @@ public class TeleplanS25DaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist entity with generated ID")
         void shouldPersist_whenValidDataProvided() {
             TeleplanS25 entity = new TeleplanS25();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             teleplanS25Dao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -65,6 +67,7 @@ public class TeleplanS25DaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find entity by ID")
         void shouldFind_whenValidIdProvided() {
             TeleplanS25 saved = new TeleplanS25();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             teleplanS25Dao.persist(saved);
             TeleplanS25 found = teleplanS25Dao.find(saved.getId());
             assertThat(found).isNotNull();

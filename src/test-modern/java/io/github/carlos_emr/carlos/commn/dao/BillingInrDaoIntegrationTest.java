@@ -22,22 +22,22 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.commn.model.BillingInr;
+import io.github.carlos_emr.carlos.billing.CA.dao.BillingInrDao;
+import io.github.carlos_emr.carlos.billing.CA.model.BillingInr;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link BillingInrDao} covering basic CRUD operations.
+ * Integration tests for {@link BillingInrDao} covering full method coverage
+ * matching the legacy {@code BillingInrDaoTest}.
  *
- * <p>Migrated from legacy {@code BillingInrDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and search_inrbilling_dt_billno operations.</p>
  *
  * @since 2026-03-07
  * @see BillingInrDao
@@ -45,49 +45,27 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("BillingInr Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("billing")
 @Transactional
 public class BillingInrDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingInrDao billingInrDao;
+    private BillingInrDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        BillingInr entity = new BillingInr();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist billinginr with generated ID")
-        void shouldPersistBillingInr_whenValidDataProvided() {
-            BillingInr entity = new BillingInr();
-            billingInrDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find billinginr by ID")
-        void shouldFindBillingInr_whenValidIdProvided() {
-            BillingInr saved = new BillingInr();
-            billingInrDao.persist(saved);
-            BillingInr found = billingInrDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
-
-        @Test
-        @Tag("query")
-        @DisplayName("should count all billinginr records")
-        void shouldCountAllBillingInrs() {
-            BillingInr entity = new BillingInr();
-            billingInrDao.persist(entity);
-            long count = billingInrDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return results when searching by billing INR number")
+    void shouldReturnResults_whenSearchingByBillingInrNo() {
+        assertThat(dao.search_inrbilling_dt_billno(1)).isNotNull();
     }
 }

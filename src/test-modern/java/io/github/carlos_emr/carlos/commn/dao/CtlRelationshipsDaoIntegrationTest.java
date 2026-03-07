@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.CtlRelationships;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,19 +31,22 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CtlRelationshipsDao} covering basic CRUD operations.
+ * Integration tests for {@link CtlRelationshipsDao} covering create,
+ * findAllActive, and findByValue.
  *
- * <p>Migrated from legacy {@code CtlRelationshipsDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Migrated from legacy {@code CtlRelationshipsDaoTest}
+ * (JUnit 4 / DaoTestFixtures) with exact same test logic and assertions.</p>
  *
  * @since 2026-03-07
  * @see CtlRelationshipsDao
  */
-@DisplayName("CtlRelationships Dao Integration Tests")
+@DisplayName("CtlRelationshipsDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("admin")
@@ -50,44 +54,93 @@ import static org.assertj.core.api.Assertions.*;
 public class CtlRelationshipsDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CtlRelationshipsDao ctlRelationshipsDao;
+    private CtlRelationshipsDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("create tests")
+    @Tag("create")
+    class Create {
 
         @Test
-        @Tag("create")
-        @DisplayName("should persist ctlrelationships with generated ID")
-        void shouldPersistCtlRelationships_whenValidDataProvided() {
+        @DisplayName("should persist entity with generated id")
+        void shouldPersistEntity_withGeneratedId() {
             CtlRelationships entity = new CtlRelationships();
-            ctlRelationshipsDao.persist(entity);
+            entity.setValue("value");
+            entity.setLabel("label");
+            dao.persist(entity);
             assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find ctlrelationships by ID")
-        void shouldFindCtlRelationships_whenValidIdProvided() {
-            CtlRelationships saved = new CtlRelationships();
-            ctlRelationshipsDao.persist(saved);
-            CtlRelationships found = ctlRelationshipsDao.find(saved.getId());
-            assertThat(found).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("findAllActive tests")
+    @Tag("read")
+    class FindAllActive {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all ctlrelationships records")
-        void shouldCountAllCtlRelationshipss() {
-            CtlRelationships entity = new CtlRelationships();
-            ctlRelationshipsDao.persist(entity);
-            long count = ctlRelationshipsDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return only active relationships")
+        void shouldReturnOnlyActiveRelationships() {
+            boolean isActive = true;
+
+            CtlRelationships ctlRelation1 = new CtlRelationships();
+            EntityDataGenerator.generateTestDataForModelClass(ctlRelation1);
+            ctlRelation1.setActive(isActive);
+            dao.persist(ctlRelation1);
+
+            CtlRelationships ctlRelation2 = new CtlRelationships();
+            EntityDataGenerator.generateTestDataForModelClass(ctlRelation2);
+            ctlRelation2.setActive(!isActive);
+            dao.persist(ctlRelation2);
+
+            CtlRelationships ctlRelation3 = new CtlRelationships();
+            EntityDataGenerator.generateTestDataForModelClass(ctlRelation3);
+            ctlRelation3.setActive(isActive);
+            dao.persist(ctlRelation3);
+            hibernateTemplate.flush();
+
+            List<CtlRelationships> expectedResult = Arrays.asList(ctlRelation1, ctlRelation3);
+            List<CtlRelationships> result = dao.findAllActive();
+
+            assertThat(result).hasSameSizeAs(expectedResult);
+            for (int i = 0; i < expectedResult.size(); i++) {
+                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("findByValue tests")
+    @Tag("read")
+    class FindByValue {
+
+        @Test
+        @DisplayName("should return active relationship matching value")
+        void shouldReturnActiveRelationship_whenValueMatches() {
+            boolean isActive = true;
+            String value1 = "alpha";
+            String value2 = "bravo";
+
+            CtlRelationships ctlRelation1 = new CtlRelationships();
+            EntityDataGenerator.generateTestDataForModelClass(ctlRelation1);
+            ctlRelation1.setActive(!isActive);
+            ctlRelation1.setValue(value1);
+            dao.persist(ctlRelation1);
+
+            CtlRelationships ctlRelation2 = new CtlRelationships();
+            EntityDataGenerator.generateTestDataForModelClass(ctlRelation2);
+            ctlRelation2.setActive(isActive);
+            ctlRelation2.setValue(value2);
+            dao.persist(ctlRelation2);
+
+            CtlRelationships ctlRelation3 = new CtlRelationships();
+            EntityDataGenerator.generateTestDataForModelClass(ctlRelation3);
+            ctlRelation3.setActive(isActive);
+            ctlRelation3.setValue(value1);
+            dao.persist(ctlRelation3);
+            hibernateTemplate.flush();
+
+            CtlRelationships result = dao.findByValue(value1);
+            assertThat(result).isEqualTo(ctlRelation3);
         }
     }
 }

@@ -23,21 +23,26 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServiceAgeRules;
+import io.github.carlos_emr.carlos.commn.model.CtlBillingServiceSexRules;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CtlBillingServiceAgeRulesDao} covering basic CRUD operations.
+ * Integration tests for {@link CtlBillingServiceAgeRulesDao} covering full method coverage
+ * matching the legacy {@code CtlBillingServiceAgeRulesDaoTest}.
  *
- * <p>Migrated from legacy {@code CtlBillingServiceAgeRulesDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and findByServiceCode operations.
+ * Note: The legacy test persists a CtlBillingServiceSexRules entity in the create test,
+ * which is replicated here for exact parity.</p>
  *
  * @since 2026-03-07
  * @see CtlBillingServiceAgeRulesDao
@@ -45,49 +50,55 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("CtlBillingServiceAgeRules Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("billing")
 @Transactional
 public class CtlBillingServiceAgeRulesDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CtlBillingServiceAgeRulesDao ctlBillingServiceAgeRulesDao;
+    private CtlBillingServiceAgeRulesDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist sex rules entity via age rules dao and assign generated ID")
+    void shouldPersistSexRulesEntity_withGeneratedId() {
+        CtlBillingServiceSexRules entity = new CtlBillingServiceSexRules();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setId(null);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist ctlbillingserviceagerules with generated ID")
-        void shouldPersistCtlBillingServiceAgeRules_whenValidDataProvided() {
-            CtlBillingServiceAgeRules entity = new CtlBillingServiceAgeRules();
-            ctlBillingServiceAgeRulesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find ctlbillingserviceagerules by ID")
-        void shouldFindCtlBillingServiceAgeRules_whenValidIdProvided() {
-            CtlBillingServiceAgeRules saved = new CtlBillingServiceAgeRules();
-            ctlBillingServiceAgeRulesDao.persist(saved);
-            CtlBillingServiceAgeRules found = ctlBillingServiceAgeRulesDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return age rules matching service code")
+    void shouldReturnMatchingRules_whenSearchingByServiceCode() {
+        String serviceCode1 = "alpha";
+        String serviceCode2 = "bravo";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all ctlbillingserviceagerules records")
-        void shouldCountAllCtlBillingServiceAgeRuless() {
-            CtlBillingServiceAgeRules entity = new CtlBillingServiceAgeRules();
-            ctlBillingServiceAgeRulesDao.persist(entity);
-            long count = ctlBillingServiceAgeRulesDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        CtlBillingServiceAgeRules cBSAR1 = new CtlBillingServiceAgeRules();
+        EntityDataGenerator.generateTestDataForModelClass(cBSAR1);
+        cBSAR1.setServiceCode(serviceCode1);
+        dao.persist(cBSAR1);
+
+        CtlBillingServiceAgeRules cBSAR2 = new CtlBillingServiceAgeRules();
+        EntityDataGenerator.generateTestDataForModelClass(cBSAR2);
+        cBSAR2.setServiceCode(serviceCode1);
+        dao.persist(cBSAR2);
+
+        CtlBillingServiceAgeRules cBSAR3 = new CtlBillingServiceAgeRules();
+        EntityDataGenerator.generateTestDataForModelClass(cBSAR3);
+        cBSAR3.setServiceCode(serviceCode2);
+        dao.persist(cBSAR3);
+
+        CtlBillingServiceAgeRules cBSAR4 = new CtlBillingServiceAgeRules();
+        EntityDataGenerator.generateTestDataForModelClass(cBSAR4);
+        cBSAR4.setServiceCode(serviceCode1);
+        dao.persist(cBSAR4);
+
+        List<CtlBillingServiceAgeRules> expectedResult = Arrays.asList(cBSAR1, cBSAR2, cBSAR4);
+        List<CtlBillingServiceAgeRules> result = dao.findByServiceCode(serviceCode1);
+
+        assertThat(result).hasSameSizeAs(expectedResult);
+        assertThat(result).containsExactlyElementsOf(expectedResult);
     }
 }

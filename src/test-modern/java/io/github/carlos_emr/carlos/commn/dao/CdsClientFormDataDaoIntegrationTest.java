@@ -23,21 +23,23 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CdsClientFormData;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CdsClientFormDataDao} covering basic CRUD operations.
+ * Integration tests for {@link CdsClientFormDataDao} covering full method coverage
+ * matching the legacy {@code CdsClientFormDataDaoTest}.
  *
- * <p>Migrated from legacy {@code CdsClientFormDataDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover findByQuestion and findByAnswer operations.</p>
  *
  * @since 2026-03-07
  * @see CdsClientFormDataDao
@@ -45,49 +47,71 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("CdsClientFormData Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("clinical")
 @Transactional
 public class CdsClientFormDataDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CdsClientFormDataDao cdsClientFormDataDao;
+    private CdsClientFormDataDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return form data matching clientFormId and question")
+    void shouldReturnMatchingData_whenSearchingByQuestion() {
+        int cdsClientFormId = 10;
+        String question = "Test question";
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist cdsclientformdata with generated ID")
-        void shouldPersistCdsClientFormData_whenValidDataProvided() {
-            CdsClientFormData entity = new CdsClientFormData();
-            cdsClientFormDataDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+        CdsClientFormData formData1 = new CdsClientFormData();
+        EntityDataGenerator.generateTestDataForModelClass(formData1);
+        formData1.setCdsClientFormId(100);
+        formData1.setQuestion("Another question");
+        formData1.setAnswer("Test answer");
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find cdsclientformdata by ID")
-        void shouldFindCdsClientFormData_whenValidIdProvided() {
-            CdsClientFormData saved = new CdsClientFormData();
-            cdsClientFormDataDao.persist(saved);
-            CdsClientFormData found = cdsClientFormDataDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        CdsClientFormData formData2 = new CdsClientFormData();
+        EntityDataGenerator.generateTestDataForModelClass(formData2);
+        formData2.setCdsClientFormId(cdsClientFormId);
+        formData2.setQuestion(question);
+        formData2.setAnswer("Test answer");
+
+        CdsClientFormData formData3 = new CdsClientFormData();
+        EntityDataGenerator.generateTestDataForModelClass(formData3);
+        formData3.setCdsClientFormId(cdsClientFormId);
+        formData3.setQuestion(question);
+        formData3.setAnswer("Test answer");
+
+        dao.persist(formData1);
+        dao.persist(formData2);
+        dao.persist(formData3);
+
+        List<CdsClientFormData> result = dao.findByQuestion(cdsClientFormId, question);
+        List<CdsClientFormData> expectedResult = Arrays.asList(formData2, formData3);
+
+        assertThat(result).hasSameSizeAs(expectedResult);
+        assertThat(result).containsAll(expectedResult);
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return form data matching clientFormId and answer")
+    void shouldReturnMatchingData_whenSearchingByAnswer() {
+        int cdsClientFormId = 10;
+        String answer = "Test answer";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all cdsclientformdata records")
-        void shouldCountAllCdsClientFormDatas() {
-            CdsClientFormData entity = new CdsClientFormData();
-            cdsClientFormDataDao.persist(entity);
-            long count = cdsClientFormDataDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        CdsClientFormData formData1 = new CdsClientFormData();
+        EntityDataGenerator.generateTestDataForModelClass(formData1);
+        formData1.setCdsClientFormId(100);
+        formData1.setAnswer("Another answer");
+
+        CdsClientFormData formData2 = new CdsClientFormData();
+        EntityDataGenerator.generateTestDataForModelClass(formData2);
+        formData2.setCdsClientFormId(cdsClientFormId);
+        formData2.setAnswer(answer);
+
+        dao.persist(formData1);
+        dao.persist(formData2);
+
+        CdsClientFormData result = dao.findByAnswer(cdsClientFormId, answer);
+        CdsClientFormData expectedResult = formData2;
+
+        assertThat(result).isEqualTo(expectedResult);
     }
 }

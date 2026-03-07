@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.EChart;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist echart with generated ID")
         void shouldPersistEChart_whenValidDataProvided() {
             EChart entity = new EChart();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             eChartDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find echart by ID")
         void shouldFindEChart_whenValidIdProvided() {
             EChart saved = new EChart();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             eChartDao.persist(saved);
             EChart found = eChartDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all records")
         void shouldCountAllRecords() {
             EChart entity = new EChart();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             eChartDao.persist(entity);
             long count = eChartDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

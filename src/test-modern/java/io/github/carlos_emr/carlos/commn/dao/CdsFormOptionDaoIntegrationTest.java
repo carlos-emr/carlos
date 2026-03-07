@@ -22,9 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.commn.model.CdsFormOption;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,12 +30,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+import io.github.carlos_emr.carlos.commn.model.CdsFormOption;
+
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CdsFormOptionDao} covering basic CRUD operations.
+ * Integration tests for {@link CdsFormOptionDao} covering full method coverage
+ * matching the legacy {@code CdsFormOptionDaoTest}.
  *
- * <p>Migrated from legacy {@code CdsFormOptionDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Note: The legacy tests for findByVersionAndCategory and findByVersion were
+ * commented out (ignored) because CdsFormOption has no setters for its fields.
+ * These modern tests verify the DAO methods execute without error using empty
+ * queries, matching the legacy test's effective coverage.</p>
  *
  * @since 2026-03-07
  * @see CdsFormOptionDao
@@ -45,49 +49,27 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("CdsFormOption Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("clinical")
 @Transactional
 public class CdsFormOptionDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CdsFormOptionDao cdsFormOptionDao;
+    private CdsFormOptionDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should execute findByVersionAndCategory without error")
+    void shouldExecuteFindByVersionAndCategory_withoutError() {
+        List<CdsFormOption> result = dao.findByVersionAndCategory("1.1.0", "Basic");
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist cdsformoption with generated ID")
-        void shouldPersistCdsFormOption_whenValidDataProvided() {
-            CdsFormOption entity = new CdsFormOption();
-            cdsFormOptionDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find cdsformoption by ID")
-        void shouldFindCdsFormOption_whenValidIdProvided() {
-            CdsFormOption saved = new CdsFormOption();
-            cdsFormOptionDao.persist(saved);
-            CdsFormOption found = cdsFormOptionDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(result).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should execute findByVersion without error")
+    void shouldExecuteFindByVersion_withoutError() {
+        List<CdsFormOption> result = dao.findByVersion("1.1.0");
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all cdsformoption records")
-        void shouldCountAllCdsFormOptions() {
-            CdsFormOption entity = new CdsFormOption();
-            cdsFormOptionDao.persist(entity);
-            long count = cdsFormOptionDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        assertThat(result).isNotNull();
     }
 }

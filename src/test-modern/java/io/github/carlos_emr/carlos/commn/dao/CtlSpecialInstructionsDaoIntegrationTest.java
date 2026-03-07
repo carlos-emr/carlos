@@ -23,21 +23,23 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CtlSpecialInstructions;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CtlSpecialInstructionsDao} covering basic CRUD operations.
+ * Integration tests for {@link CtlSpecialInstructionsDao} covering full method coverage
+ * matching the legacy {@code CtlSpecialInstructionsDaoTest}.
  *
- * <p>Migrated from legacy {@code CtlSpecialInstructionsDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and findAll operations.</p>
  *
  * @since 2026-03-07
  * @see CtlSpecialInstructionsDao
@@ -45,49 +47,51 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("CtlSpecialInstructions Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("admin")
 @Transactional
 public class CtlSpecialInstructionsDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CtlSpecialInstructionsDao ctlSpecialInstructionsDao;
+    private CtlSpecialInstructionsDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        CtlSpecialInstructions entity = new CtlSpecialInstructions();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist ctlspecialinstructions with generated ID")
-        void shouldPersistCtlSpecialInstructions_whenValidDataProvided() {
-            CtlSpecialInstructions entity = new CtlSpecialInstructions();
-            ctlSpecialInstructionsDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find ctlspecialinstructions by ID")
-        void shouldFindCtlSpecialInstructions_whenValidIdProvided() {
-            CtlSpecialInstructions saved = new CtlSpecialInstructions();
-            ctlSpecialInstructionsDao.persist(saved);
-            CtlSpecialInstructions found = ctlSpecialInstructionsDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return all special instructions in order")
+    void shouldReturnAllInstructions_whenFindAllCalled() {
+        CtlSpecialInstructions csi1 = new CtlSpecialInstructions();
+        EntityDataGenerator.generateTestDataForModelClass(csi1);
+        dao.persist(csi1);
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all ctlspecialinstructions records")
-        void shouldCountAllCtlSpecialInstructionss() {
-            CtlSpecialInstructions entity = new CtlSpecialInstructions();
-            ctlSpecialInstructionsDao.persist(entity);
-            long count = ctlSpecialInstructionsDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        CtlSpecialInstructions csi2 = new CtlSpecialInstructions();
+        EntityDataGenerator.generateTestDataForModelClass(csi2);
+        dao.persist(csi2);
+
+        CtlSpecialInstructions csi3 = new CtlSpecialInstructions();
+        EntityDataGenerator.generateTestDataForModelClass(csi3);
+        dao.persist(csi3);
+
+        CtlSpecialInstructions csi4 = new CtlSpecialInstructions();
+        EntityDataGenerator.generateTestDataForModelClass(csi4);
+        dao.persist(csi4);
+
+        CtlSpecialInstructions csi5 = new CtlSpecialInstructions();
+        EntityDataGenerator.generateTestDataForModelClass(csi5);
+        dao.persist(csi5);
+
+        List<CtlSpecialInstructions> expectedResult = Arrays.asList(csi1, csi2, csi3, csi4, csi5);
+        List<CtlSpecialInstructions> result = dao.findAll();
+
+        assertThat(result).hasSameSizeAs(expectedResult);
+        assertThat(result).containsExactlyElementsOf(expectedResult);
     }
 }

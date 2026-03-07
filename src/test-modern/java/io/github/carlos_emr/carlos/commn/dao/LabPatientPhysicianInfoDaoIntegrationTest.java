@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist labpatientphysicianinfo with generated ID")
         void shouldPersistLabPatientPhysicianInfo_whenValidDataProvided() {
             LabPatientPhysicianInfo entity = new LabPatientPhysicianInfo();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             labPatientPhysicianInfoDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find labpatientphysicianinfo by ID")
         void shouldFindLabPatientPhysicianInfo_whenValidIdProvided() {
             LabPatientPhysicianInfo saved = new LabPatientPhysicianInfo();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             labPatientPhysicianInfoDao.persist(saved);
             LabPatientPhysicianInfo found = labPatientPhysicianInfoDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all labpatientphysicianinfo records")
         void shouldCountAllLabPatientPhysicianInfos() {
             LabPatientPhysicianInfo entity = new LabPatientPhysicianInfo();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             labPatientPhysicianInfoDao.persist(entity);
             long count = labPatientPhysicianInfoDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

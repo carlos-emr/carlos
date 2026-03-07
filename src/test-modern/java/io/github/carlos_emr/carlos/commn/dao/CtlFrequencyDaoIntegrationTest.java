@@ -23,8 +23,8 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CtlFrequency;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,9 +35,10 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CtlFrequencyDao} covering basic CRUD operations.
+ * Integration tests for {@link CtlFrequencyDao} covering full method coverage
+ * matching the legacy {@code CtlFrequencyDaoTest}.
  *
- * <p>Migrated from legacy {@code CtlFrequencyDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and findAll operations.</p>
  *
  * @since 2026-03-07
  * @see CtlFrequencyDao
@@ -45,49 +46,38 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("CtlFrequency Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("billing")
 @Transactional
 public class CtlFrequencyDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CtlFrequencyDao ctlFrequencyDao;
+    private CtlFrequencyDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        CtlFrequency entity = new CtlFrequency();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist ctlfrequency with generated ID")
-        void shouldPersistCtlFrequency_whenValidDataProvided() {
-            CtlFrequency entity = new CtlFrequency();
-            ctlFrequencyDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find ctlfrequency by ID")
-        void shouldFindCtlFrequency_whenValidIdProvided() {
-            CtlFrequency saved = new CtlFrequency();
-            ctlFrequencyDao.persist(saved);
-            CtlFrequency found = ctlFrequencyDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return incremented count after persisting new entity")
+    void shouldReturnIncrementedCount_afterPersistingNewEntity() {
+        int startNo = dao.findAll().size();
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all ctlfrequency records")
-        void shouldCountAllCtlFrequencys() {
-            CtlFrequency entity = new CtlFrequency();
-            ctlFrequencyDao.persist(entity);
-            long count = ctlFrequencyDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        CtlFrequency entity = new CtlFrequency();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+
+        assertThat(entity.getId()).isNotNull();
+
+        List<CtlFrequency> list = dao.findAll();
+
+        assertThat(list).isNotNull();
+        assertThat(list).hasSize(startNo + 1);
     }
 }

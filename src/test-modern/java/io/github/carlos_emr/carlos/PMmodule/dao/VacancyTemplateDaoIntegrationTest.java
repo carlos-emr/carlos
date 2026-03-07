@@ -21,23 +21,26 @@
  */
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link VacancyTemplateDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * Migrated from legacy JUnit 4 VacancyTemplateDaoTest with full method coverage.
+ *
  * @since 2026-03-07
  */
-@DisplayName("VacancyTemplate Dao Integration Tests")
+@DisplayName("VacancyTemplateDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("pmmodule")
@@ -45,29 +48,34 @@ import static org.assertj.core.api.Assertions.*;
 public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private VacancyTemplateDao vacancyTemplateDao;
+    private VacancyTemplateDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist vacancy template with generated ID")
+    void shouldPersistEntity_whenValidDataProvided() {
+        VacancyTemplate entity = new VacancyTemplate();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            VacancyTemplate entity = new VacancyTemplate();
-            vacancyTemplateDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            VacancyTemplate saved = new VacancyTemplate();
-            vacancyTemplateDao.persist(saved);
-            VacancyTemplate found = vacancyTemplateDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return vacancy templates by wlProgramId")
+    void shouldReturnTemplates_byWlProgramId() {
+        List<VacancyTemplate> result = dao.getVacancyTemplateByWlProgramId(1);
+
+        assertThat(result).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return active vacancy templates by wlProgramId")
+    void shouldReturnActiveTemplates_byWlProgramId() {
+        List<VacancyTemplate> result = dao.getActiveVacancyTemplatesByWlProgramId(1);
+
+        assertThat(result).isNotNull();
     }
 }

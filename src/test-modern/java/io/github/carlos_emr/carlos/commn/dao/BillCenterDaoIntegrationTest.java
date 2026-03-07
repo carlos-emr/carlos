@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.BillCenter;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class BillCenterDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist billcenter with generated ID")
         void shouldPersistBillCenter_whenValidDataProvided() {
             BillCenter entity = new BillCenter();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             billCenterDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class BillCenterDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find billcenter by ID")
         void shouldFindBillCenter_whenValidIdProvided() {
             BillCenter saved = new BillCenter();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             billCenterDao.persist(saved);
             BillCenter found = billCenterDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class BillCenterDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all billcenter records")
         void shouldCountAllBillCenters() {
             BillCenter entity = new BillCenter();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             billCenterDao.persist(entity);
             long count = billCenterDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

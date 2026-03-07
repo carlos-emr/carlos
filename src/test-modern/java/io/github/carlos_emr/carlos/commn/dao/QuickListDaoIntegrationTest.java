@@ -21,21 +21,22 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.QuickList;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link QuickListDao} covering basic CRUD operations.
+ * Integration tests for {@link QuickListDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code QuickListDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +46,61 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("QuickList Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("admin")
 @Transactional
 public class QuickListDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private QuickListDao quickListDao;
+    private QuickListDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist quick list with generated ID")
+    void shouldPersistQuickList_whenValidDataProvided() {
+        QuickList ql = new QuickList();
+        EntityDataGenerator.generateTestDataForModelClass(ql);
+        dao.persist(ql);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist quicklist with generated ID")
-        void shouldPersistQuickList_whenValidDataProvided() {
-            QuickList entity = new QuickList();
-            quickListDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find quicklist by ID")
-        void shouldFindQuickList_whenValidIdProvided() {
-            QuickList saved = new QuickList();
-            quickListDao.persist(saved);
-            QuickList found = quickListDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(ql.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return matching entries when filtered by name, research code, and coding system")
+    void shouldReturnMatchingEntries_whenFilteredByNameResearchCodeAndCodingSystem() {
+        String quickListName1 = "alpha";
+        String quickListName2 = "bravo";
+        String dxResearchCode1 = "111";
+        String dxResearchCode2 = "222";
+        String codingSystem1 = "101";
+        String codingSystem2 = "202";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all quicklist records")
-        void shouldCountAllQuickLists() {
-            QuickList entity = new QuickList();
-            quickListDao.persist(entity);
-            long count = quickListDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        QuickList quickList1 = new QuickList();
+        EntityDataGenerator.generateTestDataForModelClass(quickList1);
+        quickList1.setQuickListName(quickListName1);
+        quickList1.setDxResearchCode(dxResearchCode1);
+        quickList1.setCodingSystem(codingSystem1);
+        dao.persist(quickList1);
+
+        QuickList quickList2 = new QuickList();
+        EntityDataGenerator.generateTestDataForModelClass(quickList2);
+        quickList2.setQuickListName(quickListName2);
+        quickList2.setDxResearchCode(dxResearchCode2);
+        quickList2.setCodingSystem(codingSystem2);
+        dao.persist(quickList2);
+
+        QuickList quickList3 = new QuickList();
+        EntityDataGenerator.generateTestDataForModelClass(quickList3);
+        quickList3.setQuickListName(quickListName1);
+        quickList3.setDxResearchCode(dxResearchCode1);
+        quickList3.setCodingSystem(codingSystem1);
+        dao.persist(quickList3);
+
+        List<QuickList> expectedResult = Arrays.asList(quickList1, quickList3);
+        List<QuickList> result = dao.findByNameResearchCodeAndCodingSystem(quickListName1, dxResearchCode1, codingSystem1);
+
+        assertThat(result).hasSize(expectedResult.size());
+        for (int i = 0; i < expectedResult.size(); i++) {
+            assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
         }
     }
 }

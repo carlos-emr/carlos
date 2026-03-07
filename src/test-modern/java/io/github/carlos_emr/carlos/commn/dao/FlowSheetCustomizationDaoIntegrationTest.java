@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist flowsheetcustomization with generated ID")
         void shouldPersistFlowSheetCustomization_whenValidDataProvided() {
             FlowSheetCustomization entity = new FlowSheetCustomization();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetCustomizationDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find flowsheetcustomization by ID")
         void shouldFindFlowSheetCustomization_whenValidIdProvided() {
             FlowSheetCustomization saved = new FlowSheetCustomization();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             flowSheetCustomizationDao.persist(saved);
             FlowSheetCustomization found = flowSheetCustomizationDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all flowsheetcustomization records")
         void shouldCountAllFlowSheetCustomizations() {
             FlowSheetCustomization entity = new FlowSheetCustomization();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetCustomizationDao.persist(entity);
             long count = flowSheetCustomizationDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

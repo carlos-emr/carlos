@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroup;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class MeasurementGroupDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist measurementgroup with generated ID")
         void shouldPersistMeasurementGroup_whenValidDataProvided() {
             MeasurementGroup entity = new MeasurementGroup();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementGroupDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class MeasurementGroupDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find measurementgroup by ID")
         void shouldFindMeasurementGroup_whenValidIdProvided() {
             MeasurementGroup saved = new MeasurementGroup();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             measurementGroupDao.persist(saved);
             MeasurementGroup found = measurementGroupDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class MeasurementGroupDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all measurementgroup records")
         void shouldCountAllMeasurementGroups() {
             MeasurementGroup entity = new MeasurementGroup();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementGroupDao.persist(entity);
             long count = measurementGroupDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

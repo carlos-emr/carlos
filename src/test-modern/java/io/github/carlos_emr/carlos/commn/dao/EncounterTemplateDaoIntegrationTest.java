@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class EncounterTemplateDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist encountertemplate with generated ID")
         void shouldPersistEncounterTemplate_whenValidDataProvided() {
             EncounterTemplate entity = new EncounterTemplate();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterTemplateDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class EncounterTemplateDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find encountertemplate by ID")
         void shouldFindEncounterTemplate_whenValidIdProvided() {
             EncounterTemplate saved = new EncounterTemplate();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             encounterTemplateDao.persist(saved);
             EncounterTemplate found = encounterTemplateDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class EncounterTemplateDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all encountertemplate records")
         void shouldCountAllEncounterTemplates() {
             EncounterTemplate entity = new EncounterTemplate();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterTemplateDao.persist(entity);
             long count = encounterTemplateDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

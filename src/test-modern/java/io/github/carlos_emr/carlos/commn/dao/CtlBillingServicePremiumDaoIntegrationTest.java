@@ -23,21 +23,23 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServicePremium;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CtlBillingServicePremiumDao} covering basic CRUD operations.
+ * Integration tests for {@link CtlBillingServicePremiumDao} covering full method coverage
+ * matching the legacy {@code CtlBillingServicePremiumDaoTest}.
  *
- * <p>Migrated from legacy {@code CtlBillingServicePremiumDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and findByServiceCode operations.</p>
  *
  * @since 2026-03-07
  * @see CtlBillingServicePremiumDao
@@ -45,49 +47,54 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("CtlBillingServicePremium Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("billing")
 @Transactional
 public class CtlBillingServicePremiumDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CtlBillingServicePremiumDao ctlBillingServicePremiumDao;
+    private CtlBillingServicePremiumDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        CtlBillingServicePremium entity = new CtlBillingServicePremium();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist ctlbillingservicepremium with generated ID")
-        void shouldPersistCtlBillingServicePremium_whenValidDataProvided() {
-            CtlBillingServicePremium entity = new CtlBillingServicePremium();
-            ctlBillingServicePremiumDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find ctlbillingservicepremium by ID")
-        void shouldFindCtlBillingServicePremium_whenValidIdProvided() {
-            CtlBillingServicePremium saved = new CtlBillingServicePremium();
-            ctlBillingServicePremiumDao.persist(saved);
-            CtlBillingServicePremium found = ctlBillingServicePremiumDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return premiums matching service code")
+    void shouldReturnMatchingPremiums_whenSearchingByServiceCode() {
+        String serviceCode1 = "alpha";
+        String serviceCode2 = "bravo";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all ctlbillingservicepremium records")
-        void shouldCountAllCtlBillingServicePremiums() {
-            CtlBillingServicePremium entity = new CtlBillingServicePremium();
-            ctlBillingServicePremiumDao.persist(entity);
-            long count = ctlBillingServicePremiumDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        CtlBillingServicePremium cBSP1 = new CtlBillingServicePremium();
+        EntityDataGenerator.generateTestDataForModelClass(cBSP1);
+        cBSP1.setServiceCode(serviceCode1);
+        dao.persist(cBSP1);
+
+        CtlBillingServicePremium cBSP2 = new CtlBillingServicePremium();
+        EntityDataGenerator.generateTestDataForModelClass(cBSP2);
+        cBSP2.setServiceCode(serviceCode1);
+        dao.persist(cBSP2);
+
+        CtlBillingServicePremium cBSP3 = new CtlBillingServicePremium();
+        EntityDataGenerator.generateTestDataForModelClass(cBSP3);
+        cBSP3.setServiceCode(serviceCode2);
+        dao.persist(cBSP3);
+
+        CtlBillingServicePremium cBSP4 = new CtlBillingServicePremium();
+        EntityDataGenerator.generateTestDataForModelClass(cBSP4);
+        cBSP4.setServiceCode(serviceCode1);
+        dao.persist(cBSP4);
+
+        List<CtlBillingServicePremium> expectedResult = Arrays.asList(cBSP1, cBSP2, cBSP4);
+        List<CtlBillingServicePremium> result = dao.findByServiceCode(serviceCode1);
+
+        assertThat(result).hasSameSizeAs(expectedResult);
+        assertThat(result).containsExactlyElementsOf(expectedResult);
     }
 }

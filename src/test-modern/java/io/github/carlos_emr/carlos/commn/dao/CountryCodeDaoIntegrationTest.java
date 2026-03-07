@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.CountryCode;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,19 +31,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CountryCodeDao} covering basic CRUD operations.
+ * Integration tests for {@link CountryCodeDao} covering create,
+ * getAllCountryCodes, and getCountryCode.
  *
- * <p>Migrated from legacy {@code CountryCodeDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Migrated from legacy {@code CountryCodeDaoTest}
+ * (JUnit 4 / DaoTestFixtures) with exact same test logic and assertions.</p>
  *
  * @since 2026-03-07
  * @see CountryCodeDao
  */
-@DisplayName("CountryCode Dao Integration Tests")
+@DisplayName("CountryCodeDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("admin")
@@ -50,44 +51,59 @@ import static org.assertj.core.api.Assertions.*;
 public class CountryCodeDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CountryCodeDao countryCodeDao;
+    private CountryCodeDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("create tests")
+    @Tag("create")
+    class Create {
 
         @Test
-        @Tag("create")
-        @DisplayName("should persist countrycode with generated ID")
-        void shouldPersistCountryCode_whenValidDataProvided() {
+        @DisplayName("should persist entity with generated id")
+        void shouldPersistEntity_withGeneratedId() {
             CountryCode entity = new CountryCode();
-            countryCodeDao.persist(entity);
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
             assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find countrycode by ID")
-        void shouldFindCountryCode_whenValidIdProvided() {
-            CountryCode saved = new CountryCode();
-            countryCodeDao.persist(saved);
-            CountryCode found = countryCodeDao.find(saved.getId());
-            assertThat(found).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("getAllCountryCodes tests")
+    @Tag("read")
+    class GetAllCountryCodes {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all countrycode records")
-        void shouldCountAllCountryCodes() {
+        @DisplayName("should return increased count after persisting new country code")
+        void shouldReturnIncreasedCount_afterPersistingNewCountryCode() {
+            int initialSize = dao.findAll().size();
+
             CountryCode entity = new CountryCode();
-            countryCodeDao.persist(entity);
-            long count = countryCodeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
+            hibernateTemplate.flush();
+
+            assertThat(dao.findAll()).hasSize(initialSize + 1);
+        }
+    }
+
+    @Nested
+    @DisplayName("getCountryCode tests")
+    @Tag("read")
+    class GetCountryCode {
+
+        @Test
+        @DisplayName("should return country with correct name when code is CA")
+        void shouldReturnCountryWithCorrectName_whenCodeIsCA() {
+            CountryCode country = new CountryCode();
+            EntityDataGenerator.generateTestDataForModelClass(country);
+            country.setCountryCode("CA");
+            country.setCountryName("Canada");
+            dao.persist(country);
+            hibernateTemplate.flush();
+
+            CountryCode result = dao.getCountryCode("CA");
+            assertThat(result.getCountryName()).isEqualTo("Canada");
         }
     }
 }

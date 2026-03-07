@@ -23,21 +23,20 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Billingreferral;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link BillingreferralDao} covering basic CRUD operations.
+ * Integration tests for {@link BillingreferralDao} covering full method coverage
+ * matching the legacy {@code BillingreferralDaoTest}.
  *
- * <p>Migrated from legacy {@code BillingreferralDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover updateBillingreferral (create) and searchReferralCode operations.</p>
  *
  * @since 2026-03-07
  * @see BillingreferralDao
@@ -45,49 +44,37 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("Billingreferral Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("billing")
 @Transactional
 public class BillingreferralDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingreferralDao billingreferralDao;
+    private BillingreferralDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity via updateBillingreferral and assign generated ID")
+    void shouldPersistEntity_whenUpdateBillingreferralCalled() {
+        Billingreferral entity = new Billingreferral();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setBillingreferralNo(null);
+        dao.updateBillingreferral(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist billingreferral with generated ID")
-        void shouldPersistBillingreferral_whenValidDataProvided() {
-            Billingreferral entity = new Billingreferral();
-            billingreferralDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find billingreferral by ID")
-        void shouldFindBillingreferral_whenValidIdProvided() {
-            Billingreferral saved = new Billingreferral();
-            billingreferralDao.persist(saved);
-            Billingreferral found = billingreferralDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getBillingreferralNo()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should find referral by referral code, last name, and first name")
+    void shouldReturnResults_whenSearchingByReferralCode() {
+        Billingreferral entity = new Billingreferral();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setBillingreferralNo(null);
+        entity.setReferralNo("123456");
+        entity.setLastName("Smith");
+        entity.setFirstName("John");
+        dao.updateBillingreferral(entity);
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all billingreferral records")
-        void shouldCountAllBillingreferrals() {
-            Billingreferral entity = new Billingreferral();
-            billingreferralDao.persist(entity);
-            long count = billingreferralDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        assertThat(dao.searchReferralCode("123456", "123456", "123456",
+                "Smith", "John", "Smith", "John", "Smith", "John")).hasSize(1);
     }
 }

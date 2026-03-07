@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CaisiAccessType;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class CaisiAccessTypeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist caisiaccesstype with generated ID")
         void shouldPersistCaisiAccessType_whenValidDataProvided() {
             CaisiAccessType entity = new CaisiAccessType();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             caisiAccessTypeDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class CaisiAccessTypeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find caisiaccesstype by ID")
         void shouldFindCaisiAccessType_whenValidIdProvided() {
             CaisiAccessType saved = new CaisiAccessType();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             caisiAccessTypeDao.persist(saved);
             CaisiAccessType found = caisiAccessTypeDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class CaisiAccessTypeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all caisiaccesstype records")
         void shouldCountAllCaisiAccessTypes() {
             CaisiAccessType entity = new CaisiAccessType();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             caisiAccessTypeDao.persist(entity);
             long count = caisiAccessTypeDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

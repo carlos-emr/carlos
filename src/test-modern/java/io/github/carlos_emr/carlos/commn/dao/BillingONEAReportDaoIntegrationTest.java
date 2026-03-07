@@ -21,8 +21,10 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.billings.ca.on.data.BillingProviderData;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,12 +32,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link BillingONEAReportDao} covering basic CRUD operations.
+ * Integration tests for {@link BillingONEAReportDao}.
  *
  * <p>Migrated from legacy {@code BillingONEAReportDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -50,30 +57,13 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingONEAReportDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingONEAReportDao billingONEAReportDao;
+    private BillingONEAReportDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist billingoneareport with generated ID")
-        void shouldPersistBillingONEAReport_whenValidDataProvided() {
-            BillingONEAReport entity = new BillingONEAReport();
-            billingONEAReportDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find billingoneareport by ID")
-        void shouldFindBillingONEAReport_whenValidIdProvided() {
-            BillingONEAReport saved = new BillingONEAReport();
-            billingONEAReportDao.persist(saved);
-            BillingONEAReport found = billingONEAReportDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    private BillingONEAReport createReport(int billNumber) throws Exception {
+        BillingONEAReport report = new BillingONEAReport();
+        EntityDataGenerator.generateTestDataForModelClass(report);
+        report.setBillingNo(billNumber);
+        return report;
     }
 
     @Nested
@@ -82,12 +72,88 @@ public class BillingONEAReportDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all billingoneareport records")
-        void shouldCountAllBillingONEAReports() {
-            BillingONEAReport entity = new BillingONEAReport();
-            billingONEAReportDao.persist(entity);
-            long count = billingONEAReportDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return accurate billing errors list data")
+        void shouldReturnAccurateBillingErrorsListData_whenReportPersisted() throws Exception {
+            BillingONEAReport eaRpt = createReport(1);
+            eaRpt.setClaimError("error01");
+            eaRpt.setCodeError("error02");
+            dao.persist(eaRpt);
+
+            List<String> eaReportErrors = dao.getBillingErrorList(eaRpt.getBillingNo());
+
+            assertThat(eaReportErrors.get(0)).isEqualTo("error01");
+            assertThat(eaReportErrors.get(1)).isEqualTo("error02");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return trimmed billing errors and exclude blank errors")
+        void shouldReturnTrimmedErrors_whenErrorsContainWhitespace() throws Exception {
+            BillingONEAReport eaRpt = createReport(1);
+            eaRpt.setClaimError("   ");
+            eaRpt.setCodeError("   error02    ");
+            dao.persist(eaRpt);
+
+            List<String> eaReportErrors = dao.getBillingErrorList(eaRpt.getBillingNo());
+            List<String> expectedList = new ArrayList<>(Arrays.asList("error02"));
+
+            assertThat(eaReportErrors).isEqualTo(expectedList);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return billing errors ordered by process date descending")
+        void shouldReturnErrorsOrderedByProcessDateDescending_whenMultipleReportsExist() throws Exception {
+            DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
+
+            BillingONEAReport eaRpt1 = createReport(1);
+            Date date1 = new Date(dfm.parse("20090101").getTime());
+            eaRpt1.setProcessDate(date1);
+            eaRpt1.setClaimError("error01");
+            eaRpt1.setCodeError("error01");
+
+            BillingONEAReport eaRpt2 = createReport(1);
+            Date date2 = new Date(dfm.parse("20100101").getTime());
+            eaRpt2.setProcessDate(date2);
+            eaRpt2.setClaimError("error02");
+            eaRpt2.setCodeError("error02");
+
+            BillingONEAReport eaRpt3 = createReport(1);
+            Date date3 = new Date(dfm.parse("20110101").getTime());
+            eaRpt3.setProcessDate(date3);
+            eaRpt3.setClaimError("error03");
+            eaRpt3.setCodeError("error03");
+
+            dao.persist(eaRpt1);
+            dao.persist(eaRpt2);
+            dao.persist(eaRpt3);
+
+            List<String> eaReportErrors = dao.getBillingErrorList(eaRpt1.getBillingNo());
+            List<String> expectedResult = Arrays.asList(
+                    "error03", "error03",
+                    "error02", "error02",
+                    "error01", "error01");
+
+            assertThat(eaReportErrors).hasSize(expectedResult.size());
+            for (int i = 0; i < eaReportErrors.size(); i++) {
+                assertThat(eaReportErrors.get(i)).isEqualTo(expectedResult.get(i));
+            }
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find reports by magic parameters")
+        void shouldFindReports_byMagicParameters() throws Exception {
+            assertThat(dao.findByMagic("OHIP", "BGNO", "SPEC CODE", new Date(), new Date(), "REPORT")).isNotNull();
+
+            List<BillingProviderData> data = new ArrayList<>();
+            BillingProviderData d = new BillingProviderData();
+            EntityDataGenerator.generateTestDataForModelClass(d);
+            data.add(d);
+            d = new BillingProviderData();
+            EntityDataGenerator.generateTestDataForModelClass(d);
+            data.add(d);
+            assertThat(dao.findByMagic(data, new Date(), new Date(), "REPORT")).isNotNull();
         }
     }
 }

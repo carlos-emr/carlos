@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.CtlServiceCodesDxCodes;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -56,6 +57,7 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist entity with generated ID")
         void shouldPersist_whenValidDataProvided() {
             CtlServiceCodesDxCodes entity = new CtlServiceCodesDxCodes();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             ctlServiceCodesDxCodesDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -65,6 +67,7 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find entity by ID")
         void shouldFind_whenValidIdProvided() {
             CtlServiceCodesDxCodes saved = new CtlServiceCodesDxCodes();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             ctlServiceCodesDxCodesDao.persist(saved);
             CtlServiceCodesDxCodes found = ctlServiceCodesDxCodesDao.find(saved.getId());
             assertThat(found).isNotNull();

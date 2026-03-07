@@ -21,23 +21,25 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
+import io.github.carlos_emr.carlos.commn.dao.BillingBCDao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingBC;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingBCDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy JUnit 4 BillingBCDaoTest with full method coverage.</p>
+ *
  * @since 2026-03-07
  */
-@DisplayName("BillingBC Dao Integration Tests")
+@DisplayName("BillingBCDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-bc")
@@ -45,29 +47,40 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingBCDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingBCDao billingBCDao;
+    private BillingBCDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should find billing services with various parameter combinations")
+    void shouldReturnBillingServices_withVariousParameters() {
+        List<Object[]> result = dao.findBillingServices("REG", "SVC", "TYPE");
+        assertThat(result).isNotNull();
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            BillingBC entity = new BillingBC();
-            billingBCDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+        result = dao.findBillingServices("ON", "SVG", "ST", "2011-09-01");
+        assertThat(result).isNotNull();
+    }
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            BillingBC saved = new BillingBC();
-            billingBCDao.persist(saved);
-            BillingBC found = billingBCDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find billing locations by region")
+    void shouldReturnBillingLocations_byRegion() {
+        List<Object[]> result = dao.findBillingLocations("ON");
+        assertThat(result).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find billing visits by region")
+    void shouldReturnBillingVisits_byRegion() {
+        List<Object[]> result = dao.findBillingVisits("ON");
+        assertThat(result).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find injury locations")
+    void shouldReturnInjuryLocations_whenQueried() {
+        List<Object[]> result = dao.findInjuryLocations();
+        assertThat(result).isNotNull();
     }
 }

@@ -21,8 +21,10 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.BillingONPremium;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,12 +32,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link BillingONPremiumDao} covering basic CRUD operations.
+ * Integration tests for {@link BillingONPremiumDao}.
  *
  * <p>Migrated from legacy {@code BillingONPremiumDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -50,31 +57,9 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingONPremiumDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingONPremiumDao billingONPremiumDao;
+    private BillingONPremiumDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist billingonpremium with generated ID")
-        void shouldPersistBillingONPremium_whenValidDataProvided() {
-            BillingONPremium entity = new BillingONPremium();
-            billingONPremiumDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find billingonpremium by ID")
-        void shouldFindBillingONPremium_whenValidIdProvided() {
-            BillingONPremium saved = new BillingONPremium();
-            billingONPremiumDao.persist(saved);
-            BillingONPremium found = billingONPremiumDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
-    }
+    private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
     @Nested
     @DisplayName("Query operations")
@@ -82,12 +67,175 @@ public class BillingONPremiumDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all billingonpremium records")
-        void shouldCountAllBillingONPremiums() {
-            BillingONPremium entity = new BillingONPremium();
-            billingONPremiumDao.persist(entity);
-            long count = billingONPremiumDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return active RA premiums within pay date range with status true")
+        void shouldReturnActiveRAPremiums_byPayDateRange() throws Exception {
+            Date startDate = new Date(dfm.parse("20090101").getTime());
+            Date endDate = new Date(dfm.parse("20120101").getTime());
+            Locale locale = new Locale("");
+
+            BillingONPremium billONPrem1 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem1);
+            billONPrem1.setPayDate(new Date(dfm.parse("20081231").getTime()));
+            billONPrem1.setStatus(true);
+
+            BillingONPremium billONPrem2 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem2);
+            billONPrem2.setPayDate(new Date(dfm.parse("20090101").getTime()));
+            billONPrem2.setStatus(true);
+
+            BillingONPremium billONPrem3 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem3);
+            billONPrem3.setPayDate(new Date(dfm.parse("20100601").getTime()));
+            billONPrem3.setStatus(false);
+
+            BillingONPremium billONPrem4 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem4);
+            billONPrem4.setPayDate(new Date(dfm.parse("20110101").getTime()));
+            billONPrem4.setStatus(true);
+
+            BillingONPremium billONPrem5 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem5);
+            billONPrem5.setPayDate(new Date(dfm.parse("20120101").getTime()));
+            billONPrem5.setStatus(true);
+
+            BillingONPremium billONPrem6 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem6);
+            billONPrem6.setPayDate(new Date(dfm.parse("20120102").getTime()));
+            billONPrem6.setStatus(true);
+
+            dao.persist(billONPrem1);
+            dao.persist(billONPrem2);
+            dao.persist(billONPrem3);
+            dao.persist(billONPrem4);
+            dao.persist(billONPrem5);
+            dao.persist(billONPrem6);
+
+            List<BillingONPremium> expectedList = Arrays.asList(billONPrem2, billONPrem4);
+            List<BillingONPremium> resultList = dao.getActiveRAPremiumsByPayDate(startDate, endDate, locale);
+
+            assertThat(resultList).hasSize(expectedList.size());
+            assertThat(resultList).containsAll(expectedList);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return active RA premiums by provider within date range")
+        void shouldReturnActiveRAPremiums_byProviderAndDateRange() throws Exception {
+            Provider provider = new Provider();
+            provider.setProviderNo("1");
+            Date startDate = new Date(dfm.parse("20090101").getTime());
+            Date endDate = new Date(dfm.parse("20120101").getTime());
+            Locale locale = new Locale("");
+
+            BillingONPremium billONPrem1 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem1);
+            billONPrem1.setPayDate(new Date(dfm.parse("20090101").getTime()));
+            billONPrem1.setProviderNo("1");
+            billONPrem1.setStatus(true);
+
+            BillingONPremium billONPrem2 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem2);
+            billONPrem2.setPayDate(new Date(dfm.parse("20100601").getTime()));
+            billONPrem2.setProviderNo("2");
+            billONPrem2.setStatus(true);
+
+            BillingONPremium billONPrem3 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem3);
+            billONPrem3.setPayDate(new Date(dfm.parse("20110101").getTime()));
+            billONPrem3.setProviderNo("1");
+            billONPrem3.setStatus(true);
+
+            BillingONPremium billONPrem4 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem4);
+            billONPrem4.setPayDate(new Date(dfm.parse("20110601").getTime()));
+            billONPrem4.setProviderNo("1");
+            billONPrem4.setStatus(false);
+
+            BillingONPremium billONPrem5 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem5);
+            billONPrem5.setPayDate(new Date(dfm.parse("20120101").getTime()));
+            billONPrem5.setProviderNo("1");
+            billONPrem5.setStatus(true);
+
+            dao.persist(billONPrem1);
+            dao.persist(billONPrem2);
+            dao.persist(billONPrem3);
+            dao.persist(billONPrem4);
+            dao.persist(billONPrem5);
+
+            List<BillingONPremium> expectedList = Arrays.asList(billONPrem1, billONPrem3);
+            List<BillingONPremium> resultList = dao.getActiveRAPremiumsByProvider(provider, startDate, endDate, locale);
+
+            assertThat(resultList).hasSize(expectedList.size());
+            assertThat(resultList).containsAll(expectedList);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return RA premiums by RA header number")
+        void shouldReturnRAPremiums_byRaHeaderNo() throws Exception {
+            Integer raHeaderNo = 1;
+
+            BillingONPremium billONPrem1 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem1);
+            billONPrem1.setRAHeaderNo(2);
+
+            BillingONPremium billONPrem2 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem2);
+            billONPrem2.setRAHeaderNo(1);
+
+            BillingONPremium billONPrem3 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem3);
+            billONPrem3.setRAHeaderNo(3);
+
+            BillingONPremium billONPrem4 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem4);
+            billONPrem4.setRAHeaderNo(1);
+
+            dao.persist(billONPrem1);
+            dao.persist(billONPrem2);
+            dao.persist(billONPrem3);
+            dao.persist(billONPrem4);
+
+            List<BillingONPremium> expectedList = Arrays.asList(billONPrem2, billONPrem4);
+            List<BillingONPremium> resultList = dao.getRAPremiumsByRaHeaderNo(raHeaderNo);
+
+            assertThat(resultList).hasSize(expectedList.size());
+            assertThat(resultList).containsAll(expectedList);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return RA premiums by negative RA header number")
+        void shouldReturnRAPremiums_byNegativeRaHeaderNo() throws Exception {
+            Integer raHeaderNo = -1;
+
+            BillingONPremium billONPrem1 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem1);
+            billONPrem1.setRAHeaderNo(2);
+
+            BillingONPremium billONPrem2 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem2);
+            billONPrem2.setRAHeaderNo(-1);
+
+            BillingONPremium billONPrem3 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem3);
+            billONPrem3.setRAHeaderNo(3);
+
+            BillingONPremium billONPrem4 = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(billONPrem4);
+            billONPrem4.setRAHeaderNo(-1);
+
+            dao.persist(billONPrem1);
+            dao.persist(billONPrem2);
+            dao.persist(billONPrem3);
+            dao.persist(billONPrem4);
+
+            List<BillingONPremium> expectedList = Arrays.asList(billONPrem2, billONPrem4);
+            List<BillingONPremium> resultList = dao.getRAPremiumsByRaHeaderNo(raHeaderNo);
+
+            assertThat(resultList).hasSize(expectedList.size());
+            assertThat(resultList).containsAll(expectedList);
         }
     }
 }

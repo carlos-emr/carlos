@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.LogLetters;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class LogLettersDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist logletters with generated ID")
         void shouldPersistLogLetters_whenValidDataProvided() {
             LogLetters entity = new LogLetters();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             logLettersDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class LogLettersDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find logletters by ID")
         void shouldFindLogLetters_whenValidIdProvided() {
             LogLetters saved = new LogLetters();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             logLettersDao.persist(saved);
             LogLetters found = logLettersDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class LogLettersDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all logletters records")
         void shouldCountAllLogLetterss() {
             LogLetters entity = new LogLetters();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             logLettersDao.persist(entity);
             long count = logLettersDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

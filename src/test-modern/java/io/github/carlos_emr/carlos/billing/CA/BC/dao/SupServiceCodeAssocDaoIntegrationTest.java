@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.SupServiceCodeAssoc;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -56,6 +57,7 @@ public class SupServiceCodeAssocDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist entity with generated ID")
         void shouldPersist_whenValidDataProvided() {
             SupServiceCodeAssoc entity = new SupServiceCodeAssoc();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             supServiceCodeAssocDAO.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -65,6 +67,7 @@ public class SupServiceCodeAssocDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find entity by ID")
         void shouldFind_whenValidIdProvided() {
             SupServiceCodeAssoc saved = new SupServiceCodeAssoc();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             supServiceCodeAssocDAO.persist(saved);
             SupServiceCodeAssoc found = supServiceCodeAssocDAO.find(saved.getId());
             assertThat(found).isNotNull();

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Ichppccode;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist ichppccode with generated ID")
         void shouldPersistIchppccode_whenValidDataProvided() {
             Ichppccode entity = new Ichppccode();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             ichppccodeDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find ichppccode by ID")
         void shouldFindIchppccode_whenValidIdProvided() {
             Ichppccode saved = new Ichppccode();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             ichppccodeDao.persist(saved);
             Ichppccode found = ichppccodeDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all ichppccode records")
         void shouldCountAllIchppccodes() {
             Ichppccode entity = new Ichppccode();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             ichppccodeDao.persist(entity);
             long count = ichppccodeDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

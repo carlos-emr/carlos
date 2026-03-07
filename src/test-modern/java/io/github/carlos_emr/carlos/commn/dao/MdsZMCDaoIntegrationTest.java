@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.MdsZMC;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class MdsZMCDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist mdszmc with generated ID")
         void shouldPersistMdsZMC_whenValidDataProvided() {
             MdsZMC entity = new MdsZMC();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsZMCDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class MdsZMCDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find mdszmc by ID")
         void shouldFindMdsZMC_whenValidIdProvided() {
             MdsZMC saved = new MdsZMC();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             mdsZMCDao.persist(saved);
             MdsZMC found = mdsZMCDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class MdsZMCDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all mdszmc records")
         void shouldCountAllMdsZMCs() {
             MdsZMC entity = new MdsZMC();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsZMCDao.persist(entity);
             long count = mdsZMCDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

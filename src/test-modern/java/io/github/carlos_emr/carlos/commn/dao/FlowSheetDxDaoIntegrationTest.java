@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.FlowSheetDx;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class FlowSheetDxDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist flowsheetdx with generated ID")
         void shouldPersistFlowSheetDx_whenValidDataProvided() {
             FlowSheetDx entity = new FlowSheetDx();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetDxDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class FlowSheetDxDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find flowsheetdx by ID")
         void shouldFindFlowSheetDx_whenValidIdProvided() {
             FlowSheetDx saved = new FlowSheetDx();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             flowSheetDxDao.persist(saved);
             FlowSheetDx found = flowSheetDxDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class FlowSheetDxDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all flowsheetdx records")
         void shouldCountAllFlowSheetDxs() {
             FlowSheetDx entity = new FlowSheetDx();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetDxDao.persist(entity);
             long count = flowSheetDxDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

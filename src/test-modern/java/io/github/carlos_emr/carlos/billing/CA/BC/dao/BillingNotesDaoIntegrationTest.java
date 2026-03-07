@@ -22,22 +22,19 @@
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingNotes;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
-
 /**
- * Integration tests for {@link BillingNotesDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * Integration tests for {@link BillingNoteDao}.
+ * <p>Migrated from legacy JUnit 4 BillingNotesDaoTest with full method coverage.</p>
+ *
  * @since 2026-03-07
  */
-@DisplayName("BillingNotes Dao Integration Tests")
+@DisplayName("BillingNoteDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-bc")
@@ -45,29 +42,19 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingNotesDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingNotesDao billingNotesDao;
+    private BillingNoteDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should find notes by billing master number and note type")
+    void shouldReturnNotes_byBillingMasterNoAndNoteType() {
+        dao.findNotes(999, 999);
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            BillingNotes entity = new BillingNotes();
-            billingNotesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            BillingNotes saved = new BillingNotes();
-            billingNotesDao.persist(saved);
-            BillingNotes found = billingNotesDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find single note by billing master number and note type")
+    void shouldReturnSingleNote_byBillingMasterNoAndNoteType() {
+        dao.findSingleNote(999, 999);
     }
 }

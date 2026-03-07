@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.SecPrivilege;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class SecPrivilegeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist secprivilege with generated ID")
         void shouldPersistSecPrivilege_whenValidDataProvided() {
             SecPrivilege entity = new SecPrivilege();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             secPrivilegeDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class SecPrivilegeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find secprivilege by ID")
         void shouldFindSecPrivilege_whenValidIdProvided() {
             SecPrivilege saved = new SecPrivilege();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             secPrivilegeDao.persist(saved);
             SecPrivilege found = secPrivilegeDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class SecPrivilegeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all records")
         void shouldCountAllRecords() {
             SecPrivilege entity = new SecPrivilege();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             secPrivilegeDao.persist(entity);
             long count = secPrivilegeDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

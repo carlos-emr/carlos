@@ -23,8 +23,8 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.FileUploadCheck;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,9 +35,10 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link FileUploadCheckDao} covering basic CRUD operations.
+ * Integration tests for {@link FileUploadCheckDao} covering full method coverage
+ * matching the legacy {@code FileUploadCheckDaoTest}.
  *
- * <p>Migrated from legacy {@code FileUploadCheckDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and findByMd5Sum (find) operations.</p>
  *
  * @since 2026-03-07
  * @see FileUploadCheckDao
@@ -45,49 +46,29 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("FileUploadCheck Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("admin")
 @Transactional
 public class FileUploadCheckDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private FileUploadCheckDao fileUploadCheckDao;
+    private FileUploadCheckDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        FileUploadCheck entity = new FileUploadCheck();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist fileuploadcheck with generated ID")
-        void shouldPersistFileUploadCheck_whenValidDataProvided() {
-            FileUploadCheck entity = new FileUploadCheck();
-            fileUploadCheckDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find fileuploadcheck by ID")
-        void shouldFindFileUploadCheck_whenValidIdProvided() {
-            FileUploadCheck saved = new FileUploadCheck();
-            fileUploadCheckDao.persist(saved);
-            FileUploadCheck found = fileUploadCheckDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return results when searching by MD5 sum")
+    void shouldReturnResults_whenSearchingByMd5Sum() {
+        List<FileUploadCheck> result = dao.findByMd5Sum("MD");
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all fileuploadcheck records")
-        void shouldCountAllFileUploadChecks() {
-            FileUploadCheck entity = new FileUploadCheck();
-            fileUploadCheckDao.persist(entity);
-            long count = fileUploadCheckDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        assertThat(result).isNotNull();
     }
 }

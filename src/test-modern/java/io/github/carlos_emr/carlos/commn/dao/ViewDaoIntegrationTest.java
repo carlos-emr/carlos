@@ -21,21 +21,22 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.View;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ViewDao} covering basic CRUD operations.
+ * Integration tests for {@link ViewDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code ViewDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +46,61 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("View Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("admin")
 @Transactional
 public class ViewDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ViewDao viewDao;
+    private ViewDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist view entity with generated ID")
+    void shouldPersistView_whenValidDataProvided() {
+        View entity = new View();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist view with generated ID")
-        void shouldPersistView_whenValidDataProvided() {
-            View entity = new View();
-            viewDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find view by ID")
-        void shouldFindView_whenValidIdProvided() {
-            View saved = new View();
-            viewDao.persist(saved);
-            View found = viewDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return view map filtered by view name, role, and provider number")
+    void shouldReturnViewMap_whenFilteredByViewNameRoleAndProviderNo() {
+        String role1 = "alpha";
+        String role2 = "bravo";
+        String providerNo1 = "000000";
+        String viewName1 = "sigma";
+        String viewName2 = "delta";
+        String name1 = "gamma";
+        String name2 = "zeta";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all view records")
-        void shouldCountAllViews() {
-            View entity = new View();
-            viewDao.persist(entity);
-            long count = viewDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        View view1 = new View();
+        EntityDataGenerator.generateTestDataForModelClass(view1);
+        view1.setRole(role1);
+        view1.setView_name(viewName1);
+        view1.setName(name1);
+        view1.setProviderNo(providerNo1);
+        dao.persist(view1);
+
+        View view2 = new View();
+        EntityDataGenerator.generateTestDataForModelClass(view2);
+        view2.setRole(role2);
+        view2.setView_name(viewName2);
+        view2.setName(name2);
+        view2.setProviderNo(null);
+        dao.persist(view2);
+
+        // With provider number
+        Map<String, View> expectedResult = new HashMap<>();
+        expectedResult.put(name1, view1);
+        Map<String, View> result = dao.getView(viewName1, role1, providerNo1);
+        assertThat(result).isEqualTo(expectedResult);
+
+        // Without provider number
+        Map<String, View> expectedResult2 = new HashMap<>();
+        expectedResult2.put(name2, view2);
+        Map<String, View> result2 = dao.getView(viewName2, role2);
+        assertThat(result2).isEqualTo(expectedResult2);
     }
 }

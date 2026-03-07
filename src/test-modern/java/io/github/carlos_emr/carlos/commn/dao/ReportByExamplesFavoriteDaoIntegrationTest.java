@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamplesFavorite;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,12 +31,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ReportByExamplesFavoriteDao} covering basic CRUD operations.
+ * Integration tests for {@link ReportByExamplesFavoriteDao}.
  *
  * <p>Migrated from legacy {@code ReportByExamplesFavoriteDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -50,7 +49,7 @@ import static org.assertj.core.api.Assertions.*;
 public class ReportByExamplesFavoriteDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ReportByExamplesFavoriteDao reportByExamplesFavoriteDao;
+    private ReportByExamplesFavoriteDao dao;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -58,21 +57,13 @@ public class ReportByExamplesFavoriteDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist reportbyexamplesfavorite with generated ID")
-        void shouldPersistReportByExamplesFavorite_whenValidDataProvided() {
+        @DisplayName("should persist report by examples favorite with generated ID")
+        void shouldPersistReportByExamplesFavorite_whenValidDataProvided() throws Exception {
             ReportByExamplesFavorite entity = new ReportByExamplesFavorite();
-            reportByExamplesFavoriteDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find reportbyexamplesfavorite by ID")
-        void shouldFindReportByExamplesFavorite_whenValidIdProvided() {
-            ReportByExamplesFavorite saved = new ReportByExamplesFavorite();
-            reportByExamplesFavoriteDao.persist(saved);
-            ReportByExamplesFavorite found = reportByExamplesFavoriteDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
@@ -82,12 +73,23 @@ public class ReportByExamplesFavoriteDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all reportbyexamplesfavorite records")
-        void shouldCountAllReportByExamplesFavorites() {
-            ReportByExamplesFavorite entity = new ReportByExamplesFavorite();
-            reportByExamplesFavoriteDao.persist(entity);
-            long count = reportByExamplesFavoriteDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should find favorites by query string")
+        void shouldFindFavorites_byQuery() {
+            assertThat(dao.findByQuery("QUERY")).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find favorites by provider, favorite name and query")
+        void shouldFindFavorites_byEverything() {
+            assertThat(dao.findByEverything("100", "FAV", "QR")).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find favorites by provider number")
+        void shouldFindFavorites_byProvider() {
+            assertThat(dao.findByProvider("100")).isNotNull();
         }
     }
 }

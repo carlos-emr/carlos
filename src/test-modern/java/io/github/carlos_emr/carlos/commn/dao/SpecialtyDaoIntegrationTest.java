@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Specialty;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist specialty with generated ID")
         void shouldPersistSpecialty_whenValidDataProvided() {
             Specialty entity = new Specialty();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             specialtyDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find specialty by ID")
         void shouldFindSpecialty_whenValidIdProvided() {
             Specialty saved = new Specialty();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             specialtyDao.persist(saved);
             Specialty found = specialtyDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all specialty records")
         void shouldCountAllSpecialtys() {
             Specialty entity = new Specialty();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             specialtyDao.persist(entity);
             long count = specialtyDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

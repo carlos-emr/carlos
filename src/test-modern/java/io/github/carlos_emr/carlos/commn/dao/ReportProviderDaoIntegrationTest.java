@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ReportProvider;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class ReportProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist reportprovider with generated ID")
         void shouldPersistReportProvider_whenValidDataProvided() {
             ReportProvider entity = new ReportProvider();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             reportProviderDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class ReportProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find reportprovider by ID")
         void shouldFindReportProvider_whenValidIdProvided() {
             ReportProvider saved = new ReportProvider();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             reportProviderDao.persist(saved);
             ReportProvider found = reportProviderDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class ReportProviderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all reportprovider records")
         void shouldCountAllReportProviders() {
             ReportProvider entity = new ReportProvider();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             reportProviderDao.persist(entity);
             long count = reportProviderDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

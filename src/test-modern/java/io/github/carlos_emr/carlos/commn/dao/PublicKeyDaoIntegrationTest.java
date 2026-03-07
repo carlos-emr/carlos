@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.PublicKey;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class PublicKeyDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist publickey with generated ID")
         void shouldPersistPublicKey_whenValidDataProvided() {
             PublicKey entity = new PublicKey();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             publicKeyDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class PublicKeyDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find publickey by ID")
         void shouldFindPublicKey_whenValidIdProvided() {
             PublicKey saved = new PublicKey();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             publicKeyDao.persist(saved);
             PublicKey found = publicKeyDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class PublicKeyDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all publickey records")
         void shouldCountAllPublicKeys() {
             PublicKey entity = new PublicKey();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             publicKeyDao.persist(entity);
             long count = publicKeyDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

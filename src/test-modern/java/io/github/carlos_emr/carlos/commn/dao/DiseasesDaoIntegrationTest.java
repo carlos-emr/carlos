@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Diseases;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,19 +31,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link DiseasesDao}.
+ * Integration tests for {@link DiseasesDao} covering create,
+ * findByDemographicNo, and findByIcd9.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code DiseasesDaoTest} (JUnit 4 / DaoTestFixtures)
+ * with exact same test logic and assertions.</p>
  *
  * @since 2026-03-07
  * @see DiseasesDao
  */
-@DisplayName("Diseases Dao Integration Tests")
+@DisplayName("DiseasesDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("clinical")
@@ -50,44 +51,57 @@ import static org.assertj.core.api.Assertions.*;
 public class DiseasesDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private DiseasesDao diseasesDao;
+    private DiseasesDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("create tests")
+    @Tag("create")
+    class Create {
 
         @Test
-        @Tag("create")
-        @DisplayName("should persist diseases with generated ID")
-        void shouldPersistDiseases_whenValidDataProvided() {
+        @DisplayName("should persist entity with generated id")
+        void shouldPersistEntity_withGeneratedId() {
             Diseases entity = new Diseases();
-            diseasesDao.persist(entity);
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
             assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find diseases by ID")
-        void shouldFindDiseases_whenValidIdProvided() {
-            Diseases saved = new Diseases();
-            diseasesDao.persist(saved);
-            Diseases found = diseasesDao.find(saved.getId());
-            assertThat(found).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("findByDemographicNo tests")
+    @Tag("read")
+    class FindByDemographicNo {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
+        @DisplayName("should return one disease when demographic number matches")
+        void shouldReturnOnDisease_whenDemographicNoMatches() {
             Diseases entity = new Diseases();
-            diseasesDao.persist(entity);
-            long count = diseasesDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setDemographicNo(1);
+            dao.persist(entity);
+            hibernateTemplate.flush();
+
+            assertThat(dao.findByDemographicNo(1)).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("findByIcd9 tests")
+    @Tag("read")
+    class FindByIcd9 {
+
+        @Test
+        @DisplayName("should return one disease when icd9 code matches")
+        void shouldReturnOneDisease_whenIcd9CodeMatches() {
+            Diseases entity = new Diseases();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setDemographicNo(1);
+            entity.setIcd9Entry("250");
+            dao.persist(entity);
+            hibernateTemplate.flush();
+
+            assertThat(dao.findByIcd9("250")).hasSize(1);
         }
     }
 }

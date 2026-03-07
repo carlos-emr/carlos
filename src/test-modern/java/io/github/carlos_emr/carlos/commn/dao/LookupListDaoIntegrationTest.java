@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.LookupList;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -32,12 +33,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link LookupListDao}.
+ * Integration tests for {@link LookupListDao} covering create, findAllActive, and findByName.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code LookupListDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see LookupListDao
@@ -50,44 +51,90 @@ import static org.assertj.core.api.Assertions.*;
 public class LookupListDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private LookupListDao lookupListDao;
+    private LookupListDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("Create operations")
+    class CreateOperations {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist lookuplist with generated ID")
+        @DisplayName("should persist lookup list with generated ID")
         void shouldPersistLookupList_whenValidDataProvided() {
             LookupList entity = new LookupList();
-            lookupListDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find lookuplist by ID")
-        void shouldFindLookupList_whenValidIdProvided() {
-            LookupList saved = new LookupList();
-            lookupListDao.persist(saved);
-            LookupList found = lookupListDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("findAllActive")
+    class FindAllActive {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            LookupList entity = new LookupList();
-            lookupListDao.persist(entity);
-            long count = lookupListDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @Tag("read")
+        @DisplayName("should return only active lookup lists ordered by name")
+        void shouldReturnActiveLists_orderedByName() {
+            LookupList ll1 = new LookupList();
+            EntityDataGenerator.generateTestDataForModelClass(ll1);
+            ll1.setActive(true);
+            ll1.setName("bravo");
+            dao.persist(ll1);
+
+            LookupList ll2 = new LookupList();
+            EntityDataGenerator.generateTestDataForModelClass(ll2);
+            ll2.setActive(false);
+            ll2.setName("bravo");
+            dao.persist(ll2);
+
+            LookupList ll3 = new LookupList();
+            EntityDataGenerator.generateTestDataForModelClass(ll3);
+            ll3.setActive(true);
+            ll3.setName("charlie");
+            dao.persist(ll3);
+
+            LookupList ll4 = new LookupList();
+            EntityDataGenerator.generateTestDataForModelClass(ll4);
+            ll4.setActive(true);
+            ll4.setName("alpha");
+            dao.persist(ll4);
+
+            List<LookupList> result = dao.findAllActive();
+
+            assertThat(result).hasSizeGreaterThanOrEqualTo(3);
+            List<LookupList> firstThree = result.subList(0, 3);
+            assertThat(firstThree).containsExactly(ll4, ll1, ll3);
+        }
+    }
+
+    @Nested
+    @DisplayName("findByName")
+    class FindByName {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return lookup list matching the given name")
+        void shouldReturnLookupList_whenNameMatches() {
+            LookupList ll1 = new LookupList();
+            EntityDataGenerator.generateTestDataForModelClass(ll1);
+            ll1.setName("bravo");
+            dao.persist(ll1);
+
+            LookupList ll2 = new LookupList();
+            EntityDataGenerator.generateTestDataForModelClass(ll2);
+            ll2.setName("alpha");
+            dao.persist(ll2);
+
+            LookupList ll3 = new LookupList();
+            EntityDataGenerator.generateTestDataForModelClass(ll3);
+            ll3.setName("charlie");
+            dao.persist(ll3);
+
+            LookupList result = dao.findByName("alpha");
+
+            assertThat(result).isEqualTo(ll2);
         }
     }
 }

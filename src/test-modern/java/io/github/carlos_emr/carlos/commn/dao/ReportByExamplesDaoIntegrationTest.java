@@ -21,21 +21,21 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Date;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ReportByExamplesDao} covering basic CRUD operations.
+ * Integration tests for {@link ReportByExamplesDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code ReportByExamplesDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +45,28 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("ReportByExamples Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("reporting")
 @Transactional
 public class ReportByExamplesDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ReportByExamplesDao reportByExamplesDao;
+    private ReportByExamplesDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist report by examples with generated ID")
+    void shouldPersistReportByExamples_whenValidDataProvided() {
+        ReportByExamples entity = new ReportByExamples();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist reportbyexamples with generated ID")
-        void shouldPersistReportByExamples_whenValidDataProvided() {
-            ReportByExamples entity = new ReportByExamples();
-            reportByExamplesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find reportbyexamples by ID")
-        void shouldFindReportByExamples_whenValidIdProvided() {
-            ReportByExamples saved = new ReportByExamples();
-            reportByExamplesDao.persist(saved);
-            ReportByExamples found = reportByExamplesDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
-
-        @Test
-        @Tag("query")
-        @DisplayName("should count all reportbyexamples records")
-        void shouldCountAllReportByExampless() {
-            ReportByExamples entity = new ReportByExamples();
-            reportByExamplesDao.persist(entity);
-            long count = reportByExamplesDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return non-null results when finding reports and providers")
+    void shouldReturnNonNullResults_whenFindingReportsAndProviders() {
+        assertThat(dao.findReportsAndProviders()).isNotNull();
+        assertThat(dao.findReportsAndProviders(new Date(), new Date())).isNotNull();
     }
 }

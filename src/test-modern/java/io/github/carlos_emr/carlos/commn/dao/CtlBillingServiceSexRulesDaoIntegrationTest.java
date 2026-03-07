@@ -23,21 +23,23 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CtlBillingServiceSexRules;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CtlBillingServiceSexRulesDao} covering basic CRUD operations.
+ * Integration tests for {@link CtlBillingServiceSexRulesDao} covering full method coverage
+ * matching the legacy {@code CtlBillingServiceSexRulesDaoTest}.
  *
- * <p>Migrated from legacy {@code CtlBillingServiceSexRulesDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and findByServiceCode operations.</p>
  *
  * @since 2026-03-07
  * @see CtlBillingServiceSexRulesDao
@@ -45,49 +47,55 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("CtlBillingServiceSexRules Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("billing")
 @Transactional
 public class CtlBillingServiceSexRulesDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private CtlBillingServiceSexRulesDao ctlBillingServiceSexRulesDao;
+    private CtlBillingServiceSexRulesDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        CtlBillingServiceSexRules entity = new CtlBillingServiceSexRules();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setId(null);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist ctlbillingservicesexrules with generated ID")
-        void shouldPersistCtlBillingServiceSexRules_whenValidDataProvided() {
-            CtlBillingServiceSexRules entity = new CtlBillingServiceSexRules();
-            ctlBillingServiceSexRulesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find ctlbillingservicesexrules by ID")
-        void shouldFindCtlBillingServiceSexRules_whenValidIdProvided() {
-            CtlBillingServiceSexRules saved = new CtlBillingServiceSexRules();
-            ctlBillingServiceSexRulesDao.persist(saved);
-            CtlBillingServiceSexRules found = ctlBillingServiceSexRulesDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return sex rules matching service code")
+    void shouldReturnMatchingRules_whenSearchingByServiceCode() {
+        String serviceCode1 = "alpha";
+        String serviceCode2 = "bravo";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all ctlbillingservicesexrules records")
-        void shouldCountAllCtlBillingServiceSexRuless() {
-            CtlBillingServiceSexRules entity = new CtlBillingServiceSexRules();
-            ctlBillingServiceSexRulesDao.persist(entity);
-            long count = ctlBillingServiceSexRulesDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        CtlBillingServiceSexRules cBSSR1 = new CtlBillingServiceSexRules();
+        EntityDataGenerator.generateTestDataForModelClass(cBSSR1);
+        cBSSR1.setServiceCode(serviceCode1);
+        dao.persist(cBSSR1);
+
+        CtlBillingServiceSexRules cBSSR2 = new CtlBillingServiceSexRules();
+        EntityDataGenerator.generateTestDataForModelClass(cBSSR2);
+        cBSSR2.setServiceCode(serviceCode1);
+        dao.persist(cBSSR2);
+
+        CtlBillingServiceSexRules cBSSR3 = new CtlBillingServiceSexRules();
+        EntityDataGenerator.generateTestDataForModelClass(cBSSR3);
+        cBSSR3.setServiceCode(serviceCode2);
+        dao.persist(cBSSR3);
+
+        CtlBillingServiceSexRules cBSSR4 = new CtlBillingServiceSexRules();
+        EntityDataGenerator.generateTestDataForModelClass(cBSSR4);
+        cBSSR4.setServiceCode(serviceCode1);
+        dao.persist(cBSSR4);
+
+        List<CtlBillingServiceSexRules> expectedResult = Arrays.asList(cBSSR1, cBSSR2, cBSSR4);
+        List<CtlBillingServiceSexRules> result = dao.findByServiceCode(serviceCode1);
+
+        assertThat(result).hasSameSizeAs(expectedResult);
+        assertThat(result).containsExactlyElementsOf(expectedResult);
     }
 }

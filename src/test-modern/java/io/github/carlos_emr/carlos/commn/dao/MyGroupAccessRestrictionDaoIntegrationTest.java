@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.MyGroupAccessRestriction;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class MyGroupAccessRestrictionDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist mygroupaccessrestriction with generated ID")
         void shouldPersistMyGroupAccessRestriction_whenValidDataProvided() {
             MyGroupAccessRestriction entity = new MyGroupAccessRestriction();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             myGroupAccessRestrictionDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class MyGroupAccessRestrictionDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find mygroupaccessrestriction by ID")
         void shouldFindMyGroupAccessRestriction_whenValidIdProvided() {
             MyGroupAccessRestriction saved = new MyGroupAccessRestriction();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             myGroupAccessRestrictionDao.persist(saved);
             MyGroupAccessRestriction found = myGroupAccessRestrictionDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class MyGroupAccessRestrictionDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all mygroupaccessrestriction records")
         void shouldCountAllMyGroupAccessRestrictions() {
             MyGroupAccessRestriction entity = new MyGroupAccessRestriction();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             myGroupAccessRestrictionDao.persist(entity);
             long count = myGroupAccessRestrictionDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

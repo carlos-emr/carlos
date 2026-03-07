@@ -23,21 +23,20 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link FavoriteDao} covering basic CRUD operations.
+ * Integration tests for {@link FavoriteDao} covering full method coverage
+ * matching the legacy {@code FavoriteDaoTest}.
  *
- * <p>Migrated from legacy {@code FavoriteDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and query operations (findByProviderNo, findByEverything).</p>
  *
  * @since 2026-03-07
  * @see FavoriteDao
@@ -45,49 +44,29 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("Favorite Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("admin")
 @Transactional
 public class FavoriteDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private FavoriteDao favoriteDao;
+    private FavoriteDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        Favorite entity = new Favorite();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist favorite with generated ID")
-        void shouldPersistFavorite_whenValidDataProvided() {
-            Favorite entity = new Favorite();
-            favoriteDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find favorite by ID")
-        void shouldFindFavorite_whenValidIdProvided() {
-            Favorite saved = new Favorite();
-            favoriteDao.persist(saved);
-            Favorite found = favoriteDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
-
-        @Test
-        @Tag("query")
-        @DisplayName("should count all favorite records")
-        void shouldCountAllFavorites() {
-            Favorite entity = new Favorite();
-            favoriteDao.persist(entity);
-            long count = favoriteDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should execute findByProviderNo and findByEverything without error")
+    void shouldExecuteQueryMethods_withoutError() {
+        dao.findByProviderNo("999");
+        dao.findByEverything(null, null, null, "0", null, 0, 0,
+                null, null, null, null, 0, false, false, null, null, null, false);
     }
 }

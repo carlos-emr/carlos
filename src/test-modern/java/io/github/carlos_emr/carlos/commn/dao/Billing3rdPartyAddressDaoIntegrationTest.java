@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.billing.CA.ON.model.Billing3rdPartyAddress;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.commn.model.Billing3rdPartyAddress;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,19 +31,22 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link Billing3rdPartyAddressDao} covering basic CRUD operations.
+ * Integration tests for {@link Billing3rdPartyAddressDao} covering create,
+ * findByCompanyName, and findAddresses.
  *
- * <p>Migrated from legacy {@code Billing3rdPartyAddressDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Migrated from legacy {@code Billing3rdPartyAddressDaoTest}
+ * (JUnit 4 / DaoTestFixtures) with exact same test logic and assertions.</p>
  *
  * @since 2026-03-07
  * @see Billing3rdPartyAddressDao
  */
-@DisplayName("Billing3rdPartyAddress Dao Integration Tests")
+@DisplayName("Billing3rdPartyAddressDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing")
@@ -50,44 +54,79 @@ import static org.assertj.core.api.Assertions.*;
 public class Billing3rdPartyAddressDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private Billing3rdPartyAddressDao billing3rdPartyAddressDao;
+    private Billing3rdPartyAddressDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("create tests")
+    @Tag("create")
+    class Create {
 
         @Test
-        @Tag("create")
-        @DisplayName("should persist billing3rdpartyaddress with generated ID")
-        void shouldPersistBilling3rdPartyAddress_whenValidDataProvided() {
+        @DisplayName("should persist entity with generated id")
+        void shouldPersistEntity_withGeneratedId() {
             Billing3rdPartyAddress entity = new Billing3rdPartyAddress();
-            billing3rdPartyAddressDao.persist(entity);
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
             assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find billing3rdpartyaddress by ID")
-        void shouldFindBilling3rdPartyAddress_whenValidIdProvided() {
-            Billing3rdPartyAddress saved = new Billing3rdPartyAddress();
-            billing3rdPartyAddressDao.persist(saved);
-            Billing3rdPartyAddress found = billing3rdPartyAddressDao.find(saved.getId());
-            assertThat(found).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("findByCompanyName tests")
+    @Tag("read")
+    class FindByCompanyName {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all billing3rdpartyaddress records")
-        void shouldCountAllBilling3rdPartyAddresss() {
-            Billing3rdPartyAddress entity = new Billing3rdPartyAddress();
-            billing3rdPartyAddressDao.persist(entity);
-            long count = billing3rdPartyAddressDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return all addresses matching company name")
+        void shouldReturnAllAddresses_whenCompanyNameMatches() {
+            String companyName1 = "sigma";
+            String companyName2 = "epsilon";
+
+            Billing3rdPartyAddress addr1 = new Billing3rdPartyAddress();
+            EntityDataGenerator.generateTestDataForModelClass(addr1);
+            addr1.setCompanyName(companyName1);
+            dao.persist(addr1);
+
+            Billing3rdPartyAddress addr2 = new Billing3rdPartyAddress();
+            EntityDataGenerator.generateTestDataForModelClass(addr2);
+            addr2.setCompanyName(companyName2);
+            dao.persist(addr2);
+
+            Billing3rdPartyAddress addr3 = new Billing3rdPartyAddress();
+            EntityDataGenerator.generateTestDataForModelClass(addr3);
+            addr3.setCompanyName(companyName2);
+            dao.persist(addr3);
+
+            Billing3rdPartyAddress addr4 = new Billing3rdPartyAddress();
+            EntityDataGenerator.generateTestDataForModelClass(addr4);
+            addr4.setCompanyName(companyName1);
+            dao.persist(addr4);
+
+            Billing3rdPartyAddress addr5 = new Billing3rdPartyAddress();
+            EntityDataGenerator.generateTestDataForModelClass(addr5);
+            addr5.setCompanyName(companyName1);
+            dao.persist(addr5);
+            hibernateTemplate.flush();
+
+            List<Billing3rdPartyAddress> expectedResult = Arrays.asList(addr1, addr4, addr5);
+            List<Billing3rdPartyAddress> result = dao.findByCompanyName(companyName1);
+
+            assertThat(result).hasSameSizeAs(expectedResult);
+            for (int i = 0; i < expectedResult.size(); i++) {
+                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("findAddresses tests")
+    @Tag("read")
+    class FindAddresses {
+
+        @Test
+        @DisplayName("should return non-null result when all parameters are null")
+        void shouldReturnNonNullResult_whenAllParametersAreNull() {
+            assertThat(dao.findAddresses(null, null, null, null, null)).isNotNull();
         }
     }
 }

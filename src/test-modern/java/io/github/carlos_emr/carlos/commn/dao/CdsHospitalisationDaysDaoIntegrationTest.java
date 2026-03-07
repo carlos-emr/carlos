@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CdsHospitalisationDays;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class CdsHospitalisationDaysDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist cdshospitalisationdays with generated ID")
         void shouldPersistCdsHospitalisationDays_whenValidDataProvided() {
             CdsHospitalisationDays entity = new CdsHospitalisationDays();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             cdsHospitalisationDaysDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class CdsHospitalisationDaysDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find cdshospitalisationdays by ID")
         void shouldFindCdsHospitalisationDays_whenValidIdProvided() {
             CdsHospitalisationDays saved = new CdsHospitalisationDays();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             cdsHospitalisationDaysDao.persist(saved);
             CdsHospitalisationDays found = cdsHospitalisationDaysDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class CdsHospitalisationDaysDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all cdshospitalisationdays records")
         void shouldCountAllCdsHospitalisationDayss() {
             CdsHospitalisationDays entity = new CdsHospitalisationDays();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             cdsHospitalisationDaysDao.persist(entity);
             long count = cdsHospitalisationDaysDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

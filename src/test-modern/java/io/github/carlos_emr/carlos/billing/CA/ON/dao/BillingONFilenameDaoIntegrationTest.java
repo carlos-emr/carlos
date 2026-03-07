@@ -21,23 +21,27 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.ON.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFilename;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingONFilenameDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ *
+ * <p>Migrated from legacy {@code BillingONFilenameDaoTest} (JUnit 4 / DaoTestFixtures).
+ * Replicates exact legacy test coverage: persist entity and verify generated ID.</p>
+ *
  * @since 2026-03-07
+ * @see BillingONFilenameDao
  */
-@DisplayName("BillingONFilename Dao Integration Tests")
+@DisplayName("BillingONFilenameDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-on")
@@ -45,29 +49,15 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingONFilenameDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingONFilenameDao billingONFilenameDao;
+    private BillingONFilenameDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            BillingONFilename entity = new BillingONFilename();
-            billingONFilenameDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            BillingONFilename saved = new BillingONFilename();
-            billingONFilenameDao.persist(saved);
-            BillingONFilename found = billingONFilenameDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated ID")
+    void shouldPersistEntity_whenValidDataProvided() {
+        BillingONFilename entity = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
     }
 }

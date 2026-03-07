@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.RemoteAttachments;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist remoteattachments with generated ID")
         void shouldPersistRemoteAttachments_whenValidDataProvided() {
             RemoteAttachments entity = new RemoteAttachments();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             remoteAttachmentsDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find remoteattachments by ID")
         void shouldFindRemoteAttachments_whenValidIdProvided() {
             RemoteAttachments saved = new RemoteAttachments();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             remoteAttachmentsDao.persist(saved);
             RemoteAttachments found = remoteAttachmentsDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all remoteattachments records")
         void shouldCountAllRemoteAttachmentss() {
             RemoteAttachments entity = new RemoteAttachments();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             remoteAttachmentsDao.persist(entity);
             long count = remoteAttachmentsDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

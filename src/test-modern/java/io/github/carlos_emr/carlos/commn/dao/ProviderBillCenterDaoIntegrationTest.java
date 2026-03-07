@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ProviderBillCenter;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class ProviderBillCenterDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist providerbillcenter with generated ID")
         void shouldPersistProviderBillCenter_whenValidDataProvided() {
             ProviderBillCenter entity = new ProviderBillCenter();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             providerBillCenterDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class ProviderBillCenterDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find providerbillcenter by ID")
         void shouldFindProviderBillCenter_whenValidIdProvided() {
             ProviderBillCenter saved = new ProviderBillCenter();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             providerBillCenterDao.persist(saved);
             ProviderBillCenter found = providerBillCenterDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class ProviderBillCenterDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all providerbillcenter records")
         void shouldCountAllProviderBillCenters() {
             ProviderBillCenter entity = new ProviderBillCenter();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             providerBillCenterDao.persist(entity);
             long count = providerBillCenterDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

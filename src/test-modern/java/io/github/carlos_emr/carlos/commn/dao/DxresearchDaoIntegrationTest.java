@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,14 +31,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link DxresearchDAO}.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code DxresearchDAOTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see DxresearchDAO
@@ -50,7 +52,7 @@ import static org.assertj.core.api.Assertions.*;
 public class DxresearchDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private DxresearchDAO dxresearchDAO;
+    private DxresearchDAO dao;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -59,20 +61,12 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist dxresearch with generated ID")
-        void shouldPersistDxresearch_whenValidDataProvided() {
-            Dxresearch entity = new Dxresearch();
-            dxresearchDAO.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+        void shouldPersistDxresearch_whenValidDataProvided() throws Exception {
+            Dxresearch dr = new Dxresearch();
+            EntityDataGenerator.generateTestDataForModelClass(dr);
+            dao.persist(dr);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find dxresearch by ID")
-        void shouldFindDxresearch_whenValidIdProvided() {
-            Dxresearch saved = new Dxresearch();
-            dxresearchDAO.persist(saved);
-            Dxresearch found = dxresearchDAO.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(dr.getId()).isNotNull();
         }
     }
 
@@ -82,12 +76,32 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            Dxresearch entity = new Dxresearch();
-            dxresearchDAO.persist(entity);
-            long count = dxresearchDAO.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should find by demographic no, research code and coding system")
+        void shouldFindDxresearch_byDemographicNoResearchCodeAndCodingSystem() {
+            List<Dxresearch> list = dao.findByDemographicNoResearchCodeAndCodingSystem(1, "CODE", "SYS");
+            assertThat(list).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should get data for INR report")
+        void shouldGetDataForInrReport_whenDateRangeProvided() {
+            List<Object[]> list = dao.getDataForInrReport(new Date(), new Date());
+            assertThat(list).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should count researches by code and date range")
+        void shouldCountResearches_byCodeAndDateRange() {
+            assertThat(dao.countResearches("CDE", new Date(), new Date())).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should count billing researches by code, diagnosis, creator and date range")
+        void shouldCountBillingResearches_byCodeDiagnosisCreatorAndDateRange() {
+            assertThat(dao.countBillingResearches("CDE", "DIAG", "CREATOR", new Date(), new Date())).isNotNull();
         }
     }
 }

@@ -21,23 +21,24 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanC12;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link TeleplanC12Dao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy JUnit 4 TeleplanC12DaoTest with full method coverage.</p>
+ *
  * @since 2026-03-07
  */
-@DisplayName("TeleplanC12 Dao Integration Tests")
+@DisplayName("TeleplanC12Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-bc")
@@ -45,29 +46,36 @@ import static org.assertj.core.api.Assertions.*;
 public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private TeleplanC12Dao teleplanC12Dao;
+    private TeleplanC12Dao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated test data")
+    void shouldPersistEntity_whenValidDataProvided() {
+        TeleplanC12 entity = new TeleplanC12();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            TeleplanC12 entity = new TeleplanC12();
-            teleplanC12Dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find current non-error records")
+    void shouldReturnCurrentRecords_whenQueried() {
+        assertThat(dao.findCurrent()).isNotNull();
+    }
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            TeleplanC12 saved = new TeleplanC12();
-            teleplanC12Dao.persist(saved);
-            TeleplanC12 found = teleplanC12Dao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find records by office claim number")
+    void shouldReturnRecords_byOfficeClaimNo() {
+        assertThat(dao.findByOfficeClaimNo("100")).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find rejected records joined with S21")
+    void shouldReturnRejectedRecords_whenQueried() {
+        assertThat(dao.findRejected()).isNotNull();
     }
 }

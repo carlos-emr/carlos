@@ -22,22 +22,28 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONExt;
+import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link BillingONExtDao} covering basic CRUD operations.
+ * Integration tests for {@link BillingONExtDao} covering full method coverage
+ * matching the legacy {@code BillingONExtDaoTest}.
  *
- * <p>Migrated from legacy {@code BillingONExtDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover getPayment, getRefund, getRemitTo, getBillTo, getBillToInactive,
+ * and find operations.</p>
  *
  * @since 2026-03-07
  * @see BillingONExtDao
@@ -50,44 +56,287 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingONExtDao billingONExtDao;
+    private BillingONExtDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Autowired
+    private BillingONPaymentDao paymentDao;
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist billingonext with generated ID")
-        void shouldPersistBillingONExt_whenValidDataProvided() {
-            BillingONExt entity = new BillingONExt();
-            billingONExtDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Autowired
+    private BillingONCHeader1Dao cHeader1Dao;
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find billingonext by ID")
-        void shouldFindBillingONExt_whenValidIdProvided() {
-            BillingONExt saved = new BillingONExt();
-            billingONExtDao.persist(saved);
-            BillingONExt found = billingONExtDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    // --- getPayment tests ---
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return valid payment amount when matching ext record exists")
+    void shouldReturnPayment_whenValidDataProvided() {
+        BillingONPayment paymentRecord = new BillingONPayment();
+        paymentRecord.setBillingNo(1);
+        paymentRecord.setPaymentDate(new Date());
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setKeyVal("payment");
+        extraBillingPayment.setValue("10");
+        extraBillingPayment.setPaymentId(1);
+
+        paymentDao.persist(paymentRecord);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BigDecimal payment = dao.getPayment(paymentRecord);
+        assertThat(payment).isEqualTo(new BigDecimal("10"));
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return zero when no matching payment ext records exist")
+    void shouldReturnZeroPayment_whenNoMatchingRecordsExist() {
+        BillingONPayment paymentRecord = new BillingONPayment();
+        paymentRecord.setBillingNo(1);
+        paymentRecord.setPaymentDate(new Date());
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all billingonext records")
-        void shouldCountAllBillingONExts() {
-            BillingONExt entity = new BillingONExt();
-            billingONExtDao.persist(entity);
-            long count = billingONExtDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setPaymentId(2);
+        extraBillingPayment.setBillingNo(2);
+        extraBillingPayment.setKeyVal("notpayment");
+
+        paymentDao.persist(paymentRecord);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BigDecimal payment = dao.getPayment(paymentRecord);
+        assertThat(payment).isEqualTo(new BigDecimal("0.00"));
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return zero when payment value is not a valid number")
+    void shouldReturnZeroPayment_whenValueIsInvalid() {
+        BillingONPayment paymentRecord = new BillingONPayment();
+        paymentRecord.setBillingNo(1);
+        paymentRecord.setPaymentDate(new Date());
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setKeyVal("payment");
+        extraBillingPayment.setValue("abc123");
+        extraBillingPayment.setPaymentId(1);
+
+        paymentDao.persist(paymentRecord);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BigDecimal payment = dao.getPayment(paymentRecord);
+        assertThat(payment).isEqualTo(new BigDecimal("0.00"));
+    }
+
+    // --- getRefund tests ---
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return valid refund amount when matching ext record exists")
+    void shouldReturnRefund_whenValidDataProvided() {
+        BillingONPayment paymentRecord = new BillingONPayment();
+        paymentRecord.setBillingNo(1);
+        paymentRecord.setPaymentDate(new Date());
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setKeyVal("refund");
+        extraBillingPayment.setValue("10");
+        extraBillingPayment.setPaymentId(1);
+
+        paymentDao.persist(paymentRecord);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BigDecimal refund = dao.getRefund(paymentRecord);
+        assertThat(refund).isEqualTo(new BigDecimal("10"));
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return zero refund when no matching refund ext records exist")
+    void shouldReturnZeroRefund_whenNoMatchingRecordsExist() {
+        BillingONPayment paymentRecord = new BillingONPayment();
+        paymentRecord.setBillingNo(1);
+        paymentRecord.setPaymentDate(new Date());
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setPaymentId(2);
+        extraBillingPayment.setBillingNo(2);
+        extraBillingPayment.setKeyVal("notpayment");
+
+        paymentDao.persist(paymentRecord);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BigDecimal refund = dao.getRefund(paymentRecord);
+        assertThat(refund).isEqualTo(new BigDecimal("0.00"));
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return zero refund when refund value is not a valid number")
+    void shouldReturnZeroRefund_whenValueIsInvalid() {
+        BillingONPayment paymentRecord = new BillingONPayment();
+        paymentRecord.setBillingNo(1);
+        paymentRecord.setPaymentDate(new Date());
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setKeyVal("refund");
+        extraBillingPayment.setValue("abc123");
+        extraBillingPayment.setPaymentId(1);
+
+        paymentDao.persist(paymentRecord);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BigDecimal refund = dao.getRefund(paymentRecord);
+        assertThat(refund).isEqualTo(new BigDecimal("0.00"));
+    }
+
+    // --- getRemitTo tests ---
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return remitTo ext record when matching active record exists")
+    void shouldReturnRemitTo_whenValidDataProvided() throws Exception {
+        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
+        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setStatus('1');
+        extraBillingPayment.setKeyVal("remitTo");
+        extraBillingPayment.setPaymentId(1);
+
+        cHeader1Dao.persist(cHeader1);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BillingONExt billingRecord = dao.getRemitTo(cHeader1);
+        assertThat(billingRecord).isEqualTo(extraBillingPayment);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return null remitTo when status does not match active")
+    void shouldReturnNullRemitTo_whenStatusIsNotActive() throws Exception {
+        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
+        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setPaymentId(1);
+        extraBillingPayment.setStatus('A');
+        extraBillingPayment.setKeyVal("remitTo");
+
+        cHeader1Dao.persist(cHeader1);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BillingONExt billingRecord = dao.getRemitTo(cHeader1);
+        assertThat(billingRecord).isNull();
+    }
+
+    // --- getBillTo tests ---
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return billTo ext record when matching active record exists")
+    void shouldReturnBillTo_whenValidDataProvided() throws Exception {
+        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
+        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setStatus('1');
+        extraBillingPayment.setKeyVal("billTo");
+        extraBillingPayment.setPaymentId(1);
+
+        cHeader1Dao.persist(cHeader1);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BillingONExt billingRecord = dao.getBillTo(cHeader1);
+        assertThat(billingRecord).isEqualTo(extraBillingPayment);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return null billTo when status does not match active")
+    void shouldReturnNullBillTo_whenStatusIsNotActive() throws Exception {
+        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
+        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setPaymentId(1);
+        extraBillingPayment.setStatus('A');
+        extraBillingPayment.setKeyVal("billTo");
+
+        cHeader1Dao.persist(cHeader1);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BillingONExt billingRecord = dao.getBillTo(cHeader1);
+        assertThat(billingRecord).isNull();
+    }
+
+    // --- getBillToInactive tests ---
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return inactive billTo ext record when matching inactive record exists")
+    void shouldReturnBillToInactive_whenValidDataProvided() throws Exception {
+        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
+        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setStatus('0');
+        extraBillingPayment.setKeyVal("billTo");
+        extraBillingPayment.setPaymentId(1);
+
+        cHeader1Dao.persist(cHeader1);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BillingONExt billingRecord = dao.getBillToInactive(cHeader1);
+        assertThat(billingRecord).isEqualTo(extraBillingPayment);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return null billToInactive when status does not match inactive")
+    void shouldReturnNullBillToInactive_whenStatusIsNotInactive() throws Exception {
+        BillingONCHeader1 cHeader1 = new BillingONCHeader1();
+        EntityDataGenerator.generateTestDataForModelClass(cHeader1);
+
+        BillingONExt extraBillingPayment = new BillingONExt();
+        extraBillingPayment.setBillingNo(1);
+        extraBillingPayment.setPaymentId(1);
+        extraBillingPayment.setStatus('A');
+        extraBillingPayment.setKeyVal("billTo");
+
+        cHeader1Dao.persist(cHeader1);
+        dao.persist(extraBillingPayment);
+        hibernateTemplate.flush();
+
+        BillingONExt billingRecord = dao.getBillToInactive(cHeader1);
+        assertThat(billingRecord).isNull();
+    }
+
+    // --- find tests ---
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return non-null result when finding by billingNo, key, and date range")
+    void shouldReturnNonNullResult_whenFindingByBillingNoKeyAndDateRange() {
+        List<BillingONExt> result = dao.find(100, "KEY", new Date(), new Date());
+        assertThat(result).isNotNull();
     }
 }

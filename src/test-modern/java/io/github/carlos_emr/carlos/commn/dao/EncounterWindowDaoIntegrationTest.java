@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.EncounterWindow;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class EncounterWindowDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist encounterwindow with generated ID")
         void shouldPersistEncounterWindow_whenValidDataProvided() {
             EncounterWindow entity = new EncounterWindow();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterWindowDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class EncounterWindowDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find encounterwindow by ID")
         void shouldFindEncounterWindow_whenValidIdProvided() {
             EncounterWindow saved = new EncounterWindow();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             encounterWindowDao.persist(saved);
             EncounterWindow found = encounterWindowDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class EncounterWindowDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all encounterwindow records")
         void shouldCountAllEncounterWindows() {
             EncounterWindow entity = new EncounterWindow();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterWindowDao.persist(entity);
             long count = encounterWindowDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BillRecipients;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -56,6 +57,7 @@ public class BillRecipientsDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist entity with generated ID")
         void shouldPersist_whenValidDataProvided() {
             BillRecipients entity = new BillRecipients();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             billRecipientsDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -65,6 +67,7 @@ public class BillRecipientsDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find entity by ID")
         void shouldFind_whenValidIdProvided() {
             BillRecipients saved = new BillRecipients();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             billRecipientsDao.persist(saved);
             BillRecipients found = billRecipientsDao.find(saved.getId());
             assertThat(found).isNotNull();

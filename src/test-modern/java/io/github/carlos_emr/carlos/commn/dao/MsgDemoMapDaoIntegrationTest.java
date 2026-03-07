@@ -21,8 +21,8 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.MsgDemoMap;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -32,10 +32,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link MsgDemoMapDao} covering basic CRUD operations.
+ * Integration tests for {@link MsgDemoMapDao} covering create,
+ * getMessagesAndDemographicsByMessageId, and getMapAndMessagesByDemographicNo.
  *
  * <p>Migrated from legacy {@code MsgDemoMapDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -50,44 +51,50 @@ import static org.assertj.core.api.Assertions.*;
 public class MsgDemoMapDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private MsgDemoMapDao msgDemoMapDao;
+    private MsgDemoMapDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("Create operations")
+    class CreateOperations {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist msgdemomap with generated ID")
+        @DisplayName("should persist msg demo map with generated ID")
         void shouldPersistMsgDemoMap_whenValidDataProvided() {
             MsgDemoMap entity = new MsgDemoMap();
-            msgDemoMapDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            entity.setDemographic_no(1);
+            entity.setMessageID(1);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find msgdemomap by ID")
-        void shouldFindMsgDemoMap_whenValidIdProvided() {
-            MsgDemoMap saved = new MsgDemoMap();
-            msgDemoMapDao.persist(saved);
-            MsgDemoMap found = msgDemoMapDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("getMessagesAndDemographicsByMessageId")
+    class GetMessagesAndDemographicsByMessageId {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all msgdemomap records")
-        void shouldCountAllMsgDemoMaps() {
-            MsgDemoMap entity = new MsgDemoMap();
-            msgDemoMapDao.persist(entity);
-            long count = msgDemoMapDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @Tag("read")
+        @DisplayName("should return non-null result for any message ID")
+        void shouldReturnNonNullResult_whenCalledWithMessageId() {
+            List<Object[]> result = dao.getMessagesAndDemographicsByMessageId(100);
+
+            assertThat(result).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getMapAndMessagesByDemographicNo")
+    class GetMapAndMessagesByDemographicNo {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return non-null result for any demographic number")
+        void shouldReturnNonNullResult_whenCalledWithDemographicNo() {
+            List<Object[]> result = dao.getMapAndMessagesByDemographicNo(100);
+
+            assertThat(result).isNotNull();
         }
     }
 }

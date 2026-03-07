@@ -21,21 +21,19 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.IncomingLabRules;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link IncomingLabRulesDao} covering basic CRUD operations.
+ * Integration tests for {@link IncomingLabRulesDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code IncomingLabRulesDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +43,27 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("IncomingLabRules Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("lab")
 @Transactional
 public class IncomingLabRulesDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private IncomingLabRulesDao incomingLabRulesDao;
+    private IncomingLabRulesDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist incoming lab rules with generated ID")
+    void shouldPersistIncomingLabRules_whenValidDataProvided() {
+        IncomingLabRules entity = new IncomingLabRules();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist incominglabrules with generated ID")
-        void shouldPersistIncomingLabRules_whenValidDataProvided() {
-            IncomingLabRules entity = new IncomingLabRules();
-            incomingLabRulesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find incominglabrules by ID")
-        void shouldFindIncomingLabRules_whenValidIdProvided() {
-            IncomingLabRules saved = new IncomingLabRules();
-            incomingLabRulesDao.persist(saved);
-            IncomingLabRules found = incomingLabRulesDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
-
-        @Test
-        @Tag("query")
-        @DisplayName("should count all incominglabrules records")
-        void shouldCountAllIncomingLabRuless() {
-            IncomingLabRules entity = new IncomingLabRules();
-            incomingLabRulesDao.persist(entity);
-            long count = incomingLabRulesDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return non-null result when finding rules by provider number")
+    void shouldReturnNonNullResult_whenFindingRulesByProviderNo() {
+        assertThat(dao.findRules("123")).isNotNull();
     }
 }

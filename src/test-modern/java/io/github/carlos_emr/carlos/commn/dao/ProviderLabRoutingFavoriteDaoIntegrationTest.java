@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class ProviderLabRoutingFavoriteDaoIntegrationTest extends CarlosTestBase
         @DisplayName("should persist providerlabroutingfavorite with generated ID")
         void shouldPersistProviderLabRoutingFavorite_whenValidDataProvided() {
             ProviderLabRoutingFavorite entity = new ProviderLabRoutingFavorite();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             providerLabRoutingFavoritesDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class ProviderLabRoutingFavoriteDaoIntegrationTest extends CarlosTestBase
         @DisplayName("should find providerlabroutingfavorite by ID")
         void shouldFindProviderLabRoutingFavorite_whenValidIdProvided() {
             ProviderLabRoutingFavorite saved = new ProviderLabRoutingFavorite();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             providerLabRoutingFavoritesDao.persist(saved);
             ProviderLabRoutingFavorite found = providerLabRoutingFavoritesDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -82,12 +85,30 @@ public class ProviderLabRoutingFavoriteDaoIntegrationTest extends CarlosTestBase
 
         @Test
         @Tag("query")
-        @DisplayName("should count all providerlabroutingfavorite records")
-        void shouldCountAllProviderLabRoutingFavorites() {
-            ProviderLabRoutingFavorite entity = new ProviderLabRoutingFavorite();
-            providerLabRoutingFavoritesDao.persist(entity);
-            long count = providerLabRoutingFavoritesDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should find favorites by provider number")
+        void shouldFindFavorites_byProviderNo() {
+            String providerNo1 = "100";
+            String providerNo2 = "200";
+
+            ProviderLabRoutingFavorite fav1 = new ProviderLabRoutingFavorite();
+            EntityDataGenerator.generateTestDataForModelClass(fav1);
+            fav1.setProvider_no(providerNo1);
+            providerLabRoutingFavoritesDao.persist(fav1);
+
+            ProviderLabRoutingFavorite fav2 = new ProviderLabRoutingFavorite();
+            EntityDataGenerator.generateTestDataForModelClass(fav2);
+            fav2.setProvider_no(providerNo2);
+            providerLabRoutingFavoritesDao.persist(fav2);
+
+            ProviderLabRoutingFavorite fav3 = new ProviderLabRoutingFavorite();
+            EntityDataGenerator.generateTestDataForModelClass(fav3);
+            fav3.setProvider_no(providerNo1);
+            providerLabRoutingFavoritesDao.persist(fav3);
+
+            List<ProviderLabRoutingFavorite> result = providerLabRoutingFavoritesDao.findFavorites(providerNo1);
+
+            assertThat(result).hasSize(2);
+            assertThat(result).containsExactly(fav1, fav3);
         }
     }
 }

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Msh;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -56,6 +57,7 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist entity with generated ID")
         void shouldPersist_whenValidDataProvided() {
             Hl7Msh entity = new Hl7Msh();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             hl7MshDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -65,6 +67,7 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find entity by ID")
         void shouldFind_whenValidIdProvided() {
             Hl7Msh saved = new Hl7Msh();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             hl7MshDao.persist(saved);
             Hl7Msh found = hl7MshDao.find(saved.getId());
             assertThat(found).isNotNull();

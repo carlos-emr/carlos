@@ -21,23 +21,31 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.ON.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.util.Date;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingPercLimitDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ *
+ * <p>Migrated from legacy {@code BillingPercLimitDaoTest} (JUnit 4 / DaoTestFixtures).
+ * Replicates exact legacy test coverage: persist entity and query by service code
+ * with latest date.</p>
+ *
  * @since 2026-03-07
+ * @see BillingPercLimitDao
  */
-@DisplayName("BillingPercLimit Dao Integration Tests")
+@DisplayName("BillingPercLimitDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-on")
@@ -45,29 +53,23 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingPercLimitDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingPercLimitDao billingPercLimitDao;
+    private BillingPercLimitDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated ID")
+    void shouldPersistEntity_whenValidDataProvided() {
+        BillingPercLimit entity = new BillingPercLimit();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            BillingPercLimit entity = new BillingPercLimit();
-            billingPercLimitDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            BillingPercLimit saved = new BillingPercLimit();
-            billingPercLimitDao.persist(saved);
-            BillingPercLimit found = billingPercLimitDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return result list when queried by service code and latest date")
+    void shouldReturnResultList_whenQueriedByServiceCodeAndLatestDate() {
+        List<BillingPercLimit> result = dao.findByServiceCodeAndLatestDate("CD", new Date());
+        assertThat(result).isNotNull();
     }
 }

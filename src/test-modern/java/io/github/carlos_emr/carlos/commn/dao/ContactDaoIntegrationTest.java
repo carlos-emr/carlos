@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Contact;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,19 +31,23 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link ContactDao} covering basic CRUD operations.
+ * Integration tests for {@link ContactDao} covering search with
+ * search_name mode (last name + first name, last name only) and
+ * non-search_name mode (province search).
  *
- * <p>Migrated from legacy {@code ContactDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Migrated from legacy {@code ContactDaoTest}
+ * (JUnit 4 / DaoTestFixtures) with exact same test logic and assertions.</p>
  *
  * @since 2026-03-07
  * @see ContactDao
  */
-@DisplayName("Contact Dao Integration Tests")
+@DisplayName("ContactDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("demographic")
@@ -50,44 +55,136 @@ import static org.assertj.core.api.Assertions.*;
 public class ContactDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ContactDao contactDao;
+    private ContactDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("search with search_name mode - LastName, FirstName")
+    @Tag("search")
+    class SearchByLastNameFirstName {
 
+        /**
+         * Ensures that search() returns accurate list of contacts where
+         * the keyword is comma separated (lastname, firstname), and searchMode is search_name.
+         */
         @Test
-        @Tag("create")
-        @DisplayName("should persist contact with generated ID")
-        void shouldPersistContact_whenValidDataProvided() {
-            Contact entity = new Contact();
-            contactDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+        @DisplayName("should return contacts matching last name and first name")
+        void shouldReturnContacts_whenLastNameAndFirstNameMatch() {
+            String keyword = "Smith, Jon";
+            String orderBy = "c.id";
+            String searchMode = "search_name";
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find contact by ID")
-        void shouldFindContact_whenValidIdProvided() {
-            Contact saved = new Contact();
-            contactDao.persist(saved);
-            Contact found = contactDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            Contact contact1 = new Contact();
+            EntityDataGenerator.generateTestDataForModelClass(contact1);
+            contact1.setLastName("Smith");
+            contact1.setFirstName("Jon");
+
+            Contact contact2 = new Contact();
+            EntityDataGenerator.generateTestDataForModelClass(contact2);
+            contact2.setLastName("Smith");
+            contact2.setFirstName("Jon");
+
+            Contact contact3 = new Contact();
+            EntityDataGenerator.generateTestDataForModelClass(contact3);
+            contact3.setLastName("Smith");
+            contact3.setFirstName("Jim");
+
+            dao.persist(contact1);
+            dao.persist(contact2);
+            dao.persist(contact3);
+            hibernateTemplate.flush();
+
+            List<Contact> result = dao.search(searchMode, orderBy, keyword);
+            List<Contact> expectedResult = Arrays.asList(contact1, contact2);
+
+            assertThat(result).hasSameSizeAs(expectedResult);
+            for (int i = 0; i < expectedResult.size(); i++) {
+                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
+            }
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("search with search_name mode - LastName only")
+    @Tag("search")
+    class SearchByLastName {
 
+        /**
+         * Ensures that search() returns accurate list of contacts where
+         * the keyword is lastname only, and searchMode is search_name.
+         */
         @Test
-        @Tag("query")
-        @DisplayName("should count all contact records")
-        void shouldCountAllContacts() {
-            Contact entity = new Contact();
-            contactDao.persist(entity);
-            long count = contactDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return contacts matching last name only")
+        void shouldReturnContacts_whenLastNameMatches() {
+            String keyword = "Smith";
+            String orderBy = "c.id";
+            String searchMode = "search_name";
+
+            Contact contact1 = new Contact();
+            EntityDataGenerator.generateTestDataForModelClass(contact1);
+            contact1.setLastName("Smith");
+            dao.persist(contact1);
+
+            Contact contact2 = new Contact();
+            EntityDataGenerator.generateTestDataForModelClass(contact2);
+            contact2.setLastName("Jackson");
+            dao.persist(contact2);
+
+            Contact contact3 = new Contact();
+            EntityDataGenerator.generateTestDataForModelClass(contact3);
+            contact3.setLastName("Smith");
+            dao.persist(contact3);
+            hibernateTemplate.flush();
+
+            List<Contact> result = dao.search(searchMode, orderBy, keyword);
+            List<Contact> expectedResult = Arrays.asList(contact1, contact3);
+
+            assertThat(result).hasSameSizeAs(expectedResult);
+            for (int i = 0; i < expectedResult.size(); i++) {
+                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("search with non-search_name mode")
+    @Tag("search")
+    class SearchByProvince {
+
+        /**
+         * Ensures that search() returns accurate list of contacts where
+         * the searchMode is anything other than search_name.
+         */
+        @Test
+        @DisplayName("should return contacts matching province when search mode is province")
+        void shouldReturnContacts_whenProvinceMatches() {
+            String keyword = "ON";
+            String orderBy = "c.id";
+            String searchMode = "province";
+
+            Contact contact1 = new Contact();
+            EntityDataGenerator.generateTestDataForModelClass(contact1);
+            contact1.setProvince("BC");
+
+            Contact contact2 = new Contact();
+            EntityDataGenerator.generateTestDataForModelClass(contact2);
+            contact2.setProvince("ON");
+
+            Contact contact3 = new Contact();
+            EntityDataGenerator.generateTestDataForModelClass(contact3);
+            contact3.setProvince("ON");
+
+            dao.persist(contact1);
+            dao.persist(contact2);
+            dao.persist(contact3);
+            hibernateTemplate.flush();
+
+            List<Contact> result = dao.search(searchMode, orderBy, keyword);
+            List<Contact> expectedResult = Arrays.asList(contact2, contact3);
+
+            assertThat(result).hasSameSizeAs(expectedResult);
+            for (int i = 0; i < expectedResult.size(); i++) {
+                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
+            }
         }
     }
 }

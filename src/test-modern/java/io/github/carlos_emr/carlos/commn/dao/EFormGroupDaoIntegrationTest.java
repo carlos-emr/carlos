@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.EFormGroup;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist eformgroup with generated ID")
         void shouldPersistEFormGroup_whenValidDataProvided() {
             EFormGroup entity = new EFormGroup();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             eFormGroupDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find eformgroup by ID")
         void shouldFindEFormGroup_whenValidIdProvided() {
             EFormGroup saved = new EFormGroup();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             eFormGroupDao.persist(saved);
             EFormGroup found = eFormGroupDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all records")
         void shouldCountAllRecords() {
             EFormGroup entity = new EFormGroup();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             eFormGroupDao.persist(entity);
             long count = eFormGroupDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

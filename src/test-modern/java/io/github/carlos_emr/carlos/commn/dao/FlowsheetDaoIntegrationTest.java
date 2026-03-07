@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Flowsheet;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -32,12 +33,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link FlowsheetDao}.
+ * Integration tests for {@link FlowsheetDao} covering create, findAll, and findByName.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code FlowsheetDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see FlowsheetDao
@@ -50,44 +51,81 @@ import static org.assertj.core.api.Assertions.*;
 public class FlowsheetDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private FlowsheetDao flowsheetDao;
+    private FlowsheetDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("Create operations")
+    class CreateOperations {
 
         @Test
         @Tag("create")
         @DisplayName("should persist flowsheet with generated ID")
         void shouldPersistFlowsheet_whenValidDataProvided() {
             Flowsheet entity = new Flowsheet();
-            flowsheetDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find flowsheet by ID")
-        void shouldFindFlowsheet_whenValidIdProvided() {
-            Flowsheet saved = new Flowsheet();
-            flowsheetDao.persist(saved);
-            Flowsheet found = flowsheetDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("findAll")
+    class FindAll {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            Flowsheet entity = new Flowsheet();
-            flowsheetDao.persist(entity);
-            long count = flowsheetDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @Tag("read")
+        @DisplayName("should return all persisted flowsheets")
+        void shouldReturnAllFlowsheets_whenMultipleExist() {
+            Flowsheet fs1 = new Flowsheet();
+            EntityDataGenerator.generateTestDataForModelClass(fs1);
+            dao.persist(fs1);
+
+            Flowsheet fs2 = new Flowsheet();
+            EntityDataGenerator.generateTestDataForModelClass(fs2);
+            dao.persist(fs2);
+
+            Flowsheet fs3 = new Flowsheet();
+            EntityDataGenerator.generateTestDataForModelClass(fs3);
+            dao.persist(fs3);
+
+            Flowsheet fs4 = new Flowsheet();
+            EntityDataGenerator.generateTestDataForModelClass(fs4);
+            dao.persist(fs4);
+
+            List<Flowsheet> result = dao.findAll();
+
+            assertThat(result).hasSize(4);
+            assertThat(result).containsExactly(fs1, fs2, fs3, fs4);
+        }
+    }
+
+    @Nested
+    @DisplayName("findByName")
+    class FindByName {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return flowsheet matching the given name")
+        void shouldReturnFlowsheet_whenNameMatches() {
+            Flowsheet fs1 = new Flowsheet();
+            EntityDataGenerator.generateTestDataForModelClass(fs1);
+            fs1.setName("alpha");
+            dao.persist(fs1);
+
+            Flowsheet fs2 = new Flowsheet();
+            EntityDataGenerator.generateTestDataForModelClass(fs2);
+            fs2.setName("bravo");
+            dao.persist(fs2);
+
+            Flowsheet fs3 = new Flowsheet();
+            EntityDataGenerator.generateTestDataForModelClass(fs3);
+            fs3.setName("charlie");
+            dao.persist(fs3);
+
+            Flowsheet result = dao.findByName("bravo");
+
+            assertThat(result).isEqualTo(fs2);
         }
     }
 }

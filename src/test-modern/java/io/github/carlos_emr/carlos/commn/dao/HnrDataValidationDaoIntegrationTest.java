@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.HnrDataValidation;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class HnrDataValidationDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist hnrdatavalidation with generated ID")
         void shouldPersistHnrDataValidation_whenValidDataProvided() {
             HnrDataValidation entity = new HnrDataValidation();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             hnrDataValidationDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class HnrDataValidationDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find hnrdatavalidation by ID")
         void shouldFindHnrDataValidation_whenValidIdProvided() {
             HnrDataValidation saved = new HnrDataValidation();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             hnrDataValidationDao.persist(saved);
             HnrDataValidation found = hnrDataValidationDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class HnrDataValidationDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all hnrdatavalidation records")
         void shouldCountAllHnrDataValidations() {
             HnrDataValidation entity = new HnrDataValidation();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             hnrDataValidationDao.persist(entity);
             long count = hnrDataValidationDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

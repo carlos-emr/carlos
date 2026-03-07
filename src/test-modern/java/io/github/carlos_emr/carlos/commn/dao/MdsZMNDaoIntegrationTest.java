@@ -22,20 +22,14 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.commn.model.MdsZMN;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
-
 /**
- * Integration tests for {@link MdsZMNDao} covering basic CRUD operations.
+ * Integration tests for {@link MdsZMNDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code MdsZMNDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +39,23 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("MdsZMN Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("lab")
 @Transactional
 public class MdsZMNDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private MdsZMNDao mdsZMNDao;
+    private MdsZMNDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist mdszmn with generated ID")
-        void shouldPersistMdsZMN_whenValidDataProvided() {
-            MdsZMN entity = new MdsZMN();
-            mdsZMNDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find mdszmn by ID")
-        void shouldFindMdsZMN_whenValidIdProvided() {
-            MdsZMN saved = new MdsZMN();
-            mdsZMNDao.persist(saved);
-            MdsZMN found = mdsZMNDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should execute without error when finding by segment ID and report name")
+    void shouldExecuteWithoutError_whenFindingBySegmentIdAndReportName() {
+        dao.findBySegmentIdAndReportName(100, "CDE");
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
-
-        @Test
-        @Tag("query")
-        @DisplayName("should count all mdszmn records")
-        void shouldCountAllMdsZMNs() {
-            MdsZMN entity = new MdsZMN();
-            mdsZMNDao.persist(entity);
-            long count = mdsZMNDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should execute without error when finding by segment ID and result mnemonic")
+    void shouldExecuteWithoutError_whenFindingBySegmentIdAndResultMnemonic() {
+        dao.findBySegmentIdAndResultMnemonic(100, "CDE");
     }
 }

@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.DocumentDescriptionTemplate;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,19 +31,22 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link DocumentDescriptionTemplateDao} covering basic CRUD operations.
+ * Integration tests for {@link DocumentDescriptionTemplateDao} covering create,
+ * find, and findByDocTypeAndProviderNo.
  *
- * <p>Migrated from legacy {@code DocumentDescriptionTemplateDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Migrated from legacy {@code DocumentDescriptionTemplateDaoTest}
+ * (JUnit 4 / DaoTestFixtures) with exact same test logic and assertions.</p>
  *
  * @since 2026-03-07
  * @see DocumentDescriptionTemplateDao
  */
-@DisplayName("DocumentDescriptionTemplate Dao Integration Tests")
+@DisplayName("DocumentDescriptionTemplateDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("document")
@@ -50,44 +54,102 @@ import static org.assertj.core.api.Assertions.*;
 public class DocumentDescriptionTemplateDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private DocumentDescriptionTemplateDao documentDescriptionTemplateDao;
+    private DocumentDescriptionTemplateDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("create tests")
+    @Tag("create")
+    class Create {
 
         @Test
-        @Tag("create")
-        @DisplayName("should persist documentdescriptiontemplate with generated ID")
-        void shouldPersistDocumentDescriptionTemplate_whenValidDataProvided() {
+        @DisplayName("should persist entity with generated id")
+        void shouldPersistEntity_withGeneratedId() {
             DocumentDescriptionTemplate entity = new DocumentDescriptionTemplate();
-            documentDescriptionTemplateDao.persist(entity);
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
             assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find documentdescriptiontemplate by ID")
-        void shouldFindDocumentDescriptionTemplate_whenValidIdProvided() {
-            DocumentDescriptionTemplate saved = new DocumentDescriptionTemplate();
-            documentDescriptionTemplateDao.persist(saved);
-            DocumentDescriptionTemplate found = documentDescriptionTemplateDao.find(saved.getId());
-            assertThat(found).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("find tests")
+    @Tag("read")
+    class Find {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all documentdescriptiontemplate records")
-        void shouldCountAllDocumentDescriptionTemplates() {
-            DocumentDescriptionTemplate entity = new DocumentDescriptionTemplate();
-            documentDescriptionTemplateDao.persist(entity);
-            long count = documentDescriptionTemplateDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return correct entity when found by id")
+        void shouldReturnCorrectEntity_whenFoundById() {
+            DocumentDescriptionTemplate ddt1 = new DocumentDescriptionTemplate();
+            EntityDataGenerator.generateTestDataForModelClass(ddt1);
+            ddt1.setDescription("alpha");
+            ddt1.setDescriptionShortcut("alpha");
+            ddt1.setDocType("alpha");
+            ddt1.setProviderNo("123456");
+            dao.persist(ddt1);
+
+            DocumentDescriptionTemplate ddt2 = new DocumentDescriptionTemplate();
+            EntityDataGenerator.generateTestDataForModelClass(ddt2);
+            ddt2.setDescription("bravo");
+            ddt2.setDescriptionShortcut("bravo");
+            ddt2.setDocType("bravo");
+            ddt2.setProviderNo(null);
+            dao.persist(ddt2);
+
+            int id = ddt2.getId();
+
+            DocumentDescriptionTemplate ddt3 = new DocumentDescriptionTemplate();
+            EntityDataGenerator.generateTestDataForModelClass(ddt3);
+            dao.persist(ddt3);
+            hibernateTemplate.flush();
+
+            DocumentDescriptionTemplate result = dao.find(id);
+            assertThat(result).isEqualTo(ddt2);
+        }
+    }
+
+    @Nested
+    @DisplayName("findByDocTypeAndProviderNo tests")
+    @Tag("read")
+    class FindByDocTypeAndProviderNo {
+
+        @Test
+        @DisplayName("should return matching templates when docType and providerNo match")
+        void shouldReturnMatchingTemplates_whenDocTypeAndProviderNoMatch() {
+            String docType = "mylab";
+            String providerNo = "123456";
+
+            DocumentDescriptionTemplate ddt1 = new DocumentDescriptionTemplate();
+            EntityDataGenerator.generateTestDataForModelClass(ddt1);
+            ddt1.setDescription("alpha");
+            ddt1.setDescriptionShortcut("a");
+            ddt1.setDocType(docType);
+            ddt1.setProviderNo(providerNo);
+            dao.persist(ddt1);
+
+            DocumentDescriptionTemplate ddt2 = new DocumentDescriptionTemplate();
+            EntityDataGenerator.generateTestDataForModelClass(ddt2);
+            ddt2.setDescription("bravo");
+            ddt2.setDescriptionShortcut("b");
+            ddt2.setDocType("bravo");
+            ddt2.setProviderNo(null);
+            dao.persist(ddt2);
+
+            DocumentDescriptionTemplate ddt3 = new DocumentDescriptionTemplate();
+            EntityDataGenerator.generateTestDataForModelClass(ddt3);
+            ddt3.setDescription("charlie");
+            ddt3.setDescriptionShortcut("c");
+            ddt3.setDocType(docType);
+            ddt3.setProviderNo(providerNo);
+            dao.persist(ddt3);
+            hibernateTemplate.flush();
+
+            List<DocumentDescriptionTemplate> expectedResult = Arrays.asList(ddt1, ddt3);
+            List<DocumentDescriptionTemplate> result = dao.findByDocTypeAndProviderNo(docType, providerNo);
+
+            assertThat(result).hasSameSizeAs(expectedResult);
+            for (int i = 0; i < expectedResult.size(); i++) {
+                assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
+            }
         }
     }
 }

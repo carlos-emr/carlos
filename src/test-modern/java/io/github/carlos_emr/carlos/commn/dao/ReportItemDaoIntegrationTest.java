@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.ReportItem;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist reportitem with generated ID")
         void shouldPersistReportItem_whenValidDataProvided() {
             ReportItem entity = new ReportItem();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             reportItemDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find reportitem by ID")
         void shouldFindReportItem_whenValidIdProvided() {
             ReportItem saved = new ReportItem();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             reportItemDao.persist(saved);
             ReportItem found = reportItemDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all reportitem records")
         void shouldCountAllReportItems() {
             ReportItem entity = new ReportItem();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             reportItemDao.persist(entity);
             long count = reportItemDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

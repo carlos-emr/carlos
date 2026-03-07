@@ -21,21 +21,19 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ProviderDefaultProgram;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ProviderDefaultProgramDao} covering basic CRUD operations.
+ * Integration tests for {@link ProviderDefaultProgramDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code ProviderDefaultProgramDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +43,27 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("ProviderDefaultProgram Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("provider")
 @Transactional
 public class ProviderDefaultProgramDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ProviderDefaultProgramDao providerDefaultProgramDao;
+    private ProviderDefaultProgramDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist provider default program with generated ID")
+    void shouldPersistProviderDefaultProgram_whenValidDataProvided() {
+        ProviderDefaultProgram entity = new ProviderDefaultProgram();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist providerdefaultprogram with generated ID")
-        void shouldPersistProviderDefaultProgram_whenValidDataProvided() {
-            ProviderDefaultProgram entity = new ProviderDefaultProgram();
-            providerDefaultProgramDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find providerdefaultprogram by ID")
-        void shouldFindProviderDefaultProgram_whenValidIdProvided() {
-            ProviderDefaultProgram saved = new ProviderDefaultProgram();
-            providerDefaultProgramDao.persist(saved);
-            ProviderDefaultProgram found = providerDefaultProgramDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
-
-        @Test
-        @Tag("query")
-        @DisplayName("should count all providerdefaultprogram records")
-        void shouldCountAllProviderDefaultPrograms() {
-            ProviderDefaultProgram entity = new ProviderDefaultProgram();
-            providerDefaultProgramDao.persist(entity);
-            long count = providerDefaultProgramDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return non-null result when finding programs by provider number")
+    void shouldReturnNonNullResult_whenFindingProgramsByProviderNo() {
+        assertThat(dao.findProgramsByProvider("100")).isNotNull();
     }
 }

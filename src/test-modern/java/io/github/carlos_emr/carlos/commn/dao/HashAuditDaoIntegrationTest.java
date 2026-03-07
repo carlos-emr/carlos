@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.HashAudit;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class HashAuditDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist hashaudit with generated ID")
         void shouldPersistHashAudit_whenValidDataProvided() {
             HashAudit entity = new HashAudit();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             hashAuditDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class HashAuditDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find hashaudit by ID")
         void shouldFindHashAudit_whenValidIdProvided() {
             HashAudit saved = new HashAudit();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             hashAuditDao.persist(saved);
             HashAudit found = hashAuditDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class HashAuditDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all hashaudit records")
         void shouldCountAllHashAudits() {
             HashAudit entity = new HashAudit();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             hashAuditDao.persist(entity);
             long count = hashAuditDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

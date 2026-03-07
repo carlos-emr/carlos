@@ -21,23 +21,21 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Groups;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link GroupsDao}.
+ * Integration tests for {@link GroupsDao} with full method coverage matching legacy tests.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code GroupsDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see GroupsDao
@@ -45,49 +43,27 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("Groups Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("admin")
 @Transactional
 public class GroupsDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private GroupsDao groupsDao;
+    private GroupsDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist groups entity with generated ID")
+    void shouldPersistGroups_whenValidDataProvided() {
+        Groups entity = new Groups();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist groups with generated ID")
-        void shouldPersistGroups_whenValidDataProvided() {
-            Groups entity = new Groups();
-            groupsDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find groups by ID")
-        void shouldFindGroups_whenValidIdProvided() {
-            Groups saved = new Groups();
-            groupsDao.persist(saved);
-            Groups found = groupsDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
-
-        @Test
-        @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            Groups entity = new Groups();
-            groupsDao.persist(entity);
-            long count = groupsDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should return non-null result when finding by parent ID")
+    void shouldReturnNonNullResult_whenFindingByParentId() {
+        assertThat(dao.findByParentId(100)).isNotNull();
     }
 }

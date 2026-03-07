@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.QuickListUser;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class QuickListUserDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist quicklistuser with generated ID")
         void shouldPersistQuickListUser_whenValidDataProvided() {
             QuickListUser entity = new QuickListUser();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             quickListUserDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class QuickListUserDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find quicklistuser by ID")
         void shouldFindQuickListUser_whenValidIdProvided() {
             QuickListUser saved = new QuickListUser();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             quickListUserDao.persist(saved);
             QuickListUser found = quickListUserDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class QuickListUserDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all quicklistuser records")
         void shouldCountAllQuickListUsers() {
             QuickListUser entity = new QuickListUser();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             quickListUserDao.persist(entity);
             long count = quickListUserDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

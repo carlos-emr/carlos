@@ -21,23 +21,26 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.util.Date;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link Hl7LinkDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy JUnit 4 Hl7LinkDaoTest with full method coverage.</p>
+ *
  * @since 2026-03-07
  */
-@DisplayName("Hl7Link Dao Integration Tests")
+@DisplayName("Hl7LinkDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-bc")
@@ -45,29 +48,46 @@ import static org.assertj.core.api.Assertions.*;
 public class Hl7LinkDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private Hl7LinkDao hl7LinkDao;
+    private Hl7LinkDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated test data")
+    void shouldPersistEntity_whenValidDataProvided() {
+        Hl7Link entity = new Hl7Link();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setId(1);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            Hl7Link entity = new Hl7Link();
-            hl7LinkDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find labs with linked demographics")
+    void shouldReturnLabs_whenQueried() {
+        assertThat(dao.findLabs()).isNotNull();
+    }
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            Hl7Link saved = new Hl7Link();
-            hl7LinkDao.persist(saved);
-            Hl7Link found = hl7LinkDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find magic links matching HIN to external ID")
+    void shouldReturnMagicLinks_whenQueried() {
+        assertThat(dao.findMagicLinks()).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find links and request dates by demographic ID")
+    void shouldReturnLinksAndRequestDates_byDemographicId() {
+        assertThat(dao.findLinksAndRequestDates(100)).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find reports with various provider filters")
+    void shouldReturnReports_withVariousProviderFilters() {
+        assertThat(dao.findReports(new Date(), new Date(), "-ULL", "patient_name", "CMD")).isNotNull();
+        assertThat(dao.findReports(new Date(), new Date(), "-APL", "patient_name", "CMD")).isNotNull();
+        assertThat(dao.findReports(new Date(), new Date(), "-UAP", "patient_name", "CMD")).isNotNull();
     }
 }

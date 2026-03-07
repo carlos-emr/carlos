@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -32,10 +33,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ReportTemplatesDao} covering basic CRUD operations.
+ * Integration tests for {@link ReportTemplatesDao} covering create, findAll, and findActive.
  *
  * <p>Migrated from legacy {@code ReportTemplatesDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -50,44 +51,90 @@ import static org.assertj.core.api.Assertions.*;
 public class ReportTemplatesDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ReportTemplatesDao reportTemplatesDao;
+    private ReportTemplatesDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("Create operations")
+    class CreateOperations {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist reporttemplates with generated ID")
-        void shouldPersistReportTemplates_whenValidDataProvided() {
+        @DisplayName("should persist report template with generated ID")
+        void shouldPersistReportTemplate_whenValidDataProvided() {
             ReportTemplates entity = new ReportTemplates();
-            reportTemplatesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find reporttemplates by ID")
-        void shouldFindReportTemplates_whenValidIdProvided() {
-            ReportTemplates saved = new ReportTemplates();
-            reportTemplatesDao.persist(saved);
-            ReportTemplates found = reportTemplatesDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("findAll")
+    class FindAll {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all reporttemplates records")
-        void shouldCountAllReportTemplatess() {
-            ReportTemplates entity = new ReportTemplates();
-            reportTemplatesDao.persist(entity);
-            long count = reportTemplatesDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @Tag("read")
+        @DisplayName("should return all persisted report templates")
+        void shouldReturnAllTemplates_whenMultipleExist() {
+            ReportTemplates rt1 = new ReportTemplates();
+            EntityDataGenerator.generateTestDataForModelClass(rt1);
+            dao.persist(rt1);
+
+            ReportTemplates rt2 = new ReportTemplates();
+            EntityDataGenerator.generateTestDataForModelClass(rt2);
+            dao.persist(rt2);
+
+            ReportTemplates rt3 = new ReportTemplates();
+            EntityDataGenerator.generateTestDataForModelClass(rt3);
+            dao.persist(rt3);
+
+            ReportTemplates rt4 = new ReportTemplates();
+            EntityDataGenerator.generateTestDataForModelClass(rt4);
+            dao.persist(rt4);
+
+            List<ReportTemplates> result = dao.findAll();
+
+            assertThat(result).hasSize(4);
+            assertThat(result).containsExactly(rt1, rt2, rt3, rt4);
+        }
+    }
+
+    @Nested
+    @DisplayName("findActive")
+    class FindActive {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return only templates with active status of 1")
+        void shouldReturnActiveTemplates_whenMixedActiveStatusExists() {
+            int active = 1;
+            int inactive = 2;
+
+            ReportTemplates rt1 = new ReportTemplates();
+            EntityDataGenerator.generateTestDataForModelClass(rt1);
+            rt1.setActive(active);
+            dao.persist(rt1);
+
+            ReportTemplates rt2 = new ReportTemplates();
+            EntityDataGenerator.generateTestDataForModelClass(rt2);
+            rt2.setActive(inactive);
+            dao.persist(rt2);
+
+            ReportTemplates rt3 = new ReportTemplates();
+            EntityDataGenerator.generateTestDataForModelClass(rt3);
+            rt3.setActive(active);
+            dao.persist(rt3);
+
+            ReportTemplates rt4 = new ReportTemplates();
+            EntityDataGenerator.generateTestDataForModelClass(rt4);
+            rt4.setActive(active);
+            dao.persist(rt4);
+
+            List<ReportTemplates> result = dao.findActive();
+
+            assertThat(result).hasSize(3);
+            assertThat(result).containsExactly(rt1, rt3, rt4);
         }
     }
 }

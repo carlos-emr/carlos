@@ -21,21 +21,25 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ReportLetters;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ReportLettersDao} covering basic CRUD operations.
+ * Integration tests for {@link ReportLettersDao} with full method coverage matching legacy tests.
  *
  * <p>Migrated from legacy {@code ReportLettersDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -45,49 +49,80 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("ReportLetters Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("reporting")
 @Transactional
 public class ReportLettersDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ReportLettersDao reportLettersDao;
+    private ReportLettersDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist reportletters with generated ID")
-        void shouldPersistReportLetters_whenValidDataProvided() {
-            ReportLetters entity = new ReportLetters();
-            reportLettersDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("create")
+    @DisplayName("should persist report letters with generated ID")
+    void shouldPersistReportLetters_whenValidDataProvided() throws Exception {
+        ReportLetters entity = new ReportLetters();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find reportletters by ID")
-        void shouldFindReportLetters_whenValidIdProvided() {
-            ReportLetters saved = new ReportLetters();
-            reportLettersDao.persist(saved);
-            ReportLetters found = reportLettersDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return only non-archived report letters when finding current")
+    void shouldReturnNonArchivedReportLetters_whenFindingCurrent() throws Exception {
+        String archive0 = "0", archive1 = "1";
+        String reportName1 = "alpha", reportName2 = "bravo", reportName3 = "charlie",
+                reportName4 = "delta", reportName5 = "epislon";
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all reportletters records")
-        void shouldCountAllReportLetterss() {
-            ReportLetters entity = new ReportLetters();
-            reportLettersDao.persist(entity);
-            long count = reportLettersDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        Date date1 = new Date(dfm.parse("20020101").getTime());
+        Date date2 = new Date(dfm.parse("20040101").getTime());
+        Date date3 = new Date(dfm.parse("20060101").getTime());
+        Date date4 = new Date(dfm.parse("20080101").getTime());
+        Date date5 = new Date(dfm.parse("20110101").getTime());
+
+        ReportLetters reportLetters1 = new ReportLetters();
+        EntityDataGenerator.generateTestDataForModelClass(reportLetters1);
+        reportLetters1.setArchive(archive0);
+        reportLetters1.setDateTime(date1);
+        reportLetters1.setReportName(reportName1);
+        dao.persist(reportLetters1);
+
+        ReportLetters reportLetters2 = new ReportLetters();
+        EntityDataGenerator.generateTestDataForModelClass(reportLetters2);
+        reportLetters2.setArchive(archive1);
+        reportLetters2.setDateTime(date2);
+        reportLetters2.setReportName(reportName2);
+        dao.persist(reportLetters2);
+
+        ReportLetters reportLetters3 = new ReportLetters();
+        EntityDataGenerator.generateTestDataForModelClass(reportLetters3);
+        reportLetters3.setArchive(archive1);
+        reportLetters3.setDateTime(date3);
+        reportLetters3.setReportName(reportName3);
+        dao.persist(reportLetters3);
+
+        ReportLetters reportLetters4 = new ReportLetters();
+        EntityDataGenerator.generateTestDataForModelClass(reportLetters4);
+        reportLetters4.setArchive(archive0);
+        reportLetters4.setDateTime(date4);
+        reportLetters4.setReportName(reportName4);
+        dao.persist(reportLetters4);
+
+        ReportLetters reportLetters5 = new ReportLetters();
+        EntityDataGenerator.generateTestDataForModelClass(reportLetters5);
+        reportLetters5.setArchive(archive0);
+        reportLetters5.setDateTime(date5);
+        reportLetters5.setReportName(reportName5);
+        dao.persist(reportLetters5);
+
+        List<ReportLetters> expectedResult = Arrays.asList(reportLetters1, reportLetters4, reportLetters5);
+        List<ReportLetters> result = dao.findCurrent();
+
+        assertThat(result).hasSize(expectedResult.size());
+        for (int i = 0; i < expectedResult.size(); i++) {
+            assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
         }
     }
 }

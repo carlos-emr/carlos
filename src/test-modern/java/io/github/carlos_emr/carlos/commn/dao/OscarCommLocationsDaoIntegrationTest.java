@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.OscarCommLocations;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class OscarCommLocationsDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist oscarcommlocations with generated ID")
         void shouldPersistOscarCommLocations_whenValidDataProvided() {
             OscarCommLocations entity = new OscarCommLocations();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             oscarCommLocationsDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class OscarCommLocationsDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find oscarcommlocations by ID")
         void shouldFindOscarCommLocations_whenValidIdProvided() {
             OscarCommLocations saved = new OscarCommLocations();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             oscarCommLocationsDao.persist(saved);
             OscarCommLocations found = oscarCommLocationsDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class OscarCommLocationsDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all oscarcommlocations records")
         void shouldCountAllOscarCommLocationss() {
             OscarCommLocations entity = new OscarCommLocations();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             oscarCommLocationsDao.persist(entity);
             long count = oscarCommLocationsDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

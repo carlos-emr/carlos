@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.RecycleBin;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class RecycleBinDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist recyclebin with generated ID")
         void shouldPersistRecycleBin_whenValidDataProvided() {
             RecycleBin entity = new RecycleBin();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             recycleBinDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class RecycleBinDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find recyclebin by ID")
         void shouldFindRecycleBin_whenValidIdProvided() {
             RecycleBin saved = new RecycleBin();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             recycleBinDao.persist(saved);
             RecycleBin found = recycleBinDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class RecycleBinDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all recyclebin records")
         void shouldCountAllRecycleBins() {
             RecycleBin entity = new RecycleBin();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             recycleBinDao.persist(entity);
             long count = recycleBinDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

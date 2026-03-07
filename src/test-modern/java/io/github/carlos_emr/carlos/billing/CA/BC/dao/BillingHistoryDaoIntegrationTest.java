@@ -21,23 +21,26 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingHistory;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingHistoryDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy JUnit 4 BillingHistoryDaoTest with full method coverage.</p>
+ *
  * @since 2026-03-07
  */
-@DisplayName("BillingHistory Dao Integration Tests")
+@DisplayName("BillingHistoryDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-bc")
@@ -45,29 +48,34 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingHistoryDao billingHistoryDao;
+    private BillingHistoryDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated test data")
+    void shouldPersistEntity_whenValidDataProvided() {
+        BillingHistory entity = new BillingHistory();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            BillingHistory entity = new BillingHistory();
-            billingHistoryDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find billing history by billing master number")
+    void shouldReturnBillingHistory_byBillingMasterNo() {
+        List<Object[]> bs = dao.findByBillingMasterNo(100);
+        assertThat(bs).isNotNull();
+    }
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            BillingHistory saved = new BillingHistory();
-            billingHistoryDao.persist(saved);
-            BillingHistory found = billingHistoryDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should get total paid from history with and without IA exclusion")
+    void shouldReturnTotalPaid_withAndWithoutIaExclusion() {
+        Double dd = dao.getTotalPaidFromHistory(100, true);
+        assertThat(dd).isNotNull();
+
+        dd = dao.getTotalPaidFromHistory(100, false);
+        assertThat(dd).isNotNull();
     }
 }

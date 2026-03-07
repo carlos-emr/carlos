@@ -21,23 +21,24 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link Hl7ObrDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy JUnit 4 Hl7ObrDaoTest with full method coverage.</p>
+ *
  * @since 2026-03-07
  */
-@DisplayName("Hl7Obr Dao Integration Tests")
+@DisplayName("Hl7ObrDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-bc")
@@ -45,29 +46,22 @@ import static org.assertj.core.api.Assertions.*;
 public class Hl7ObrDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private Hl7ObrDao hl7ObrDao;
+    private Hl7ObrDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated test data")
+    void shouldPersistEntity_whenValidDataProvided() {
+        Hl7Obr entity = new Hl7Obr();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            Hl7Obr entity = new Hl7Obr();
-            hl7ObrDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            Hl7Obr saved = new Hl7Obr();
-            hl7ObrDao.persist(saved);
-            Hl7Obr found = hl7ObrDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find OBR records by PID")
+    void shouldReturnObrRecords_byPid() {
+        assertThat(dao.findByPid(100)).isNotNull();
     }
 }

@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Validations;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,12 +31,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ValidationsDao} covering basic CRUD operations.
+ * Integration tests for {@link ValidationsDao}.
  *
  * <p>Migrated from legacy {@code ValidationsDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -50,7 +49,7 @@ import static org.assertj.core.api.Assertions.*;
 public class ValidationsDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ValidationsDao validationsDao;
+    private ValidationsDao dao;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -59,20 +58,12 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist validations with generated ID")
-        void shouldPersistValidations_whenValidDataProvided() {
+        void shouldPersistValidations_whenValidDataProvided() throws Exception {
             Validations entity = new Validations();
-            validationsDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find validations by ID")
-        void shouldFindValidations_whenValidIdProvided() {
-            Validations saved = new Validations();
-            validationsDao.persist(saved);
-            Validations found = validationsDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
@@ -82,12 +73,31 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all validations records")
-        void shouldCountAllValidationss() {
-            Validations entity = new Validations();
-            validationsDao.persist(entity);
-            long count = validationsDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should find validations by all parameter combinations")
+        void shouldFindValidations_byAllParameterCombinations() {
+            assertThat(dao.findByAll(null, null, null, null, null, null, null)).isNotNull();
+            assertThat(dao.findByAll("RE", null, null, null, null, null, null)).isNotNull();
+            assertThat(dao.findByAll(null, 2.0, null, null, null, null, null)).isNotNull();
+            assertThat(dao.findByAll(null, null, 1.0, null, null, null, null)).isNotNull();
+            assertThat(dao.findByAll(null, null, null, 100, null, null, null)).isNotNull();
+            assertThat(dao.findByAll(null, null, null, null, 200, null, null)).isNotNull();
+            assertThat(dao.findByAll(null, null, null, null, null, true, null)).isNotNull();
+            assertThat(dao.findByAll(null, null, null, null, null, null, false)).isNotNull();
+            assertThat(dao.findByAll("BR", 1.0, 2.0, 199, 0, false, false)).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find validations by demographic, type, and measurement ID")
+        void shouldFindValidations_byDemographicTypeAndMeasurementId() {
+            assertThat(dao.findValidationsBy(10, "type", 10)).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find validations by name")
+        void shouldFindValidations_byName() {
+            assertThat(dao.findByName("NM")).isNotNull();
         }
     }
 }

@@ -23,21 +23,24 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link BillingPaymentTypeDao} covering basic CRUD operations.
+ * Integration tests for {@link BillingPaymentTypeDao} covering full method coverage
+ * matching the legacy {@code BillingPaymentTypeDaoTest}.
  *
- * <p>Migrated from legacy {@code BillingPaymentTypeDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and findAll operations.</p>
  *
  * @since 2026-03-07
  * @see BillingPaymentTypeDao
@@ -45,49 +48,45 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("BillingPaymentType Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("billing")
 @Transactional
 public class BillingPaymentTypeDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingPaymentTypeDao billingPaymentTypeDao;
+    private BillingPaymentTypeDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() {
+        BillingPaymentType entity = new BillingPaymentType();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist billingpaymenttype with generated ID")
-        void shouldPersistBillingPaymentType_whenValidDataProvided() {
-            BillingPaymentType entity = new BillingPaymentType();
-            billingPaymentTypeDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find billingpaymenttype by ID")
-        void shouldFindBillingPaymentType_whenValidIdProvided() {
-            BillingPaymentType saved = new BillingPaymentType();
-            billingPaymentTypeDao.persist(saved);
-            BillingPaymentType found = billingPaymentTypeDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return all billing payment types")
+    void shouldReturnAllPaymentTypes_whenFindAllCalled() {
+        BillingPaymentType bPT1 = new BillingPaymentType();
+        EntityDataGenerator.generateTestDataForModelClass(bPT1);
+        dao.persist(bPT1);
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all billingpaymenttype records")
-        void shouldCountAllBillingPaymentTypes() {
-            BillingPaymentType entity = new BillingPaymentType();
-            billingPaymentTypeDao.persist(entity);
-            long count = billingPaymentTypeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        BillingPaymentType bPT2 = new BillingPaymentType();
+        EntityDataGenerator.generateTestDataForModelClass(bPT2);
+        dao.persist(bPT2);
+
+        BillingPaymentType bPT3 = new BillingPaymentType();
+        EntityDataGenerator.generateTestDataForModelClass(bPT3);
+        dao.persist(bPT3);
+
+        List<BillingPaymentType> expectedResult = Arrays.asList(bPT1, bPT2, bPT3);
+        List<BillingPaymentType> result = dao.findAll();
+
+        result.sort(Comparator.comparingInt(BillingPaymentType::getId));
+
+        assertThat(result).hasSameSizeAs(expectedResult);
+        assertThat(result).containsExactlyElementsOf(expectedResult);
     }
 }

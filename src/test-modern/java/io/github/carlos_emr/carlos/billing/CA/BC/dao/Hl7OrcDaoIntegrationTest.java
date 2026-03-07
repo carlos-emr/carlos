@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Orc;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -56,6 +57,7 @@ public class Hl7OrcDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist entity with generated ID")
         void shouldPersist_whenValidDataProvided() {
             Hl7Orc entity = new Hl7Orc();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             hl7OrcDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -65,6 +67,7 @@ public class Hl7OrcDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find entity by ID")
         void shouldFind_whenValidIdProvided() {
             Hl7Orc saved = new Hl7Orc();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             hl7OrcDao.persist(saved);
             Hl7Orc found = hl7OrcDao.find(saved.getId());
             assertThat(found).isNotNull();

@@ -23,21 +23,24 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Desaprisk;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link DesapriskDao} covering basic CRUD operations.
+ * Integration tests for {@link DesapriskDao} covering full method coverage
+ * matching the legacy {@code DesapriskDaoTest}.
  *
- * <p>Migrated from legacy {@code DesapriskDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests cover persist (create) and search operations.</p>
  *
  * @since 2026-03-07
  * @see DesapriskDao
@@ -45,49 +48,70 @@ import static org.assertj.core.api.Assertions.*;
 @DisplayName("Desaprisk Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
-@Tag("clinical")
 @Transactional
 public class DesapriskDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private DesapriskDao desapriskDao;
+    private DesapriskDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist desaprisk with generated ID")
-        void shouldPersistDesaprisk_whenValidDataProvided() {
-            Desaprisk entity = new Desaprisk();
-            desapriskDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity and assign generated ID")
+    void shouldPersistEntity_withGeneratedId() throws Exception {
+        Desaprisk entity = new Desaprisk();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find desaprisk by ID")
-        void shouldFindDesaprisk_whenValidIdProvided() {
-            Desaprisk saved = new Desaprisk();
-            desapriskDao.persist(saved);
-            Desaprisk found = desapriskDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        assertThat(entity.getId()).isNotNull();
     }
 
-    @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @Test
+    @Tag("read")
+    @DisplayName("should return most recent desaprisk for given formNo and demographicNo")
+    void shouldReturnMostRecentResult_whenSearchingByFormNoAndDemographicNo() throws Exception {
+        Date desapriskDate1 = new Date(dfm.parse("20060101").getTime());
+        Date desapriskDate2 = new Date(dfm.parse("20050101").getTime());
+        Date desapriskDate3 = new Date(dfm.parse("20070101").getTime());
 
-        @Test
-        @Tag("query")
-        @DisplayName("should count all desaprisk records")
-        void shouldCountAllDesaprisks() {
-            Desaprisk entity = new Desaprisk();
-            desapriskDao.persist(entity);
-            long count = desapriskDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
-        }
+        Date desapriskTime1 = new Date(dfm.parse("20060101").getTime());
+        Date desapriskTime2 = new Date(dfm.parse("20050101").getTime());
+        Date desapriskTime3 = new Date(dfm.parse("20070101").getTime());
+
+        int formNo1 = 101;
+        int formNo2 = 202;
+
+        int demographicNo1 = 111;
+        int demographicNo2 = 222;
+
+        Desaprisk desaprisk1 = new Desaprisk();
+        EntityDataGenerator.generateTestDataForModelClass(desaprisk1);
+        desaprisk1.setFormNo(formNo1);
+        desaprisk1.setDemographicNo(demographicNo1);
+        desaprisk1.setDesapriskDate(desapriskDate1);
+        desaprisk1.setDesapriskTime(desapriskTime1);
+        dao.persist(desaprisk1);
+
+        Desaprisk desaprisk2 = new Desaprisk();
+        EntityDataGenerator.generateTestDataForModelClass(desaprisk2);
+        desaprisk2.setFormNo(formNo2);
+        desaprisk2.setDemographicNo(demographicNo2);
+        desaprisk2.setDesapriskDate(desapriskDate2);
+        desaprisk2.setDesapriskTime(desapriskTime2);
+        dao.persist(desaprisk2);
+
+        Desaprisk desaprisk3 = new Desaprisk();
+        EntityDataGenerator.generateTestDataForModelClass(desaprisk3);
+        desaprisk3.setFormNo(formNo1);
+        desaprisk3.setDemographicNo(demographicNo1);
+        desaprisk3.setDesapriskDate(desapriskDate3);
+        desaprisk3.setDesapriskTime(desapriskTime3);
+        dao.persist(desaprisk3);
+
+        Desaprisk expectedResult = desaprisk3;
+        Desaprisk result = dao.search(formNo1, demographicNo1);
+
+        assertThat(result).isEqualTo(expectedResult);
     }
 }

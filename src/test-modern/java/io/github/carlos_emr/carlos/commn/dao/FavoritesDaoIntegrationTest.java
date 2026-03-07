@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Favorites;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist favorites with generated ID")
         void shouldPersistFavorites_whenValidDataProvided() {
             Favorites entity = new Favorites();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             favoritesDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find favorites by ID")
         void shouldFindFavorites_whenValidIdProvided() {
             Favorites saved = new Favorites();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             favoritesDao.persist(saved);
             Favorites found = favoritesDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all favorites records")
         void shouldCountAllFavoritess() {
             Favorites entity = new Favorites();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             favoritesDao.persist(entity);
             long count = favoritesDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

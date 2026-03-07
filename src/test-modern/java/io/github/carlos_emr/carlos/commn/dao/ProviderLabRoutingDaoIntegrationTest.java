@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,19 +31,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link ProviderLabRoutingDao}.
  *
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy {@code ProviderLabRoutingDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see ProviderLabRoutingDao
  */
-@DisplayName("ProviderLabRoutingModel Dao Integration Tests")
+@DisplayName("ProviderLabRouting Dao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("provider")
@@ -50,7 +49,7 @@ import static org.assertj.core.api.Assertions.*;
 public class ProviderLabRoutingDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ProviderLabRoutingDao providerLabRoutingDao;
+    private ProviderLabRoutingDao dao;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -58,21 +57,13 @@ public class ProviderLabRoutingDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist providerlabroutingmodel with generated ID")
-        void shouldPersistProviderLabRoutingModel_whenValidDataProvided() {
+        @DisplayName("should persist provider lab routing with generated ID")
+        void shouldPersistProviderLabRouting_whenValidDataProvided() throws Exception {
             ProviderLabRoutingModel entity = new ProviderLabRoutingModel();
-            providerLabRoutingDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find providerlabroutingmodel by ID")
-        void shouldFindProviderLabRoutingModel_whenValidIdProvided() {
-            ProviderLabRoutingModel saved = new ProviderLabRoutingModel();
-            providerLabRoutingDao.persist(saved);
-            ProviderLabRoutingModel found = providerLabRoutingDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
@@ -82,12 +73,30 @@ public class ProviderLabRoutingDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all records")
-        void shouldCountAllRecords() {
-            ProviderLabRoutingModel entity = new ProviderLabRoutingModel();
-            providerLabRoutingDao.persist(entity);
-            long count = providerLabRoutingDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return provider lab routings by lab no and lab type")
+        void shouldReturnProviderLabRoutings_byLabNoAndLabType() {
+            assertThat(dao.getProviderLabRoutings(1, "HL7")).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find routings by status and lab no type")
+        void shouldFindRoutings_byStatusAndLabNoType() {
+            assertThat(dao.findByStatusANDLabNoType(100, "HL7", "A")).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find routings by provider no")
+        void shouldFindRoutings_byProviderNo() {
+            assertThat(dao.findByProviderNo("100", "N")).isNotNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find routings by lab no type and status")
+        void shouldFindRoutings_byLabNoTypeAndStatus() {
+            assertThat(dao.findByLabNoTypeAndStatus(100, "BCP", "STS")).isNotNull();
         }
     }
 }

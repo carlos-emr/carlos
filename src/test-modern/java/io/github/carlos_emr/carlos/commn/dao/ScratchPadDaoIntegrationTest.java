@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ScratchPad;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -30,12 +31,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ScratchPadDao} covering basic CRUD operations.
+ * Integration tests for {@link ScratchPadDao} covering create, isScratchFilled, and findByProviderNo.
  *
  * <p>Migrated from legacy {@code ScratchPadDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -50,44 +49,75 @@ import static org.assertj.core.api.Assertions.*;
 public class ScratchPadDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private ScratchPadDao scratchPadDao;
+    private ScratchPadDao dao;
 
     @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @DisplayName("Create operations")
+    class CreateOperations {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist scratchpad with generated ID")
+        @DisplayName("should persist scratch pad with generated ID")
         void shouldPersistScratchPad_whenValidDataProvided() {
             ScratchPad entity = new ScratchPad();
-            scratchPadDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find scratchpad by ID")
-        void shouldFindScratchPad_whenValidIdProvided() {
-            ScratchPad saved = new ScratchPad();
-            scratchPadDao.persist(saved);
-            ScratchPad found = scratchPadDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("Query operations")
-    class QueryOperations {
+    @DisplayName("isScratchFilled")
+    class IsScratchFilled {
 
         @Test
-        @Tag("query")
-        @DisplayName("should count all scratchpad records")
-        void shouldCountAllScratchPads() {
-            ScratchPad entity = new ScratchPad();
-            scratchPadDao.persist(entity);
-            long count = scratchPadDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @Tag("read")
+        @DisplayName("should return true when provider has scratch pad entry")
+        void shouldReturnTrue_whenProviderHasScratchPad() {
+            String providerNo1 = "111";
+            String providerNo2 = "222";
+
+            ScratchPad sp1 = new ScratchPad();
+            EntityDataGenerator.generateTestDataForModelClass(sp1);
+            sp1.setProviderNo(providerNo1);
+            dao.persist(sp1);
+
+            ScratchPad sp2 = new ScratchPad();
+            EntityDataGenerator.generateTestDataForModelClass(sp2);
+            sp2.setProviderNo(providerNo2);
+            dao.persist(sp2);
+
+            boolean result = dao.isScratchFilled(providerNo1);
+
+            assertThat(result).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("findByProviderNo")
+    class FindByProviderNo {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return scratch pad for the given provider")
+        void shouldReturnScratchPad_whenProviderNoMatches() {
+            String providerNo1 = "111";
+            String providerNo2 = "222";
+
+            ScratchPad sp1 = new ScratchPad();
+            EntityDataGenerator.generateTestDataForModelClass(sp1);
+            sp1.setProviderNo(providerNo1);
+            dao.persist(sp1);
+
+            ScratchPad sp2 = new ScratchPad();
+            EntityDataGenerator.generateTestDataForModelClass(sp2);
+            sp2.setProviderNo(providerNo2);
+            dao.persist(sp2);
+
+            ScratchPad result = dao.findByProviderNo(providerNo1);
+
+            assertThat(result).isEqualTo(sp1);
         }
     }
 }

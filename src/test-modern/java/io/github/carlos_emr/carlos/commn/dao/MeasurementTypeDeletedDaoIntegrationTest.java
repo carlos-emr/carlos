@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.MeasurementTypeDeleted;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -61,6 +62,7 @@ public class MeasurementTypeDeletedDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist measurementtypedeleted with generated ID")
         void shouldPersistMeasurementTypeDeleted_whenValidDataProvided() {
             MeasurementTypeDeleted entity = new MeasurementTypeDeleted();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementTypeDeletedDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
@@ -70,6 +72,7 @@ public class MeasurementTypeDeletedDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find measurementtypedeleted by ID")
         void shouldFindMeasurementTypeDeleted_whenValidIdProvided() {
             MeasurementTypeDeleted saved = new MeasurementTypeDeleted();
+            EntityDataGenerator.generateTestDataForModelClass(saved);
             measurementTypeDeletedDao.persist(saved);
             MeasurementTypeDeleted found = measurementTypeDeletedDao.find(saved.getId());
             assertThat(found).isNotNull();
@@ -85,6 +88,7 @@ public class MeasurementTypeDeletedDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should count all measurementtypedeleted records")
         void shouldCountAllMeasurementTypeDeleteds() {
             MeasurementTypeDeleted entity = new MeasurementTypeDeleted();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementTypeDeletedDao.persist(entity);
             long count = measurementTypeDeletedDao.getCountAll();
             assertThat(count).isGreaterThanOrEqualTo(1);

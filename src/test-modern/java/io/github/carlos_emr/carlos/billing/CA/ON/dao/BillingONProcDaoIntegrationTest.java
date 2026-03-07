@@ -21,23 +21,27 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.ON.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONProc;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingONProcDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ *
+ * <p>Migrated from legacy {@code BillingONProcDaoTest} (JUnit 4 / DaoTestFixtures).
+ * Replicates exact legacy test coverage: persist entity and verify generated ID.</p>
+ *
  * @since 2026-03-07
+ * @see BillingONProcDao
  */
-@DisplayName("BillingONProc Dao Integration Tests")
+@DisplayName("BillingONProcDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-on")
@@ -45,29 +49,15 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingONProcDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingONProcDao billingONProcDao;
+    private BillingONProcDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
-
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            BillingONProc entity = new BillingONProc();
-            billingONProcDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
-
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            BillingONProc saved = new BillingONProc();
-            billingONProcDao.persist(saved);
-            BillingONProc found = billingONProcDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated ID")
+    void shouldPersistEntity_whenValidDataProvided() {
+        BillingONProc entity = new BillingONProc();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
     }
 }

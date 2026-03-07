@@ -21,23 +21,30 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.entities.Billingmaster;
+import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.billing.CA.BC.model.Billingmaster;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingmasterDAO}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy JUnit 4 BillingmasterDAOTest with full method coverage.</p>
+ *
  * @since 2026-03-07
  */
-@DisplayName("Billingmaster Dao Integration Tests")
+@DisplayName("BillingmasterDAO Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-bc")
@@ -45,29 +52,96 @@ import static org.assertj.core.api.Assertions.*;
 public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private BillingmasterDAO billingmasterDAO;
+    private BillingmasterDAO dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should save and update billing unit for billing number")
+    void shouldSaveAndUpdateBillingUnit_whenValidBillingProvided() {
+        Billingmaster master = new Billingmaster();
+        EntityDataGenerator.generateTestDataForModelClass(master);
+        master.setBillingNo(99999);
+        dao.save(master);
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            Billingmaster entity = new Billingmaster();
-            billingmasterDAO.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+        int count = dao.updateBillingUnitForBillingNumber("NIHRENASEIBE", 99999);
+        assertThat(count).isEqualTo(1);
+    }
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            Billingmaster saved = new Billingmaster();
-            billingmasterDAO.persist(saved);
-            Billingmaster found = billingmasterDAO.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("update")
+    @DisplayName("should update billing unit for existing billing number")
+    void shouldUpdateBillingUnit_whenBillingNumberExists() {
+        Billingmaster b = new Billingmaster();
+        b.setBillingUnit("AS");
+        b.setBillingNo(999);
+        dao.save(b);
+
+        int i = dao.updateBillingUnitForBillingNumber("BU", 999);
+        assertThat(i).isEqualTo(1);
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should mark list of billings as billed")
+    void shouldMarkListAsBilled_whenBillingNumbersProvided() {
+        Billingmaster b = new Billingmaster();
+        b.setBillingUnit("AS");
+        b.setBillingNo(999);
+        dao.save(b);
+
+        int i = dao.markListAsBilled(Arrays.asList(String.valueOf(b.getBillingmasterNo())));
+        assertThat(i).isEqualTo(1);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return WCB by billing number")
+    void shouldReturnWcb_whenBillingNoExists() throws Exception {
+        WCB wcb = new WCB();
+        EntityDataGenerator.generateTestDataForModelClass(wcb);
+        wcb.setBilling_no(999);
+        dao.save(wcb);
+
+        assertThat(dao.getWcbByBillingNo(999)).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return billing master by various field combinations")
+    void shouldReturnResults_whenVariousFieldCombinationsProvided() {
+        dao.getBillingMasterByVariousFields("ST", null, null, null);
+        dao.getBillingMasterByVariousFields("ST", null, null, "01-01-2012");
+        dao.getBillingMasterByVariousFields("ST", null, "01-01-2011", "01-01-2012");
+        dao.getBillingMasterByVariousFields("ST", "01", null, null);
+        dao.getBillingMasterByVariousFields("ST", "01", "01-01-2011", "01-01-2012");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return WCB report data for billing master number")
+    void shouldReturnWcbReport_whenBillingMasterNoProvided() {
+        List<Object[]> results = dao.select_user_bill_report_wcb(1);
+        assertThat(results).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should search teleplan bill by billing master number")
+    void shouldReturnTeleplanBill_whenBillingMasterNoProvided() {
+        assertThat(dao.search_teleplanbill(1)).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find by demo number, code and statuses")
+    void shouldReturnResults_whenDemoNoCodeAndStatusesProvided() {
+        assertThat(dao.findByDemoNoCodeAndStatuses(100, "10", Arrays.asList("A"))).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find by demo number, code, statuses and year")
+    void shouldReturnResults_whenDemoNoCodeStatusesAndYearProvided() {
+        assertThat(dao.findByDemoNoCodeStatusesAndYear(100, new Date(), "CODE")).isNotNull();
     }
 }

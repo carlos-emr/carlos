@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.QueueDocumentLink;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -35,14 +36,16 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link QueueDocumentLinkDao} covering basic CRUD operations.
+ * Integration tests for {@link QueueDocumentLinkDao} covering
+ * create, getQueueDocLinks, getActiveQueueDocLink, getQueueFromDocument,
+ * getDocumentFromQueue, and hasQueueBeenLinkedWithDocument.
  *
  * <p>Migrated from legacy {@code QueueDocumentLinkDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
  * @since 2026-03-07
  * @see QueueDocumentLinkDao
  */
-@DisplayName("QueueDocumentLink Dao Integration Tests")
+@DisplayName("QueueDocumentLinkDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("admin")
@@ -50,7 +53,14 @@ import static org.assertj.core.api.Assertions.*;
 public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private QueueDocumentLinkDao queueDocumentLinkDao;
+    private QueueDocumentLinkDao dao;
+
+    private QueueDocumentLink createLink() {
+        QueueDocumentLink qdl = new QueueDocumentLink();
+        EntityDataGenerator.generateTestDataForModelClass(qdl);
+        dao.persist(qdl);
+        return qdl;
+    }
 
     @Nested
     @DisplayName("CRUD operations")
@@ -58,21 +68,13 @@ public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist queuedocumentlink with generated ID")
+        @DisplayName("should persist queue document link with generated ID")
         void shouldPersistQueueDocumentLink_whenValidDataProvided() {
             QueueDocumentLink entity = new QueueDocumentLink();
-            queueDocumentLinkDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find queuedocumentlink by ID")
-        void shouldFindQueueDocumentLink_whenValidIdProvided() {
-            QueueDocumentLink saved = new QueueDocumentLink();
-            queueDocumentLinkDao.persist(saved);
-            QueueDocumentLink found = queueDocumentLinkDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(entity.getId()).isNotNull();
         }
     }
 
@@ -81,13 +83,136 @@ public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
     class QueryOperations {
 
         @Test
+        @Tag("read")
+        @DisplayName("should return all queue document links")
+        void shouldReturnAllLinks_whenGetQueueDocLinksCalled() {
+            QueueDocumentLink qdl1 = createLink();
+            QueueDocumentLink qdl2 = createLink();
+            QueueDocumentLink qdl3 = createLink();
+            QueueDocumentLink qdl4 = createLink();
+
+            List<QueueDocumentLink> result = dao.getQueueDocLinks();
+
+            assertThat(result).hasSize(4);
+            assertThat(result.get(0)).isEqualTo(qdl1);
+            assertThat(result.get(1)).isEqualTo(qdl2);
+            assertThat(result.get(2)).isEqualTo(qdl3);
+            assertThat(result.get(3)).isEqualTo(qdl4);
+        }
+
+        @Test
         @Tag("query")
-        @DisplayName("should count all queuedocumentlink records")
-        void shouldCountAllQueueDocumentLinks() {
-            QueueDocumentLink entity = new QueueDocumentLink();
-            queueDocumentLinkDao.persist(entity);
-            long count = queueDocumentLinkDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+        @DisplayName("should return only active queue document links")
+        void shouldReturnActiveLinks_whenGetActiveQueueDocLinkCalled() {
+            QueueDocumentLink qdl1 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl1);
+            qdl1.setStatus("A");
+            dao.persist(qdl1);
+
+            QueueDocumentLink qdl2 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl2);
+            qdl2.setStatus("N");
+            dao.persist(qdl2);
+
+            QueueDocumentLink qdl3 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl3);
+            qdl3.setStatus("A");
+            dao.persist(qdl3);
+
+            QueueDocumentLink qdl4 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl4);
+            qdl4.setStatus("A");
+            dao.persist(qdl4);
+
+            List<QueueDocumentLink> result = dao.getActiveQueueDocLink();
+
+            assertThat(result).hasSize(3);
+            assertThat(result).containsExactlyInAnyOrder(qdl1, qdl3, qdl4);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find queue links by document ID")
+        void shouldFindLinks_byDocumentId() {
+            QueueDocumentLink qdl1 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl1);
+            qdl1.setDocId(111);
+            dao.persist(qdl1);
+
+            QueueDocumentLink qdl2 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl2);
+            qdl2.setDocId(222);
+            dao.persist(qdl2);
+
+            QueueDocumentLink qdl3 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl3);
+            qdl3.setDocId(111);
+            dao.persist(qdl3);
+
+            QueueDocumentLink qdl4 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl4);
+            qdl4.setDocId(111);
+            dao.persist(qdl4);
+
+            List<QueueDocumentLink> result = dao.getQueueFromDocument(111);
+
+            assertThat(result).hasSize(3);
+            assertThat(result.get(0)).isEqualTo(qdl1);
+            assertThat(result.get(1)).isEqualTo(qdl3);
+            assertThat(result.get(2)).isEqualTo(qdl4);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find document links by queue ID")
+        void shouldFindLinks_byQueueId() {
+            QueueDocumentLink qdl1 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl1);
+            qdl1.setQueueId(111);
+            dao.persist(qdl1);
+
+            QueueDocumentLink qdl2 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl2);
+            qdl2.setQueueId(222);
+            dao.persist(qdl2);
+
+            QueueDocumentLink qdl3 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl3);
+            qdl3.setQueueId(111);
+            dao.persist(qdl3);
+
+            QueueDocumentLink qdl4 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl4);
+            qdl4.setQueueId(111);
+            dao.persist(qdl4);
+
+            List<QueueDocumentLink> result = dao.getDocumentFromQueue(111);
+
+            assertThat(result).hasSize(3);
+            assertThat(result.get(0)).isEqualTo(qdl1);
+            assertThat(result.get(1)).isEqualTo(qdl3);
+            assertThat(result.get(2)).isEqualTo(qdl4);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return true when queue has been linked with document")
+        void shouldReturnTrue_whenQueueLinkedWithDocument() {
+            QueueDocumentLink qdl1 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl1);
+            qdl1.setDocId(101);
+            qdl1.setQueueId(111);
+            dao.persist(qdl1);
+
+            QueueDocumentLink qdl2 = new QueueDocumentLink();
+            EntityDataGenerator.generateTestDataForModelClass(qdl2);
+            qdl2.setDocId(202);
+            qdl2.setQueueId(222);
+            dao.persist(qdl2);
+
+            boolean result = dao.hasQueueBeenLinkedWithDocument(101, 111);
+
+            assertThat(result).isTrue();
         }
     }
 }

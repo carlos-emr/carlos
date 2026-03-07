@@ -21,23 +21,24 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
+import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link Hl7PidDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy JUnit 4 Hl7PidDaoTest with full method coverage.</p>
+ *
  * @since 2026-03-07
  */
-@DisplayName("Hl7Pid Dao Integration Tests")
+@DisplayName("Hl7PidDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
 @Tag("billing-bc")
@@ -45,29 +46,36 @@ import static org.assertj.core.api.Assertions.*;
 public class Hl7PidDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private Hl7PidDao hl7PidDao;
+    private Hl7PidDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated test data")
+    void shouldPersistEntity_whenValidDataProvided() {
+        Hl7Pid entity = new Hl7Pid();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            Hl7Pid entity = new Hl7Pid();
-            hl7PidDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find PIDs by message ID")
+    void shouldReturnPids_byMessageId() {
+        assertThat(dao.findByMessageId(100)).isNotNull();
+    }
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            Hl7Pid saved = new Hl7Pid();
-            hl7PidDao.persist(saved);
-            Hl7Pid found = hl7PidDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find PIDs by status")
+    void shouldReturnPids_byStatus() {
+        assertThat(dao.findPidsByStatus("F")).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find PIDs and MSH by message ID")
+    void shouldReturnPidsAndMsh_byMessageId() {
+        assertThat(dao.findPidsAndMshByMessageId(100)).isNotNull();
     }
 }
