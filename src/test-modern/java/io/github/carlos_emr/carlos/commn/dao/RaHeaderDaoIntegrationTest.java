@@ -214,7 +214,7 @@ public class RaHeaderDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return results for findByHeaderDetailsAndProviderMagic")
         void shouldReturnResults_whenFindByHeaderDetailsAndProviderMagic() {
             List<RaHeader> result = dao.findByHeaderDetailsAndProviderMagic("STS", "100");
-            assertThat(result).isNotNull();
+            assertThat(result).isEmpty();
         }
 
         @Test

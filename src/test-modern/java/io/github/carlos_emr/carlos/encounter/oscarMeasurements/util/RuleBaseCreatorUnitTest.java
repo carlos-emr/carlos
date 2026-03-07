@@ -204,6 +204,8 @@ class RuleBaseCreatorUnitTest {
             String fullDrl = "package test;\n" + rule;
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(fullDrl);
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).hasSize(1);
+            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
         }
     }
 

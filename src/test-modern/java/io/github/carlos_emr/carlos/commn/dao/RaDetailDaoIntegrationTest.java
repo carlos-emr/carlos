@@ -574,7 +574,7 @@ public class RaDetailDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return non-null result when finding by raHeaderNo and service codes")
     void shouldReturnNonNullResult_byRaHeaderNoAndServiceCodes() {
         List<RaDetail> result = dao.findByRaHeaderNoAndServiceCodes(100, Arrays.asList("CODE"));
-        assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
     }
 
     @Test
@@ -582,6 +582,6 @@ public class RaDetailDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return non-null result when finding by raHeaderNo and providerOhipNo")
     void shouldReturnNonNullResult_byRaHeaderNoAndProviderOhipNo() {
         List<RaDetail> result = dao.findByRaHeaderNoAndProviderOhipNo(100, "10");
-        assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
     }
 }
