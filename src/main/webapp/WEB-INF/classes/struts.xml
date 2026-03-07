@@ -68,13 +68,7 @@
             <result name="saved">/quickBillingBC.do</result>
             <result name="error">/billing/CA/BC/quickBillingBC.jsp?saved=false</result>
         </action>
-        <action name="documentManager/addDocumentType" class="io.github.carlos_emr.carlos.documentManager.actions.AddDocumentType2Action">
-            <result name="failed">/documentManager/addNewDocumentCategories.jsp</result>
-            <result name="success">/documentManager/closeWindow.html</result>
-        </action>
-        <action name="documentManager/changeDocStatus" class="io.github.carlos_emr.carlos.documentManager.actions.ChangeDocStatus2Action">
-            <result name="success">/documentManager/closeWindow.html</result>
-        </action>
+
         <action name="lab/CA/ALL/createLabLabel" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabLabel2Action">
             <result name="complete">/lab/CA/ALL/labDisplay.jsp</result>
         </action>
@@ -1957,9 +1951,7 @@
         </action>
         <action name="saveWorkView" class="io.github.carlos_emr.carlos.provider.web.ProviderView2Action" method="execute"/>
         <action name="Provider/showPersonal" class="io.github.carlos_emr.carlos.provider.web.DisplayPersonalInfoAppointment2Action"/>
-        <action name="admin/oscarStatus" class="io.github.carlos_emr.carlos.util.OscarStatus2Action">
-            <result name="success">/admin/oscarStatus.jsp</result>
-        </action>
+
         <action name="billing/CA/ON/moveMOHFiles" class="io.github.carlos_emr.carlos.billing.CA.ON.web.MoveMOHFiles2Action">
             <result name="success">/billing/CA/ON/viewMOHFiles.jsp</result>
         </action>
