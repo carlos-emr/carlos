@@ -1396,10 +1396,7 @@ Ontario, Canada
                            value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnGroupAppt"/>"
                             <%=disabled%>>
                     <% }
-
-
-                    <% } %>
-
+                    %><% } %>
 
                     <%
                         if (bFirstDisp && apptObj != null) {
