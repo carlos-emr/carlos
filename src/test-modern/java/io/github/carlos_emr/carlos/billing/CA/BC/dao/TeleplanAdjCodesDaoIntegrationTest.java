@@ -69,8 +69,8 @@ public class TeleplanAdjCodesDaoIntegrationTest extends CarlosTestBase {
             TeleplanAdjCodes saved = new TeleplanAdjCodes();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             teleplanAdjCodesDao.persist(saved);
-            TeleplanAdjCodes found = teleplanAdjCodesDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            TeleplanAdjCodes found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 }

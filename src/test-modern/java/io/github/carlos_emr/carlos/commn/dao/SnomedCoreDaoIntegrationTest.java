@@ -74,8 +74,8 @@ public class SnomedCoreDaoIntegrationTest extends CarlosTestBase {
             SnomedCore saved = new SnomedCore();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             snomedCoreDao.persist(saved);
-            SnomedCore found = snomedCoreDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            SnomedCore found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class SnomedCoreDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             snomedCoreDao.persist(entity);
             long count = snomedCoreDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

@@ -74,8 +74,8 @@ public class IssueGroupDaoIntegrationTest extends CarlosTestBase {
             IssueGroup saved = new IssueGroup();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             issueGroupDao.persist(saved);
-            IssueGroup found = issueGroupDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            IssueGroup found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class IssueGroupDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             issueGroupDao.persist(entity);
             long count = issueGroupDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

@@ -74,8 +74,8 @@ public class OnCallQuestionnaireDaoIntegrationTest extends CarlosTestBase {
             OnCallQuestionnaire saved = new OnCallQuestionnaire();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             onCallQuestionnaireDao.persist(saved);
-            OnCallQuestionnaire found = onCallQuestionnaireDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            OnCallQuestionnaire found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class OnCallQuestionnaireDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             onCallQuestionnaireDao.persist(entity);
             long count = onCallQuestionnaireDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

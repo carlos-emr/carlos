@@ -74,8 +74,8 @@ public class EFormValueDaoIntegrationTest extends CarlosTestBase {
             EFormValue saved = new EFormValue();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             eFormValueDao.persist(saved);
-            EFormValue found = eFormValueDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            EFormValue found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class EFormValueDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             eFormValueDao.persist(entity);
             long count = eFormValueDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

@@ -74,8 +74,8 @@ public class SpecialistsJavascriptDaoIntegrationTest extends CarlosTestBase {
             SpecialistsJavascript saved = new SpecialistsJavascript();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             specialistsJavascriptDao.persist(saved);
-            SpecialistsJavascript found = specialistsJavascriptDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            SpecialistsJavascript found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class SpecialistsJavascriptDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             specialistsJavascriptDao.persist(entity);
             long count = specialistsJavascriptDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

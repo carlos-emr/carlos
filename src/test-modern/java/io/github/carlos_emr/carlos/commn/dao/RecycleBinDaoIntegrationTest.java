@@ -74,8 +74,8 @@ public class RecycleBinDaoIntegrationTest extends CarlosTestBase {
             RecycleBin saved = new RecycleBin();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             recycleBinDao.persist(saved);
-            RecycleBin found = recycleBinDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            RecycleBin found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class RecycleBinDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             recycleBinDao.persist(entity);
             long count = recycleBinDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

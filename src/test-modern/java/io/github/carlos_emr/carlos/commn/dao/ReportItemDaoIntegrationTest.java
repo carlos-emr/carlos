@@ -74,8 +74,8 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
             ReportItem saved = new ReportItem();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             reportItemDao.persist(saved);
-            ReportItem found = reportItemDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            ReportItem found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportItemDao.persist(entity);
             long count = reportItemDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

@@ -74,8 +74,8 @@ public class QuickListUserDaoIntegrationTest extends CarlosTestBase {
             QuickListUser saved = new QuickListUser();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             quickListUserDao.persist(saved);
-            QuickListUser found = quickListUserDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            QuickListUser found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class QuickListUserDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             quickListUserDao.persist(entity);
             long count = quickListUserDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

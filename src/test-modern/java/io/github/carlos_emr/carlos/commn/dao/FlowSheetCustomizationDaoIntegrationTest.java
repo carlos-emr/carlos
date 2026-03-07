@@ -74,8 +74,8 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
             FlowSheetCustomization saved = new FlowSheetCustomization();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             flowSheetCustomizationDao.persist(saved);
-            FlowSheetCustomization found = flowSheetCustomizationDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            FlowSheetCustomization found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetCustomizationDao.persist(entity);
             long count = flowSheetCustomizationDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

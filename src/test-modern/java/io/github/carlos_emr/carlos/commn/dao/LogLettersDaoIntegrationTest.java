@@ -74,8 +74,8 @@ public class LogLettersDaoIntegrationTest extends CarlosTestBase {
             LogLetters saved = new LogLetters();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             logLettersDao.persist(saved);
-            LogLetters found = logLettersDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            LogLetters found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class LogLettersDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             logLettersDao.persist(entity);
             long count = logLettersDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

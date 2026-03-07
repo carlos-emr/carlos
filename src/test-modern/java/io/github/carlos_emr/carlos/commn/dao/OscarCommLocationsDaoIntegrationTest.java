@@ -74,8 +74,8 @@ public class OscarCommLocationsDaoIntegrationTest extends CarlosTestBase {
             OscarCommLocations saved = new OscarCommLocations();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             oscarCommLocationsDao.persist(saved);
-            OscarCommLocations found = oscarCommLocationsDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            OscarCommLocations found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class OscarCommLocationsDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             oscarCommLocationsDao.persist(entity);
             long count = oscarCommLocationsDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

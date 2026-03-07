@@ -74,8 +74,8 @@ public class LabReportInformationDaoIntegrationTest extends CarlosTestBase {
             LabReportInformation saved = new LabReportInformation();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             labReportInformationDao.persist(saved);
-            LabReportInformation found = labReportInformationDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            LabReportInformation found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class LabReportInformationDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             labReportInformationDao.persist(entity);
             long count = labReportInformationDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

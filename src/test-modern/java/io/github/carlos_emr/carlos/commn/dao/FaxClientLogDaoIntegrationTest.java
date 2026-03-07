@@ -74,8 +74,8 @@ public class FaxClientLogDaoIntegrationTest extends CarlosTestBase {
             FaxClientLog saved = new FaxClientLog();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             faxClientLogDao.persist(saved);
-            FaxClientLog found = faxClientLogDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            FaxClientLog found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class FaxClientLogDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             faxClientLogDao.persist(entity);
             long count = faxClientLogDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

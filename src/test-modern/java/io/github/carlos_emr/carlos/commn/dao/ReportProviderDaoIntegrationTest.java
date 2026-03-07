@@ -74,8 +74,8 @@ public class ReportProviderDaoIntegrationTest extends CarlosTestBase {
             ReportProvider saved = new ReportProvider();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             reportProviderDao.persist(saved);
-            ReportProvider found = reportProviderDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            ReportProvider found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class ReportProviderDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportProviderDao.persist(entity);
             long count = reportProviderDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

@@ -77,7 +77,7 @@ public class UserPropertyDaoIntegrationTest extends CarlosTestBase {
 
             UserProperty userProperty2 = new UserProperty();
             EntityDataGenerator.generateTestDataForModelClass(userProperty2);
-            userProperty2.setProviderNo(name2);
+            userProperty2.setName(name2);
             userProperty2.setProviderNo(providerNo2);
             dao.persist(userProperty2);
 
@@ -100,7 +100,7 @@ public class UserPropertyDaoIntegrationTest extends CarlosTestBase {
 
             UserProperty userProperty2 = new UserProperty();
             EntityDataGenerator.generateTestDataForModelClass(userProperty2);
-            userProperty2.setProviderNo(name2);
+            userProperty2.setName(name2);
             dao.persist(userProperty2);
 
             UserProperty result = dao.getProp(name1);
@@ -160,8 +160,8 @@ public class UserPropertyDaoIntegrationTest extends CarlosTestBase {
             UserProperty userProperty2 = new UserProperty();
             EntityDataGenerator.generateTestDataForModelClass(userProperty2);
             userProperty2.setProviderNo(providerNo2);
-            userProperty1.setName(name2);
-            userProperty1.setValue(value2);
+            userProperty2.setName(name2);
+            userProperty2.setValue(value2);
             dao.persist(userProperty2);
 
             Map<String, String> expectedResult = new HashMap<>();

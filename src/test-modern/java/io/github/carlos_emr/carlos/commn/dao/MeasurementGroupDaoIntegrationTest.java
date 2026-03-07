@@ -74,8 +74,8 @@ public class MeasurementGroupDaoIntegrationTest extends CarlosTestBase {
             MeasurementGroup saved = new MeasurementGroup();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             measurementGroupDao.persist(saved);
-            MeasurementGroup found = measurementGroupDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            MeasurementGroup found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class MeasurementGroupDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementGroupDao.persist(entity);
             long count = measurementGroupDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

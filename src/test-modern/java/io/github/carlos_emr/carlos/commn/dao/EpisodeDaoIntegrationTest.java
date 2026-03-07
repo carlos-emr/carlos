@@ -74,8 +74,8 @@ public class EpisodeDaoIntegrationTest extends CarlosTestBase {
             Episode saved = new Episode();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             episodeDao.persist(saved);
-            Episode found = episodeDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            Episode found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class EpisodeDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             episodeDao.persist(entity);
             long count = episodeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

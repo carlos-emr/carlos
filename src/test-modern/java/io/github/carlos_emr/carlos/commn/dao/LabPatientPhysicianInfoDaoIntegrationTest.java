@@ -74,8 +74,8 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
             LabPatientPhysicianInfo saved = new LabPatientPhysicianInfo();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             labPatientPhysicianInfoDao.persist(saved);
-            LabPatientPhysicianInfo found = labPatientPhysicianInfoDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            LabPatientPhysicianInfo found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             labPatientPhysicianInfoDao.persist(entity);
             long count = labPatientPhysicianInfoDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

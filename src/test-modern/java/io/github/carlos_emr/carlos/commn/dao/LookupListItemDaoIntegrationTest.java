@@ -74,8 +74,8 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
             LookupListItem saved = new LookupListItem();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             lookupListItemDao.persist(saved);
-            LookupListItem found = lookupListItemDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            LookupListItem found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             lookupListItemDao.persist(entity);
             long count = lookupListItemDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

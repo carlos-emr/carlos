@@ -74,8 +74,8 @@ public class CdsHospitalisationDaysDaoIntegrationTest extends CarlosTestBase {
             CdsHospitalisationDays saved = new CdsHospitalisationDays();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             cdsHospitalisationDaysDao.persist(saved);
-            CdsHospitalisationDays found = cdsHospitalisationDaysDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            CdsHospitalisationDays found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class CdsHospitalisationDaysDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             cdsHospitalisationDaysDao.persist(entity);
             long count = cdsHospitalisationDaysDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

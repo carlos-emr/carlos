@@ -74,8 +74,8 @@ public class CaisiAccessTypeDaoIntegrationTest extends CarlosTestBase {
             CaisiAccessType saved = new CaisiAccessType();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             caisiAccessTypeDao.persist(saved);
-            CaisiAccessType found = caisiAccessTypeDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            CaisiAccessType found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class CaisiAccessTypeDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             caisiAccessTypeDao.persist(entity);
             long count = caisiAccessTypeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

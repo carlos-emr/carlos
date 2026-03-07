@@ -74,8 +74,8 @@ public class MdsZMCDaoIntegrationTest extends CarlosTestBase {
             MdsZMC saved = new MdsZMC();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             mdsZMCDao.persist(saved);
-            MdsZMC found = mdsZMCDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            MdsZMC found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class MdsZMCDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsZMCDao.persist(entity);
             long count = mdsZMCDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

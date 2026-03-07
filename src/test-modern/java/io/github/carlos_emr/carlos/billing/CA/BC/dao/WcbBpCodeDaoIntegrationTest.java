@@ -69,8 +69,8 @@ public class WcbBpCodeDaoIntegrationTest extends CarlosTestBase {
             WcbBpCode saved = new WcbBpCode();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             wcbBpCodeDao.persist(saved);
-            WcbBpCode found = wcbBpCodeDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            WcbBpCode found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 }

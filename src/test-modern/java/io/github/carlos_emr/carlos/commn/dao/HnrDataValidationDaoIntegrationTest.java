@@ -74,8 +74,8 @@ public class HnrDataValidationDaoIntegrationTest extends CarlosTestBase {
             HnrDataValidation saved = new HnrDataValidation();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             hnrDataValidationDao.persist(saved);
-            HnrDataValidation found = hnrDataValidationDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            HnrDataValidation found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class HnrDataValidationDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hnrDataValidationDao.persist(entity);
             long count = hnrDataValidationDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

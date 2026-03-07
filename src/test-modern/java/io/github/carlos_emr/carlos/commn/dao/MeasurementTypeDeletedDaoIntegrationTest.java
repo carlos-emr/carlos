@@ -74,8 +74,8 @@ public class MeasurementTypeDeletedDaoIntegrationTest extends CarlosTestBase {
             MeasurementTypeDeleted saved = new MeasurementTypeDeleted();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             measurementTypeDeletedDao.persist(saved);
-            MeasurementTypeDeleted found = measurementTypeDeletedDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            MeasurementTypeDeleted found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class MeasurementTypeDeletedDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementTypeDeletedDao.persist(entity);
             long count = measurementTypeDeletedDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

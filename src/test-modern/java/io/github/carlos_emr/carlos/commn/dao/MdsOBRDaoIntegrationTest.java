@@ -74,8 +74,8 @@ public class MdsOBRDaoIntegrationTest extends CarlosTestBase {
             MdsOBR saved = new MdsOBR();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             mdsOBRDao.persist(saved);
-            MdsOBR found = mdsOBRDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            MdsOBR found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class MdsOBRDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsOBRDao.persist(entity);
             long count = mdsOBRDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

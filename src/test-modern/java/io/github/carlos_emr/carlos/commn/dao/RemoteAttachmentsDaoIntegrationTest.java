@@ -74,8 +74,8 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
             RemoteAttachments saved = new RemoteAttachments();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             remoteAttachmentsDao.persist(saved);
-            RemoteAttachments found = remoteAttachmentsDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            RemoteAttachments found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             remoteAttachmentsDao.persist(entity);
             long count = remoteAttachmentsDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

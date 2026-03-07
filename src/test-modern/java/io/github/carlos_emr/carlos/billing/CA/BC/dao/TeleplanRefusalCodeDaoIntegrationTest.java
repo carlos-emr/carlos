@@ -69,8 +69,8 @@ public class TeleplanRefusalCodeDaoIntegrationTest extends CarlosTestBase {
             TeleplanRefusalCode saved = new TeleplanRefusalCode();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             teleplanRefusalCodeDao.persist(saved);
-            TeleplanRefusalCode found = teleplanRefusalCodeDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            TeleplanRefusalCode found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 }

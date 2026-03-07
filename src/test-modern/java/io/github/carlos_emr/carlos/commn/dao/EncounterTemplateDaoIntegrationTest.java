@@ -74,8 +74,8 @@ public class EncounterTemplateDaoIntegrationTest extends CarlosTestBase {
             EncounterTemplate saved = new EncounterTemplate();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             encounterTemplateDao.persist(saved);
-            EncounterTemplate found = encounterTemplateDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            EncounterTemplate found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class EncounterTemplateDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterTemplateDao.persist(entity);
             long count = encounterTemplateDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

@@ -74,8 +74,8 @@ public class InstitutionDaoIntegrationTest extends CarlosTestBase {
             Institution saved = new Institution();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             institutionDao.persist(saved);
-            Institution found = institutionDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            Institution found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class InstitutionDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             institutionDao.persist(entity);
             long count = institutionDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

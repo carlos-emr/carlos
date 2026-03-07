@@ -74,8 +74,8 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
             Specialty saved = new Specialty();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             specialtyDao.persist(saved);
-            Specialty found = specialtyDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            Specialty found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             specialtyDao.persist(entity);
             long count = specialtyDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

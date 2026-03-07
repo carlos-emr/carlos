@@ -74,8 +74,8 @@ public class HashAuditDaoIntegrationTest extends CarlosTestBase {
             HashAudit saved = new HashAudit();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             hashAuditDao.persist(saved);
-            HashAudit found = hashAuditDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            HashAudit found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class HashAuditDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hashAuditDao.persist(entity);
             long count = hashAuditDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

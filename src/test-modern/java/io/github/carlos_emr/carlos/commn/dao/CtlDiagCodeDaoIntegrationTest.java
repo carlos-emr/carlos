@@ -74,8 +74,8 @@ public class CtlDiagCodeDaoIntegrationTest extends CarlosTestBase {
             CtlDiagCode saved = new CtlDiagCode();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             ctlDiagCodeDao.persist(saved);
-            CtlDiagCode found = ctlDiagCodeDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            CtlDiagCode found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class CtlDiagCodeDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             ctlDiagCodeDao.persist(entity);
             long count = ctlDiagCodeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

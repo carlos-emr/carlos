@@ -74,8 +74,8 @@ public class PublicKeyDaoIntegrationTest extends CarlosTestBase {
             PublicKey saved = new PublicKey();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             publicKeyDao.persist(saved);
-            PublicKey found = publicKeyDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            PublicKey found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class PublicKeyDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             publicKeyDao.persist(entity);
             long count = publicKeyDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

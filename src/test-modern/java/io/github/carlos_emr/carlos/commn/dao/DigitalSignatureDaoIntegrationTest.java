@@ -74,8 +74,8 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
             DigitalSignature saved = new DigitalSignature();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             digitalSignatureDao.persist(saved);
-            DigitalSignature found = digitalSignatureDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            DigitalSignature found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             digitalSignatureDao.persist(entity);
             long count = digitalSignatureDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

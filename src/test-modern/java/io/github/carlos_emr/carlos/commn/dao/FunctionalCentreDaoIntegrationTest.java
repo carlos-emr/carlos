@@ -74,8 +74,8 @@ public class FunctionalCentreDaoIntegrationTest extends CarlosTestBase {
             FunctionalCentre saved = new FunctionalCentre();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             functionalCentreDao.persist(saved);
-            FunctionalCentre found = functionalCentreDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            FunctionalCentre found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class FunctionalCentreDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             functionalCentreDao.persist(entity);
             long count = functionalCentreDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

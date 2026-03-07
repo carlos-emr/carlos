@@ -74,8 +74,8 @@ public class ReportTempDaoIntegrationTest extends CarlosTestBase {
             ReportTemp saved = new ReportTemp();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             reportTempDao.persist(saved);
-            ReportTemp found = reportTempDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            ReportTemp found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class ReportTempDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportTempDao.persist(entity);
             long count = reportTempDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

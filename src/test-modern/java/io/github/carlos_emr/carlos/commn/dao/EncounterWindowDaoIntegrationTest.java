@@ -74,8 +74,8 @@ public class EncounterWindowDaoIntegrationTest extends CarlosTestBase {
             EncounterWindow saved = new EncounterWindow();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             encounterWindowDao.persist(saved);
-            EncounterWindow found = encounterWindowDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            EncounterWindow found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class EncounterWindowDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterWindowDao.persist(entity);
             long count = encounterWindowDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

@@ -74,8 +74,8 @@ public class MyGroupAccessRestrictionDaoIntegrationTest extends CarlosTestBase {
             MyGroupAccessRestriction saved = new MyGroupAccessRestriction();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             myGroupAccessRestrictionDao.persist(saved);
-            MyGroupAccessRestriction found = myGroupAccessRestrictionDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            MyGroupAccessRestriction found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class MyGroupAccessRestrictionDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             myGroupAccessRestrictionDao.persist(entity);
             long count = myGroupAccessRestrictionDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

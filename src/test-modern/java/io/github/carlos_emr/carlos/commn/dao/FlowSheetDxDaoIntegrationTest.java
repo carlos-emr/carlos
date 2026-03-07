@@ -74,8 +74,8 @@ public class FlowSheetDxDaoIntegrationTest extends CarlosTestBase {
             FlowSheetDx saved = new FlowSheetDx();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             flowSheetDxDao.persist(saved);
-            FlowSheetDx found = flowSheetDxDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            FlowSheetDx found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class FlowSheetDxDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetDxDao.persist(entity);
             long count = flowSheetDxDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

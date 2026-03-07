@@ -74,8 +74,8 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
             Favorites saved = new Favorites();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             favoritesDao.persist(saved);
-            Favorites found = favoritesDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            Favorites found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             favoritesDao.persist(entity);
             long count = favoritesDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

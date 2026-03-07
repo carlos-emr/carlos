@@ -74,8 +74,8 @@ public class SecPrivilegeDaoIntegrationTest extends CarlosTestBase {
             SecPrivilege saved = new SecPrivilege();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             secPrivilegeDao.persist(saved);
-            SecPrivilege found = secPrivilegeDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            SecPrivilege found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class SecPrivilegeDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             secPrivilegeDao.persist(entity);
             long count = secPrivilegeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

@@ -74,8 +74,8 @@ public class BillCenterDaoIntegrationTest extends CarlosTestBase {
             BillCenter saved = new BillCenter();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             billCenterDao.persist(saved);
-            BillCenter found = billCenterDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            BillCenter found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class BillCenterDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             billCenterDao.persist(entity);
             long count = billCenterDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

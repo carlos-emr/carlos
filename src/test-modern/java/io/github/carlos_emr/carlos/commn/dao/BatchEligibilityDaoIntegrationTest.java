@@ -74,8 +74,8 @@ public class BatchEligibilityDaoIntegrationTest extends CarlosTestBase {
             BatchEligibility saved = new BatchEligibility();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             batchEligibilityDao.persist(saved);
-            BatchEligibility found = batchEligibilityDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            BatchEligibility found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class BatchEligibilityDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             batchEligibilityDao.persist(entity);
             long count = batchEligibilityDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

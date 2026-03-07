@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.Provider;
-import io.github.carlos_emr.carlos.test.CarlosTestBase;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -104,7 +104,9 @@ class DiseaseRegistryHandlerIntegrationTest extends CarlosTestBase {
         for (Integer demoNo : demoNos) {
             List<Dxresearch> list = dxDao.findByDemographicNoResearchCodeAndCodingSystem(
                     demoNo, icd9code, icd9codesys);
-            assertThat(list).isNotNull();
+            assertThat(list).isNotEmpty();
+            assertThat(list.get(0).getDxresearchCode()).isEqualTo(icd9code);
+            assertThat(list.get(0).getCodingSystem()).isEqualTo(icd9codesys);
         }
     }
 }

@@ -74,8 +74,8 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
             Ichppccode saved = new Ichppccode();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             ichppccodeDao.persist(saved);
-            Ichppccode found = ichppccodeDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            Ichppccode found = dao.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
@@ -91,7 +91,7 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             ichppccodeDao.persist(entity);
             long count = ichppccodeDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }
