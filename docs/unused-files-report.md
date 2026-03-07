@@ -161,20 +161,20 @@ library/bootstrap/3.0.0/assets/js/raw-files.js         # DELETED
 library/bootstrap/3.0.0/assets/js/typeahead.min.js     # DELETED
 ```
 
-### Duplicate/unused jQuery plugins
+### Duplicate/unused jQuery plugins — REMOVED
 ```
-library/jquery/jSignature.min.noconflict.js                          # Duplicate (share/javascript/jquery/jSignature.min.js IS used)
-library/jquery/jquery-ui-1.11.4.min.js                               # Old jQuery UI version
-library/jquery/jquery-ui-1.8.15.custom.draggable.slider.min.js       # Very old jQuery UI
-library/jquery/jquery-ui-1.8.4.custom_full.min.js                    # Very old jQuery UI
-library/jquery/jquery.autogrow-textarea.js                           # Not referenced
-library/jquery/jquery.validate-1.19.1.min.js                         # Not referenced (version 1.19.5 IS used)
+library/jquery/jSignature.min.noconflict.js                          # DELETED — Duplicate (share/javascript/jquery/jSignature.min.js IS used)
+library/jquery/jquery-ui-1.11.4.min.js                               # DELETED — Old jQuery UI version
+library/jquery/jquery-ui-1.8.15.custom.draggable.slider.min.js       # DELETED — Very old jQuery UI
+library/jquery/jquery-ui-1.8.4.custom_full.min.js                    # DELETED — Very old jQuery UI
+library/jquery/jquery.autogrow-textarea.js                           # DELETED — Not referenced
+library/jquery/jquery.validate-1.19.1.min.js                         # DELETED — Not referenced (version 1.19.5 IS used)
 ```
 
-### Unused eform libraries (2 of original 4 — APCache.js and editControl.js are KEPT)
+### Unused eform libraries (2 of original 4 — APCache.js and editControl.js are KEPT) — REMOVED
 ```
-library/eforms/jSignature.js                # Not referenced (duplicate)
-library/eforms/jSignature.min.noconflict.js # Not referenced (duplicate)
+library/eforms/jSignature.js                # DELETED — Not referenced (duplicate)
+library/eforms/jSignature.min.noconflict.js # DELETED — Not referenced (duplicate)
 ```
 
 ### Other unused libraries
@@ -463,8 +463,8 @@ schedule/scheduletemplatesetting1.jsp       # Schedule template settings
 | DataTables bundled non-min | 1 | ~50 KB | **REMOVED** — only min version used |
 | Angular.js ecosystem + CSS + UI Bootstrap | 17 | ~1.1 MB | **REMOVED** — Angular not used, includes core, CSS, UI Bootstrap |
 | Bootstrap 3.0.0 assets | 6 | ~200 KB | **REMOVED** — BS 5.3 from CDN |
-| Old jQuery/library duplicates | 8 | ~500 KB | **Verified** — duplicates of used versions |
-| Unused eform libraries | 2 | ~50 KB | **Verified** — jSignature duplicates |
+| Old jQuery/library duplicates | 8 | ~500 KB | **REMOVED** — duplicates of used versions |
+| Unused eform libraries | 2 | ~50 KB | **REMOVED** — jSignature duplicates |
 | Other unused libraries | 3 | ~100 KB | **Verified** |
 | `js/` directory unused | 15 | ~400 KB | **Verified** — old plugins/non-min versions (1 REMOVED) |
 | `share/` unused JS | 9 | ~200 KB | **REMOVED** — legacy |
