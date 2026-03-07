@@ -402,7 +402,10 @@ public class AbstractDaoImplIntegrationTest extends CarlosTestBase {
             facilityDao.flush();
 
             // Then — ID should be assigned after flush
-            assertThat(newFacility.getId()).isNotNull();
+            assertThat(newFacility.getId()).isPositive();
+            Facility found = facilityDao.find(newFacility.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getName()).isEqualTo("Flush Test");
         }
     }
 
@@ -459,7 +462,9 @@ public class AbstractDaoImplIntegrationTest extends CarlosTestBase {
             List<Facility> results = facilityDao.findAll(null, null);
 
             // Then — should return results (default limit is 5000)
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSizeGreaterThanOrEqualTo(3);
+            assertThat(results).extracting(Facility::getName)
+                    .contains("Test Clinic Alpha", "Test Clinic Beta", "Test Clinic Gamma");
         }
 
         @Test
@@ -618,10 +623,15 @@ public class AbstractDaoImplIntegrationTest extends CarlosTestBase {
             facilityDao.batchPersist(batch, 3);
 
             // Then
-            entityManager.clear();
+            assertThat(batch).hasSize(7);
             for (Facility f : batch) {
-                Facility found = facilityDao.find(f.getId());
+                assertThat(f.getId()).isPositive();
+            }
+            entityManager.clear();
+            for (int i = 0; i < batch.size(); i++) {
+                Facility found = facilityDao.find(batch.get(i).getId());
                 assertThat(found).isNotNull();
+                assertThat(found.getName()).isEqualTo("Batch Custom " + i);
             }
         }
 
@@ -763,7 +773,10 @@ public class AbstractDaoImplIntegrationTest extends CarlosTestBase {
             List<Object[]> results = facilityDao.runParameterizedNativeQuery(sql, null);
 
             // Then
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSize(1);
+            // COUNT(*) returns a single scalar, not an Object[] — verify the count is >= 3
+            Object countValue = results.get(0);
+            assertThat(((Number) countValue).intValue()).isGreaterThanOrEqualTo(3);
         }
 
         @Test

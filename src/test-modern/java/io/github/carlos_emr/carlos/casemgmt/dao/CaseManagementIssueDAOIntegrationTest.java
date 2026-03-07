@@ -213,10 +213,12 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             caseManagementIssueDAO.saveAndUpdateCaseIssues(issues);
             hibernateTemplate.flush();
 
-            // Then
-            assertThat(caseManagementIssueDAO.getIssuesByDemographic("700")).isNotEmpty();
-            assertThat(caseManagementIssueDAO.getIssuesByDemographic("701")).isNotEmpty();
-            assertThat(caseManagementIssueDAO.getIssuesByDemographic("702")).isNotEmpty();
+            // Then - each demographic should have exactly 1 issue persisted
+            assertThat(caseManagementIssueDAO.getIssuesByDemographic("700")).hasSize(1);
+            assertThat(caseManagementIssueDAO.getIssuesByDemographic("701")).hasSize(1);
+            assertThat(caseManagementIssueDAO.getIssuesByDemographic("702")).hasSize(1);
+            // Verify all 3 issues received generated IDs
+            assertThat(issues).allSatisfy(i -> assertThat(i.getId()).isPositive());
         }
     }
 

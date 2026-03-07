@@ -246,7 +246,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
             Integer result = documentDao.findMaxDocNo();
 
             // Then
-            assertThat(result).isNotNull();
+            assertThat(result).isEqualTo(0);
         }
     }
 
@@ -342,7 +342,8 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
             List<Document> result = documentDao.findByUpdateDate(yesterday, 10);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDoctype()).isEqualTo("lab");
         }
 
         @Test

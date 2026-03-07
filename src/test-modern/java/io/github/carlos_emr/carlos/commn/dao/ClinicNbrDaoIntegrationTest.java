@@ -71,7 +71,9 @@ public class ClinicNbrDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             ArrayList<ClinicNbr> result = dao.findAll();
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getNbrStatus()).isEqualTo("A");
+            assertThat(result.get(0).getNbrValue()).isEqualTo("1");
         }
     }
 
