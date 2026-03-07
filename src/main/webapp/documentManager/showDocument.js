@@ -20,6 +20,16 @@ function popupPatientTickler(height, width, url, windowName, docId) {
     return popup2(height, width, 0, 0, urlNew, windowName);
 }
 
+/**
+ * Sets up auto-completion for a demographic search input field.
+ *
+ * This function initializes event listeners on the input element to fetch and display demographic options based on user input.
+ * It manages the state of related UI elements, handles the fetch request to retrieve data, and updates the dropdown with results.
+ * It also ensures that selections enable relevant buttons and clears previous selections when necessary.
+ *
+ * @param docId - The identifier for the document context.
+ * @param contextPath - The base path for the API endpoint to fetch demographic data.
+ */
 function setupDemoAutoCompletion(docId, contextPath) {
     var inputEl = document.getElementById('autocompletedemo' + docId);
     var dropdownEl = document.getElementById('autocomplete_choices' + docId);
