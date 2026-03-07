@@ -128,7 +128,7 @@
 
                     <tr>
                         <td>
-                            <div class="DivContentSectionHead"><%=name%>
+                            <div class="DivContentSectionHead"><%=Encode.forHtml(name)%>
                             </div>
                         </td>
                     </tr>
@@ -201,6 +201,7 @@
                                         <input type="hidden" name="ID" value="<%=Encode.forHtmlAttribute(drugrefId)%>"/>
                                         <input type="hidden" name="name" id="name" value="<%=Encode.forHtmlAttribute(name)%>"/>
                                         <input type="hidden" name="allergyToArchive" id="allergyToArchive" value="<%=Encode.forHtmlAttribute(allergyToArchive)%>"/>
+                                        <%-- CSRF token auto-injected by CSRFGuard (injectIntoForms=true) --%>
                                     </td>
                                 </tr>
 

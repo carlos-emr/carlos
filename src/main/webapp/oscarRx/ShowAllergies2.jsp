@@ -42,6 +42,7 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+<%@page import="org.owasp.encoder.Encode" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PartialDateDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
@@ -103,6 +104,7 @@
             }
         </style>
         <script type="text/javascript">
+            <%-- CSRF tokens auto-injected by CSRFGuard (injectIntoForms=true, Ajax=true) --%>
 
             function submitSearchForm() {
                 $("#searchStringButton").click();
@@ -321,6 +323,7 @@
                 }
 
                 $('.ajax-loader').removeClass('ajax-loader');
+                // CSRF tokens for dynamically loaded forms auto-injected by CSRFGuard MutationObserver
                 $().bindActionEvents();
             }
 

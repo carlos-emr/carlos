@@ -52,15 +52,13 @@
             <c:when test="${not empty requestScope.image_exists}">
                 <c:set var="clientId" value="${demographicNo}"></c:set>
                 <img style="cursor: pointer;" id="ci"
-                    src="${pageContext.request.contextPath}/${ClientImage.imagePresentPlaceholderUrl}" alt="id_photo" height="100"
+                    src="${pageContext.request.contextPath}/imageRenderingServlet?source=local_client&amp;clientId=${demographicNo}" alt="id_photo" height="100"
                     title="Click to upload a new photo."
-                    OnMouseOver="document.getElementById('ci').src='${pageContext.request.contextPath}/imageRenderingServlet?source=local_client&clientId=${demographicNo}'"
-                    OnMouseOut="delay(5000, '${pageContext.request.contextPath}${ClientImage.imagePresentPlaceholderUrl}')" window.status='Click to upload a new photo.'; return true;"
                 onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/uploadimage.jsp', ${demographicNo}); return false;"/>
             </c:when>
             <c:otherwise>
                 <img style="cursor: pointer;" src="${pageContext.request.contextPath}/${ClientImage.imageMissingPlaceholderUrl}"
-                    alt="No_Id_Photo" height="100" title="Click to upload a new photo."
+                    alt="No_Id_Photo" height="20" title="Click to upload a new photo."
                     OnMouseOver="window.status='Click to upload a new photo.'; return true;"
                     onClick="popupUploadPage('${pageContext.request.contextPath}/casemgmt/uploadimage.jsp', ${demographicNo}); return false;"/>
             </c:otherwise>

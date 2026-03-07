@@ -43,4 +43,6 @@ public interface ClientImageDAO {
     public void saveClientImage(ClientImage clientImage);
 
     public ClientImage getClientImage(Integer clientId);
+
+    public void deleteClientImage(Integer clientId);
 }
