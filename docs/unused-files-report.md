@@ -190,13 +190,13 @@ library/showdown.js                        # DELETED — Markdown-to-HTML conver
 ## Category 3: Unused JS files in `js/` directory
 
 ```
-js/bootstrap-multiselect.js                 # Bootstrap multiselect plugin
-js/bootstrap-timepicker.js                  # Non-min version (bootstrap-timepicker.min.js IS used by DrilldownDisplay.jsp)
+js/bootstrap-multiselect.js                 # DELETED — Bootstrap multiselect plugin
+js/bootstrap-timepicker.js                  # DELETED — Non-min version (bootstrap-timepicker.min.js IS used by DrilldownDisplay.jsp)
 js/caisi_report_tools.js                    # DELETED — CAISI reporting tools
-js/custom/default/main.js                   # Custom main JS
-js/fancybox/jquery.easing-1.3.pack.js       # Fancybox dependency
-js/fancybox/jquery.fancybox-1.3.4.js        # Non-min version (jquery.fancybox-1.3.4.pack.js IS used)
-js/fancybox/jquery.mousewheel-3.0.4.pack.js # Fancybox dependency
+js/custom/default/main.js                   # DELETED — Custom main JS
+js/fancybox/jquery.easing-1.3.pack.js       # DELETED — Fancybox dependency
+js/fancybox/jquery.fancybox-1.3.4.js        # DELETED — Non-min version (jquery.fancybox-1.3.4.pack.js IS used)
+js/fancybox/jquery.mousewheel-3.0.4.pack.js # DELETED — Fancybox dependency
 js/jquery-3.1.0.min.js                      # Old jQuery 3.1.0 (newer version in use)
 js/jquery.dataTables.1.10.11.min.js          # Old DataTables (1.13.4 is current)
 js/jquery.metadata.js                       # jQuery metadata plugin
@@ -205,9 +205,9 @@ js/jquery.tablesorter.pager.js              # TableSorter pager (Index.jsp uses 
 js/jquery.treeview.js                       # jQuery treeview plugin
 js/menuExpandable.js                       # DELETED — orphaned by JSP deletion (missed in initial report, caught by cascade audit)
 js/quatroLookup.js                         # DELETED — orphaned by JSP deletion (missed in initial report, caught by cascade audit)
-js/loading-bar.js                           # Loading bar animation
-js/standard.js                              # Legacy standard utilities
-js/topnav.js                                # Legacy top navigation (topnav.css IS used, but .js is not)
+js/loading-bar.js                           # DELETED — Loading bar animation
+js/standard.js                              # DELETED — Legacy standard utilities
+js/topnav.js                                # DELETED — Legacy top navigation (topnav.css IS used, but .js is not)
 ```
 
 ---
@@ -466,7 +466,7 @@ schedule/scheduletemplatesetting1.jsp       # Schedule template settings
 | Old jQuery/library duplicates | 8 | ~500 KB | **REMOVED** — duplicates of used versions |
 | Unused eform libraries | 2 | ~50 KB | **REMOVED** — jSignature duplicates |
 | Other unused libraries | 3 | ~100 KB | **Verified** |
-| `js/` directory unused | 15 | ~400 KB | **Verified** — old plugins/non-min versions (1 REMOVED) |
+| `js/` directory unused | 15 | ~400 KB | **REMOVED** — old plugins/non-min versions |
 | `share/` unused JS | 9 | ~200 KB | **REMOVED** — legacy |
 | `share/calendar/lang/` (28 locales) | 28 | ~50 KB | **Verified** — only en/fr used, no dynamic loading |
 | PMmodule/Admin JSPs | 35 | ~200 KB | **Verified** — dead Tiles references |
