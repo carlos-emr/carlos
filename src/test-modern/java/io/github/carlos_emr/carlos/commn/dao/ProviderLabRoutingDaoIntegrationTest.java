@@ -78,7 +78,7 @@ public class ProviderLabRoutingDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistProviderLabRouting_whenValidDataProvided() {
             ProviderLabRoutingModel entity = createRouting("100001", 1, "HL7", "N");
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

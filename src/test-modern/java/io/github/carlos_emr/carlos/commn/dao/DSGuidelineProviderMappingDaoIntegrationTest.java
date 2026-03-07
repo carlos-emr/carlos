@@ -67,7 +67,7 @@ public class DSGuidelineProviderMappingDaoIntegrationTest extends CarlosTestBase
             DSGuidelineProviderMapping dsGPM = new DSGuidelineProviderMapping();
             EntityDataGenerator.generateTestDataForModelClass(dsGPM);
             dao.persist(dsGPM);
-            assertThat(dsGPM.getId()).isNotNull();
+            assertThat(dsGPM.getId()).isPositive();
         }
     }
 

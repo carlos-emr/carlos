@@ -81,7 +81,7 @@ public class RaDetailDaoIntegrationTest extends CarlosTestBase {
         hibernateTemplate.flush();
 
         assertThat(d).isNotNull();
-        assertThat(d.getId()).isNotNull();
+        assertThat(d.getId()).isPositive();
     }
 
     // --- findByBillingNo test ---

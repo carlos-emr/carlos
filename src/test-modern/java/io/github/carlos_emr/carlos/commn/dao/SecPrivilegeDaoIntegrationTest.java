@@ -64,7 +64,7 @@ public class SecPrivilegeDaoIntegrationTest extends CarlosTestBase {
             SecPrivilege entity = new SecPrivilege();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             secPrivilegeDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

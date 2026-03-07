@@ -68,7 +68,7 @@ public class OtherIdDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistOtherId_whenValidDataProvided() {
             OtherId entity = createOtherId(1, "100", "KEY1", "VAL1");
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test
@@ -181,7 +181,7 @@ public class OtherIdDaoIntegrationTest extends CarlosTestBase {
 
             otherIdDAO.save(entity);
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
 
             OtherId found = otherIdDAO.find(entity.getId());
             assertThat(found.getOtherKey()).isEqualTo("SAVE_KEY");

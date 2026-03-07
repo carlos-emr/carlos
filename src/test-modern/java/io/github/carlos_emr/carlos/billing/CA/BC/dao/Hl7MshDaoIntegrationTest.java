@@ -59,7 +59,7 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
             Hl7Msh entity = new Hl7Msh();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hl7MshDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

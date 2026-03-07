@@ -65,7 +65,7 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
             CssStyle entity = new CssStyle();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             cSSStylesDAO.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

@@ -77,7 +77,7 @@ public class MessageTblDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist message with generated ID")
         void shouldPersistMessage_whenValidDataProvided() {
             MessageTbl msg = createMessage("Lab Alert", "New lab results available", "Dr. Smith", "100001");
-            assertThat(msg.getId()).isNotNull();
+            assertThat(msg.getId()).isPositive();
         }
 
         @Test
@@ -116,7 +116,7 @@ public class MessageTblDaoIntegrationTest extends CarlosTestBase {
         void shouldCountAllMessages() {
             createMessage("Count Test", "Body", "Sender", "100001");
             long count = messageTblDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
 
         @Test

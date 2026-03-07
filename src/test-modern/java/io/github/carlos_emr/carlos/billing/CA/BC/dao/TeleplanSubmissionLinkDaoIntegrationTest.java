@@ -58,7 +58,7 @@ public class TeleplanSubmissionLinkDaoIntegrationTest extends CarlosTestBase {
         entity.setBillActivityId(100);
         entity.setBillingMasterNo(200);
         dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

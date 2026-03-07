@@ -73,7 +73,7 @@ public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist measurement type with generated ID")
         void shouldPersistMeasurementType_whenValidDataProvided() {
             MeasurementType mt = createType("BP", "Blood Pressure", "Sitting, left arm");
-            assertThat(mt.getId()).isNotNull();
+            assertThat(mt.getId()).isPositive();
         }
 
         @Test

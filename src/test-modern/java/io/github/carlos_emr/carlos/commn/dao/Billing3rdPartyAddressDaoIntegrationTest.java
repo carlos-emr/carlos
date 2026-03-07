@@ -67,7 +67,7 @@ public class Billing3rdPartyAddressDaoIntegrationTest extends CarlosTestBase {
             Billing3rdPartyAddress entity = new Billing3rdPartyAddress();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
     }
 

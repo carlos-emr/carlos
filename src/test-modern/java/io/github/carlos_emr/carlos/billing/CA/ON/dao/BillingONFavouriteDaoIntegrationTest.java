@@ -60,7 +60,7 @@ public class BillingONFavouriteDaoIntegrationTest extends CarlosTestBase {
         BillingONFavourite entity = new BillingONFavourite();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

@@ -65,7 +65,7 @@ public class CtlBillingServiceAgeRulesDaoIntegrationTest extends CarlosTestBase 
         entity.setId(null);
         dao.persist(entity);
 
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

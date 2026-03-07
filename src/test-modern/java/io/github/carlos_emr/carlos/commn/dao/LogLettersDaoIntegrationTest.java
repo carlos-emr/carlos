@@ -64,7 +64,7 @@ public class LogLettersDaoIntegrationTest extends CarlosTestBase {
             LogLetters entity = new LogLetters();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             logLettersDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

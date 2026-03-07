@@ -64,7 +64,7 @@ public class CaisiAccessTypeDaoIntegrationTest extends CarlosTestBase {
             CaisiAccessType entity = new CaisiAccessType();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             caisiAccessTypeDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

@@ -70,7 +70,7 @@ public class Hl7MessageDaoIntegrationTest extends CarlosTestBase {
             entity.setNotes("Test HL7 message");
             entity.setDateTime(new Date());
             hl7MessageDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

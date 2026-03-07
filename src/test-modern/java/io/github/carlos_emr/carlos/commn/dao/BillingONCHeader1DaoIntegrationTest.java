@@ -1006,7 +1006,7 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
             entityManager.flush();
 
             // Then
-            assertThat(h1.getId()).isNotNull();
+            assertThat(h1.getId()).isPositive();
             assertThat(h2.getId()).isNotNull();
         }
     }

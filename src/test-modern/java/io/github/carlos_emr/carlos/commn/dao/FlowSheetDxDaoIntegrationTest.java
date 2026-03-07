@@ -64,7 +64,7 @@ public class FlowSheetDxDaoIntegrationTest extends CarlosTestBase {
             FlowSheetDx entity = new FlowSheetDx();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetDxDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

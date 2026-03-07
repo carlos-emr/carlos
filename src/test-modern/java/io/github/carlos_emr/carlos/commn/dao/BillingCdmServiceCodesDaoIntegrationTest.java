@@ -62,7 +62,7 @@ public class BillingCdmServiceCodesDaoIntegrationTest extends CarlosTestBase {
         entity.setId(null);
         dao.persist(entity);
 
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

@@ -168,7 +168,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(cmi.getId()).isNotNull();
+            assertThat(cmi.getId()).isPositive();
         }
 
         @Test

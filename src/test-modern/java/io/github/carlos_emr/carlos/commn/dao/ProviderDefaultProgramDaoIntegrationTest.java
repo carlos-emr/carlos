@@ -72,7 +72,7 @@ public class ProviderDefaultProgramDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistProviderDefaultProgram_whenValidDataProvided() {
             ProviderDefaultProgram entity = createPdp("100001", 10, false);
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test
@@ -170,7 +170,7 @@ public class ProviderDefaultProgramDaoIntegrationTest extends CarlosTestBase {
 
             dao.saveProviderDefaultProgram(entity);
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
             ProviderDefaultProgram found = dao.find(entity.getId());
             assertThat(found.getProviderNo()).isEqualTo("500001");
         }

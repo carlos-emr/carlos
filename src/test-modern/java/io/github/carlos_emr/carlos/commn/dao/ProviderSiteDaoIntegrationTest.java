@@ -70,7 +70,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             entity.getId().setSiteId(1);
             dao.persist(entity);
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
             ProviderSite found = dao.find(entity.getId());
             assertThat(found).isNotNull();
             assertThat(found.getId().getProviderNo()).isEqualTo("000001");

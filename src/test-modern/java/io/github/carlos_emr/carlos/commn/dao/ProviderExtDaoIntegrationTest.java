@@ -71,7 +71,7 @@ public class ProviderExtDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist provider extension with generated ID")
         void shouldPersistProviderExt_whenValidDataProvided() {
             ProviderExt ext = createProviderExt("100001", "pref_language", "en");
-            assertThat(ext.getId()).isNotNull();
+            assertThat(ext.getId()).isPositive();
         }
 
         @Test
@@ -108,7 +108,7 @@ public class ProviderExtDaoIntegrationTest extends CarlosTestBase {
         void shouldCountAllExtensions() {
             createProviderExt("300001", "count_key", "count_val");
             long count = providerExtDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

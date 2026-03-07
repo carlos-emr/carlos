@@ -64,7 +64,7 @@ public class FunctionalCentreDaoIntegrationTest extends CarlosTestBase {
             FunctionalCentre entity = new FunctionalCentre();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             functionalCentreDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

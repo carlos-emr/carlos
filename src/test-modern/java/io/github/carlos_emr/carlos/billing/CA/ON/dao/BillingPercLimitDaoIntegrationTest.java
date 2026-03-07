@@ -62,7 +62,7 @@ public class BillingPercLimitDaoIntegrationTest extends CarlosTestBase {
         BillingPercLimit entity = new BillingPercLimit();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

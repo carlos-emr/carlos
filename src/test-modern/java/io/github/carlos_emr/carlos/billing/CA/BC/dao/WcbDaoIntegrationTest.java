@@ -65,7 +65,7 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
         Wcb entity = new Wcb();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

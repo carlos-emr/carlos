@@ -66,7 +66,7 @@ public class Hl7ObxDaoIntegrationTest extends CarlosTestBase {
             Hl7Obx entity = new Hl7Obx();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

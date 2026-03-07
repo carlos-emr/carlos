@@ -72,7 +72,7 @@ public class PropertyDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist property with generated ID")
         void shouldPersistProperty_whenValidDataProvided() {
             Property prop = createProperty("test.setting", "enabled", "999998");
-            assertThat(prop.getId()).isNotNull();
+            assertThat(prop.getId()).isPositive();
         }
 
         @Test

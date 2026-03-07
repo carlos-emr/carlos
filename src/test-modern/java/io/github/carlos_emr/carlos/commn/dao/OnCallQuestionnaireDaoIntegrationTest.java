@@ -64,7 +64,7 @@ public class OnCallQuestionnaireDaoIntegrationTest extends CarlosTestBase {
             OnCallQuestionnaire entity = new OnCallQuestionnaire();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             onCallQuestionnaireDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

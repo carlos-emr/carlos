@@ -66,7 +66,7 @@ public class BillingONRepoDaoIntegrationTest extends CarlosTestBase {
             BillingONRepo entity = new BillingONRepo();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             billingONRepoDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

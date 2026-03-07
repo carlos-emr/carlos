@@ -64,7 +64,7 @@ public class CtlDiagCodeDaoIntegrationTest extends CarlosTestBase {
             CtlDiagCode entity = new CtlDiagCode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             ctlDiagCodeDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

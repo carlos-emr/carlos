@@ -77,7 +77,7 @@ public class HRMDocumentDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist HRM document with generated ID")
         void shouldPersistDocument_whenValidDataProvided() {
             HRMDocument doc = createDocument("hash123", "TestHospital");
-            assertThat(doc.getId()).isNotNull();
+            assertThat(doc.getId()).isPositive();
         }
 
         @Test

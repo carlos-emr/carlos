@@ -73,7 +73,7 @@ public class BillActivityDaoIntegrationTest extends CarlosTestBase {
             BillActivity entity = new BillActivity();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
     }
 

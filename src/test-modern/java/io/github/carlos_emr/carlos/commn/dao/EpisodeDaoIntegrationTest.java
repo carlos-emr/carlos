@@ -64,7 +64,7 @@ public class EpisodeDaoIntegrationTest extends CarlosTestBase {
             Episode entity = new Episode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             episodeDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

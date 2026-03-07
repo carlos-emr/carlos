@@ -73,7 +73,7 @@ public class MeasurementsExtDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist measurement extension with generated ID")
         void shouldPersistMeasurementsExt_whenValidDataProvided() {
             MeasurementsExt ext = createExt(5001, "lab_no", "LAB-001");
-            assertThat(ext.getId()).isNotNull();
+            assertThat(ext.getId()).isPositive();
         }
 
         @Test

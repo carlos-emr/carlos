@@ -64,7 +64,7 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
             RemoteAttachments entity = new RemoteAttachments();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             remoteAttachmentsDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

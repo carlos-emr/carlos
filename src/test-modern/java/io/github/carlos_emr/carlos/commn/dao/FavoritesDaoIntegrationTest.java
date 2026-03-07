@@ -64,7 +64,7 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
             Favorites entity = new Favorites();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             favoritesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

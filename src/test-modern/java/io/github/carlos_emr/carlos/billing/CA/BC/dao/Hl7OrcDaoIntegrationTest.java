@@ -65,7 +65,7 @@ public class Hl7OrcDaoIntegrationTest extends CarlosTestBase {
             Hl7Orc entity = new Hl7Orc();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hl7OrcDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

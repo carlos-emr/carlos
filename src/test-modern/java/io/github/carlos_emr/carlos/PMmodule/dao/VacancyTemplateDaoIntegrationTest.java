@@ -73,7 +73,7 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test
@@ -84,7 +84,7 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
             dao.saveVacancyTemplate(vt);
             entityManager.flush();
 
-            assertThat(vt.getId()).isNotNull();
+            assertThat(vt.getId()).isPositive();
 
             VacancyTemplate found = dao.getVacancyTemplate(vt.getId());
             assertThat(found).isNotNull();

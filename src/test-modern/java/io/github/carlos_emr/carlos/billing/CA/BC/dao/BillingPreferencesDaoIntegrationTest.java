@@ -61,7 +61,7 @@ public class BillingPreferencesDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setProviderNo("100001");
             billingPreferencesDAO.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

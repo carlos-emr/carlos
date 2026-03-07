@@ -69,7 +69,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
             BillingHistory entity = new BillingHistory();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

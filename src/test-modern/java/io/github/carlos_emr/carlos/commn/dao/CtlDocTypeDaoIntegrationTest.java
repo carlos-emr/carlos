@@ -72,7 +72,7 @@ public class CtlDocTypeDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist document type with generated ID")
         void shouldPersistDocType_whenValidDataProvided() {
             CtlDocType dt = createDocType("Lab Report", "labs", "A");
-            assertThat(dt.getId()).isNotNull();
+            assertThat(dt.getId()).isPositive();
         }
 
         @Test

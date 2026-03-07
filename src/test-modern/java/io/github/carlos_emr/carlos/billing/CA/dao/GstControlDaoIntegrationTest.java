@@ -68,7 +68,7 @@ public class GstControlDaoIntegrationTest extends CarlosTestBase {
     void shouldPersistEntity_whenValidDataProvided() {
         GstControl entity = createEntity(new BigDecimal("13.00"), true);
         dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

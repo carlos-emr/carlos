@@ -59,7 +59,7 @@ public class SupServiceCodeAssocDaoIntegrationTest extends CarlosTestBase {
         void shouldPersist_whenValidDataProvided() {
             BillingTrayFee entity = new BillingTrayFee("SVC001", "TRAY001");
             supServiceCodeAssocDAO.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

@@ -64,7 +64,7 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
             ReportItem entity = new ReportItem();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportItemDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

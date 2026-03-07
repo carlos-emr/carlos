@@ -85,7 +85,7 @@ public class ScheduleDateDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist schedule date with generated ID")
         void shouldPersistScheduleDate_whenValidDataProvided() {
             ScheduleDate sd = createScheduleDate("999998", createDate(2026, Calendar.MARCH, 15), 'a', "09:00-17:00");
-            assertThat(sd.getId()).isNotNull();
+            assertThat(sd.getId()).isPositive();
         }
 
         @Test

@@ -64,7 +64,7 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
             LabPatientPhysicianInfo entity = new LabPatientPhysicianInfo();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             labPatientPhysicianInfoDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

@@ -66,7 +66,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test
@@ -84,7 +84,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
             entity.setDate(false);
             dao.persist(entity);
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
 
             List<Validations> found = dao.findByName("TestValidation");
             assertThat(found).hasSize(1);

@@ -25,15 +25,23 @@ import io.github.carlos_emr.carlos.commn.model.ServiceSpecialists;
 import io.github.carlos_emr.carlos.commn.model.ServiceSpecialistsPK;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ServiceSpecialistsDao} with full method coverage matching legacy tests.
+ * Integration tests for {@link ServiceSpecialistsDao} covering persist,
+ * findByServiceId, and findSpecialists.
+ *
+ * <p>Note: {@code findSpecialists} joins with ProfessionalSpecialist, so
+ * it requires ProfessionalSpecialist records. These tests verify the
+ * findByServiceId method which does not require cross-entity joins.</p>
  *
  * <p>Migrated from legacy {@code ServiceSpecialistsDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -49,22 +57,97 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ServiceSpecialistsDao dao;
 
-    @Test
-    @Tag("create")
-    @DisplayName("should persist service specialists with composite key")
-    void shouldPersistServiceSpecialists_whenCompositeKeyProvided() {
+    private ServiceSpecialists createServiceSpecialist(int serviceId, int specId) {
         ServiceSpecialists entity = new ServiceSpecialists();
-        ServiceSpecialistsPK key = new ServiceSpecialistsPK(1, 1);
-        entity.setId(key);
+        entity.setId(new ServiceSpecialistsPK(serviceId, specId));
         dao.persist(entity);
-
-        assertThat(entity.getId()).isNotNull();
+        return entity;
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should return non-null result when finding specialists by service ID")
-    void shouldReturnNonNullResult_whenFindingSpecialistsByServiceId() {
-        assertThat(dao.findSpecialists(1000)).isNotNull();
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist service specialists with composite key")
+        void shouldPersistServiceSpecialists_whenCompositeKeyProvided() {
+            ServiceSpecialists entity = createServiceSpecialist(1, 100);
+
+            assertThat(entity.getId()).isPositive();
+            assertThat(entity.getId().getServiceId()).isEqualTo(1);
+            assertThat(entity.getId().getSpecId()).isEqualTo(100);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find service specialists by composite key")
+        void shouldFindServiceSpecialists_whenCompositeKeyProvided() {
+            ServiceSpecialistsPK key = new ServiceSpecialistsPK(2, 200);
+            createServiceSpecialist(2, 200);
+
+            ServiceSpecialists found = dao.find(key);
+
+            assertThat(found).isNotNull();
+            assertThat(found.getId().getServiceId()).isEqualTo(2);
+            assertThat(found.getId().getSpecId()).isEqualTo(200);
+        }
+    }
+
+    @Nested
+    @DisplayName("findByServiceId")
+    class FindByServiceId {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return all specialists for matching service ID")
+        void shouldReturnAllSpecialists_whenServiceIdMatches() {
+            createServiceSpecialist(10, 301);
+            createServiceSpecialist(10, 302);
+            createServiceSpecialist(10, 303);
+            createServiceSpecialist(20, 304);
+
+            List<ServiceSpecialists> results = dao.findByServiceId(10);
+
+            assertThat(results).hasSize(3);
+            assertThat(results).allMatch(s -> s.getId().getServiceId().equals(10));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no specialists for service ID")
+        void shouldReturnEmptyList_whenNoSpecialistsForServiceId() {
+            List<ServiceSpecialists> results = dao.findByServiceId(99999);
+
+            assertThat(results).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("findSpecialists")
+    class FindSpecialists {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no ProfessionalSpecialist records match")
+        void shouldReturnEmptyList_whenNoProfessionalSpecialistRecordsMatch() {
+            // Create service specialist mappings without corresponding ProfessionalSpecialist records
+            createServiceSpecialist(30, 901);
+            createServiceSpecialist(30, 902);
+
+            List<Object[]> results = dao.findSpecialists(30);
+
+            // Join with ProfessionalSpecialist will yield no results since no specialist records exist
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list for non-existent service ID")
+        void shouldReturnEmptyList_forNonExistentServiceId() {
+            List<Object[]> results = dao.findSpecialists(99999);
+
+            assertThat(results).isEmpty();
+        }
     }
 }

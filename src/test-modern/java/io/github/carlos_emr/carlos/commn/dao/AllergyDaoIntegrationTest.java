@@ -87,7 +87,7 @@ public class AllergyDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist allergy with generated ID")
         void shouldPersistAllergy_whenValidDataProvided() {
             Allergy allergy = createAllergy(DEMO_1, false);
-            assertThat(allergy.getId()).isNotNull();
+            assertThat(allergy.getId()).isPositive();
         }
 
         @Test

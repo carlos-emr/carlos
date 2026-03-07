@@ -92,7 +92,7 @@ public class PreventionExtDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistPreventionExt_whenValidDataProvided() {
             Prevention prev = createPrevention(90001, "Flu");
             PreventionExt ext = createExt(prev.getId(), "lot", "LOT-001");
-            assertThat(ext.getId()).isNotNull();
+            assertThat(ext.getId()).isPositive();
         }
 
         @Test

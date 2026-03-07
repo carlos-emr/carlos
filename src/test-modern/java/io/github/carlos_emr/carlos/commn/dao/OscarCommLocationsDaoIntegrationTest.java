@@ -64,7 +64,7 @@ public class OscarCommLocationsDaoIntegrationTest extends CarlosTestBase {
             OscarCommLocations entity = new OscarCommLocations();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             oscarCommLocationsDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

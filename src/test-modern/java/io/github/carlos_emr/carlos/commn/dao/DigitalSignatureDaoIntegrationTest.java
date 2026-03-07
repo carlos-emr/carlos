@@ -64,7 +64,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
             DigitalSignature entity = new DigitalSignature();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             digitalSignatureDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

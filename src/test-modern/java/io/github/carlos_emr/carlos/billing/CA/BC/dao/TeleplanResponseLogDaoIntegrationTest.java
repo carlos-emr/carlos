@@ -66,7 +66,7 @@ public class TeleplanResponseLogDaoIntegrationTest extends CarlosTestBase {
             entity.setTransactionNo("TX-001");
             entity.setResult("SUCCESS");
             teleplanResponseLogDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

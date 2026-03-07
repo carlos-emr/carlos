@@ -77,7 +77,7 @@ public class PatientLabRoutingDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist lab routing with generated ID")
         void shouldPersistRouting_whenValidDataProvided() {
             PatientLabRouting routing = createRouting(DEMO_1, 1001, "HL7");
-            assertThat(routing.getId()).isNotNull();
+            assertThat(routing.getId()).isPositive();
         }
 
         @Test

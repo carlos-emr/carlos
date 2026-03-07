@@ -64,7 +64,7 @@ public class InstitutionDaoIntegrationTest extends CarlosTestBase {
             Institution entity = new Institution();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             institutionDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

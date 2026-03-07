@@ -64,7 +64,7 @@ public class QuickListUserDaoIntegrationTest extends CarlosTestBase {
             QuickListUser entity = new QuickListUser();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             quickListUserDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

@@ -64,7 +64,7 @@ public class RecycleBinDaoIntegrationTest extends CarlosTestBase {
             RecycleBin entity = new RecycleBin();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             recycleBinDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

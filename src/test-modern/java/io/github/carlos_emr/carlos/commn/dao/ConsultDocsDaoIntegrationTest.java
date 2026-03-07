@@ -73,7 +73,7 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist consult doc with generated ID")
         void shouldPersistConsultDoc_whenValidDataProvided() {
             ConsultDocs doc = createConsultDoc(1001, 2001, "D", null);
-            assertThat(doc.getId()).isNotNull();
+            assertThat(doc.getId()).isPositive();
         }
 
         @Test

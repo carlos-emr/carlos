@@ -67,7 +67,7 @@ public class DocumentDescriptionTemplateDaoIntegrationTest extends CarlosTestBas
             DocumentDescriptionTemplate entity = new DocumentDescriptionTemplate();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
     }
 

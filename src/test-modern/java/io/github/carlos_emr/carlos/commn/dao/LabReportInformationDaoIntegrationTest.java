@@ -64,7 +64,7 @@ public class LabReportInformationDaoIntegrationTest extends CarlosTestBase {
             LabReportInformation entity = new LabReportInformation();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             labReportInformationDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

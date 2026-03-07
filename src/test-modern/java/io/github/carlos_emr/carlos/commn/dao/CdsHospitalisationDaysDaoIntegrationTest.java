@@ -64,7 +64,7 @@ public class CdsHospitalisationDaysDaoIntegrationTest extends CarlosTestBase {
             CdsHospitalisationDays entity = new CdsHospitalisationDays();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             cdsHospitalisationDaysDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

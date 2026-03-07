@@ -64,7 +64,7 @@ public class CountryCodeDaoIntegrationTest extends CarlosTestBase {
             CountryCode entity = new CountryCode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
     }
 

@@ -64,7 +64,7 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
             FlowSheetCustomization entity = new FlowSheetCustomization();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetCustomizationDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

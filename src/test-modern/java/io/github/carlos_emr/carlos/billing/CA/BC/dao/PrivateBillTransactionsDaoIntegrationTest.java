@@ -63,7 +63,7 @@ public class PrivateBillTransactionsDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setCreationDate(new Date());
             privateBillTransactionsDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

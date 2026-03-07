@@ -79,7 +79,7 @@ public class PrescriptionDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist prescription with generated ID")
         void shouldPersistPrescription_whenValidDataProvided() {
             Prescription rx = createPrescription(DEMO_NO);
-            assertThat(rx.getId()).isNotNull();
+            assertThat(rx.getId()).isPositive();
         }
 
         @Test

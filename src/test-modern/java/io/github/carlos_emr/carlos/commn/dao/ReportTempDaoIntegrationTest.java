@@ -64,7 +64,7 @@ public class ReportTempDaoIntegrationTest extends CarlosTestBase {
             ReportTemp entity = new ReportTemp();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportTempDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

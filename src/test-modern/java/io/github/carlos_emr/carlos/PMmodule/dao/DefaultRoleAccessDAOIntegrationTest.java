@@ -313,7 +313,7 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(dra.getId()).isNotNull();
+            assertThat(dra.getId()).isPositive();
             assertThat(dra.getId()).isGreaterThan(0L);
 
             // Verify persistence
@@ -372,7 +372,7 @@ public class DefaultRoleAccessDAOIntegrationTest extends CarlosTestBase {
             // Guard: outer setUp always creates matching pairs, so this can never be vacuous.
             assertThat(expectedMatchCount)
                 .as("outer setUp must produce at least one DefaultRoleAccess/AccessType ID match")
-                .isGreaterThanOrEqualTo(1);
+                .isEqualTo(1);
 
             // When
             List<Object[]> results = defaultRoleAccessDAO.findAllRolesAndAccessTypes();

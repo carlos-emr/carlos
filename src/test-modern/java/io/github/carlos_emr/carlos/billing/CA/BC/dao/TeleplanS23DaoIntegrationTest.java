@@ -66,7 +66,7 @@ public class TeleplanS23DaoIntegrationTest extends CarlosTestBase {
         TeleplanS23 entity = new TeleplanS23();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

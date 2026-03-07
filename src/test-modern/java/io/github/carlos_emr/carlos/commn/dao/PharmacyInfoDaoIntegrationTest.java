@@ -81,7 +81,7 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist pharmacy with generated ID")
         void shouldPersistPharmacy_whenValidDataProvided() {
             PharmacyInfo info = createPharmacy("Test Pharmacy", "Ottawa", '1');
-            assertThat(info.getId()).isNotNull();
+            assertThat(info.getId()).isPositive();
         }
 
         @Test

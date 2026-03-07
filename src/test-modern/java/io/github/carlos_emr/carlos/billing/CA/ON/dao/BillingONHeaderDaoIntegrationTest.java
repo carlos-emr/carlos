@@ -60,7 +60,7 @@ public class BillingONHeaderDaoIntegrationTest extends CarlosTestBase {
         BillingONHeader entity = new BillingONHeader();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

@@ -71,7 +71,7 @@ public class MsgDemoMapDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistMsgDemoMap_whenValidDataProvided() {
             MsgDemoMap entity = createMsgDemoMap(1, 100);
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
     }
 

@@ -98,7 +98,7 @@ public class ConsultationRequestDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist consultation request with generated ID")
         void shouldPersistConsultRequest_whenValidDataProvided() {
             ConsultationRequest req = createConsultRequest(DEMO_1, "1", null);
-            assertThat(req.getId()).isNotNull();
+            assertThat(req.getId()).isPositive();
         }
 
         @Test

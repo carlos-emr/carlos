@@ -64,7 +64,7 @@ public class EncounterTemplateDaoIntegrationTest extends CarlosTestBase {
             EncounterTemplate entity = new EncounterTemplate();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterTemplateDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

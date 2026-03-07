@@ -106,7 +106,7 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             hibernateTemplate.flush();
 
             // Then
-            assertThat(note.getId()).isNotNull();
+            assertThat(note.getId()).isPositive();
             CaseManagementNote found = caseManagementNoteDAO.getNote(note.getId());
             assertThat(found).isNotNull();
             assertThat(found.getNote()).isEqualTo("Persisted note");

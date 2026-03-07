@@ -67,7 +67,7 @@ public class WcbNoiCodeDaoIntegrationTest extends CarlosTestBase {
         WcbNoiCode entity = new WcbNoiCode();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

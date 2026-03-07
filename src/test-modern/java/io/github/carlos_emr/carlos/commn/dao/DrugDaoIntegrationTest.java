@@ -426,7 +426,7 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isTrue();
-            assertThat(drug.getId()).isNotNull();
+            assertThat(drug.getId()).isPositive();
         }
     }
 

@@ -64,7 +64,7 @@ public class FaxClientLogDaoIntegrationTest extends CarlosTestBase {
             FaxClientLog entity = new FaxClientLog();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             faxClientLogDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

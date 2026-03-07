@@ -74,7 +74,7 @@ public class ReportByExamplesDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistReportByExamples_whenValidDataProvided() {
             ReportByExamples entity = createReport("100001", "SELECT * FROM demographic", new Date());
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

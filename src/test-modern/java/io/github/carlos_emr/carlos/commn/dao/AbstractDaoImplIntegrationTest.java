@@ -544,7 +544,7 @@ public class AbstractDaoImplIntegrationTest extends CarlosTestBase {
             entityManager.flush();
 
             // Then
-            assertThat(result.getId()).isNotNull();
+            assertThat(result.getId()).isPositive();
             assertThat(result.isPersistent()).isTrue();
         }
 

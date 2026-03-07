@@ -62,7 +62,7 @@ public class CtlBillingTypeDaoIntegrationTest extends CarlosTestBase {
         entity.setId("test");
         dao.persist(entity);
 
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

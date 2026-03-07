@@ -64,7 +64,7 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
             LookupListItem entity = new LookupListItem();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             lookupListItemDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

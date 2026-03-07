@@ -70,7 +70,7 @@ public class ConsultationServicesDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist consultation service with generated ID")
         void shouldPersistService_whenValidDataProvided() {
             ConsultationServices svc = createService("Cardiology Referral", true);
-            assertThat(svc.getId()).isNotNull();
+            assertThat(svc.getId()).isPositive();
         }
 
         @Test
@@ -116,7 +116,7 @@ public class ConsultationServicesDaoIntegrationTest extends CarlosTestBase {
         void shouldCountAllServices() {
             createService("Count Service", true);
             long count = consultationServiceDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

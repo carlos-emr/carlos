@@ -337,7 +337,7 @@ public class QueryReturnTypeIntegrationTest extends CarlosTestBase {
             int count = ((Number) query.getSingleResult()).intValue();
 
             // Then
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
 
         @Test

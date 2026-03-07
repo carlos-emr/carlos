@@ -75,7 +75,7 @@ public class ProviderInboxItemDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistProviderInboxItem_whenValidDataProvided() {
             ProviderInboxItem entity = createInboxItem("100001", 1, "DOC", "N");
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

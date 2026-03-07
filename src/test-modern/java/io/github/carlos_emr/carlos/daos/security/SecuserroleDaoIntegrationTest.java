@@ -150,7 +150,7 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(role.getId()).isNotNull();
+            assertThat(role.getId()).isPositive();
             Secuserrole found = secuserroleDao.findById(role.getId());
             assertThat(found).isNotNull();
             assertThat(found.getProviderNo()).isEqualTo("P100");
@@ -269,7 +269,7 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(rowsUpdated).isGreaterThanOrEqualTo(1);
+            assertThat(rowsUpdated).isEqualTo(1);
         }
     }
 
@@ -678,7 +678,7 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(role.getId()).isNotNull();
+            assertThat(role.getId()).isPositive();
             assertThat(role.getLastUpdateDate()).isNotNull();
             Secuserrole found = secuserroleDao.findById(role.getId());
             assertThat(found).isNotNull();

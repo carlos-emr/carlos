@@ -64,7 +64,7 @@ public class HashAuditDaoIntegrationTest extends CarlosTestBase {
             HashAudit entity = new HashAudit();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hashAuditDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

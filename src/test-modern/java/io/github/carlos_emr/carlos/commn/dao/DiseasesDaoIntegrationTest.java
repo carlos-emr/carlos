@@ -64,7 +64,7 @@ public class DiseasesDaoIntegrationTest extends CarlosTestBase {
             Diseases entity = new Diseases();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
     }
 

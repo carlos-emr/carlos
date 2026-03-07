@@ -64,7 +64,7 @@ public class EncounterWindowDaoIntegrationTest extends CarlosTestBase {
             EncounterWindow entity = new EncounterWindow();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterWindowDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

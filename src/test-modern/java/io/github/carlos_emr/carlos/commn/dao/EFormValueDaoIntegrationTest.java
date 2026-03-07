@@ -64,7 +64,7 @@ public class EFormValueDaoIntegrationTest extends CarlosTestBase {
             EFormValue entity = new EFormValue();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             eFormValueDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

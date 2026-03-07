@@ -79,7 +79,7 @@ public class LabTestResultsDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistLabTestResults_whenValidDataProvided() {
             LabTestResults entity = createLabTestResult(100, "CBC", "N", "WBC");
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

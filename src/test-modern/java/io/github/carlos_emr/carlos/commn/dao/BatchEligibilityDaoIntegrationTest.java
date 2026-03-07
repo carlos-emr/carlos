@@ -64,7 +64,7 @@ public class BatchEligibilityDaoIntegrationTest extends CarlosTestBase {
             BatchEligibility entity = new BatchEligibility();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             batchEligibilityDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

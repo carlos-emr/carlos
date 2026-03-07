@@ -64,7 +64,7 @@ public class MdsOBRDaoIntegrationTest extends CarlosTestBase {
             MdsOBR entity = new MdsOBR();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsOBRDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

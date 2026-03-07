@@ -72,7 +72,7 @@ public class AppointmentStatusDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist appointment status with generated ID")
         void shouldPersistStatus_whenValidDataProvided() {
             AppointmentStatus status = createStatus("T", "Test Status", "test.gif");
-            assertThat(status.getId()).isNotNull();
+            assertThat(status.getId()).isPositive();
         }
 
         @Test
@@ -107,7 +107,7 @@ public class AppointmentStatusDaoIntegrationTest extends CarlosTestBase {
         void shouldCountAllStatuses() {
             createStatus("Z", "Test Count", "z.gif");
             long count = appointmentStatusDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

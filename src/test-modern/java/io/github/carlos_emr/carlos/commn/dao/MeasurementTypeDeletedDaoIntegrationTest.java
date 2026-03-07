@@ -64,7 +64,7 @@ public class MeasurementTypeDeletedDaoIntegrationTest extends CarlosTestBase {
             MeasurementTypeDeleted entity = new MeasurementTypeDeleted();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementTypeDeletedDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

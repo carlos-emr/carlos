@@ -72,7 +72,7 @@ public class ReportByExamplesFavoriteDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistReportByExamplesFavorite_whenValidDataProvided() {
             ReportByExamplesFavorite entity = createFavorite("100001", "MyFav", "SELECT * FROM demographic");
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

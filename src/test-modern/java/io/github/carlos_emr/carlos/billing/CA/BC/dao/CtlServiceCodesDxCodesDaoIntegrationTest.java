@@ -63,7 +63,7 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
             entity.setServiceCode("SVC100");
             entity.setDxCode("DX200");
             ctlServiceCodesDxCodesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

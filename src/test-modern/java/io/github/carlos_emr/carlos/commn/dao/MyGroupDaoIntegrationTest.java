@@ -74,7 +74,7 @@ public class MyGroupDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistMyGroup_whenCompositePrimaryKeyProvided() {
             MyGroup entity = createMyGroup("grpA", "999998", "Smith", "John");
 
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
             assertThat(entity.getId().getMyGroupNo()).isEqualTo("grpA");
             assertThat(entity.getId().getProviderNo()).isEqualTo("999998");
         }

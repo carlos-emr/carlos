@@ -650,7 +650,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
             hibernateTemplate.flush();
 
             // Then
-            assertThat(pp.getId()).isNotNull();
+            assertThat(pp.getId()).isPositive();
             assertThat(pp.getId()).isGreaterThan(0L);
 
             ProgramProvider found = programProviderDAO.getProgramProvider(pp.getId());

@@ -77,7 +77,7 @@ public class DemographicExtDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist demographic extension with generated ID")
         void shouldPersistDemographicExt_whenValidDataProvided() {
             DemographicExt ext = createExt(DEMO_1, "aboriginal", "yes");
-            assertThat(ext.getId()).isNotNull();
+            assertThat(ext.getId()).isPositive();
         }
 
         @Test

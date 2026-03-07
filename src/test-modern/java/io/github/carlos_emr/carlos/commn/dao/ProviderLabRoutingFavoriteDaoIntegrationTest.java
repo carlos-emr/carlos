@@ -64,7 +64,7 @@ public class ProviderLabRoutingFavoriteDaoIntegrationTest extends CarlosTestBase
             ProviderLabRoutingFavorite entity = new ProviderLabRoutingFavorite();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             providerLabRoutingFavoritesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

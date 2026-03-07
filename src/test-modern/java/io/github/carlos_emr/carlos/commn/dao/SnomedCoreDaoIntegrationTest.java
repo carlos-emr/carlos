@@ -64,7 +64,7 @@ public class SnomedCoreDaoIntegrationTest extends CarlosTestBase {
             SnomedCore entity = new SnomedCore();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             snomedCoreDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

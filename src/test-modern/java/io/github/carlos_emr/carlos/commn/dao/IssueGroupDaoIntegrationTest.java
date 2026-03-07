@@ -64,7 +64,7 @@ public class IssueGroupDaoIntegrationTest extends CarlosTestBase {
             IssueGroup entity = new IssueGroup();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             issueGroupDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

@@ -66,7 +66,7 @@ public class Hl7PidDaoIntegrationTest extends CarlosTestBase {
             Hl7Pid entity = new Hl7Pid();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

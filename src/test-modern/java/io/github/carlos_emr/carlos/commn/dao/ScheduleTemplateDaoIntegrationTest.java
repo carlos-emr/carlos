@@ -77,7 +77,7 @@ public class ScheduleTemplateDaoIntegrationTest extends CarlosTestBase {
             code.setConfirm("N");
             code.setBookinglimit(1);
             scheduleTemplateCodeDao.persist(code);
-            assertThat(code.getId()).isNotNull();
+            assertThat(code.getId()).isPositive();
         }
 
         @Test
@@ -152,7 +152,7 @@ public class ScheduleTemplateDaoIntegrationTest extends CarlosTestBase {
             scheduleTemplateDao.persist(template);
 
             long count = scheduleTemplateDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

@@ -931,7 +931,7 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, lastWeek, tomorrow);
 
             // Then
-            assertThat(result).isGreaterThanOrEqualTo(1);
+            assertThat(result).isEqualTo(1);
         }
 
         @Test

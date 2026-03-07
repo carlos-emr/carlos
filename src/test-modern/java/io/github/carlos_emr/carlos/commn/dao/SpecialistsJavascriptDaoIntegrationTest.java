@@ -64,7 +64,7 @@ public class SpecialistsJavascriptDaoIntegrationTest extends CarlosTestBase {
             SpecialistsJavascript entity = new SpecialistsJavascript();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             specialistsJavascriptDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

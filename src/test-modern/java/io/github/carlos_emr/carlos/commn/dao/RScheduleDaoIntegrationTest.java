@@ -82,7 +82,7 @@ public class RScheduleDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist resource schedule with generated ID")
         void shouldPersistRSchedule_whenValidDataProvided() {
             RSchedule rs = createRSchedule("999998", createDate(2026, Calendar.APRIL, 1), "y", "Mon");
-            assertThat(rs.getId()).isNotNull();
+            assertThat(rs.getId()).isPositive();
         }
 
         @Test

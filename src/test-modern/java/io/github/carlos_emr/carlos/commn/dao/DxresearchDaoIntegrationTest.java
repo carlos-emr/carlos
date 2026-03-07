@@ -81,7 +81,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(dr);
             dao.persist(dr);
 
-            assertThat(dr.getId()).isNotNull();
+            assertThat(dr.getId()).isPositive();
         }
 
         @Test

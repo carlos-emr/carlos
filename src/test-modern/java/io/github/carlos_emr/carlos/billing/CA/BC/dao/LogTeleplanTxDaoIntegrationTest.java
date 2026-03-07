@@ -66,7 +66,7 @@ public class LogTeleplanTxDaoIntegrationTest extends CarlosTestBase {
             entity.setSequenceNo(10);
             entity.setBillingMasterNo(200);
             logTeleplanTxDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

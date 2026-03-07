@@ -64,7 +64,7 @@ public class MeasurementGroupDaoIntegrationTest extends CarlosTestBase {
             MeasurementGroup entity = new MeasurementGroup();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementGroupDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

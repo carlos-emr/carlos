@@ -64,7 +64,7 @@ public class PublicKeyDaoIntegrationTest extends CarlosTestBase {
             PublicKey entity = new PublicKey();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             publicKeyDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

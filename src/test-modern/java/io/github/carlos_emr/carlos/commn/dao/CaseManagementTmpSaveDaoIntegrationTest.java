@@ -68,7 +68,7 @@ public class CaseManagementTmpSaveDaoIntegrationTest extends CarlosTestBase {
             CaseManagementTmpSave entity = new CaseManagementTmpSave();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
     }
 

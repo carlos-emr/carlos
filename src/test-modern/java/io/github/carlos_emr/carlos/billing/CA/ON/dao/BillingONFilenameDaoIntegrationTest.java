@@ -60,7 +60,7 @@ public class BillingONFilenameDaoIntegrationTest extends CarlosTestBase {
         BillingONFilename entity = new BillingONFilename();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

@@ -75,7 +75,7 @@ public class SystemMessageDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist system message with generated ID")
         void shouldPersistSystemMessage_whenValidDataProvided() {
             SystemMessage msg = createMessage("System maintenance tonight", 1);
-            assertThat(msg.getId()).isNotNull();
+            assertThat(msg.getId()).isPositive();
         }
 
         @Test
@@ -110,7 +110,7 @@ public class SystemMessageDaoIntegrationTest extends CarlosTestBase {
         void shouldCountAllSystemMessages() {
             createMessage("Count message", 1);
             long count = systemMessageDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(1);
         }
     }
 }

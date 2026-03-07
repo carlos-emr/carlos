@@ -64,7 +64,7 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
             Ichppccode entity = new Ichppccode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             ichppccodeDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

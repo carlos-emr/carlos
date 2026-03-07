@@ -64,7 +64,7 @@ public class HnrDataValidationDaoIntegrationTest extends CarlosTestBase {
             HnrDataValidation entity = new HnrDataValidation();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hnrDataValidationDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

@@ -65,7 +65,7 @@ public class ReportLettersDaoIntegrationTest extends CarlosTestBase {
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
 
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

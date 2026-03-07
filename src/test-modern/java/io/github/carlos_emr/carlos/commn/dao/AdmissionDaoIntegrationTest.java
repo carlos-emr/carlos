@@ -371,7 +371,7 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
             entityManager.flush();
 
             // Then
-            assertThat(adm.getId()).isNotNull();
+            assertThat(adm.getId()).isPositive();
         }
     }
 

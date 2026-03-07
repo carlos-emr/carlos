@@ -64,7 +64,7 @@ public class MdsZMCDaoIntegrationTest extends CarlosTestBase {
             MdsZMC entity = new MdsZMC();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsZMCDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

@@ -59,7 +59,7 @@ public class BillingONProcDaoIntegrationTest extends CarlosTestBase {
         BillingONProc entity = new BillingONProc();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

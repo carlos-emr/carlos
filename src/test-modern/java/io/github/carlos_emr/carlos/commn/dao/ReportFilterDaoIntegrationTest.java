@@ -64,7 +64,7 @@ public class ReportFilterDaoIntegrationTest extends CarlosTestBase {
             ReportFilter entity = new ReportFilter();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportFilterDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

@@ -59,7 +59,7 @@ public class VacancyClientMatchDaoIntegrationTest extends CarlosTestBase {
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
 
-        assertThat(entity.getId()).isNotNull();
+        assertThat(entity.getId()).isPositive();
     }
 
     @Test

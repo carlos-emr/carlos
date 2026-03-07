@@ -59,7 +59,7 @@ public class TeleplanAdjCodesDaoIntegrationTest extends CarlosTestBase {
             TeleplanAdjCodes entity = new TeleplanAdjCodes();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             teleplanAdjCodesDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

@@ -68,7 +68,7 @@ public class CtlRelationshipsDaoIntegrationTest extends CarlosTestBase {
             entity.setValue("value");
             entity.setLabel("label");
             dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
     }
 

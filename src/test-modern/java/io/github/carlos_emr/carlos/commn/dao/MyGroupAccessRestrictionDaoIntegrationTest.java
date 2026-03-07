@@ -64,7 +64,7 @@ public class MyGroupAccessRestrictionDaoIntegrationTest extends CarlosTestBase {
             MyGroupAccessRestriction entity = new MyGroupAccessRestriction();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             myGroupAccessRestrictionDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test

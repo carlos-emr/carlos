@@ -64,7 +64,7 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
             Specialty entity = new Specialty();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             specialtyDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
+            assertThat(entity.getId()).isPositive();
         }
 
         @Test
