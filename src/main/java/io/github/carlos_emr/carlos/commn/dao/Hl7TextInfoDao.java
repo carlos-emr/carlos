@@ -57,10 +57,6 @@ public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo> {
     public Hl7TextInfo findLatestVersionByAccessionNumberOrFillerNumber(
             String acc, String fillerNumber);
 
-    public List<Hl7TextInfo> searchByFillerOrderNumber(String fon, String sending_facility);
-
-    public void updateReportStatusByLabId(String reportStatus, int labNumber);
-
     public List<Hl7TextMessageInfo> getMatchingLabs(String hl7msg);
 
     public List<Hl7TextMessageInfo2> getMatchingLabsByAccessionNo(String accession);

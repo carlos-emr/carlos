@@ -32,7 +32,6 @@
         <context:exclude-filter type="regex" expression=".*\.AppointmentArchiveDaoImpl$"/>
         <context:exclude-filter type="regex" expression=".*\.DemographicExtDaoImpl$"/>
         <context:exclude-filter type="regex" expression=".*\.OtherIdDAOImpl$"/>
-        <context:exclude-filter type="regex" expression=".*\.HL7HandlerMSHMappingDaoImpl$"/>
         <context:exclude-filter type="regex" expression=".*\.QueueDaoImpl$"/>
         <context:exclude-filter type="regex" expression=".*\.WaitingListNameDaoImpl$"/>
         <context:exclude-filter type="regex" expression=".*\.AppointmentTypeDaoImpl$"/>

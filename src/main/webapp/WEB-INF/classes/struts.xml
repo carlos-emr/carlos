@@ -75,7 +75,7 @@
         <action name="documentManager/changeDocStatus" class="io.github.carlos_emr.carlos.documentManager.actions.ChangeDocStatus2Action">
             <result name="success">/documentManager/closeWindow.html</result>
         </action>
-        <action name="lab/CA/ALL/createLabelTDIS" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabelTDIS2Action">
+        <action name="lab/CA/ALL/createLabLabel" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabLabel2Action">
             <result name="complete">/lab/CA/ALL/labDisplay.jsp</result>
         </action>
         <action name="MeasurementHL7Uploader" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.hl7.MeasurementHL7Uploader2Action"/>

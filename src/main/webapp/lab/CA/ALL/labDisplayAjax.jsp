@@ -351,14 +351,14 @@
 
     }
 
-    createTdisLabel = function (tdisformid, ackformid, labelspanid, labelid) {
-        var tdisForm = document.forms[tdisformid];
+    createLabLabel = function (labFormId, ackformid, labelspanid, labelid) {
+        var labForm = document.forms[labFormId];
         var ackForm = document.forms[ackformid];
-        if (tdisForm && ackForm && tdisForm.label && ackForm.label) {
-            tdisForm.label.value = ackForm.label.value;
+        if (labForm && ackForm && labForm.label && ackForm.label) {
+            labForm.label.value = ackForm.label.value;
         }
-        var url = '<%=request.getContextPath()%>' + "/lab/CA/ALL/createLabelTDIS.do";
-        var data = $(tdisformid).serialize(true);
+        var url = '<%=request.getContextPath()%>' + "/lab/CA/ALL/createLabLabel.do";
+        var data = $(labFormId).serialize(true);
         new Ajax.Request(url, {
             method: 'post', parameters: data
 
@@ -381,8 +381,8 @@
         <input type="hidden" name="providerNo" id="providerNo" value="<%= providerNo %>"/>
         <input type="hidden" name="ajax" value="yes"/>
     </form>
-    <form name="TDISLabelForm" id="TDISLabelForm<%=segmentID%>" method='POST'
-          onsubmit="createTdisLabel('TDISLabelForm<%=segmentID%>');" action="javascript:void(0);">
+    <form name="labLabelForm" id="labLabelForm<%=segmentID%>" method='POST'
+          onsubmit="createLabLabel('labLabelForm<%=segmentID%>');" action="javascript:void(0);">
         <input type="hidden" id="labNum" name="lab_no" value="<%=lab_no%>">
         <input type="hidden" id="label" name="label" value="<%=label%>">
     </form>
@@ -435,12 +435,12 @@
 
                                 <% if (!label.equals(null) && !label.equals("")) { %>
                                 <button type="button" id="createLabel" value="Label"
-                                        onClick="createTdisLabel('TDISLabelForm<%=segmentID%>','acknowledgeForm_<%=segmentID%>','labelspan_<%=segmentID%>','label_<%=segmentID%>')">
+                                        onClick="createLabLabel('labLabelForm<%=segmentID%>','acknowledgeForm_<%=segmentID%>','labelspan_<%=segmentID%>','label_<%=segmentID%>')">
                                     Label
                                 </button>
                                 <%} else { %>
                                 <button type="button" id="createLabel" style="background-color:#6699FF" value="Label"
-                                        onClick="createTdisLabel('TDISLabelForm<%=segmentID%>','acknowledgeForm_<%=segmentID%>','labelspan_<%=segmentID%>','label_<%=segmentID%>')">
+                                        onClick="createLabLabel('labLabelForm<%=segmentID%>','acknowledgeForm_<%=segmentID%>','labelspan_<%=segmentID%>','label_<%=segmentID%>')">
                                     Label
                                 </button>
                                 <%} %>
@@ -723,20 +723,6 @@
                                             </div>
                                         </td>
                                     </tr>
-                                    <% if (handler.getMsgType().equals("MEDVUE")) { %>
-                                    <tr>
-                                        <td>
-                                            <div class="FieldData">
-                                                <strong>MEDVUE Encounter Id:</strong>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="FieldData" nowrap="nowrap">
-                                                <%= handler.getEncounterId() %>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <% } %>
                                 </table>
                             </td>
                         </tr>
@@ -916,52 +902,7 @@
                         ArrayList<String> headers = handler.getHeaders();
                         int OBRCount = handler.getOBRCount();
 
-                        if (handler.getMsgType().equals("MEDVUE")) { %>
-                    <table style="page-break-inside:avoid;" bgcolor="#003399" border="0" cellpadding="0" cellspacing="0"
-                           width="100%">
-                        <tr>
-                            <td colspan="4" height="7">&nbsp;</td>
-                        </tr>
-                        <tr>
-                            <td bgcolor="#FFCC00" width="300" valign="bottom">
-                                <div class="Title2">
-                                    <%=headers.get(0)%>
-                                </div>
-                            </td>
-                            <%--<td align="right" bgcolor="#FFCC00" width="100">&nbsp;</td>--%>
-                            <td width="9">&nbsp;</td>
-                            <td width="9">&nbsp;</td>
-                            <td width="*">&nbsp;</td>
-                        </tr>
-                    </table>
-                    <table width="100%" border="0" cellspacing="0" cellpadding="2" bgcolor="#CCCCFF"
-                           bordercolor="#9966FF" bordercolordark="#bfcbe3" name="tblDiscs" id="tblDiscs">
-                        <tr class="Field2">
-                            <td width="25%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                            <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                            <td width="5%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
-                            <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
-                            <td width="10%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
-                            <td width="15%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
-                            <td width="6%" align="middle" valign="bottom" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                        </tr>
-                        <tr class="TDISRes">
-                            <td valign="top" align="left" colspan="8">
-                                <pre style="margin:0px 0px 0px 100px;"><b>Radiologist: </b><b><%=handler.getRadiologistInfo()%></b></pre>
-                            </td>
-                </td>
-            </tr>
-            <tr class="TDISRes">
-                <td valign="top" align="left" colspan="8">
-                    <pre style="margin:0px 0px 0px 100px;"><b><%=handler.getOBXComment(1, 1, 1)%></b></pre>
-                </td>
-                </td>
-            </tr>
-        </table>
-        <% } else {
-
-
-            for (i = 0; i < headers.size(); i++) {
+                        for (i = 0; i < headers.size(); i++) {
                 linenum = 0;
                 boolean isUnstructuredDoc = false;
                 boolean isVIHARtf = false;
@@ -1055,7 +996,7 @@
                             if (handler.getMsgType().equals("EPSILON")) {
                                 b2 = true;
                                 b3 = true;
-                            } else if (handler.getMsgType().equals("PFHT") || handler.getMsgType().equals("HHSEMR")) {
+                            } else if (handler.getMsgType().equals("HHSEMR")) {
                                 b2 = true;
                             }
 
@@ -1110,7 +1051,7 @@
                     </td>
                 </tr>
                 <% }
-                } else if (handler.getMsgType().equals("PFHT") || handler.getMsgType().equals("HHSEMR")) {
+                } else if (handler.getMsgType().equals("HHSEMR")) {
                     if (!obxName.equals("")) { %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>">
                     <td valign="top" align="left"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
@@ -1158,7 +1099,7 @@
                     }
 
 
-                } else if (!handler.getOBXResultStatus(j, k).equals("TDIS") && !handler.getMsgType().equals("EPSILON")) {
+                } else if (!handler.getMsgType().equals("EPSILON")) {
                 %>
                 <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="<%=lineClass%>"><%
                     if (isUnstructuredDoc) {
@@ -1266,7 +1207,7 @@
                 } else {
                 %>
                 <%for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {%>
-                <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>" class="TDISRes">
+                <tr bgcolor="<%=(linenum % 2 == 1 ? highlight : "")%>">
                     <td valign="top" align="left" colspan="8">
                         <pre style="margin:0px 0px 0px 100px;"><%=handler.getOBXComment(j, k, l)%></pre>
                     </td>
@@ -1279,7 +1220,6 @@
                     //}
 
                     //for ( j=0; j< OBRCount; j++){
-                    if (!handler.getMsgType().equals("PFHT")) {
                         if (headers.get(i).equals(handler.getObservationHeader(j, 0))) {
                 %>
                 <%
@@ -1317,9 +1257,7 @@
 
                                     }
                                 }
-                            } // end for if (PFHT)
-                        }
-                    } // end for handler.getMsgType().equals("MEDVUE")
+                            }
                 %>
             </table>
             <% // end for headers
