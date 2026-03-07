@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
  * <p>Tests conversion from CARLOS Prevention model to FHIR Immunization resource.
  * Migrated from legacy JUnit 4 ImmunizationTest.
  *
- * @since 2017-01-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("fhir")

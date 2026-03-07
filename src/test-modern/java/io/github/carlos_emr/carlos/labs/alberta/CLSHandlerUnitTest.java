@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.CLSHandler;
  * including patient location, health number, and home phone extraction.
  * Migrated from legacy JUnit 4 CLSHandlerTest.
  *
- * @since 2014-06-20 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("lab")

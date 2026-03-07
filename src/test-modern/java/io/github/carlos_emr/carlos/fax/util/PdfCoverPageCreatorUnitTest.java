@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
  * <p>Tests PDF cover page generation for fax transmissions.
  * Migrated from legacy JUnit 4 PdfCoverPageCreatorTest.
  *
- * @since 2015-01-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @DisplayName("PdfCoverPageCreator unit tests")

@@ -55,7 +55,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  *
  * <p>Migrated from legacy JUnit 4 DiseaseRegistryHandlerTest.
  *
- * @since 2015-01-27 (original)
+ * @since 2026-03-07
  */
 @Tag("integration")
 @Tag("dashboard")

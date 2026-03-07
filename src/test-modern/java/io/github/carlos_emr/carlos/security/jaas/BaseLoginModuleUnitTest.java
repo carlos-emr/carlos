@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.login.jaas.OscarPrincipal;
  * <p>Tests JAAS login/logout lifecycle with valid and invalid credentials.
  * Migrated from legacy JUnit 4 BaseLoginModuleTest.
  *
- * @since 2014-01-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @DisplayName("BaseLoginModule unit tests")

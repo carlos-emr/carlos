@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * <p>Tests tickler creation from CSV demographic lists and validation of tickler objects.
  * Migrated from legacy JUnit 4 TicklerHandlerTest.
  *
- * @since 2015-01-27 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("tickler")

@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.Program;
  * <p>Tests conversion from Program domain model to ProgramTransfer transfer object.
  * Migrated from legacy JUnit 4 ProgramTransferTest.
  *
- * @since 2014-01-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @DisplayName("ProgramTransfer unit tests")

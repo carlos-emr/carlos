@@ -54,7 +54,7 @@ import io.github.carlos_emr.carlos.dashboard.query.RangeInterface;
  *
  * <p>Migrated from legacy JUnit 4 IndicatorQueryHandlerTest.
  *
- * @since 2016-07-15 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("dashboard")

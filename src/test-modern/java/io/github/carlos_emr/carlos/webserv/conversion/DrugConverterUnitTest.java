@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
  * including drug strength population logic.
  * Migrated from legacy JUnit 4 DrugConverterTest.
  *
- * @since 2013-01-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("prescription")

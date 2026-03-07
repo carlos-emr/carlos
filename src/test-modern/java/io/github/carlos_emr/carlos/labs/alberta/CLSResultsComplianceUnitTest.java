@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * and date-time values from CLS HL7 messages.
  * Migrated from legacy JUnit 4 CLSResultsComplianceTest.
  *
- * @since 2014-06-20 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("lab")

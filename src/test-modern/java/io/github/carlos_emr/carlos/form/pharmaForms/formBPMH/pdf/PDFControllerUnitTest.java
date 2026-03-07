@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
  * invocation for BPMH (Best Possible Medication History) form PDF generation.
  * Migrated from legacy JUnit 4 PDFControllerTest.
  *
- * @since 2014-11-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("form")

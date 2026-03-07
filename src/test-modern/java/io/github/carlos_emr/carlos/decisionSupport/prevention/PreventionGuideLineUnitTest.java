@@ -42,7 +42,7 @@ import org.kie.api.KieBase;
  * parsed and compiled into a Drools KieBase.
  * Migrated from legacy JUnit 4 PreventionGuideLineTest.
  *
- * @since 2026-01-06 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("drools")

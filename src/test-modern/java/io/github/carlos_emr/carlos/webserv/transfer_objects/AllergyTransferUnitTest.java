@@ -40,7 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
  * <p>Tests conversion from Allergy domain model to AllergyTransfer transfer object.
  * Migrated from legacy JUnit 4 AllergyTransferTest.
  *
- * @since 2014-01-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @DisplayName("AllergyTransfer unit tests")

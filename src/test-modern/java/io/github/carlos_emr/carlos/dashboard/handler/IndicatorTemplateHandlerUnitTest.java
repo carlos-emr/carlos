@@ -53,7 +53,7 @@ import org.w3c.dom.Document;
  * test had empty method bodies; this modern version adds actual assertions
  * for the same three methods.
  *
- * @since 2016-07-15 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("dashboard")

@@ -48,7 +48,7 @@ import org.junit.jupiter.api.Test;
  * and parsed correctly into prevention item elements with expected attributes.
  * Migrated from legacy JUnit 4 QuickTest.
  *
- * @since 2012-09-07 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("prevention")

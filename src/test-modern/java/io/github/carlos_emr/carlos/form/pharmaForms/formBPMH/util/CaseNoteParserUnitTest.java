@@ -39,7 +39,7 @@ import org.junit.jupiter.api.Test;
  * including doctor name, phone number, and fax number extraction.
  * Migrated from legacy JUnit 4 CaseNoteParserTest.
  *
- * @since 2014-11-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @DisplayName("CaseNoteParser unit tests")

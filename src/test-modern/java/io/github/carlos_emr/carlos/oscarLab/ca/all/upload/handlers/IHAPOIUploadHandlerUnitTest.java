@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.IHAPOIHandler;
  * test archive can be successfully parsed by the upload handler.
  * Migrated from legacy JUnit 4 IHAPOIHandlerTest (upload).
  *
- * @since 2014-02-15 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("lab")

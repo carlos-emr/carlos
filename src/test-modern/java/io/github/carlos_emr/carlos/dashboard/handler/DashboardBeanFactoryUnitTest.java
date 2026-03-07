@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * had all @Test annotations commented out due to a missing constructor call.
  * This modern version properly instantiates the factory.
  *
- * @since 2016-07-15 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("dashboard")

@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
  * <p>Tests conversion from CARLOS Demographic model to FHIR Patient resource.
  * Migrated from legacy JUnit 4 PatientTest.
  *
- * @since 2017-01-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("fhir")

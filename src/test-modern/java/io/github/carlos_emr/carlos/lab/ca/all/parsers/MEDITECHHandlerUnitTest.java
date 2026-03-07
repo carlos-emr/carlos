@@ -56,7 +56,7 @@ import ca.uhn.hl7v2.HL7Exception;
  * validated for correct extraction of demographics, results, and metadata.
  * Migrated from legacy JUnit 4 parameterized MEDITECHHandlerTest.
  *
- * @since 2014-02-15 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("lab")

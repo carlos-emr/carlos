@@ -65,7 +65,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
  * adding, updating, discontinuing, prescribing, and history operations.
  * Migrated from legacy JUnit 4 RxWebServiceTest.
  *
- * @since 2013-11-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("prescription")

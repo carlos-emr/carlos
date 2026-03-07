@@ -40,7 +40,7 @@ import org.junit.jupiter.api.Test;
  * health number, name, dates, sex, and card version extraction.
  * Migrated from legacy JUnit 4 HCMagneticStripeTest.
  *
- * @since 2014-01-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @DisplayName("HCMagneticStripe unit tests")

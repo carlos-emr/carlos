@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.CLSHandler;
  * demographic parsing and physician information extraction from CLS HL7 messages.
  * Migrated from legacy JUnit 4 CLSComplianceTest.
  *
- * @since 2014-06-20 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("lab")

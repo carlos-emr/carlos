@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
  * <p>Tests conversion from CARLOS Clinic model to FHIR Organization resource.
  * Migrated from legacy JUnit 4 OrganizationTest.
  *
- * @since 2017-01-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("fhir")

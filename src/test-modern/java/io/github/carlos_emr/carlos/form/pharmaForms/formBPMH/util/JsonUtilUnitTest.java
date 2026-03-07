@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
  * <p>Tests JSON serialization/deserialization of BPMH drug objects and demographics.
  * Migrated from legacy JUnit 4 JsonUtilTest.
  *
- * @since 2014-11-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @DisplayName("JsonUtil unit tests")

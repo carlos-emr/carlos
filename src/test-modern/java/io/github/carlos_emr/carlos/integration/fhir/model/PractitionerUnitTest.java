@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
  * <p>Tests conversion from CARLOS Provider model to FHIR Practitioner resource.
  * Migrated from legacy JUnit 4 PractitionerTest.
  *
- * @since 2017-01-01 (original)
+ * @since 2026-03-07
  */
 @Tag("unit")
 @Tag("fhir")
