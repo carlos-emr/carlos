@@ -277,8 +277,6 @@
 
     boolean prescriptionQrCodes = providerPreference.isPrintQrCodeOnPrescriptions();
 
-    boolean bShortcutIntakeForm = oscarVariables.getProperty("appt_intake_form", "").equalsIgnoreCase("on") ? true : false;
-
     String newticklerwarningwindow = null;
     String default_pmm = null;
     String programId_oscarView = null;
@@ -2173,8 +2171,6 @@
                                                         <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.btnE"/></a>
                                                         <% }
                                                         } // end if not is week view %>
-
-                                                        <%= (bShortcutIntakeForm) ? "| <a href='#' onClick='popupPage(700, 1024, \"formIntake.jsp?demographic_no=" + demographic_no + "\")' title='Intake Form'>In</a>" : "" %>
 
                                                         <!-- billing code block -->
                                                         <% if (!isWeekView) { %>
