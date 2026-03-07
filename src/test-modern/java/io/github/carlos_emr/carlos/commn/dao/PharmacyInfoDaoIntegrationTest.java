@@ -161,7 +161,9 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
         void shouldSearchPharmacies_byNameAndCity() {
             List<PharmacyInfo> results = pharmacyInfoDao.searchPharmacyByNameAddressCity(
                     "Downtown", "Ottawa");
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getName()).isEqualTo("Downtown Pharmacy");
+            assertThat(results.get(0).getCity()).isEqualTo("Ottawa");
         }
 
         @Test

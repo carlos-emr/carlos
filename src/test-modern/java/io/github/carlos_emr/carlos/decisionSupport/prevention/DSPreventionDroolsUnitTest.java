@@ -247,6 +247,8 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).hasSize(1);
+            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
         }
     }
 
@@ -334,6 +336,8 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).hasSize(1);
+            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
         }
     }
 
@@ -401,6 +405,8 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).hasSize(1);
+            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
         }
     }
 
@@ -437,6 +443,8 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).hasSize(1);
+            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
         }
     }
 
@@ -612,6 +620,8 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).hasSize(1);
+            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
         }
 
         /**
@@ -626,6 +636,8 @@ class DSPreventionDroolsUnitTest {
             KieBase kieBase = DroolsHelper.createKieBaseFromDrl(wrapForCompilation(rule));
 
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).hasSize(1);
+            assertThat(kieBase.getKiePackages().iterator().next().getRules()).hasSize(1);
         }
     }
 

@@ -477,6 +477,8 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result.getDataField()).isEqualTo("120/80");
+            assertThat(result.getType()).isEqualTo("BP");
         }
 
         @Test
@@ -622,9 +624,11 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             List<Object[]> result = measurementDao.findMeasurementsAndProviders(m.getId());
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
             Object[] row = result.get(0);
-            assertThat(row.length).isGreaterThanOrEqualTo(2);
+            assertThat(row).hasSize(3);
+            assertThat(row[0]).isInstanceOf(Measurement.class);
+            assertThat(((Measurement) row[0]).getId()).isEqualTo(m.getId());
         }
 
         @Test
@@ -682,7 +686,9 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             List<Measurement> result = measurementDao.findByDemographicIdUpdatedAfterDate(DEMO_NO, lastWeek);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getType()).isEqualTo("BP");
+            assertThat(result.get(0).getDemographicId()).isEqualTo(DEMO_NO);
         }
 
         @Test
@@ -815,7 +821,9 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, DEMO_NO, lastWeek, 10);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getProviderNo()).isEqualTo(PROVIDER_NO);
+            assertThat(result.get(0).getDemographicId()).isEqualTo(DEMO_NO);
         }
     }
 
@@ -921,7 +929,9 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             List<Measurement> result = measurementDao.findByDemographicId(DEMO_NO);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getType()).isEqualTo("BP");
+            assertThat(result.get(0).getDemographicId()).isEqualTo(DEMO_NO);
         }
     }
 

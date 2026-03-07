@@ -1144,10 +1144,13 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             // When/Then - native SQL against appointment + provider tables
             // This method only needs the appointment and provider tables
             List<Object[]> result = oscarAppointmentDao.listProviderAppointmentCounts(yesterday, tomorrow);
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
             Object[] row = result.get(0);
             // Verify the result structure: provider_no, first_name, last_name, count
             assertThat(row.length).isGreaterThanOrEqualTo(4);
+            assertThat(row[0]).isEqualTo(PROVIDER_NO);
+            assertThat(row[1]).isEqualTo("John");
+            assertThat(row[2]).isEqualTo("Smith");
         }
     }
 }
