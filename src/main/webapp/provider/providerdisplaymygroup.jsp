@@ -50,78 +50,76 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.title"/></title>
     </head>
 
-    <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
-    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="providercontrol.jsp">
+    <body onLoad="setfocus()">
+    <div class="container-fluid p-3">
 
-        <div id="topMenuDiv" style="position:fixed;width:100%">
-            <div style="background-color:#486ebd;text-align:center;font-family:Helvetica,sans-serif;color:#ffffff;font-weight:bold;padding:1px">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgTitle"/>
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
+                    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgTitle"/>
+            </h4>
+        </div>
+
+    <form name="UPDATEPRE" method="post" action="providercontrol.jsp">
+        <input type="hidden" name="submit_form" value="">
+        <input type="hidden" name="displaymode" value="newgroup">
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <input type="submit" class="btn btn-danger btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnDelete"/>"
+                       onclick="document.forms['UPDATEPRE'].submit_form.value='Delete';">
+                <input type="submit" class="btn btn-primary btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
+                       onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">
             </div>
-            <div style="background-color:#486ebd;text-align:center;border-top:solid white 1px;padding:1px">
-                <input type="hidden" name="submit_form" value="">
-                <INPUT TYPE="submit" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnDelete"/>"
-                       onclick="document.forms['UPDATEPRE'].submit_form.value='Delete'; document.forms['UPDATEPRE'].submit();">
-                <INPUT TYPE="submit" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
-                       onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member'; document.forms['UPDATEPRE'].submit();">
-                <INPUT TYPE="RESET" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnClose"/>"
+            <div>
+                <input type="button" class="btn btn-link btn-sm"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnClose"/>"
                        onClick="window.close();">
             </div>
         </div>
-        <br/>
-            <%-- This DIV and following javascript spaces out the content properly below the fixed position menu  --%>
-        <div id="topMenuSpacerDiv" style="height:3em">&nbsp;</div>
-        <script type="text/javascript">
-            document.getElementById('topMenuSpacerDiv').style.height = document.getElementById('topMenuDiv').offsetHeight + 'px';
-        </script>
 
-        <center>
-            <table border="0" cellpadding="0" cellspacing="0" width="80%">
-                <tr>
-                    <td width="100%">
+        <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light">
+            <tr>
+                <th style="width:10%" class="text-center" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgGroupNo"/></th>
+                <th class="text-center"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgProvider"/></th>
+            </tr>
+            </thead>
+            <tbody>
+            <%
+                boolean bNewNo = false;
+                String oldNo = "";
+                List<MyGroup> myGroups = dao.findAll();
+                Collections.sort(myGroups, MyGroup.MyGroupNoComparator);
+                for (MyGroup myGroup : myGroups) {
 
-                        <table BORDER="0" CELLPADDING="0" CELLSPACING="1" WIDTH="100%"
-                               BGCOLOR="#C0C0C0">
-                            <tr BGCOLOR="#CCFFFF">
-                                <td ALIGN="center" colspan="2"><font face="arial"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgGroupNo"/></font></td>
-                                <td ALIGN="center"><font face="arial"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgProvider"/></font></td>
-                            </tr>
-                            <%
-                                boolean bNewNo = false;
-                                String oldNo = "";
-                                List<MyGroup> myGroups = dao.findAll();
-                                Collections.sort(myGroups, MyGroup.MyGroupNoComparator);
-                                for (MyGroup myGroup : myGroups) {
+                    String groupNo = myGroup.getId().getMyGroupNo();
+                    if (!(groupNo.equals(oldNo))) {
+                        bNewNo = bNewNo ? false : true;
+                        oldNo = groupNo;
+                    }
+            %>
+            <tr class="<%=bNewNo?"":"table-light"%>">
+                <td style="width:10%" class="text-center">
+                    <input type="checkbox" class="form-check-input"
+                           name="<%=groupNo+myGroup.getId().getProviderNo()%>"
+                           value="<%=groupNo%>">
+                </td>
+                <td class="text-center"><%=groupNo%></td>
+                <td class="text-center"><%=myGroup.getLastName() + ", " + myGroup.getFirstName()%></td>
+            </tr>
+            <%
+                }
+            %>
+            </tbody>
+        </table>
 
-                                    String groupNo = myGroup.getId().getMyGroupNo();
-                                    if (!(groupNo.equals(oldNo))) {
-                                        bNewNo = bNewNo ? false : true;
-                                        oldNo = groupNo;
-                                    }
-                            %>
-                            <tr BGCOLOR="<%=bNewNo?"white":"ivory"%>">
-                                <td width="10%" align="center"><input type="checkbox"
-                                                                      name="<%=groupNo+myGroup.getId().getProviderNo()%>"
-                                                                      value="<%=groupNo%>"></td>
-                                <td ALIGN="center"><font face="arial"><%=groupNo%>
-                                </font></td>
-                                <td ALIGN="center"><font
-                                        face="arial"><%=myGroup.getLastName() + ", " + myGroup.getFirstName()%>
-                                </font>
-                                </td>
-                            </tr>
-                            <%
-                                }
-                            %>
-                            <INPUT TYPE="hidden" NAME="displaymode" VALUE='newgroup'>
-
-                        </table>
-
-                    </td>
-                </tr>
-            </table>
-        </center>
-
-    </FORM>
+    </form>
+    </div>
 
     </body>
 </html>
