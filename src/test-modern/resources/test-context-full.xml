@@ -278,6 +278,15 @@
                 <value>io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory</value>
                 <!-- Scheduling entities for ScheduleDao integration tests -->
                 <value>io.github.carlos_emr.carlos.commn.model.RSchedule</value>
+                <!-- Phase 3 batch: Property, DemographicExt, SystemMessage, etc. -->
+                <value>io.github.carlos_emr.carlos.commn.model.Property</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicExt</value>
+                <value>io.github.carlos_emr.carlos.commn.model.DemographicCust</value>
+                <value>io.github.carlos_emr.carlos.commn.model.PharmacyInfo</value>
+                <value>io.github.carlos_emr.carlos.commn.model.SystemMessage</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlDocClass</value>
+                <value>io.github.carlos_emr.carlos.commn.model.CtlDocType</value>
+                <value>io.github.carlos_emr.carlos.commn.model.MessageTbl</value>
             </list>
         </property>
         <property name="mappingResources">
@@ -588,5 +597,17 @@
 
     <!-- Schedule DAO for ScheduleDao integration tests -->
     <bean id="rScheduleDao" class="io.github.carlos_emr.carlos.commn.dao.RScheduleDaoImpl" autowire="byName" />
+
+    <!-- Phase 3 batch DAOs -->
+    <bean id="propertyDao" class="io.github.carlos_emr.carlos.commn.dao.PropertyDaoImpl" autowire="byName" />
+    <bean id="demographicExtDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicExtDaoImpl" autowire="byName" />
+    <bean id="demographicCustDao" class="io.github.carlos_emr.carlos.commn.dao.DemographicCustDaoImpl" autowire="byName" />
+    <bean id="pharmacyInfoDao" class="io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDaoImpl" autowire="byName" />
+    <bean id="systemMessageDao" class="io.github.carlos_emr.carlos.commn.dao.SystemMessageDaoImpl" autowire="byName" />
+    <bean id="ctlDocClassDao" class="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDaoImpl" autowire="byName" />
+    <bean id="ctlDocTypeDao" class="io.github.carlos_emr.carlos.commn.dao.CtlDocTypeDaoImpl" autowire="byName" />
+    <bean id="messageTblDao" class="io.github.carlos_emr.carlos.commn.dao.MessageTblDaoImpl" autowire="byName" />
+    <bean id="measurementsExtDao" class="io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDaoImpl" autowire="byName" />
+    <bean id="measurementTypeDao" class="io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDaoImpl" autowire="byName" />
 
 </beans>
