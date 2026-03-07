@@ -2024,7 +2024,6 @@
             <result name="form">/episode/episodeForm.jsp</result>
             <result name="success">/episode/success.jsp</result>
         </action>
-        <action name="indivica/HCSearch" class="io.github.carlos_emr.carlos.commn.web.HealthCardSearch2Action"/>
         <action name="oscarEncounter/displayPregnancies" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPregnancy2Action">
             <result name="labs">/oscarEncounter/displayLabs.do</result>
 			<result name="forms">/oscarEncounter/displayForms.do</result>
