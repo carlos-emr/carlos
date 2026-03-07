@@ -2333,9 +2333,6 @@ input[id^='acklabel_']{
             %>
         </table>
         <%
-
-            } // end for headers
-
         %>
         <%-- FOOTER --%>
         <table style="width:100%" class="MainTableBottomRowRightColumn">

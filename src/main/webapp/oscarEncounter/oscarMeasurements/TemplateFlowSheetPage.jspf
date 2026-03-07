@@ -86,15 +86,6 @@
     </security:oscarSec>
 
 <%
-	if (OscarProperties.getInstance().getBooleanProperty("new_flowsheet_enabled", "true")) {
-		if (temp != null && temp.equals("diab3") || (request.getAttribute("temp") != null && request.getAttribute("temp").equals("diab3"))) {
-	%>
-		<jsp:forward page="DiabFlowSheet.jsp" />
-	<%
-		}
-	}
-%>
-<%
 	LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_FLOWSHEET,  temp , request.getRemoteAddr(),demographic_no);
 
 
