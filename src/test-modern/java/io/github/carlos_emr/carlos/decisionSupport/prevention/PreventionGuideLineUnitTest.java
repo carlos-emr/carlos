@@ -58,6 +58,11 @@ class PreventionGuideLineUnitTest {
             byte[] ruleSet = IOUtils.toByteArray(is);
             KieBase kieBase = DSPreventionDrools.createRuleBase(ruleSet);
             assertThat(kieBase).isNotNull();
+            assertThat(kieBase.getKiePackages()).isNotEmpty();
+            int totalRules = kieBase.getKiePackages().stream()
+                    .mapToInt(p -> p.getRules().size())
+                    .sum();
+            assertThat(totalRules).isGreaterThan(0);
         }
     }
 }
