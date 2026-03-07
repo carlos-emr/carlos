@@ -180,10 +180,9 @@ library/eforms/jSignature.min.noconflict.js # Not referenced (duplicate)
 ### Other unused libraries
 ```
 library/hogan-2.0.0.js                     # Mustache template engine — not referenced
-library/typeahead.js/typeahead.bundle.min.js   # Twitter typeahead — not referenced
-library/typeahead.js/typeahead.min.js
-library/markdown.js                        # DELETED — Markdown converter (missed in initial report, caught by cascade audit)
-library/showdown.js                        # DELETED — Markdown-to-HTML converter (missed in initial report, caught by cascade audit)
+library/typeahead.js/                      # DELETED — entire directory (Twitter typeahead JS + CSS companion)
+library/markdown.js                        # DELETED — Markdown converter (caught by cascade audit)
+library/showdown.js                        # DELETED — Markdown-to-HTML converter (caught by cascade audit)
 ```
 
 ---
