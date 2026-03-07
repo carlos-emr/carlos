@@ -1174,7 +1174,9 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
                     PROGRAM_ID, PROVIDER_NO, 156, yesterday, 100);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(156);
+            assertThat(result.get(0).getProviderNo()).isEqualTo(PROVIDER_NO);
         }
 
         @Test
@@ -1192,7 +1194,9 @@ public class OscarAppointmentDaoFindIntegrationTest extends CarlosTestBase {
                     PROGRAM_ID, PROVIDER_NO, 157, yesterday, 100);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(157);
+            assertThat(result.get(0).getProgramId()).isEqualTo(0);
         }
     }
 

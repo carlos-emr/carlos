@@ -290,7 +290,11 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
                     PROGRAM_ID);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(result).allSatisfy(a -> {
+                assertThat(a.getProviderNo()).isEqualTo(PROVIDER_NO);
+                assertThat(a.getAppointmentDate()).isEqualTo(today);
+            });
         }
 
         @Test
@@ -644,7 +648,8 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
                     today, time0900, time1000, time0900, time1000);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(result.get(0).getAppointmentDate()).isEqualTo(today);
         }
 
         @Test
@@ -850,7 +855,12 @@ public class OscarAppointmentDaoQueryIntegrationTest extends CarlosTestBase {
             List<Object[]> result = oscarAppointmentDao.findAppointments(yesterday, tomorrow);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            // Verify the result contains an Appointment-Demographic pair for the ONTARIO patient
+            assertThat(result).anySatisfy(row -> {
+                assertThat(row[1]).isInstanceOf(Demographic.class);
+                assertThat(((Demographic) row[1]).getHcType()).isEqualTo("ONTARIO");
+            });
         }
 
         @Test

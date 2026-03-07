@@ -144,7 +144,10 @@ public class BillingONEAReportDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find reports by magic parameters")
         void shouldFindReports_byMagicParameters() throws Exception {
-            assertThat(dao.findByMagic("OHIP", "BGNO", "SPEC CODE", new Date(), new Date(), "REPORT")).isNotNull();
+            List<BillingONEAReport> result1 = dao.findByMagic("OHIP", "BGNO", "SPEC CODE", new Date(), new Date(), "REPORT");
+            assertThat(result1).isNotNull();
+            assertThat(result1).isInstanceOf(List.class);
+            assertThat(result1).isEmpty();
 
             List<BillingProviderData> data = new ArrayList<>();
             BillingProviderData d = new BillingProviderData();
@@ -153,7 +156,10 @@ public class BillingONEAReportDaoIntegrationTest extends CarlosTestBase {
             d = new BillingProviderData();
             EntityDataGenerator.generateTestDataForModelClass(d);
             data.add(d);
-            assertThat(dao.findByMagic(data, new Date(), new Date(), "REPORT")).isNotNull();
+            List<BillingONEAReport> result2 = dao.findByMagic(data, new Date(), new Date(), "REPORT");
+            assertThat(result2).isNotNull();
+            assertThat(result2).isInstanceOf(List.class);
+            assertThat(result2).isEmpty();
         }
     }
 }

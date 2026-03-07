@@ -777,7 +777,11 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
                     "O", PROVIDER_NO, yesterday, nextWeek, null);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(result).allSatisfy(h -> {
+                assertThat(h.getStatus()).isEqualTo("O");
+                assertThat(h.getProviderNo()).isEqualTo(PROVIDER_NO);
+            });
         }
 
         @Test
@@ -791,7 +795,11 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
                     "O", null, null, null, DEMO_NO);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(result).allSatisfy(h -> {
+                assertThat(h.getStatus()).isEqualTo("O");
+                assertThat(h.getDemographicNo()).isEqualTo(DEMO_NO);
+            });
         }
     }
 
@@ -816,7 +824,9 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, Arrays.asList("O", "S"), range);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getProviderNo()).isEqualTo(PROVIDER_NO);
+            assertThat(result.get(0).getStatus()).isIn("O", "S");
         }
 
         @Test
@@ -895,7 +905,8 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
                     DEMO_NO, range, 0, 10);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(DEMO_NO);
         }
     }
 
@@ -919,7 +930,9 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
             List<BillingONCHeader1> result = billingONCHeader1Dao.getBillingItemByDxCode(DEMO_NO, "250");
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getId()).isEqualTo(h.getId());
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(DEMO_NO);
         }
 
         @Test
@@ -955,7 +968,9 @@ public class BillingONCHeader1DaoIntegrationTest extends CarlosTestBase {
                             DEMO_NO, Arrays.asList("A001"), yesterday, nextWeek);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getId()).isEqualTo(h.getId());
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(DEMO_NO);
         }
     }
 

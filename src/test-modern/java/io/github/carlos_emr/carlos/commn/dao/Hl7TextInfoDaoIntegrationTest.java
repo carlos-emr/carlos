@@ -79,7 +79,10 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist HL7 text info record")
         void shouldPersistHl7TextInfo_whenValidDataProvided() {
             Hl7TextInfo info = createHl7TextInfo("1001", "ACC001", "John", "Smith", "1234567890");
-            assertThat(info.getLabNumber()).isNotNull();
+            assertThat(info.getLabNumber()).isEqualTo(1001);
+            assertThat(info.getAccessionNumber()).isEqualTo("ACC001");
+            assertThat(info.getFirstName()).isEqualTo("John");
+            assertThat(info.getLastName()).isEqualTo("Smith");
         }
 
         @Test

@@ -381,8 +381,11 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             // When
             List<Secuserrole> results = secuserroleDao.findAll();
 
-            // Then
-            assertThat(results).isNotEmpty();
+            // Then - should contain at least the two we just created
+            assertThat(results).hasSizeGreaterThanOrEqualTo(2);
+            assertThat(results)
+                .extracting(Secuserrole::getProviderNo)
+                .contains("P111", "P222");
         }
     }
 
@@ -923,8 +926,11 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             Secuserrole merged = secuserroleDao.merge(role);
             hibernateTemplate.flush();
 
-            // Then
-            assertThat(merged.getId()).isNotNull();
+            // Then - merged instance should have a generated ID and correct field values
+            assertThat(merged.getId()).isPositive();
+            assertThat(merged.getProviderNo()).isEqualTo("MG200");
+            assertThat(merged.getRoleName()).isEqualTo("nurse");
+            assertThat(merged.getOrgcd()).isEqualTo("ORG1");
             assertThat(merged.getLastUpdateDate()).isNotNull();
         }
     }
@@ -955,8 +961,10 @@ public class SecuserroleDaoIntegrationTest extends CarlosTestBase {
             secuserroleDao.save(role);
             hibernateTemplate.flush();
 
-            // Then
+            // Then - lastUpdateDate should be set to approximately now
             assertThat(role.getLastUpdateDate()).isNotNull();
+            assertThat(role.getLastUpdateDate()).isCloseTo(new Date(), 5000L);
+            assertThat(role.getId()).isPositive();
         }
     }
 }
