@@ -1,0 +1,15 @@
+test template
+
+    --------------------
+    firstName1 lastName1
+    sex1
+    --------------------
+    firstName2 lastName2
+    sex2
+
+Between 2012-4-4 0:0:0 and 2012-4-5 0:0:0 there were 2 people admitted.
+
+program = MyProgramName
+
+notes = some of my notes
+

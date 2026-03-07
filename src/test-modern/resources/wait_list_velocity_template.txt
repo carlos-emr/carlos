@@ -1,0 +1,14 @@
+test template
+
+#foreach( ${admissionDemographicPair} in ${admissionDemographicPairs} )
+    --------------------
+    ${admissionDemographicPair.demographic.firstName} ${admissionDemographicPair.demographic.lastName}
+    ${admissionDemographicPair.demographic.sex}
+#end
+
+Between ${dateTool.format("yyyy-M-d H:m:s",${startDate})} and ${dateTool.format("yyyy-M-d H:m:s",${endDate})} there were ${admissionDemographicPairs.size()} people admitted.
+
+program = ${program.name}
+
+notes = ${notes}
+
