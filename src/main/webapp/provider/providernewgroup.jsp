@@ -79,7 +79,8 @@
 
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 StringBuffer strbuf = new StringBuffer(e.nextElement().toString());
-                if (strbuf.toString().indexOf("displaymode") != -1 || strbuf.toString().indexOf("submit_form") != -1)
+                if (strbuf.toString().indexOf("displaymode") != -1 || strbuf.toString().indexOf("submit_form") != -1
+                        || strbuf.toString().indexOf("CSRF-TOKEN") != -1)
                     continue;
                 param[0] = request.getParameter(strbuf.toString());
                 param[1] = strbuf.toString().substring(param[0].length());
