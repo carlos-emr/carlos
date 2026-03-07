@@ -63,6 +63,9 @@ public class ClientImageManagerImpl implements ClientImageManager {
     }
 
     @Override
+    /**
+     * Deletes the client image associated with the given client ID.
+     */
     public void deleteClientImage(Integer clientId) {
         clientImageDAO.deleteClientImage(clientId);
     }
