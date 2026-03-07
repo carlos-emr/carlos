@@ -44,5 +44,8 @@ public interface ClientImageDAO {
 
     public ClientImage getClientImage(Integer clientId);
 
+    /**
+     * Deletes the image associated with the specified client ID.
+     */
     public void deleteClientImage(Integer clientId);
 }
