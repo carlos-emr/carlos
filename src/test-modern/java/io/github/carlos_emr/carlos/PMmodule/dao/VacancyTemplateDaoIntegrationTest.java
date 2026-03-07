@@ -25,18 +25,21 @@ import io.github.carlos_emr.carlos.PMmodule.model.VacancyTemplate;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link VacancyTemplateDao}.
- * Migrated from legacy JUnit 4 VacancyTemplateDaoTest with full method coverage.
+ * Tests persist, retrieve, merge, and query methods with meaningful assertions.
  *
  * @since 2026-03-07
  */
@@ -50,32 +53,141 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private VacancyTemplateDao dao;
 
-    @Test
-    @Tag("create")
-    @DisplayName("should persist vacancy template with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
-        VacancyTemplate entity = new VacancyTemplate();
-        EntityDataGenerator.generateTestDataForModelClass(entity);
-        dao.persist(entity);
+    @PersistenceContext(unitName = "testPersistenceUnit")
+    private EntityManager entityManager;
 
-        assertThat(entity.getId()).isNotNull();
+    private VacancyTemplate createTemplate(String name, Integer wlProgramId, boolean active) {
+        VacancyTemplate vt = new VacancyTemplate(wlProgramId, name, active);
+        return vt;
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should return vacancy templates by wlProgramId")
-    void shouldReturnTemplates_byWlProgramId() {
-        List<VacancyTemplate> result = dao.getVacancyTemplateByWlProgramId(1);
+    @Nested
+    @DisplayName("Persist and Retrieve Tests")
+    class PersistAndRetrieveTests {
 
-        assertThat(result).isNotNull();
+        @Test
+        @Tag("create")
+        @DisplayName("should persist vacancy template with generated ID")
+        void shouldPersistEntity_whenValidDataProvided() {
+            VacancyTemplate entity = new VacancyTemplate();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
+
+            assertThat(entity.getId()).isNotNull();
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist and retrieve vacancy template via saveVacancyTemplate")
+        void shouldPersistAndRetrieve_viaSaveVacancyTemplate() {
+            VacancyTemplate vt = createTemplate("Save Test Template", 100, true);
+            dao.saveVacancyTemplate(vt);
+            entityManager.flush();
+
+            assertThat(vt.getId()).isNotNull();
+
+            VacancyTemplate found = dao.getVacancyTemplate(vt.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getName()).isEqualTo("Save Test Template");
+            assertThat(found.getWlProgramId()).isEqualTo(100);
+            assertThat(found.getActive()).isTrue();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null for non-existent template ID")
+        void shouldReturnNull_whenTemplateNotFound() {
+            VacancyTemplate found = dao.getVacancyTemplate(99999);
+            assertThat(found).isNull();
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update vacancy template via mergeVacancyTemplate")
+        void shouldUpdateTemplate_viaMerge() {
+            VacancyTemplate vt = createTemplate("Before Merge", 200, true);
+            dao.saveVacancyTemplate(vt);
+            entityManager.flush();
+
+            vt.setName("After Merge");
+            dao.mergeVacancyTemplate(vt);
+            entityManager.flush();
+
+            VacancyTemplate found = dao.getVacancyTemplate(vt.getId());
+            assertThat(found.getName()).isEqualTo("After Merge");
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should return active vacancy templates by wlProgramId")
-    void shouldReturnActiveTemplates_byWlProgramId() {
-        List<VacancyTemplate> result = dao.getActiveVacancyTemplatesByWlProgramId(1);
+    @Nested
+    @DisplayName("Query by wlProgramId Tests")
+    class QueryByWlProgramIdTests {
 
-        assertThat(result).isNotNull();
+        @Test
+        @Tag("read")
+        @Tag("query")
+        @DisplayName("should return templates matching wlProgramId and exclude others")
+        void shouldReturnTemplates_byWlProgramId() {
+            VacancyTemplate vt1 = createTemplate("Prog 300 Template A", 300, true);
+            dao.saveVacancyTemplate(vt1);
+
+            VacancyTemplate vt2 = createTemplate("Prog 300 Template B", 300, false);
+            dao.saveVacancyTemplate(vt2);
+
+            VacancyTemplate vt3 = createTemplate("Prog 301 Template", 301, true);
+            dao.saveVacancyTemplate(vt3);
+            entityManager.flush();
+
+            List<VacancyTemplate> result = dao.getVacancyTemplateByWlProgramId(300);
+            assertThat(result).hasSize(2);
+            assertThat(result).extracting(VacancyTemplate::getId)
+                .containsExactlyInAnyOrder(vt1.getId(), vt2.getId());
+        }
+
+        @Test
+        @Tag("read")
+        @Tag("query")
+        @DisplayName("should return empty list when no templates match wlProgramId")
+        void shouldReturnEmptyList_whenNoTemplatesMatchWlProgramId() {
+            VacancyTemplate vt = createTemplate("Other Prog", 400, true);
+            dao.saveVacancyTemplate(vt);
+            entityManager.flush();
+
+            List<VacancyTemplate> result = dao.getVacancyTemplateByWlProgramId(999);
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @Tag("read")
+        @Tag("query")
+        @DisplayName("should return only active templates by wlProgramId")
+        void shouldReturnOnlyActiveTemplates_byWlProgramId() {
+            VacancyTemplate activeVt = createTemplate("Active Template", 500, true);
+            dao.saveVacancyTemplate(activeVt);
+
+            VacancyTemplate inactiveVt = createTemplate("Inactive Template", 500, false);
+            dao.saveVacancyTemplate(inactiveVt);
+
+            VacancyTemplate otherProgVt = createTemplate("Other Prog Active", 501, true);
+            dao.saveVacancyTemplate(otherProgVt);
+            entityManager.flush();
+
+            List<VacancyTemplate> result = dao.getActiveVacancyTemplatesByWlProgramId(500);
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getId()).isEqualTo(activeVt.getId());
+            assertThat(result.get(0).getName()).isEqualTo("Active Template");
+        }
+
+        @Test
+        @Tag("read")
+        @Tag("query")
+        @DisplayName("should return empty list when no active templates exist for wlProgramId")
+        void shouldReturnEmptyList_whenNoActiveTemplatesExist() {
+            VacancyTemplate inactiveVt = createTemplate("Inactive Only", 600, false);
+            dao.saveVacancyTemplate(inactiveVt);
+            entityManager.flush();
+
+            List<VacancyTemplate> result = dao.getActiveVacancyTemplatesByWlProgramId(600);
+            assertThat(result).isEmpty();
+        }
     }
 }

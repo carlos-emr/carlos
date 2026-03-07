@@ -28,10 +28,14 @@ package io.github.carlos_emr.carlos.integration.fhir.builder;
 import java.sql.Date;
 import java.util.Calendar;
 import java.util.HashSet;
+import java.util.List;
 
+import org.hl7.fhir.dstu3.model.Bundle;
+import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -185,59 +189,128 @@ class FhirMessageBuilderIntegrationTest {
      * This placeholder preserves awareness of that test gap.
      */
 
-    @Test
-    @DisplayName("should generate DHIR formatted FHIR Bundle message with immunization resources")
-    void shouldGenerateDhirFormattedMessage_withImmunizationResources() {
-        LoggedInInfo loggedInInfo = new LoggedInInfo();
-        Security security = new Security();
-        security.setOneIdEmail("oneid@oneidemail.com");
-        loggedInInfo.setLoggedInProvider(provider);
-        loggedInInfo.setLoggedInSecurity(security);
+    @Nested
+    @DisplayName("DHIR formatted FHIR Bundle generation")
+    class DhirBundleGeneration {
 
-        Settings settings = new Settings(FhirDestination.DHIR, Region.ON);
-        settings.setIncludeSenderEndpoint(Boolean.FALSE);
+        private FhirBundleBuilder fhirBundleBuilder;
+        private String json;
 
-        // set up the configuration for a DHIR type transmission
-        OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, settings);
+        @BeforeEach
+        void buildBundle() {
+            LoggedInInfo loggedInInfo = new LoggedInInfo();
+            Security security = new Security();
+            security.setOneIdEmail("oneid@oneidemail.com");
+            loggedInInfo.setLoggedInProvider(provider);
+            loggedInInfo.setLoggedInSecurity(security);
 
-        Patient patient = new Patient(demographic, configurationManager);
-        patient.setFocusResource(Boolean.TRUE);
+            Settings settings = new Settings(FhirDestination.DHIR, Region.ON);
+            settings.setIncludeSenderEndpoint(Boolean.FALSE);
 
-        // The doctor type should be identified in the provider profile
-        PerformingPractitioner performing = new PerformingPractitioner(provider, configurationManager);
+            OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, settings);
 
-        // A nurse should be identified in the provider profile
-        PerformingPractitioner performing2 = new PerformingPractitioner(provider, configurationManager);
+            Patient patient = new Patient(demographic, configurationManager);
+            patient.setFocusResource(Boolean.TRUE);
 
-        // this is the MRP or the provider in charge
-        SubmittingPractitioner submitting = new SubmittingPractitioner(provider, configurationManager);
+            PerformingPractitioner performing = new PerformingPractitioner(provider, configurationManager);
+            PerformingPractitioner performing2 = new PerformingPractitioner(provider, configurationManager);
+            SubmittingPractitioner submitting = new SubmittingPractitioner(provider, configurationManager);
 
-        Immunization<Prevention> measles = new Immunization<Prevention>(prevention, configurationManager);
-        Immunization<Prevention> hpv = new Immunization<Prevention>(prevention2, configurationManager);
+            Immunization<Prevention> measles = new Immunization<Prevention>(prevention, configurationManager);
+            Immunization<Prevention> hpv = new Immunization<Prevention>(prevention2, configurationManager);
 
-        // pass the configuration manager into a new FHIR Bundle message builder
-        FhirBundleBuilder fhirBundleBuilder = new FhirBundleBuilder(configurationManager);
+            fhirBundleBuilder = new FhirBundleBuilder(configurationManager);
 
-        measles.getFhirResource().setPatient(patient.getReference());
-        measles.addPerformingPractitioner(performing.getReference());
+            measles.getFhirResource().setPatient(patient.getReference());
+            measles.addPerformingPractitioner(performing.getReference());
 
-        hpv.getFhirResource().setPatient(patient.getReference());
-        hpv.addPerformingPractitioner(performing2.getReference());
+            hpv.getFhirResource().setPatient(patient.getReference());
+            hpv.addPerformingPractitioner(performing2.getReference());
 
-        // list of OscarFhirResources
-        HashSet<AbstractOscarFhirResource<?, ?>> resourceList = new HashSet<AbstractOscarFhirResource<?, ?>>();
-        resourceList.add(patient);
-        resourceList.add(performing);
-        resourceList.add(performing2);
-        resourceList.add(submitting);
-        resourceList.add(measles);
-        resourceList.add(hpv);
+            HashSet<AbstractOscarFhirResource<?, ?>> resourceList = new HashSet<AbstractOscarFhirResource<?, ?>>();
+            resourceList.add(patient);
+            resourceList.add(performing);
+            resourceList.add(performing2);
+            resourceList.add(submitting);
+            resourceList.add(measles);
+            resourceList.add(hpv);
 
-        // add the resource list to the message
-        fhirBundleBuilder.addResources(resourceList);
+            fhirBundleBuilder.addResources(resourceList);
 
-        String json = fhirBundleBuilder.getMessageJson();
-        assertThat(json).isNotNull();
-        assertThat(json).isNotEmpty();
+            json = fhirBundleBuilder.getMessageJson();
+        }
+
+        @Test
+        @DisplayName("should generate non-empty JSON output")
+        void shouldGenerateNonEmptyJson() {
+            assertThat(json).isNotNull();
+            assertThat(json).isNotEmpty();
+        }
+
+        @Test
+        @DisplayName("should contain Bundle resource type in JSON")
+        void shouldContainBundleResourceType_inJson() {
+            assertThat(json).contains("\"resourceType\": \"Bundle\"");
+        }
+
+        @Test
+        @DisplayName("should contain MessageHeader as first entry")
+        void shouldContainMessageHeader_asFirstEntry() {
+            assertThat(json).contains("\"resourceType\": \"MessageHeader\"");
+        }
+
+        @Test
+        @DisplayName("should contain patient demographic data in JSON")
+        void shouldContainPatientDemographicData_inJson() {
+            assertThat(json).contains("Dennis");
+            assertThat(json).contains("Warren");
+        }
+
+        @Test
+        @DisplayName("should contain immunization resources in JSON")
+        void shouldContainImmunizationResources_inJson() {
+            assertThat(json).contains("\"resourceType\": \"Immunization\"");
+        }
+
+        @Test
+        @DisplayName("should contain practitioner resources in JSON")
+        void shouldContainPractitionerResources_inJson() {
+            assertThat(json).contains("\"resourceType\": \"Practitioner\"");
+        }
+
+        @Test
+        @DisplayName("should create bundle with message type")
+        void shouldCreateBundle_withMessageType() {
+            Bundle bundle = fhirBundleBuilder.getBundle();
+            assertThat(bundle).isNotNull();
+            assertThat(bundle.getType()).isEqualTo(Bundle.BundleType.MESSAGE);
+        }
+
+        @Test
+        @DisplayName("should create bundle with UUID identifier")
+        void shouldCreateBundle_withUuidIdentifier() {
+            Bundle bundle = fhirBundleBuilder.getBundle();
+            assertThat(bundle.getId()).isNotNull();
+            assertThat(bundle.getId()).isNotEmpty();
+        }
+
+        @Test
+        @DisplayName("should contain expected number of bundle entries")
+        void shouldContainExpectedNumberOfBundleEntries() {
+            Bundle bundle = fhirBundleBuilder.getBundle();
+            List<BundleEntryComponent> entries = bundle.getEntry();
+            // 1 MessageHeader + 1 Patient + 2 PerformingPractitioner + 1 SubmittingPractitioner + 2 Immunization = 7
+            assertThat(entries).hasSizeGreaterThanOrEqualTo(7);
+        }
+
+        @Test
+        @DisplayName("should set message header event system for medication administration")
+        void shouldSetMessageHeaderEventSystem_forMedicationAdministration() {
+            assertThat(fhirBundleBuilder.getMessageHeader()).isNotNull();
+            assertThat(fhirBundleBuilder.getMessageHeader().getEvent().getSystem())
+                    .isEqualTo("http://hl7.org/fhir/message-events");
+            assertThat(fhirBundleBuilder.getMessageHeader().getEvent().getCode())
+                    .isEqualTo("MedicationAdministration-Recording");
+        }
     }
 }

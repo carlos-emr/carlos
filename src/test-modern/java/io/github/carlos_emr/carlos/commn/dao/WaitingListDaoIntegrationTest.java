@@ -100,44 +100,122 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
 
             List<Object[]> lists = dao.findByDemographic(10);
 
-            assertThat(lists).isNotNull();
             assertThat(lists).hasSize(1);
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should find waiting lists and demographics by list ID")
-        void shouldReturnResults_whenFindWaitingListsAndDemographics() {
-            List<Object[]> results = dao.findWaitingListsAndDemographics(1);
-            assertThat(results).isNotNull();
+        @DisplayName("should return empty list when no waiting lists match demographic")
+        void shouldReturnEmptyList_whenNoDemographicMatch() {
+            List<Object[]> lists = dao.findByDemographic(999999);
+            assertThat(lists).isEmpty();
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should find appointments for a waiting list entry")
-        void shouldReturnAppointments_forWaitingListEntry() {
+        @DisplayName("should return empty list for waiting lists and demographics with no matching data")
+        void shouldReturnEmptyList_whenNoWaitingListsAndDemographicsMatch() {
+            List<Object[]> results = dao.findWaitingListsAndDemographics(999999);
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty appointments when no appointments match waiting list")
+        void shouldReturnEmptyList_whenNoAppointmentsForWaitingList() {
             WaitingList w = new WaitingList();
             w.setDemographicNo(1);
             w.setOnListSince(new Date());
 
             List<Appointment> appts = dao.findAppointmentFor(w);
-            assertThat(appts).isNotNull();
+            assertThat(appts).isEmpty();
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should find by waiting list ID and demographic ID")
+        @DisplayName("should return empty list when no entries match waiting list ID and demographic ID")
+        void shouldReturnEmptyList_whenNoMatchByWaitingListIdAndDemographicId() {
+            List<WaitingList> wls = dao.findByWaitingListIdAndDemographicId(999999, 999999);
+            assertThat(wls).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find entries by waiting list ID and demographic ID")
         void shouldFindEntries_byWaitingListIdAndDemographicId() {
-            List<WaitingList> wls = dao.findByWaitingListIdAndDemographicId(1, 1);
-            assertThat(wls).isNotNull();
+            WaitingList w1 = new WaitingList();
+            w1.setDemographicNo(100);
+            w1.setListId(50);
+            w1.setOnListSince(new Date());
+            w1.setPosition(1);
+            w1.setIsHistory("N");
+            dao.persist(w1);
+
+            WaitingList w2 = new WaitingList();
+            w2.setDemographicNo(200);
+            w2.setListId(50);
+            w2.setOnListSince(new Date());
+            w2.setPosition(2);
+            w2.setIsHistory("N");
+            dao.persist(w2);
+
+            hibernateTemplate.flush();
+
+            List<WaitingList> results = dao.findByWaitingListIdAndDemographicId(50, 100);
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getDemographicNo()).isEqualTo(100);
+            assertThat(results.get(0).getListId()).isEqualTo(50);
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should return max position for a waiting list")
-        void shouldReturnMaxPosition_forWaitingList() {
-            Integer maxPos = dao.getMaxPosition(1);
-            assertThat(maxPos).isNotNull();
+        @DisplayName("should return zero max position when no entries exist for list")
+        void shouldReturnZero_whenNoEntriesForMaxPosition() {
+            Integer maxPos = dao.getMaxPosition(999999);
+            assertThat(maxPos).isEqualTo(0);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return correct max position for waiting list")
+        void shouldReturnCorrectMaxPosition_whenEntriesExist() {
+            WaitingList w1 = new WaitingList();
+            w1.setDemographicNo(10);
+            w1.setListId(77);
+            w1.setOnListSince(new Date());
+            w1.setPosition(3);
+            w1.setIsHistory("N");
+            dao.persist(w1);
+
+            WaitingList w2 = new WaitingList();
+            w2.setDemographicNo(20);
+            w2.setListId(77);
+            w2.setOnListSince(new Date());
+            w2.setPosition(7);
+            w2.setIsHistory("N");
+            dao.persist(w2);
+
+            WaitingList w3 = new WaitingList();
+            w3.setDemographicNo(30);
+            w3.setListId(77);
+            w3.setOnListSince(new Date());
+            w3.setPosition(5);
+            w3.setIsHistory("N");
+            dao.persist(w3);
+
+            // This entry is history, so should be excluded from max position
+            WaitingList wHistory = new WaitingList();
+            wHistory.setDemographicNo(40);
+            wHistory.setListId(77);
+            wHistory.setOnListSince(new Date());
+            wHistory.setPosition(99);
+            wHistory.setIsHistory("Y");
+            dao.persist(wHistory);
+
+            hibernateTemplate.flush();
+
+            Integer maxPos = dao.getMaxPosition(77);
+            assertThat(maxPos).isEqualTo(7);
         }
     }
 }

@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.*;
  * findMaxIdForActiveForm, and countFormsOtherThanSpecified.
  *
  * <p>Migrated from legacy {@code EFormDaoTest} (JUnit 4 / DaoTestFixtures)
- * with exact same test logic and assertions.</p>
+ * with meaningful assertions verifying filtering and counting behavior.</p>
  *
  * @since 2026-03-07
  * @see EFormDao
@@ -57,15 +57,27 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private EFormDao dao;
 
-    private Integer populatedFormId;
+    private Integer activeFormId;
+    private Integer inactiveFormId;
 
     @BeforeEach
     void setUp() {
-        EForm eform = new EForm();
-        EntityDataGenerator.generateTestDataForModelClass(eform);
-        eform.setFormName("NUVASHENAH");
-        dao.persist(eform);
-        populatedFormId = eform.getId();
+        // Create an active form (current=true)
+        EForm activeForm = new EForm();
+        EntityDataGenerator.generateTestDataForModelClass(activeForm);
+        activeForm.setFormName("TESTFORM_ACTIVE");
+        activeForm.setCurrent(true);
+        dao.persist(activeForm);
+        activeFormId = activeForm.getId();
+
+        // Create an inactive form (current=false)
+        EForm inactiveForm = new EForm();
+        EntityDataGenerator.generateTestDataForModelClass(inactiveForm);
+        inactiveForm.setFormName("TESTFORM_INACTIVE");
+        inactiveForm.setCurrent(false);
+        dao.persist(inactiveForm);
+        inactiveFormId = inactiveForm.getId();
+
         hibernateTemplate.flush();
     }
 
@@ -75,38 +87,38 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
     class FindByStatus {
 
         @Test
-        @DisplayName("should return non-empty list when active forms sorted by DATE")
-        void shouldReturnForms_whenStatusTrueAndSortByDate() {
-            List<EForm> eforms = dao.findByStatus(true, EFormSortOrder.DATE);
-            assertThat(eforms).isNotEmpty();
+        @DisplayName("should return only active forms when status is true")
+        void shouldReturnActiveForms_whenStatusTrue() {
+            List<EForm> activeForms = dao.findByStatus(true, EFormSortOrder.NAME);
+
+            assertThat(activeForms).isNotEmpty();
+            assertThat(activeForms).allMatch(EForm::isCurrent);
+            assertThat(activeForms).anyMatch(f -> f.getId().equals(activeFormId));
+            assertThat(activeForms).noneMatch(f -> f.getId().equals(inactiveFormId));
         }
 
         @Test
-        @DisplayName("should return non-empty list when active forms sorted by FILE_NAME")
-        void shouldReturnForms_whenStatusTrueAndSortByFileName() {
-            List<EForm> eforms = dao.findByStatus(true, EFormSortOrder.FILE_NAME);
-            assertThat(eforms).isNotEmpty();
+        @DisplayName("should return only inactive forms when status is false")
+        void shouldReturnInactiveForms_whenStatusFalse() {
+            List<EForm> inactiveForms = dao.findByStatus(false);
+
+            assertThat(inactiveForms).isNotEmpty();
+            assertThat(inactiveForms).allMatch(f -> !f.isCurrent());
+            assertThat(inactiveForms).anyMatch(f -> f.getId().equals(inactiveFormId));
+            assertThat(inactiveForms).noneMatch(f -> f.getId().equals(activeFormId));
         }
 
         @Test
-        @DisplayName("should return non-empty list when active forms sorted by NAME")
-        void shouldReturnForms_whenStatusTrueAndSortByName() {
-            List<EForm> eforms = dao.findByStatus(true, EFormSortOrder.NAME);
-            assertThat(eforms).isNotEmpty();
-        }
+        @DisplayName("should return forms sorted by different sort orders without error")
+        void shouldReturnForms_withDifferentSortOrders() {
+            List<EForm> byDate = dao.findByStatus(true, EFormSortOrder.DATE);
+            List<EForm> byFileName = dao.findByStatus(true, EFormSortOrder.FILE_NAME);
+            List<EForm> bySubject = dao.findByStatus(true, EFormSortOrder.SUBJECT);
 
-        @Test
-        @DisplayName("should return non-empty list when active forms sorted by SUBJECT")
-        void shouldReturnForms_whenStatusTrueAndSortBySubject() {
-            List<EForm> eforms = dao.findByStatus(true, EFormSortOrder.SUBJECT);
-            assertThat(eforms).isNotEmpty();
-        }
-
-        @Test
-        @DisplayName("should return non-null result when status is false")
-        void shouldReturnResult_whenStatusFalse() {
-            List<EForm> eforms = dao.findByStatus(false);
-            assertThat(eforms).isNotNull();
+            // All sort orders should return the same set of active forms
+            assertThat(byDate).hasSameSizeAs(byFileName);
+            assertThat(byDate).hasSameSizeAs(bySubject);
+            assertThat(byDate).isNotEmpty();
         }
     }
 
@@ -116,11 +128,27 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
     class FindMaxIdForActiveForm {
 
         @Test
-        @DisplayName("should return positive id when active form exists with matching name")
-        void shouldReturnPositiveId_whenActiveFormExists() {
-            Integer id = dao.findMaxIdForActiveForm("NUVASHENAH");
-            assertThat(id).isNotNull();
-            assertThat(id).isGreaterThan(0);
+        @DisplayName("should return the max ID for the active form with matching name")
+        void shouldReturnMaxId_whenActiveFormExists() {
+            // Create a second active form with the same name
+            EForm secondForm = new EForm();
+            EntityDataGenerator.generateTestDataForModelClass(secondForm);
+            secondForm.setFormName("TESTFORM_ACTIVE");
+            secondForm.setCurrent(true);
+            dao.persist(secondForm);
+            hibernateTemplate.flush();
+
+            Integer maxId = dao.findMaxIdForActiveForm("TESTFORM_ACTIVE");
+
+            assertThat(maxId).isEqualTo(secondForm.getId());
+        }
+
+        @Test
+        @DisplayName("should return null when no active form matches the name")
+        void shouldReturnNull_whenNoActiveFormMatchesName() {
+            Integer id = dao.findMaxIdForActiveForm("NONEXISTENT_FORM_XYZ");
+
+            assertThat(id).isNull();
         }
     }
 
@@ -130,11 +158,27 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
     class CountFormsOtherThanSpecified {
 
         @Test
-        @DisplayName("should return non-negative count when form name and id provided")
-        void shouldReturnNonNegativeCount_whenFormNameAndIdProvided() {
-            Long count = dao.countFormsOtherThanSpecified("NUVASHENAH", populatedFormId);
-            assertThat(count).isNotNull();
-            assertThat(count).isGreaterThanOrEqualTo(0);
+        @DisplayName("should return zero when only one active form exists with matching name")
+        void shouldReturnZero_whenOnlyOneActiveFormWithName() {
+            Long count = dao.countFormsOtherThanSpecified("TESTFORM_ACTIVE", activeFormId);
+
+            assertThat(count).isEqualTo(0L);
+        }
+
+        @Test
+        @DisplayName("should count other active forms with same name excluding specified ID")
+        void shouldCountOtherForms_whenMultipleActiveFormsExist() {
+            // Create a second active form with the same name
+            EForm secondForm = new EForm();
+            EntityDataGenerator.generateTestDataForModelClass(secondForm);
+            secondForm.setFormName("TESTFORM_ACTIVE");
+            secondForm.setCurrent(true);
+            dao.persist(secondForm);
+            hibernateTemplate.flush();
+
+            Long count = dao.countFormsOtherThanSpecified("TESTFORM_ACTIVE", activeFormId);
+
+            assertThat(count).isEqualTo(1L);
         }
     }
 }

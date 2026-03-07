@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Orc;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,6 +31,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -48,6 +51,9 @@ public class Hl7OrcDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private Hl7OrcDao hl7OrcDao;
 
+    @Autowired
+    private Hl7PidDao hl7PidDao;
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
@@ -64,13 +70,62 @@ public class Hl7OrcDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
+        @DisplayName("should find entity by ID with correct fields")
+        void shouldReturnMatchingEntity_whenFoundById() {
             Hl7Orc saved = new Hl7Orc();
             EntityDataGenerator.generateTestDataForModelClass(saved);
+            saved.setPidId(300);
+            saved.setFillerOrderNumber("FILLER-001");
+            saved.setOrderControl("NW");
             hl7OrcDao.persist(saved);
+
             Hl7Orc found = hl7OrcDao.find(saved.getId());
+
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getPidId()).isEqualTo(300);
+            assertThat(found.getFillerOrderNumber()).isEqualTo("FILLER-001");
+            assertThat(found.getOrderControl()).isEqualTo("NW");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when entity not found by ID")
+        void shouldReturnNull_whenEntityNotFound() {
+            Hl7Orc found = hl7OrcDao.find(-999);
+            assertThat(found).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("findOrcAndPidByMessageId")
+    class FindOrcAndPidByMessageId {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return joined ORC and PID records for a given message ID")
+        void shouldReturnJoinedResults_whenMatchingDataExists() {
+            Hl7Pid pid = new Hl7Pid();
+            EntityDataGenerator.generateTestDataForModelClass(pid);
+            pid.setMessageId(4000);
+            hl7PidDao.persist(pid);
+
+            Hl7Orc orc = new Hl7Orc();
+            EntityDataGenerator.generateTestDataForModelClass(orc);
+            orc.setPidId(pid.getId());
+            hl7OrcDao.persist(orc);
+
+            List<Object[]> results = hl7OrcDao.findOrcAndPidByMessageId(4000);
+
+            assertThat(results).hasSize(1);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no matching message ID")
+        void shouldReturnEmptyList_whenNoMatchingMessageId() {
+            List<Object[]> results = hl7OrcDao.findOrcAndPidByMessageId(99999);
+            assertThat(results).isEmpty();
         }
     }
 }

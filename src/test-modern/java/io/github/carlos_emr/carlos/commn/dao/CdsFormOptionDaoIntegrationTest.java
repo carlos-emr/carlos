@@ -35,13 +35,12 @@ import io.github.carlos_emr.carlos.commn.model.CdsFormOption;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CdsFormOptionDao} covering full method coverage
- * matching the legacy {@code CdsFormOptionDaoTest}.
+ * Integration tests for {@link CdsFormOptionDao} covering findByVersionAndCategory
+ * and findByVersion methods.
  *
- * <p>Note: The legacy tests for findByVersionAndCategory and findByVersion were
- * commented out (ignored) because CdsFormOption has no setters for its fields.
- * These modern tests verify the DAO methods execute without error using empty
- * queries, matching the legacy test's effective coverage.</p>
+ * <p>Note: {@link CdsFormOption} has no public setters and uses {@code @PreUpdate} /
+ * {@code @PreRemove} to prevent modifications. Test data is inserted via native SQL
+ * to bypass JPA lifecycle callbacks, allowing meaningful query filtering assertions.</p>
  *
  * @since 2026-03-07
  * @see CdsFormOptionDao
@@ -55,21 +54,88 @@ public class CdsFormOptionDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private CdsFormOptionDao dao;
 
-    @Test
-    @Tag("read")
-    @DisplayName("should execute findByVersionAndCategory without error")
-    void shouldExecuteFindByVersionAndCategory_withoutError() {
-        List<CdsFormOption> result = dao.findByVersionAndCategory("1.1.0", "Basic");
-
-        assertThat(result).isNotNull();
+    /**
+     * Inserts a CdsFormOption row via native SQL to bypass the @PreUpdate/@PreRemove
+     * JPA lifecycle callbacks that prevent normal JPA persist.
+     */
+    private void insertViaNativeSql(String version, String category, String categoryName) {
+        entityManager.createNativeQuery(
+                "INSERT INTO CdsFormOption (cdsFormVersion, cdsDataCategory, cdsDataCategoryName) VALUES (?1, ?2, ?3)")
+                .setParameter(1, version)
+                .setParameter(2, category)
+                .setParameter(3, categoryName)
+                .executeUpdate();
+        entityManager.flush();
     }
 
     @Test
     @Tag("read")
-    @DisplayName("should execute findByVersion without error")
-    void shouldExecuteFindByVersion_withoutError() {
-        List<CdsFormOption> result = dao.findByVersion("1.1.0");
+    @DisplayName("should find options by version and category prefix")
+    void shouldFindByVersionAndCategory_whenMatchingRecordsExist() {
+        insertViaNativeSql("4", "016-01", "Eating Disorder Type A");
+        insertViaNativeSql("4", "016-02", "Eating Disorder Type B");
+        insertViaNativeSql("4", "017-01", "Other Disorder");
+        insertViaNativeSql("5", "016-01", "Different Version");
 
-        assertThat(result).isNotNull();
+        List<CdsFormOption> results = dao.findByVersionAndCategory("4", "016");
+
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(CdsFormOption::getCdsFormVersion)
+                .containsOnly("4");
+        assertThat(results).extracting(CdsFormOption::getCdsDataCategory)
+                .allMatch(cat -> cat.startsWith("016"));
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when no options match version and category")
+    void shouldReturnEmptyList_whenNoOptionsMatchVersionAndCategory() {
+        insertViaNativeSql("4", "016-01", "Existing");
+
+        List<CdsFormOption> results = dao.findByVersionAndCategory("4", "999");
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find all options by version")
+    void shouldFindByVersion_whenMatchingRecordsExist() {
+        insertViaNativeSql("4", "016-01", "Category A");
+        insertViaNativeSql("4", "017-01", "Category B");
+        insertViaNativeSql("5", "016-01", "Version 5 Category");
+
+        List<CdsFormOption> results = dao.findByVersion("4");
+
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(CdsFormOption::getCdsFormVersion)
+                .containsOnly("4");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when no options match version")
+    void shouldReturnEmptyList_whenNoOptionsMatchVersion() {
+        insertViaNativeSql("4", "016-01", "Only Version 4");
+
+        List<CdsFormOption> results = dao.findByVersion("99");
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return results ordered by ID")
+    void shouldReturnResultsOrderedById_whenMultipleRecordsExist() {
+        insertViaNativeSql("4", "016-03", "Third");
+        insertViaNativeSql("4", "016-01", "First");
+        insertViaNativeSql("4", "016-02", "Second");
+
+        List<CdsFormOption> results = dao.findByVersion("4");
+
+        assertThat(results).hasSize(3);
+        // Verify ordered by ID (ascending, which matches insertion order)
+        assertThat(results.get(0).getId()).isLessThan(results.get(1).getId());
+        assertThat(results.get(1).getId()).isLessThan(results.get(2).getId());
     }
 }

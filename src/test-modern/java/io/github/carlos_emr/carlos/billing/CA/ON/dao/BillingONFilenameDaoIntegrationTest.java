@@ -30,13 +30,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingONFilenameDao}.
  *
- * <p>Migrated from legacy {@code BillingONFilenameDaoTest} (JUnit 4 / DaoTestFixtures).
- * Replicates exact legacy test coverage: persist entity and verify generated ID.</p>
+ * <p>Tests persist, findByDiskId, findByDiskIdAndStatus, findByDiskIdAndProvider,
+ * and findCurrentByDiskId methods with meaningful assertions.</p>
  *
  * @since 2026-03-07
  * @see BillingONFilenameDao
@@ -59,5 +61,126 @@ public class BillingONFilenameDaoIntegrationTest extends CarlosTestBase {
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
         assertThat(entity.getId()).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find all filenames by disk ID")
+    void shouldFindByDiskId_whenMatchingRecordsExist() {
+        BillingONFilename f1 = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(f1);
+        f1.setDiskId(100);
+        f1.setStatus("A");
+        dao.persist(f1);
+
+        BillingONFilename f2 = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(f2);
+        f2.setDiskId(100);
+        f2.setStatus("B");
+        dao.persist(f2);
+
+        BillingONFilename other = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(other);
+        other.setDiskId(999);
+        other.setStatus("A");
+        dao.persist(other);
+
+        List<BillingONFilename> results = dao.findByDiskId(100);
+
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(BillingONFilename::getDiskId)
+                .containsOnly(100);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find filenames by disk ID and status")
+    void shouldFindByDiskIdAndStatus_whenMatchingRecordsExist() {
+        BillingONFilename active = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(active);
+        active.setDiskId(200);
+        active.setStatus("A");
+        dao.persist(active);
+
+        BillingONFilename deleted = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(deleted);
+        deleted.setDiskId(200);
+        deleted.setStatus("D");
+        dao.persist(deleted);
+
+        List<BillingONFilename> results = dao.findByDiskIdAndStatus(200, "A");
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getId()).isEqualTo(active.getId());
+        assertThat(results.get(0).getStatus()).isEqualTo("A");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find filenames by disk ID and provider")
+    void shouldFindByDiskIdAndProvider_whenMatchingRecordsExist() {
+        BillingONFilename match = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(match);
+        match.setDiskId(300);
+        match.setProviderNo("P001");
+        dao.persist(match);
+
+        BillingONFilename otherProvider = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(otherProvider);
+        otherProvider.setDiskId(300);
+        otherProvider.setProviderNo("P002");
+        dao.persist(otherProvider);
+
+        List<BillingONFilename> results = dao.findByDiskIdAndProvider(300, "P001");
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getProviderNo()).isEqualTo("P001");
+        assertThat(results.get(0).getDiskId()).isEqualTo(300);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find current (non-deleted) filenames by disk ID")
+    void shouldFindCurrentByDiskId_whenMixOfDeletedAndActiveExist() {
+        BillingONFilename active = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(active);
+        active.setDiskId(400);
+        active.setStatus("A");
+        dao.persist(active);
+
+        BillingONFilename submitted = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(submitted);
+        submitted.setDiskId(400);
+        submitted.setStatus("S");
+        dao.persist(submitted);
+
+        BillingONFilename deleted = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(deleted);
+        deleted.setDiskId(400);
+        deleted.setStatus("D");
+        dao.persist(deleted);
+
+        List<BillingONFilename> results = dao.findCurrentByDiskId(400);
+
+        // findCurrentByDiskId excludes status "D"
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(BillingONFilename::getStatus)
+                .doesNotContain("D");
+        assertThat(results).extracting(BillingONFilename::getId)
+                .containsExactlyInAnyOrder(active.getId(), submitted.getId());
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when no filenames match disk ID")
+    void shouldReturnEmptyList_whenNoFilenamesMatchDiskId() {
+        BillingONFilename entity = new BillingONFilename();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setDiskId(500);
+        dao.persist(entity);
+
+        List<BillingONFilename> results = dao.findByDiskId(9999);
+
+        assertThat(results).isEmpty();
     }
 }

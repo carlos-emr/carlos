@@ -32,6 +32,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.carlos_emr.carlos.commn.model.Billing;
+
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -102,46 +104,113 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
         wcb.setBilling_no(999);
         dao.save(wcb);
 
-        assertThat(dao.getWcbByBillingNo(999)).isNotNull();
+        WCB found = dao.getWcbByBillingNo(999);
+        assertThat(found).isNotNull();
+        assertThat(found.getId()).isEqualTo(wcb.getId());
+        assertThat(found.getBilling_no()).isEqualTo(999);
     }
 
     @Test
     @Tag("read")
-    @DisplayName("should return billing master by various field combinations")
-    void shouldReturnResults_whenVariousFieldCombinationsProvided() {
-        dao.getBillingMasterByVariousFields("ST", null, null, null);
-        dao.getBillingMasterByVariousFields("ST", null, null, "01-01-2012");
-        dao.getBillingMasterByVariousFields("ST", null, "01-01-2011", "01-01-2012");
-        dao.getBillingMasterByVariousFields("ST", "01", null, null);
-        dao.getBillingMasterByVariousFields("ST", "01", "01-01-2011", "01-01-2012");
+    @DisplayName("should return null WCB when billing number does not exist")
+    void shouldReturnNull_whenWcbBillingNoNotFound() {
+        WCB found = dao.getWcbByBillingNo(999999);
+        assertThat(found).isNull();
     }
 
     @Test
     @Tag("read")
-    @DisplayName("should return WCB report data for billing master number")
-    void shouldReturnWcbReport_whenBillingMasterNoProvided() {
+    @DisplayName("should return empty list for various field combinations with no matching data")
+    void shouldReturnEmptyList_whenNoMatchingBillingMasterData() {
+        List<Object[]> results1 = dao.getBillingMasterByVariousFields("ST", null, null, null);
+        assertThat(results1).isEmpty();
+
+        List<Object[]> results2 = dao.getBillingMasterByVariousFields("ST", null, null, "01-01-2012");
+        assertThat(results2).isEmpty();
+
+        List<Object[]> results3 = dao.getBillingMasterByVariousFields("ST", null, "01-01-2011", "01-01-2012");
+        assertThat(results3).isEmpty();
+
+        List<Object[]> results4 = dao.getBillingMasterByVariousFields("ST", "01", null, null);
+        assertThat(results4).isEmpty();
+
+        List<Object[]> results5 = dao.getBillingMasterByVariousFields("ST", "01", "01-01-2011", "01-01-2012");
+        assertThat(results5).isEmpty();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list for WCB report when no matching data")
+    void shouldReturnEmptyList_whenNoWcbReportData() {
         List<Object[]> results = dao.select_user_bill_report_wcb(1);
-        assertThat(results).isNotNull();
+        assertThat(results).isEmpty();
     }
 
     @Test
     @Tag("read")
-    @DisplayName("should search teleplan bill by billing master number")
-    void shouldReturnTeleplanBill_whenBillingMasterNoProvided() {
-        assertThat(dao.search_teleplanbill(1)).isNotNull();
+    @DisplayName("should return empty list for teleplan bill when no matching data")
+    void shouldReturnEmptyList_whenNoTeleplanBillData() {
+        List<Billing> results = dao.search_teleplanbill(1);
+        assertThat(results).isEmpty();
     }
 
     @Test
     @Tag("read")
-    @DisplayName("should find by demo number, code and statuses")
-    void shouldReturnResults_whenDemoNoCodeAndStatusesProvided() {
-        assertThat(dao.findByDemoNoCodeAndStatuses(100, "10", Arrays.asList("A"))).isNotNull();
+    @DisplayName("should return empty list when no billings match demo, code, and statuses")
+    void shouldReturnEmptyList_whenNoBillingsMatchDemoCodeStatuses() {
+        List<Billingmaster> results = dao.findByDemoNoCodeAndStatuses(100, "10", Arrays.asList("A"));
+        assertThat(results).isEmpty();
     }
 
     @Test
     @Tag("read")
-    @DisplayName("should find by demo number, code, statuses and year")
-    void shouldReturnResults_whenDemoNoCodeStatusesAndYearProvided() {
-        assertThat(dao.findByDemoNoCodeStatusesAndYear(100, new Date(), "CODE")).isNotNull();
+    @DisplayName("should find billings by demo number, code and statuses")
+    void shouldReturnMatchingBillings_whenDemoNoCodeAndStatusesMatch() {
+        Billingmaster b1 = new Billingmaster();
+        EntityDataGenerator.generateTestDataForModelClass(b1);
+        b1.setDemographicNo(200);
+        b1.setBillingCode("TESTCODE");
+        b1.setBillingstatus("P");
+        b1.setBillingNo(1001);
+        dao.save(b1);
+
+        Billingmaster b2 = new Billingmaster();
+        EntityDataGenerator.generateTestDataForModelClass(b2);
+        b2.setDemographicNo(200);
+        b2.setBillingCode("TESTCODE");
+        b2.setBillingstatus("A");
+        b2.setBillingNo(1002);
+        dao.save(b2);
+
+        entityManager.flush();
+
+        // statuses is a NOT IN filter, so "A" excluded means b1 (status P) should be returned
+        List<Billingmaster> results = dao.findByDemoNoCodeAndStatuses(200, "TESTCODE", Arrays.asList("A"));
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getBillingmasterNo()).isEqualTo(b1.getBillingmasterNo());
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when no billings match demo, code and year")
+    void shouldReturnEmptyList_whenNoBillingsMatchDemoCodeYear() {
+        List<Billingmaster> results = dao.findByDemoNoCodeStatusesAndYear(100, new Date(), "CODE");
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should return zero when no billings match for update")
+    void shouldReturnZero_whenNoBillingsMatchUpdateCriteria() {
+        int count = dao.updateBillingUnitForBillingNumber("XX", 999999);
+        assertThat(count).isEqualTo(0);
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should return zero when marking empty list as billed")
+    void shouldReturnZero_whenMarkingEmptyListAsBilled() {
+        int count = dao.markListAsBilled(Arrays.asList());
+        assertThat(count).isEqualTo(0);
     }
 }

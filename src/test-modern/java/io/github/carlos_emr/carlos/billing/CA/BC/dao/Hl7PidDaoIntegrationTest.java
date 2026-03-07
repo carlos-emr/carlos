@@ -21,14 +21,18 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Msh;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,34 +52,112 @@ public class Hl7PidDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private Hl7PidDao dao;
 
-    @Test
-    @Tag("create")
-    @DisplayName("should persist entity with generated test data")
-    void shouldPersistEntity_whenValidDataProvided() {
-        Hl7Pid entity = new Hl7Pid();
-        EntityDataGenerator.generateTestDataForModelClass(entity);
-        dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+    @Autowired
+    private Hl7MshDao mshDao;
+
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist entity with generated test data")
+        void shouldPersistEntity_whenValidDataProvided() {
+            Hl7Pid entity = new Hl7Pid();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
+            assertThat(entity.getId()).isNotNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find entity by ID with correct fields")
+        void shouldReturnMatchingEntity_whenFoundById() {
+            Hl7Pid entity = new Hl7Pid();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setMessageId(5000);
+            entity.setPatientName("TestPatient");
+            entity.setSex("M");
+            dao.persist(entity);
+
+            Hl7Pid found = dao.find(entity.getId());
+
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(entity.getId());
+            assertThat(found.getMessageId()).isEqualTo(5000);
+            assertThat(found.getPatientName()).isEqualTo("TestPatient");
+            assertThat(found.getSex()).isEqualTo("M");
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find PIDs by message ID")
-    void shouldReturnPids_byMessageId() {
-        assertThat(dao.findByMessageId(100)).isNotNull();
+    @Nested
+    @DisplayName("findByMessageId")
+    class FindByMessageId {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return PIDs matching the given message ID")
+        void shouldReturnMatchingPids_whenMessageIdMatches() {
+            Hl7Pid match1 = new Hl7Pid();
+            EntityDataGenerator.generateTestDataForModelClass(match1);
+            match1.setMessageId(6000);
+            dao.persist(match1);
+
+            Hl7Pid match2 = new Hl7Pid();
+            EntityDataGenerator.generateTestDataForModelClass(match2);
+            match2.setMessageId(6000);
+            dao.persist(match2);
+
+            Hl7Pid nonMatch = new Hl7Pid();
+            EntityDataGenerator.generateTestDataForModelClass(nonMatch);
+            nonMatch.setMessageId(6001);
+            dao.persist(nonMatch);
+
+            List<Hl7Pid> results = dao.findByMessageId(6000);
+
+            assertThat(results).hasSize(2);
+            assertThat(results).extracting(Hl7Pid::getMessageId)
+                    .containsOnly(6000);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no PIDs match message ID")
+        void shouldReturnEmptyList_whenNoMessageIdMatches() {
+            List<Hl7Pid> results = dao.findByMessageId(99999);
+            assertThat(results).isEmpty();
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find PIDs by status")
-    void shouldReturnPids_byStatus() {
-        assertThat(dao.findPidsByStatus("F")).isNotNull();
-    }
+    @Nested
+    @DisplayName("findPidsAndMshByMessageId")
+    class FindPidsAndMshByMessageId {
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find PIDs and MSH by message ID")
-    void shouldReturnPidsAndMsh_byMessageId() {
-        assertThat(dao.findPidsAndMshByMessageId(100)).isNotNull();
+        @Test
+        @Tag("read")
+        @DisplayName("should return joined PID and MSH records for a given message ID")
+        void shouldReturnJoinedResults_whenMatchingDataExists() {
+            Hl7Msh msh = new Hl7Msh();
+            EntityDataGenerator.generateTestDataForModelClass(msh);
+            msh.setMessageId(7000);
+            mshDao.persist(msh);
+
+            Hl7Pid pid = new Hl7Pid();
+            EntityDataGenerator.generateTestDataForModelClass(pid);
+            pid.setMessageId(7000);
+            dao.persist(pid);
+
+            List<Object[]> results = dao.findPidsAndMshByMessageId(7000);
+
+            assertThat(results).hasSize(1);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no matching message ID")
+        void shouldReturnEmptyList_whenNoMatchingMessageId() {
+            List<Object[]> results = dao.findPidsAndMshByMessageId(99999);
+            assertThat(results).isEmpty();
+        }
     }
 }

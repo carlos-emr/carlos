@@ -30,13 +30,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingONHeaderDao}.
  *
- * <p>Migrated from legacy {@code BillingONHeaderDaoTest} (JUnit 4 / DaoTestFixtures).
- * Replicates exact legacy test coverage: persist entity and verify generated ID.</p>
+ * <p>Tests persist and findByDiskIdAndProviderRegNum methods with
+ * meaningful assertions including filtering verification.</p>
  *
  * @since 2026-03-07
  * @see BillingONHeaderDao
@@ -59,5 +61,73 @@ public class BillingONHeaderDaoIntegrationTest extends CarlosTestBase {
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
         assertThat(entity.getId()).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find headers by disk ID and provider registration number")
+    void shouldFindByDiskIdAndProviderRegNum_whenMatchingRecordsExist() {
+        BillingONHeader match = new BillingONHeader();
+        EntityDataGenerator.generateTestDataForModelClass(match);
+        match.setDiskId(100);
+        match.setProviderRegNum("REG001");
+        dao.persist(match);
+
+        BillingONHeader wrongDisk = new BillingONHeader();
+        EntityDataGenerator.generateTestDataForModelClass(wrongDisk);
+        wrongDisk.setDiskId(999);
+        wrongDisk.setProviderRegNum("REG001");
+        dao.persist(wrongDisk);
+
+        BillingONHeader wrongProvider = new BillingONHeader();
+        EntityDataGenerator.generateTestDataForModelClass(wrongProvider);
+        wrongProvider.setDiskId(100);
+        wrongProvider.setProviderRegNum("REG002");
+        dao.persist(wrongProvider);
+
+        List<BillingONHeader> results = dao.findByDiskIdAndProviderRegNum(100, "REG001");
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getId()).isEqualTo(match.getId());
+        assertThat(results.get(0).getDiskId()).isEqualTo(100);
+        assertThat(results.get(0).getProviderRegNum()).isEqualTo("REG001");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return multiple headers when several match disk ID and provider")
+    void shouldReturnMultipleHeaders_whenSeveralMatchDiskIdAndProvider() {
+        BillingONHeader h1 = new BillingONHeader();
+        EntityDataGenerator.generateTestDataForModelClass(h1);
+        h1.setDiskId(200);
+        h1.setProviderRegNum("REG100");
+        dao.persist(h1);
+
+        BillingONHeader h2 = new BillingONHeader();
+        EntityDataGenerator.generateTestDataForModelClass(h2);
+        h2.setDiskId(200);
+        h2.setProviderRegNum("REG100");
+        dao.persist(h2);
+
+        List<BillingONHeader> results = dao.findByDiskIdAndProviderRegNum(200, "REG100");
+
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(BillingONHeader::getId)
+                .containsExactlyInAnyOrder(h1.getId(), h2.getId());
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when no headers match criteria")
+    void shouldReturnEmptyList_whenNoHeadersMatchCriteria() {
+        BillingONHeader entity = new BillingONHeader();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setDiskId(300);
+        entity.setProviderRegNum("REG300");
+        dao.persist(entity);
+
+        List<BillingONHeader> results = dao.findByDiskIdAndProviderRegNum(300, "NOMATCH");
+
+        assertThat(results).isEmpty();
     }
 }

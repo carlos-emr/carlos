@@ -21,14 +21,20 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Msh;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obx;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,20 +54,119 @@ public class Hl7ObrDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private Hl7ObrDao dao;
 
-    @Test
-    @Tag("create")
-    @DisplayName("should persist entity with generated test data")
-    void shouldPersistEntity_whenValidDataProvided() {
-        Hl7Obr entity = new Hl7Obr();
-        EntityDataGenerator.generateTestDataForModelClass(entity);
-        dao.persist(entity);
-        assertThat(entity.getId()).isNotNull();
+    @Autowired
+    private Hl7PidDao pidDao;
+
+    @Autowired
+    private Hl7ObxDao obxDao;
+
+    @Autowired
+    private Hl7MshDao mshDao;
+
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist entity with generated test data")
+        void shouldPersistEntity_whenValidDataProvided() {
+            Hl7Obr entity = new Hl7Obr();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            dao.persist(entity);
+            assertThat(entity.getId()).isNotNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find entity by ID with correct fields")
+        void shouldReturnMatchingEntity_whenFoundById() {
+            Hl7Obr entity = new Hl7Obr();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setPidId(555);
+            entity.setResultStatus("F");
+            entity.setDiagnosticServiceSectId("HM");
+            dao.persist(entity);
+
+            Hl7Obr found = dao.find(entity.getId());
+
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(entity.getId());
+            assertThat(found.getPidId()).isEqualTo(555);
+            assertThat(found.getResultStatus()).isEqualTo("F");
+            assertThat(found.getDiagnosticServiceSectId()).isEqualTo("HM");
+        }
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should find OBR records by PID")
-    void shouldReturnObrRecords_byPid() {
-        assertThat(dao.findByPid(100)).isNotNull();
+    @Nested
+    @DisplayName("findByPid")
+    class FindByPid {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return OBR records matching the given PID")
+        void shouldReturnMatchingRecords_whenPidMatches() {
+            Hl7Obr matching1 = new Hl7Obr();
+            EntityDataGenerator.generateTestDataForModelClass(matching1);
+            matching1.setPidId(700);
+            dao.persist(matching1);
+
+            Hl7Obr matching2 = new Hl7Obr();
+            EntityDataGenerator.generateTestDataForModelClass(matching2);
+            matching2.setPidId(700);
+            dao.persist(matching2);
+
+            Hl7Obr nonMatching = new Hl7Obr();
+            EntityDataGenerator.generateTestDataForModelClass(nonMatching);
+            nonMatching.setPidId(701);
+            dao.persist(nonMatching);
+
+            List<Hl7Obr> results = dao.findByPid(700);
+
+            assertThat(results).hasSize(2);
+            assertThat(results).extracting(Hl7Obr::getPidId)
+                    .containsOnly(700);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no OBR records match the PID")
+        void shouldReturnEmptyList_whenNoPidMatches() {
+            List<Hl7Obr> results = dao.findByPid(99999);
+            assertThat(results).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("findLabResultsByPid")
+    class FindLabResultsByPid {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return joined OBR and OBX records for a given PID")
+        void shouldReturnJoinedResults_whenMatchingDataExists() {
+            Hl7Obr obr = new Hl7Obr();
+            EntityDataGenerator.generateTestDataForModelClass(obr);
+            obr.setPidId(800);
+            obr.setDiagnosticServiceSectId("CH");
+            dao.persist(obr);
+
+            Hl7Obx obx = new Hl7Obx();
+            EntityDataGenerator.generateTestDataForModelClass(obx);
+            obx.setObrId(obr.getId());
+            obxDao.persist(obx);
+
+            List<Object[]> results = dao.findLabResultsByPid(800);
+
+            assertThat(results).hasSize(1);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no matching lab results")
+        void shouldReturnEmptyList_whenNoMatchingLabResults() {
+            List<Object[]> results = dao.findLabResultsByPid(99999);
+            assertThat(results).isEmpty();
+        }
     }
 }

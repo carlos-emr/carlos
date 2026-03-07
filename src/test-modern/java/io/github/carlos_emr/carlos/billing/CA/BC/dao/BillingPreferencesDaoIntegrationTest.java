@@ -22,7 +22,8 @@
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingPreferences;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreference;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -56,21 +57,91 @@ public class BillingPreferencesDaoIntegrationTest extends CarlosTestBase {
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
         void shouldPersist_whenValidDataProvided() {
-            BillingPreferences entity = new BillingPreferences();
+            BillingPreference entity = new BillingPreference();
             EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setProviderNo("100001");
             billingPreferencesDAO.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            BillingPreferences saved = new BillingPreferences();
+        @DisplayName("should find entity by ID with matching field values")
+        void shouldReturnMatchingEntity_whenFoundById() {
+            BillingPreference saved = new BillingPreference();
             EntityDataGenerator.generateTestDataForModelClass(saved);
+            saved.setProviderNo("200001");
+            saved.setReferral(2);
+            saved.setDefaultPayeeNo("PAY01");
             billingPreferencesDAO.persist(saved);
-            BillingPreferences found = billingPreferencesDAO.find(saved.getId());
+
+            BillingPreference found = billingPreferencesDAO.find(saved.getId());
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getProviderNo()).isEqualTo("200001");
+            assertThat(found.getReferral()).isEqualTo(2);
+            assertThat(found.getDefaultPayeeNo()).isEqualTo("PAY01");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when entity not found by ID")
+        void shouldReturnNull_whenInvalidIdProvided() {
+            BillingPreference found = billingPreferencesDAO.find(-999);
+            assertThat(found).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("getUserBillingPreference")
+    class GetUserBillingPreference {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return preference for matching provider number")
+        void shouldReturnPreference_whenProviderNoMatches() {
+            BillingPreference pref = new BillingPreference();
+            EntityDataGenerator.generateTestDataForModelClass(pref);
+            pref.setProviderNo("300001");
+            pref.setReferral(3);
+            pref.setDefaultPayeeNo("PAYEE1");
+            billingPreferencesDAO.persist(pref);
+
+            BillingPreference found = billingPreferencesDAO.getUserBillingPreference("300001");
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(pref.getId());
+            assertThat(found.getProviderNo()).isEqualTo("300001");
+            assertThat(found.getReferral()).isEqualTo(3);
+            assertThat(found.getDefaultPayeeNo()).isEqualTo("PAYEE1");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when no preference exists for provider number")
+        void shouldReturnNull_whenNoPreferenceExists() {
+            BillingPreference found = billingPreferencesDAO.getUserBillingPreference("NONEXISTENT");
+            assertThat(found).isNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return correct preference when multiple providers have preferences")
+        void shouldReturnCorrectPreference_whenMultipleProvidersExist() {
+            BillingPreference pref1 = new BillingPreference();
+            EntityDataGenerator.generateTestDataForModelClass(pref1);
+            pref1.setProviderNo("400001");
+            pref1.setReferral(1);
+            billingPreferencesDAO.persist(pref1);
+
+            BillingPreference pref2 = new BillingPreference();
+            EntityDataGenerator.generateTestDataForModelClass(pref2);
+            pref2.setProviderNo("400002");
+            pref2.setReferral(2);
+            billingPreferencesDAO.persist(pref2);
+
+            BillingPreference found = billingPreferencesDAO.getUserBillingPreference("400002");
+            assertThat(found).isNotNull();
+            assertThat(found.getProviderNo()).isEqualTo("400002");
+            assertThat(found.getReferral()).isEqualTo(2);
         }
     }
 }

@@ -71,7 +71,10 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             dao.persist(entity);
 
             assertThat(entity.getId()).isNotNull();
-            assertThat(dao.find(entity.getId())).isNotNull();
+            ProviderSite found = dao.find(entity.getId());
+            assertThat(found).isNotNull();
+            assertThat(found.getId().getProviderNo()).isEqualTo("000001");
+            assertThat(found.getId().getSiteId()).isEqualTo(1);
         }
     }
 
@@ -103,6 +106,43 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
             assertThat(result).hasSize(1);
             assertThat(result).containsExactly(ps1);
         }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no sites match provider number")
+        void shouldReturnEmptyList_whenNoSitesForProvider() {
+            List<ProviderSite> result = dao.findByProviderNo("999999");
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return multiple sites for same provider")
+        void shouldReturnMultipleSites_whenProviderHasMultiple() {
+            String providerNo = "303";
+
+            ProviderSite ps1 = new ProviderSite();
+            EntityDataGenerator.generateTestDataForModelClass(ps1);
+            ps1.setId(new ProviderSitePK());
+            ps1.getId().setProviderNo(providerNo);
+            ps1.getId().setSiteId(10);
+            dao.persist(ps1);
+
+            ProviderSite ps2 = new ProviderSite();
+            EntityDataGenerator.generateTestDataForModelClass(ps2);
+            ps2.setId(new ProviderSitePK());
+            ps2.getId().setProviderNo(providerNo);
+            ps2.getId().setSiteId(20);
+            dao.persist(ps2);
+
+            List<ProviderSite> result = dao.findByProviderNo(providerNo);
+
+            assertThat(result).hasSize(2);
+            assertThat(result).extracting(ps -> ps.getId().getProviderNo())
+                    .containsOnly(providerNo);
+            assertThat(result).extracting(ps -> ps.getId().getSiteId())
+                    .containsExactlyInAnyOrder(10, 20);
+        }
     }
 
     @Nested
@@ -111,11 +151,11 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should return non-null result for any provider number")
-        void shouldReturnNonNullResult_whenCalled() {
+        @DisplayName("should return empty list when no active providers with sites exist")
+        void shouldReturnEmptyList_whenNoActiveProvidersWithSites() {
             List<Provider> result = dao.findActiveProvidersWithSites("100");
 
-            assertThat(result).isNotNull();
+            assertThat(result).isEmpty();
         }
     }
 }

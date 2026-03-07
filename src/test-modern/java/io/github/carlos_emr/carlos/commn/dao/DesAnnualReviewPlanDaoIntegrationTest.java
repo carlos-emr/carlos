@@ -33,10 +33,10 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link DesAnnualReviewPlanDao} covering full method coverage
- * matching the legacy {@code DesAnnualReviewPlanDaoTest}.
+ * Integration tests for {@link DesAnnualReviewPlanDao} covering persist and search operations.
  *
- * <p>Tests cover persist (create) and search operations.</p>
+ * <p>Tests verify that the DAO correctly persists entities and that the search method
+ * returns the correct entity filtered by formNo and demographicNo with proper ordering.</p>
  *
  * @since 2026-03-07
  * @see DesAnnualReviewPlanDao
@@ -63,22 +63,76 @@ public class DesAnnualReviewPlanDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
-    @DisplayName("should find entity by formNo and demographicNo")
+    @DisplayName("should find entity by formNo and demographicNo returning highest formNo match")
     void shouldFindEntity_whenSearchingByFormNoAndDemographicNo() {
+        DesAnnualReviewPlan entity1 = new DesAnnualReviewPlan();
+        EntityDataGenerator.generateTestDataForModelClass(entity1);
+        entity1.setDemographicNo(100);
+        entity1.setFormNo(1);
+        dao.persist(entity1);
+
+        DesAnnualReviewPlan entity2 = new DesAnnualReviewPlan();
+        EntityDataGenerator.generateTestDataForModelClass(entity2);
+        entity2.setDemographicNo(100);
+        entity2.setFormNo(2);
+        dao.persist(entity2);
+
+        hibernateTemplate.flush();
+
+        // search(formNo, demographicNo) finds entries where formNo <= param, ordered DESC
+        DesAnnualReviewPlan result = dao.search(2, 100);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getDemographicNo()).isEqualTo(100);
+        assertThat(result.getFormNo()).isEqualTo(2);
+        assertThat(result.getId()).isEqualTo(entity2.getId());
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return null when no matching demographicNo exists")
+    void shouldReturnNull_whenNonMatchingDemographicNo() {
         DesAnnualReviewPlan entity = new DesAnnualReviewPlan();
         EntityDataGenerator.generateTestDataForModelClass(entity);
-        entity.setDemographicNo(1);
+        entity.setDemographicNo(200);
         entity.setFormNo(1);
         dao.persist(entity);
+        hibernateTemplate.flush();
 
-        entity = new DesAnnualReviewPlan();
-        EntityDataGenerator.generateTestDataForModelClass(entity);
-        entity.setDemographicNo(1);
-        entity.setFormNo(2);
-        dao.persist(entity);
+        DesAnnualReviewPlan result = dao.search(1, 999);
 
-        DesAnnualReviewPlan darp = dao.search(2, 1);
+        assertThat(result).isNull();
+    }
 
-        assertThat(darp).isNotNull();
+    @Test
+    @Tag("read")
+    @DisplayName("should return entity with highest formNo not exceeding search parameter")
+    void shouldReturnHighestFormNo_whenMultipleFormNosExist() {
+        DesAnnualReviewPlan entity1 = new DesAnnualReviewPlan();
+        EntityDataGenerator.generateTestDataForModelClass(entity1);
+        entity1.setDemographicNo(300);
+        entity1.setFormNo(1);
+        dao.persist(entity1);
+
+        DesAnnualReviewPlan entity2 = new DesAnnualReviewPlan();
+        EntityDataGenerator.generateTestDataForModelClass(entity2);
+        entity2.setDemographicNo(300);
+        entity2.setFormNo(3);
+        dao.persist(entity2);
+
+        DesAnnualReviewPlan entity3 = new DesAnnualReviewPlan();
+        EntityDataGenerator.generateTestDataForModelClass(entity3);
+        entity3.setDemographicNo(300);
+        entity3.setFormNo(5);
+        dao.persist(entity3);
+
+        hibernateTemplate.flush();
+
+        // Search with formNo=4 should find entity2 (formNo=3), not entity3 (formNo=5)
+        DesAnnualReviewPlan result = dao.search(4, 300);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getFormNo()).isEqualTo(3);
+        assertThat(result.getId()).isEqualTo(entity2.getId());
     }
 }

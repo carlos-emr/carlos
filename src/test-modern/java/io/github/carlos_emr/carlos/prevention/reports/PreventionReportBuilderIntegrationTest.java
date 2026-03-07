@@ -26,6 +26,7 @@
 package io.github.carlos_emr.carlos.prevention.reports;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -55,25 +56,94 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("PreventionReportBuilder Integration Tests")
 class PreventionReportBuilderIntegrationTest extends CarlosTestBase {
 
-    @Test
-    @DisplayName("should run prevention report with age and roster criteria")
-    void shouldRunPreventionReport_withAgeAndRosterCriteria() {
-        String providerNo = "-1";
-        PreventionSearchTo1 preventionSearchTo1 = new PreventionSearchTo1();
-        preventionSearchTo1.setAge1("2");
-        preventionSearchTo1.setAgeStyle("2");
-        preventionSearchTo1.setAgeCalc("0");
-        preventionSearchTo1.setRosterStat("RO");
-        preventionSearchTo1.setSex("1");
+    @Nested
+    @DisplayName("Report generation with search criteria")
+    class ReportGeneration {
 
-        LoggedInInfo loggedInInfo = AuthUtils.initLoginContext();
-        ReportBuilder reportBuilder = new ReportBuilder();
-        Report report = reportBuilder.runReport(loggedInInfo, providerNo, preventionSearchTo1);
-        logger.info("Number of items: " + report.getItems().size());
+        @Test
+        @DisplayName("should generate report with empty items list when no matching demographics")
+        void shouldGenerateReport_withEmptyItemsList_whenNoMatchingDemographics() {
+            String providerNo = "-1";
+            PreventionSearchTo1 preventionSearchTo1 = new PreventionSearchTo1();
+            preventionSearchTo1.setAge1("2");
+            preventionSearchTo1.setAgeStyle("2");
+            preventionSearchTo1.setAgeCalc("0");
+            preventionSearchTo1.setRosterStat("RO");
+            preventionSearchTo1.setSex("1");
 
-        // The legacy test asserted assertEquals(1, 1) which always passes.
-        // Preserving the intent: verify report runs without error and returns non-null.
-        assertThat(report).isNotNull();
-        assertThat(report.getItems()).isNotNull();
+            LoggedInInfo loggedInInfo = AuthUtils.initLoginContext();
+            ReportBuilder reportBuilder = new ReportBuilder();
+            Report report = reportBuilder.runReport(loggedInInfo, providerNo, preventionSearchTo1);
+
+            assertThat(report).isNotNull();
+            assertThat(report.getItems()).isNotNull();
+            // With no demographics in test database matching the roster criteria,
+            // the items list should be empty
+            assertThat(report.getItems()).isEmpty();
+            assertThat(report.getTotalPatients()).isEqualTo(0);
+            assertThat(report.getIneligiblePatients()).isEqualTo(0);
+            assertThat(report.getUp2date()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("should preserve search configuration in report")
+        void shouldPreserveSearchConfiguration_inReport() {
+            String providerNo = "-1";
+            PreventionSearchTo1 searchConfig = new PreventionSearchTo1();
+            searchConfig.setAge1("50");
+            searchConfig.setAgeStyle("2");
+            searchConfig.setAgeCalc("0");
+            searchConfig.setSex("2");
+
+            LoggedInInfo loggedInInfo = AuthUtils.initLoginContext();
+            ReportBuilder reportBuilder = new ReportBuilder();
+            Report report = reportBuilder.runReport(loggedInInfo, providerNo, searchConfig);
+
+            assertThat(report.getSearchConfig()).isNotNull();
+            assertThat(report.getSearchConfig().getAge1()).isEqualTo("50");
+            assertThat(report.getSearchConfig().getSex()).isEqualTo("2");
+            assertThat(report.getSearchConfig().getProviderNo()).isEqualTo("-1");
+            assertThat(report.getSearchConfig().getAgeAsOf()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should generate report for male patients filter")
+        void shouldGenerateReport_forMalePatientFilter() {
+            String providerNo = "-1";
+            PreventionSearchTo1 preventionSearchTo1 = new PreventionSearchTo1();
+            preventionSearchTo1.setAge1("18");
+            preventionSearchTo1.setAgeStyle("2");
+            preventionSearchTo1.setAgeCalc("0");
+            preventionSearchTo1.setSex("2");
+
+            LoggedInInfo loggedInInfo = AuthUtils.initLoginContext();
+            ReportBuilder reportBuilder = new ReportBuilder();
+            Report report = reportBuilder.runReport(loggedInInfo, providerNo, preventionSearchTo1);
+
+            assertThat(report).isNotNull();
+            assertThat(report.getItems()).isNotNull();
+            assertThat(report.isActive()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should generate report without roster status filter")
+        void shouldGenerateReport_withoutRosterStatusFilter() {
+            String providerNo = "-1";
+            PreventionSearchTo1 preventionSearchTo1 = new PreventionSearchTo1();
+            preventionSearchTo1.setAge1("65");
+            preventionSearchTo1.setAgeStyle("2");
+            preventionSearchTo1.setAgeCalc("0");
+            // No roster status set - should not filter by roster
+            preventionSearchTo1.setSex("1");
+
+            LoggedInInfo loggedInInfo = AuthUtils.initLoginContext();
+            ReportBuilder reportBuilder = new ReportBuilder();
+            Report report = reportBuilder.runReport(loggedInInfo, providerNo, preventionSearchTo1);
+
+            assertThat(report).isNotNull();
+            assertThat(report.getItems()).isNotNull();
+            // Items may be non-empty since no roster filter restricts the result
+            assertThat(report.getSearchConfig().getRosterStat()).isNull();
+        }
     }
 }

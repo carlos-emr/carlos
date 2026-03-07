@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link MsgDemoMapDao} covering create,
- * getMessagesAndDemographicsByMessageId, and getMapAndMessagesByDemographicNo.
+ * findByDemographicNo, findByMessageId, and remove.
  *
  * <p>Migrated from legacy {@code MsgDemoMapDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -53,6 +53,14 @@ public class MsgDemoMapDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private MsgDemoMapDao dao;
 
+    private MsgDemoMap createMsgDemoMap(int messageId, int demographicNo) {
+        MsgDemoMap entity = new MsgDemoMap();
+        entity.setMessageID(messageId);
+        entity.setDemographic_no(demographicNo);
+        dao.persist(entity);
+        return entity;
+    }
+
     @Nested
     @DisplayName("Create operations")
     class CreateOperations {
@@ -61,40 +69,98 @@ public class MsgDemoMapDaoIntegrationTest extends CarlosTestBase {
         @Tag("create")
         @DisplayName("should persist msg demo map with generated ID")
         void shouldPersistMsgDemoMap_whenValidDataProvided() {
-            MsgDemoMap entity = new MsgDemoMap();
-            entity.setDemographic_no(1);
-            entity.setMessageID(1);
-            dao.persist(entity);
+            MsgDemoMap entity = createMsgDemoMap(1, 100);
 
             assertThat(entity.getId()).isNotNull();
         }
     }
 
     @Nested
-    @DisplayName("getMessagesAndDemographicsByMessageId")
-    class GetMessagesAndDemographicsByMessageId {
+    @DisplayName("findByDemographicNo")
+    class FindByDemographicNo {
 
         @Test
         @Tag("read")
-        @DisplayName("should return non-null result for any message ID")
-        void shouldReturnNonNullResult_whenCalledWithMessageId() {
-            List<Object[]> result = dao.getMessagesAndDemographicsByMessageId(100);
+        @DisplayName("should return maps for matching demographic number")
+        void shouldReturnMaps_whenDemographicNoMatches() {
+            createMsgDemoMap(10, 200);
+            createMsgDemoMap(20, 200);
+            createMsgDemoMap(30, 300);
 
-            assertThat(result).isNotNull();
+            List<MsgDemoMap> results = dao.findByDemographicNo(200);
+
+            assertThat(results).hasSize(2);
+            assertThat(results).allMatch(m -> m.getDemographic_no().equals(200));
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no matching demographic number")
+        void shouldReturnEmptyList_whenNoMatchingDemographicNo() {
+            createMsgDemoMap(10, 200);
+
+            List<MsgDemoMap> results = dao.findByDemographicNo(99999);
+
+            assertThat(results).isEmpty();
         }
     }
 
     @Nested
-    @DisplayName("getMapAndMessagesByDemographicNo")
-    class GetMapAndMessagesByDemographicNo {
+    @DisplayName("findByMessageId")
+    class FindByMessageId {
 
         @Test
         @Tag("read")
-        @DisplayName("should return non-null result for any demographic number")
-        void shouldReturnNonNullResult_whenCalledWithDemographicNo() {
-            List<Object[]> result = dao.getMapAndMessagesByDemographicNo(100);
+        @DisplayName("should return maps for matching message ID")
+        void shouldReturnMaps_whenMessageIdMatches() {
+            createMsgDemoMap(50, 100);
+            createMsgDemoMap(50, 200);
+            createMsgDemoMap(60, 300);
 
-            assertThat(result).isNotNull();
+            List<MsgDemoMap> results = dao.findByMessageId(50);
+
+            assertThat(results).hasSize(2);
+            assertThat(results).allMatch(m -> m.getMessageID().equals(50));
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no matching message ID")
+        void shouldReturnEmptyList_whenNoMatchingMessageId() {
+            List<MsgDemoMap> results = dao.findByMessageId(99999);
+
+            assertThat(results).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("remove")
+    class Remove {
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should remove mapping for specific message ID and demographic number")
+        void shouldRemoveMapping_whenMessageIdAndDemographicNoMatch() {
+            createMsgDemoMap(70, 400);
+            createMsgDemoMap(70, 500);
+
+            dao.remove(70, 400);
+
+            List<MsgDemoMap> remaining = dao.findByMessageId(70);
+            assertThat(remaining).hasSize(1);
+            assertThat(remaining.get(0).getDemographic_no()).isEqualTo(500);
+        }
+
+        @Test
+        @Tag("delete")
+        @DisplayName("should not remove anything when no matching mapping exists")
+        void shouldNotRemoveAnything_whenNoMatchingMapping() {
+            createMsgDemoMap(80, 600);
+
+            dao.remove(80, 99999);
+
+            List<MsgDemoMap> results = dao.findByMessageId(80);
+            assertThat(results).hasSize(1);
         }
     }
 }

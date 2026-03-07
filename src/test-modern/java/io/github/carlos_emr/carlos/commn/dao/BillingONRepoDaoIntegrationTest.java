@@ -31,14 +31,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Date;
 
 import static org.assertj.core.api.Assertions.*;
 
 /**
  * Integration tests for {@link BillingONRepoDao} covering basic CRUD operations.
  *
- * <p>Migrated from legacy {@code BillingONRepoDaoTest} (JUnit 4 / DaoTestFixtures).</p>
+ * <p>Tests persist, find, and getCountAll (inherited from AbstractDaoImpl).
+ * The DAO's custom methods (createBillingONItemEntry, createBillingONCHeader1Entry)
+ * require complex dependencies (ProviderDao via SpringUtils) and are not tested here.</p>
  *
  * @since 2026-03-07
  * @see BillingONRepoDao
@@ -69,13 +71,31 @@ public class BillingONRepoDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should find billingonrepo by ID")
+        @DisplayName("should find billingonrepo by ID with correct field values")
         void shouldFindBillingONRepo_whenValidIdProvided() {
             BillingONRepo saved = new BillingONRepo();
             EntityDataGenerator.generateTestDataForModelClass(saved);
+            saved.setCategory("test-category");
+            saved.setContent("test-content");
+            saved.sethId(42);
+            saved.setCreateDateTime(new Date());
             billingONRepoDao.persist(saved);
+
             BillingONRepo found = billingONRepoDao.find(saved.getId());
+
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getCategory()).isEqualTo("test-category");
+            assertThat(found.getContent()).isEqualTo("test-content");
+            assertThat(found.gethId()).isEqualTo(42);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when billingonrepo not found by ID")
+        void shouldReturnNull_whenBillingONRepoNotFoundById() {
+            BillingONRepo found = billingONRepoDao.find(99999);
+            assertThat(found).isNull();
         }
     }
 
@@ -85,13 +105,22 @@ public class BillingONRepoDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all billingonrepo records")
+        @DisplayName("should count all billingonrepo records accurately")
         void shouldCountAllBillingONRepos() {
-            BillingONRepo entity = new BillingONRepo();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
-            billingONRepoDao.persist(entity);
+            BillingONRepo entity1 = new BillingONRepo();
+            EntityDataGenerator.generateTestDataForModelClass(entity1);
+            billingONRepoDao.persist(entity1);
+
+            BillingONRepo entity2 = new BillingONRepo();
+            EntityDataGenerator.generateTestDataForModelClass(entity2);
+            billingONRepoDao.persist(entity2);
+
+            BillingONRepo entity3 = new BillingONRepo();
+            EntityDataGenerator.generateTestDataForModelClass(entity3);
+            billingONRepoDao.persist(entity3);
+
             long count = billingONRepoDao.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+            assertThat(count).isEqualTo(3);
         }
     }
 }

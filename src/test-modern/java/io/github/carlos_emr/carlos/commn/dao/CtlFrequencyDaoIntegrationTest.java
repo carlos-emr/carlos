@@ -77,7 +77,22 @@ public class CtlFrequencyDaoIntegrationTest extends CarlosTestBase {
 
         List<CtlFrequency> list = dao.findAll();
 
-        assertThat(list).isNotNull();
         assertThat(list).hasSize(startNo + 1);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should include persisted entity in findAll results")
+    void shouldIncludePersistedEntity_inFindAllResults() {
+        CtlFrequency entity = new CtlFrequency();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        hibernateTemplate.flush();
+
+        List<CtlFrequency> list = dao.findAll();
+
+        assertThat(list)
+                .extracting(CtlFrequency::getId)
+                .contains(entity.getId());
     }
 }

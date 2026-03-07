@@ -64,13 +64,47 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
+        @DisplayName("should find entity by ID with matching fields")
+        void shouldReturnMatchingEntity_whenFoundById() {
             Hl7Msh saved = new Hl7Msh();
             EntityDataGenerator.generateTestDataForModelClass(saved);
+            saved.setMessageId(9001);
+            saved.setSendingApp("TestSendingApp");
+            saved.setMessageType("ORU");
             hl7MshDao.persist(saved);
+
             Hl7Msh found = hl7MshDao.find(saved.getId());
+
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getMessageId()).isEqualTo(9001);
+            assertThat(found.getSendingApp()).isEqualTo("TestSendingApp");
+            assertThat(found.getMessageType()).isEqualTo("ORU");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when entity not found by ID")
+        void shouldReturnNull_whenEntityNotFound() {
+            Hl7Msh found = hl7MshDao.find(-999);
+            assertThat(found).isNull();
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should update entity fields after merge")
+        void shouldUpdateFields_whenMerged() {
+            Hl7Msh entity = new Hl7Msh();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setSendingApp("OriginalApp");
+            hl7MshDao.persist(entity);
+
+            entity.setSendingApp("UpdatedApp");
+            hl7MshDao.merge(entity);
+            hl7MshDao.flush();
+
+            Hl7Msh found = hl7MshDao.find(entity.getId());
+            assertThat(found.getSendingApp()).isEqualTo("UpdatedApp");
         }
     }
 }

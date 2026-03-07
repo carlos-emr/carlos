@@ -24,12 +24,15 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -65,39 +68,156 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
 
             assertThat(entity.getId()).isNotNull();
         }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist and retrieve validation with all fields intact")
+        void shouldPersistAndRetrieve_withAllFieldsIntact() throws Exception {
+            Validations entity = new Validations();
+            entity.setName("TestValidation");
+            entity.setRegularExp("^[0-9]+$");
+            entity.setMinValue(1.0);
+            entity.setMaxValue(100.0);
+            entity.setMinLength(1);
+            entity.setMaxLength(10);
+            entity.setNumeric(true);
+            entity.setDate(false);
+            dao.persist(entity);
+
+            assertThat(entity.getId()).isNotNull();
+
+            List<Validations> found = dao.findByName("TestValidation");
+            assertThat(found).hasSize(1);
+            Validations retrieved = found.get(0);
+            assertThat(retrieved.getName()).isEqualTo("TestValidation");
+            assertThat(retrieved.getRegularExp()).isEqualTo("^[0-9]+$");
+            assertThat(retrieved.getMinValue()).isEqualTo(1.0);
+            assertThat(retrieved.getMaxValue()).isEqualTo(100.0);
+            assertThat(retrieved.getMinLength()).isEqualTo(1);
+            assertThat(retrieved.getMaxLength()).isEqualTo(10);
+            assertThat(retrieved.isNumeric()).isTrue();
+            assertThat(retrieved.isDate()).isFalse();
+        }
     }
 
     @Nested
     @DisplayName("Query operations")
     class QueryOperations {
 
-        @Test
-        @Tag("query")
-        @DisplayName("should find validations by all parameter combinations")
-        void shouldFindValidations_byAllParameterCombinations() {
-            assertThat(dao.findByAll(null, null, null, null, null, null, null)).isNotNull();
-            assertThat(dao.findByAll("RE", null, null, null, null, null, null)).isNotNull();
-            assertThat(dao.findByAll(null, 2.0, null, null, null, null, null)).isNotNull();
-            assertThat(dao.findByAll(null, null, 1.0, null, null, null, null)).isNotNull();
-            assertThat(dao.findByAll(null, null, null, 100, null, null, null)).isNotNull();
-            assertThat(dao.findByAll(null, null, null, null, 200, null, null)).isNotNull();
-            assertThat(dao.findByAll(null, null, null, null, null, true, null)).isNotNull();
-            assertThat(dao.findByAll(null, null, null, null, null, null, false)).isNotNull();
-            assertThat(dao.findByAll("BR", 1.0, 2.0, 199, 0, false, false)).isNotNull();
+        private Validations numericValidation;
+        private Validations dateValidation;
+
+        @BeforeEach
+        void setUpTestData() {
+            numericValidation = new Validations();
+            numericValidation.setName("NumericRange");
+            numericValidation.setRegularExp("^[0-9]+$");
+            numericValidation.setMinValue(0.0);
+            numericValidation.setMaxValue(200.0);
+            numericValidation.setMinLength(1);
+            numericValidation.setMaxLength(5);
+            numericValidation.setNumeric(true);
+            numericValidation.setDate(false);
+            dao.persist(numericValidation);
+
+            dateValidation = new Validations();
+            dateValidation.setName("DateFormat");
+            dateValidation.setRegularExp("^\\d{4}-\\d{2}-\\d{2}$");
+            dateValidation.setMinValue(null);
+            dateValidation.setMaxValue(null);
+            dateValidation.setMinLength(10);
+            dateValidation.setMaxLength(10);
+            dateValidation.setNumeric(false);
+            dateValidation.setDate(true);
+            dao.persist(dateValidation);
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should find validations by demographic, type, and measurement ID")
-        void shouldFindValidations_byDemographicTypeAndMeasurementId() {
-            assertThat(dao.findValidationsBy(10, "type", 10)).isNotNull();
+        @DisplayName("should return all validations")
+        void shouldReturnAllValidations() {
+            List<Validations> all = dao.findAll();
+            assertThat(all).hasSizeGreaterThanOrEqualTo(2);
+            assertThat(all).extracting(Validations::getName)
+                    .contains("NumericRange", "DateFormat");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find validations by regularExp parameter")
+        void shouldFindValidations_byRegularExpParameter() {
+            List<Validations> results = dao.findByAll("^[0-9]+$", null, null, null, null, null, null);
+            assertThat(results).isNotEmpty();
+            assertThat(results).allSatisfy(v ->
+                    assertThat(v.getRegularExp()).isEqualTo("^[0-9]+$"));
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find validations by isNumeric parameter")
+        void shouldFindValidations_byIsNumericParameter() {
+            List<Validations> numericResults = dao.findByAll(null, null, null, null, null, true, null);
+            assertThat(numericResults).isNotEmpty();
+            assertThat(numericResults).allSatisfy(v ->
+                    assertThat(v.isNumeric()).isTrue());
+
+            List<Validations> nonNumericResults = dao.findByAll(null, null, null, null, null, false, null);
+            assertThat(nonNumericResults).isNotEmpty();
+            assertThat(nonNumericResults).allSatisfy(v ->
+                    assertThat(v.isNumeric()).isFalse());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find validations by isDate parameter")
+        void shouldFindValidations_byIsDateParameter() {
+            List<Validations> dateResults = dao.findByAll(null, null, null, null, null, null, true);
+            assertThat(dateResults).isNotEmpty();
+            assertThat(dateResults).allSatisfy(v ->
+                    assertThat(v.isDate()).isTrue());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find validations by multiple parameters combined")
+        void shouldFindValidations_byMultipleParametersCombined() {
+            List<Validations> results = dao.findByAll("^[0-9]+$", 0.0, 200.0, 1, 5, true, false);
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getName()).isEqualTo("NumericRange");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no matching parameters")
+        void shouldReturnEmptyList_whenNoMatchingParameters() {
+            List<Validations> results = dao.findByAll("nonexistent_regex", null, null, null, null, null, null);
+            assertThat(results).isEmpty();
         }
 
         @Test
         @Tag("query")
         @DisplayName("should find validations by name")
         void shouldFindValidations_byName() {
-            assertThat(dao.findByName("NM")).isNotNull();
+            List<Validations> found = dao.findByName("NumericRange");
+            assertThat(found).hasSize(1);
+            assertThat(found.get(0).getName()).isEqualTo("NumericRange");
+            assertThat(found.get(0).getId()).isEqualTo(numericValidation.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list for non-existent name")
+        void shouldReturnEmptyList_forNonExistentName() {
+            List<Validations> found = dao.findByName("NoSuchValidation");
+            assertThat(found).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty results when no measurements match")
+        void shouldReturnEmptyResults_whenNoMeasurementsMatch() {
+            List<Object[]> results = dao.findValidationsBy(999999, "BP", numericValidation.getId());
+            assertThat(results).isEmpty();
         }
     }
 }

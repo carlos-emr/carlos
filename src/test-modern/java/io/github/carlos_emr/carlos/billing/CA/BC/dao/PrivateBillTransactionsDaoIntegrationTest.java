@@ -22,7 +22,8 @@
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.billing.CA.BC.model.PrivateBillTransactions;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingPrivateTransactions;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.PrivateBillTransactionsDAO;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,10 +32,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
+
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link PrivateBillTransactionsDao}.
+ * Integration tests for {@link PrivateBillTransactionsDAO}.
  * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
  * @since 2026-03-07
  */
@@ -46,7 +49,7 @@ import static org.assertj.core.api.Assertions.*;
 public class PrivateBillTransactionsDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private PrivateBillTransactionsDao privateBillTransactionsDao;
+    private PrivateBillTransactionsDAO privateBillTransactionsDao;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -56,21 +59,71 @@ public class PrivateBillTransactionsDaoIntegrationTest extends CarlosTestBase {
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
         void shouldPersist_whenValidDataProvided() {
-            PrivateBillTransactions entity = new PrivateBillTransactions();
+            BillingPrivateTransactions entity = new BillingPrivateTransactions();
             EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setCreationDate(new Date());
             privateBillTransactionsDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            PrivateBillTransactions saved = new PrivateBillTransactions();
-            EntityDataGenerator.generateTestDataForModelClass(saved);
+        @DisplayName("should find entity by ID with correct fields")
+        void shouldReturnMatchingEntity_whenFoundById() {
+            BillingPrivateTransactions saved = new BillingPrivateTransactions(
+                    100, 55.50, new Date(), 1
+            );
             privateBillTransactionsDao.persist(saved);
-            PrivateBillTransactions found = privateBillTransactionsDao.find(saved.getId());
+
+            BillingPrivateTransactions found = privateBillTransactionsDao.find(saved.getId());
+
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getBillingmasterNo()).isEqualTo(100);
+            assertThat(found.getAmountReceived()).isEqualTo(55.50);
+            assertThat(found.getPaymentTypeId()).isEqualTo(1);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when entity not found by ID")
+        void shouldReturnNull_whenEntityNotFound() {
+            BillingPrivateTransactions found = privateBillTransactionsDao.find(-999);
+            assertThat(found).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("savePrivateBillTransaction")
+    class SavePrivateBillTransaction {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should save a private bill transaction with correct fields")
+        void shouldSaveTransaction_withCorrectFields() {
+            BillingPrivateTransactions saved = privateBillTransactionsDao
+                    .savePrivateBillTransaction(200, 99.99, 2);
+
+            assertThat(saved).isNotNull();
+            assertThat(saved.getId()).isNotNull();
+            assertThat(saved.getBillingmasterNo()).isEqualTo(200);
+            assertThat(saved.getAmountReceived()).isEqualTo(99.99);
+            assertThat(saved.getPaymentTypeId()).isEqualTo(2);
+            assertThat(saved.getCreationDate()).isNotNull();
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist multiple transactions with different billing master numbers")
+        void shouldPersistMultipleTransactions_withDifferentBillingMasters() {
+            BillingPrivateTransactions tx1 = privateBillTransactionsDao
+                    .savePrivateBillTransaction(301, 10.00, 1);
+            BillingPrivateTransactions tx2 = privateBillTransactionsDao
+                    .savePrivateBillTransaction(302, 20.00, 2);
+
+            assertThat(tx1.getId()).isNotEqualTo(tx2.getId());
+            assertThat(tx1.getBillingmasterNo()).isEqualTo(301);
+            assertThat(tx2.getBillingmasterNo()).isEqualTo(302);
         }
     }
 }

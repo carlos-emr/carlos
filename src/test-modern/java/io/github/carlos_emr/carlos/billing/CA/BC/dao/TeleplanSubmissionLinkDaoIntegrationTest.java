@@ -21,21 +21,22 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanSubmissionLink;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link TeleplanSubmissionLinkDao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Tests inherited CRUD operations from AbstractDaoImpl since this DAO
+ * has no custom query methods.</p>
+ *
  * @since 2026-03-07
  */
 @DisplayName("TeleplanSubmissionLink Dao Integration Tests")
@@ -46,31 +47,61 @@ import static org.assertj.core.api.Assertions.*;
 public class TeleplanSubmissionLinkDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private TeleplanSubmissionLinkDao teleplanSubmissionLinkDao;
+    private TeleplanSubmissionLinkDao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated ID")
+    void shouldPersistEntity_whenValidDataProvided() {
+        TeleplanSubmissionLink entity = new TeleplanSubmissionLink();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setBillActivityId(100);
+        entity.setBillingMasterNo(200);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            TeleplanSubmissionLink entity = new TeleplanSubmissionLink();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
-            teleplanSubmissionLinkDao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find entity by ID with correct field values")
+    void shouldReturnEntity_whenValidIdProvided() {
+        TeleplanSubmissionLink saved = new TeleplanSubmissionLink();
+        EntityDataGenerator.generateTestDataForModelClass(saved);
+        saved.setBillActivityId(555);
+        saved.setBillingMasterNo(777);
+        dao.persist(saved);
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            TeleplanSubmissionLink saved = new TeleplanSubmissionLink();
-            EntityDataGenerator.generateTestDataForModelClass(saved);
-            teleplanSubmissionLinkDao.persist(saved);
-            TeleplanSubmissionLink found = teleplanSubmissionLinkDao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+        TeleplanSubmissionLink found = dao.find(saved.getId());
+        assertThat(found).isNotNull();
+        assertThat(found.getId()).isEqualTo(saved.getId());
+        assertThat(found.getBillActivityId()).isEqualTo(555);
+        assertThat(found.getBillingMasterNo()).isEqualTo(777);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return null when entity not found by ID")
+    void shouldReturnNull_whenEntityNotFound() {
+        TeleplanSubmissionLink found = dao.find(999999);
+        assertThat(found).isNull();
+    }
+
+    @Test
+    @Tag("update")
+    @DisplayName("should merge updated entity with new values")
+    void shouldMergeUpdatedEntity_whenFieldsChanged() {
+        TeleplanSubmissionLink entity = new TeleplanSubmissionLink();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setBillActivityId(100);
+        entity.setBillingMasterNo(200);
+        dao.persist(entity);
+
+        entity.setBillActivityId(300);
+        entity.setBillingMasterNo(400);
+        dao.merge(entity);
+
+        TeleplanSubmissionLink found = dao.find(entity.getId());
+        assertThat(found.getBillActivityId()).isEqualTo(300);
+        assertThat(found.getBillingMasterNo()).isEqualTo(400);
     }
 }

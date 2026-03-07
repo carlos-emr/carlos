@@ -82,7 +82,23 @@ public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
             entity.setDiagnosticCode("a");
             dao.persist(entity);
 
-            assertThat(dao.findByDiagnosticCode(entity.getDiagnosticCode())).hasSize(1);
+            List<DiagnosticCode> results = dao.findByDiagnosticCode(entity.getDiagnosticCode());
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isEqualTo(entity.getId());
+            assertThat(results.get(0).getDiagnosticCode()).isEqualTo("a");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when diagnostic code does not match")
+        void shouldReturnEmptyList_whenDiagnosticCodeNotFound() {
+            DiagnosticCode entity = new DiagnosticCode();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setDiagnosticCode("existing");
+            dao.persist(entity);
+
+            List<DiagnosticCode> results = dao.findByDiagnosticCode("nonexistent");
+            assertThat(results).isEmpty();
         }
 
         @Test
@@ -95,22 +111,78 @@ public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
             entity.setRegion("b");
             dao.persist(entity);
 
-            assertThat(dao.findByDiagnosticCodeAndRegion(entity.getDiagnosticCode(), entity.getRegion())).hasSize(1);
+            List<DiagnosticCode> results = dao.findByDiagnosticCodeAndRegion(
+                    entity.getDiagnosticCode(), entity.getRegion());
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isEqualTo(entity.getId());
+            assertThat(results.get(0).getDiagnosticCode()).isEqualTo("a");
+            assertThat(results.get(0).getRegion()).isEqualTo("b");
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should find diagnostic codes by region and type")
-        void shouldFindDiagnosticCodes_byRegionAndType() {
+        @DisplayName("should return empty list when region does not match")
+        void shouldReturnEmptyList_whenRegionDoesNotMatch() {
+            DiagnosticCode entity = new DiagnosticCode();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setDiagnosticCode("x");
+            entity.setRegion("matchRegion");
+            dao.persist(entity);
+
+            List<DiagnosticCode> results = dao.findByDiagnosticCodeAndRegion("x", "noMatchRegion");
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list for findByRegionAndType with no matching data")
+        void shouldReturnEmptyList_whenNoRegionAndTypeMatch() {
+            // This query joins with CtlDiagCode table; with no data in that table, expect empty
             List<DiagnosticCode> codes = dao.findByRegionAndType("REG", "TYPE");
-            assertThat(codes).isNotNull();
+            assertThat(codes).isEmpty();
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should find diagnostics and ctl diag codes by service type")
-        void shouldFindDiagnosticsAndCtlDiagCodes_byServiceType() {
-            assertThat(dao.findDiagnosictsAndCtlDiagCodesByServiceType("TYPE")).isNotNull();
+        @DisplayName("should return empty list for findDiagnosticsAndCtlDiagCodes with no matching data")
+        void shouldReturnEmptyList_whenNoCtlDiagCodesExist() {
+            // This query joins with CtlDiagCode table; with no data in that table, expect empty
+            List<Object[]> results = dao.findDiagnosictsAndCtlDiagCodesByServiceType("TYPE");
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find only codes matching specific diagnostic code among multiple")
+        void shouldReturnOnlyMatchingCodes_whenMultipleCodesExist() {
+            DiagnosticCode code1 = new DiagnosticCode();
+            EntityDataGenerator.generateTestDataForModelClass(code1);
+            code1.setDiagnosticCode("ABC");
+            code1.setRegion("ON");
+            dao.persist(code1);
+
+            DiagnosticCode code2 = new DiagnosticCode();
+            EntityDataGenerator.generateTestDataForModelClass(code2);
+            code2.setDiagnosticCode("DEF");
+            code2.setRegion("ON");
+            dao.persist(code2);
+
+            DiagnosticCode code3 = new DiagnosticCode();
+            EntityDataGenerator.generateTestDataForModelClass(code3);
+            code3.setDiagnosticCode("ABC");
+            code3.setRegion("BC");
+            dao.persist(code3);
+
+            hibernateTemplate.flush();
+
+            List<DiagnosticCode> byCode = dao.findByDiagnosticCode("ABC");
+            assertThat(byCode).hasSize(2);
+            assertThat(byCode).extracting(DiagnosticCode::getDiagnosticCode)
+                    .containsOnly("ABC");
+
+            List<DiagnosticCode> byCodeAndRegion = dao.findByDiagnosticCodeAndRegion("ABC", "ON");
+            assertThat(byCodeAndRegion).hasSize(1);
+            assertThat(byCodeAndRegion.get(0).getId()).isEqualTo(code1.getId());
         }
     }
 }

@@ -116,6 +116,41 @@ public class Billing3rdPartyAddressDaoIntegrationTest extends CarlosTestBase {
                 assertThat(result.get(i)).isEqualTo(expectedResult.get(i));
             }
         }
+
+        @Test
+        @DisplayName("should return empty list when no addresses match company name")
+        void shouldReturnEmptyList_whenNoCompanyNameMatches() {
+            Billing3rdPartyAddress addr = new Billing3rdPartyAddress();
+            EntityDataGenerator.generateTestDataForModelClass(addr);
+            addr.setCompanyName("ExistingCorp");
+            dao.persist(addr);
+            hibernateTemplate.flush();
+
+            List<Billing3rdPartyAddress> result = dao.findByCompanyName("NonExistentCorp");
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should not return addresses with different company name")
+        void shouldExcludeAddresses_whenCompanyNameDiffers() {
+            String targetName = "TargetCorp";
+            String otherName = "OtherCorp";
+
+            Billing3rdPartyAddress target = new Billing3rdPartyAddress();
+            EntityDataGenerator.generateTestDataForModelClass(target);
+            target.setCompanyName(targetName);
+            dao.persist(target);
+
+            Billing3rdPartyAddress other = new Billing3rdPartyAddress();
+            EntityDataGenerator.generateTestDataForModelClass(other);
+            other.setCompanyName(otherName);
+            dao.persist(other);
+            hibernateTemplate.flush();
+
+            List<Billing3rdPartyAddress> result = dao.findByCompanyName(targetName);
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getCompanyName()).isEqualTo(targetName);
+        }
     }
 
     @Nested
@@ -124,9 +159,10 @@ public class Billing3rdPartyAddressDaoIntegrationTest extends CarlosTestBase {
     class FindAddresses {
 
         @Test
-        @DisplayName("should return non-null result when all parameters are null")
-        void shouldReturnNonNullResult_whenAllParametersAreNull() {
-            assertThat(dao.findAddresses(null, null, null, null, null)).isNotNull();
+        @DisplayName("should return empty list when no data exists and all parameters are null")
+        void shouldReturnEmptyList_whenAllParametersAreNullAndNoData() {
+            List<Billing3rdPartyAddress> result = dao.findAddresses(null, null, null, null, null);
+            assertThat(result).isEmpty();
         }
     }
 }

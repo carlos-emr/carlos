@@ -35,8 +35,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Integration tests for {@link BillingONProcDao}.
  *
- * <p>Migrated from legacy {@code BillingONProcDaoTest} (JUnit 4 / DaoTestFixtures).
- * Replicates exact legacy test coverage: persist entity and verify generated ID.</p>
+ * <p>Tests persist and find (inherited from AbstractDaoImpl) methods with
+ * meaningful assertions. BillingONProcDao has no custom query methods;
+ * only inherited CRUD operations are tested.</p>
  *
  * @since 2026-03-07
  * @see BillingONProcDao
@@ -59,5 +60,51 @@ public class BillingONProcDaoIntegrationTest extends CarlosTestBase {
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
         assertThat(entity.getId()).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find persisted entity by ID with correct field values")
+    void shouldFindEntity_whenValidIdProvided() {
+        BillingONProc entity = new BillingONProc();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setCreator("TestCreator");
+        entity.setAction("TestAction");
+        entity.setComment("TestComment");
+        dao.persist(entity);
+
+        BillingONProc found = dao.find(entity.getId());
+
+        assertThat(found).isNotNull();
+        assertThat(found.getId()).isEqualTo(entity.getId());
+        assertThat(found.getCreator()).isEqualTo("TestCreator");
+        assertThat(found.getAction()).isEqualTo("TestAction");
+        assertThat(found.getComment()).isEqualTo("TestComment");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return null when entity not found by ID")
+    void shouldReturnNull_whenEntityNotFoundById() {
+        BillingONProc found = dao.find(99999);
+
+        assertThat(found).isNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should count all persisted entities")
+    void shouldCountAllEntities_afterPersisting() {
+        BillingONProc entity1 = new BillingONProc();
+        EntityDataGenerator.generateTestDataForModelClass(entity1);
+        dao.persist(entity1);
+
+        BillingONProc entity2 = new BillingONProc();
+        EntityDataGenerator.generateTestDataForModelClass(entity2);
+        dao.persist(entity2);
+
+        int count = dao.getCountAll();
+
+        assertThat(count).isEqualTo(2);
     }
 }

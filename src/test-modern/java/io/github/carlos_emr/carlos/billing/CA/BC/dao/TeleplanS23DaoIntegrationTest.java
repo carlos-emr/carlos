@@ -21,21 +21,23 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
-import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS23;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.*;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link TeleplanS23Dao}.
- * <p>Migrated from legacy JUnit 4 / DaoTestFixtures.</p>
+ * <p>Migrated from legacy JUnit 4 / DaoTestFixtures with full method coverage.</p>
+ *
  * @since 2026-03-07
  */
 @DisplayName("TeleplanS23 Dao Integration Tests")
@@ -46,31 +48,86 @@ import static org.assertj.core.api.Assertions.*;
 public class TeleplanS23DaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    private TeleplanS23Dao teleplanS23Dao;
+    private TeleplanS23Dao dao;
 
-    @Nested
-    @DisplayName("CRUD operations")
-    class CrudOperations {
+    private TeleplanS23 createEntity(Integer s21Id, String s23Type, String aji) {
+        TeleplanS23 entity = new TeleplanS23();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setS21Id(s21Id);
+        entity.setS23Type(s23Type);
+        entity.setAji(aji);
+        return entity;
+    }
 
-        @Test
-        @Tag("create")
-        @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
-            TeleplanS23 entity = new TeleplanS23();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
-            teleplanS23Dao.persist(entity);
-            assertThat(entity.getId()).isNotNull();
-        }
+    @Test
+    @Tag("create")
+    @DisplayName("should persist entity with generated ID")
+    void shouldPersistEntity_whenValidDataProvided() {
+        TeleplanS23 entity = new TeleplanS23();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        dao.persist(entity);
+        assertThat(entity.getId()).isNotNull();
+    }
 
-        @Test
-        @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
-            TeleplanS23 saved = new TeleplanS23();
-            EntityDataGenerator.generateTestDataForModelClass(saved);
-            teleplanS23Dao.persist(saved);
-            TeleplanS23 found = teleplanS23Dao.find(saved.getId());
-            assertThat(found).isNotNull();
-        }
+    @Test
+    @Tag("read")
+    @DisplayName("should find entity by ID with correct field values")
+    void shouldReturnEntity_whenValidIdProvided() {
+        TeleplanS23 saved = createEntity(10, "TYPE1", "AJI001");
+        dao.persist(saved);
+
+        TeleplanS23 found = dao.find(saved.getId());
+        assertThat(found).isNotNull();
+        assertThat(found.getId()).isEqualTo(saved.getId());
+        assertThat(found.getS21Id()).isEqualTo(10);
+        assertThat(found.getS23Type()).isEqualTo("TYPE1");
+        assertThat(found.getAji()).isEqualTo("AJI001");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should search S23 records by s21Id, excluding type, matching aji")
+    void shouldReturnFilteredRecords_byS21IdExcludingTypeAndAji() {
+        TeleplanS23 match = createEntity(40, "KEEP", "ADJ01");
+        TeleplanS23 excludedType = createEntity(40, "EXCL", "ADJ01");
+        TeleplanS23 wrongS21 = createEntity(99, "KEEP", "ADJ01");
+        TeleplanS23 wrongAji = createEntity(40, "KEEP", "ADJ99");
+        dao.persist(match);
+        dao.persist(excludedType);
+        dao.persist(wrongS21);
+        dao.persist(wrongAji);
+
+        // search_taS23: s21Id=40, s23Type<>"EXCL", aji like "ADJ01"
+        List<TeleplanS23> results = dao.search_taS23(40, "EXCL", "ADJ01");
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getS23Type()).isEqualTo("KEEP");
+        assertThat(results.get(0).getAji()).isEqualTo("ADJ01");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when no S23 records match criteria")
+    void shouldReturnEmptyList_whenNoS23RecordsMatch() {
+        TeleplanS23 entity = createEntity(40, "EXCL", "ADJ01");
+        dao.persist(entity);
+
+        // The only record has the excluded type
+        List<TeleplanS23> results = dao.search_taS23(40, "EXCL", "ADJ01");
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return multiple matching S23 records ordered by ID")
+    void shouldReturnMultipleRecords_orderedById() {
+        TeleplanS23 first = createEntity(25, "A", "ADJ50");
+        TeleplanS23 second = createEntity(25, "B", "ADJ50");
+        dao.persist(first);
+        dao.persist(second);
+
+        // Exclude type "X" which neither matches
+        List<TeleplanS23> results = dao.search_taS23(25, "X", "ADJ50");
+        assertThat(results).hasSize(2);
+        assertThat(results.get(0).getId()).isLessThan(results.get(1).getId());
     }
 }

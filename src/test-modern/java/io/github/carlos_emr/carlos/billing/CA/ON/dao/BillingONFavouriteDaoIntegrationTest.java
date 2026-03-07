@@ -30,13 +30,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Integration tests for {@link BillingONFavouriteDao}.
  *
- * <p>Migrated from legacy {@code BillingONFavouriteDaoTest} (JUnit 4 / DaoTestFixtures).
- * Replicates exact legacy test coverage: persist entity and verify generated ID.</p>
+ * <p>Tests persist, findByName, findByNameAndProviderNo, and findCurrent
+ * methods with meaningful assertions.</p>
  *
  * @since 2026-03-07
  * @see BillingONFavouriteDao
@@ -59,5 +61,102 @@ public class BillingONFavouriteDaoIntegrationTest extends CarlosTestBase {
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
         assertThat(entity.getId()).isNotNull();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find favourites by name")
+    void shouldFindByName_whenMatchingRecordsExist() {
+        BillingONFavourite fav1 = new BillingONFavourite();
+        EntityDataGenerator.generateTestDataForModelClass(fav1);
+        fav1.setName("TestFav");
+        fav1.setProviderNo("100");
+        dao.persist(fav1);
+
+        BillingONFavourite fav2 = new BillingONFavourite();
+        EntityDataGenerator.generateTestDataForModelClass(fav2);
+        fav2.setName("TestFav");
+        fav2.setProviderNo("200");
+        dao.persist(fav2);
+
+        BillingONFavourite other = new BillingONFavourite();
+        EntityDataGenerator.generateTestDataForModelClass(other);
+        other.setName("OtherFav");
+        other.setProviderNo("300");
+        dao.persist(other);
+
+        List<BillingONFavourite> results = dao.findByName("TestFav");
+
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(BillingONFavourite::getName)
+                .containsOnly("TestFav");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when no favourites match name")
+    void shouldReturnEmptyList_whenNoFavouritesMatchName() {
+        BillingONFavourite fav = new BillingONFavourite();
+        EntityDataGenerator.generateTestDataForModelClass(fav);
+        fav.setName("Existing");
+        dao.persist(fav);
+
+        List<BillingONFavourite> results = dao.findByName("NonExistent");
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find favourites by name and provider number")
+    void shouldFindByNameAndProviderNo_whenMatchingRecordExists() {
+        BillingONFavourite fav1 = new BillingONFavourite();
+        EntityDataGenerator.generateTestDataForModelClass(fav1);
+        fav1.setName("SharedFav");
+        fav1.setProviderNo("100");
+        dao.persist(fav1);
+
+        BillingONFavourite fav2 = new BillingONFavourite();
+        EntityDataGenerator.generateTestDataForModelClass(fav2);
+        fav2.setName("SharedFav");
+        fav2.setProviderNo("200");
+        dao.persist(fav2);
+
+        List<BillingONFavourite> results = dao.findByNameAndProviderNo("SharedFav", "100");
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).getProviderNo()).isEqualTo("100");
+        assertThat(results.get(0).getName()).isEqualTo("SharedFav");
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find only current (non-deleted) favourites")
+    void shouldFindCurrent_whenMixOfDeletedAndActiveExist() {
+        BillingONFavourite active1 = new BillingONFavourite();
+        EntityDataGenerator.generateTestDataForModelClass(active1);
+        active1.setDeleted(0);
+        active1.setName("Active1");
+        dao.persist(active1);
+
+        BillingONFavourite active2 = new BillingONFavourite();
+        EntityDataGenerator.generateTestDataForModelClass(active2);
+        active2.setDeleted(0);
+        active2.setName("Active2");
+        dao.persist(active2);
+
+        BillingONFavourite deleted = new BillingONFavourite();
+        EntityDataGenerator.generateTestDataForModelClass(deleted);
+        deleted.setDeleted(1);
+        deleted.setName("Deleted");
+        dao.persist(deleted);
+
+        List<BillingONFavourite> results = dao.findCurrent();
+
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(BillingONFavourite::getDeleted)
+                .containsOnly(0);
+        assertThat(results).extracting(BillingONFavourite::getId)
+                .containsExactlyInAnyOrder(active1.getId(), active2.getId());
     }
 }

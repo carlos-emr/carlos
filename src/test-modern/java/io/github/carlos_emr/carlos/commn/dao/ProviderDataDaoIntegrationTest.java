@@ -72,41 +72,155 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find providers by type and OHIP number")
         void shouldFindProviders_byTypeAndOhip() {
-            List<ProviderData> data = dao.findByTypeAndOhip("doctor", "OHIP NO");
-            assertThat(data).isNotNull();
+            ProviderData pd = newProvider("10001");
+            pd.setProviderType("doctor");
+            pd.setOhipNo("OH123");
+            pd.setStatus("1");
+            dao.persist(pd);
+
+            ProviderData pd2 = newProvider("10002");
+            pd2.setProviderType("doctor");
+            pd2.setOhipNo("OH456");
+            pd2.setStatus("1");
+            dao.persist(pd2);
+            hibernateTemplate.flush();
+
+            // findByTypeAndOhip uses LIKE, so exact match
+            List<ProviderData> data = dao.findByTypeAndOhip("doctor", "OH123");
+            assertThat(data).hasSize(1);
+            assertThat(data.get(0).getId()).isEqualTo("10001");
+            assertThat(data.get(0).getOhipNo()).isEqualTo("OH123");
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should find providers by type")
+        @DisplayName("should return empty list when no providers match type and OHIP")
+        void shouldReturnEmptyList_whenNoTypeAndOhipMatch() {
+            List<ProviderData> data = dao.findByTypeAndOhip("doctor", "NONEXISTENT");
+            assertThat(data).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find active providers by type")
         void shouldFindProviders_byType() {
-            List<ProviderData> data = dao.findByType("doctor");
-            assertThat(data).isNotNull();
+            ProviderData pd = newProvider("20001");
+            pd.setProviderType("nurse");
+            pd.setStatus("1");
+            dao.persist(pd);
+
+            ProviderData pd2 = newProvider("20002");
+            pd2.setProviderType("doctor");
+            pd2.setStatus("1");
+            dao.persist(pd2);
+            hibernateTemplate.flush();
+
+            List<ProviderData> data = dao.findByType("nurse");
+            assertThat(data).hasSize(1);
+            assertThat(data.get(0).getId()).isEqualTo("20001");
+            assertThat(data.get(0).getProviderType()).isEqualTo("nurse");
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should find providers by name with various parameter combinations")
-        void shouldFindProviders_byName() {
-            assertThat(dao.findByName(null, null, false)).isNotNull();
-            assertThat(dao.findByName(null, null, true)).isNotNull();
-            assertThat(dao.findByName(null, "FIRST", true)).isNotNull();
-            assertThat(dao.findByName(null, "FIRST", false)).isNotNull();
-            assertThat(dao.findByName("LAST", null, false)).isNotNull();
-            assertThat(dao.findByName("LAST", null, true)).isNotNull();
-            assertThat(dao.findByName("LAST", "FIRST", true)).isNotNull();
-            assertThat(dao.findByName("LAST", "FIRST", false)).isNotNull();
+        @DisplayName("should return empty list for type with no matching providers")
+        void shouldReturnEmptyList_whenNoTypeMatch() {
+            List<ProviderData> data = dao.findByType("nonexistent_type");
+            assertThat(data).isEmpty();
         }
 
         @Test
         @Tag("query")
-        @DisplayName("should find all providers with active flag")
+        @DisplayName("should find providers by first name")
+        void shouldFindProviders_byFirstName() {
+            ProviderData pd = newProvider("30001");
+            pd.setFirstName("Alice");
+            pd.setLastName("Smith");
+            pd.setStatus("1");
+            dao.persist(pd);
+
+            ProviderData pd2 = newProvider("30002");
+            pd2.setFirstName("Bob");
+            pd2.setLastName("Jones");
+            pd2.setStatus("1");
+            dao.persist(pd2);
+            hibernateTemplate.flush();
+
+            // findByName(firstName, lastName, onlyActive) - firstName uses LIKE prefix%
+            List<ProviderData> data = dao.findByName("Alice", null, false);
+            assertThat(data).hasSize(1);
+            assertThat(data.get(0).getFirstName()).isEqualTo("Alice");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find providers by last name")
+        void shouldFindProviders_byLastName() {
+            ProviderData pd = newProvider("30003");
+            pd.setFirstName("Carol");
+            pd.setLastName("Walker");
+            pd.setStatus("1");
+            dao.persist(pd);
+            hibernateTemplate.flush();
+
+            List<ProviderData> data = dao.findByName(null, "Walker", false);
+            assertThat(data).hasSize(1);
+            assertThat(data.get(0).getLastName()).isEqualTo("Walker");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should filter only active providers when onlyActive is true")
+        void shouldReturnOnlyActive_whenOnlyActiveFlagSet() {
+            ProviderData active = newProvider("30004");
+            active.setFirstName("Dan");
+            active.setLastName("Active");
+            active.setStatus("1");
+            dao.persist(active);
+
+            ProviderData inactive = newProvider("30005");
+            inactive.setFirstName("Dan");
+            inactive.setLastName("Inactive");
+            inactive.setStatus("0");
+            dao.persist(inactive);
+            hibernateTemplate.flush();
+
+            List<ProviderData> activeOnly = dao.findByName("Dan", null, true);
+            assertThat(activeOnly).hasSize(1);
+            assertThat(activeOnly.get(0).getId()).isEqualTo("30004");
+
+            List<ProviderData> all = dao.findByName("Dan", null, false);
+            assertThat(all).hasSize(2);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no providers match name")
+        void shouldReturnEmptyList_whenNoNameMatches() {
+            List<ProviderData> data = dao.findByName("Zzzzz", "Yyyyy", false);
+            assertThat(data).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should find all providers with active flag filtering")
         void shouldFindAllProviders_withActiveFlag() {
-            List<ProviderData> data = dao.findAll(true);
-            assertThat(data).isNotNull();
+            ProviderData active = newProvider("40001");
+            active.setStatus("1");
+            dao.persist(active);
 
-            data = dao.findAll(false);
-            assertThat(data).isNotNull();
+            ProviderData inactive = newProvider("40002");
+            inactive.setStatus("0");
+            dao.persist(inactive);
+            hibernateTemplate.flush();
+
+            // findAll(false) returns only active (status='1') providers
+            List<ProviderData> activeOnly = dao.findAll(false);
+            assertThat(activeOnly).extracting(ProviderData::getStatus).containsOnly("1");
+
+            // findAll(true) returns ALL providers (active + inactive)
+            List<ProviderData> all = dao.findAll(true);
+            assertThat(all.size()).isGreaterThanOrEqualTo(activeOnly.size());
         }
 
         @Test

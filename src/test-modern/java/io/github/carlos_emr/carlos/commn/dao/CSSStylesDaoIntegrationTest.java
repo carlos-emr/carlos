@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.commn.model.CSSStyles;
+import io.github.carlos_emr.carlos.commn.model.CssStyle;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,7 +36,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.*;
 
 /**
- * Integration tests for {@link CSSStylesDAO} covering basic CRUD operations.
+ * Integration tests for {@link CSSStylesDAO} covering CRUD operations
+ * and the findAll method which filters by active status.
  *
  * <p>Migrated from legacy {@code CSSStylesDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -59,9 +60,9 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist cssstyles with generated ID")
-        void shouldPersistCSSStyles_whenValidDataProvided() {
-            CSSStyles entity = new CSSStyles();
+        @DisplayName("should persist CssStyle with generated ID")
+        void shouldPersistCssStyle_whenValidDataProvided() {
+            CssStyle entity = new CssStyle();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             cSSStylesDAO.persist(entity);
             assertThat(entity.getId()).isNotNull();
@@ -69,13 +70,21 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("read")
-        @DisplayName("should find cssstyles by ID")
-        void shouldFindCSSStyles_whenValidIdProvided() {
-            CSSStyles saved = new CSSStyles();
-            EntityDataGenerator.generateTestDataForModelClass(saved);
+        @DisplayName("should find CssStyle by ID with correct field values")
+        void shouldFindCssStyle_whenValidIdProvided() {
+            CssStyle saved = new CssStyle();
+            saved.setName("TestStyle");
+            saved.setStyle("body { color: red; }");
+            saved.setStatus(CssStyle.ACTIVE);
             cSSStylesDAO.persist(saved);
-            CSSStyles found = cSSStylesDAO.find(saved.getId());
+
+            CssStyle found = cSSStylesDAO.find(saved.getId());
+
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getName()).isEqualTo("TestStyle");
+            assertThat(found.getStyle()).isEqualTo("body { color: red; }");
+            assertThat(found.getStatus()).isEqualTo(CssStyle.ACTIVE);
         }
     }
 
@@ -85,13 +94,72 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should count all cssstyles records")
-        void shouldCountAllCSSStyless() {
-            CSSStyles entity = new CSSStyles();
-            EntityDataGenerator.generateTestDataForModelClass(entity);
-            cSSStylesDAO.persist(entity);
+        @DisplayName("should find only active styles, ordered by name")
+        void shouldFindAllActiveStyles_orderedByName() {
+            CssStyle activeB = new CssStyle();
+            activeB.setName("BetaStyle");
+            activeB.setStyle(".beta { }");
+            activeB.setStatus(CssStyle.ACTIVE);
+            cSSStylesDAO.persist(activeB);
+
+            CssStyle activeA = new CssStyle();
+            activeA.setName("AlphaStyle");
+            activeA.setStyle(".alpha { }");
+            activeA.setStatus(CssStyle.ACTIVE);
+            cSSStylesDAO.persist(activeA);
+
+            CssStyle deleted = new CssStyle();
+            deleted.setName("DeletedStyle");
+            deleted.setStyle(".deleted { }");
+            deleted.setStatus(CssStyle.DELETED);
+            cSSStylesDAO.persist(deleted);
+
+            List<CssStyle> results = cSSStylesDAO.findAll();
+
+            // Should exclude deleted, return only active, ordered by name
+            assertThat(results).hasSize(2);
+            assertThat(results).extracting(CssStyle::getStatus)
+                    .containsOnly(CssStyle.ACTIVE);
+            // Verify ordering by name
+            assertThat(results.get(0).getName()).isEqualTo("AlphaStyle");
+            assertThat(results.get(1).getName()).isEqualTo("BetaStyle");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no active styles exist")
+        void shouldReturnEmptyList_whenNoActiveStylesExist() {
+            CssStyle deleted = new CssStyle();
+            deleted.setName("OnlyDeleted");
+            deleted.setStyle(".d { }");
+            deleted.setStatus(CssStyle.DELETED);
+            cSSStylesDAO.persist(deleted);
+
+            List<CssStyle> results = cSSStylesDAO.findAll();
+
+            assertThat(results).isEmpty();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should count all CssStyle records including deleted")
+        void shouldCountAllCssStyles() {
+            CssStyle active = new CssStyle();
+            active.setName("Active");
+            active.setStyle(".a { }");
+            active.setStatus(CssStyle.ACTIVE);
+            cSSStylesDAO.persist(active);
+
+            CssStyle deleted = new CssStyle();
+            deleted.setName("Deleted");
+            deleted.setStyle(".d { }");
+            deleted.setStatus(CssStyle.DELETED);
+            cSSStylesDAO.persist(deleted);
+
             long count = cSSStylesDAO.getCountAll();
-            assertThat(count).isGreaterThanOrEqualTo(1);
+
+            // getCountAll counts all records regardless of status
+            assertThat(count).isEqualTo(2);
         }
     }
 }

@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.*;
 
 /**
@@ -58,19 +60,78 @@ public class BillRecipientsDaoIntegrationTest extends CarlosTestBase {
         void shouldPersist_whenValidDataProvided() {
             BillRecipients entity = new BillRecipients();
             EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setBillingNo(100);
             billRecipientsDao.persist(entity);
             assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
-        @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
+        @DisplayName("should find entity by ID with matching field values")
+        void shouldReturnMatchingEntity_whenFoundById() {
             BillRecipients saved = new BillRecipients();
             EntityDataGenerator.generateTestDataForModelClass(saved);
+            saved.setBillingNo(200);
+            saved.setName("Test Recipient");
+            saved.setCity("Vancouver");
+            saved.setProvince("BC");
             billRecipientsDao.persist(saved);
+
             BillRecipients found = billRecipientsDao.find(saved.getId());
-            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getName()).isEqualTo("Test Recipient");
+            assertThat(found.getCity()).isEqualTo("Vancouver");
+            assertThat(found.getProvince()).isEqualTo("BC");
+            assertThat(found.getBillingNo()).isEqualTo(200);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null when entity not found by ID")
+        void shouldReturnNull_whenInvalidIdProvided() {
+            BillRecipients found = billRecipientsDao.find(-999);
+            assertThat(found).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("findByBillingNo")
+    class FindByBillingNo {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return recipients matching the billing number")
+        void shouldReturnRecipients_whenBillingNoMatches() {
+            BillRecipients match1 = new BillRecipients();
+            EntityDataGenerator.generateTestDataForModelClass(match1);
+            match1.setBillingNo(300);
+            match1.setName("Recipient A");
+            billRecipientsDao.persist(match1);
+
+            BillRecipients match2 = new BillRecipients();
+            EntityDataGenerator.generateTestDataForModelClass(match2);
+            match2.setBillingNo(300);
+            match2.setName("Recipient B");
+            billRecipientsDao.persist(match2);
+
+            BillRecipients nonMatch = new BillRecipients();
+            EntityDataGenerator.generateTestDataForModelClass(nonMatch);
+            nonMatch.setBillingNo(999);
+            nonMatch.setName("Other Recipient");
+            billRecipientsDao.persist(nonMatch);
+
+            List<BillRecipients> results = billRecipientsDao.findByBillingNo(300);
+            assertThat(results).hasSize(2);
+            assertThat(results).extracting(BillRecipients::getName)
+                    .containsExactlyInAnyOrder("Recipient A", "Recipient B");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return empty list when no recipients match billing number")
+        void shouldReturnEmptyList_whenNoBillingNoMatches() {
+            List<BillRecipients> results = billRecipientsDao.findByBillingNo(-1);
+            assertThat(results).isEmpty();
         }
     }
 }

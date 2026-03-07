@@ -30,6 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -48,6 +50,14 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private WcbDao dao;
 
+    private Wcb createEntity(int billingNo, int demographicNo) {
+        Wcb entity = new Wcb();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setBillingNo(billingNo);
+        entity.setDemographicNo(demographicNo);
+        return entity;
+    }
+
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated test data")
@@ -60,8 +70,69 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
+    @DisplayName("should find entity by ID with correct field values")
+    void shouldReturnEntity_whenValidIdProvided() {
+        Wcb saved = createEntity(1001, 2001);
+        dao.persist(saved);
+
+        Wcb found = dao.find(saved.getId());
+        assertThat(found).isNotNull();
+        assertThat(found.getId()).isEqualTo(saved.getId());
+        assertThat(found.getBillingNo()).isEqualTo(1001);
+        assertThat(found.getDemographicNo()).isEqualTo(2001);
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should find WCB records by billing number")
+    void shouldReturnMatchingRecords_byBillingNo() {
+        Wcb match1 = createEntity(5000, 100);
+        Wcb match2 = createEntity(5000, 200);
+        Wcb noMatch = createEntity(9999, 300);
+        dao.persist(match1);
+        dao.persist(match2);
+        dao.persist(noMatch);
+
+        List<Wcb> results = dao.findByBillingNo(5000);
+        assertThat(results).hasSize(2);
+        assertThat(results).allSatisfy(w -> assertThat(w.getBillingNo()).isEqualTo(5000));
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when billing number not found")
+    void shouldReturnEmptyList_whenBillingNoNotFound() {
+        Wcb entity = createEntity(5000, 100);
+        dao.persist(entity);
+
+        List<Wcb> results = dao.findByBillingNo(77777);
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    @Tag("read")
     @DisplayName("should find WCB records by demographic number")
-    void shouldReturnWcbRecords_byDemographicNo() {
-        assertThat(dao.findByDemographic(100)).isNotNull();
+    void shouldReturnMatchingRecords_byDemographicNo() {
+        Wcb match1 = createEntity(1001, 8888);
+        Wcb match2 = createEntity(1002, 8888);
+        Wcb noMatch = createEntity(1003, 9999);
+        dao.persist(match1);
+        dao.persist(match2);
+        dao.persist(noMatch);
+
+        List<Wcb> results = dao.findByDemographic(8888);
+        assertThat(results).hasSize(2);
+        assertThat(results).allSatisfy(w -> assertThat(w.getDemographicNo()).isEqualTo(8888));
+    }
+
+    @Test
+    @Tag("read")
+    @DisplayName("should return empty list when demographic number not found")
+    void shouldReturnEmptyList_whenDemographicNoNotFound() {
+        Wcb entity = createEntity(1001, 100);
+        dao.persist(entity);
+
+        List<Wcb> results = dao.findByDemographic(55555);
+        assertThat(results).isEmpty();
     }
 }
