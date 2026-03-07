@@ -701,7 +701,7 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 
 						if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice())
 						{
-
+						%>
 							<div id="sig<%=globalNoteId%>" class="sig" style="<%=note.isEmailNote()?(bgColour):""%>">
 								<div id="sumary<%=globalNoteId%>" style="<%=note.isEmailNote()?"color: #FFF !important":""%>">
                     <div id="observation<%=globalNoteId%>" style="float: right; margin-right: 3px;">
