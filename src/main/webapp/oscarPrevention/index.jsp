@@ -159,23 +159,9 @@
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/share/css/OscarStandardLayout.css"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/prototype.js"></script>
-        <script type="text/javascript" src="<%=request.getContextPath()%>/js/jquery-1.9.1.min.js"></script>
-        <link rel="stylesheet" type="text/css" href="${pageContext.servletContext.contextPath}/css/autocomplete.css">
-        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.css">
-        <script src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
-
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/yahoo-dom-event.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/connection-min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/animation-min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/datasource-min.js"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/yui/js/autocomplete-min.js"></script>
-
-
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/fonts-min.css"/>
-        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/share/yui/css/autocomplete.css"/>
-
-        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/demographicProviderAutocomplete.css"/>
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css">
+        <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css">
+        <script src="<%= request.getContextPath() %>/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
 
         <script src="<%= request.getContextPath() %>/share/javascript/popupmenu.js" type="text/javascript"></script>
         <script src="<%= request.getContextPath() %>/share/javascript/menutility.js" type="text/javascript"></script>
@@ -235,6 +221,10 @@
                 border: 1px solid #000;
                 width: 4px;
             }
+
+            .autocomplete .ac-item.active {
+                background-color: #e8f0fe;
+            }
         </style>
 
         <script type="text/javascript">
@@ -266,8 +256,8 @@
             }
 
             function showImmunizationOnlyPrintButton() {
-                console.log("test");
-                $("#print_buttons").append("<input type=\"button\" class=\"noPrint\" name=\"printImmButton\" onclick=\"printImmOnly()\" value=\"Print Immunizations Only\">");
+                document.getElementById('print_buttons').insertAdjacentHTML('beforeend',
+                    '<input type="button" class="noPrint" name="printImmButton" onclick="printImmOnly()" value="Print Immunizations Only">');
             }
 
             function onPrint() {
@@ -291,10 +281,9 @@
 
 
             function addByLot() {
-                var lotNbr = $("#lotNumberToAdd").val();
-
+                var input = document.getElementById('lotNumberToAdd2');
+                var lotNbr = input ? input.value : '';
                 popup(600, 900, 'AddPreventionData.jsp?demographic_no=<%=demographic_no%>&lotNumber=' + lotNbr, 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
-
             }
         </script>
 
@@ -316,8 +305,6 @@
                 font-size: 100%
             }
 
-            /
-            /
             div.news {
                 width: 100px;
                 background: #FFF;
@@ -491,45 +478,36 @@
         <script>
             function disableSSOWarning() {
                 if (confirm("Are you sure you would like to permanently disable this warning?\nYou may re-enable it from your preferences")) {
-                    jQuery.ajax({
-                        type: "POST",
-                        url: '<%=request.getContextPath()%>/ws/rs/persona/updatePreference',
-                        dataType: 'json',
-                        contentType: 'application/json',
-                        data: JSON.stringify({key: 'prevention_sso_warning', value: 'true'}),
-                        success: function (data) {
-                            $("#ssoWarning").hide();
-                        }
+                    fetch('<%=request.getContextPath()%>/ws/rs/persona/updatePreference', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({key: 'prevention_sso_warning', value: 'true'})
+                    }).then(function() {
+                        document.getElementById('ssoWarning').style.display = 'none';
                     });
                 }
             }
 
             function disableISPAWarning() {
                 if (confirm("Are you sure you would like to permanently disable this warning?\nYou may re-enable it from your preferences")) {
-                    jQuery.ajax({
-                        type: "POST",
-                        url: '<%=request.getContextPath()%>/ws/rs/persona/updatePreference',
-                        dataType: 'json',
-                        contentType: 'application/json',
-                        data: JSON.stringify({key: 'prevention_ispa_warning', value: 'true'}),
-                        success: function (data) {
-                            $("#ispaWarning").hide();
-                        }
+                    fetch('<%=request.getContextPath()%>/ws/rs/persona/updatePreference', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({key: 'prevention_ispa_warning', value: 'true'})
+                    }).then(function() {
+                        document.getElementById('ispaWarning').style.display = 'none';
                     });
                 }
             }
 
             function disableNonISPAWarning() {
                 if (confirm("Are you sure you would like to permanently disable this warning?\nYou may re-enable it from your preferences")) {
-                    jQuery.ajax({
-                        type: "POST",
-                        url: '<%=request.getContextPath()%>/ws/rs/persona/updatePreference',
-                        dataType: 'json',
-                        contentType: 'application/json',
-                        data: JSON.stringify({key: 'prevention_non_ispa_warning', value: 'true'}),
-                        success: function (data) {
-                            $("#nonIspaWarning").hide();
-                        }
+                    fetch('<%=request.getContextPath()%>/ws/rs/persona/updatePreference', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({key: 'prevention_non_ispa_warning', value: 'true'})
+                    }).then(function() {
+                        document.getElementById('nonIspaWarning').style.display = 'none';
                     });
                 }
             }
@@ -629,7 +607,6 @@
     <%
         List<String> OTHERS = Arrays.asList(new String[]{"DTaP-Hib", "TdP-IPV-Hib", "HBTmf"});
     %>
-<input type="text" style="position: absolute; left: 380px; top: 10px; width: 300px; font-size:12px; padding: 2px; margin-right: 3px;" id="immunization" placeholder="pick brand" class="ui-autocomplete-input" autocomplete="off">
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></td>
@@ -638,7 +615,13 @@
                     <tr>
                         <td><%=nameAge%>
                         </td>
-                        <td>&nbsp;</td>
+                        <td style="padding: 0 8px;">
+                            <div style="position: relative;">
+                                <input type="text" id="immunization" class="form-control form-control-sm"
+                                       style="width: 300px;" placeholder="Pick vaccine brand" autocomplete="off">
+                                <div id="immunization_choices" class="autocomplete"></div>
+                            </div>
+                        </td>
                         <td style="text-align: right"><a
                                 href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
                                 href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
@@ -781,26 +764,23 @@
                 <td valign="top" class="MainTableRightColumn">
 
                     <%if (dhirEnabled && !isSSOLoggedIn && !hideSSOWarning) {%>
-                    <div style="width:100%;background-color:pink;text-align:left;font-weight:bold;font-size:13pt;border-style:solid"
-                         id="ssoWarning">
-                        <span><a href="javascript:void()" onClick="disableSSOWarning()">[x]</a></span> Warning: You are
-                        not logged into OneId and will not be able to submit data to DHIR
+                    <div class="alert alert-warning d-flex align-items-center" id="ssoWarning" role="alert">
+                        <span class="me-2">Warning: You are not logged into OneId and will not be able to submit data to DHIR</span>
+                        <button type="button" class="btn-close ms-auto" aria-label="Dismiss" onclick="disableSSOWarning()"></button>
                     </div>
                     <% } %>
 
                     <%if (dhirEnabled && !hasIspaConsent && !hideISPAWarning) {%>
-                    <div style="width:100%;background-color:pink;text-align:left;font-weight:bold;font-size:13pt;border-style:solid"
-                         id="ispaWarning">
-                        <span><a href="javascript:void()" onClick="disableISPAWarning()">[x]</a></span> Warning: This
-                        patient has not consented to send ISPA vaccines to DHIR
+                    <div class="alert alert-warning d-flex align-items-center" id="ispaWarning" role="alert">
+                        <span class="me-2">Warning: This patient has not consented to send ISPA vaccines to DHIR</span>
+                        <button type="button" class="btn-close ms-auto" aria-label="Dismiss" onclick="disableISPAWarning()"></button>
                     </div>
                     <% } %>
 
                     <%if (dhirEnabled && !hasNonIspaConsent && !hideNonISPAWarning) {%>
-                    <div style="width:100%;background-color:pink;text-align:left;font-weight:bold;font-size:13pt;border-style:solid"
-                         id="nonIspaWarning">
-                        <span><a href="javascript:void()" onClick="disableNonISPAWarning()">[x]</a></span> Warning: This
-                        patient has not consented to send non-ISPA vaccines to DHIR
+                    <div class="alert alert-warning d-flex align-items-center" id="nonIspaWarning" role="alert">
+                        <span class="me-2">Warning: This patient has not consented to send non-ISPA vaccines to DHIR</span>
+                        <button type="button" class="btn-close ms-auto" aria-label="Dismiss" onclick="disableNonISPAWarning()"></button>
                     </div>
                     <% } %>
 
@@ -1007,7 +987,7 @@
                             <%
                                     }
                                 } %> <a href="#"
-                                        onclick="Element.toggle('otherElements'); return false;"
+                                        onclick="var el=document.getElementById('otherElements'); el.style.display=(el.style.display==='none'?'':'none'); return false;"
                                         style="font-size: xx-small;">show/hide all other Preventions</a>
                             <div style="display: none;" id="otherElements">
                                 <%
@@ -1107,7 +1087,7 @@
                                         <span><%=setHash.get("effective")%></span></h2>
                                     <!--a style="font-size:xx-small;" onclick="javascript:showHideItem('<%="prev"+setNum%>')" href="javascript: function myFunction() {return false; }" >show/hide</a-->
                                     <a href="#"
-                                       onclick="Element.toggle('<%="prev"+setNum%>'); return false;"
+                                       onclick="var el=document.getElementById('<%="prev"+setNum%>'); el.style.display=(el.style.display==='none'?'':'none'); return false;"
                                        style="font-size: xx-small;">show/hide</a>
                                     <div class="preventionSet"
                                          <%=pdc.getDisplay(loggedInInfo, setHash,demographic_no)%>;
@@ -1265,66 +1245,202 @@
 
     <script type="text/javascript">
 
-        //basic..just makes the brand name ones bold
-        var resultFormatter2 = function (oResultData, sQuery, sResultMatch) {
-            var output = '';
+        /* ---- Plain-JS autocomplete helper ----
+         * Creates an autocomplete dropdown on an input element using the
+         * .autocomplete / .ac-item classes from css/autocomplete.css.
+         *
+         * @param input      - the <input> element
+         * @param dropdown   - the <div class="autocomplete"> element placed after the input
+         * @param getResults - function(query) returning an array of result objects
+         * @param renderItem - function(item) returning the innerHTML for one suggestion row
+         * @param onSelect   - function(item) called when a suggestion is chosen
+         * @param minLen     - minimum query length before suggestions appear (default 2)
+         */
+        function initAutocomplete(input, dropdown, getResults, renderItem, onSelect, minLen) {
+            minLen = minLen || 2;
+            var activeIdx = -1;
 
-            if (!oResultData[1]) {
-                output = '<b>' + oResultData[0] + '</b>';
-            } else {
-                output = oResultData[0];
+            function clearActive(items) {
+                items.forEach(function(el) { el.classList.remove('active'); });
             }
-            return output;
+
+            function renderDropdown(results) {
+                dropdown.innerHTML = '';
+                activeIdx = -1;
+                if (!results || results.length === 0) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                results.forEach(function(item) {
+                    var div = document.createElement('div');
+                    div.className = 'ac-item';
+                    div.innerHTML = renderItem(item);
+                    div.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        onSelect(item);
+                        dropdown.style.display = 'none';
+                    });
+                    dropdown.appendChild(div);
+                });
+                dropdown.style.display = 'block';
+            }
+
+            input.addEventListener('input', function() {
+                var q = this.value.trim();
+                if (q.length < minLen) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                var results = getResults(q);
+                renderDropdown(results);
+            });
+
+            input.addEventListener('keydown', function(e) {
+                var items = dropdown.querySelectorAll('.ac-item');
+                if (!items.length) return;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    activeIdx = Math.min(activeIdx + 1, items.length - 1);
+                    clearActive(items);
+                    items[activeIdx].classList.add('active');
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    activeIdx = Math.max(activeIdx - 1, 0);
+                    clearActive(items);
+                    items[activeIdx].classList.add('active');
+                } else if (e.key === 'Enter' && activeIdx >= 0) {
+                    e.preventDefault();
+                    items[activeIdx].dispatchEvent(new MouseEvent('mousedown'));
+                } else if (e.key === 'Escape') {
+                    dropdown.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
         }
 
-        YAHOO.example.BasicRemote = function () {
-            let lotNumberInput = document.getElementById("lotNumberToAdd2");
-            let lotNumberChoices = document.getElementById("lotNumberToAdd2_choices");
-            if (lotNumberInput && lotNumberChoices) {
-                var url = "<%=request.getContextPath()%>/cvc.do?method=query";
-                var oDS = new YAHOO.util.XHRDataSource(url, {
-                    connMethodPost: true,
-                    connXhrMode: 'ignoreStaleResponses'
-                });
-                oDS.responseType = YAHOO.util.XHRDataSource.TYPE_JSON;
-                oDS.responseSchema = {
-                    resultsList: "results",
-                    fields: ["name", "generic", "genericSnomedId", "snomedId", "lotNumber"]
-                };
-                oDS.maxCacheEntries = 0;
-                var oAC = new YAHOO.widget.AutoComplete("lotNumberToAdd2", "lotNumberToAdd2_choices", oDS);
-                oAC.queryMatchSubset = true;
-                oAC.minQueryLength = 3;
-                oAC.maxResultsDisplayed = 25;
-                oAC.formatResult = resultFormatter2;
-                oAC.queryMatchContains = true;
-                oAC.itemSelectEvent.subscribe(function (type, args) {
-                    var myAC = args[0]; // reference back to the AC instance
-                    var elLI = args[1]; // reference to the selected LI element
-                    var oData = args[2]; // object literal of selected item's result data
+        /* ---- Vaccine brand autocomplete on #immunization ----
+         * Filters the static `tags` array defined above.
+         */
+        (function() {
+            var input = document.getElementById('immunization');
+            var dropdown = document.getElementById('immunization_choices');
+            if (!input || !dropdown) return;
 
-                    console.log('selected');
-
-                    console.log('args:' + oData[0] + ',' + oData[1] + ',' + oData[2] + ',' + oData[3] + ',' + oData[4]);
-
-                    //We need to load AddPreventionData with possible brand name, and possible lotnumber/exp.
-                    if (oData[4].length > 0) {
-                        popup(465, 635, 'AddPreventionData.jsp?demographic_no=<%=demographic_no%>&lotNumber=' + oData[4], 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
-                        document.getElementById('lotNumberToAdd2').value = '';
-                    } else {
-                        popup(465, 635, 'AddPreventionData.jsp?search=true&demographic_no=<%=demographic_no%>&snomedId=' + oData[2] + '&brandSnomedId=' + oData[3], 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
-                        document.getElementById('lotNumberToAdd2').value = '';
-                    }
-
-
-                });
-
-                return {
-                    oDS: oDS,
-                    oAC: oAC
-                };
+            function filterTags(q) {
+                var lower = q.toLowerCase();
+                return tags.filter(function(t) {
+                    return t.value.toLowerCase().indexOf(lower) !== -1 ||
+                           t.name.toLowerCase().indexOf(lower) !== -1;
+                }).slice(0, 25);
             }
-        }();
+
+            initAutocomplete(
+                input,
+                dropdown,
+                filterTags,
+                function(item) {
+                    return '<strong>' + item.name + '</strong> &ndash; ' + item.value;
+                },
+                function(item) {
+                    input.value = item.value;
+                },
+                2
+            );
+        })();
+
+        /* ---- CVC lot-number autocomplete on #lotNumberToAdd2 ----
+         * Fetches suggestions from the server (cvc.do?method=query).
+         */
+        (function() {
+            var input = document.getElementById('lotNumberToAdd2');
+            var dropdown = document.getElementById('lotNumberToAdd2_choices');
+            if (!input || !dropdown) return;
+
+            var debounceTimer;
+            var cachedResults = [];
+
+            function fetchResults(q, callback) {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(function() {
+                    fetch('<%=request.getContextPath()%>/cvc.do?method=query', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                        body: encodeURIComponent(q)
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        cachedResults = data.results || [];
+                        callback(cachedResults);
+                    })
+                    .catch(function() { callback([]); });
+                }, 250);
+            }
+
+            /* Override input listener to use async fetch instead of sync filter */
+            input.addEventListener('input', function() {
+                var q = this.value.trim();
+                if (q.length < 3) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                fetchResults(q, function(results) {
+                    dropdown.innerHTML = '';
+                    if (!results.length) { dropdown.style.display = 'none'; return; }
+                    results.slice(0, 25).forEach(function(item) {
+                        var div = document.createElement('div');
+                        div.className = 'ac-item';
+                        div.innerHTML = item.generic ? item.name : '<strong>' + item.name + '</strong>';
+                        div.addEventListener('mousedown', function(e) {
+                            e.preventDefault();
+                            input.value = '';
+                            dropdown.style.display = 'none';
+                            var lotNum = item.lotNumber || '';
+                            if (lotNum.length > 0) {
+                                popup(465, 635, 'AddPreventionData.jsp?demographic_no=<%=demographic_no%>&lotNumber=' + encodeURIComponent(lotNum), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
+                            } else {
+                                popup(465, 635, 'AddPreventionData.jsp?search=true&demographic_no=<%=demographic_no%>&snomedId=' + encodeURIComponent(item.genericSnomedId || '') + '&brandSnomedId=' + encodeURIComponent(item.snomedId || ''), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
+                            }
+                        });
+                        dropdown.appendChild(div);
+                    });
+                    dropdown.style.display = 'block';
+                });
+            });
+
+            /* Keyboard navigation */
+            input.addEventListener('keydown', function(e) {
+                var items = dropdown.querySelectorAll('.ac-item');
+                if (!items.length) return;
+                var activeIdx = Array.prototype.indexOf.call(items, dropdown.querySelector('.ac-item.active'));
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    var next = Math.min(activeIdx + 1, items.length - 1);
+                    items.forEach(function(el) { el.classList.remove('active'); });
+                    items[next].classList.add('active');
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    var prev = Math.max(activeIdx - 1, 0);
+                    items.forEach(function(el) { el.classList.remove('active'); });
+                    items[prev].classList.add('active');
+                } else if (e.key === 'Enter' && activeIdx >= 0) {
+                    e.preventDefault();
+                    items[activeIdx].dispatchEvent(new MouseEvent('mousedown'));
+                } else if (e.key === 'Escape') {
+                    dropdown.style.display = 'none';
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        })();
 
     </script>
     </body>
