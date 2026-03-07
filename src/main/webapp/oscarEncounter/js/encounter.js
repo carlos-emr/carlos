@@ -205,13 +205,21 @@ function setCaretPosition(inpu, pos) {
 
 function writeToEncounterNote(request) {
     var text = request.responseText;
-    text = text.replace(/\\u000A/g, "\u000A");
-    text = text.replace(/\\u000D/g, "");
-    text = text.replace(/\\u003E/g, ">");
-    text = text.replace(/\\u003C/g, "<");
-    text = text.replace(/\\u005C/g, "\\");
-    text = text.replace(/\\u0022/g, "\"");
-    text = text.replace(/\\u0027/g, "'");
+    // Single-pass replacement prevents double-unescaping (CWE-116 / CodeQL js/double-escaping).
+    // Sequential replace() calls would allow \u005Cu0022 to produce " by first turning
+    // \u005C into \ and then \u0022 into ". A lookup-table with one regex pass is safe.
+    var unescape = {
+        '\\u000A': '\u000A',
+        '\\u000D': '',
+        '\\u003E': '>',
+        '\\u003C': '<',
+        '\\u005C': '\\',
+        '\\u0022': '"',
+        '\\u0027': "'"
+    };
+    text = text.replace(/\\u[0-9A-Fa-f]{4}/g, function (match) {
+        return unescape.hasOwnProperty(match) ? unescape[match] : match;
+    });
 
     document.encForm.enTextarea.value += "\n\n";
     var curPos = document.encForm.enTextarea.value.length;
