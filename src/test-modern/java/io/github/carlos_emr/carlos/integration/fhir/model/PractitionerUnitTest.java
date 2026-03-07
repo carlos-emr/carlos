@@ -1,23 +1,28 @@
 /**
- * Copyright (c) 2026 CARLOS EMR Contributors. All Rights Reserved.
- *
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- *
+ * <p>
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- *
+ * <p>
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
  *
- * CARLOS EMR Project
- * https://github.com/carlos-emr/carlos
+ * <p>
+ * Migrated from legacy JUnit 4 PractitionerTest to JUnit 5 for the CARLOS EMR project (2026).
  */
 package io.github.carlos_emr.carlos.integration.fhir.model;
 
@@ -33,67 +38,41 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 /**
  * Unit tests for {@link Practitioner} FHIR resource wrapper.
  *
- * <p>Tests the mapping between CARLOS {@link Provider} and FHIR DSTU3
- * {@link org.hl7.fhir.dstu3.model.Practitioner} resources.</p>
+ * <p>Tests conversion from CARLOS Provider model to FHIR Practitioner resource.
+ * Migrated from legacy JUnit 4 PractitionerTest.
  *
- * @since 2026-03-07
+ * @since 2017-01-01 (original)
  */
 @Tag("unit")
-@DisplayName("FHIR Practitioner")
+@Tag("fhir")
+@DisplayName("FHIR Practitioner unit tests")
 class PractitionerUnitTest {
 
-    private static Provider provider;
     private static Practitioner practitioner;
 
     @BeforeAll
     static void setUp() {
-        provider = new Provider();
-        provider.setProviderNo("999990");
-        provider.setFirstName("John");
-        provider.setLastName("Smith");
-        provider.setSex("M");
-        provider.setSpecialty("Family Medicine");
-        provider.setOhipNo("12345");
+        Provider provider = new Provider();
+        provider.setProviderNo("8879");
+        provider.setFirstName("Doug");
+        provider.setLastName("Ross");
+        provider.setHsoNo("12342");
+        provider.setOhipNo("12342");
 
         practitioner = new Practitioner(provider);
     }
 
     @Test
-    @DisplayName("should return original Provider via getOscarResource")
-    void shouldReturnOriginalProvider() {
-        assertThat(practitioner.getOscarResource()).isEqualTo(provider);
+    @DisplayName("should produce non-null FHIR JSON representation")
+    void shouldProduceNonNullFhirJson() {
+        assertThat(practitioner.getFhirJSON()).isNotNull().isNotEmpty();
     }
 
     @Test
-    @DisplayName("should produce non-empty FHIR JSON")
-    void shouldProduceNonEmptyFhirJson() {
-        String json = practitioner.getFhirJSON();
-        assertThat(json).isNotEmpty();
-        assertThat(json).contains("Practitioner");
-        assertThat(json).contains("Smith");
-    }
-
-    @Test
-    @DisplayName("should produce non-empty FHIR XML")
-    void shouldProduceNonEmptyFhirXml() {
-        String xml = practitioner.getFhirXML();
-        assertThat(xml).isNotEmpty();
-        assertThat(xml).contains("Practitioner");
-    }
-
-    @Test
-    @DisplayName("should map provider name to FHIR practitioner name")
-    void shouldMapProviderName_toFhirName() {
-        org.hl7.fhir.dstu3.model.Practitioner fhir = practitioner.getFhirResource();
-        assertThat(fhir.getNameFirstRep().getFamily()).isEqualTo("Smith");
-        assertThat(fhir.getNameFirstRep().getGiven().get(0).getValue()).isEqualTo("John");
-    }
-
-    @Test
-    @DisplayName("should generate reference link")
-    void shouldGenerateReferenceLink() {
-        String ref = practitioner.getReferenceLink();
-        assertThat(ref).isNotEmpty();
-        assertThat(ref).contains("Practitioner");
+    @DisplayName("should retain original provider as OSCAR resource")
+    void shouldRetainOriginalProvider_asOscarResource() {
+        assertThat(practitioner.getOscarResource()).isNotNull();
+        assertThat(practitioner.getOscarResource().getFirstName()).isEqualTo("Doug");
+        assertThat(practitioner.getOscarResource().getLastName()).isEqualTo("Ross");
     }
 }

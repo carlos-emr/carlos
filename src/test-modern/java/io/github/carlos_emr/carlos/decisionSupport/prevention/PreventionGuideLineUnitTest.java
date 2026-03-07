@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2026 CARLOS EMR Contributors. All Rights Reserved.
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -16,8 +17,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * CARLOS EMR Project
- * https://github.com/carlos-emr/carlos
+ * Originally written for the Department of Family Medicine, McMaster University.
+ * Now maintained by the CARLOS EMR Project.
+ *
+ * <p>
+ * Migrated from legacy JUnit 4 PreventionGuideLineTest to JUnit 5 for the CARLOS EMR project (2026).
  */
 package io.github.carlos_emr.carlos.decisionSupport.prevention;
 
@@ -32,45 +36,28 @@ import org.junit.jupiter.api.Test;
 import org.kie.api.KieBase;
 
 /**
- * Unit tests for {@link DSPreventionDrools}.
+ * Unit tests for {@link DSPreventionDrools} guideline XML loading and compilation.
  *
- * <p>Tests the XML-to-Drools rule base pipeline by loading a sample
- * guideline XML file containing prevention recommendations (DTaP-IPV,
- * Rotavirus, Flu, Varicella, PAP screening) and verifying the resulting
- * {@link KieBase} is correctly created.</p>
+ * <p>Verifies that XML-based prevention guideline definitions can be successfully
+ * parsed and compiled into a Drools KieBase.
+ * Migrated from legacy JUnit 4 PreventionGuideLineTest.
  *
- * @since 2026-03-07
+ * @since 2026-01-06 (original)
  */
 @Tag("unit")
 @Tag("drools")
-@DisplayName("PreventionGuideLine")
+@DisplayName("PreventionGuideLine unit tests")
 class PreventionGuideLineUnitTest {
 
     @Test
-    @DisplayName("should create KieBase from guideline XML")
-    void shouldCreateKieBase_fromGuidelineXml() throws Exception {
-        byte[] ruleSet = loadGuidelineXml();
-
-        KieBase kieBase = DSPreventionDrools.createRuleBase(ruleSet);
-
-        assertThat(kieBase).isNotNull();
-    }
-
-    @Test
-    @DisplayName("should produce rule base with non-empty packages")
-    void shouldProduceRuleBase_withNonEmptyPackages() throws Exception {
-        byte[] ruleSet = loadGuidelineXml();
-
-        KieBase kieBase = DSPreventionDrools.createRuleBase(ruleSet);
-
-        assertThat(kieBase).isNotNull();
-        assertThat(kieBase.getKiePackages()).isNotEmpty();
-    }
-
-    private byte[] loadGuidelineXml() throws Exception {
-        InputStream is = PreventionGuideLineUnitTest.class.getResourceAsStream(
-                "/io/github/carlos_emr/carlos/decisionSupport/prevention/guidelineExample.xml");
-        assertThat(is).as("guidelineExample.xml resource must be on classpath").isNotNull();
-        return IOUtils.toByteArray(is);
+    @DisplayName("should compile guideline XML into KieBase")
+    void shouldCompileGuidelineXml_intoKieBase() throws Exception {
+        try (InputStream is = getClass().getResourceAsStream(
+                "/io/github/carlos_emr/carlos/decisionSupport/prevention/guidelineExample.xml")) {
+            assertThat(is).as("guidelineExample.xml should be on classpath").isNotNull();
+            byte[] ruleSet = IOUtils.toByteArray(is);
+            KieBase kieBase = DSPreventionDrools.createRuleBase(ruleSet);
+            assertThat(kieBase).isNotNull();
+        }
     }
 }

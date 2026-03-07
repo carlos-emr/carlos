@@ -1,23 +1,28 @@
 /**
- * Copyright (c) 2026 CARLOS EMR Contributors. All Rights Reserved.
- *
+ * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- *
+ * <p>
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- *
+ * <p>
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>
+ * This software was written for the
+ * Department of Family Medicine
+ * McMaster University
+ * Hamilton
+ * Ontario, Canada
  *
- * CARLOS EMR Project
- * https://github.com/carlos-emr/carlos
+ * <p>
+ * Migrated from legacy JUnit 4 HCMagneticStripeTest to JUnit 5 for the CARLOS EMR project (2026).
  */
 package io.github.carlos_emr.carlos.integration.mchcv;
 
@@ -31,70 +36,70 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link HCMagneticStripe}.
  *
- * <p>Tests parsing of Ontario health card magnetic stripe data to extract
- * patient identification fields (HIN, name, dates, sex, card version).</p>
+ * <p>Tests parsing of Ontario health card magnetic stripe data including
+ * health number, name, dates, sex, and card version extraction.
+ * Migrated from legacy JUnit 4 HCMagneticStripeTest.
  *
- * @since 2026-03-07
+ * @since 2014-01-01 (original)
  */
 @Tag("unit")
-@DisplayName("HCMagneticStripe")
+@DisplayName("HCMagneticStripe unit tests")
 class HCMagneticStripeUnitTest {
 
-    private static final String MAGNETIC_STRIPE_DATA =
-            "%b6100549267294685^FOX/AMANDA                ^1501799219800407DKJACOB10010101?5";
+    private static final String MAGNETIC_STRIPE_EXAMPLE = "%b6100549267294685^FOX/AMANDA                ^1501799219800407DKJACOB10010101?5";
 
     private HCMagneticStripe stripe;
 
     @BeforeEach
     void setUp() {
-        stripe = new HCMagneticStripe(MAGNETIC_STRIPE_DATA);
+        stripe = new HCMagneticStripe(MAGNETIC_STRIPE_EXAMPLE);
     }
 
     @Test
-    @DisplayName("should extract health number from magnetic stripe")
-    void shouldExtractHealthNumber() {
+    @DisplayName("should parse health number from stripe data")
+    void shouldParseHealthNumber_fromStripeData() {
         assertThat(stripe.getHealthNumber()).isEqualTo("9267294685");
     }
 
     @Test
-    @DisplayName("should extract first name from magnetic stripe")
-    void shouldExtractFirstName() {
+    @DisplayName("should parse first name from stripe data")
+    void shouldParseFirstName_fromStripeData() {
         assertThat(stripe.getFirstName()).isEqualTo("AMANDA");
     }
 
     @Test
-    @DisplayName("should extract last name from magnetic stripe")
-    void shouldExtractLastName() {
+    @DisplayName("should parse last name from stripe data")
+    void shouldParseLastName_fromStripeData() {
         assertThat(stripe.getLastName()).isEqualTo("FOX");
     }
 
     @Test
-    @DisplayName("should extract expiry date in YYYYMMDD format")
-    void shouldExtractExpiryDate() {
+    @DisplayName("should parse expiry date from stripe data")
+    void shouldParseExpiryDate_fromStripeData() {
         assertThat(stripe.getExpiryDate()).isEqualTo("20150107");
     }
 
     @Test
-    @DisplayName("should extract sex from magnetic stripe")
-    void shouldExtractSex() {
+    @DisplayName("should parse sex from stripe data")
+    void shouldParseSex_fromStripeData() {
         assertThat(stripe.getSex()).isEqualTo("F");
     }
 
     @Test
-    @DisplayName("should extract birth date in YYYYMMDD format")
-    void shouldExtractBirthDate() {
+    @DisplayName("should parse birth date from stripe data")
+    void shouldParseBirthDate_fromStripeData() {
         assertThat(stripe.getBirthDate()).isEqualTo("19800407");
     }
 
     @Test
-    @DisplayName("should extract card version from magnetic stripe")
-    void shouldExtractCardVersion() {
+    @DisplayName("should parse card version from stripe data")
+    void shouldParseCardVersion_fromStripeData() {
         assertThat(stripe.getCardVersion()).isEqualTo("DK");
     }
 
     @Test
-    @DisplayName("should extract issue date in YYYYMMDD format")
-    void shouldExtractIssueDate() {
+    @DisplayName("should parse issue date from stripe data")
+    void shouldParseIssueDate_fromStripeData() {
         assertThat(stripe.getIssueDate()).isEqualTo("20100101");
     }
 }
