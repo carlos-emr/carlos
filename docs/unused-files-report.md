@@ -79,7 +79,8 @@ The following 17 files were originally listed as unused but are **actively refer
 - **Files**: 14 JS files (3 files EXCLUDED — they are actively used)
 - **Size**: ~600 KB
 - **Evidence**: Bootstrap4, Foundation, jQuery UI, Material, Semantic UI, UIKit builds of old DataTables core. None referenced.
-- **KEEP**: `jquery.dataTables.min.js` (used by `oscarReportDxReg.jsp`), `dataTables.bootstrap.min.js` (used by `hospitalReportManager/inbox.jsp`)
+- **KEEP**: `jquery.dataTables.min.js` (used by `oscarReportDxReg.jsp`)
+- **DELETED**: `dataTables.bootstrap.min.js` — was used by `hospitalReportManager/inbox.jsp` which was deleted; caught by cascade audit
 
 Unused files in this directory:
 ```
@@ -131,19 +132,23 @@ library/DataTables/datatables.js           # Bundled all-in-one (non-min); only 
 
 ### Angular.js ecosystem (project doesn't use Angular) — REMOVED
 ```
-library/angular-datatables.min.js           # DELETED
-library/angular-resource.js                 # DELETED
-library/angular-resource.min.js             # DELETED
-library/angular-route.js                    # DELETED
-library/angular-route.min.js                # DELETED
-library/angular-ui-router.js               # DELETED
-library/ng-infinite-scroll.min.js          # DELETED
-library/ng-table/ng-table.js               # DELETED
-library/ng-table/ng-table.min.js           # DELETED
-library/ui-bootstrap-tpls-2.5.0.js         # DELETED — Angular UI Bootstrap (version 0.11.0 IS used, but NOT 2.5.0)
-css/angular-datatables.min.css             # DELETED — CSS companion (missed in initial deletion, caught by post-audit)
-library/ng-table/ng-table.css              # DELETED — CSS companion (missed in initial deletion, caught by post-audit)
-library/ng-table/ng-table.min.css          # DELETED — CSS companion (missed in initial deletion, caught by post-audit)
+library/angular.js                         # DELETED — core Angular 855 KB (missed in initial deletion, caught by cascade audit)
+library/angular.min.js                     # DELETED — core Angular minified (missed in initial deletion, caught by cascade audit)
+library/angular-sanitize.min.js            # DELETED — Angular sanitize (missed in initial deletion, caught by cascade audit)
+library/angular-datatables.min.js          # DELETED
+library/angular-resource.js                # DELETED
+library/angular-resource.min.js            # DELETED
+library/angular-route.js                   # DELETED
+library/angular-route.min.js               # DELETED
+library/angular-ui-router.js              # DELETED
+library/ng-infinite-scroll.min.js         # DELETED
+library/ng-table/ng-table.js              # DELETED
+library/ng-table/ng-table.min.js          # DELETED
+library/ui-bootstrap-tpls-2.5.0.js        # DELETED — Angular UI Bootstrap 2.5.0
+library/ui-bootstrap-tpls-0.11.0.js       # DELETED — Angular UI Bootstrap 0.11.0 (originally reported as "used" — incorrect, caught by cascade audit)
+css/angular-datatables.min.css            # DELETED — CSS companion (caught by post-audit)
+library/ng-table/ng-table.css             # DELETED — CSS companion (caught by post-audit)
+library/ng-table/ng-table.min.css         # DELETED — CSS companion (caught by post-audit)
 ```
 
 ### Bootstrap 3.0.0 assets (project uses Bootstrap 5.3.0 from CDN)
@@ -177,6 +182,8 @@ library/eforms/jSignature.min.noconflict.js # Not referenced (duplicate)
 library/hogan-2.0.0.js                     # Mustache template engine — not referenced
 library/typeahead.js/typeahead.bundle.min.js   # Twitter typeahead — not referenced
 library/typeahead.js/typeahead.min.js
+library/markdown.js                        # DELETED — Markdown converter (missed in initial report, caught by cascade audit)
+library/showdown.js                        # DELETED — Markdown-to-HTML converter (missed in initial report, caught by cascade audit)
 ```
 
 ---
@@ -197,6 +204,8 @@ js/jquery.metadata.js                       # jQuery metadata plugin
 js/jquery.tablesorter.js                    # Non-min version (jquery.tablesorter.min.js IS used by Index.jsp)
 js/jquery.tablesorter.pager.js              # TableSorter pager (Index.jsp uses widgets, not pager)
 js/jquery.treeview.js                       # jQuery treeview plugin
+js/menuExpandable.js                       # DELETED — orphaned by JSP deletion (missed in initial report, caught by cascade audit)
+js/quatroLookup.js                         # DELETED — orphaned by JSP deletion (missed in initial report, caught by cascade audit)
 js/loading-bar.js                           # Loading bar animation
 js/standard.js                              # Legacy standard utilities
 js/topnav.js                                # Legacy top navigation (topnav.css IS used, but .js is not)
@@ -453,7 +462,7 @@ schedule/scheduletemplatesetting1.jsp       # Schedule template settings
 | DataTables 1.10.12 media/js (excl. 2 used min files) | 14 | ~600 KB | **Verified** |
 | DataTables 1.13.4 framework builds | 13 | ~400 KB | **Verified** — bootstrap5.min.js IS used |
 | DataTables bundled non-min | 1 | ~50 KB | **Verified** — only min version used |
-| Angular.js ecosystem + CSS | 13 | ~510 KB | **REMOVED** — Angular not used, includes 3 CSS companions |
+| Angular.js ecosystem + CSS + UI Bootstrap | 17 | ~1.1 MB | **REMOVED** — Angular not used, includes core, CSS, UI Bootstrap |
 | Bootstrap 3.0.0 assets | 6 | ~200 KB | **Verified** — BS 5.3 from CDN |
 | Old jQuery/library duplicates | 8 | ~500 KB | **Verified** — duplicates of used versions |
 | Unused eform libraries | 2 | ~50 KB | **Verified** — jSignature duplicates |
