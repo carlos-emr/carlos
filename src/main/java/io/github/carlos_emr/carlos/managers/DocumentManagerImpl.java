@@ -44,7 +44,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
-import com.itextpdf.text.DocumentException;
+import org.openpdf.text.DocumentException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -63,6 +63,26 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ImagePDFCreator;
 
+/**
+ * Spring-managed implementation of the {@link DocumentManager} interface for managing
+ * clinical documents in the CARLOS EMR document library.
+ *
+ * <p>Handles the complete document lifecycle including creation, retrieval, update,
+ * file system storage, queue assignment, and rendering (converting images to PDF using
+ * OpenPDF's {@link ImagePDFCreator} or resolving PDF document paths).
+ *
+ * <p>All document operations are protected by {@link SecurityInfoManager} privilege checks
+ * on the {@code _edoc} and {@code _newCasemgmt.documents} security objects. Patient consent
+ * is verified for provider-specific document access.
+ *
+ * <p>Documents are stored on the file system in the directory configured by the
+ * {@code DOCUMENT_DIR} property, with metadata persisted in the {@code document} and
+ * {@code ctl_document} database tables. PDF page counts are determined using Apache PDFBox.
+ *
+ * @see DocumentManager
+ * @see EDocUtil
+ * @since 2012 (McMaster University)
+ */
 @Service
 public class DocumentManagerImpl implements DocumentManager {
 
@@ -253,6 +273,15 @@ public class DocumentManagerImpl implements DocumentManager {
         return savedId;
     }
 
+    /**
+     * Persists a document and creates associated routing records (CtlDocument,
+     * PatientLabRouting, ProviderLabRouting). Uses demographicNo of -1 for
+     * unattached documents.
+     *
+     * @param document Document the document entity to persist
+     * @param demographicNo Integer the patient demographic number, or null/-1 for unattached
+     * @param providerNo String the provider number for inbox routing
+     */
     private void saveDocument(Document document, Integer demographicNo, String providerNo) {
 
         // Saves the document
@@ -281,6 +310,13 @@ public class DocumentManagerImpl implements DocumentManager {
         }
     }
 
+    /**
+     * Persists a new document and logs the action.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session for audit logging
+     * @param document Document the document entity to persist
+     * @return Integer the generated document ID
+     */
     private Integer addDocument(LoggedInInfo loggedInInfo, Document document) {
 
         documentDao.persist(document);
@@ -288,6 +324,13 @@ public class DocumentManagerImpl implements DocumentManager {
         return document.getId();
     }
 
+    /**
+     * Merges an existing document and logs the action.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session for audit logging
+     * @param document Document the document entity to merge
+     * @return Integer the document ID
+     */
     private Integer updateDocument(LoggedInInfo loggedInInfo, Document document) {
         documentDao.merge(document);
         LogAction.addLog(loggedInInfo, "DocumentManager.saveDocument", "Document updated ", "Document No." + document.getDocumentNo(), "", "");
@@ -304,7 +347,7 @@ public class DocumentManagerImpl implements DocumentManager {
             throw new RuntimeException("Read and Write Access Denied _edoc for provider " + loggedInInfo.getLoggedInProviderNo());
         }
 
-        // move the PDF from the temp location to Oscar's document directory.
+        // move the PDF from the temp location to CARLOS document directory.
         try {
             if (toPath == null) {
                 toPath = getParentDirectory();
@@ -321,10 +364,18 @@ public class DocumentManagerImpl implements DocumentManager {
         }
     }
 
+    /** @return String the configured parent document directory path */
     public static final String getParentDirectory() {
         return PARENT_DIR;
     }
 
+    /**
+     * Returns the full filesystem path to a document by ID, or null if not found.
+     *
+     * @param loggedInInfo LoggedInInfo the current user session
+     * @param documentId int the document ID
+     * @return String the absolute path, or null if the document doesn't exist
+     */
     public String getPathToDocument(LoggedInInfo loggedInInfo, int documentId) {
         Document document = this.getDocument(loggedInInfo, documentId);
         String path = null;
@@ -336,6 +387,13 @@ public class DocumentManagerImpl implements DocumentManager {
         return path;
     }
 
+    /**
+     * Resolves a document filename to its full filesystem path under DOCUMENT_DIR.
+     * Returns null if the file does not exist on disk.
+     *
+     * @param filename String the document filename
+     * @return String the absolute path, or null if the file doesn't exist
+     */
     public String getFullPathToDocument(String filename) {
 
         String path = OscarProperties.getInstance().getProperty("DOCUMENT_DIR");
@@ -378,7 +436,7 @@ public class DocumentManagerImpl implements DocumentManager {
     }
 
     /**
-     * Add a document to Oscar's document library.
+     * Add a document to the CARLOS document library.
      * <p>
      * This method actually saves the Document contents to the file system. The document resource
      * MUST contain valid Base64 encoded document binary data.
@@ -407,7 +465,7 @@ public class DocumentManagerImpl implements DocumentManager {
 
             /*
              *  This ensures that all incoming documents contain the highly required default of 0.
-             *  A null here will break other parts of Oscar functionality.
+             *  A null here will break other parts of CARLOS functionality.
              */
             if (document.getNumberofpages() == null) {
                 document.setNumberofpages(0);

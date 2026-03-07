@@ -44,9 +44,12 @@ import java.util.ResourceBundle;
 import javax.servlet.http.HttpServletRequest;
 
 
+import java.awt.Color;
+import io.github.carlos_emr.carlos.commn.printing.FontSettings;
+import io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
-import com.itextpdf.text.*;
-import com.itextpdf.text.pdf.*;
+import org.openpdf.text.*;
+import org.openpdf.text.pdf.*;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
@@ -76,21 +79,41 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.SxmlMisc;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 
 /**
- * This will create a PDF + assemble e-forms,documents,labs into a package
+ * Generates comprehensive patient E-Chart PDFs for CARLOS EMR.
  *
- * @author Marc Dumontier
+ * <p>Assembles a multi-section PDF document containing patient demographics, clinical notes,
+ * prescriptions, allergies, preventions, ticklers, disease registry entries, appointment history,
+ * current/past admissions, and active issues. The output is suitable for printing or inclusion
+ * in a concatenated medical record package (see {@link io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint}).</p>
+ *
+ * <p>Implements {@link java.io.Closeable} so callers can use try-with-resources to ensure
+ * the underlying PDF {@link Document} is always closed, even if an exception occurs during
+ * rendering.</p>
+ *
+ * <p>Uses OpenPDF ({@code org.openpdf.*}) for all PDF generation, with
+ * {@link io.github.carlos_emr.carlos.commn.printing.PdfWriterFactory PdfWriterFactory}-installed
+ * page-event handlers ({@link io.github.carlos_emr.carlos.casemgmt.service.PageNumberStamper PageNumberStamper}
+ * and {@link io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper PromoTextStamper})
+ * that render promotional text and page numbers in the footer of every page.</p>
+ *
+ * @see io.github.carlos_emr.carlos.casemgmt.web.EChartPrint2Action
+ * @see io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint
+ * @since 2011-08-16
  */
-public class OscarChartPrinter {
+public class OscarChartPrinter implements java.io.Closeable {
 
+    /** Line spacing multiplier for paragraph leading calculations. */
     public final int LINESPACING = 1;
+    /** Default leading (inter-line spacing in points) for PDF text. */
     public final float LEADING = 12;
+    /** Default font size in points for body text. */
     public final float FONTSIZE = 10;
+    /** Default number of columns for tabular layouts. */
     public final int NUMCOLS = 2;
 
     private Demographic demographic;
@@ -117,16 +140,22 @@ public class OscarChartPrinter {
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
 
 
+    /**
+     * Creates a new chart printer and initialises the PDF document with Letter page size
+     * and Helvetica fonts.
+     *
+     * @param request HttpServletRequest providing session context and patient attributes
+     * @param os OutputStream to which the finished PDF will be written
+     * @throws DocumentException if the OpenPDF {@link PdfWriter} cannot be created
+     * @throws IOException       if the base font cannot be loaded
+     */
     public OscarChartPrinter(HttpServletRequest request, OutputStream os) throws DocumentException, IOException {
         this.request = request;
         this.os = os;
 
         document = new Document();
-        // writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
-
-        writer = PdfWriter.getInstance(document, os);
-        writer.setPageEvent(new EndPage());
         document.setPageSize(PageSize.LETTER);
+        writer = PdfWriterFactory.newInstance(document, os, FontSettings.HELVETICA_10PT);
         document.open();
         //Create the font we are going to print to
         bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
@@ -176,11 +205,41 @@ public class OscarChartPrinter {
         return p;
     }
 
+    /**
+     * Closes the PDF document. Delegates to {@link #close()}.
+     *
+     * @deprecated Use {@link #close()} directly or try-with-resources instead.
+     */
+    @Deprecated
     public void finish() {
-        document.close();
+        close();
+    }
+
+    /**
+     * Closes the underlying PDF {@link Document} and writer.
+     * Safe to call multiple times.
+     */
+    @Override
+    public void close() {
+        try {
+            if (document != null && document.isOpen()) {
+                document.close();
+            }
+        } finally {
+            if (writer != null) {
+                writer.close();
+            }
+        }
     }
 
 
+    /**
+     * Prints the patient header block (name, age, sex, DOB, phone, provider info) and
+     * draws a horizontal rule beneath it. Also sets the document-level header phrase
+     * for subsequent pages.
+     *
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printDocHeaderFooter() throws DocumentException {
         String headerTitle = demographic.getFormattedName() + " " + demographic.getAge() + " " + demographic.getSex() + " DOB:" + demographic.getFormattedDob();
 
@@ -253,7 +312,7 @@ public class OscarChartPrinter {
 
         //Write title with top and bottom borders on p1
         cb = writer.getDirectContent();
-        cb.setColorStroke(new BaseColor(0, 0, 0));
+        cb.setColorStroke(Color.BLACK);
         cb.setLineWidth(0.5f);
 
         cb.moveTo(document.left(), document.top() - (font.getCalculatedLeading(LINESPACING) * 5f));
@@ -262,6 +321,13 @@ public class OscarChartPrinter {
     }
 
 
+    /**
+     * Prints the full patient master record including personal information, contact details,
+     * health insurance, care team (physician, nurse, midwife, resident, referral doctor),
+     * alerts/notes, and demographic relationships (emergency contacts, substitute decision makers).
+     *
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printMasterRecord() throws DocumentException {
         if (newPage) {
             document.newPage();
@@ -408,6 +474,12 @@ public class OscarChartPrinter {
 
     }
 
+    /**
+     * Extracts the referral doctor name from the XML-encoded family doctor field.
+     *
+     * @param field String the XML-encoded family doctor field content
+     * @return String the referral doctor name, or empty string if not available
+     */
     private String getReferralDoctor(String field) {
         if (field != null && field.length() > 0) {
             return SxmlMisc.getXmlContent(field, "rd");
@@ -415,6 +487,12 @@ public class OscarChartPrinter {
         return "";
     }
 
+    /**
+     * Looks up the formatted display name for a provider by provider number.
+     *
+     * @param providerNo String the provider number to look up
+     * @return String the provider's formatted name, or empty string if not found or {@code null}
+     */
     private String getProviderName(String providerNo) {
         if (providerNo == null || providerNo.length() == 0) {
             return "";
@@ -427,6 +505,12 @@ public class OscarChartPrinter {
     }
 
 
+    /**
+     * Prints the patient's appointment history as a 6-column table (date, from, to, reason,
+     * provider, notes) sorted by appointment date.
+     *
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printAppointmentHistory() throws DocumentException {
         if (newPage) {
             document.newPage();
@@ -458,6 +542,14 @@ public class OscarChartPrinter {
     }
 
 
+    /**
+     * Prints a single Cumulative Patient Profile (CPP) section with an underlined heading
+     * followed by its associated clinical notes in compact format.
+     *
+     * @param heading String the section heading (e.g. "Social History", "Medical History")
+     * @param notes Collection&lt;CaseManagementNote&gt; the clinical notes for this CPP section
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printCPPItem(String heading, Collection<CaseManagementNote> notes) throws DocumentException {
         if (newPage)
             document.newPage();
@@ -484,6 +576,14 @@ public class OscarChartPrinter {
     }
 
 
+    /**
+     * Prints clinical encounter notes to the PDF.
+     *
+     * @param notes   Collection&lt;CaseManagementNote&gt; the notes to print
+     * @param compact boolean if {@code true}, prints date:note on one line; if {@code false},
+     *                prints "Impression/Plan: (date)" as a heading followed by the note body
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printNotes(Collection<CaseManagementNote> notes, boolean compact) throws DocumentException {
 
         CaseManagementNote note;
@@ -521,6 +621,11 @@ public class OscarChartPrinter {
         }
     }
 
+    /**
+     * Adds a blank line to the document for visual spacing between sections.
+     *
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printBlankLine() throws DocumentException {
         Paragraph p = new Paragraph();
         p.add(new Phrase("\n"));
@@ -528,6 +633,12 @@ public class OscarChartPrinter {
 
     }
 
+    /**
+     * Creates a borderless, left-aligned table cell for appointment history table rows.
+     *
+     * @param text String the cell text content
+     * @return PdfPCell a configured borderless cell
+     */
     private PdfPCell generalCellForApptHistory(String text) {
         Paragraph p = new Paragraph(text, getFont());
         p.setAlignment(Paragraph.ALIGN_LEFT);
@@ -539,6 +650,12 @@ public class OscarChartPrinter {
     }
 
 
+    /**
+     * Prints the patient's allergy list with an underlined "Allergies" heading.
+     *
+     * @param allergies List&lt;Allergy&gt; the patient's allergy records
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printAllergies(List<Allergy> allergies) throws DocumentException {
 
         Font obsfont = new Font(getBaseFont(), FONTSIZE, Font.UNDERLINE);
@@ -563,10 +680,23 @@ public class OscarChartPrinter {
     }
 
 
+    /**
+     * Prints current (non-archived) prescriptions for the patient.
+     *
+     * @param demoNo String the patient's demographic number
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printRx(String demoNo) throws DocumentException {
         printRx(demoNo, null);
     }
 
+    /**
+     * Prints current (non-archived) prescriptions for the patient, with optional CPP notes.
+     *
+     * @param demoNo String the patient's demographic number; if {@code null}, method returns immediately
+     * @param cpp    List&lt;CaseManagementNote&gt; optional CPP "Other Meds" notes (unused in current implementation)
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printRx(String demoNo, List<CaseManagementNote> cpp) throws DocumentException {
         if (demoNo == null)
             return;
@@ -613,6 +743,12 @@ public class OscarChartPrinter {
     }
 
 
+    /**
+     * Prints the patient's prevention (immunization) history. Skips the section
+     * entirely if no non-deleted preventions exist for the patient.
+     *
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printPreventions() throws DocumentException {
         List<Prevention> preventions = preventionDao.findNotDeletedByDemographicId(demographic.getDemographicNo());
 
@@ -642,6 +778,13 @@ public class OscarChartPrinter {
 
     }
 
+    /**
+     * Prints the patient's ticklers including provider, assignee, service date,
+     * priority, status, and message. Skips the section if no ticklers exist.
+     *
+     * @param loggedInInfo LoggedInInfo the current provider's session info for authorization
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printTicklers(LoggedInInfo loggedInInfo) throws DocumentException {
         CustomFilter filter = new CustomFilter();
         filter.setDemographicNo(String.valueOf(demographic.getDemographicNo()));
@@ -689,6 +832,12 @@ public class OscarChartPrinter {
 
     }
 
+    /**
+     * Prints the patient's disease registry entries (diagnosis research items) with
+     * start date, issue description, and status. Skips if no entries exist.
+     *
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printDiseaseRegistry() throws DocumentException {
         DxresearchDAO dxDao = (DxresearchDAO) SpringUtils.getBean(DxresearchDAO.class);
         IssueDAO issueDao = (IssueDAO) SpringUtils.getBean(IssueDAO.class);
@@ -736,6 +885,12 @@ public class OscarChartPrinter {
 
     }
 
+    /**
+     * Prints the patient's current (active) program admissions with program name,
+     * type, admitting provider, date, and admission notes. Skips if none exist.
+     *
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printCurrentAdmissions() throws DocumentException {
         AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
         ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
@@ -773,6 +928,12 @@ public class OscarChartPrinter {
 
     }
 
+    /**
+     * Prints the patient's past (discharged) program admissions including discharge
+     * date and notes. Filters out current admissions. Skips if none exist.
+     *
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printPastAdmissions() throws DocumentException {
         AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
         ProgramDao programDao = (ProgramDao) SpringUtils.getBean(ProgramDao.class);
@@ -816,6 +977,11 @@ public class OscarChartPrinter {
 
     }
 
+    /**
+     * Prints the patient's current case management issues with their descriptions.
+     *
+     * @throws DocumentException if PDF content cannot be added to the document
+     */
     public void printCurrentIssues() throws DocumentException {
         CaseManagementIssueDAO cmIssueDao = (CaseManagementIssueDAO) SpringUtils.getBean(CaseManagementIssueDAO.class);
 
@@ -843,6 +1009,12 @@ public class OscarChartPrinter {
 
     }
 
+    /**
+     * Filters out admissions with "current" status, returning only past/discharged admissions.
+     *
+     * @param admissions List of Admission records to filter
+     * @return List of Admission containing only non-current admissions
+     */
     private List<Admission> filterOutCurrentAdmissions(List<Admission> admissions) {
         List<Admission> results = new ArrayList<Admission>();
         for (Admission a : admissions) {
@@ -852,44 +1024,5 @@ public class OscarChartPrinter {
         }
         return results;
     }
-
-    /*
-     *Used to print footers on each page
-     */
-    class EndPage extends PdfPageEventHelper {
-        private Date now;
-        private String promoTxt;
-
-        public EndPage() {
-            now = new Date();
-            promoTxt = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
-            if (promoTxt == null) {
-                promoTxt = new String();
-            }
-        }
-
-        public void onEndPage(PdfWriter writer, Document document) {
-            //Footer contains page numbers and date printed on all pages
-            PdfContentByte cb = writer.getDirectContent();
-            cb.saveState();
-
-            String strFooter = promoTxt + " " + formatter.format(now);
-
-            float textBase = document.bottom();
-            cb.beginText();
-            cb.setFontAndSize(font.getBaseFont(), FONTSIZE);
-            Rectangle page = document.getPageSize();
-            float width = page.getWidth();
-
-            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 20, 0);
-
-            strFooter = "-" + writer.getPageNumber() + "-";
-            cb.showTextAligned(PdfContentByte.ALIGN_CENTER, strFooter, (width / 2.0f), textBase - 10, 0);
-
-            cb.endText();
-            cb.restoreState();
-        }
-    }
-
 
 }

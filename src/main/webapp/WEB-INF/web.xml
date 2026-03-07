@@ -51,13 +51,16 @@
 		<url-pattern>/*</url-pattern>
 	</filter-mapping>
 
-    <!-- CSRFGuard and CsrfGuardScriptInjectionFilter MUST be ordered before struts2.
-         StrutsPrepareAndExecuteFilter does not call chain.doFilter() for requests it handles,
-         so filters placed after it in the chain are never invoked for Struts action (.do)
-         responses. Placing both CSRF filters here ensures:
+    <!-- CSRFGuard, CsrfGuardScriptInjectionFilter, and LogoutBroadcastFilter MUST be ordered
+         before struts2. StrutsPrepareAndExecuteFilter does not call chain.doFilter() for
+         requests it handles, so filters placed after it in the chain are never invoked for
+         Struts action (.do) responses. Placing these filters here ensures:
            1. CSRFGuard validates tokens on all Struts action POST requests
            2. CsrfGuardScriptInjectionFilter wraps the response BEFORE Struts renders,
               so csrfguard.js is injected into Struts-rendered HTML pages
+           3. LogoutBroadcastFilter wraps the response BEFORE Struts renders,
+              so the logout broadcast script is injected into Struts-rendered HTML pages
+              (e.g. Inboxhub.do, DisplayMessages.do)
          Filter declarations remain in their respective sections below;
          only filter-mapping order determines chain position. -->
     <filter-mapping>
@@ -67,6 +70,10 @@
     <filter-mapping>
         <filter-name>CsrfGuardScriptInjectionFilter</filter-name>
         <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>LogoutBroadcastFilter</filter-name>
+        <url-pattern>*.do</url-pattern>
     </filter-mapping>
 
 	<filter>
@@ -136,11 +143,6 @@
 	<filter-mapping>
 		<filter-name>LogoutBroadcastFilter</filter-name>
 		<url-pattern>*.jsp</url-pattern>
-	</filter-mapping>
-
-	<filter-mapping>
-		<filter-name>LogoutBroadcastFilter</filter-name>
-		<url-pattern>*.do</url-pattern>
 	</filter-mapping>
 
     <filter>

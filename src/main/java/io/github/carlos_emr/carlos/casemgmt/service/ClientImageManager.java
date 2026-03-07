@@ -41,4 +41,6 @@ public interface ClientImageManager {
     ClientImage getClientImage(Integer clientId);
 
     void saveClientImage(ClientImage img);
+
+    void deleteClientImage(Integer clientId);
 }

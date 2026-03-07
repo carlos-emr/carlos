@@ -10,7 +10,6 @@
 	<handler name="ExcellerisON" className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.ExcellerisOntarioHandler" />
 	<handler name="GDML" className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.GDMLHandler"/>
 	<handler name="HHSEMR" className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.HHSEmrDownloadHandler"/>
-	<handler name="ICL" className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.ICLHandler" />
 	<handler name="IHA" className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.IHAPOIHandler"/>
 	<handler name="IHAPOI" className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.IHAPOIHandler" />
 	<handler name="MDS" className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MDSHandler" />
@@ -18,9 +17,6 @@
 	<handler name="PATHL7" className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.PATHL7Handler" />
         <handler name="PDFDOC" className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.PDFHandler" />
 	<handler name="PHS" className="io.github.carlos_emr.carlos.integration.hl7.handlers.upload.PhsStarHandler"/>
-	<handler name="TDIS"    className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.TDISHandler" />
-	<handler name="MEDVUE"  className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MEDVUEHandler" />
-	<handler name="PFHT"	className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.PFHTHandler"/>
 	<handler name="Spire"	className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.SpireHandler"/>
 	<handler name="TRUENORTH"	className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.TRUENORTHHandler"/>
     <handler name="MEDITECH"   className="io.github.carlos_emr.carlos.lab.ca.all.upload.handlers.MEDITECHHandler" /> 

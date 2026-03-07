@@ -1040,7 +1040,9 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     defaultDiv = "sig<%=savedId%>";
     changeIssueFunc;  //set in changeDiagnosis function above
     addIssueFunc = updateIssues.bindAsEventListener(obj, makeIssue, defaultDiv);
-    Element.observe('asgnIssues', 'click', addIssueFunc);
+    if ($('asgnIssues')) {
+        Element.observe('asgnIssues', 'click', addIssueFunc);
+    }
     try {
          new Autocompleter.Local('enTemplate', 'enTemplate_list', autoCompList, {
              colours: itemColours,

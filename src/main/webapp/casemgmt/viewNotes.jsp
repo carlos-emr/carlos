@@ -167,7 +167,7 @@
                 <a class="links"
                    onmouseover="this.className='linkhover'"
                    onmouseout="this.className='links'"
-                   title="Rev:<%= note.getRevision() %> - Last update:<%= note.getUpdate_date() %>"
+                   title="Rev:<%= note.getRevision() %> - <%= note.getUpdate_date() %>&#10;<%= Encode.forHtmlAttribute(note.getNote()) %>"
                    id="listNote<%= note.getId() %>"
                    href="javascript:void(0)"
                    onclick="showEdit(event,'<fmt:setBundle basename="oscarResources"/><fmt:message key="${param.title}" />','<%= note.getId() %>','<%= StringEscapeUtils.escapeEcmaScript(editors.toString()) %>','<%= note.getObservation_date() %>','<%= note.getRevision() %>','<%= noteTxt %>', '<%= request.getAttribute("addUrl") %><%= note.getId() %>', '<%= request.getParameter("cmd") %>','<%= request.getAttribute("identUrl") %>','<%= strNoteIssues.toString() %>','<%= strNoteExts %>','<%= request.getParameter("demographicNo") %>');return false;">
@@ -176,7 +176,7 @@
                 <a class="topLinks"
                    onmouseover="this.className='topLinkhover'"
                    onmouseout="this.className='topLinks'"
-                   title="Rev:<%= note.getRevision() %> - Last update:<%= note.getUpdate_date() %>"
+                   title="Rev:<%= note.getRevision() %> - <%= note.getUpdate_date() %>&#10;<%= Encode.forHtmlAttribute(note.getNote()) %>"
                    id="listNote<%= note.getId() %>"
                    href="javascript:void(0)"
                    onclick="showEdit(event,'<fmt:setBundle basename="oscarResources"/><fmt:message key="${param.title}" />','<%= note.getId() %>','<%= StringEscapeUtils.escapeEcmaScript(editors.toString()) %>','<%= note.getObservation_date() %>','<%= note.getRevision() %>','<%= noteTxt %>', '<%= request.getAttribute("addUrl") %><%= note.getId() %>', '<%= request.getParameter("cmd") %>','<%= request.getAttribute("identUrl") %>','<%= strNoteIssues.toString() %>','<%= strNoteExts %>','<%= request.getParameter("demographicNo") %>');return false;">

@@ -20,52 +20,17 @@
 	}
 %>
 
-
-<select style="width:100px;">
-	<option><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Header.Calculators"/></option>
-	<option>----------------------</option>
-
-	<option onclick="popperup(650,775,'https://bilitool.org/index.php','NeonatalBilirubin');">
-		Neonatal Bilirubin
-	</option>
-
-	<option onclick="popperup(650,775,'https://thrombosiscanada.ca/tools/?calc=perioperativeAnticoagulantAlgorithm','Peri-operativeAnticoagulation');">
-		Peri-operative Anticoagulation
-	</option>
-
-	<option onclick="popperup(650,775,'https://www.mdcalc.com/calc/2200/fibrosis-4-fib-4-index-liver-fibrosis','Fibrosis-4');">
-		Fibrosis 4 (FIB-4)
-	</option>
-
-	<option onclick="popperup(650,775,'http://www.mcw.edu/calculators/body-mass-index.htm','BodyMassIndex');">
-		<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.bodyMass"/>
-	</option>
-
-	<option onclick="popperup(525,775,'<%= request.getContextPath() %>/oscarEncounter/calculators/CoronaryArteryDiseaseRiskPrediction.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>','CoronaryArteryDiseaseRisk');">
-		<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.coronary"/>
-	</option>
-
-	<option onclick="popperup(525,775,'<%= request.getContextPath() %>/oscarEncounter/calculators/riskcalc/index.html?sex=<%=bean.patientSex%>&age=<%=pAge%>','Framingham');">
-		Framingham/UKPDS Risk Calculator
-	</option>
-
-	<option onclick="popperup(525,775,'http://cvrisk.mvm.ed.ac.uk/calculator/calc.asp','CVRisk');">
-		CV Risk
-	</option>
-
-	<option onclick="popperup(525,775,'<%= request.getContextPath() %>/oscarEncounter/calculators/OsteoporoticFracture.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>','OsteoporoticFracture');">
-		<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgOsteoporotic"/>
-	</option>
-
-	<option onclick="popperup(650,775,'http://www.mcw.edu/calculators/pregnancydate.htm','PregancyCalculator');">
-		<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.pregnancy"/>
-	</option>
-
-	<option onclick="popperup(400,500,'<%= request.getContextPath() %>/oscarEncounter/calculators/SimpleCalculator.jsp','SimpleCalc');">
-		<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.simpleCalculator"/>
-	</option>
-
-	<option onclick="popperup(650,775,'<%= request.getContextPath() %>/oscarEncounter/calculators/GeneralCalculators.jsp','GeneralConversions'); ">
-		<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.generalConversions"/>
-	</option>
+<select style="width:100px;" onchange="if(this.value !== '-1') { popperup(650,775,this.value,'calculator'); this.selectedIndex=0; }">
+	<option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Header.Calculators"/></option>
+	<option value="https://bilitool.org/index.php">Neonatal Bilirubin</option>
+	<option value="https://thrombosiscanada.ca/tools/?calc=perioperativeAnticoagulantAlgorithm">Peri-operative Anticoagulation</option>
+	<option value="https://www.mdcalc.com/calc/2200/fibrosis-4-fib-4-index-liver-fibrosis">Fibrosis 4 (FIB-4)</option>
+	<option value="http://www.mcw.edu/calculators/body-mass-index.htm"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.bodyMass"/></option>
+	<option value="<%= request.getContextPath() %>/oscarEncounter/calculators/CoronaryArteryDiseaseRiskPrediction.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.coronary"/></option>
+	<option value="<%= request.getContextPath() %>/oscarEncounter/calculators/riskcalc/index.html?sex=<%=bean.patientSex%>&age=<%=pAge%>">Framingham/UKPDS Risk Calculator</option>
+	<option value="http://cvrisk.mvm.ed.ac.uk/calculator/calc.asp">CV Risk</option>
+	<option value="<%= request.getContextPath() %>/oscarEncounter/calculators/OsteoporoticFracture.jsp?sex=<%=bean.patientSex%>&age=<%=pAge%>"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.msgOsteoporotic"/></option>
+	<option value="http://www.mcw.edu/calculators/pregnancydate.htm"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.pregnancy"/></option>
+	<option value="<%= request.getContextPath() %>/oscarEncounter/calculators/SimpleCalculator.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.simpleCalculator"/></option>
+	<option value="<%= request.getContextPath() %>/oscarEncounter/calculators/GeneralCalculators.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.generalConversions"/></option>
 </select>

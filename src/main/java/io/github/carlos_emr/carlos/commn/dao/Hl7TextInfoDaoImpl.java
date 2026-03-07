@@ -146,27 +146,6 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     }
 
     @Override
-    public List<Hl7TextInfo> searchByFillerOrderNumber(String fon, String sending_facility) {
-        String sql = "select x from Hl7TextInfo x where x.fillerOrderNum=?1 and sendingFacility=?2";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, fon);
-        query.setParameter(2, sending_facility);
-
-        @SuppressWarnings("unchecked")
-        List<Hl7TextInfo> lab = query.getResultList();
-
-        return lab;
-    }
-
-    @Override
-    public void updateReportStatusByLabId(String reportStatus, int labNumber) {
-        Query query = entityManager.createQuery("update " + modelClass.getName() + " x set x.reportStatus = ?1 where x.labNumber = ?2");
-        query.setParameter(1, reportStatus);
-        query.setParameter(2, labNumber);
-        query.executeUpdate();
-    }
-
-    @Override
     public List<Hl7TextMessageInfo> getMatchingLabs(String hl7msg) {
         String sql = "SELECT a.lab_no as id, m2.message, a.lab_no AS lab_no_A, b.lab_no AS lab_no_B, a.obr_date as labDate_A, b.obr_date as labDate_B FROM hl7TextInfo a, hl7TextInfo b, hl7TextMessage m2 WHERE m2.lab_id = a.lab_no AND a.accessionNum !='' AND a.accessionNum=b.accessionNum AND b.lab_no IN ( SELECT lab_id FROM hl7TextMessage WHERE message=?1 ) ORDER BY a.obr_date, a.lab_no";
         Query query = entityManager.createNativeQuery(sql, Hl7TextMessageInfo.class);

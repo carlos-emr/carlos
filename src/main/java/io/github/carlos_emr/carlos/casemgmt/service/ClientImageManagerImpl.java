@@ -61,4 +61,9 @@ public class ClientImageManagerImpl implements ClientImageManager {
     public void saveClientImage(ClientImage img) {
         clientImageDAO.saveClientImage(img);
     }
+
+    @Override
+    public void deleteClientImage(Integer clientId) {
+        clientImageDAO.deleteClientImage(clientId);
+    }
 }

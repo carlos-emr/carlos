@@ -710,16 +710,6 @@ public class CMLHandler implements MessageHandler {
 	}
 
     @Override
-    public String getEncounterId(){
-    	return "";
-    }
-
-    @Override
-    public String getRadiologistInfo(){
-		return "";
-	}
-
-    @Override
     public String getNteForOBX(int i, int j){
 
     	return "";
