@@ -115,7 +115,7 @@
                    onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">
             <input type="button" class="btn btn-secondary btn-sm ms-2"
                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
-                   onClick="window.history.go(-1);return false;">
+                   onClick="window.close();">
         </div>
 
     </form>
