@@ -190,84 +190,28 @@ Ontario, Canada
 
 <html>
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <%@ include file="/includes/global-head.jspf" %>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.title"/></title>
 
-
-
-<link href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-<link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
-<link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet">
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
-<script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js" ></script>
-
-        <script src="<%= request.getContextPath() %>/js/global.js"></script>
-        <script src="<%= request.getContextPath() %>/js/checkDate.js"></script>
-        <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
-
         <style>
-
-	:root *:not(h2):not(h4):not(.input-group > .btn) {
-		font-size: 12px;
-		overscroll-behavior: none;
-		-webkit-font-smoothing: antialiased;
-		-moz-osx-font-smoothing: grayscale;
-		line-height: 1 !important;
-	}
-
-            .form-wrapper {
-                display: flex;
+.ui-selectmenu-button.ui-button {
+                width: 100% !important;
             }
 
-	* table tr td, * table {
-                border: none !important;
-            }
-	.card {
-		margin: 0 !important;
-	}
-	.card-body {
-		padding: 10px !important;
-	}
-
-	.ui-selectmenu-button.ui-button {
-		width: 100% !important;
-	}
-
-	.ui-button {
-		padding:10px !important;
-	}
-
-	.ui-icon {
-		width: 12px !important;
-		height: 12px !important;
-	}
-
-	textarea {
-		width: 100%;
-	}
-
-            body, html {
-                --color: #945;
-                --size: 2rem;
-                --border: calc(var(--size) * 0.125);
-                --borderRadius: calc(var(--size) * 0.5);
-                --labelSize: calc(var(--size) * 0.75);
-                --margin: calc(var(--size) * 0.25);
-                --marginLeft: calc(var(--size) + calc(var(--size) * 0.5));
+            .ui-button {
+                padding: 10px !important;
             }
 
-            .time {
-                background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><circle cx='20' cy='20' r='18.5' fill='none' stroke='%23222' stroke-width='3' /><path d='M20,4 20,8 M4,20 8,20 M36,20 32,20 M20,36 20,32' stroke='%23bbb' stroke-width='1' /><circle cx='20' cy='20' r='2' fill='%23222' stroke='%23222' stroke-width='2' /></svg>");
-                background-position: var(--margin) 50%;
-                background-repeat: no-repeat;
-                background-size: var(--size) var(--size);
-                border: var(--border);
-                border-radius: var(--borderRadius);
-                color: #222;
-                font-size: var(--size);
-                padding: var(--margin) var(--margin) var(--margin) var(--marginLeft);
-                transition: backgroundImage 0.25s;
+            .ui-icon {
+                width: 12px !important;
+                height: 12px !important;
+            }
+
+            textarea {
+                width: 100%;
             }
 
         </style>
@@ -999,7 +943,7 @@ Ontario, Canada
 
         </script>
     </head>
-    <body onLoad="setfocus(); moveAppt(); updateTime(); locale();">
+    <body onLoad="setfocus(); moveAppt(); locale();">
     <div class="container">
         <% if (timeoutSecs > 0) { %>
         <div id="lock_notification">
@@ -1150,82 +1094,74 @@ Ontario, Canada
             <input type="hidden" name="fromAppt" value="1">
 
 
-            <div class="time" id="header"><h4>
-                <!-- We display a shortened title for the mobile version -->
-                <% if (isMobileOptimized) { %><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgMainLabelMobile"/>
-                <% } else { %><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgMainLabel"/>
-                <% out.println("(" + pFirstname + " " + pLastname + ")"); %>
-                <% } %></h4>
+            <div class="page-header-bar" id="header">
+                <h4 class="page-header-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
+                        <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z"/>
+                    </svg>
+                    &nbsp;<% if (isMobileOptimized) { %><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgMainLabelMobile"/>
+                    <% } else { %><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgMainLabel"/>
+                    <% out.println("(" + Encode.forHtmlContent(pFirstname) + " " + Encode.forHtmlContent(pLastname) + ")"); %>
+                    <% } %>
+                </h4>
             </div>
-            <div class="bg-light border rounded p-2 table-responsive">
-                <div class="form-wrapper">
-                    <table class="table table-condensed table-responsive">
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/>&nbsp;<span
-                                    style="color:brown;">(<%=dateString1%>)</span>:
-                            </td>
-                            <td>
-                                <input type="date" class="form-control" name="appointment_date"
+            <div class="bg-light border rounded p-2">
+                <div class="row">
+                    <%-- Left column: Date, Time, Duration, Patient, Reason, Location, Creator --%>
+                    <div class="col-md-6">
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
+                            <div class="col-sm-8">
+                                <input type="date" class="form-control form-control-sm" name="appointment_date"
                                        value="<%=dateString2%>"
                                        onChange="checkDateTypeIn(this);checkPageLock()">
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStartTime"/>:
-                            </td>
-                            <td>
-                                <input type="time" name="start_time" class="form-control"
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStartTime"/>:</label>
+                            <div class="col-sm-8">
+                                <input type="time" name="start_time" class="form-control form-control-sm"
                                        value='<%=request.getParameter("start_time")%>'
-                                       onChange="checkTimeTypeIn(this);updateTime();checkPageLock()">
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDuration"/>:
-                            </td>
-                            <td>
-                                <input type="number" name="duration" id="duration" class="form-control"
+                                       onChange="checkTimeTypeIn(this);checkPageLock()">
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDuration"/>:</label>
+                            <div class="col-sm-8">
+                                <input type="number" name="duration" id="duration" class="form-control form-control-sm"
                                        value="<%=duration%>" onChange="checkPageLock()" onblur="calculateEndTime();">
                                 <input type="hidden" name="end_time"
                                        value='<%=request.getParameter("end_time")%>'
                                        onChange="checkTimeTypeIn(this)">
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <label for="keyword">
-                                    Patient:
-                                    <input type="button" value="(<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.doNotBook"/>)"
-                                       class="btn btn-link" style="padding-left:0px;" onclick="onNotBook();">
-                                </label>
-                            </td>
-                            <td>
-	                                <div class="input-group">
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label" for="keyword">
+                                Patient:
+                                <input type="button" value="(<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.doNotBook"/>)"
+                                   class="btn btn-link btn-sm p-0" onclick="onNotBook();">
+                            </label>
+                            <div class="col-sm-8">
+                                <div class="input-group input-group-sm">
                                 <%
                                     String name = "";
                                     name = String.valueOf((bFirstDisp && !bFromWL) ? "" : request.getParameter("name") == null ? session.getAttribute("appointmentname") == null ? "" : session.getAttribute("appointmentname") : request.getParameter("name"));
                                 %>
                                     <input type="hidden" name="demographic_no" id="demographic_no"
                                            value='<%=(bFirstDisp && !bFromWL) ? "" : Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>
-                                    <input type="text" name="keyword" id="keyword" class="form-control"
+                                    <input type="text" name="keyword" id="keyword" class="form-control form-control-sm"
                                         value="<%=Encode.forHtmlAttribute(name)%>"
                                         placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNamePlaceholder"/>">
-                                    <button type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary"
+                                    <button type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary btn-sm"
                                            onclick="parseSearch(); document.forms['ADDAPPT'].displaymode.value='Search ';"
                                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnSearch"/>"><i class="fa-solid fa-magnifying-glass"></i></button>
                                 </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <label for="reasonCode">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>:
-                                </label>
-                            </td>
-                            <td>
-                                <select name="reasonCode" id="reasonCode" class="form-control">
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label" for="reasonCode"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>:</label>
+                            <div class="col-sm-8">
+                                <select name="reasonCode" id="reasonCode" class="form-select form-select-sm">
                                     <c:choose>
                                         <c:when test="${ not empty reasonCodes  }">
                                             <c:forEach items="${ reasonCodes.items }" var="reason">
@@ -1241,17 +1177,12 @@ Ontario, Canada
                                         </c:otherwise>
                                     </c:choose>
                                 </select>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td>
-                                <textarea id="reason" name="reason" class="form-control" tabindex="2" rows="2"
+                                <textarea id="reason" name="reason" class="form-control form-control-sm mt-1" tabindex="2" rows="2"
                                           style="resize:none;"
-                                          placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>" cols="18"
+                                          placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>"
                                           maxlength="80"><%=bFirstDisp ? "" : "".equals(request.getParameter("reason")) ? "" : Encode.forHtmlContent(request.getParameter("reason"))%></textarea>
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
                         <%
                             boolean bMoreAddr = bMultisites ? true : props.getProperty("scheduleSiteID", "").equals("") ? false : true;
                             String tempLoc = "";
@@ -1263,15 +1194,11 @@ Ontario, Canada
                                     ? ApptUtil.getColorFromLocation(sites, loc)
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
                         %>
-
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>:
-                            </td>
-                            <td>
-                                <% // multisites start ==================
-                                    if (bMultisites) { %>
-                                <select tabindex="4" class="form-control" name="location"
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>:</label>
+                            <div class="col-sm-8">
+                                <% if (bMultisites) { %>
+                                <select tabindex="4" class="form-select form-select-sm" name="location"
                                         style="background-color: <%=colo%>"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (Site s : sites) { %>
@@ -1281,11 +1208,8 @@ Ontario, Canada
                                     </option>
                                     <% } %>
                                 </select>
-                                <% } else {
-                                    // multisites end ==================
-                                    if (locationEnabled) {
-                                %>
-                                <select name="location">
+                                <% } else if (locationEnabled) { %>
+                                <select name="location" class="form-select form-select-sm">
                                     <%
                                         String sessionLocation = "";
                                         ProgramProvider programProvider = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -1303,47 +1227,35 @@ Ontario, Canada
                                     %>
                                 </select>
                                 <% } else { %>
-	            <input type="TEXT" name="location" tabindex="4" value="<%=Encode.forHtmlAttribute(loc != null ? loc : "")%>" class="form-control">
+                                <input type="text" name="location" tabindex="4" value="<%=Encode.forHtmlAttribute(loc != null ? loc : "")%>" class="form-control form-control-sm">
                                 <% } %>
-                                <% } %>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formCreator"/>:
-                            </td>
-                            <td>
-	                <input type="TEXT" name="user_id" class="form-control"
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formCreator"/>:</label>
+                            <div class="col-sm-8">
+                                <input type="text" name="user_id" class="form-control form-control-sm"
                                        value='<%=bFirstDisp?(Encode.forHtmlAttribute(userlastname)+", "+Encode.forHtmlAttribute(userfirstname)):"".equals(request.getParameter("user_id"))?"Unknown":Encode.forHtmlAttribute(request.getParameter("user_id"))%>'
-	                   readonly="readonly" >
-                            </td>
-                        </tr>
-
+                                       readonly="readonly">
+                            </div>
+                        </div>
                         <% if (pros.isPropertyActive("mc_number")) { %>
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formMC"/>:
-                            </td>
-                            <td>
-                                <input type="text" name="appt_mc_number" tabindex="5"/>
-                            </td>
-                        </tr>
-
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formMC"/>:</label>
+                            <div class="col-sm-8">
+                                <input type="text" name="appt_mc_number" tabindex="5" class="form-control form-control-sm"/>
+                            </div>
+                        </div>
                         <% } %>
+                    </div>
 
-                    </table>
-
-                    <table class="table table-condensed table-responsive">
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStatus"/>:
-                            </td>
-                            <td>
-                                <%
-                                    if (strEditable != null && strEditable.equalsIgnoreCase("yes")) {
-                                %>
-
-	<select class="form-control" name="status" style="background-color:<%=(allStatus.get(0)).getColor()%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor' >
+                    <%-- Right column: Status, Type, Doctor, Notes, Resources, DateTime, Critical, Email --%>
+                    <div class="col-md-6">
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStatus"/>:</label>
+                            <div class="col-sm-8">
+                                <% if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
+                                <select class="form-select form-select-sm" name="status" style="background-color:<%=(allStatus.get(0)).getColor()%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (int i = 0; i < allStatus.size(); i++) { %>
                                     <option class="<%=(allStatus.get(i)).getStatus()%>"
                                             style="background-color:<%=(allStatus.get(i)).getColor()%>"
@@ -1351,28 +1263,23 @@ Ontario, Canada
                                             <%=(allStatus.get(i)).getStatus().equals(request.getParameter("status")) ? "SELECTED" : ""%>><%=(allStatus.get(i)).getDescription()%>
                                     </option>
                                     <% } %>
-                                </select> <%
-                                }
-                                if (strEditable == null || !strEditable.equalsIgnoreCase("yes")) {
-	            %> <input type="text" name="status" class="form-control"
-                                      value='<%=bFirstDisp?"t":request.getParameter("status")==null?"":request.getParameter("status").equals("")?"":request.getParameter("status")%>'
-                            > <%}%>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formType"/>:
-                            </td>
-                            <td>
-                                <select class="form-control" name="type" id="type"
+                                </select>
+                                <% } else { %>
+                                <input type="text" name="status" class="form-control form-control-sm"
+                                       value='<%=bFirstDisp?"t":request.getParameter("status")==null?"":request.getParameter("status").equals("")?"":request.getParameter("status")%>'>
+                                <% } %>
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formType"/>:</label>
+                            <div class="col-sm-8">
+                                <select class="form-select form-select-sm" name="type" id="type"
                                         title="<fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgSelectVisitType"/>">
                                 <option data-dur="" data-reason=""></option>
-                                    <!-- important leave a blank top entry  -->
-
-	        <% AppointmentTypeDao appDao = SpringUtils.getBean(AppointmentTypeDao.class);
-                                        List<AppointmentType> types = appDao.listAll();
-                                        for (int j = 0; j < types.size(); j++) {
-                                    %>
+                                <% AppointmentTypeDao appDao = SpringUtils.getBean(AppointmentTypeDao.class);
+                                    List<AppointmentType> types = appDao.listAll();
+                                    for (int j = 0; j < types.size(); j++) {
+                                %>
                                     <option data-dur="<%= types.get(j).getDuration() %>"
                                             data-reason="<%= Encode.forHtmlAttribute(types.get(j).getReason()) %>"
                                             data-loc="<%= Encode.forHtmlAttribute(types.get(j).getLocation()) %>"
@@ -1380,114 +1287,88 @@ Ontario, Canada
                                             data-resources="<%= Encode.forHtmlAttribute(types.get(j).getResources()) %>">
                                         <%=Encode.forHtml(types.get(j).getName()) %>
                                     </option>
-                                    <% } %>
+                                <% } %>
                                 </select>
-
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <label for="mrp"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDoctor"/>:</label>
-                            </td>
-                            <td>
-                                <input type="text" id="mrp" class="form-control"
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label" for="mrp"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDoctor"/>:</label>
+                            <div class="col-sm-8">
+                                <input type="text" id="mrp" class="form-control form-control-sm"
                                        value="<%=bFirstDisp ? "" : StringEscapeUtils.escapeHtml4(providerBean.getProperty(curDoctor_no,""))%>" readonly="readonly">
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:
-                            </td>
-                            <td>
-                                <textarea class="form-control" name="notes" tabindex="3" rows="2" style="resize:none;"
-                                          placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>" cols="18"
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:</label>
+                            <div class="col-sm-8">
+                                <textarea class="form-control form-control-sm" name="notes" tabindex="3" rows="2" style="resize:none;"
+                                          placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>"
                                           maxlength="255"><%=bFirstDisp ? "" : Encode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formResources"/>:
-                            </td>
-                            <td>
-	                <input type="text" name="resources" class="form-control"
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formResources"/>:</label>
+                            <div class="col-sm-8">
+                                <input type="text" name="resources" class="form-control form-control-sm"
                                        tabindex="6"
-                                       value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'
-                                >
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDateTime"/>:
-                            </td>
-                            <td>
-		            <div class="card">
-			            <div class="card-body">
+                                       value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'>
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDateTime"/>:</label>
+                            <div class="col-sm-8">
                                 <%
                                     GregorianCalendar now = new GregorianCalendar();
                                     GregorianCalendar cal = (GregorianCalendar) now.clone();
                                     cal.add(GregorianCalendar.DATE, 1);
                                     String strDateTime = now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DAY_OF_MONTH) + " "
                                             + now.get(Calendar.HOUR_OF_DAY) + ":" + now.get(Calendar.MINUTE) + ":" + now.get(Calendar.SECOND);
-
                                     LocalDateTime create = now.toZonedDateTime().toLocalDateTime();
                                     DateTimeFormatter pattern = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM).withLocale(request.getLocale()).withZone(ZoneId.systemDefault());
-
                                 %>
                                 <input type="hidden" name="createdatetime" value="<%=strDateTime%>">
-                                <%=create.format(pattern)%>
+                                <span class="form-control-plaintext form-control-sm"><%=create.format(pattern)%></span>
                                 <input type="hidden" name="provider_no" value="<%=curProvider_no%>">
                                 <input type="hidden" name="dboperation" value="search_titlename">
                                 <input type="hidden" name="creator"
                                        value='<%=Encode.forHtmlAttribute(userlastname)+", "+Encode.forHtmlAttribute(userfirstname)%>'>
                                 <input type="hidden" name="remarks" value="">
-			            </div>
-		            </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <label for="urgency">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formCritical"/>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-shield-exclamation" viewBox="0 0 16 16">
-                                        <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"></path>
-                                        <path d="M7.001 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0M7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.553.553 0 0 1-1.1 0z"></path>
-                                    </svg>:
-                                </label>
-                            </td>
-                            <td>
-	                <input type="checkbox" class="checkbox" id="urgency" name="urgency" value="critical">
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label" for="urgency">
+                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formCritical"/>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" class="bi bi-shield-exclamation" viewBox="0 0 16 16">
+                                    <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"></path>
+                                    <path d="M7.001 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0M7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.553.553 0 0 1-1.1 0z"></path>
+                                </svg>:
+                            </label>
+                            <div class="col-sm-8">
+                                <div class="form-check mt-1">
+                                    <input type="checkbox" class="form-check-input" id="urgency" name="urgency" value="critical">
+                                </div>
+                            </div>
+                        </div>
                         <% String emailReminder = pros.getProperty("emailApptReminder");
                             if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
-                        <tr>
-                            <td>
-                                <fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formEmailReminder"/>:
-                            </td>
-                            <td>
-	                <input type="checkbox" name="emailPt" value="email reminder" class="form-control">
-                            </td>
-                        </tr>
-                        <% } else { %>
-                        <tr>
-                            <td></td>
-                            <td></td>
-                        </tr>
-                        <% }%>
-
-		    <% if (pros.isPropertyActive("mc_number")) { %>
-		    <tr>
-			    <td>
-				    <fmt:message key="Appointment.formMC" />:
-			    </td>
-			    <td>
-				    <input type="text" name="appt_mc_number" class="form-control"/>
-			    </td>
-		    </tr>
-
-		    <% } %>
-
-                    </table>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                            <div class="col-sm-8">
+                                <div class="form-check mt-1">
+                                    <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
+                                </div>
+                            </div>
+                        </div>
+                        <% } %>
+                        <% if (pros.isPropertyActive("mc_number")) { %>
+                        <div class="mb-2 row">
+                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formMC"/>:</label>
+                            <div class="col-sm-8">
+                                <input type="text" name="appt_mc_number" class="form-control form-control-sm"/>
+                            </div>
+                        </div>
+                        <% } %>
+                    </div>
                 </div>
                 <input type="hidden" name="orderby" value="last_name, first_name">
                 <%
@@ -1591,117 +1472,84 @@ Ontario, Canada
 
 </form>
 
-        <div class="span12">
-            <table style="margin-left:auto;">
-                <tr>
-                    <td style="vertical-align: top;">
-                        <%if (bFromWL && demoNo != null && demoNo.length() > 0) {%>
-                        <table style="font-size: 9pt; background-color:#e8e8e8; text-align:center; vertical-align: top; padding:3px;">
-                            <tr style="background-color:#e8e8e8;">
-                                <th colspan="2">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgDemgraphics"/>
-                                    <a title="Master File"
-                                       onclick="popup(700,1000,'<%=request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demoNo%>&amp;displaymode=edit&amp;dboperation=search_detail','master')"
-                                       href="javascript: function myFunction() {return false; }"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnEdit"/></a>
+        <div class="row mt-3 g-3">
+            <%if (bFromWL && demoNo != null && demoNo.length() > 0) {%>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgDemgraphics"/>
+                        <a title="Master File"
+                           onclick="popup(700,1000,'<%=request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demoNo%>&amp;displaymode=edit&amp;dboperation=search_detail','master')"
+                           href="javascript: function myFunction() {return false; }"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnEdit"/></a>
+                        &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgSex"/>: <%=sex%>
+                        &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgDOB"/>: <%=dob%>
+                    </div>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgHin"/>:</strong> <%=Encode.forHtmlContent(hin.replace("null", ""))%></li>
+                        <li class="list-group-item"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgAddress"/>:</strong> <%=Encode.forHtmlContent(StringUtils.trimToEmpty(address))%>, <%=Encode.forHtmlContent(StringUtils.trimToEmpty(city))%>, <%=Encode.forHtmlContent(StringUtils.trimToEmpty(province))%>, <%=Encode.forHtmlContent(StringUtils.trimToEmpty(postal))%></li>
+                        <li class="list-group-item"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgPhone"/>:</strong> <b><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgH"/></b>: <%=Encode.forHtmlContent(StringUtils.trimToEmpty(phone))%> <b><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgW"/></b>: <%=Encode.forHtmlContent(StringUtils.trimToEmpty(phone2))%></li>
+                        <li class="list-group-item"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgEmail"/>:</strong> <%=Encode.forHtmlContent(StringUtils.trimToEmpty(email))%></li>
+                    </ul>
+                </div>
+            </div>
+            <%}%>
 
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgSex"/>: <%=sex%> &nbsp;
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgDOB"/>: <%=dob%>
-                                </th>
-                            </tr>
-                            <tr style="background-color:#fdfdfd">
-                                <th style="padding-right: 20px; text-align: left"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgHin"/>:
-                                </th>
-                                <td><%=Encode.forHtmlContent(hin.replace("null", ""))%>
-                                </td>
-                            </tr>
-                            <tr style="background-color:#f3f6f9">
-                                <th style="padding-right: 20px; text-align: left"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgAddress"/>:
-                                </th>
-                                <td><%=Encode.forHtmlContent(StringUtils.trimToEmpty(address))%>, <%=Encode.forHtmlContent(StringUtils.trimToEmpty(city))%>
-                                    , <%=Encode.forHtmlContent(StringUtils.trimToEmpty(province))%>, <%=Encode.forHtmlContent(StringUtils.trimToEmpty(postal))%>
-                                </td>
-                            </tr>
-                            <tr style="background-color:#fdfdfd">
-                                <th style="padding-right: 20px; text-align: left"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgPhone"/>:
-                                </th>
-                                <td><b><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgH"/></b>:<%=Encode.forHtmlContent(StringUtils.trimToEmpty(phone))%>
-                                    <b><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgW"/></b>:<%=Encode.forHtmlContent(StringUtils.trimToEmpty(phone2))%>
-                                </td>
-                            </tr>
-                            <tr style="background-color:#f3f6f9; text-align:left">
-                                <th style="padding-right: 20px"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgEmail"/>:
-                                </th>
-                                <td><%=Encode.forHtmlContent(StringUtils.trimToEmpty(email))%>
-                                </td>
-                            </tr>
-
-                        </table>
-                        <%}%>
-                    </td>
-                    <td style="vertical-align: top;">
-                        <%
-                            String formTblProp = props.getProperty("appt_formTbl", "");
-                            String[] formTblNames = formTblProp.split(";");
-
-                            int numForms = 0;
-                            for (String formTblName : formTblNames) {
-                                if ((formTblName != null) && !formTblName.equals("")) {
-                                    //form table name defined
-                                    for (EncounterForm ef : encounterFormDao.findByFormTable(formTblName)) {
-                                        String formName = ef.getFormName();
-                                        pageContext.setAttribute("formName", formName);
-                                        boolean formComplete = false;
-                                        EctFormData.PatientForm[] ptForms = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, demoNo, formTblName);
-
-                                        if (ptForms.length > 0) {
-                                            formComplete = true;
-                                        }
-                                        numForms++;
-                                        if (numForms == 1) {
-
-                        %>
-                        <table style="background-color: #e8e8e8; margin-left:auto; vertical-align: top;padding:3px">
-                            <tr style="background-color:#f3f6f9">
-                                <th colspan="2">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgFormsSaved"/>
-                                </th>
-                            </tr>
-                            <% }%>
-
-                            <tr style="background-color:#e8e8e8; text-align:left">
-                                <th style="padding-right: 20px"><c:out value="${formName}:"/></th>
-                                <% if (formComplete) { %>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgFormCompleted"/></td>
-                                <% } else { %>
-                                <td><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgFormNotCompleted"/></td>
-                                <% } %>
-                            </tr>
-                            <%
-                                        }
-                                    }
-                                }
-
-                                if (numForms > 0) {
-                            %>
-                        </table>
+            <%
+                String formTblProp = props.getProperty("appt_formTbl", "");
+                String[] formTblNames = formTblProp.split(";");
+                int numForms = 0;
+                List<String[]> formResults = new ArrayList<>();
+                for (String formTblName : formTblNames) {
+                    if ((formTblName != null) && !formTblName.equals("")) {
+                        for (EncounterForm ef : encounterFormDao.findByFormTable(formTblName)) {
+                            String formName = ef.getFormName();
+                            boolean formComplete = false;
+                            EctFormData.PatientForm[] ptForms = EctFormData.getPatientFormsFromLocalAndRemote(loggedInInfo, demoNo, formTblName);
+                            if (ptForms.length > 0) {
+                                formComplete = true;
+                            }
+                            formResults.add(new String[]{formName, formComplete ? "true" : "false"});
+                            numForms++;
+                        }
+                    }
+                }
+                if (numForms > 0) {
+            %>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgFormsSaved"/></div>
+                    <ul class="list-group list-group-flush">
+                        <% for (String[] fr : formResults) { %>
+                        <li class="list-group-item"><strong><%=Encode.forHtmlContent(fr[0])%>:</strong>
+                            <% if ("true".equals(fr[1])) { %>
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgFormCompleted"/>
+                            <% } else { %>
+                            <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgFormNotCompleted"/>
+                            <% } %>
+                        </li>
                         <% } %>
-                    </td>
-                    <td style="vertical-align: top;">
-                        <table style="font-size: 8pt; background-color:#e9e9e9; margin-left:auto; vertical-align: top;">
-                            <tr style="background-color:#e8e8e8">
-                                <th colspan="4"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgOverview"/></th>
-                            </tr>
-                            <tr style="background-color:#fdfdfd">
-                                <th style="padding-right: 25px"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/></th>
-                                <th style="padding-right: 25px"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStartTime"/></th>
-                                <th style="padding-right: 25px"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgProvider"/></th>
-                                <th><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgComments"/></th>
-                            </tr>
-                            <%
+                    </ul>
+                </div>
+            </div>
+            <% } %>
 
+            <div class="<%= (bFromWL && demoNo != null && demoNo.length() > 0) ? "col-md-4" : "col-md-12" %>">
+                <div class="card">
+                    <div class="card-header"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgOverview"/></div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDate"/></th>
+                                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStartTime"/></th>
+                                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgProvider"/></th>
+                                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgComments"/></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <%
                                 int iRow = 0;
                                 if (bFromWL && demoNo != null && demoNo.length() > 0) {
-
                                     Object[] param2 = new Object[3];
                                     param2[0] = demoNo;
                                     Calendar cal2 = Calendar.getInstance();
@@ -1714,51 +1562,42 @@ Ontario, Canada
                                     for (Object[] result : appointmentDao.search_appt_future(Integer.parseInt(demoNo), start, end)) {
                                         Appointment a = (Appointment) result[0];
                                         p = (Provider) result[1];
-
                                         iRow++;
                                         if (iRow > iPageSize) break;
                             %>
-                            <tr style="background-color:#e8e8e8">
-                                <td style="background-color: #e8e8e8; padding-right: 25px"><%=ConversionUtils.toDateString(a.getAppointmentDate())%>
-                                </td>
-                                <td style="background-color: #e8e8e8; padding-right: 25px"><%=ConversionUtils.toTimeString(a.getStartTime())%>
-                                </td>
-                                <td style="background-color: #e8e8e8; padding-right: 25px"><%=p.getFormattedName()%>
-                                </td>
-                                <td style="background-color: #e8e8e8;"><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : ""))%>
-                                </td>
-                            </tr>
+                                <tr>
+                                    <td><%=ConversionUtils.toDateString(a.getAppointmentDate())%></td>
+                                    <td><%=ConversionUtils.toTimeString(a.getStartTime())%></td>
+                                    <td><%=p.getFormattedName()%></td>
+                                    <td><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : ""))%></td>
+                                </tr>
                             <%
-                                }
+                                    }
+                                    iRow = 0;
+                                    cal2 = Calendar.getInstance();
+                                    cal2.add(Calendar.YEAR, -1);
 
-                                iRow = 0;
-                                cal2 = Calendar.getInstance();
-                                cal2.add(Calendar.YEAR, -1);
-
-                                for (Object[] result : appointmentDao.search_appt_past(Integer.parseInt(demoNo), start, cal2.getTime())) {
-                                    Appointment a = (Appointment) result[0];
-                                    p = (Provider) result[1];
-                                    iRow++;
-                                    if (iRow > iPageSize) break;
+                                    for (Object[] result : appointmentDao.search_appt_past(Integer.parseInt(demoNo), start, cal2.getTime())) {
+                                        Appointment a = (Appointment) result[0];
+                                        p = (Provider) result[1];
+                                        iRow++;
+                                        if (iRow > iPageSize) break;
                             %>
-                            <tr style="background-color:#e8e8e8">
-                                <td style="background-color: #e8e8e8; padding-right: 25px"><%=ConversionUtils.toDateString(a.getAppointmentDate())%>
-                                </td>
-                                <td style="background-color: #e8e8e8; padding-right: 25px"><%=ConversionUtils.toTimeString(a.getStartTime())%>
-                                </td>
-                                <td style="background-color: #e8e8e8; padding-right: 25px"><%=p.getFormattedName()%>
-                                </td>
-                                <td style="background-color: #e8e8e8;"><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : ""))%>
-                                </td>
-                            </tr>
+                                <tr>
+                                    <td><%=ConversionUtils.toDateString(a.getAppointmentDate())%></td>
+                                    <td><%=ConversionUtils.toTimeString(a.getStartTime())%></td>
+                                    <td><%=p.getFormattedName()%></td>
+                                    <td><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : ""))%></td>
+                                </tr>
                             <%
                                     }
                                 }
                             %>
+                            </tbody>
                         </table>
-                    </td>
-                </tr>
-            </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     </body>
