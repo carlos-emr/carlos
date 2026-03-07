@@ -226,37 +226,12 @@ share/javascript/sorttable.js               # DELETED — Sort table library (so
 share/javascript/sound.js                   # DELETED — script.aculo.us sound library
 ```
 
-### `share/calendar/lang/` — Unused locale files (only `en` and `fr` are configured)
+### `share/calendar/lang/` — Unused locale files (only `en` and `fr` are configured) — REMOVED
 
-Verified: `global.javascript.calendar` property only resolves to `calendar-en.js` or `calendar-fr.js` across all resource bundles (en, fr, es, pl, pt_BR). No dynamic locale path construction exists in Java or JSP code.
+Verified: `global.javascript.calendar` property only resolves to `calendar-en.js` or `calendar-fr.js` across all resource bundles (en, fr, es, pl, pt_BR). No dynamic locale path construction exists in Java or JSP code. Demo HTML files only reference `calendar-en.js`. `calendar.php` is dead code (Java project).
 
-```
-share/calendar/lang/calendar-af.js          share/calendar/lang/calendar-nl.js
-share/calendar/lang/calendar-al.js          share/calendar/lang/calendar-no.js
-share/calendar/lang/calendar-bg.js          share/calendar/lang/calendar-pl-utf8.js
-share/calendar/lang/calendar-big5-utf8.js   share/calendar/lang/calendar-pl.js
-share/calendar/lang/calendar-big5.js        share/calendar/lang/calendar-pt.js
-share/calendar/lang/calendar-br.js          share/calendar/lang/calendar-ru.js
-share/calendar/lang/calendar-ca.js          share/calendar/lang/calendar-ru_win_.js
-share/calendar/lang/calendar-cs-utf8.js     share/calendar/lang/calendar-si.js
-share/calendar/lang/calendar-da.js          share/calendar/lang/calendar-sk.js
-share/calendar/lang/calendar-de.js          share/calendar/lang/calendar-sp.js
-share/calendar/lang/calendar-du.js          share/calendar/lang/calendar-sv.js
-share/calendar/lang/calendar-el.js          share/calendar/lang/calendar-tr.js
-share/calendar/lang/calendar-es.js          share/calendar/lang/calendar-zh.js
-share/calendar/lang/calendar-fi.js          share/calendar/lang/cn_utf8.js
-share/calendar/lang/calendar-he-utf8.js
-share/calendar/lang/calendar-hr-utf8.js
-share/calendar/lang/calendar-hr.js
-share/calendar/lang/calendar-hu.js
-share/calendar/lang/calendar-it.js
-share/calendar/lang/calendar-jp.js
-share/calendar/lang/calendar-ko-utf8.js
-share/calendar/lang/calendar-ko.js
-share/calendar/lang/calendar-lt-utf8.js
-share/calendar/lang/calendar-lt.js
-share/calendar/lang/calendar-lv.js
-```
+**DELETED**: 41 unused locale files (report originally listed 28; actual count was 41 including cs-win, ro, sv, cs-utf8, big5 variants, and cn_utf8)
+**KEPT**: `calendar-en.js`, `calendar-fr.js`
 
 ---
 
@@ -468,7 +443,7 @@ schedule/scheduletemplatesetting1.jsp       # Schedule template settings
 | Other unused libraries | 3 | ~100 KB | **Verified** |
 | `js/` directory unused | 15 | ~400 KB | **REMOVED** — old plugins/non-min versions |
 | `share/` unused JS | 9 | ~200 KB | **REMOVED** — legacy |
-| `share/calendar/lang/` (28 locales) | 28 | ~50 KB | **Verified** — only en/fr used, no dynamic loading |
+| `share/calendar/lang/` (41 locales) | 41 | ~50 KB | **REMOVED** — only en/fr kept |
 | PMmodule/Admin JSPs | 35 | ~200 KB | **Verified** — dead Tiles references |
 | admin/ migration JSPs | 11 | ~100 KB | **Verified** — self-referencing only |
 | billing/ JSPs | 21 | ~300 KB | **Verified** — no external references |
