@@ -2055,7 +2055,6 @@
             <result name="exit">/oscarEncounter/close.jsp</result>
         </action>
         <action name="PageMonitoringService" class="io.github.carlos_emr.carlos.commn.web.PageMonitoring2Action"/>
-        <action name="casemgmt/NotePermissions" class="io.github.carlos_emr.carlos.casemgmt.web.NotePermissions2Action"/>
         <action name="BillingInvoice" class="io.github.carlos_emr.carlos.commn.web.BillingInvoice2Action">
             <result name="success">/billing/CA/ON/billingONCorrection.jsp</result>
             <result name="listSuccess">/billing/CA/ON/billingONStatus.jsp</result>

@@ -394,14 +394,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
             <script>
                 savedNoteId =<%=note.getNoteId()%>;
             </script>
-            <%
-                if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
-            %>
-            <script>
-                _setupNewNote();
-            </script>
-            <% } %>
-
             <div class='tool-button print-button'>
                 <img title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.print.title"/>" id='print<%=globalNoteId%>'
                      alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.togglePrintNote.title"/>"
@@ -710,15 +702,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
 						if (!note.isDocument() && !note.isCpp() && !note.isEformData() && !note.isEncounterForm() && !note.isInvoice())
 						{
 
-                    if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
-            %>
-            <div class="_program" noteId="<%=globalNoteId %>" programName="<%=note.getProgramName() %>"
-                 roleName="<%=note.getRoleName() %>">
-                <span class="program"><%=note.getProgramName() %> (<%=note.getRoleName() %>)</span>
-            </div>
-            <%
-                }
-            %>
 							<div id="sig<%=globalNoteId%>" class="sig" style="<%=note.isEmailNote()?(bgColour):""%>">
 								<div id="sumary<%=globalNoteId%>" style="<%=note.isEmailNote()?"color: #FFF !important":""%>">
                     <div id="observation<%=globalNoteId%>" style="float: right; margin-right: 3px;">
@@ -884,12 +867,6 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     </div> <!-- end of div n<%=savedId%>  -->
 </div>
 <!-- end of div nc<%=offset%><%=savedId%> -->
-
-<% if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) { %>
-<script>
-    _setupNewNote();
-</script>
-<% } %>
 
 <%
     }
@@ -1060,22 +1037,8 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     if (typeof messagesLoaded == 'function') {
         messagesLoaded('<%=savedId%>');
     }
-    <%
-	if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
-	%>
-    _setupProgramList();
-    <% } %>
 
 </script>
-
-<%
-    if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
-%>
-<script type="text/javascript">
-    jQuery("._program .program").unbind("click");
-    jQuery("._program .program").click(_noteProgramClick);
-</script>
-<% } %>
 
 
 <% } %>

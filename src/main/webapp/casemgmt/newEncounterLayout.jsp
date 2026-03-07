@@ -167,11 +167,6 @@
             </security:oscarSec>
         </oscar:oscarPropertiesCheck>
 
-        <% if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) { %>
-        <link rel="stylesheet" href="<c:out value="${ctx}/casemgmt/noteProgram.css" />"/>
-        <script type="text/javascript" src="<c:out value="${ctx}/casemgmt/noteProgram.js" />"></script>
-        <% } %>
-
         <script type="text/javascript">
 
             jQuery(document).on("ready", function () {
@@ -872,51 +867,6 @@
                     onclick="$('printOps').style.display='none'; return clearAll(event);">
             </div>
 
-            <%
-                if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
-            %>
-            <span class="popup" style="display: none;" id="_program_popup">
-				<div class="arrow"></div>
-				<div class="contents">
-					<div class="selects">
-						<select class="selectProgram"></select> <select class="role"></select>
-					</div>
-					<div class="under">
-						<div class="errorMessage"></div>
-						<input type="button" class="scopeBtn" value="View Note Scope"/>
-						<input type="button" class="closeBtn" value="Close"/> <input
-                            type="button" class="saveBtn" value="Save"/>
-					</div>
-				</div>
-			</span>
-
-            <div id="_program_scope" class="_program_screen"
-                 style="display: none;">
-                <div class="_scopeBox">
-                    <div class="boxTitle">
-                        <span class="text">Note Permission Summary</span><span
-                            class="uiBigBarBtn"><span class="text">x</span></span>
-                    </div>
-                    <table class="details">
-                        <tr>
-                            <th>Program Name (of this note)</th>
-                            <td class="programName">...</td>
-                        </tr>
-                        <tr>
-                            <th>Role Name (of this note)</th>
-                            <td class="roleName">...</td>
-                        </tr>
-                    </table>
-                    <div class="explanation">The following is a summary of what
-                        kind of access providers in the above program have to this note.
-                    </div>
-                    <div class="loading">Loading...</div>
-                    <table class="permissions"></table>
-                </div>
-            </div>
-            <%
-                }
-            %>
         </form>
     </div>
     <div id="encounterModal"></div>
