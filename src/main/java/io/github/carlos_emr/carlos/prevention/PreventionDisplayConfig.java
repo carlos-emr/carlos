@@ -149,10 +149,10 @@ public class PreventionDisplayConfig {
 
                 }
 
-				if (h.get("name") != null) {
-					prevList.add(h);
-					prevHash.put(h.get("name"), h);
-				}
+                if (h.get("name") != null) {
+                    prevList.add(h);
+                    prevHash.put(h.get("name"), h);
+                }
             }
 
             for (CVCImmunization imm : cvcManager.getGenericImmunizationList()) {
