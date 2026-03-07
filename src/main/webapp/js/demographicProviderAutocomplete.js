@@ -27,7 +27,6 @@ const selectedDemos = [];
 
 /**
  * Escape a value for safe insertion into HTML content.
- *
  * @param {*} value - The value to escape
  * @returns {string} HTML-safe string
  */
@@ -38,13 +37,11 @@ function escapeHtml(value) {
 }
 
 /**
- * Highlight a query substring within a full string by wrapping it in a
- * {@code <span class="match">} element.
- *
- * @param {string} full - The full display string
- * @param {string} snippet - The query substring to highlight
- * @param {number} matchindex - The start index of the match in {@code full}
- * @returns {string} HTML string with the match wrapped in a highlight span
+ * Highlights a query substring within a full string by wrapping it in a span element.
+ * @param {string} full - The full display string.
+ * @param {string} snippet - The query substring to highlight.
+ * @param {number} matchindex - The start index of the match in full.
+ * @returns {string} HTML string with the match wrapped in a highlight span.
  */
 function highlightMatch(full, snippet, matchindex) {
     return escapeHtml(full.substring(0, matchindex)) +
@@ -76,13 +73,12 @@ function resultFormatter2(oResultData, sQuery, sResultMatch) {
 }
 
 /**
- * Format a demographic result for display — firstName lastName.
- * Used by autocomplete sources that return [id, firstName, lastName, ...] arrays.
+ * Formats a demographic result for display as "firstName lastName".
  *
  * @param {Array} oResultData - Result tuple: [id, firstName, lastName, ...]
  * @param {string} sQuery - The current search query
  * @param {string} sResultMatch - The matched result field
- * @returns {string} Formatted HTML display string
+ * @returns {string} Formatted display string
  */
 function resultFormatter(oResultData, sQuery, sResultMatch) {
     const query = sQuery.toLowerCase();
@@ -100,8 +96,7 @@ function resultFormatter(oResultData, sQuery, sResultMatch) {
 }
 
 /**
- * Format a demographic result for display — lastName, firstName.
- * Used by autocomplete sources that return [id, firstName, lastName, ...] arrays.
+ * Formats a demographic result for display — lastName, firstName.
  *
  * @param {Array} oResultData - Result tuple: [id, firstName, lastName, ...]
  * @param {string} sQuery - The current search query
@@ -124,8 +119,11 @@ function resultFormatter3(oResultData, sQuery, sResultMatch) {
 }
 
 /**
- * Enable or disable the Save button based on whether the current autocomplete
- * input value matches a previously confirmed selection in {@code selectedDemos}.
+ * Enable or disable the Save button based on the current input value.
+ *
+ * This function retrieves the input and save elements using the provided elementId.
+ * It checks if the current input value exists in the selectedDemos array.
+ * If the value is valid, the Save button is enabled; otherwise, it is disabled.
  *
  * @param {string} elementId - The suffix identifying the autocomplete and save elements
  */

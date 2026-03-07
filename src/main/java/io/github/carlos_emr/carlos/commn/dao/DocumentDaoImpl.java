@@ -522,13 +522,9 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     /**
      * Returns distinct document descriptions matching the keyword, in descending document number order.
-     *
-     * @param keyword String the search term with optional SQL wildcards (e.g. {@code %term%})
-     * @return List&lt;String&gt; distinct document descriptions matching the keyword
-     * @since 2026-02-28
+    /**
+     * Retrieves distinct document descriptions matching the keyword.
      */
-    @Override
-    @SuppressWarnings("unchecked")
     public List<String> findDocumentDescriptions(String keyword) {
         if (keyword == null) {
             keyword = "%";
