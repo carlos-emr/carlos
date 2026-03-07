@@ -68,13 +68,7 @@
 
     function pasteTimer() {
         var ed = new Date();
-        const timerNote = document.getElementById("timer-note");
-        let note = "";
-        if (timerNote.value) {
-            note = "\n" + timerNote.value;
-        }
         $(caseNote).value += "\n"
-            + note
             + "\n" + document.getElementById("startTag").value + ": "
             + d.getHours() + ":" + pad(d.getMinutes()) + "\n"
             + document.getElementById("endTag").value + ": "
@@ -83,7 +77,6 @@
             + pad(parseInt((totalSeconds / 60) % 60)) + ":"
             + pad(totalSeconds % 60);
         adjustCaseNote();
-        timerNote.value = '';
     }
 
     function setTime() {

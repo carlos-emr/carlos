@@ -138,6 +138,7 @@ public class LoginFilter implements Filter {
     private static final String[] EXEMPT_URLS = {
             "/images/Oscar.ico",
             "/images/Logo.png",
+            "/images/cloud-bg.svg",
             "/signature_pad/",
             "/lab/CMLlabUpload.do",
             "/lab/newLabUpload.do",

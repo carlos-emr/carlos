@@ -423,8 +423,6 @@ body { line-height: 12px; font-size: 12px; }
 .AbnormalRes a:active { color: red }
 .NormalRes   { font-weight: bold; font-size: 8pt; color: black; font-family:
                       Verdana, Arial, Helvetica }
-.TDISRes	{font-weight: bold; font-size: 10pt; color: black; font-family:
-               Verdana, Arial, Helvetica}
 .NormalRes a:link { color: black }
 .NormalRes a:hover { color: black }
 .NormalRes a:visited { color: black }
@@ -762,11 +760,11 @@ input[id^='acklabel_']{
         }
         function submitLabel(lblval, segmentID) {
             var ackForm = document.forms['acknowledgeForm_' + segmentID];
-            var tdisForm = document.forms['TDISLabelForm_' + segmentID];
-            if (ackForm && ackForm.label && tdisForm && tdisForm.label) {
+            var labForm = document.forms['labLabelForm_' + segmentID];
+            if (ackForm && ackForm.label && labForm && labForm.label) {
                 let newlabelvalue = ackForm.label.value;
                 if (newlabelvalue.length > 1) {
-                    tdisForm.label.value = newlabelvalue;
+                    labForm.label.value = newlabelvalue;
                 }
             }
         }
@@ -831,7 +829,7 @@ input[id^='acklabel_']{
                 if (accNum) params.append('accessionNum', accNum.value);
                 if (labelInput) params.append('label', labelInput.value);
                 params.append('ajaxcall', 'true');
-                fetch('<%=request.getContextPath()%>/lab/CA/ALL/createLabelTDIS.do', {
+                fetch('<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel.do', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                     body: params.toString()
@@ -908,8 +906,8 @@ input[id^='acklabel_']{
                value="<%= Encode.forHtmlAttribute(providerNo) %>">
     </form>
 
-    <form name="TDISLabelForm_<%= Encode.forHtmlAttribute(segmentID) %>" method='POST'
-          action="<%=request.getContextPath()%>/lab/CA/ALL/createLabelTDIS.do">
+    <form name="labLabelForm_<%= Encode.forHtmlAttribute(segmentID) %>" method='POST'
+          action="<%=request.getContextPath()%>/lab/CA/ALL/createLabLabel.do">
         <input type="hidden" id="labellabNum_<%= Encode.forHtmlAttribute(segmentID) %>" name="lab_no" value="<%=lab_no%>">
         <input type="hidden" id="label_<%= Encode.forHtmlAttribute(segmentID) %>" name="label" value="<%= Encode.forHtmlAttribute(label) %>">
     </form>
@@ -1359,20 +1357,7 @@ input[id^='acklabel_']{
                                         </td>
                                     </tr>
                                     <% } %>
-                                    <% if (handler.getMsgType().equals("MEDVUE")) { %>
-                                    <tr>
-                                        <td>
-                                            <div class="FieldData">
-                                                <strong>MEDVUE Encounter Id:</strong>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="FieldData">
-                                                <%=Encode.forHtml(handler.getEncounterId()) %>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <% }
+                                    <%
                                         String comment =Encode.forHtml(handler.getNteForPID());
                                         if (comment != null && !comment.equals("")) {%>
                                     <tr>
@@ -1601,56 +1586,8 @@ input[id^='acklabel_']{
                         ArrayList<String> headers = handler.getHeaders();
                         int OBRCount = handler.getOBRCount();
 
-                        if (handler.getMsgType().equals("MEDVUE")) { %>
-                    <%-- MEDVUE Redirect. --%>
-                    <table style="page-break-inside:avoid; width:100%">
-                        <tr>
-                            <td colspan="4">&nbsp;</td>
-                        </tr>
-                        <tr>
-                            <td style="background-color:#FFCC00; width:300px; vertical-align:bottom">
-                                <div class="Title2">
-                                    <%=Encode.forHtml(headers.get(0))%>
-                                </div>
-                            </td>
-                            <%--<td style="text-align:right" style="background-color:#FFCC00; width:100">&nbsp;</td>--%>
-                            <td style="width:9px">&nbsp;</td>
-                            <td style="width:9px">&nbsp;</td>
-                            <td>&nbsp;</td>
-                        </tr>
-                    </table>
-                    <table style="width:100%" id="tblDiscs1">
-                        <tr class="Field2">
-                            <td style="width:25%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formTestName"/></td>
-                            <td style="width:15%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formResult"/></td>
-                            <td style="width:5%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAbn"/></td>
-                            <td style="width:15%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formReferenceRange"/></td>
-                            <td style="width:10%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formUnits"/></td>
-                            <td style="width:15%" class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formDateTimeCompleted"/></td>
-                            <td style="width:6%"  class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formNew"/></td>
-                            <td style="width:6%"  class="Cell"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarMDS.segmentDisplay.formAnnotate"/></td>
-                        </tr>
-                        <tr class="TDISRes">
-                            <td style="vertical-align:top;  text-align:left;"> colspan="9">
-                                <pre style="margin:0px 0px 0px 100px;"><b>Radiologist: </b><b><%=Encode.forHtml(handler.getRadiologistInfo())%></b></pre>
-                            </td>
-                </td>
-            </tr>
-            <tr class="TDISRes">
-                <td style="vertical-align:top;  text-align:left;"> colspan="9">
-                    <pre style="margin:0px 0px 0px 100px;"><b><%=Encode.forHtml(handler.getOBXComment(1, 1, 1))%></b></pre>
-                </td>
-                </td>
-                <td style="text-align:center; vertical-align:top; ">
-                    <a href="javascript:void(0);" title="Annotation"
-                       onclick="window.open('<%=request.getContextPath()%>/annotation/annotation.jsp?display=<%=annotation_display%>&amp;table_id=<%=Encode.forJavaScript(segmentID)%>&amp;demo=<%=demographicID%>&amp;other_id=<%=String.valueOf(1) + "-" + String.valueOf(1) %>','anwin','width=400,height=500');">
-                        <img src="<%= request.getContextPath() %>/images/notes.gif" alt="rxAnnotation" height="16" style="width:13"/>
-                    </a>
-                </td>
-            </tr>
-        </table>
-        <%-- ALL OTHERS Redirect. --%>
-        <% } else {
+                        %>
+        <%
 
             for (i = 0; i < headers.size(); i++) {
                 linenum = 0;
@@ -1826,7 +1763,7 @@ input[id^='acklabel_']{
                         if (handler.getMsgType().equals("EPSILON")) {
                             b2 = true;
                             b3 = true; //Because Observation header can never be the same as the header. Observation header = OBX-4.2 and header= OBX-4.1
-                        } else if (handler.getMsgType().equals("PFHT") || handler.getMsgType().equals("CML") || handler.getMsgType().equals("HHSEMR")) {
+                        } else if (handler.getMsgType().equals("CML") || handler.getMsgType().equals("HHSEMR")) {
                             b2 = true;
                         }
 
@@ -1923,7 +1860,7 @@ input[id^='acklabel_']{
             </tr>
             <% }
 
-            } else if (handler.getMsgType().equals("PFHT") || handler.getMsgType().equals("HHSEMR") || handler.getMsgType().equals("CML")) {
+            } else if (handler.getMsgType().equals("HHSEMR") || handler.getMsgType().equals("CML")) {
                 if (!obxName.equals("")) { %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
@@ -1987,7 +1924,7 @@ input[id^='acklabel_']{
             <%
                 }
 
-            } else if ((!handler.getOBXResultStatus(j, k).equals("TDIS") && handler.getMsgType().equals("Spire"))) {
+            } else if (handler.getMsgType().equals("Spire")) {
             %>
             <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="<%=lineClass%>">
                 <td style="vertical-align:top;  text-align:left;"><%= obrFlag ? "&nbsp; &nbsp; &nbsp;" : "&nbsp;" %><a
@@ -2069,7 +2006,7 @@ input[id^='acklabel_']{
                 }
 
 
-            } else if ((!handler.getOBXResultStatus(j, k).equals("TDIS") && !handler.getMsgType().equals("EPSILON"))) {
+            } else if (!handler.getMsgType().equals("EPSILON")) {
 
                 if (isUnstructuredDoc) {
             %>
@@ -2287,7 +2224,7 @@ input[id^='acklabel_']{
                 for (l = 0; l < handler.getOBXCommentCount(j, k); l++) {
                     if (!handler.getOBXComment(j, k, l).equals("")) {
             %>
-            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;" class="TDISRes">
+            <tr style="background-color:<%=(linenum % 2 == 1 ? highlight : "white")%>;">
                 <td style="vertical-align:top;  text-align:left;" colspan="9">
                     <pre style="margin:0px 0px 0px 100px;"><%=Encode.forHtml(handler.getOBXComment(j, k, l).replaceAll("<br />", " "))%></pre>
                 </td>
@@ -2313,8 +2250,7 @@ input[id^='acklabel_']{
             }
 
 
-                if (!handler.getMsgType().equals("PFHT")) {
-                    if (headers.get(i).equals(handler.getObservationHeader(j, 0))) {
+                if (headers.get(i).equals(handler.getObservationHeader(j, 0))) {
             %>
             <%
                 for (k = 0; k < handler.getOBRCommentCount(j); k++) {
@@ -2352,7 +2288,6 @@ input[id^='acklabel_']{
 
 
                             }//end if handler.getObservation..
-                        } // end for if (PFHT)
 
                     } //end for j=0; j<obrCount;
                 } // // end for headersfor i=0... (headers) line 625
@@ -2399,7 +2334,7 @@ input[id^='acklabel_']{
         </table>
         <%
 
-            } // end for handler.getMsgType().equals("MEDVUE")
+            } // end for headers
 
         %>
         <%-- FOOTER --%>

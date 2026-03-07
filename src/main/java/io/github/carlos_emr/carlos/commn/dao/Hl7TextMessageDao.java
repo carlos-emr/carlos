@@ -39,8 +39,6 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 
 public interface Hl7TextMessageDao extends AbstractDao<Hl7TextMessage> {
 
-    public void updateIfFillerOrderNumberMatches(String base64EncodedeMessage, int fileUploadCheckId, Integer id);
-
     public List<Hl7TextMessage> findByFileUploadCheckId(int id);
 
 	public List<Hl7TextMessage> findByIds(List<Integer> ids);

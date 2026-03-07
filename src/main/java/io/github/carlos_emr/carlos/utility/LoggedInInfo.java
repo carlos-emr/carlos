@@ -131,13 +131,6 @@ public final class LoggedInInfo implements Serializable {
         return ((LoggedInInfo) request.getAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY));
     }
 
-    /**
-     * This is used for logout only, should not be used at the end of a request.
-     */
-    public static void removeLoggedInInfoFromSession(HttpSession session) {
-        session.removeAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY);
-    }
-
     public Facility getCurrentFacility() {
         return (currentFacility);
     }

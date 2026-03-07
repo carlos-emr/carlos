@@ -36,10 +36,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import org.owasp.encoder.Encode;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -67,10 +67,6 @@ public class EctDisplayRx2Action extends EctDisplayAction {
             Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
-            //grab all of the diseases associated with patient and add a list item for each
-            String dbFormat = "yyyy-MM-dd";
-            String serviceDateStr;
-            Date date;
             RxPrescriptionData prescriptData = new RxPrescriptionData();
             Prescription[] arr = prescriptData.getUniquePrescriptionsByPatient(Integer.parseInt(bean.demographicNo));
 
@@ -93,14 +89,11 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                 }
 
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-                date = drug.getRxDate();
-                serviceDateStr = DateUtils.formatDate(date, request.getLocale());
 
                 if (prefsBean != null && "on".equals(prefsBean.getEnable())) {
                     Locale locale = request.getLocale();
 
                     String descr = "";
-                    String title = "";
 
                     if (!StringUtils.isNullOrEmpty(drug.getCustomName())) {
                         descr = drug.getCustomName();
@@ -114,32 +107,26 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     if (prefsBean != null && "on".equals(prefsBean.getMedicationEndDate()) && !drug.isLongTerm()) {
                         descr += " End Date:" + DateUtils.formatDate(drug.getEndDate(), locale);
                     }
-                    if (prefsBean != null && "on".equals(prefsBean.getMedicationQty())) {
-                        descr += " Qty:" + drug.getQuantity();
-                    }
-                    if (prefsBean != null && "on".equals(prefsBean.getMedicationRepeats())) {
-                        descr += " Repeats:" + drug.getRepeat();
-                    }
-
                     String tmp = "";
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
+                    tmp = stripQtyRepeats(tmp);
 
                     descr = "<span " + getClassColour(drug, now, month) + ">" + descr + "</span>";
 
                     item.setTitle(descr);
-                    item.setLinkTitle(tmp + " " + serviceDateStr + " - " + drug.getEndDate());
+                    item.setLinkTitle(Encode.forHtml(tmp));
 
                 } else {
                     String tmp = "";
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
+                    tmp = stripQtyRepeats(tmp);
 
                     String strTitle = StringUtils.maxLenString(tmp, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-                    // strTitle = "<span " + styleColor + ">" + strTitle + "</span>";
                     strTitle = "<span " + getClassColour(drug, now, month) + ">" + strTitle + "</span>";
                     item.setTitle(strTitle);
-                    item.setLinkTitle(tmp + " " + serviceDateStr + " - " + drug.getEndDate());
+                    item.setLinkTitle(Encode.forHtml(tmp));
                 }
 
                 item.setURL("return false;");
@@ -148,6 +135,11 @@ public class EctDisplayRx2Action extends EctDisplayAction {
 
             return true;
         }
+    }
+
+    private static String stripQtyRepeats(String text) {
+        if (text == null) return "";
+        return text.replaceFirst("Qty:.*", "").trim();
     }
 
     String getClassColour(Prescription drug, long referenceTime, long durationToSoon) {

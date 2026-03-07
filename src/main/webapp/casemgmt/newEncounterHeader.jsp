@@ -39,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -63,45 +64,44 @@
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
+<script type="text/javascript">
+function copyToClip(text, el) {
+    var orig = el.title;
+    function showFeedback() {
+        el.title = 'Copied!';
+        el.style.opacity = '0.5';
+        setTimeout(function() { el.style.opacity = '1'; el.title = orig; }, 600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showFeedback).catch(function() {
+            fallbackCopy(text);
+            showFeedback();
+        });
+    } else {
+        fallbackCopy(text);
+        showFeedback();
+    }
+}
+function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+}
+</script>
+
 <div id="header-top-row">
     <div id="left-column">
         <div id="branding-logo">
-            <img alt="OSCAR EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
+            <img alt="CARLOS EMR" src="<%=request.getContextPath()%>/images/oscar_logo_small.png" width="19px">
         </div>
         <%= demographic.getStandardIdentificationHTML(request.getContextPath()) %>
     </div>
     <div id="right-column">
-        <div id="userSettings" style="align-self: center; margin-right:15px;">
-            <ul id="userSettingsMenu" style="display: flex; gap:5px;">
-                <li>
-                    <a title="Scratch Pad" href="javascript:void(0)"
-                       onClick="window.open('${ctx}/scratch/index.jsp','scratch','height=700px, width=1024px')">
-                        <div class="glyphicon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                                 class="bi bi-card-list" viewBox="0 0 16 16">
-                                <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2z"></path>
-                                <path d="M5 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 5 8m0-2.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m0 5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-1-5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0M4 8a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0m0 2.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0"></path>
-                            </svg>
-                        </div>
-                    </a>
-                </li>
-                <li>
-                    <a href="javascript:void(0)" style="display: flex; align-items: flex-end;"
-                       onClick="window.open('${ctx}/provider/providerpreference.jsp?provider_no=<%=loggedInInfo.getLoggedInProviderNo()%>', 'height=680px,width=715px')"
-                       title='<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.msgSettings"/>'>
-                        <div class="glyphicon">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                                 class="bi bi-person-fill" viewBox="0 0 16 16">
-                                <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6"></path>
-                            </svg>
-                        </div>
-                        <div>
-                            <c:out value='<%= loggedInInfo.getLoggedInProvider().getFirstName() + " " + loggedInInfo.getLoggedInProvider().getLastName() %>'/>
-                        </div>
-                    </a>
-                </li>
-            </ul>
-        </div>
     </div>
 </div>
 

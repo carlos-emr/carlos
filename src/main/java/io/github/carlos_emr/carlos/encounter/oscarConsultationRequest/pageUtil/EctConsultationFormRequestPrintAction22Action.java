@@ -35,7 +35,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.itextpdf.text.DocumentException;
+import org.openpdf.text.DocumentException;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
@@ -61,12 +61,31 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import com.sun.xml.messaging.saaj.util.ByteInputStream;
 import com.sun.xml.messaging.saaj.util.ByteOutputStream;
 
-/**
- * Convert submitted preventions into pdf and return file
- */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Struts2 action that generates a combined PDF of the consultation request with all
+ * attached documents and streams it directly to the HTTP response for download.
+ *
+ * <p>Renders the consultation request form via {@link ConsultationPDFCreator}, then appends
+ * all attached items as additional PDF pages:</p>
+ * <ul>
+ *   <li><b>eForms</b> - rendered via {@link FaxManager}</li>
+ *   <li><b>Documents</b> - images converted via {@link ImagePDFCreator}, PDFs included directly</li>
+ *   <li><b>Lab results</b> - rendered via {@link LabPDFCreator} with embedded documents</li>
+ *   <li><b>HRM reports</b> - rendered via {@link HRMPDFCreator}</li>
+ *   <li><b>Forms</b> - rendered via {@link FaxManager} with {@link FormTransportContainer}</li>
+ * </ul>
+ *
+ * <p>All individual PDFs are concatenated using {@link ConcatPDF} and served as an inline
+ * PDF download with a timestamped filename. Requires {@code _con} read privilege.</p>
+ *
+ * @see ConsultationPDFCreator
+ * @see ImagePDFCreator
+ * @see ConcatPDF
+ * @since 2012-04-09
+ */
 public class EctConsultationFormRequestPrintAction22Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -82,6 +101,15 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     public EctConsultationFormRequestPrintAction22Action() {
     }
 
+    /**
+     * Generates and streams the combined consultation request PDF to the response.
+     *
+     * <p>Collects all attachment types (eForms, documents, labs, HRM reports, forms),
+     * converts each to a PDF stream, concatenates them with the consultation form,
+     * and writes the result directly to the HTTP response as an inline PDF attachment.</p>
+     *
+     * @return String null on success (response written directly), "error" on failure
+     */
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

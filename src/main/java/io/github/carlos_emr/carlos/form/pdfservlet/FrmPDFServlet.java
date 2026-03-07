@@ -21,8 +21,6 @@
  * Hamilton
  * Ontario, Canada
  */
-// javac -classpath .;..\lib\itext-1.01.jar -d . FrmPDFServlet.java
-// form/createpdf?__title=British+Columbia+Antenatal+Record+Part+1&__cfgfile=bcar1PrintCfgPg1&__cfgfile=bcar1PrintCfgPg2&__template=bcar1
 package io.github.carlos_emr.carlos.form.pdfservlet;
 
 import java.awt.*;
@@ -59,43 +57,80 @@ import io.github.carlos_emr.carlos.form.graphic.FrmPdfGraphic;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 
-import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Element;
-import com.itextpdf.text.Font;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.Phrase;
-import com.itextpdf.text.Rectangle;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfImportedPage;
-import com.itextpdf.text.pdf.PdfReader;
-import com.itextpdf.text.pdf.PdfWriter;
+import java.awt.Color;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.Element;
+import org.openpdf.text.Font;
+import org.openpdf.text.PageSize;
+import org.openpdf.text.Phrase;
+import org.openpdf.text.Rectangle;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfImportedPage;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfWriter;
 
 /**
+ * Servlet that generates PDF renditions of standard medical forms (Rourke growth charts,
+ * BCAR antenatal records, and other configurable clinical forms).
  *
+ * <p>This servlet uses a configuration-driven approach where form layout is defined in
+ * external text files (config files) that specify field positions, fonts, and formatting.
+ * It overlays patient data onto imported PDF templates using OpenPDF's
+ * {@link PdfImportedPage} and {@link PdfContentByte} direct content rendering.
+ *
+ * <p>Key features:
+ * <ul>
+ *   <li>Multi-page form support with page-specific configuration files</li>
+ *   <li>Growth chart graphing via pluggable {@link FrmPdfGraphic} implementations</li>
+ *   <li>Supports checkboxes (ZapfDingbats), single-line text, multi-line text areas,
+ *       lines, and colored rectangles for redaction</li>
+ *   <li>Configurable page sizes (Letter, Half-Letter, A6)</li>
+ *   <li>Multi-form concatenation for batch printing</li>
+ *   <li>Post-processing hook via {@link FrmPDFPostValueProcessor}</li>
+ * </ul>
+ *
+ * <p>Configuration file format (see {@link #generatePDFDocumentBytes}):
+ * <pre>
+ *   Checkboxes:    paramName : alignment, X, Y, 0, font, fontSize, textToPrint
+ *   Single-line:   paramName : alignment, X, Y, 0, font, fontSize
+ *   Multi-line:    paramName : alignment, X1, Y1, 0, font, fontSize, _, X2, Y2, lineSpacing
+ * </pre>
+ * Coordinates refer to the bottom-left corner, measured in PDF points (1/72 inch).
+ *
+ * @see FrmCustomedPDFServlet
+ * @see FrmPdfGraphic
+ * @see FrmRecordFactory
+ * @since 2001 (McMaster University)
  */
 public class FrmPDFServlet extends HttpServlet {
 
     Logger log = MiscUtils.getLogger();
 
     /**
-     *
+     * Default constructor required by the servlet container.
      */
     public FrmPDFServlet() {
         super();
     }
 
+    /** Delegates all GET requests to {@link #doPost(HttpServletRequest, HttpServletResponse)}. */
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
             java.io.IOException {
         doPost(req, res);
     }
 
     /**
-     * @param req HTTP request object
-     * @param res HTTP response object
+     * Generates one or more medical form PDFs and streams the result to the response.
+     * If the {@code multiple} request parameter is present, generates that many PDFs
+     * (one per page index) and concatenates them via {@link ConcatPDF}.
+     *
+     * @param req HttpServletRequest containing form field values and configuration parameters
+     * @param res HttpServletResponse to write the generated PDF bytes to
+     * @throws javax.servlet.ServletException if a servlet error occurs
+     * @throws java.io.IOException if an I/O error occurs during PDF generation
      */
     public void doPost(HttpServletRequest req, HttpServletResponse res) throws javax.servlet.ServletException,
             java.io.IOException {
@@ -312,7 +347,7 @@ public class FrmPDFServlet extends HttpServlet {
                     FrmPDFPostValueProcessor pp = (FrmPDFPostValueProcessor) Class.forName(className).newInstance();
                     props = pp.process(props);
                 } catch (Exception e) {
-                    //ignore
+                    log.warn("Post-processor {} could not be loaded or failed during execution - form rendered without post-processing", className, e);
                 }
             }
 
@@ -403,8 +438,8 @@ public class FrmPDFServlet extends HttpServlet {
 
             document.addTitle(title);
             document.addSubject("");
-            document.addKeywords("pdf, itext");
-            document.addCreator("OSCAR");
+            document.addKeywords("pdf");
+            document.addCreator("CARLOS EMR");
             document.addAuthor("");
             //document.addHeader("Expires", "0");
 
@@ -509,11 +544,17 @@ public class FrmPDFServlet extends HttpServlet {
 
                         // write in a rectangle area
                         if (cfgVal.length >= 9) {
+                            int fontSize = 12;
+                            try {
+                                fontSize = Integer.parseInt(cfgVal[5].trim());
+                            } catch (NumberFormatException nfe) {
+                                log.warn("Invalid font size in form print config '{}': {}", tempName, cfgVal[5]);
+                            }
                             Font font;
                             if (fontFlags == Font.BOLD) { // Hack to stop blue outline from bold text
-                                font = new Font(bf, Integer.parseInt(cfgVal[5].trim()), fontFlags, BaseColor.BLACK);
+                                font = new Font(bf, fontSize, fontFlags, Color.BLACK);
                             } else {
-                                font = new Font(bf, Integer.parseInt(cfgVal[5].trim()), fontFlags);
+                                font = new Font(bf, fontSize, fontFlags);
                             }
                             //ct.setSimpleColumn(60, 300, 200, 500, 10,
                             // Element.ALIGN_LEFT);
@@ -546,7 +587,7 @@ public class FrmPDFServlet extends HttpServlet {
                             float ury = Float.parseFloat(cfgVal[3].trim());
 
                             Rectangle rec = new Rectangle(llx, lly, urx, ury);
-                            rec.setBackgroundColor(BaseColor.WHITE);
+                            rec.setBackgroundColor(Color.WHITE);
                             cb.rectangle(rec);
 
                         } else if (tempName.toString().startsWith("__$line")) {
@@ -594,17 +635,8 @@ public class FrmPDFServlet extends HttpServlet {
 
                     //----------
                     if (OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") != null && printCfg[i - 1].getProperty("forms_promotext") == null) {
-//	                    log.info("adding forms_promotext");
-//
-//	                    // remove elements of the PDF file
-//	                    Rectangle rec = new Rectangle(160, 12, 465, 21);
-//	                    rec.setBackgroundColor(java.awt.Color.WHITE);
-//	                    cb.rectangle(rec);
-//
-//	                    cb.beginText();
-//	                    cb.setFontAndSize(BaseFont.createFont(BaseFont.HELVETICA,BaseFont.CP1252,BaseFont.NOT_EMBEDDED), 6);
-//	                    cb.showTextAligned(PdfContentByte.ALIGN_CENTER, OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT"), width/2, 16, 0);
-//	                    cb.endText();
+                        // Promo text rendering was already disabled (commented out) before the OpenPDF migration.
+                        // If needed, re-implement using PdfWriterFactory page event stampers.
                     }
 
 
@@ -807,6 +839,14 @@ public class FrmPDFServlet extends HttpServlet {
         return baosPDF;
     }
 
+    /**
+     * Loads a CSV-format property file containing PDF field layout configuration.
+     * Attempts filesystem first (under pdfFORMDIR), then falls back to webapp classpath.
+     * The filename is sanitized to prevent path traversal.
+     *
+     * @param cfgFilename String the configuration filename (e.g., "formRourke2020p1.txt")
+     * @return Properties the parsed field layout entries, or empty Properties if not found
+     */
     protected Properties getCfgProp(String cfgFilename) {
         Properties ret = new Properties();
         

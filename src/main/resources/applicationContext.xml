@@ -62,7 +62,6 @@
 	<import resource="classpath:spring_ws.xml" />
 	<!-- <context:component-scan base-package="io.github.carlos_emr.carlos.commn.dao" /> -->
 	
-	<bean id="hl7HandlerMSHMappingDao" class="io.github.carlos_emr.carlos.commn.dao.HL7HandlerMSHMappingDaoImpl" autowire="byName" />
 	<!-- hibernated DAO -->
     <bean id="gstControlDao" class="io.github.carlos_emr.carlos.billing.CA.dao.GstControlDaoImpl" autowire="byName" />
 	<bean id="programDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDaoImpl" autowire="byName" />
