@@ -283,7 +283,9 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
                     DEMO_NO, "00123456", "");
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getRegionalIdentifier()).isEqualTo("00123456");
+            assertThat(result.get(0).getBrandName()).isEqualTo("Aspirin");
         }
     }
 
@@ -306,7 +308,9 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
             List<Drug> result = drugDao.findByDemographicIdUpdatedAfterDate(DEMO_NO, lastWeek);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getBrandName()).isEqualTo("Aspirin");
+            assertThat(result.get(0).getDemographicId()).isEqualTo(DEMO_NO);
         }
 
         @Test
@@ -477,7 +481,9 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
             List<Drug> result = drugDao.findByScriptNo(12345, false);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getScriptNo()).isEqualTo(12345);
+            assertThat(result.get(0).getBrandName()).isEqualTo("Aspirin");
         }
     }
 

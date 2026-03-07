@@ -416,7 +416,9 @@ public class DocumentDaoIntegrationTest extends CarlosTestBase {
             List<Document> result = documentDao.findByDoctypeAndProviderNo("lab", PROVIDER_NO, 0);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getDoctype()).isEqualTo("lab");
+            assertThat(result.get(0).getDoccreator()).isEqualTo(PROVIDER_NO);
         }
 
         @Test

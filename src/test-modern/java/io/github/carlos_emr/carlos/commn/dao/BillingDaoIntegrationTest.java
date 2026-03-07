@@ -227,7 +227,9 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
             List<Billing> result = billingDao.findByAppointmentNo(5001);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getAppointmentNo()).isEqualTo(5001);
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(DEMO_NO);
         }
 
         @Test
@@ -319,7 +321,10 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
                     DEMO_NO, "O", PROVIDER_NO, yesterday, nextWeek);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getStatus()).isEqualTo("O");
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(DEMO_NO);
+            assertThat(result.get(0).getProviderNo()).isEqualTo(PROVIDER_NO);
         }
 
         @Test
@@ -355,7 +360,9 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, Arrays.asList("O", "S"), range);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getProviderNo()).isEqualTo(PROVIDER_NO);
+            assertThat(result.get(0).getStatus()).isIn("O", "S");
         }
     }
 

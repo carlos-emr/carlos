@@ -205,7 +205,8 @@ public class AllergyDaoIntegrationTest extends CarlosTestBase {
             Calendar cal = new GregorianCalendar();
             cal.add(Calendar.DAY_OF_YEAR, -1);
             List<Allergy> results = allergyDao.findByUpdateDate(cal.getTime(), 99);
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSizeGreaterThanOrEqualTo(1);
+            assertThat(results).allMatch(a -> a.getDemographicNo() == DEMO_1);
         }
 
         @Test

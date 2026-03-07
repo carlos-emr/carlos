@@ -340,6 +340,10 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(adm.getId());
+            assertThat(result.getClientId()).isEqualTo(DEMO_NO);
+            assertThat(result.getProgramId()).isEqualTo(PROGRAM_ID);
+            assertThat(result.getAdmissionStatus()).isEqualTo(Admission.STATUS_CURRENT);
         }
 
         @Test
@@ -490,7 +494,9 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
             List<Admission> result = admissionDao.getClientIdByProgramDate(PROGRAM_ID, today);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getProgramId()).isEqualTo(PROGRAM_ID);
+            assertThat(result.get(0).getClientId()).isEqualTo(DEMO_NO);
         }
     }
 }

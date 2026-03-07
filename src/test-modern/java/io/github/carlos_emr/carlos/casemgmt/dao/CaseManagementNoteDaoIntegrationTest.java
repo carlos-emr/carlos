@@ -172,12 +172,14 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             note.setArchived(false);
             note.setLocked(false);
 
-            // When
+            // When - saveAndReturn returns the generated Serializable ID from Session.save()
             Object result = caseManagementNoteDAO.saveAndReturn(note);
             hibernateTemplate.flush();
 
-            // Then
-            assertThat(result).isNotNull();
+            // Then - result should be the generated Long ID matching the note's ID
+            assertThat(result).isInstanceOf(Long.class);
+            assertThat((Long) result).isEqualTo(note.getId());
+            assertThat((Long) result).isPositive();
         }
 
         @Test
@@ -526,8 +528,10 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
             List<CaseManagementNote> results = caseManagementNoteDAO
                 .getMostRecentNotesByAppointmentNo(12345);
 
-            // Then
-            assertThat(results).isNotEmpty();
+            // Then - should contain the note we linked to appointment 12345
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isEqualTo(note1.getId());
+            assertThat(results.get(0).getNote()).isEqualTo("Appointment note");
         }
 
         @Test
@@ -788,7 +792,9 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
                 .getCPPNotes(DEMO_NO, cppIssue.getId(), null);
 
             // Then — the epoch date is far in the past, so the note qualifies
-            assertThat(results).isNotEmpty();
+            assertThat(results)
+                .extracting(CaseManagementNote::getId)
+                .contains(note.getId());
         }
     }
 
