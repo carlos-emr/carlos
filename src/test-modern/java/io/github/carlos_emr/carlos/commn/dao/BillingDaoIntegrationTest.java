@@ -388,7 +388,7 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
             Integer result = billingDao.search_billing_no_by_appt(DEMO_NO, 5001);
 
             // Then
-            assertThat(result).isNotNull();
+            assertThat(result).isEqualTo(b.getId());
         }
 
         @Test
@@ -415,13 +415,13 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should return latest billing number for demographic")
         void shouldReturnLatestBillingNo_forDemographic() {
             // Given
-            createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            Billing b = createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
 
             // When
             Integer result = billingDao.search_billing_no(DEMO_NO);
 
             // Then
-            assertThat(result).isNotNull();
+            assertThat(result).isEqualTo(b.getId());
         }
 
         @Test
@@ -455,7 +455,9 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, yesterday, nextWeek);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getProviderNo()).isEqualTo(PROVIDER_NO);
+            assertThat(result.get(0).getDemographicNo()).isEqualTo(DEMO_NO);
         }
     }
 
@@ -479,7 +481,9 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, yesterday, nextWeek);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getProviderNo()).isEqualTo(PROVIDER_NO);
+            assertThat(result.get(0).getStatus()).isEqualTo("O");
         }
     }
 
@@ -601,7 +605,12 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, yesterday, nextWeek);
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result).hasSize(1);
+            Object[] row = result.get(0);
+            assertThat(row).hasSize(2);
+            // row[0] = visitType (String), row[1] = count (Long)
+            assertThat(row[0]).isEqualTo("00");
+            assertThat(((Number) row[1]).longValue()).isEqualTo(1L);
         }
     }
 

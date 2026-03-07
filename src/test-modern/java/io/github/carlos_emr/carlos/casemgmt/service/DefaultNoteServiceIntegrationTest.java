@@ -102,6 +102,8 @@ class DefaultNoteServiceIntegrationTest extends CarlosTestBase {
 
         NoteSelectionResult result = service.findNotes(loggedInInfo, c);
         assertThat(result).isNotNull();
+        assertThat(result.getNotes()).isNotNull();
+        assertThat(result.getNotes()).isInstanceOf(List.class);
         logger.info("Num results " + result.getNotes().size());
     }
 

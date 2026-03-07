@@ -28,6 +28,7 @@ import org.openpdf.text.Document;
 import org.openpdf.text.Paragraph;
 import org.openpdf.text.pdf.BaseFont;
 import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfTemplate;
 import org.openpdf.text.pdf.PdfWriter;
 import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 
@@ -78,7 +79,10 @@ class PdfFooterStampersUnitTest {
         void shouldCreateCustomFont_whenSetFontCalledWithValidArgs() {
             FooterSupport footer = new FooterSupport() {};
             footer.setFont(BaseFont.COURIER, BaseFont.WINANSI, BaseFont.NOT_EMBEDDED);
-            assertThat(footer.getFont()).isNotNull();
+            BaseFont font = footer.getFont();
+            assertThat(font).isNotNull();
+            // The PostScript name for built-in Courier is "Courier"
+            assertThat(font.getPostscriptFontName()).isEqualTo("Courier");
         }
 
         @Test
@@ -110,6 +114,10 @@ class PdfFooterStampersUnitTest {
             doc.open();
             // After open, the template should be initialized by onOpenDocument
             assertThat(stamper.getTotal()).isNotNull();
+            assertThat(stamper.getTotal()).isInstanceOf(PdfTemplate.class);
+            // The template is created with dimensions 100x100 in onOpenDocument
+            assertThat(stamper.getTotal().getWidth()).isEqualTo(100f);
+            assertThat(stamper.getTotal().getHeight()).isEqualTo(100f);
 
             doc.add(new Paragraph("test"));
             doc.close();
