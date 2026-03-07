@@ -68,62 +68,62 @@ The following 17 files were originally listed as unused but are **actively refer
 - **Evidence**: Only 1 reference exists in entire codebase — a CSS import in `casemgmt/attachClient.jsp` for `jsCalendar/skins/aqua/theme.css`. Zero JS file references. The active calendar library is `share/calendar/` (444 references across the codebase). Verified: no Java, properties, XML, or other JSP references exist.
 - **Recommendation**: Remove entire `jsCalendar/` directory. Update the single CSS import in `attachClient.jsp` if needed.
 
-### `library/DataTables-1.10.12/extensions/` — Most extension JS files unused
+### `library/DataTables-1.10.12/extensions/` — Most extension JS files unused — REMOVED
 - **Files**: ~50 JS files (Responsive extension EXCLUDED — it is actively used)
 - **Size**: ~1.0 MB
 - **Evidence**: Framework-specific builds for AutoFill, Buttons, ColReorder, FixedColumns, FixedHeader, KeyTable, RowReorder, Scroller, Select extensions. None are referenced anywhere.
-- **KEEP**: `extensions/Responsive/` directory — used by `oscarReportDxReg.jsp`
-- **Recommendation**: Remove all extension subdirectories EXCEPT `Responsive/`.
+- **KEPT**: `extensions/Responsive/` directory — used by `oscarReportDxReg.jsp`
+- **DELETED**: All 9 extension subdirectories except `Responsive/`
 
-### `library/DataTables-1.10.12/media/js/` — Framework-specific DataTables core builds unused
+### `library/DataTables-1.10.12/media/js/` — Framework-specific DataTables core builds unused — REMOVED
 - **Files**: 14 JS files (3 files EXCLUDED — they are actively used)
 - **Size**: ~600 KB
 - **Evidence**: Bootstrap4, Foundation, jQuery UI, Material, Semantic UI, UIKit builds of old DataTables core. None referenced.
-- **KEEP**: `jquery.dataTables.min.js` (used by `oscarReportDxReg.jsp`)
-- **DELETED**: `dataTables.bootstrap.min.js` — was used by `hospitalReportManager/inbox.jsp` which was deleted; caught by cascade audit
+- **KEPT**: `jquery.dataTables.min.js` (used by `oscarReportDxReg.jsp`), `jquery.dataTables.js`, `dataTables.bootstrap.js`
+- **DELETED**: All 13 unused framework-specific builds + bundled jquery.js
 
-Unused files in this directory:
 ```
-library/DataTables-1.10.12/media/js/dataTables.bootstrap.js       # non-min (min version IS used)
-library/DataTables-1.10.12/media/js/dataTables.bootstrap4.js
-library/DataTables-1.10.12/media/js/dataTables.bootstrap4.min.js
-library/DataTables-1.10.12/media/js/dataTables.foundation.js
-library/DataTables-1.10.12/media/js/dataTables.foundation.min.js
-library/DataTables-1.10.12/media/js/dataTables.jqueryui.js
-library/DataTables-1.10.12/media/js/dataTables.jqueryui.min.js
-library/DataTables-1.10.12/media/js/dataTables.material.js
-library/DataTables-1.10.12/media/js/dataTables.material.min.js
-library/DataTables-1.10.12/media/js/dataTables.semanticui.js
-library/DataTables-1.10.12/media/js/dataTables.semanticui.min.js
-library/DataTables-1.10.12/media/js/dataTables.uikit.js
-library/DataTables-1.10.12/media/js/dataTables.uikit.min.js
-library/DataTables-1.10.12/media/js/jquery.js
+library/DataTables-1.10.12/media/js/dataTables.bootstrap.min.js   # DELETED — was used by deleted hospitalReportManager/inbox.jsp
+library/DataTables-1.10.12/media/js/dataTables.bootstrap4.js      # DELETED
+library/DataTables-1.10.12/media/js/dataTables.bootstrap4.min.js  # DELETED
+library/DataTables-1.10.12/media/js/dataTables.foundation.js      # DELETED
+library/DataTables-1.10.12/media/js/dataTables.foundation.min.js  # DELETED
+library/DataTables-1.10.12/media/js/dataTables.jqueryui.js        # DELETED
+library/DataTables-1.10.12/media/js/dataTables.jqueryui.min.js    # DELETED
+library/DataTables-1.10.12/media/js/dataTables.material.js        # DELETED
+library/DataTables-1.10.12/media/js/dataTables.material.min.js    # DELETED
+library/DataTables-1.10.12/media/js/dataTables.semanticui.js      # DELETED
+library/DataTables-1.10.12/media/js/dataTables.semanticui.min.js  # DELETED
+library/DataTables-1.10.12/media/js/dataTables.uikit.js           # DELETED
+library/DataTables-1.10.12/media/js/dataTables.uikit.min.js       # DELETED
+library/DataTables-1.10.12/media/js/jquery.js                     # DELETED
 ```
 
-### `library/DataTables/DataTables-1.13.4/js/` — Framework-specific builds unused
+### `library/DataTables/DataTables-1.13.4/js/` — Framework-specific builds unused — REMOVED
 - **Files**: 13 JS files
 - **Size**: ~400 KB
 - **Evidence**: Bootstrap4, Bulma, Foundation, jQuery UI, Semantic UI, and base DataTables builds. The project uses Bootstrap 5 — `dataTables.bootstrap5.min.js` IS in use and is NOT listed here.
+- **KEPT**: `dataTables.bootstrap5.js`, `dataTables.bootstrap5.min.js`, `jquery.dataTables.js`, `jquery.dataTables.min.js`, `dataTables.bootstrap.js`, `dataTables.bootstrap.min.js`
+- **DELETED**: All 12 unused framework-specific builds
 
 ```
-library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap4.js
-library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap4.min.js
-library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.js       # non-min only (min version IS used)
-library/DataTables/DataTables-1.13.4/js/dataTables.bulma.js
-library/DataTables/DataTables-1.13.4/js/dataTables.bulma.min.js
-library/DataTables/DataTables-1.13.4/js/dataTables.dataTables.js
-library/DataTables/DataTables-1.13.4/js/dataTables.dataTables.min.js
-library/DataTables/DataTables-1.13.4/js/dataTables.foundation.js
-library/DataTables/DataTables-1.13.4/js/dataTables.foundation.min.js
-library/DataTables/DataTables-1.13.4/js/dataTables.jqueryui.js
-library/DataTables/DataTables-1.13.4/js/dataTables.jqueryui.min.js
-library/DataTables/DataTables-1.13.4/js/dataTables.semanticui.js
-library/DataTables/DataTables-1.13.4/js/dataTables.semanticui.min.js
+library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap4.js      # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap4.min.js  # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.bulma.js           # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.bulma.min.js       # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.dataTables.js      # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.dataTables.min.js  # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.foundation.js      # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.foundation.min.js  # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.jqueryui.js        # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.jqueryui.min.js    # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.semanticui.js      # DELETED
+library/DataTables/DataTables-1.13.4/js/dataTables.semanticui.min.js  # DELETED
 ```
 
-### `library/DataTables/` — Additional unused file
+### `library/DataTables/` — Additional unused file — REMOVED
 ```
-library/DataTables/datatables.js           # Bundled all-in-one (non-min); only datatables.min.js is used (20+ JSPs)
+library/DataTables/datatables.js           # DELETED — Bundled all-in-one (non-min); only datatables.min.js is used (20+ JSPs)
 ```
 
 ---
@@ -151,14 +151,14 @@ library/ng-table/ng-table.css             # DELETED — CSS companion (caught by
 library/ng-table/ng-table.min.css         # DELETED — CSS companion (caught by post-audit)
 ```
 
-### Bootstrap 3.0.0 assets (project uses Bootstrap 5.3.0 from CDN)
+### Bootstrap 3.0.0 assets (project uses Bootstrap 5.3.0 from CDN) — REMOVED
 ```
-library/bootstrap/3.0.0/assets/js/customizer.js
-library/bootstrap/3.0.0/assets/js/filesaver.js
-library/bootstrap/3.0.0/assets/js/jszip.js
-library/bootstrap/3.0.0/assets/js/less.js
-library/bootstrap/3.0.0/assets/js/raw-files.js
-library/bootstrap/3.0.0/assets/js/typeahead.min.js
+library/bootstrap/3.0.0/assets/js/customizer.js       # DELETED
+library/bootstrap/3.0.0/assets/js/filesaver.js         # DELETED
+library/bootstrap/3.0.0/assets/js/jszip.js             # DELETED
+library/bootstrap/3.0.0/assets/js/less.js              # DELETED
+library/bootstrap/3.0.0/assets/js/raw-files.js         # DELETED
+library/bootstrap/3.0.0/assets/js/typeahead.min.js     # DELETED
 ```
 
 ### Duplicate/unused jQuery plugins
@@ -192,7 +192,7 @@ library/showdown.js                        # DELETED — Markdown-to-HTML conver
 ```
 js/bootstrap-multiselect.js                 # Bootstrap multiselect plugin
 js/bootstrap-timepicker.js                  # Non-min version (bootstrap-timepicker.min.js IS used by DrilldownDisplay.jsp)
-js/caisi_report_tools.js                    # CAISI reporting tools
+js/caisi_report_tools.js                    # DELETED — CAISI reporting tools
 js/custom/default/main.js                   # Custom main JS
 js/fancybox/jquery.easing-1.3.pack.js       # Fancybox dependency
 js/fancybox/jquery.fancybox-1.3.4.js        # Non-min version (jquery.fancybox-1.3.4.pack.js IS used)
@@ -457,16 +457,16 @@ schedule/scheduletemplatesetting1.jsp       # Schedule template settings
 | Category | Files | Size | Confidence |
 |----------|-------|------|------------|
 | `jsCalendar/` entire directory | ~55 | 234 KB | **Verified** — only 1 CSS ref, zero JS refs |
-| DataTables 1.10.12 extensions (excl. Responsive) | ~50 | ~1.0 MB | **Verified** — Responsive IS used |
-| DataTables 1.10.12 media/js (excl. 2 used min files) | 14 | ~600 KB | **Verified** |
-| DataTables 1.13.4 framework builds | 13 | ~400 KB | **Verified** — bootstrap5.min.js IS used |
-| DataTables bundled non-min | 1 | ~50 KB | **Verified** — only min version used |
+| DataTables 1.10.12 extensions (excl. Responsive) | ~50 | ~1.0 MB | **REMOVED** — Responsive IS kept |
+| DataTables 1.10.12 media/js (excl. 2 used min files) | 14 | ~600 KB | **REMOVED** |
+| DataTables 1.13.4 framework builds | 12 | ~400 KB | **REMOVED** — bootstrap5.min.js IS kept |
+| DataTables bundled non-min | 1 | ~50 KB | **REMOVED** — only min version used |
 | Angular.js ecosystem + CSS + UI Bootstrap | 17 | ~1.1 MB | **REMOVED** — Angular not used, includes core, CSS, UI Bootstrap |
-| Bootstrap 3.0.0 assets | 6 | ~200 KB | **Verified** — BS 5.3 from CDN |
+| Bootstrap 3.0.0 assets | 6 | ~200 KB | **REMOVED** — BS 5.3 from CDN |
 | Old jQuery/library duplicates | 8 | ~500 KB | **Verified** — duplicates of used versions |
 | Unused eform libraries | 2 | ~50 KB | **Verified** — jSignature duplicates |
 | Other unused libraries | 3 | ~100 KB | **Verified** |
-| `js/` directory unused | 16 | ~400 KB | **Verified** — old plugins/non-min versions |
+| `js/` directory unused | 15 | ~400 KB | **Verified** — old plugins/non-min versions (1 REMOVED) |
 | `share/` unused JS | 9 | ~200 KB | **Verified** — legacy |
 | `share/calendar/lang/` (28 locales) | 28 | ~50 KB | **Verified** — only en/fr used, no dynamic loading |
 | PMmodule/Admin JSPs | 35 | ~200 KB | **Verified** — dead Tiles references |
