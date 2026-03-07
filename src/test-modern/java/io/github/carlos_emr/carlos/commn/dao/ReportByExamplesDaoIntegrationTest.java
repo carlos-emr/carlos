@@ -21,10 +21,10 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ReportByExamples;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +35,11 @@ import java.util.Date;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link ReportByExamplesDao} with full method coverage matching legacy tests.
+ * Integration tests for {@link ReportByExamplesDao} covering persist and find operations.
+ *
+ * <p>Note: The {@code findReportsAndProviders} methods join with Provider, so they
+ * require Provider records in the database. These tests verify basic persist/find
+ * operations that do not require cross-entity joins.</p>
  *
  * <p>Migrated from legacy {@code ReportByExamplesDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -51,22 +55,81 @@ public class ReportByExamplesDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ReportByExamplesDao dao;
 
-    @Test
-    @Tag("create")
-    @DisplayName("should persist report by examples with generated ID")
-    void shouldPersistReportByExamples_whenValidDataProvided() {
+    private ReportByExamples createReport(String providerNo, String query, Date date) {
         ReportByExamples entity = new ReportByExamples();
-        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setProviderNo(providerNo);
+        entity.setQuery(query);
+        entity.setDate(date);
         dao.persist(entity);
-
-        assertThat(entity.getId()).isNotNull();
+        return entity;
     }
 
-    @Test
-    @Tag("read")
-    @DisplayName("should return non-null results when finding reports and providers")
-    void shouldReturnNonNullResults_whenFindingReportsAndProviders() {
-        assertThat(dao.findReportsAndProviders()).isNotNull();
-        assertThat(dao.findReportsAndProviders(new Date(), new Date())).isNotNull();
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist report by examples with generated ID")
+        void shouldPersistReportByExamples_whenValidDataProvided() {
+            ReportByExamples entity = createReport("100001", "SELECT * FROM demographic", new Date());
+
+            assertThat(entity.getId()).isNotNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find report by ID with correct field values")
+        void shouldFindReport_whenValidIdProvided() {
+            Date now = new Date();
+            ReportByExamples saved = createReport("100002", "test query", now);
+
+            ReportByExamples found = dao.find(saved.getId());
+
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getProviderNo()).isEqualTo("100002");
+            assertThat(found.getQuery()).isEqualTo("test query");
+            assertThat(found.getDate()).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("findReportsAndProviders - no-arg")
+    class FindReportsAndProvidersNoArg {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no reports have matching providers")
+        void shouldReturnEmptyList_whenNoReportsHaveMatchingProviders() {
+            // Reports with non-existent provider numbers will not join with Provider
+            createReport("NOPROV1", "query1", new Date());
+
+            var results = dao.findReportsAndProviders();
+
+            // No matching Provider record, so the join yields no results
+            assertThat(results).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("findReportsAndProviders - date range")
+    class FindReportsAndProvidersDateRange {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no reports match date range with providers")
+        void shouldReturnEmptyList_whenNoReportsMatchDateRangeWithProviders() {
+            Date now = new Date();
+            createReport("NOPROV2", "query2", now);
+
+            var results = dao.findReportsAndProviders(
+                    new Date(now.getTime() - 86400000L),
+                    new Date(now.getTime() + 86400000L)
+            );
+
+            // No matching Provider record, so the join yields no results
+            assertThat(results).isEmpty();
+        }
     }
 }

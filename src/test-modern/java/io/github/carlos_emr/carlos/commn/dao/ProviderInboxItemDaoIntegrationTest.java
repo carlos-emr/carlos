@@ -21,23 +21,24 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.ProviderInboxItem;
-import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.PersistenceException;
+import java.util.Date;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
 
 /**
- * Integration tests for {@link ProviderInboxRoutingDao} with full method coverage matching legacy tests.
+ * Integration tests for {@link ProviderInboxRoutingDao} covering persist,
+ * getProvidersWithRoutingForDocument, hasProviderBeenLinkedWithDocument,
+ * howManyDocumentsLinkedWithAProvider, and findDocumentsLinkedWithProvider.
  *
  * <p>Migrated from legacy {@code ProviderInboxRoutingDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -53,28 +54,156 @@ public class ProviderInboxItemDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ProviderInboxRoutingDao dao;
 
-    @Test
-    @Tag("create")
-    @DisplayName("should persist provider inbox item with generated ID")
-    void shouldPersistProviderInboxItem_whenValidDataProvided() {
+    private ProviderInboxItem createInboxItem(String providerNo, int labNo, String labType, String status) {
         ProviderInboxItem entity = new ProviderInboxItem();
-        EntityDataGenerator.generateTestDataForModelClass(entity);
+        entity.setProviderNo(providerNo);
+        entity.setLabNo(labNo);
+        entity.setLabType(labType);
+        entity.setStatus(status);
+        entity.setTimestamp(new Date());
         dao.persist(entity);
-
-        assertThat(entity.getId()).isNotNull();
+        return entity;
     }
 
-    @Test
-    @Tag("create")
-    @DisplayName("should not throw persistence exception when adding to provider routing box")
-    void shouldNotThrowPersistenceException_whenAddingToProviderRoutingBox() {
-        try {
-            dao.addToProviderInbox("1", 1, LabResultData.DOCUMENT);
-        } catch (PersistenceException e) {
-            fail("Error related to JPA configuration");
-        } catch (Exception e) {
-            // Swallow other exceptions as in legacy test - proper pre-initialization
-            // of lab routing rules, result data, providers data is not set up
+    @Nested
+    @DisplayName("CRUD operations")
+    class CrudOperations {
+
+        @Test
+        @Tag("create")
+        @DisplayName("should persist provider inbox item with generated ID")
+        void shouldPersistProviderInboxItem_whenValidDataProvided() {
+            ProviderInboxItem entity = createInboxItem("100001", 1, "DOC", "N");
+
+            assertThat(entity.getId()).isNotNull();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should find provider inbox item by ID with correct values")
+        void shouldFindProviderInboxItem_whenValidIdProvided() {
+            ProviderInboxItem saved = createInboxItem("100002", 2, "HL7", "A");
+
+            ProviderInboxItem found = dao.find(saved.getId());
+
+            assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
+            assertThat(found.getProviderNo()).isEqualTo("100002");
+            assertThat(found.getLabNo()).isEqualTo(2);
+            assertThat(found.getLabType()).isEqualTo("HL7");
+            assertThat(found.getStatus()).isEqualTo("A");
+        }
+    }
+
+    @Nested
+    @DisplayName("getProvidersWithRoutingForDocument")
+    class GetProvidersWithRoutingForDocument {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return providers routed to matching document")
+        void shouldReturnProviders_whenDocumentMatches() {
+            createInboxItem("200001", 10, "DOC", "N");
+            createInboxItem("200002", 10, "DOC", "N");
+            createInboxItem("200003", 20, "DOC", "N");
+
+            List<ProviderInboxItem> results = dao.getProvidersWithRoutingForDocument("DOC", 10);
+
+            assertThat(results).hasSize(2);
+            assertThat(results).extracting(ProviderInboxItem::getProviderNo)
+                    .containsExactlyInAnyOrder("200001", "200002");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no routing exists for document")
+        void shouldReturnEmptyList_whenNoRoutingExists() {
+            List<ProviderInboxItem> results = dao.getProvidersWithRoutingForDocument("DOC", 99999);
+
+            assertThat(results).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("hasProviderBeenLinkedWithDocument")
+    class HasProviderBeenLinkedWithDocument {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return true when provider is linked with document")
+        void shouldReturnTrue_whenProviderIsLinked() {
+            createInboxItem("300001", 30, "DOC", "N");
+
+            boolean linked = dao.hasProviderBeenLinkedWithDocument("DOC", 30, "300001");
+
+            assertThat(linked).isTrue();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return false when provider is not linked with document")
+        void shouldReturnFalse_whenProviderIsNotLinked() {
+            createInboxItem("300001", 30, "DOC", "N");
+
+            boolean linked = dao.hasProviderBeenLinkedWithDocument("DOC", 30, "300002");
+
+            assertThat(linked).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("howManyDocumentsLinkedWithAProvider")
+    class HowManyDocumentsLinkedWithAProvider {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return count of documents linked with provider")
+        void shouldReturnCount_whenProviderHasDocuments() {
+            createInboxItem("400001", 40, "DOC", "N");
+            createInboxItem("400001", 41, "HL7", "N");
+            createInboxItem("400001", 42, "DOC", "A");
+            createInboxItem("400002", 43, "DOC", "N");
+
+            int count = dao.howManyDocumentsLinkedWithAProvider("400001");
+
+            assertThat(count).isEqualTo(3);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return zero when provider has no documents")
+        void shouldReturnZero_whenProviderHasNoDocuments() {
+            int count = dao.howManyDocumentsLinkedWithAProvider("999999");
+
+            assertThat(count).isEqualTo(0);
+        }
+    }
+
+    @Nested
+    @DisplayName("findDocumentsLinkedWithProvider")
+    class FindDocumentsLinkedWithProvider {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return documents matching doc type, doc ID, and provider")
+        void shouldReturnDocuments_whenAllParametersMatch() {
+            ProviderInboxItem matching = createInboxItem("500001", 50, "DOC", "N");
+            createInboxItem("500001", 51, "DOC", "N");
+            createInboxItem("500002", 50, "DOC", "N");
+
+            List<ProviderInboxItem> results = dao.findDocumentsLinkedWithProvider("DOC", 50, "500001");
+
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getId()).isEqualTo(matching.getId());
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should return empty list when no matching documents")
+        void shouldReturnEmptyList_whenNoMatchingDocuments() {
+            List<ProviderInboxItem> results = dao.findDocumentsLinkedWithProvider("DOC", 99999, "999999");
+
+            assertThat(results).isEmpty();
         }
     }
 }
