@@ -589,13 +589,19 @@
                 border-color: #999;
             }
             .multiplier-input {
-                width: 24px;
+                width: 32px;
                 padding: 2px 4px;
                 font-size: 11px;
                 text-align: center;
                 border: 1px solid #ccc;
                 border-radius: 3px;
                 background-color: #f8f8f8;
+                -moz-appearance: textfield;
+            }
+            .multiplier-input::-webkit-outer-spin-button,
+            .multiplier-input::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
             }
             .multiplier-input:focus {
                 border-color: #0066cc;
@@ -1185,7 +1191,9 @@
                 <span class="quick-nav noprint" style="margin-left: 10px;">
                     <input type="button" value="M-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthBack"/>"/>
                     <input type="button" value="W-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekBack"/>"/>
-                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"/>
+                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"
+                           onchange="try{localStorage.setItem('dateMultiplier',this.value)}catch(e){}"/>
+                    <script>try{var sv=localStorage.getItem('dateMultiplier');if(sv){var dm=document.getElementById('dateMultiplier');var n=parseInt(sv,10);if(n>=1&&n<=99)dm.value=n;}}catch(e){}</script>
                     <input type="button" value="W+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekForward"/>"/>
                     <input type="button" value="M+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthForward"/>"/>
                     |
