@@ -41,4 +41,9 @@ public interface ClientImageManager {
     ClientImage getClientImage(Integer clientId);
 
     void saveClientImage(ClientImage img);
+
+    /**
+     * Deletes the image associated with the specified client ID.
+     */
+    void deleteClientImage(Integer clientId);
 }

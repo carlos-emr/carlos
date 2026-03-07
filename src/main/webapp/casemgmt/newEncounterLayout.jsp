@@ -740,7 +740,7 @@
 				<input type="image"
                        src="<c:out value="${ctx}/oscarEncounter/graphics/system-log-out.png"/>"
                        title='<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnExit"/>'
-                       onclick="this.focus();$('channel').style.visibility ='visible';$('showEditNote').style.display='none';return false;">
+                       onclick="this.focus();if($('channel'))$('channel').style.visibility='visible';$('showEditNote').style.display='none';return false;">
 			</span>
                 <label for="position">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnPosition"/>

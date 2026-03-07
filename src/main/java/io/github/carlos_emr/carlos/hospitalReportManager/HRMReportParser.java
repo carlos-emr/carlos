@@ -39,7 +39,7 @@ import javax.xml.validation.SchemaFactory;
 import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 
-import org.apache.commons.codec.digest.DigestUtils;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
@@ -65,7 +65,7 @@ import org.springframework.core.io.ClassPathResource;
 
 import org.xml.sax.SAXException;
 
-import omd.hrm.OmdCds;
+import io.github.carlos_emr.carlos.hospitalReportManager.xsd.OmdCds;
 
 import io.github.carlos_emr.OscarProperties;
 
@@ -132,7 +132,7 @@ public class HRMReportParser {
                 Schema schema = factory.newSchema(schemaSource);
 
                 // Unmarshal into JAXB model
-                JAXBContext jc = JAXBContext.newInstance("omd.hrm");
+                JAXBContext jc = JAXBContext.newInstance(OmdCds.class);
                 Unmarshaller u = jc.createUnmarshaller();
                 u.setSchema(schema);
                 try (FileInputStream fileInputStream = new FileInputStream(tmpXMLholder)) {
@@ -163,106 +163,6 @@ public class HRMReportParser {
         }
 
         return null;
-    }
-
-    public static void addReportToInbox(LoggedInInfo loggedInInfo, HRMReport report) {
-
-        if (report == null) {
-            logger.info("addReportToInbox cannot continue, report parameter is null");
-            return;
-        }
-
-        logger.info("Adding Report to Inbox, for file:" + report.getFileLocation());
-
-        HRMDocument document = new HRMDocument();
-
-        File fileLocation = new File(report.getFileLocation());
-
-        document.setReportFile(fileLocation.getName());
-        document.setReportStatus(report.getResultStatus());
-        document.setReportType(report.getFirstReportClass());
-        document.setTimeReceived(new Date());
-        document.setSourceFacility(report.getSendingFacilityId());
-        document.setSourceFacilityReportNo(report.getSendingFacilityReportNo());
-
-        String reportFileData = report.getFileData();
-
-        String noMessageIdFileData = reportFileData.replaceAll("<MessageUniqueID>.*?</MessageUniqueID>", "<MessageUniqueID></MessageUniqueID>");
-        String noTransactionInfoFileData = reportFileData.replaceAll("<TransactionInformation>.*?</TransactionInformation>", "<TransactionInformation></TransactionInformation>");
-        String noDemograhpicInfoFileData = reportFileData.replaceAll("<Demographics>.*?</Demographics>", "<Demographics></Demographics").replaceAll("<MessageUniqueID>.*?</MessageUniqueID>", "<MessageUniqueID></MessageUniqueID>");
-
-        String noMessageIdHash = DigestUtils.md5Hex(noMessageIdFileData);
-        String noTransactionInfoHash = DigestUtils.md5Hex(noTransactionInfoFileData);
-        String noDemographicInfoHash = DigestUtils.md5Hex(noDemograhpicInfoFileData);
-
-        document.setReportHash(noMessageIdHash);
-        document.setReportLessTransactionInfoHash(noTransactionInfoHash);
-        document.setReportLessDemographicInfoHash(noDemographicInfoHash);
-
-        document.setReportDate(HRMReportParser.getAppropriateDateFromReport(report));
-
-        document.setDescription("");
-
-        String name = report.getLegalLastName() + ", " + report.getLegalFirstName();
-        for (String iName : report.getLegalOtherNames()) {
-            name = name + " " + iName;
-        }
-        document.setFormattedName(name);
-        document.setDob(report.getDateOfBirthAsString());
-        document.setGender(report.getGender());
-        document.setHcn(report.getHCN());
-
-        document.setClassName(report.getFirstReportClass());
-        document.setSubClassName(report.getFirstReportSubClass());
-
-        document.setRecipientId(report.getDeliverToUserId());
-        document.setRecipientName(report.getDeliveryToUserIdFormattedName());
-
-        // We're going to check to see if there's a match in the database already for either of these
-        // report hash matches = duplicate report for same recipient
-        // no transaction info hash matches = duplicate report, but different recipient
-        HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
-        List<Integer> exactMatchList = hrmDocumentDao.findByHash(noMessageIdHash);
-
-        if (exactMatchList == null || exactMatchList.size() == 0) {
-            List<HRMDocument> sameReportDifferentRecipientReportList = hrmDocumentDao.findByNoTransactionInfoHash(noTransactionInfoHash);
-
-            if (sameReportDifferentRecipientReportList != null && sameReportDifferentRecipientReportList.size() > 0) {
-                logger.info("Same Report Different Recipient, for file:" + report.getFileLocation());
-                HRMReportParser.routeReportToProvider(sameReportDifferentRecipientReportList.get(0), report);
-            } else {
-                // New report or changed report
-                hrmDocumentDao.persist(document);
-                logger.debug("MERGED DOCUMENTS ID" + document.getId());
-
-
-                HRMReportParser.routeReportToDemographic(report, document);
-                HRMReportParser.doSimilarReportCheck(loggedInInfo, report, document);
-                // Attempt a route to the providers listed in the report -- if they don't exist, note that in the record
-                Boolean routeSuccess = HRMReportParser.routeReportToProvider(report, document.getId());
-                if (!routeSuccess) {
-
-                    logger.info("Adding the providers name to the list of unidentified providers, for file:" + report.getFileLocation());
-
-                    // Add the providers name to the list of unidentified providers for this report
-                    document.setUnmatchedProviders((document.getUnmatchedProviders() != null ? document.getUnmatchedProviders() : "") + "|" + ((report.getDeliverToUserIdLastName() != null) ? report.getDeliverToUserIdLastName() + ", " + report.getDeliverToUserIdFirstName() : report.getDeliverToUserId()) + " (" + report.getDeliverToUserId() + ")");
-                    hrmDocumentDao.merge(document);
-                    // Route this report to the "system" user so that a search for "all" in the inbox will come up with them
-                    HRMReportParser.routeReportToProvider(document.getId(), "-1");
-                }
-
-                HRMReportParser.routeReportToSubClass(report, document.getId());
-            }
-        } else if (exactMatchList != null && exactMatchList.size() > 0) {
-            // We've seen this one before.  Increment the counter on how many times we've seen it before
-            //TODO: do we need to save more info about when we saw the duplicates!
-            logger.debug("We've seen this report before. Increment the counter on how many times we've seen it before, for file:" + report.getFileLocation());
-
-            HRMDocument existingDocument = hrmDocumentDao.findById(exactMatchList.get(0)).get(0);
-            existingDocument.setNumDuplicatesReceived((existingDocument.getNumDuplicatesReceived() != null ? existingDocument.getNumDuplicatesReceived() : 0) + 1);
-
-            hrmDocumentDao.merge(existingDocument);
-        }
     }
 
     private static void routeReportToDemographic(HRMReport report, HRMDocument mergedDocument) {
@@ -593,17 +493,6 @@ public class HRMReportParser {
 
         hrmDocumentToProviderDao.merge(providerRouting);
 
-    }
-
-    public static void signOffOnReport(String providerRoutingId, Integer signOffStatus) {
-        HRMDocumentToProviderDao hrmDocumentToProviderDao = (HRMDocumentToProviderDao) SpringUtils.getBean(HRMDocumentToProviderDao.class);
-        HRMDocumentToProvider providerRouting = hrmDocumentToProviderDao.find(providerRoutingId);
-
-        if (providerRouting != null) {
-            providerRouting.setSignedOff(signOffStatus);
-            providerRouting.setSignedOffTimestamp(new Date());
-            hrmDocumentToProviderDao.merge(providerRouting);
-        }
     }
 
     public static void routeReportToDemographic(Integer reportId, Integer demographicNo) {

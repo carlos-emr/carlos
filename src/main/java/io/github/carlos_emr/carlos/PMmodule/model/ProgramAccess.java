@@ -173,17 +173,7 @@ import io.github.carlos_emr.carlos.commn.model.AbstractModel;
          this._roles = _roles;
      }
  
-     /**
-      * Adds a role to the set of roles that have this access.
-      * @param role the role to add
-      */
-     public void addToRoles(Secrole role) {
-         if (null == this._roles) {
-             this._roles = new java.util.HashSet<Secrole>();
-         }
-         this._roles.add(role);
-     }
-
+ 
      @Override
      public boolean equals(Object obj) {
         if (null == obj) return false;

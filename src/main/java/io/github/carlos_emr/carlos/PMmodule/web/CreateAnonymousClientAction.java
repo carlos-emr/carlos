@@ -73,28 +73,6 @@ public class CreateAnonymousClientAction {
         return d;
     }
 
-    public static Demographic generatePEClient(String creatorProviderNo, int programId) {
-        logger.info("Create PE temporary Client!");
-        ClientManager clientManager = (ClientManager) SpringUtils.getBean(ClientManager.class);
-        AdmissionManager admissionManager = (AdmissionManager) SpringUtils.getBean(AdmissionManager.class);
-        ProgramManager programManager = (ProgramManager) SpringUtils.getBean(ProgramManager.class);
-        //create and save client record.
-        Demographic d = createDemographic(creatorProviderNo);
-        d.setFirstName("phone encounter");
-        d.setYearOfBirth("1900");
-        clientManager.saveClient(d);
-
-        //admit client to program
-        Program externalProgram = programManager.getProgram(programId);
-        try {
-            admissionManager.processAdmission(d.getDemographicNo(), creatorProviderNo, externalProgram, "anonymous discharge", "anonymous admission");
-        } catch (Exception e) {
-            logger.error("Error", e);
-            return d;
-        }
-
-        return d;
-    }
 
     public static Demographic createDemographic(String creatorProviderNo) {
         Demographic d = new Demographic();

@@ -211,13 +211,6 @@
 
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicaddrecordhtm.title"/></title>
 
-        <% if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
-        <script language="javascript" src="<%=request.getContextPath() %>/hcHandler/hcHandler.js"></script>
-        <script language="javascript"
-                src="<%=request.getContextPath() %>/hcHandler/hcHandlerNewDemographic.js"></script>
-        <link rel="stylesheet" href="<%=request.getContextPath() %>/hcHandler/hcHandler.css" type="text/css"/>
-        <% } %>
-
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -764,11 +757,6 @@ if("true".equals(OscarProperties.getInstance().getProperty("iso3166.2.enabled","
         <tr>
             <td class="RowTop" colspan="4">
 
-                <% if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
-                <span style="position: relative; float: right; font-style: italic; background: black; color: white; padding: 4px; font-size: 12px; border-radius: 3px;">
-			<span class="_hc_status_icon _hc_status_success"></span>Ready for Card Swipe
-		</span>
-                <% } %>
             </td>
         </tr>
         <tr>

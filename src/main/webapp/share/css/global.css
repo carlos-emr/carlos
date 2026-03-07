@@ -100,6 +100,69 @@ body {
     text-decoration: underline;
 }
 
+/* Sidebar navigation — vertical pill nav used by config pages */
+.consult-sidebar {
+    position: sticky;
+    top: 15px;
+    align-self: flex-start;
+}
+
+.consult-sidebar + .col-md-9 {
+    padding-left: 25px;
+    padding-top: 5px;
+}
+
+.consult-sidebar .nav {
+    border: 1px solid var(--carlos-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.consult-sidebar .nav-link {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #fff;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0;
+    background-color: var(--carlos-primary);
+}
+
+.consult-sidebar .nav-link:last-child {
+    border-bottom: none;
+}
+
+.consult-sidebar .nav-link:hover {
+    background-color: color-mix(in srgb, var(--carlos-primary) 85%, black);
+    color: #fff;
+}
+
+.consult-sidebar .nav-link.active {
+    background-color: color-mix(in srgb, var(--carlos-primary) 70%, white);
+    color: #000;
+}
+
+/* Narrow checkbox column in data tables */
+.table .col-checkbox {
+    width: 30px;
+    text-align: center;
+}
+
+/* Action error messages */
+.action-errors {
+    background-color: #f8d7da;
+    border: 1px solid #f5c2c7;
+    color: #842029;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+}
+
+.action-errors ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
 /* Print utilities */
 @media print {
     .searchBox,

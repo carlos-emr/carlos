@@ -213,8 +213,6 @@ public final class MessageUploader {
             }
         }
 
-        boolean isTDIS = "TDIS".equals(type);
-        boolean hasBeenUpdated = false;
         Hl7TextMessage hl7TextMessage = new Hl7TextMessage();
         Hl7TextInfo hl7TextInfo = new Hl7TextInfo();
 
@@ -223,46 +221,34 @@ public final class MessageUploader {
             discipline = ((MEDITECHHandler) h).getDiscipline();
         }
 
-        if (isTDIS) {
-            List<Hl7TextInfo> matchingTdisLab = hl7TextInfoDao.searchByFillerOrderNumber(fillerOrderNum, sendingFacility);
-            if (matchingTdisLab.size() > 0) {
-
-                hl7TextMessageDao.updateIfFillerOrderNumberMatches(new String(Base64.encodeBase64(hl7Body.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING), fileId, matchingTdisLab.get(0).getLabNumber());
-
-                hl7TextInfoDao.updateReportStatusByLabId(reportStatus, matchingTdisLab.get(0).getLabNumber());
-                hasBeenUpdated = true;
-            }
-        }
         int insertID = 0;
-        if (!isTDIS || !hasBeenUpdated) {
-            hl7TextMessage.setFileUploadCheckId(fileId);
-            hl7TextMessage.setType(type);
-            hl7TextMessage.setBase64EncodedeMessage(new String(Base64.encodeBase64(hl7Body.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING));
-            hl7TextMessage.setServiceName(serviceName);
-            hl7TextMessageDao.persist(hl7TextMessage);
+        hl7TextMessage.setFileUploadCheckId(fileId);
+        hl7TextMessage.setType(type);
+        hl7TextMessage.setBase64EncodedeMessage(new String(Base64.encodeBase64(hl7Body.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING));
+        hl7TextMessage.setServiceName(serviceName);
+        hl7TextMessageDao.persist(hl7TextMessage);
 
-            insertID = hl7TextMessage.getId();
-            hl7TextInfo.setLabNumber(insertID);
-            hl7TextInfo.setLastName(lastName);
-            hl7TextInfo.setFirstName(firstName);
-            hl7TextInfo.setSex(sex);
-            hl7TextInfo.setHealthNumber(hin);
-            hl7TextInfo.setResultStatus(resultStatus);
-            hl7TextInfo.setFinalResultCount(finalResultCount);
-            hl7TextInfo.setObrDate(obrDate.trim());
-            hl7TextInfo.setPriority(priority);
-            hl7TextInfo.setRequestingProvider(requestingClient);
-            hl7TextInfo.setDiscipline(discipline);
-            hl7TextInfo.setReportStatus(reportStatus);
-            hl7TextInfo.setAccessionNumber(accessionNum);
-            hl7TextInfo.setSendingFacility(sendingFacility);
-            hl7TextInfo.setFillerOrderNum(fillerOrderNum);
+        insertID = hl7TextMessage.getId();
+        hl7TextInfo.setLabNumber(insertID);
+        hl7TextInfo.setLastName(lastName);
+        hl7TextInfo.setFirstName(firstName);
+        hl7TextInfo.setSex(sex);
+        hl7TextInfo.setHealthNumber(hin);
+        hl7TextInfo.setResultStatus(resultStatus);
+        hl7TextInfo.setFinalResultCount(finalResultCount);
+        hl7TextInfo.setObrDate(obrDate.trim());
+        hl7TextInfo.setPriority(priority);
+        hl7TextInfo.setRequestingProvider(requestingClient);
+        hl7TextInfo.setDiscipline(discipline);
+        hl7TextInfo.setReportStatus(reportStatus);
+        hl7TextInfo.setAccessionNumber(accessionNum);
+        hl7TextInfo.setSendingFacility(sendingFacility);
+        hl7TextInfo.setFillerOrderNum(fillerOrderNum);
 
-            label = mergeLabLabels(hl7TextInfoDao.searchByAccessionNumberOrderByObrDate(accessionNum), label);
-            hl7TextInfo.setLabel(label);
+        label = mergeLabLabels(hl7TextInfoDao.searchByAccessionNumberOrderByObrDate(accessionNum), label);
+        hl7TextInfo.setLabel(label);
 
-            hl7TextInfoDao.persist(hl7TextInfo);
-        }
+        hl7TextInfoDao.persist(hl7TextInfo);
 
         String demProviderNo = null;
 

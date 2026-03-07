@@ -1,0 +1,24 @@
+<%-- Split Chart Overlay Popup --%>
+<c:if test="${hasSplitChart}">
+    <div id="splitChartLayer">
+        <table width="98%" border="1" cellspacing="1" cellpadding="1" align="center" bgcolor="#CCCCFF">
+            <tr>
+                <td class="wcblayerTitle">Date</td>
+                <td class="wcblayerTitle" style="text-align: right;">
+                    <a href="#" onclick="hidepic('splitChartLayer');" style="text-decoration: none;">X</a>
+                </td>
+            </tr>
+            <c:forEach var="chartEntry" items="${splitChart}">
+                <tr>
+                    <td class="wcblayerTitle">
+                        <a href="#"
+                           onclick="hidepic('splitChartLayer');popupPage(600,700,'<fmt:message key="oscarEncounter.Index.popupPage2Window"/>','echarthistoryprint.jsp?echartid=${chartEntry[0]}&amp;demographic_no=${bean.demographicNo}');return false;">
+                            <c:out value="${chartEntry[1]}"/>
+                        </a>
+                    </td>
+                    <td class="wcblayerItem">&nbsp;</td>
+                </tr>
+            </c:forEach>
+        </table>
+    </div>
+</c:if>

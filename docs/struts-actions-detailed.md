@@ -412,7 +412,7 @@ Laboratory result management and integration.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| lab/CA/ALL/createLabelTDIS | io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabelTDIS2Action | Creates TDIS lab labels |
+| lab/CA/ALL/createLabLabel | io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabLabel2Action | Creates lab labels for HL7 results |
 | lab/CA/ALL/Forward | io.github.carlos_emr.carlos.mds.pageUtil.ReportReassign2Action | Forwards lab reports to providers |
 | lab/CA/ALL/insideLabUpload | io.github.carlos_emr.carlos.lab.ca.all.pageUtil.InsideLabUpload2Action | Uploads inside lab results |
 | lab/CA/ALL/oruR01Upload | io.github.carlos_emr.carlos.lab.ca.all.pageUtil.OruR01Upload2Action | Uploads ORU R01 lab messages |

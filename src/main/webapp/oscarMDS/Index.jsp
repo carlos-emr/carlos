@@ -117,13 +117,6 @@
                 display: none;
             }
         }
-
-        .TDISRes {
-            font-weight: bold;
-            font-size: 10pt;
-            color: black;
-            font-family: Verdana, Arial, Helvetica
-        }
     </style>
 </head>
 

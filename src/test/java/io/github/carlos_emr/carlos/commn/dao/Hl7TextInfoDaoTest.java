@@ -149,15 +149,6 @@ public class Hl7TextInfoDaoTest extends DaoTestFixtures {
         dao.searchByAccessionNumber("PZDTS");
     }
 
-    @Test
-    public void testsearchByFillerOrderNumber() {
-        dao.searchByFillerOrderNumber("PRSHA", "ZHPA");
-    }
-
-    @Test
-    public void testupdateReportStatusByLabId() {
-        dao.updateReportStatusByLabId("STR", 0);
-    }
 
     @Test
     public void testupdateResultStatusByLabId() {

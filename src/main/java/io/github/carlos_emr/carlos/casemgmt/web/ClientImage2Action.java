@@ -38,6 +38,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
@@ -54,9 +58,22 @@ public class ClientImage2Action extends ActionSupport {
     private static Logger log = MiscUtils.getLogger();
 
     private ClientImageManager clientImageManager = SpringUtils.getBean(ClientImageManager.class);
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    // Execute on struts action call
+    // Execute on struts action call — routes to saveImage or deleteImage based on method parameter
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("User session is not valid");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
+            throw new SecurityException("missing required security object (_demographic)");
+        }
+
+        String method = request.getParameter("method");
+        if ("deleteImage".equals(method)) {
+            return deleteImage();
+        }
         return saveImage();
     }
 
@@ -64,7 +81,7 @@ public class ClientImage2Action extends ActionSupport {
         HttpSession session = request.getSession(true);
         String id = (String) session.getAttribute("clientId");
 
-        log.info("client image upload: id=" + id);
+        log.info("client image upload requested");
 
         // Get file extension from original filename
         String type = null;
@@ -102,8 +119,34 @@ public class ClientImage2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    public String deleteImage() {
+        HttpSession session = request.getSession(true);
+        String id = (String) session.getAttribute("clientId");
+
+        log.info("client image delete requested");
+
+        if (id == null || id.isEmpty()) {
+            log.error("No clientId found in session for image delete");
+            addActionError("No client selected.");
+            return ERROR;
+        }
+
+        try {
+            clientImageManager.deleteClientImage(Integer.parseInt(id));
+            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+            LogAction.addLogSynchronous(loggedInInfo, "ClientImage2Action.deleteImage", "clientId=" + id);
+        } catch (Exception e) {
+            log.error("Error deleting image", e);
+            addActionError("Error deleting image.");
+            return ERROR;
+        }
+
+        request.setAttribute("success", true);
+        return SUCCESS;
+    }
+
     @StrutsParameter
-    public void setClientImage(File clientImage) { 
+    public void setClientImage(File clientImage) {
         this.clientImage = clientImage; 
     }
 

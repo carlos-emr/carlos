@@ -53,7 +53,6 @@ public class EFormLoader {
     static private Vector<DatabaseAP> eFormAPs = new Vector<DatabaseAP>();
     static private String marker = "oscarDB";
     static private String opener = "oscarOPEN";
-    static private String inputMarker = "oscarDBinput";
 
 
     static public EFormLoader getInstance() {
@@ -108,10 +107,6 @@ public class EFormLoader {
 
     public static String getMarker() {
         return marker;
-    }
-
-    public static String getInputMarker() {
-        return inputMarker;
     }
 
     public static String getOpener() {

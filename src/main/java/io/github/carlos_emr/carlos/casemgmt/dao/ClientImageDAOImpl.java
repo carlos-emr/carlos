@@ -77,6 +77,15 @@ public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientIm
     }
 
     @Override
+    public void deleteClientImage(Integer clientId) {
+        ClientImage clientImage = getClientImage(clientId);
+        if (clientImage != null) {
+            currentSession().delete(clientImage);
+            dataCache.remove(clientId);
+        }
+    }
+
+    @Override
     public ClientImage getClientImage(Integer clientId) {
 
         // check cache

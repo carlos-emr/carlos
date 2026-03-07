@@ -68,13 +68,7 @@
 
     function pasteTimer() {
         var ed = new Date();
-        const timerNote = document.getElementById("timer-note");
-        let note = "";
-        if (timerNote.value) {
-            note = "\n" + timerNote.value;
-        }
         $(caseNote).value += "\n"
-            + note
             + "\n" + document.getElementById("startTag").value + ": "
             + d.getHours() + ":" + pad(d.getMinutes()) + "\n"
             + document.getElementById("endTag").value + ": "
@@ -83,7 +77,6 @@
             + pad(parseInt((totalSeconds / 60) % 60)) + ":"
             + pad(totalSeconds % 60);
         adjustCaseNote();
-        timerNote.value = '';
     }
 
     function setTime() {
@@ -500,8 +493,14 @@
         }
 
         function getTemplateNames() {
-            if (typeof autoCompList === 'undefined') return [];
-            return autoCompList.slice();
+            if (typeof autoCompList === 'undefined' || typeof autoCompleted === 'undefined') return [];
+            // Filter to charting templates only: autoCompleted entries starting with ajaxInsertTemplate.
+            // autoCompList is shared with eforms (efmformadd_data.jsp), forms, and calculators,
+            // all of which use popupPage() — not ajaxInsertTemplate().
+            return autoCompList.filter(function (name) {
+                var func = autoCompleted[name];
+                return typeof func === 'string' && func.indexOf('ajaxInsertTemplate') === 0;
+            });
         }
 
         function clearChildren(el) {

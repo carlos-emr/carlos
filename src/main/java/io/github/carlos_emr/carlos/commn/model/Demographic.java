@@ -1581,9 +1581,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
         //--> Insurance number
         if (getHin() != null && getHin().length() > 0) {
-            sb.append("<div id='patient-hin'>");
+            sb.append("<div id='patient-hin' class='copyable' onclick=\"copyToClip('")
+                    .append(Encode.forJavaScript(getHin()))
+                    .append("',this)\">");
             sb.append("<div class='label'>");
-			sb.append("hin (");
+			sb.append("HIN (");
             sb.append(Encode.forHtml(getHcType()));
 			sb.append(")</div>");
 			sb.append(Encode.forHtml(getHin()));
@@ -1592,24 +1594,13 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             sb.append("</div>");
         }
 
-        //--> most responsible practitioner
-        sb.append("<div id='patient-mrp'>");
-        sb.append("<div class='label'>");
-        sb.append("MRP");
-        sb.append("</div>");
-        Provider mrp = getMrp();
-        if (mrp != null) {
-            sb.append(Encode.forHtmlContent(mrp.getFormattedName()));
-        } else {
-            sb.append("Unknown");
-        }
-        sb.append("</div>");
-
         //--> phone
         if (getPhone() != null && !getPhone().isEmpty()) {
-            sb.append("<div id='patient-phone' title='")
-                    .append(getPhoneComment())
-                    .append("' >");
+            sb.append("<div id='patient-phone' class='copyable' title='")
+                    .append(Encode.forHtmlAttribute(getPhoneComment()))
+                    .append("' onclick=\"copyToClip('")
+                    .append(Encode.forJavaScript(getPhone()))
+                    .append("',this)\">");
             sb.append("<div class='label'>");
             sb.append("phone");
             sb.append("</div>");
@@ -1619,9 +1610,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
         //--> cell phone
         if (getCellPhone() != null && !getCellPhone().isEmpty()) {
-            sb.append("<div id='patient-cell-phone' title='")
-                    .append(getPhoneComment())
-                    .append("' >");
+            sb.append("<div id='patient-cell-phone' class='copyable' title='")
+                    .append(Encode.forHtmlAttribute(getPhoneComment()))
+                    .append("' onclick=\"copyToClip('")
+                    .append(Encode.forJavaScript(getCellPhone()))
+                    .append("',this)\">");
             sb.append("<div class='label'>");
             sb.append("cell");
             sb.append("</div>");
@@ -1631,7 +1624,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
 
         //--> email
         if (getEmail() != null && !getEmail().isEmpty()) {
-            sb.append("<div id='patient-email'>");
+            sb.append("<div id='patient-email' class='copyable' onclick=\"copyToClip('")
+                    .append(Encode.forJavaScript(getEmail()))
+                    .append("',this)\">");
             sb.append("<div class='label'>");
             sb.append("email");
             sb.append("</div>");
@@ -1652,6 +1647,19 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         sb.append("</div>");
         if (getNextAppointment() != null && !getNextAppointment().isEmpty()) {
             sb.append(getNextAppointment());
+        } else {
+            sb.append("Unknown");
+        }
+        sb.append("</div>");
+
+        //--> most responsible practitioner (last item, pushed to right via CSS)
+        sb.append("<div id='patient-mrp'>");
+        sb.append("<div class='label'>");
+        sb.append("MRP");
+        sb.append("</div>");
+        Provider mrp = getMrp();
+        if (mrp != null) {
+            sb.append(Encode.forHtmlContent(mrp.getFormattedName()));
         } else {
             sb.append("Unknown");
         }

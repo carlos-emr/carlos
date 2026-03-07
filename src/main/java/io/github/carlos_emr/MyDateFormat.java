@@ -87,17 +87,6 @@ public class MyDateFormat {
     }
 
     /**
-     * Formats a month or day value to always be two digits with leading zero if needed.
-     * 
-     * @param value the month or day value (e.g., "8" or "15")
-     * @return two-digit string (e.g., "08" or "15")
-     */
-    public static String formatMonthOrDay(String value) {
-        String str2 = "0" + value;
-        return str2.substring(str2.length() - 2, str2.length());
-    }
-
-    /**
      * Converts an integer to a two-digit string with leading zero if needed.
      * For example: 8 becomes "08", 19 remains "19".
      * 
@@ -630,16 +619,6 @@ public class MyDateFormat {
         int date = Integer.parseInt(date1);
         int age = MyDateFormat.getAge(year, month, date);
         return age;
-    }
-
-    public static String formatMonthDay(String pValue) {
-        if (pValue == null) return null;
-
-        if (pValue.length() == 1) {
-            return "0" + pValue;
-        } else {
-            return pValue;
-        }
     }
 
 }

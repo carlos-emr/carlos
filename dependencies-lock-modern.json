@@ -1153,14 +1153,6 @@
     "optional" : false,
     "integrity" : "sha512:HCPMWPi6LC5iY6Sj7mFwZpWNqT0FAJx62Nu5dj8XJJ2jxjlc4o1aITl9UqCbP+crhjriGpE8iJW9Gda71nSZqQ=="
   }, {
-    "groupId" : "omd",
-    "artifactId" : "hrm",
-    "version" : "4.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:X3p1A5Ymhf7D9FpWJ4zdnsHpMjtfbjd/ubIUljFVieyUZyIqHcXUUVaThltuYMkgqpSSgOqGRZDlQHQAHMGwOQ=="
-  }, {
     "groupId" : "org.antlr",
     "artifactId" : "antlr-runtime",
     "version" : "3.5.2",
