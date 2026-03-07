@@ -795,29 +795,24 @@
                         <%
                             if (printError) {
                         %>
-                        <p style="color: red; font-size: larger">An error occurred while
-                            trying to print</p>
+                        <div class="alert alert-danger" role="alert">An error occurred while trying to print</div>
                         <%
                             }
-                        %> <span style="font-size: larger;">Prevention
-		Recommendations</span>
-                        <ul>
+                        %>
+                        <span style="font-size: larger;">Prevention Recommendations</span>
+                        <div class="mt-1">
                             <% for (int i = 0; i < warnings.size(); i++) {
                                 String warn = (String) warnings.get(i);%>
-                            <li style="color: red;"><%=warn%>
-                            </li>
+                            <div class="alert alert-danger py-1 mb-1" role="alert"><%=warn%></div>
                             <%}%>
                             <% for (int i = 0; i < recomendations.size(); i++) {
                                 String warn = (String) recomendations.get(i);%>
-                            <li style="color: black;"><%=warn%>
-                            </li>
+                            <div class="alert alert-info py-1 mb-1" role="alert"><%=warn%></div>
                             <%}%>
-                            <!--li style="color: red;">6 month TD overdue</li>
-                                 <li>12 month MMR due in 2 months</li-->
                             <% if (dsProblems) { %>
-                            <li style="color: red;">Decision Support Had Errors Running.</li>
+                            <div class="alert alert-danger py-1 mb-1" role="alert">Decision Support Had Errors Running.</div>
                             <% } %>
-                        </ul>
+                        </div>
                     </div>
                     <% } %>
 
@@ -1347,7 +1342,27 @@
                     return '<strong>' + item.name + '</strong> &ndash; ' + item.value;
                 },
                 function(item) {
-                    input.value = item.value;
+                    input.value = '';
+                    var vPath = '<%=request.getContextPath()%>';
+                    var demographicNo = '<%=demographic_no%>';
+                    var newWindow = window.open(
+                        vPath + '/oscarPrevention/AddPreventionData.jsp?1=1&prevention=' + encodeURIComponent(item.value) + '&demographic_no=' + demographicNo,
+                        'AddPreventionWindow',
+                        'width=1000,height=700'
+                    );
+                    newWindow.addEventListener('load', function() {
+                        var doc = newWindow.document;
+                        var dinEl = doc.getElementById('din');
+                        if (dinEl) dinEl.textContent = item.din || '';
+                        var doseEls = doc.getElementsByName('dose');
+                        if (doseEls.length) doseEls[0].value = item.dose || '';
+                        var routeEl = doc.getElementById('route');
+                        if (routeEl) routeEl.value = item.route || '';
+                        var doseUnitEls = doc.getElementsByName('doseUnit');
+                        if (doseUnitEls.length) doseUnitEls[0].value = item.units || '';
+                        var manufactureEls = doc.getElementsByName('manufacture');
+                        if (manufactureEls.length) manufactureEls[0].value = item.manufacture || '';
+                    });
                 },
                 2
             );
