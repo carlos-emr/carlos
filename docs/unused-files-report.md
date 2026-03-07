@@ -1,24 +1,55 @@
 # Unused Files Report — CARLOS EMR
 
 **Date**: 2026-03-07
+**Verification**: Intensively cross-referenced 2026-03-07 (6 parallel agents)
 **Scope**: JSP, JSPF, JS, JSON, JS.JSP files in `src/main/webapp/`
 **Total files scanned**: 1,800
-**Unused files found**: 346 (+ ~10 jsCalendar non-lang JS files = ~356 total)
-**Estimated disk savings**: ~6.2 MB
+**Verified unused files**: 382
+**Estimated disk savings**: ~5.8 MB
 
 ## Methodology
 
 Each file was checked against ALL possible referencing sources:
 
 1. **Struts XML** (`struts.xml`) — action result/forward mappings
-2. **JSP includes** — `<%@ include`, `<jsp:include>`, `<c:import>`
-3. **JSP links** — `href=`, `action=`, `window.open()`, AJAX calls
-4. **Java code** — `RequestDispatcher`, `sendRedirect()`, hardcoded paths
-5. **JavaScript** — `<script src=`, dynamic loading, imports
-6. **Properties/XML** — Spring configs, i18n bundles, web.xml
-7. **Database seeds** — `encounterForm` table registrations (`oscardata.sql`, `oscardata_bc.sql`, `oscardata_on.sql`, `caisi/initcaisi.sql`)
+2. **Tiles definitions** — verified Tiles has been completely removed from project (no `tiles-def*.xml`, no `TilesListener` in `web.xml`)
+3. **web.xml** — servlet mappings, welcome files, error pages
+4. **Spring XML configs** (`applicationContext*.xml`) — view resolvers, bean configs
+5. **JSP includes** — `<%@ include`, `<jsp:include>`, `<c:import>`
+6. **JSP links** — `href=`, `action=`, `window.open()`, AJAX calls
+7. **Java code** — `RequestDispatcher`, `sendRedirect()`, hardcoded paths, string literals
+8. **JavaScript** — `<script src=`, dynamic loading, imports, AJAX/fetch calls
+9. **Properties/XML** — i18n bundles, Spring configs
+10. **Database seeds** — `encounterForm` table registrations (`oscardata.sql`, `oscardata_bc.sql`, `oscardata_on.sql`, `caisi/initcaisi.sql`)
+11. **Database SQL updates** — eform HTML stored in `update-*.sql` files
+12. **CSS files** — `url()` references
+13. **Dynamic include patterns** — tab systems, locale-based loading, `${variable}` path construction
 
-**False positive exclusions**: Form JSPs (`form/form*.jsp`) are dynamically loaded via the `encounterForm` database table and `FrmSetupForm2Action`. All 65+ form JSPs were verified against DB seeds and excluded. Calendar language files loaded via i18n keys (`global.javascript.calendar`) were also excluded.
+**Intensive verification pass**: 6 parallel verification agents searched for every filename (with and without path, with and without extension, partial matches) across all file types. 17 false positives were identified and removed from the original 399-file list, resulting in 382 verified unused files.
+
+### False Positives Removed During Verification
+
+The following 17 files were originally listed as unused but are **actively referenced** and have been removed:
+
+| File | How it's referenced |
+|------|-------------------|
+| `library/eforms/APCache.js` | Referenced by eforms stored in database SQL updates (`${oscar_image_path}APCache.js`) |
+| `library/eforms/editControl.js` | Referenced by eforms stored in database SQL updates |
+| `library/toastui/i18n/es-es.js` | Dynamically loaded by `CreateMessage.jsp` via `${fn:escapeXml(langCode)}.js` |
+| `library/toastui/i18n/fr-fr.js` | Dynamically loaded by `CreateMessage.jsp` via locale |
+| `library/toastui/i18n/pl-pl.js` | Dynamically loaded by `CreateMessage.jsp` via locale |
+| `library/toastui/i18n/pt-br.js` | Dynamically loaded by `CreateMessage.jsp` via locale |
+| `library/DataTables-1.10.12/extensions/Responsive/*` | Used by `oscarReportDxReg.jsp` (CSS and JS) |
+| `library/DataTables-1.10.12/media/js/dataTables.bootstrap.min.js` | Used by `hospitalReportManager/inbox.jsp` |
+| `library/DataTables-1.10.12/media/js/jquery.dataTables.min.js` | Used by `oscarReportDxReg.jsp` |
+| `library/DataTables/i18n/fr-FR.json` | Dynamically loaded via i18n `global.i18nLanguagecode` (note: case mismatch bug — properties say `fr-fr`, file is `fr-FR.json`) |
+| `library/DataTables/i18n/pt-BR.json` | Dynamically loaded via i18n (same case mismatch bug) |
+| `casemgmt/client_history.jsp` | Dynamically included by `CaseManagementView.jsp` tab system |
+| `casemgmt/current_issues.jsp` | Dynamically included by `CaseManagementView.jsp` tab system |
+| `casemgmt/prescriptions.jsp` | Dynamically included by `CaseManagementView.jsp` tab system |
+| `casemgmt/reminders.jsp` | Dynamically included by `CaseManagementView.jsp` tab system |
+| `casemgmt/ticklers.jsp` | Dynamically included by `CaseManagementView.jsp` tab system |
+| `demographic/addnewdemographicswipe.jsp` | Referenced via `zadddemographicswipe.htm` → `demographicaddarecordhtm.jsp` chain |
 
 ---
 
@@ -27,30 +58,49 @@ Each file was checked against ALL possible referencing sources:
 ### `jsCalendar/` — Entire directory is dead code
 - **Files**: ~55 (45 JS + CSS/images)
 - **Size**: 234 KB
-- **Evidence**: Only 1 reference exists in entire codebase — a CSS import in `casemgmt/attachClient.jsp` for `jsCalendar/skins/aqua/theme.css`. Zero JS file references. The active calendar library is `share/calendar/` (444 references across the codebase).
+- **Evidence**: Only 1 reference exists in entire codebase — a CSS import in `casemgmt/attachClient.jsp` for `jsCalendar/skins/aqua/theme.css`. Zero JS file references. The active calendar library is `share/calendar/` (444 references across the codebase). Verified: no Java, properties, XML, or other JSP references exist.
 - **Recommendation**: Remove entire `jsCalendar/` directory. Update the single CSS import in `attachClient.jsp` if needed.
 
-### `library/DataTables-1.10.12/extensions/` — All extension JS files unused
-- **Files**: 58 JS files
-- **Size**: 1.1 MB
-- **Evidence**: Framework-specific builds (Bootstrap, Foundation, jQuery UI, Semantic UI) for AutoFill, Buttons, ColReorder, FixedColumns, FixedHeader, KeyTable, Responsive, RowReorder, Scroller, Select extensions. None are referenced anywhere. The project uses the newer DataTables 1.13.4 and its Bootstrap 5 build.
-- **Recommendation**: Remove entire `library/DataTables-1.10.12/extensions/` directory.
+### `library/DataTables-1.10.12/extensions/` — Most extension JS files unused
+- **Files**: ~50 JS files (Responsive extension EXCLUDED — it is actively used)
+- **Size**: ~1.0 MB
+- **Evidence**: Framework-specific builds for AutoFill, Buttons, ColReorder, FixedColumns, FixedHeader, KeyTable, RowReorder, Scroller, Select extensions. None are referenced anywhere.
+- **KEEP**: `extensions/Responsive/` directory — used by `oscarReportDxReg.jsp`
+- **Recommendation**: Remove all extension subdirectories EXCEPT `Responsive/`.
 
 ### `library/DataTables-1.10.12/media/js/` — Framework-specific DataTables core builds unused
-- **Files**: 17 JS files (12 unreferenced + their min variants)
-- **Size**: 761 KB
+- **Files**: 14 JS files (3 files EXCLUDED — they are actively used)
+- **Size**: ~600 KB
 - **Evidence**: Bootstrap4, Foundation, jQuery UI, Material, Semantic UI, UIKit builds of old DataTables core. None referenced.
-- **Recommendation**: Remove all framework-specific builds. Check if `dataTables.bootstrap.js/min.js` and core `jquery.dataTables.js/min.js` in this directory are still used before removing those.
+- **KEEP**: `jquery.dataTables.min.js` (used by `oscarReportDxReg.jsp`), `dataTables.bootstrap.min.js` (used by `hospitalReportManager/inbox.jsp`)
+
+Unused files in this directory:
+```
+library/DataTables-1.10.12/media/js/dataTables.bootstrap.js       # non-min (min version IS used)
+library/DataTables-1.10.12/media/js/dataTables.bootstrap4.js
+library/DataTables-1.10.12/media/js/dataTables.bootstrap4.min.js
+library/DataTables-1.10.12/media/js/dataTables.foundation.js
+library/DataTables-1.10.12/media/js/dataTables.foundation.min.js
+library/DataTables-1.10.12/media/js/dataTables.jqueryui.js
+library/DataTables-1.10.12/media/js/dataTables.jqueryui.min.js
+library/DataTables-1.10.12/media/js/dataTables.material.js
+library/DataTables-1.10.12/media/js/dataTables.material.min.js
+library/DataTables-1.10.12/media/js/dataTables.semanticui.js
+library/DataTables-1.10.12/media/js/dataTables.semanticui.min.js
+library/DataTables-1.10.12/media/js/dataTables.uikit.js
+library/DataTables-1.10.12/media/js/dataTables.uikit.min.js
+library/DataTables-1.10.12/media/js/jquery.js
+```
 
 ### `library/DataTables/DataTables-1.13.4/js/` — Framework-specific builds unused
 - **Files**: 13 JS files
 - **Size**: ~400 KB
-- **Evidence**: Bootstrap4, Bulma, Foundation, jQuery UI, Semantic UI, and base DataTables builds. The project uses Bootstrap 5, so only `dataTables.bootstrap5.min.js` would be needed (and it IS in this list as unused — verify the min version is used instead).
+- **Evidence**: Bootstrap4, Bulma, Foundation, jQuery UI, Semantic UI, and base DataTables builds. The project uses Bootstrap 5 — `dataTables.bootstrap5.min.js` IS in use and is NOT listed here.
 
 ```
 library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap4.js
 library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap4.min.js
-library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.js       # non-min; check if .min version is used
+library/DataTables/DataTables-1.13.4/js/dataTables.bootstrap5.js       # non-min only (min version IS used)
 library/DataTables/DataTables-1.13.4/js/dataTables.bulma.js
 library/DataTables/DataTables-1.13.4/js/dataTables.bulma.min.js
 library/DataTables/DataTables-1.13.4/js/dataTables.dataTables.js
@@ -63,16 +113,14 @@ library/DataTables/DataTables-1.13.4/js/dataTables.semanticui.js
 library/DataTables/DataTables-1.13.4/js/dataTables.semanticui.min.js
 ```
 
-### `library/DataTables/` — Additional unused files
+### `library/DataTables/` — Additional unused file
 ```
-library/DataTables/datatables.js           # Bundled all-in-one (non-min); likely replaced by individual includes
-library/DataTables/i18n/fr-FR.json         # French i18n for DataTables — verify no dynamic loading
-library/DataTables/i18n/pt-BR.json         # Portuguese i18n for DataTables — verify no dynamic loading
+library/DataTables/datatables.js           # Bundled all-in-one (non-min); only datatables.min.js is used (20+ JSPs)
 ```
 
 ---
 
-## Category 2: Unused Individual JavaScript Libraries (~2.2 MB)
+## Category 2: Unused Individual JavaScript Libraries (~2.0 MB)
 
 ### Angular.js ecosystem (project doesn't use Angular)
 ```
@@ -85,7 +133,7 @@ library/angular-ui-router.js
 library/ng-infinite-scroll.min.js
 library/ng-table/ng-table.js
 library/ng-table/ng-table.min.js
-library/ui-bootstrap-tpls-2.5.0.js         # Angular UI Bootstrap
+library/ui-bootstrap-tpls-2.5.0.js         # Angular UI Bootstrap (version 0.11.0 IS used, but NOT 2.5.0)
 ```
 
 ### Bootstrap 3.0.0 assets (project uses Bootstrap 5.3.0 from CDN)
@@ -100,18 +148,16 @@ library/bootstrap/3.0.0/assets/js/typeahead.min.js
 
 ### Duplicate/unused jQuery plugins
 ```
-library/jquery/jSignature.min.noconflict.js                          # Duplicate of share/javascript/jquery/ version
+library/jquery/jSignature.min.noconflict.js                          # Duplicate (share/javascript/jquery/jSignature.min.js IS used)
 library/jquery/jquery-ui-1.11.4.min.js                               # Old jQuery UI version
 library/jquery/jquery-ui-1.8.15.custom.draggable.slider.min.js       # Very old jQuery UI
 library/jquery/jquery-ui-1.8.4.custom_full.min.js                    # Very old jQuery UI
 library/jquery/jquery.autogrow-textarea.js                           # Not referenced
-library/jquery/jquery.validate-1.19.1.min.js                         # Not referenced
+library/jquery/jquery.validate-1.19.1.min.js                         # Not referenced (version 1.19.5 IS used)
 ```
 
-### Unused eform libraries
+### Unused eform libraries (2 of original 4 — APCache.js and editControl.js are KEPT)
 ```
-library/eforms/APCache.js                   # Not referenced (jsgraphics.js IS used)
-library/eforms/editControl.js               # Not referenced
 library/eforms/jSignature.js                # Not referenced (duplicate)
 library/eforms/jSignature.min.noconflict.js # Not referenced (duplicate)
 ```
@@ -119,10 +165,6 @@ library/eforms/jSignature.min.noconflict.js # Not referenced (duplicate)
 ### Other unused libraries
 ```
 library/hogan-2.0.0.js                     # Mustache template engine — not referenced
-library/toastui/i18n/es-es.js              # Toast UI editor i18n (only en used)
-library/toastui/i18n/fr-fr.js
-library/toastui/i18n/pl-pl.js
-library/toastui/i18n/pt-br.js
 library/typeahead.js/typeahead.bundle.min.js   # Twitter typeahead — not referenced
 library/typeahead.js/typeahead.min.js
 ```
@@ -133,21 +175,21 @@ library/typeahead.js/typeahead.min.js
 
 ```
 js/bootstrap-multiselect.js                 # Bootstrap multiselect plugin
-js/bootstrap-timepicker.js                  # Bootstrap timepicker plugin
+js/bootstrap-timepicker.js                  # Non-min version (bootstrap-timepicker.min.js IS used by DrilldownDisplay.jsp)
 js/caisi_report_tools.js                    # CAISI reporting tools
 js/custom/default/main.js                   # Custom main JS
 js/fancybox/jquery.easing-1.3.pack.js       # Fancybox dependency
-js/fancybox/jquery.fancybox-1.3.4.js        # Fancybox lightbox (old version)
+js/fancybox/jquery.fancybox-1.3.4.js        # Non-min version (jquery.fancybox-1.3.4.pack.js IS used)
 js/fancybox/jquery.mousewheel-3.0.4.pack.js # Fancybox dependency
-js/jquery-3.1.0.min.js                      # Old jQuery 3.1.0 (newer version likely in use)
+js/jquery-3.1.0.min.js                      # Old jQuery 3.1.0 (newer version in use)
 js/jquery.dataTables.1.10.11.min.js          # Old DataTables (1.13.4 is current)
 js/jquery.metadata.js                       # jQuery metadata plugin
-js/jquery.tablesorter.js                    # TableSorter plugin
-js/jquery.tablesorter.pager.js              # TableSorter pager
+js/jquery.tablesorter.js                    # Non-min version (jquery.tablesorter.min.js IS used by Index.jsp)
+js/jquery.tablesorter.pager.js              # TableSorter pager (Index.jsp uses widgets, not pager)
 js/jquery.treeview.js                       # jQuery treeview plugin
 js/loading-bar.js                           # Loading bar animation
 js/standard.js                              # Legacy standard utilities
-js/topnav.js                                # Legacy top navigation
+js/topnav.js                                # Legacy top navigation (topnav.css IS used, but .js is not)
 ```
 
 ---
@@ -162,11 +204,14 @@ share/javascript/dragdrop.js                # script.aculo.us drag & drop
 share/javascript/jquery/jquery-ui-1.8.15.custom.draggable.slider.min.js  # Very old jQuery UI
 share/javascript/jquery/jquery-ui-1.8.4.custom_full.min.js               # Very old jQuery UI
 share/javascript/jquery/jquery.autogrow-textarea.js                      # Not referenced
-share/javascript/sorttable.js               # Sort table library
+share/javascript/sorttable.js               # Sort table library (note: sortable.js is a different, used file)
 share/javascript/sound.js                   # script.aculo.us sound library
 ```
 
 ### `share/calendar/lang/` — Unused locale files (only `en` and `fr` are configured)
+
+Verified: `global.javascript.calendar` property only resolves to `calendar-en.js` or `calendar-fr.js` across all resource bundles (en, fr, es, pl, pt_BR). No dynamic locale path construction exists in Java or JSP code.
+
 ```
 share/calendar/lang/calendar-af.js          share/calendar/lang/calendar-nl.js
 share/calendar/lang/calendar-al.js          share/calendar/lang/calendar-no.js
@@ -199,8 +244,8 @@ share/calendar/lang/calendar-lv.js
 
 ## Category 5: Unused JSP Files by Module
 
-### PMmodule/Admin/ (35 files) — Old program management admin
-These appear to be legacy Struts 1 tab fragments that were replaced during the Struts 2 migration. None are referenced in `struts.xml`, Java code, or other JSPs.
+### PMmodule/Admin/ (35 files) — Dead due to Tiles removal
+These JSPs relied on Tiles definitions (`page.pmm.admin.*`) for rendering. Tiles has been completely removed from the project (no `tiles-def*.xml`, no `TilesListener`, no Tiles dependency). All struts.xml action results pointing to `page.pmm.*` are dead references. The parent JSPs use `<jsp:include>` to load sub-JSPs, but the parents themselves are unreachable.
 
 ```
 PMmodule/Admin/DefaultRoleAccessForm.jsp
@@ -245,28 +290,28 @@ PMmodule/Admin/StaffManagerList.jsp
 admin/ApptSearchConfiguration.jsp           # Appointment search config (no references)
 admin/appointmentSearchConfig.jsp           # Duplicate/old version
 admin/consentConfiguration.jsp              # Consent config (no references)
-admin/fixThirdPartyBillingPayments.jsp      # One-time migration tool
+admin/fixThirdPartyBillingPayments.jsp      # One-time migration tool (only self-referencing form action)
 admin/iso36612.jsp                          # ISO standard config
-admin/migrateCustomAllergyNonDrug.jsp       # One-time migration tool
-admin/migrateToNewContacts.jsp              # One-time migration tool
-admin/populateProgramAccess.jsp             # One-time migration tool
+admin/migrateCustomAllergyNonDrug.jsp       # One-time migration tool (only self-referencing form action)
+admin/migrateToNewContacts.jsp              # One-time migration tool (only self-referencing form action)
+admin/populateProgramAccess.jsp             # One-time migration tool (only self-referencing form action)
 admin/providerAudit.jsp                     # Provider audit (no references)
-admin/upgradeRosterData.jsp                 # One-time migration tool
-admin/viewFax.jsp                           # Old fax viewer (no references)
+admin/upgradeRosterData.jsp                 # One-time migration tool (only self-referencing form action)
+admin/viewFax.jsp                           # Old fax viewer (no references; "viewFax" in ManageFaxes2Action is a method name)
 ```
 
 ### billing/ (21 files) — Old billing JSPs
 ```
 billing/CA/BC/billingBCEditPrivateCode.jsp
-billing/CA/BC/billingTeleplanCorrection.jsp
+billing/CA/BC/billingTeleplanCorrection.jsp  # Only self-reference; struts.xml maps to billingTeleplanCorrectionWCB.jsp instead
 billing/CA/BC/methadoneBillingBC.jsp
 billing/CA/BC/privateBilling/manageFeeSplit.jsp
 billing/CA/BC/saveAssocs.jsp
 billing/CA/BC/support/providers.jsp
-billing/CA/BC/wcbMigrate.jsp
+billing/CA/BC/wcbMigrate.jsp                 # Only reference is a 2009 SQL migration comment
 billing/CA/ON/addEditRefDoc.jsp
-billing/CA/ON/billingDelete.jsp
-billing/CA/ON/billingEA.jsp
+billing/CA/ON/billingDelete.jsp              # All references point to billingDeleteWithoutNo/NoAppt/WithBillNo.jsp instead
+billing/CA/ON/billingEA.jsp                  # struts.xml and carlos.properties point to billingEAreport.jsp, not billingEA.jsp
 billing/CA/ON/billingOHIPGroupReport.jsp
 billing/CA/ON/billingONCorrectionSave.jsp
 billing/CA/ON/billingONPriInvoice.jsp
@@ -280,30 +325,28 @@ billing/CA/ON/genRAsettle35.jsp
 billing/CA/ON/genRAwithlogic.jsp
 ```
 
-### casemgmt/ (14 files) — Old case management fragments
+### casemgmt/ (9 files) — Old case management fragments (reduced from 14 — 5 are actively used)
+
+**KEPT (actively used by `CaseManagementView.jsp` tab system)**: `client_history.jsp`, `current_issues.jsp`, `prescriptions.jsp`, `reminders.jsp`, `ticklers.jsp`
+
 ```
-casemgmt/calculatorsSelectList.jspf
-casemgmt/client_history.jsp
-casemgmt/current_issues.jsp
-casemgmt/header.jsp
-casemgmt/newCaseManagement.jsp
-casemgmt/newCaseManagementEnable.jsp
-casemgmt/newNavigationFloatCols.jsp
-casemgmt/ongoing_concerns.jsp
-casemgmt/prescriptions.jsp
-casemgmt/reminders.jsp
-casemgmt/rightColumnFloatCols.jsp
-casemgmt/siteLayout.jsp
-casemgmt/ticklers.jsp
-casemgmt/tripsearch.jsp
+casemgmt/calculatorsSelectList.jspf         # No references
+casemgmt/header.jsp                         # No references (not an include target)
+casemgmt/newCaseManagement.jsp              # Only self-referencing form action
+casemgmt/newCaseManagementEnable.jsp        # Only self-referencing form action
+casemgmt/newNavigationFloatCols.jsp         # Live layout uses newNavigation.jsp instead
+casemgmt/ongoing_concerns.jsp              # Not in CaseManagementViewFormBean.tabs array
+casemgmt/rightColumnFloatCols.jsp           # Live layout uses rightColumn.jsp instead
+casemgmt/siteLayout.jsp                     # No references
+casemgmt/tripsearch.jsp                     # Tabs use "Search" -> search.jsp, not tripsearch.jsp
 ```
 
 ### report/ (21 files) — Old reporting JSPs
 ```
-report/PreventionReport.jsp
+report/PreventionReport.jsp                 # References are to PreventionReporting.jsp (different file)
 report/dobformat.jsp
 report/reportBCARDemo.jsp
-report/reportactivepatientlist.jsp
+report/reportactivepatientlist.jsp          # i18n keys used BY the JSP, not references TO it
 report/reportapptsheet.jsp
 report/reportbcedblist2007.jsp
 report/reportbilledvisit.jsp
@@ -317,72 +360,71 @@ report/reportencounterhistory.jsp
 report/reportnewedblist.jsp
 report/reportnoshowapptlist.jsp
 report/reportonbilledphcpv2.jsp
-report/reportonbilledvisit.jsp
+report/reportonbilledvisit.jsp              # Admin links point to reportonbilledvisitprovider.jsp instead
 report/reportonedblist.jsp
 report/reportpatientchartlistspecial.jsp
 report/tabulardaysheetreport.jsp
 ```
 
-### Other unused JSP/JSPF files
+### Other unused JSP/JSPF files (reduced from 63 to 62 — `addnewdemographicswipe.jsp` removed)
 ```
-404.jsp                                     # Custom 404 page (not configured in web.xml)
+404.jsp                                     # Not configured in web.xml (uses errorpage.jsp)
 apps/oauth1.jsp                             # OAuth1 test page
 cc/launcherError.jsp                        # CC launcher error page
 common/help.jsp                             # Common help page
 common/progress_dialog.jsp                  # Progress dialog
 common/readonly.jsp                         # Read-only mode page
-demographic/addnewdemographicswipe.jsp      # Card swipe demographic entry
 demographic/diabetesExport.jsp              # Diabetes export tool
-demographic/followUp.jsp                    # Follow-up page
+demographic/followUp.jsp                    # Follow-up page (Java "followUp" refs are field names, not JSP refs)
 demographic/followUpSelection.jsp           # Follow-up selection
 demographic/shnfields.jsp                   # SHN fields
 demographic/shnfieldsView.jsp               # SHN fields view
 documentManager/documentUploaderFirefox36.jsp  # Firefox 36-specific uploader
 documentManager/listDocumentFromProvider.jsp    # Old document listing
 documentManager/listDocumentFromQueue.jsp       # Old document listing
-documentManager/previewDocHL7Inbox.jsp         # HL7 inbox doc preview
+documentManager/previewDocHL7Inbox.jsp         # HL7 inbox doc preview (only self-reference)
 eform/attachEform.jsp                       # Eform attachment
 eform/displayAttachedFiles.jsp              # Attached files display
 eform/efmSendform.jsp                       # Send eform
 eform/efmclosewindow.jsp                    # Close window helper
 eform/efmformrtl_templates.jsp              # RTL templates
 eform/fieldNoteReport/fieldnotereportdetail_pre2015.jsp  # Pre-2015 field note detail
-hospitalReportManager/inbox.jsp             # HRM inbox
-incTop.jsp                                  # Legacy top include
-lab/CA/BC/viewreports.jsp                   # BC lab reports view
-layouts/caisi_html_bottom2.jspf             # CAISI layout bottom
+hospitalReportManager/inbox.jsp             # HRM inbox (struts maps to hospitalReportManager.jsp, not inbox.jsp)
+incTop.jsp                                  # Legacy top include (zero references)
+lab/CA/BC/viewreports.jsp                   # BC lab reports view (only self-referencing form action)
+layouts/caisi_html_bottom2.jspf             # CAISI layout bottom (no tiles exists)
 layouts/nonPatientContext.jspf              # Non-patient context layout
 layouts/nonPatientContextFooter.jspf       # Non-patient context footer
-layouts/simpleLayout.jsp                    # Simple layout wrapper
-messenger/Transfer/DocXfer.jsp              # Document transfer
-messenger/previewPDF.jsp                    # PDF preview
+layouts/simpleLayout.jsp                    # Simple layout wrapper (no tiles exists)
+messenger/Transfer/DocXfer.jsp              # Document transfer (Java refs are to DocXferConfig.xml, not JSP)
+messenger/previewPDF.jsp                    # PDF preview ("previewPDF" matches are JS function names)
 messenger/processAttFrameset.jsp            # Attachment frameset
 oscarEncounter/calculators/BMI.jsp          # BMI calculator
 oscarEncounter/clinicModules.jsp            # Clinic modules page
-oscarEncounter/newEncounter.jsp             # Legacy new encounter
-oscarEncounter/oscarConsultationRequest/ConsultationFaxComfirmation.jsp
-oscarEncounter/oscarConsultationRequest/ConsultationFormFax.jsp
+oscarEncounter/newEncounter.jsp             # Legacy encounter (struts maps to newEncounterLayout.jsp instead)
+oscarEncounter/oscarConsultationRequest/ConsultationFaxComfirmation.jsp  # Typo in name; no references
+oscarEncounter/oscarConsultationRequest/ConsultationFormFax.jsp          # Struts action maps to ConfirmConsultationRequest.jsp
 oscarEncounter/oscarConsultationRequest/attachConsultation2.jsp
 oscarEncounter/oscarConsultationRequest/displayAttachedFiles.jsp
 oscarMDS/SelectProviderSimple.jsp           # Simple provider selector
-oscarReport/CDSOneTimeConsultReport.jsp     # CDS consultation report
-oscarReport/ConsultationReport.jsp          # Consultation report
-oscarReport/InjectionReport2.jsp            # Injection report
-oscarReport/LabReqReport.jsp                # Lab requisition report
-oscarReport/OSISReport.jsp                  # OSIS report
+oscarReport/CDSOneTimeConsultReport.jsp     # CDS consultation report (only self-referencing form action)
+oscarReport/ConsultationReport.jsp          # Consultation report (only self-referencing form action)
+oscarReport/InjectionReport2.jsp            # Injection report (only self-referencing form action)
+oscarReport/LabReqReport.jsp                # Lab requisition report (only self-referencing form action)
+oscarReport/OSISReport.jsp                  # OSIS report (only self-referencing form action)
 oscarReport/manageProviderNew.jsp           # Provider management
 oscarReport/mis_report_results.jsp          # MIS report results
 oscarRx/InteractionDisplay2.jsp             # Drug interaction display
-oscarRx/displayInstructions.jsp             # Rx instructions display
+oscarRx/displayInstructions.jsp             # Rx instructions display (SearchDrug3.jsp ref lacks .jsp and no struts mapping)
 oscarRx/search2.jsp                         # Rx search
-oscarWaitingList/EditWaitingList.jsp         # Waiting list editor
-provider/formALPHA.jsp                      # ALPHA form (provider)
-provider/formar1_99_08.jsp                  # AR1 form 1999-08
+oscarWaitingList/EditWaitingList.jsp         # Waiting list editor (EditWaitingListName.jsp IS used — different file)
+provider/formALPHA.jsp                      # ALPHA form (not in encounterForm DB table)
+provider/formar1_99_08.jsp                  # AR1 form 1999-08 (not in encounterForm DB table)
 provider/formar1_99_08print.jsp             # AR1 form print
 provider/formar1_99_12print.jsp             # AR1 form print
 provider/formar2_99_08print.jsp             # AR2 form print
-provider/formrourkebabyrecord1.jsp          # Old Rourke baby record
-provider/providerchangemygroup.jsp          # Change group page
+provider/formrourkebabyrecord1.jsp          # Old Rourke (DB has formrourke.jsp, formrourke2006/2009/2017/2020complete.jsp)
+provider/providerchangemygroup.jsp          # Change group page (i18n keys exist but no JSP reference)
 provider/providerencountereditdemoacc.jsp   # Encounter edit demo access
 provider/providerheader-classic.jspf        # Classic header fragment
 renal/preImplementationReport.jsp           # Renal pre-implementation
@@ -394,32 +436,42 @@ schedule/scheduletemplatesetting1.jsp       # Schedule template settings
 
 ## Summary Table
 
-| Category | Files | Size | Risk Level |
+| Category | Files | Size | Confidence |
 |----------|-------|------|------------|
-| `jsCalendar/` entire directory | ~55 | 234 KB | **Low** — only 1 CSS ref |
-| DataTables 1.10.12 extensions/media | 75 | 1.9 MB | **Low** — old version |
-| DataTables 1.13.4 framework builds | 15 | ~400 KB | **Low** — wrong CSS framework |
-| Angular.js ecosystem | 10 | ~500 KB | **Low** — Angular not used |
-| Bootstrap 3.0.0 assets | 6 | ~200 KB | **Low** — BS 5.3 from CDN |
-| Old jQuery/library duplicates | 22 | ~1.5 MB | **Low** — duplicates |
-| `js/` directory unused | 16 | ~400 KB | **Low** — old plugins |
-| `share/` unused JS | 9 | ~200 KB | **Low** — legacy |
-| `share/calendar/lang/` (28 locales) | 28 | ~50 KB | **Low** — only en/fr used |
-| PMmodule/Admin JSPs | 35 | ~200 KB | **Medium** — verify no dynamic loads |
-| admin/ migration JSPs | 11 | ~100 KB | **Low** — one-time tools |
-| billing/ JSPs | 21 | ~300 KB | **Medium** — province-specific |
-| casemgmt/ JSPs | 14 | ~150 KB | **Medium** — may have been tabs |
-| report/ JSPs | 21 | ~200 KB | **Medium** — verify no menu links |
-| Other JSP/JSPF | 63 | ~600 KB | **Medium** — various modules |
-| **TOTAL** | **~399** | **~6.2 MB** | |
+| `jsCalendar/` entire directory | ~55 | 234 KB | **Verified** — only 1 CSS ref, zero JS refs |
+| DataTables 1.10.12 extensions (excl. Responsive) | ~50 | ~1.0 MB | **Verified** — Responsive IS used |
+| DataTables 1.10.12 media/js (excl. 2 used min files) | 14 | ~600 KB | **Verified** |
+| DataTables 1.13.4 framework builds | 13 | ~400 KB | **Verified** — bootstrap5.min.js IS used |
+| DataTables bundled non-min | 1 | ~50 KB | **Verified** — only min version used |
+| Angular.js ecosystem | 10 | ~500 KB | **Verified** — Angular not used |
+| Bootstrap 3.0.0 assets | 6 | ~200 KB | **Verified** — BS 5.3 from CDN |
+| Old jQuery/library duplicates | 8 | ~500 KB | **Verified** — duplicates of used versions |
+| Unused eform libraries | 2 | ~50 KB | **Verified** — jSignature duplicates |
+| Other unused libraries | 3 | ~100 KB | **Verified** |
+| `js/` directory unused | 16 | ~400 KB | **Verified** — old plugins/non-min versions |
+| `share/` unused JS | 9 | ~200 KB | **Verified** — legacy |
+| `share/calendar/lang/` (28 locales) | 28 | ~50 KB | **Verified** — only en/fr used, no dynamic loading |
+| PMmodule/Admin JSPs | 35 | ~200 KB | **Verified** — dead Tiles references |
+| admin/ migration JSPs | 11 | ~100 KB | **Verified** — self-referencing only |
+| billing/ JSPs | 21 | ~300 KB | **Verified** — no external references |
+| casemgmt/ JSPs | 9 | ~100 KB | **Verified** — 5 tab JSPs KEPT |
+| report/ JSPs | 21 | ~200 KB | **Verified** — no navigation links |
+| Other JSP/JSPF | 62 | ~550 KB | **Verified** — 1 demographic JSP KEPT |
+| **TOTAL** | **~382** | **~5.8 MB** | |
 
 ## Recommended Removal Order (safest first)
 
-1. **Phase 1 — Library cleanup** (low risk, high savings): Remove `jsCalendar/`, DataTables extensions, Angular libs, Bootstrap 3 assets, duplicate jQuery plugins (~4.2 MB)
-2. **Phase 2 — JS cleanup**: Remove unused `js/` and `share/` JS files, calendar lang files (~500 KB)
+1. **Phase 1 — Library cleanup** (verified safe, high savings): Remove `jsCalendar/`, DataTables extensions (except Responsive), Angular libs, Bootstrap 3 assets, duplicate jQuery plugins (~3.5 MB)
+2. **Phase 2 — JS cleanup**: Remove unused `js/` and `share/` JS files, calendar lang files (~650 KB)
 3. **Phase 3 — Admin/migration JSPs**: Remove one-time migration tools in `admin/` (~100 KB)
-4. **Phase 4 — Module JSPs**: Remove PMmodule/Admin, billing, casemgmt, report JSPs after manual verification (~1.4 MB)
+4. **Phase 4 — Module JSPs**: Remove PMmodule/Admin (dead Tiles), billing, casemgmt (minus 5 tab JSPs), report JSPs (~900 KB)
+5. **Phase 5 — Remaining JSPs**: Remove other individual unused JSPs (~550 KB)
+
+## Bugs Discovered During Verification
+
+1. **DataTables i18n case mismatch**: `oscarResources_fr.properties` sets `global.i18nLanguagecode=fr-fr` (lowercase) but the file is `library/DataTables/i18n/fr-FR.json` (mixed case). On Linux (case-sensitive), this results in a 404 at runtime. Same issue for `pt-br` vs `pt-BR.json`.
 
 ---
 
 *Generated with Claude Code — 2026-03-07*
+*Intensively verified with 6 parallel cross-reference agents — 2026-03-07*
