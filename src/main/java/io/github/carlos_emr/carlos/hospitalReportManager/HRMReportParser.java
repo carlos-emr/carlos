@@ -468,18 +468,6 @@ public class HRMReportParser {
 
     }
 
-    public static void setDocumentParent(String reportId, String childReportId) {
-        HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
-        try {
-            HRMDocument childDocument = hrmDocumentDao.find(childReportId);
-            childDocument.setParentReport(Integer.parseInt(reportId));
-
-            hrmDocumentDao.merge(childDocument);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Can't set HRM document parent", e);
-        }
-    }
-
     public static void routeReportToProvider(HRMDocument originalDocument, HRMReport newReport) {
         routeReportToProvider(newReport, originalDocument.getId());
     }
