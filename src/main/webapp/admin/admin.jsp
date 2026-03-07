@@ -672,8 +672,6 @@
                     <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r"
                                        reverse="<%=false%>">
                         <li><a href="#"
-                               onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/displayDocumentCategories.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentCategories"/></a></li>
-                        <li><a href="#"
                                onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
                     </security:oscarSec>
                 </ul>
@@ -704,9 +702,6 @@
                     <li><a href="#"
                            onclick='popupPage(500,800, "${pageContext.request.contextPath}/admin/providerPrivilege.jsp");return false;'>
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.assignRightsObject"/></a></li>
-
-                    <li><a href="#"
-                           onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/displayDocumentCategories.jsp");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentCategories"/></a></li>
 
                     <li><a href="#"
                            onclick='popupPage(550,800, "${pageContext.request.contextPath}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>
@@ -843,7 +838,6 @@
                     <% if (OscarProperties.getInstance().isFaxEnabled()) { %>
                     <li><a href="#" onclick='popupPage(600, 800, "${pageContext.request.contextPath}/admin/faxStatus.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.faxStatus.faxStatus"/></a></li>
                     <% } %>
-                    <li><a href="#" onclick='popupPage(800, 800, "${pageContext.request.contextPath}/admin/oscarStatus.do");return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.oscarStatus.oscarStatus"/></a></li>
 
                 </ul>
             </div>
