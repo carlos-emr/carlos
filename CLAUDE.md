@@ -36,7 +36,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 5.3.39, Struts 6.8.0, Hibernate 5.x, Maven 3, Tomcat 9.0.97, MariaDB/MySQL
+**Stack**: Java 21, Spring 5.3.39, Struts 6.8.0, Hibernate 5.6.15 (`OscarMySQL5Dialect`), Maven 3, Tomcat 9.0.97, MariaDB/MySQL, CXF 3.6.9, Bootstrap 5.3.0
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 
@@ -186,6 +186,16 @@ public class Example2Action extends ActionSupport {
 2. **Method-Based**: Route via `method` parameter (e.g., `SystemMessage2Action`)
 3. **Inheritance-Based**: Extend `EctDisplayAction` for encounter components
 
+### Struts.xml Mapping Example
+```xml
+<action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
+    <result name="provider" type="redirect">/provider/providercontrol.jsp</result>
+    <result name="failure">/logout.jsp</result>
+</action>
+```
+- Legacy URLs ending in `.do` continue to work — no changes required to existing JSP forms/links
+- Spring object factory integration: `<constant name="struts.objectFactory" value="spring"/>`
+
 ### Struts 6.8.0 Compatibility Notes
 
 **Expected Deprecation Warnings**: When building, you will see compiler warnings about deprecated `com.opensymphony.xwork2.*` classes. This is **expected and acceptable**.
@@ -215,8 +225,10 @@ public class Example2Action extends ActionSupport {
 ## Development Workflow
 
 **DevContainer Environment**:
-- Docker-based development with debugging on port 8000
+- Docker-based development (Tomcat 9 + MariaDB) with debugging on port 8000
 - Custom terminal with tool reminders on bash startup
+- Hibernate schema validation disabled — manual migration control
+- `make lock` — update Maven dependency lock file
 
 **Build & Deploy Cycle**:
 1. `make clean` → `make install --run-tests` → `server log`
@@ -377,7 +389,7 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 ## Code Quality Standards
 
 **Security (CodeQL Integration)**:
-- OWASP Encoder for all JSP outputs — prefer `${e:forHtml()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
+- OWASP Encoder for all outputs (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Parameterized SQL queries (never concatenation)
 - File upload filename validation
 - CodeQL security scanning must pass
@@ -442,27 +454,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 
 **Test Coverage**: Tests in `src/test-modern/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
 
-## Technology Stack Details
-
-### Core Technologies
-- **Java 21** with modern language features and JAXB compatibility
-- **Spring Framework 5.3.39**: IoC container, MVC, AOP, Security, transaction management
-- **Hibernate 5.6.15**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
-- **Maven 3**: Build management with 200+ healthcare-specific dependencies
-- **Apache Tomcat 9.0.97**: Web application server with debugging enabled
-- **MariaDB/MySQL**: Database with custom connection tracking (`OscarTrackingBasicDataSource`)
-
-### Web Technologies
-- **Struts 6.8.0**: Modern actions (2Action pattern) coexisting with legacy Struts 1.x
-  - Upgraded from 2.5.33 (January 2026) - Fixes CVE-2025-64775 disk exhaustion DoS vulnerability
-  - Requires Caffeine 3.1.8 cache dependency for internal caching
-  - Maintains backward compatibility with `com.opensymphony.xwork2.*` packages via WW-5494 bug
-  - All 458 *2Action files remain unchanged - no import modifications needed
-- **Apache CXF 3.6.9**: Web services framework for healthcare integrations
-- **JSP/JSTL**: View layer with extensive medical form templates
-- **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
-- **JavaScript/CSS/jQuery**: Frontend with healthcare-specific UI components
-- **Vanilla JavaScript**: Progressively replacing jQuery dependencies where possible
+## Security & Configuration Libraries
 
 ### Security Libraries
 - **OWASP CSRFGuard 4.5**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
@@ -501,206 +493,17 @@ Multiple modular application contexts:
 - **Inter-EMR**: Data sharing via Integrator system across multiple OSCAR installations
 - **Provincial Billing**: Direct integration with Teleplan (BC MSP) and other systems
 
-### Active Code Cleanup (2025)
-- **Modules Removed**: MyDrugRef, BORN integration, HealthSafety, legacy email notifications
-
-### Code Maintenance Approach
-- **Active cleanup**: Project aggressively removes unused code and dependencies
+### Code Maintenance
+- **Active cleanup**: Project aggressively removes unused code and dependencies to reduce attack surface
 - **Recently removed**: MyDrugRef, BORN integration, HealthSafety, legacy email notifications
-- **Assumption**: Don't assume legacy features still exist - check current codebase
-- **Philosophy**: Reduce attack surface by removing unused functionality
+- **Assumption**: Don't assume legacy features still exist — check current codebase
 
-### Development Environment Context
-- **DevContainer primary**: Development done in Docker containers with debugging enabled
-- **Debug port**: 8000 for remote debugging
-- **Database**: Hibernate schema validation disabled - manual migration control
-- **Logging**: Enhanced logging in development environment with `debug-on`/`debug-off` aliases
-- **Custom Terminal**: Welcome message displays all available tools and shortcuts on bash startup
 
-### DevContainer Custom Scripts
-Located in `/scripts` directory within the container (copied from `.devcontainer/development/scripts/`):
-- `make lock` - Update Maven dependency lock file
-- **Build Process**: Stops Tomcat → Builds WAR → Creates symlink → Starts Tomcat
-- **Configuration**: Auto-creates `over_ride_config.properties` from template
-- **Parallel builds**: Uses `-T 1C` for faster Maven builds
-- **Deployment**: Handles versioned WAR directories with symlinks to `/usr/local/tomcat/webapps/carlos`
 
-## Architecture Patterns
+## Database Schema & Migration System
 
-### Layered Architecture
-- **Web Layer**: Controllers (Actions) handle HTTP requests
-- **Service Layer**: Business logic and workflow orchestration
-- **DAO Layer**: Data access objects for database operations
-- **Model Layer**: Domain entities and value objects
-
-### Spring Configuration
-- Extensive use of Spring IoC container
-- Transaction management with Spring AOP
-- Security configuration with Spring Security
-- Multiple application contexts for different modules
-
-### Legacy Integration & Struts2 Migration Pattern ("2Action") - CRITICAL PATTERN
-
-#### **Migration Strategy Overview**
-CARLOS EMR uses a unique incremental migration approach from Struts 1.x to Struts 2.x using a "2Action" naming convention that allows both frameworks to coexist during the transition period.
-
-#### **2Action Naming Convention & Structure**
-- **Naming Pattern**: All migrated Struts2 actions follow `*2Action.java` naming (e.g., `AddTickler2Action`, `DisplayDashboard2Action`, `Login2Action`)
-- **Class Structure**:
-  ```java
-  public class Example2Action extends ActionSupport {
-      HttpServletRequest request = ServletActionContext.getRequest();
-      HttpServletResponse response = ServletActionContext.getResponse();
-
-      private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
-
-      public String execute() {
-          // Security check pattern
-          if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_object", "r", null)) {
-              throw new SecurityException("missing required sec object");
-          }
-          // Business logic
-          return "success";
-      }
-  }
-  ```
-
-#### **Struts2 Action Categories**
-
-**1. Simple Execute Actions**
-- Single `execute()` method handling all logic
-- Examples: `AddTickler2Action`, `EditTickler2Action`
-- Return simple result strings like "success", "close", "error"
-
-**2. Method-Based Actions**
-- Use `method` parameter to route to different methods within the action
-- Pattern: `String mtd = request.getParameter("method");`
-- Examples: `SystemMessage2Action` (view/edit methods)
-- Allows multiple related operations in one action class
-
-**3. Inheritance-Based Actions**
-- Extend specialized base classes like `EctDisplayAction`
-- Examples: `EctDisplayMeasurements2Action`, `EctDisplayRx2Action`
-- Inherit common functionality while implementing specific `getInfo()` methods
-- Used for encounter display components in left navbar
-
-#### **Integration Patterns**
-
-**Request/Response Access**
-```java
-HttpServletRequest request = ServletActionContext.getRequest();
-HttpServletResponse response = ServletActionContext.getResponse();
-```
-- Direct servlet API access maintained for compatibility
-- No dependency on Struts2 action properties
-
-**Spring Integration**
-```java
-private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
-```
-- Spring dependency injection via `SpringUtils.getBean()`
-- Maintains loose coupling with Spring container
-- No need for Struts2-Spring plugin complexity
-
-**Security Pattern (Required)**
-```java
-if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_objectname", "r", null)) {
-    throw new SecurityException("missing required sec object");
-}
-```
-- Every 2Action MUST include security validation
-- Uses healthcare-specific role-based access control
-- Throws SecurityException for unauthorized access
-
-#### **Configuration Approach**
-
-**Struts.xml Mapping**
-```xml
-<action name="login" class="io.github.carlos_emr.carlos.login.Login2Action">
-    <result name="provider" type="redirect">/provider/providercontrol.jsp</result>
-    <result name="failure">/logout.jsp</result>
-</action>
-```
-- Maintains `.do` extension for backward compatibility
-- Spring object factory integration: `<constant name="struts.objectFactory" value="spring"/>`
-- Mixed namespace support for gradual migration
-
-**URL Compatibility**
-- Legacy URLs ending in `.do` continue to work
-- No changes required to existing JSP forms and links
-- Seamless user experience during migration
-
-#### **Best Practices for 2Action Development**
-**1. Security First**
-- Always include security privilege checks
-- Use appropriate security objects for healthcare data
-- Log security violations appropriately
-
-**2. Error Handling**
-- Use context-appropriate OWASP encoding when outputting user data:
-  - `Encode.forHtml()` / `${e:forHtml()}` - HTML body content
-  - `Encode.forHtmlAttribute()` / `${e:forHtmlAttribute()}` - HTML attribute values
-  - `Encode.forJavaScript()` / `${e:forJavaScript()}` - JavaScript string contexts
-  - `Encode.forJavaScriptAttribute()` / `${e:forJavaScriptAttribute()}` - JS in HTML attributes
-  - `Encode.forCssString()` / `${e:forCssString()}` - CSS string values
-  - `Encode.forUri()` / `${e:forUri()}` and `Encode.forUriComponent()` / `${e:forUriComponent()}` - URL paths/parameters
-- In JSP views, prefer the `${e:...}` EL functions over scriptlet calls (see [OWASP Encoding](#owasp-encoding--xss-prevention))
-- Implement proper exception handling
-- Return appropriate result strings
-
-**3. Spring Integration**
-- Use `SpringUtils.getBean()` for dependency injection
-- Leverage existing Spring-managed services
-- Maintain transactional boundaries
-
-**4. Healthcare Context**
-- Include audit logging for patient data access
-- Follow PHI protection patterns
-- Use healthcare-specific validation
-
-This migration pattern allows CARLOS EMR to modernize incrementally while maintaining system stability and regulatory compliance throughout the transition process.
-
-## File Patterns
-
-### Key File Types
-- `**/*DAO.java` - Database access objects
-- `**/*Action.java` - Struts/Spring MVC controllers
-- `**/web/**` - Web layer components
-- `**/model/**` - Entity/domain models
-- `**/service/**` - Business logic services
-- `database/mysql/**` - Schema migrations and SQL scripts
-- `src/main/webapp/**` - Web resources (JSP, CSS, JS)
-
-### Configuration Files
-- **Struts Configuration**:
-  - `struts.xml` - Struts2 configuration with `.do` extension and Spring integration
-  - Mixed Struts 1.x and 2.x action mappings
-- **Database Configuration**:
-  - Custom MySQL dialect: `OscarMySQL5Dialect`
-  - Connection tracking: `OscarTrackingBasicDataSource`
-  - Legacy MySQL compatibility settings
-- **Security Configuration**:
-  - `web.xml` - Filter chain with CSRFGuard 4.5 CSRF protection (see `docs/csrf-protection-architecture.md`)
-  - Privacy statement filters and audit logging
-  - Multi-factor authentication and SAML 2.0 support
-- `pom.xml` - Maven with 200+ healthcare-specific dependencies
-
-## Development Environment
-
-### Docker Setup
-- Development environment runs in Docker containers
-- Tomcat container with Java 21 and debugging enabled
-- MariaDB database container
-- Maven repository caching for faster builds
-- Port 8080 for web application, 3306 for database
-
-### IDE Configuration
-- VS Code with Java extension pack
-- Remote development in Docker container
-- Debugging support on port 8000
-
-## Database Schema Patterns
+**Database**: MariaDB/MySQL with comprehensive healthcare schema dating back to 2006
+**Migration Pattern**: Date-based SQL scripts (`update-YYYY-MM-DD-description.sql`)
 
 ### Core Healthcare Tables
 - **demographic**: 50+ fields including HIN, rostering status, multiple addresses
@@ -714,15 +517,9 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 
 ### Audit and Compliance Patterns
 - Every table includes `lastUpdateUser`, `lastUpdateDate` for audit trails
-- Complex healthcare schema with 50+ fields in `demographic` table
 - Comprehensive logging of all patient data access via `UserActivityFilter`
 - Privacy-compliant data handling with PHI filtering throughout application
 - Multi-jurisdictional support with province-specific configurations
-
-## Database Schema & Migration System
-
-**Database**: MariaDB/MySQL with comprehensive healthcare schema dating back to 2006
-**Migration Pattern**: Date-based SQL scripts (`update-YYYY-MM-DD-description.sql`)
 
 ### Core Database Files (`database/mysql/`)
 ```bash
@@ -825,22 +622,9 @@ Labels are reserved for cross-cutting attributes that can apply alongside any is
 - `status: verified-fixed` - Reporter confirmed the fix works
 - `status: fix-failed` - Reporter confirmed the fix doesn't work
 
-## Commit Standards & Quick Reference
+## Commit Standards
 
 **Commit Format**: [Conventional Commits](https://www.conventionalcommits.org/) - `feat:`, `fix:`, `chore:`, `update:`
-
-**Key Files**:
-- `CLAUDE.md` - AI context (this file)
-- `pom.xml` - 200+ healthcare Maven dependencies
-- `database/mysql/` - 19+ years of healthcare schema evolution (2006-2025)
-- `.devcontainer/` - Docker development with AI tools
-
-**Critical Patterns**:
-- **Project Name**: "CARLOS EMR" or "CARLOS" in all user-facing content
-- **Security**: `SecurityInfoManager.hasPrivilege()` + OWASP encoding required
-- **Actions**: `*2Action.java` pattern for Struts2 migration
-- **Packages**: `io.github.carlos_emr.carlos.*` (new) vs `org.oscarehr.*` (legacy)
-- **Database**: Date-based migrations, audit trails (`lastUpdateUser`, `lastUpdateDate`)
 
 ---
 
@@ -1073,50 +857,7 @@ src/test/java/io/github/carlos_emr/carlos/                   # Legacy test struc
 src/test/resources/over_ride_config.properties    # Test configuration template
 ```
 
-#### Modern Test Framework - Critical Guidelines
-**IMPORTANT**: When writing tests, ALWAYS:
-1. **Examine the actual code first** - Read the DAO/Manager interfaces to see what methods actually exist
-2. **Test real methods only** - Never make up methods that don't exist in the codebase
-3. **Use actual method signatures** - Match the exact parameters and return types
-4. **Choose the right base class**:
-   - Integration tests: Extend `CarlosTestBase` (Spring context + database)
-   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
-   - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
-5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
-6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests
-7. **For Manager unit tests with static classes** (LogAction, etc.):
-   - Register SpringUtils mocks FIRST, THEN create static mocks
-   - Close static mocks in @AfterEach to prevent test pollution
-   - Use @Nested classes with JavaDoc to organize large test suites
-
-Example of proper test development workflow:
-```java
-// 1. First, check the actual DAO interface:
-// src/main/java/io/github/carlos_emr/carlos/commn/dao/TicklerDao.java
-public interface TicklerDao extends AbstractDao<Tickler> {
-    public Tickler find(Integer id);  // <-- Real method to test
-    public List<Tickler> findActiveByDemographicNo(Integer demoNo); // <-- Real method
-    // ... other actual methods
-}
-
-// 2. Then write BDD-style tests for these ACTUAL methods:
-@Test
-@DisplayName("should return tickler when valid ID is provided")
-void shouldReturnTickler_whenValidIdProvided() {
-    // Given
-    Tickler saved = createAndSaveTickler();
-
-    // When
-    Tickler found = ticklerDao.find(saved.getId()); // Testing real method
-
-    // Then
-    assertThat(found).isNotNull();
-    assertThat(found).isEqualTo(saved);
-}
-
-// 3. Add negative test cases for edge cases and error conditions
-=======
-For detailed examples and test development workflow, see **[Test Writing Guide](docs/test/test-writing-guide.md)**.
+For detailed test guidelines, BDD naming conventions, and examples, see the [Modern Test Framework](#modern-test-framework-junit-5) section above and the **[Test Writing Guide](docs/test/test-writing-guide.md)**.
 
 **Test Execution Commands:**
 ```bash
