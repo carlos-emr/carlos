@@ -218,7 +218,8 @@ public class PreventionDaoIntegrationTest extends CarlosTestBase {
             Calendar cal = new GregorianCalendar();
             cal.add(Calendar.DAY_OF_YEAR, -1);
             List<Prevention> results = preventionDao.findByUpdateDate(cal.getTime(), 99);
-            assertThat(results).isNotEmpty();
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getDemographicId()).isEqualTo(DEMO_1);
         }
 
         @Test

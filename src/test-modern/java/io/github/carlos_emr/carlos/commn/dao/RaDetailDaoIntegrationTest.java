@@ -550,7 +550,7 @@ public class RaDetailDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return non-null result when finding by billingNo, serviceDate, and providerNo")
     void shouldReturnNonNullResult_byBillingNoServiceDateAndProviderNo() {
         List<RaDetail> result = dao.findByBillingNoServiceDateAndProviderNo(100, ConversionUtils.toDateString(new Date()), "100");
-        assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
     }
 
     @Test
@@ -558,7 +558,7 @@ public class RaDetailDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return non-null result when finding by billingNo and errorCode")
     void shouldReturnNonNullResult_byBillingNoAndErrorCode() {
         List<RaDetail> result = dao.findByBillingNoAndErrorCode(100, "CODE");
-        assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
     }
 
     @Test
@@ -566,7 +566,7 @@ public class RaDetailDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should return non-null result when finding by header and billing numbers")
     void shouldReturnNonNullResult_byHeaderAndBillingNos() {
         List<RaDetail> result = dao.findByHeaderAndBillingNos(100, 100);
-        assertThat(result).isNotNull();
+        assertThat(result).isEmpty();
     }
 
     @Test

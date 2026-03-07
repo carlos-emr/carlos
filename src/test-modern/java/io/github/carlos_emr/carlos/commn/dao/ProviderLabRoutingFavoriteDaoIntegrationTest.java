@@ -76,6 +76,7 @@ public class ProviderLabRoutingFavoriteDaoIntegrationTest extends CarlosTestBase
             providerLabRoutingFavoritesDao.persist(saved);
             ProviderLabRoutingFavorite found = providerLabRoutingFavoritesDao.find(saved.getId());
             assertThat(found).isNotNull();
+            assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
 
