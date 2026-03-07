@@ -145,7 +145,7 @@ public class MeasurementsExtDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find measurement ID by key and value")
         void shouldFindMeasurementId_byKeyAndValue() {
             Integer id = measurementsExtDao.getMeasurementIdByKeyValue("identifier", "ABC-123");
-            assertThat(id).isNotNull();
+            assertThat(id).isEqualTo(7001);
         }
 
         @Test

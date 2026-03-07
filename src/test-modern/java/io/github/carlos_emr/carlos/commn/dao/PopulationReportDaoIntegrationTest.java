@@ -905,6 +905,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result).isEmpty();
         }
 
         @Test
@@ -925,6 +926,7 @@ public class PopulationReportDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(result).isNotNull();
+            assertThat(result).isEmpty();
         }
     }
 

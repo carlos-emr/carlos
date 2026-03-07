@@ -171,7 +171,8 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should search pharmacy cities")
         void shouldSearchPharmacyCities() {
             List<String> cities = pharmacyInfoDao.searchPharmacyByCity("Ott%");
-            assertThat(cities).isNotEmpty();
+            assertThat(cities).hasSize(1);
+            assertThat(cities).containsExactly("Ottawa");
         }
     }
 }
