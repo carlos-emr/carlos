@@ -277,8 +277,6 @@
 
     boolean prescriptionQrCodes = providerPreference.isPrintQrCodeOnPrescriptions();
 
-    boolean bShortcutIntakeForm = oscarVariables.getProperty("appt_intake_form", "").equalsIgnoreCase("on") ? true : false;
-
     String newticklerwarningwindow = null;
     String default_pmm = null;
     String programId_oscarView = null;
@@ -654,16 +652,6 @@
             }
         </style>
 
-        <%
-            if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) {
-        %>
-        <script src="${pageContext.servletContext.contextPath}/hcHandler/hcHandler.js"></script>
-        <script src="${pageContext.servletContext.contextPath}/hcHandler/hcHandlerAppointment.js"></script>
-        <link rel="stylesheet" href="${pageContext.servletContext.contextPath}/hcHandler/hcHandler.css"
-              type="text/css"/>
-        <%
-            }
-        %>
 
     </head>
     <%
@@ -2184,8 +2172,6 @@
                                                         <% }
                                                         } // end if not is week view %>
 
-                                                        <%= (bShortcutIntakeForm) ? "| <a href='#' onClick='popupPage(700, 1024, \"formIntake.jsp?demographic_no=" + demographic_no + "\")' title='Intake Form'>In</a>" : "" %>
-
                                                         <!-- billing code block -->
                                                         <% if (!isWeekView) { %>
                                                         <c:if test="${billingRights}">
@@ -2465,9 +2451,6 @@
         });
     </script>
     <!-- end of keycode block -->
-    <% if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
-    <jsp:include page="/hcHandler/hcHandler.html"/>
-    <% } %>
     </body>
 </html>
 

@@ -68,13 +68,7 @@
             <result name="saved">/quickBillingBC.do</result>
             <result name="error">/billing/CA/BC/quickBillingBC.jsp?saved=false</result>
         </action>
-        <action name="documentManager/addDocumentType" class="io.github.carlos_emr.carlos.documentManager.actions.AddDocumentType2Action">
-            <result name="failed">/documentManager/addNewDocumentCategories.jsp</result>
-            <result name="success">/documentManager/closeWindow.html</result>
-        </action>
-        <action name="documentManager/changeDocStatus" class="io.github.carlos_emr.carlos.documentManager.actions.ChangeDocStatus2Action">
-            <result name="success">/documentManager/closeWindow.html</result>
-        </action>
+
         <action name="lab/CA/ALL/createLabLabel" class="io.github.carlos_emr.carlos.lab.ca.all.pageUtil.CreateLabLabel2Action">
             <result name="complete">/lab/CA/ALL/labDisplay.jsp</result>
         </action>
@@ -1052,11 +1046,6 @@
             <result name="success">/oscarEncounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
             <result name="failure">/oscarEncounter/oscarMeasurements/Measurements.jsp</result>
         </action>
-        <action name="oscarEncounter/FormUpdate" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.FormUpdate2Action">
-            <result name="success">/oscarEncounter/oscarMeasurements/close.jsp</result>
-            <result name="reload">/oscarEncounter/oscarMeasurements/TemplateFlowSheet.jsp</result>
-            <result name="failure">/oscarEncounter/oscarMeasurements/FlowUpdate.jsp</result>
-        </action>
         <action name="oscarEncounter/Measurements" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2Action">
             <result name="success">/oscarEncounter/oscarMeasurements/ProcessMeasurementsSubmission.jsp</result>
             <result name="failure">/oscarEncounter/oscarMeasurements/Measurements.jsp</result>
@@ -1558,7 +1547,6 @@
             <result name="success">/eform/efmmanageformgroups.jsp</result>
         </action>
         <action name="eform/displayImage" class="io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action"/>
-        <action name="eform/FetchUpdatedData" class="io.github.carlos_emr.carlos.eform.actions.FetchUpdatedData2Action"/>
         <action name="billing/CA/BC/associateCodesAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AssociateCodes2Action">
             <result name="success">/billing/CA/BC/showServiceCodeAssocs.do</result>
         </action>
@@ -1958,9 +1946,7 @@
         </action>
         <action name="saveWorkView" class="io.github.carlos_emr.carlos.provider.web.ProviderView2Action" method="execute"/>
         <action name="Provider/showPersonal" class="io.github.carlos_emr.carlos.provider.web.DisplayPersonalInfoAppointment2Action"/>
-        <action name="admin/oscarStatus" class="io.github.carlos_emr.carlos.util.OscarStatus2Action">
-            <result name="success">/admin/oscarStatus.jsp</result>
-        </action>
+
         <action name="billing/CA/ON/moveMOHFiles" class="io.github.carlos_emr.carlos.billing.CA.ON.web.MoveMOHFiles2Action">
             <result name="success">/billing/CA/ON/viewMOHFiles.jsp</result>
         </action>
@@ -2033,7 +2019,6 @@
             <result name="form">/episode/episodeForm.jsp</result>
             <result name="success">/episode/success.jsp</result>
         </action>
-        <action name="indivica/HCSearch" class="io.github.carlos_emr.carlos.commn.web.HealthCardSearch2Action"/>
         <action name="oscarEncounter/displayPregnancies" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayPregnancy2Action">
             <result name="labs">/oscarEncounter/displayLabs.do</result>
 			<result name="forms">/oscarEncounter/displayForms.do</result>
