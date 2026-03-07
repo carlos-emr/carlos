@@ -72,7 +72,7 @@
             String userName = (String) session.getAttribute("userlastname") + ", " + (String) session.getAttribute("userfirstname");
             String everyNum = request.getParameter("everyNum") != null ? request.getParameter("everyNum") : "0";
             String everyUnit = request.getParameter("everyUnit") != null ? request.getParameter("everyUnit") : "day";
-            String endDate = request.getParameter("endDate") != null ? request.getParameter("endDate") : UtilDateUtilities.DateToString(new Date(), "dd/MM/yyyy");
+            String endDate = request.getParameter("endDate") != null ? request.getParameter("endDate") : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
             int delta = Integer.parseInt(everyNum);
             if (everyUnit.equals("week")) {
                 delta = delta * 7;
@@ -80,7 +80,7 @@
             }
             GregorianCalendar gCalDate = new GregorianCalendar();
             GregorianCalendar gEndDate = (GregorianCalendar) gCalDate.clone();
-            gEndDate.setTime(UtilDateUtilities.StringToDate(endDate, "dd/MM/yyyy"));
+            gEndDate.setTime(UtilDateUtilities.StringToDate(endDate, "yyyy-MM-dd"));
 
             Date iDate = ConversionUtils.fromDateString(request.getParameter("appointment_date"));
             // repeat adding
@@ -237,9 +237,8 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
         <script type="text/javascript">
             function onCheck(a, b) {
-                if (a.checked) {
-                    document.getElementById("everyUnit").value = b;
-                }
+                document.getElementById("everyUnit").value = b;
+                document.getElementById("everyUnitLabel").textContent = b + '(s)';
             }
 
             function onExit() {
@@ -260,13 +259,6 @@
                 }
             }
         </script>
-        <!-- calendar -->
-        <link rel="stylesheet" type="text/css" media="all"
-              href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar.js"></script>
-        <script type="text/javascript"
-                src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:setBundle basename="oscarResources"/><fmt:message key="global.javascript.calendar"/>"></script>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
     </head>
 
     <body onLoad="setfocus()">
@@ -285,8 +277,57 @@
         <form name="groupappt" method="POST"
               action="appointmentrepeatbooking.jsp" onSubmit="return onSub();">
             <input type="hidden" name="groupappt" value="">
+            <input type="hidden" name="everyUnit" id="everyUnit" value="day">
 
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="bg-light border rounded p-3 mb-3">
+                <div class="mb-3">
+                    <label class="form-label fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/></label>
+                    <div class="ms-2">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_day" value="day" checked onclick='onCheck(this, "day")'>
+                            <label class="form-check-label" for="dateUnit_day"><fmt:setBundle basename="oscarResources"/><fmt:message key="day"/></label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_week" value="week" onclick='onCheck(this, "week")'>
+                            <label class="form-check-label" for="dateUnit_week"><fmt:setBundle basename="oscarResources"/><fmt:message key="week"/></label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_month" value="month" onclick='onCheck(this, "month")'>
+                            <label class="form-check-label" for="dateUnit_month"><fmt:setBundle basename="oscarResources"/><fmt:message key="month"/></label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_year" value="year" onclick='onCheck(this, "year")'>
+                            <label class="form-check-label" for="dateUnit_year"><fmt:setBundle basename="oscarResources"/><fmt:message key="year"/></label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <label class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.every"/></label>
+                    <div class="col-sm-9 d-flex align-items-center gap-2">
+                        <select name="everyNum" class="form-select form-select-sm" style="width: 70px;">
+                            <%
+                                for (int i = 1; i < 12; i++) {
+                            %>
+                            <option value="<%=i%>"><%=i%></option>
+                            <%
+                                }
+                            %>
+                        </select>
+                        <span id="everyUnitLabel" class="text-muted">day(s)</span>
+                    </div>
+                </div>
+
+                <div class="row mb-2">
+                    <label class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/></label>
+                    <div class="col-sm-9">
+                        <input type="date" id="endDate" name="endDate" class="form-control form-control-sm" style="width: 170px;"
+                               value="<%=UtilDateUtilities.DateToString(new Date(),"yyyy-MM-dd")%>">
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <% if (bEdit) { %>
                     <input type="button" class="btn btn-primary btn-sm"
@@ -314,59 +355,6 @@
                 </div>
             </div>
 
-            <div class="bg-light border rounded p-3">
-                <div class="mb-3">
-                    <label class="form-label fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/></label>
-                    <div class="ms-2">
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="dateUnit" value="day" checked onclick='onCheck(this, "day")'>
-                            <label class="form-check-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="day"/></label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="dateUnit" value="week" onclick='onCheck(this, "week")'>
-                            <label class="form-check-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="week"/></label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="dateUnit" value="month" onclick='onCheck(this, "month")'>
-                            <label class="form-check-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="month"/></label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="dateUnit" value="year" onclick='onCheck(this, "year")'>
-                            <label class="form-check-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="year"/></label>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row mb-2">
-                    <label class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.every"/></label>
-                    <div class="col-sm-9 d-flex align-items-center gap-2">
-                        <select name="everyNum" class="form-select form-select-sm" style="width: auto;">
-                            <%
-                                for (int i = 1; i < 12; i++) {
-                            %>
-                            <option value="<%=i%>"><%=i%></option>
-                            <%
-                                }
-                            %>
-                        </select>
-                        <input type="text" name="everyUnit" id="everyUnit" class="form-control form-control-sm" style="width: 100px;"
-                               value="<%="day"%>" readonly>
-                    </div>
-                </div>
-
-                <div class="row mb-2">
-                    <label class="col-sm-3 col-form-label">
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/>
-                        <br><small class="text-muted"><fmt:setBundle basename="oscarResources"/><fmt:message key="ddmmyyyy"/></small>
-                    </label>
-                    <div class="col-sm-9 d-flex align-items-center gap-2">
-                        <input type="text" id="endDate" name="endDate" class="form-control form-control-sm" style="width: 130px;"
-                               value="<%=UtilDateUtilities.DateToString(new Date(),"dd/MM/yyyy")%>" readonly>
-                        <button type="button" id="f_trigger_b" class="btn btn-outline-secondary btn-sm">...</button>
-                    </div>
-                </div>
-            </div>
-
             <%
                 String temp = null;
                 for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
@@ -378,17 +366,6 @@
             %>
         </form>
     </div>
-
-    <script type="text/javascript">
-        Calendar.setup({
-            inputField: "endDate",
-            ifFormat: "%d/%m/%Y",
-            showsTime: false,
-            button: "f_trigger_b",
-            singleClick: true,
-            step: 1
-        });
-    </script>
 
     </body>
 </html>
