@@ -133,14 +133,14 @@ public class ReportMacro2Action extends ActionSupport {
             ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
             String comment = jAck.get("comment").asText();
             if (StringUtils.isBlank(segmentID)) {
-                logger.error("Cannot acknowledge lab: missing or empty segmentID for labType=" + labType);
+                logger.error("Cannot acknowledge lab: missing or empty segmentID for labType={}", labType);
                 return false;
             }
             final int segmentInt;
             try {
                 segmentInt = Integer.parseInt(segmentID);
             } catch (NumberFormatException e) {
-                logger.error("Cannot acknowledge lab: non-numeric segmentID='" + segmentID + "' for labType=" + labType, e);
+                logger.error("Cannot acknowledge lab: non-numeric segmentID='{}' for labType={}", segmentID, labType, e);
                 return false;
             }
             CommonLabResultData.updateReportStatus(segmentInt, providerNo, 'A', comment, labType, skipComment(providerNo));
