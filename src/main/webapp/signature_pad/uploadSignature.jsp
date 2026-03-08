@@ -42,6 +42,8 @@
 
     <%@page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
     <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+    <%@page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
+    <%@page import="java.io.File" %>
     <%@page import="java.io.FileOutputStream" %>
     <%@page import="java.io.InputStream" %>
     <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -63,7 +65,22 @@
 		ModuleType moduleType = ModuleType.getByName(request.getParameter(ModuleType.class.getSimpleName()));
 
         if (signatureKey != null) {
+            // Reject path traversal characters in the signature key before building the path
+            if (signatureKey.contains("..") || signatureKey.contains("/") ||
+                signatureKey.contains("\\") || signatureKey.contains(File.separator)) {
+                MiscUtils.getLogger().warn("SECURITY: Path traversal attempt in signatureKey from provider {}", loggedInInfo.getLoggedInProviderNo());
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid signature key");
+                return;
+            }
+
             String filename = DigitalSignatureUtils.getTempFilePath(signatureKey);
+
+            // Validate the resolved path is within the allowed temp directory
+            if (!PathValidationUtils.isInAllowedTempDirectory(new File(filename))) {
+                MiscUtils.getLogger().warn("SECURITY: Signature path outside temp directory: {} (provider {})", filename, loggedInInfo.getLoggedInProviderNo());
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid file path");
+                return;
+            }
 
             if ("IPAD".equalsIgnoreCase(uploadSource) && imageString != null && !imageString.isEmpty()) {
 
