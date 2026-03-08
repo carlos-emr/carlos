@@ -30,27 +30,38 @@
 
 package io.github.carlos_emr.carlos.eform.actions;
 
-import com.opensymphony.xwork2.ActionSupport;
-
-import org.apache.commons.io.IOUtils;
-import org.apache.struts2.ServletActionContext;
-
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.OscarProperties;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
 
 import javax.activation.MimetypesFileTypeMap;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.File;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.FileInputStream;
-import java.util.ArrayList;
+
+import com.opensymphony.xwork2.ActionSupport;
+import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.struts2.ServletActionContext;
+
 /**
- * eform_image
+ * Struts2 action that streams eform image and asset files (images, CSS, JavaScript, JSON)
+ * directly to the HTTP response with the correct MIME content type.
  *
- * @author jay
- * and Paul
+ * <p>Files are resolved relative to the configured eform image directory
+ * ({@code OscarProperties.getEformImageDirectory()}). Path traversal attempts are
+ * rejected before any file I/O is performed.</p>
+ *
+ * <p>Supported file types include common raster image formats (PNG, JPEG, BMP, GIF, TIFF,
+ * ICO, etc.), SVG, CSS, JavaScript, JSON, and HTML. An unsupported extension causes the
+ * action to throw an exception rather than serving content with an ambiguous MIME type.</p>
+ *
+ * <p>This action is also used to serve admin-uploaded JSON catalogues (e.g.
+ * {@code vaccine-brands.json}) for client-side autocomplete features.</p>
+ *
+ * @since 2026-03-06
  */
 public class DisplayImage2Action extends ActionSupport {
     private HttpServletRequest request = ServletActionContext.getRequest();
