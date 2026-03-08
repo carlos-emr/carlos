@@ -29,28 +29,51 @@
 
 --%>
 
+<%--
+    Page    : oscarPrevention/index.jsp
+    Purpose : Displays the immunization and screening prevention record for a patient.
+              Provides a navigable list of prevention types (immunizations and screenings),
+              shows existing prevention records, and allows entry of new immunizations via
+              a brand autocomplete selector and lot-number lookup.
+
+    Features:
+      - Vaccine brand autocomplete (loaded from eform images or bundled catalogue)
+      - Keyboard-navigable brand selector populating brand, dose, route, DIN, and manufacturer
+      - Lot-number autocomplete via CVC query endpoint
+      - Bootstrap 5 alert-based dismissible SSO / ISPA / non-ISPA warnings
+      - Decision-support colour-coded recommendations via Drools (DSPreventionDrools)
+      - DHIR (Digital Health Immunization Repository) submission status
+
+    Parameters:
+      @param demographic_no  String  patient demographic number (required)
+
+    @since 2005-10-26
+--%>
+
+<%@ page import="io.github.carlos_emr.OscarProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Consent" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.DHIRSubmissionManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
+<%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@page import="org.apache.commons.text.StringEscapeUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog" %>
-<%@page import="io.github.carlos_emr.carlos.managers.DHIRSubmissionManager" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Consent" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@page import="io.github.carlos_emr.OscarProperties" %>
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
+<%@ page import="java.util.*" %>
+<%@ page import="org.apache.commons.lang3.StringUtils" %>
+<%@ page import="org.apache.commons.text.StringEscapeUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
@@ -285,7 +308,7 @@
             function addByLot() {
                 var input = document.getElementById('lotNumberToAdd2');
                 var lotNbr = input ? input.value : '';
-                popup(600, 900, 'AddPreventionData.jsp?demographic_no=<%=demographic_no%>&lotNumber=' + lotNbr, 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
+                popup(600, 900, 'AddPreventionData.jsp?demographic_no=<%=demographic_no%>&lotNumber=' + encodeURIComponent(lotNbr), 'addPreventionData' + <%=new java.util.Random().nextInt(10000) + 1%>);
             }
         </script>
 
@@ -469,8 +492,10 @@
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({key: 'prevention_sso_warning', value: 'true'})
-                    }).then(function() {
-                        document.getElementById('ssoWarning').style.display = 'none';
+                    }).then(function(response) {
+                        if (response.ok) {
+                            document.getElementById('ssoWarning').style.display = 'none';
+                        }
                     });
                 }
             }
@@ -481,8 +506,10 @@
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({key: 'prevention_ispa_warning', value: 'true'})
-                    }).then(function() {
-                        document.getElementById('ispaWarning').style.display = 'none';
+                    }).then(function(response) {
+                        if (response.ok) {
+                            document.getElementById('ispaWarning').style.display = 'none';
+                        }
                     });
                 }
             }
@@ -493,8 +520,10 @@
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({key: 'prevention_non_ispa_warning', value: 'true'})
-                    }).then(function() {
-                        document.getElementById('nonIspaWarning').style.display = 'none';
+                    }).then(function(response) {
+                        if (response.ok) {
+                            document.getElementById('nonIspaWarning').style.display = 'none';
+                        }
                     });
                 }
             }
@@ -540,7 +569,7 @@
 {name:"JE", value:"IXIARO 6 micrograms per 0.5 milliliter suspension for injection", manufacture:"Valneva Austria GmbH", dose:"0.5", units:"mL", route:"IM", din:"2333279"},
 {name:"rMenB", value:"BEXSERO suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2417030"},
 {name:"rMenB", value:"Trumenba suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2468751"},
-{name:"MenC-C", value:"MenQuadfi solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2507161"},
+{name:"Men-C-ACYW-135", value:"MenQuadfi solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2507161"},
 {name:"Men-C-ACYW-135", value:"Menactra solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2279924"},
 {name:"Men-C-ACYW-135", value:"Menveo powder and solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2347393"},
 {name:"Men-C-ACYW-135", value:"NIMENRIX powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2402904"},
@@ -581,7 +610,7 @@
 {name:"OtherA", value:"VariZIG 125 international units per 1.2 milliliter solution for injection", manufacture:"KI BioPharma LLC", dose:"", units:"VIAL", route:"IM", din:"2442183"},
 {name:"OtherA", value:"VariZIG 125 international units per 1.2 milliliter solution for injection", manufacture:"Saol Therapeutics Research Limited", dose:"", units:"VIAL", route:"IM", din:"2442183"},
 {name:"YF", value:"YF-VAX 109648 plaque forming units per 0.5 milliliter powder and diluent for suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"SQ", din:"428833"},
-{name:"Tuberculosis", value:"Tubersol", manufacture:"Sanofi Pasteur Limited", dose:"0.1", units:"mL", route:"Intradermal", din:"428833"}
+{name:"Tuberculosis", value:"Tubersol", manufacture:"Sanofi Pasteur Limited", dose:"0.1", units:"mL", route:"Intradermal", din:"00317268"}
   ];
 
         /* ---- Vaccine brand catalogue loading ----
@@ -595,7 +624,32 @@
         var tags = [];
         var _vaccineLoadPromise = fetch('<%=request.getContextPath()%>/eform/displayImage.do?imagefile=vaccine-brands.json')
             .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
-            .then(function(data) { tags = Array.isArray(data) ? data : VACCINE_BRANDS_DEFAULT; })
+            .then(function(data) {
+                if (!Array.isArray(data)) {
+                    tags = VACCINE_BRANDS_DEFAULT;
+                    return;
+                }
+                tags = data
+                    .filter(function(item) {
+                        return item &&
+                            typeof item.name === 'string' &&
+                            typeof item.value === 'string';
+                    })
+                    .map(function(item) {
+                        return {
+                            name:        item.name,
+                            value:       item.value,
+                            manufacture: typeof item.manufacture === 'string' ? item.manufacture : '',
+                            dose:        typeof item.dose === 'string' ? item.dose : '',
+                            units:       typeof item.units === 'string' ? item.units : '',
+                            route:       typeof item.route === 'string' ? item.route : '',
+                            din:         typeof item.din === 'string' ? item.din : ''
+                        };
+                    });
+                if (!tags.length) {
+                    tags = VACCINE_BRANDS_DEFAULT;
+                }
+            })
             .catch(function() { tags = VACCINE_BRANDS_DEFAULT; });
 
         </script>
