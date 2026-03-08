@@ -432,8 +432,7 @@ end
 // MMR / MMRV: Measles-Mumps-Rubella (2 rules) + Varicella combo (1 rule)
 // NACI Schedule: Dose 1 at 12mo, Dose 2 at 4-6yr (or as MMRV)
 // MMR 1: First dose, checks both MMR and MMRV counts (either satisfies)
-// MMR 2: Second dose at 48mo+, only checks MMR count (not MMRV)
-// MMRV 1: Second dose for those who got MMRV as first dose
+// MMR 2: Second dose at 48mo+, checks combined MMR+MMRV count (either type satisfies)
 // Age range: 12 months to 10 years
 // --------------------------------------------------------------------------
 rule "MMR 1"
@@ -453,14 +452,16 @@ rule "MMR 2"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 48 )
         eval( prev.getAgeInYears() < 10 )
-        eval( prev.getNumberOfPreventionType("MMR") + prev.getNumberOfPreventionType("MMRV") == 1 )
+        $mmrCount : Integer() from prev.getNumberOfPreventionType("MMR")
+        $mmrvCount : Integer() from prev.getNumberOfPreventionType("MMRV")
+        eval( $mmrCount + $mmrvCount == 1 )
     then
         prev.log("MMR/MMRV Second Dose Needed");
-        if (prev.getNumberOfPreventionType("MMR") == 1) {
-              prev.addWarning("MMR", "Needs Second MMR or MMRV");
-          } else {
-              prev.addWarning("MMRV", "Needs Second MMR or MMRV");
-          }
+        if ($mmrCount == 1) {
+            prev.addWarning("MMR", "Needs Second MMR or MMRV");
+        } else {
+            prev.addWarning("MMRV", "Needs Second MMR or MMRV");
+        }
 end
 
 
