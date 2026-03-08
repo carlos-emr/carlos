@@ -81,8 +81,7 @@ public class ReportMacro2Action extends ActionSupport {
 
         String name = request.getParameter("name");
 
-        logger.info("RunMacro called with name = " + name);
-
+        logger.info("RunMacro called with name = {}", name);
         if (name == null) {
             result.put("success", false);
             result.put("error", "No macro name provided");
@@ -120,7 +119,7 @@ public class ReportMacro2Action extends ActionSupport {
     }
 
     protected boolean runMacro(ObjectNode macro, HttpServletRequest request) {
-        logger.info("running macro " + macro.get("name").asText());
+        logger.info("running macro {}", macro.get("name").asText());
         String segmentID = request.getParameter("segmentID");
         String labType = request.getParameter("labType");
         String demographicNo = request.getParameter("demographicNo");
@@ -130,7 +129,7 @@ public class ReportMacro2Action extends ActionSupport {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
         if (macro.has("acknowledge")) {
-            logger.info("Acknowledging lab " + labType + ":" + segmentID);
+            logger.info("Acknowledging lab {}:{}", labType, segmentID);
             ObjectNode jAck = (ObjectNode) macro.get("acknowledge");
             String comment = jAck.get("comment").asText();
             if (StringUtils.isBlank(segmentID)) {
