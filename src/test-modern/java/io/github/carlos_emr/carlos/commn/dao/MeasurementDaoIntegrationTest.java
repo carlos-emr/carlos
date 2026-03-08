@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
+import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
@@ -444,8 +446,14 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return measurements matching key-value pair")
         void shouldReturnMeasurements_whenKeyValueMatches() {
-            // Given
-            createAndPersist(DEMO_NO, "BP", "120/80", today);
+            // Given — findByValue joins Measurement with MeasurementsExt on m.id = e.measurementId
+            Measurement m = createAndPersist(DEMO_NO, "BP", "120/80", today);
+            MeasurementsExt ext = new MeasurementsExt();
+            ext.setMeasurementId(m.getId());
+            ext.setKeyVal("BP");
+            ext.setVal("120/80");
+            entityManager.persist(ext);
+            entityManager.flush();
 
             // When
             List<Measurement> result = measurementDao.findByValue("BP", "120/80");
@@ -606,7 +614,7 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return measurement-provider pairs by ID")
         void shouldReturnPairs_byMeasurementId() {
-            // Given
+            // Given — query joins Measurement, MeasurementType, and Provider
             Provider provider = new Provider();
             provider.setProviderNo(PROVIDER_NO);
             provider.setFirstName("John");
@@ -617,6 +625,14 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
             provider.setStatus("1");
             hibernateTemplate.save(provider);
             hibernateTemplate.flush();
+
+            MeasurementType mt = new MeasurementType();
+            mt.setType("BP");
+            mt.setTypeDisplayName("Blood Pressure");
+            mt.setTypeDescription("");
+            mt.setMeasuringInstruction("");
+            entityManager.persist(mt);
+            entityManager.flush();
 
             Measurement m = createAndPersist(DEMO_NO, "BP", "120/80", today);
 

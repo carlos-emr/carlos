@@ -150,6 +150,7 @@ public class DualFlushContextIntegrationTest extends CarlosTestBase {
             provider.setFirstName("Test");
             provider.setProviderType("doctor");
             provider.setSpecialty("GP");
+            provider.setSex("");
             provider.setStatus("1");
             hibernateTemplate.save(provider);
             hibernateTemplate.flush();

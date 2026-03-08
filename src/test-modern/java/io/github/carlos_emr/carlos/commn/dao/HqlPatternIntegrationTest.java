@@ -109,6 +109,8 @@ public class HqlPatternIntegrationTest extends CarlosTestBase {
             // Used extensively in DocumentDaoImpl
             Document doc = new Document();
             doc.setDoctype("consult");
+            doc.setDocdesc("");
+            doc.setDocfilename("");
             doc.setDoccreator("999998");
             doc.setResponsible("999998");
             doc.setContenttype("text/plain");
@@ -171,6 +173,8 @@ public class HqlPatternIntegrationTest extends CarlosTestBase {
         void setUp() {
             doc = new Document();
             doc.setDoctype("lab");
+            doc.setDocdesc("");
+            doc.setDocfilename("");
             doc.setDoccreator("999998");
             doc.setResponsible("999998");
             doc.setContenttype("text/plain");

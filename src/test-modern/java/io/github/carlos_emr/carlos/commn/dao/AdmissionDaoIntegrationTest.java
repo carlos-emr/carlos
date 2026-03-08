@@ -97,6 +97,10 @@ public class AdmissionDaoIntegrationTest extends CarlosTestBase {
                 .setParameter("id", DEMO_NO)
                 .executeUpdate();
         entityManager.createNativeQuery(
+                "INSERT INTO demographic (demographic_no, first_name, last_name, sex) VALUES (:id, 'Test', 'Patient2', 'F')")
+                .setParameter("id", DEMO_NO + 1)
+                .executeUpdate();
+        entityManager.createNativeQuery(
                 "INSERT INTO program (id) VALUES (:id)")
                 .setParameter("id", PROGRAM_ID)
                 .executeUpdate();

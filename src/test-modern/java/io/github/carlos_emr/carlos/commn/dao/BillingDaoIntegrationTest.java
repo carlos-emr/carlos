@@ -100,6 +100,8 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
         Billing b = new Billing();
         b.setDemographicNo(demoNo);
         b.setProviderNo(providerNo);
+        b.setProviderOhipNo(providerNo);
+        b.setApptProviderNo(providerNo);
         b.setStatus(status);
         b.setBillingDate(billingDate);
         b.setBillingTime(billingDate);
@@ -447,8 +449,8 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return unsettled billings in date range")
         void shouldReturnUnsettledBillings_inDateRange() {
-            // Given
-            createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            // Given — status 'B' is the "unsettled/billed" status this query filters on
+            createAndPersist(DEMO_NO, PROVIDER_NO, "B", today);
 
             // When
             List<Billing> result = billingDao.search_unsettled_history_daterange(
@@ -568,8 +570,11 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return visit counts grouped by visit type")
         void shouldReturnCounts_groupedByVisitType() {
-            // Given
-            createAndPersist(DEMO_NO, PROVIDER_NO, "O", today);
+            // Given — query requires appointmentNo <> '0' and filters by apptProviderNo
+            Billing b = createBilling(DEMO_NO, PROVIDER_NO, "O", today);
+            b.setAppointmentNo(1);
+            entityManager.persist(b);
+            entityManager.flush();
 
             // When
             List<Object[]> result = billingDao.countBillingVisitsByProvider(
@@ -594,9 +599,10 @@ public class BillingDaoIntegrationTest extends CarlosTestBase {
         @Test
         @DisplayName("should return visit counts grouped by visit type for creator")
         void shouldReturnCounts_groupedByVisitTypeForCreator() {
-            // Given
+            // Given — query requires appointmentNo <> '0' and filters by creator
             Billing b = createBilling(DEMO_NO, PROVIDER_NO, "O", today);
             b.setCreator(PROVIDER_NO);
+            b.setAppointmentNo(1);
             entityManager.persist(b);
             entityManager.flush();
 
