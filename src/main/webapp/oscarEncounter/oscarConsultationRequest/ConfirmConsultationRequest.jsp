@@ -31,8 +31,6 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
-
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%
@@ -47,27 +45,68 @@
     if (!authed) {
         return;
     }
+    // Store transType as a local variable for safe comparison
+    String transType = (String) request.getAttribute("transType");
+    String isPreview = (String) request.getAttribute("isPreviewReady");
 %>
-
-
-<%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<!DOCTYPE html>
 <html>
-
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
+        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.title"/></title>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
-        <title><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.title"/>
-        </title>
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-
     </head>
-    <script language="javascript">
+
+    <body onload="finishPage(5);" class="d-flex align-items-center justify-content-center" style="min-height:100vh; background-color:var(--carlos-bg-light);">
+
+        <div class="text-center p-4" style="max-width:420px;">
+            <div class="mb-3">
+                <i class="fa-solid fa-circle-check" style="font-size:3rem; color:var(--carlos-primary);"></i>
+            </div>
+
+            <h5 class="fw-semibold mb-2">
+                <% if ("1".equals(transType)) { %>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgConsReq"/>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgUpdated"/>
+                <% } else if ("2".equals(transType)) { %>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgConsReq"/>
+                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreated"/>
+                <% } %>
+            </h5>
+
+            <%=WebUtils.popInfoMessagesAsHtml(session)%>
+
+            <% if ("true".equals(isPreview)) { %>
+                <p class="text-muted mb-2" style="font-size:0.9rem;">Printing Consultation form...</p>
+            <% } %>
+
+            <p class="text-muted mb-3" style="font-size:0.85rem;">
+                <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
+                <br>
+                <span id="countdown" class="fw-semibold">5</span>s
+            </p>
+
+            <a href="javascript:BackToOscar();" class="btn btn-sm btn-outline-secondary">
+                <i class="fa-solid fa-xmark me-1"></i><fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/>
+            </a>
+        </div>
+
+    <script>
         function BackToOscar() {
             window.close();
         }
 
         function finishPage(secs) {
+            // Countdown display
+            var remaining = secs;
+            var countdownEl = document.getElementById('countdown');
+            var timer = setInterval(function() {
+                remaining--;
+                if (countdownEl) countdownEl.textContent = remaining;
+                if (remaining <= 0) clearInterval(timer);
+            }, 1000);
 
-            // Print consultatin request form
+            // Print consultation request form
             const consultPDFName = '<%=request.getAttribute("consultPDFName")%>';
             const consultPDF = '<%=request.getAttribute("consultPDF")%>';
             const isPreviewReady = '<%=request.getAttribute("isPreviewReady")%>';
@@ -79,7 +118,6 @@
             }
 
             setTimeout("window.close()", secs * 500);
-            //window.opener.location.reload();
         }
 
         function downloadConsultForm(consultPDFName, consultPDF, callback) {
@@ -92,60 +130,6 @@
             URL.revokeObjectURL(downloadLink.href);
             callback();
         }
-
     </script>
-
-
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/oscarEncounter/encounterStyles.css">
-    <body topmargin="0" leftmargin="0" vlink="#0000FF"
-          onload="finishPage(5);">
-    <!--  -->
-    <table class="MainTable" id="scrollNumber1" name="encounterTable">
-        <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn">Consultation</td>
-            <td class="MainTableTopRowRightColumn"></td>
-        </tr>
-        <tr style="vertical-align: top">
-            <td class="MainTableLeftColumn" width="10%">&nbsp;</td>
-            <td class="MainTableRightColumn">
-                <table width="100%" height="100%">
-                    <tr>
-                        <td>
-                            <c:choose>
-                                <c:when test="${not empty requestScope.transType and requestScope.transType eq '1'}">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgConsReq"/>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgUpdated"/>
-                                </c:when>
-                                <c:when test="${not empty requestScope.transType and requestScope.transType eq '2'}">
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgConsReq"/>
-                                    <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgCreated"/>
-                                </c:when>
-                                <c:otherwise>
-                                </c:otherwise>
-                            </c:choose>
-
-                            <%=WebUtils.popInfoMessagesAsHtml(session)%>
-                        </td>
-                    </tr>
-                    <tr>
-                        <c:if test="${not empty isPreviewReady and isPreviewReady eq 'true'}">
-                            <td>Printing Consultation form.....</td>
-                        </c:if>
-                    </tr>
-                    <tr>
-                        <td><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td><a href="javascript: BackToOscar();"> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnClose"/> </a></td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-        <tr>
-            <td class="MainTableBottomRowLeftColumn"></td>
-            <td class="MainTableBottomRowRightColumn"></td>
-        </tr>
-    </table>
     </body>
 </html>
