@@ -64,7 +64,7 @@ public class ClientLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find client links with null currentlyLinked and matching type")
-        void shouldFindClientLinks_whenCurrentlyLinkedNullAndTypeProvided() {
+        void shouldFindClientLinks_whenCurrentlyLinkedNullAndTypeProvided() throws Exception {
             ClientLink cl1 = new ClientLink();
             EntityDataGenerator.generateTestDataForModelClass(cl1);
             cl1.setFacilityId(3);
@@ -104,7 +104,7 @@ public class ClientLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find only currently linked client links when currentlyLinked is true")
-        void shouldFindClientLinks_whenCurrentlyLinkedTrue() {
+        void shouldFindClientLinks_whenCurrentlyLinkedTrue() throws Exception {
             ClientLink cl1 = new ClientLink();
             EntityDataGenerator.generateTestDataForModelClass(cl1);
             cl1.setFacilityId(3);
@@ -131,7 +131,7 @@ public class ClientLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find only unlinked client links when currentlyLinked is false")
-        void shouldFindClientLinks_whenCurrentlyLinkedFalse() {
+        void shouldFindClientLinks_whenCurrentlyLinkedFalse() throws Exception {
             // No unlinkProviderNo - should not be returned for currentlyLinked=false
             ClientLink cl1 = new ClientLink();
             EntityDataGenerator.generateTestDataForModelClass(cl1);
@@ -158,7 +158,7 @@ public class ClientLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should filter by type when type is not null")
-        void shouldFilterByType_whenTypeNotNull() {
+        void shouldFilterByType_whenTypeNotNull() throws Exception {
             ClientLink cl1 = new ClientLink();
             EntityDataGenerator.generateTestDataForModelClass(cl1);
             cl1.setFacilityId(3);
@@ -183,7 +183,7 @@ public class ClientLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should filter by type and currentlyLinked true")
-        void shouldFilterByTypeAndCurrentlyLinkedTrue() {
+        void shouldFilterByTypeAndCurrentlyLinkedTrue() throws Exception {
             ClientLink cl1 = new ClientLink();
             EntityDataGenerator.generateTestDataForModelClass(cl1);
             cl1.setFacilityId(3);
@@ -209,7 +209,7 @@ public class ClientLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should filter by type and currentlyLinked false")
-        void shouldFilterByTypeAndCurrentlyLinkedFalse() {
+        void shouldFilterByTypeAndCurrentlyLinkedFalse() throws Exception {
             ClientLink cl1 = new ClientLink();
             EntityDataGenerator.generateTestDataForModelClass(cl1);
             cl1.setFacilityId(3);

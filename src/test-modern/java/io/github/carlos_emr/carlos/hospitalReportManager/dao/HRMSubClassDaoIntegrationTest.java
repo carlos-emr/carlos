@@ -53,7 +53,7 @@ public class HRMSubClassDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist HRM sub class with generated ID")
-    void shouldPersistHrmSubClass_whenValidDataProvided() {
+    void shouldPersistHrmSubClass_whenValidDataProvided() throws Exception {
         HRMSubClass entity = new HRMSubClass();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         hrmSubClassDao.persist(entity);

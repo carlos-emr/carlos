@@ -90,7 +90,7 @@ public class ConsultationRequestExtDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no extensions match the request ID")
-        void shouldReturnEmptyList_whenNoExtensionsMatchRequestId() {
+        void shouldReturnEmptyList_whenNoExtensionsMatchRequestId() throws Exception {
             List<ConsultationRequestExt> result = dao.getConsultationRequestExts(99999);
 
             assertThat(result).isEmpty();
@@ -147,7 +147,7 @@ public class ConsultationRequestExtDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return null when no matching request ID and key")
-        void shouldReturnNull_whenNoMatchingRequestIdAndKey() {
+        void shouldReturnNull_whenNoMatchingRequestIdAndKey() throws Exception {
             String result = dao.getConsultationRequestExtsByKey(99999, "nonexistent");
 
             assertThat(result).isNull();

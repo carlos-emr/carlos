@@ -56,7 +56,7 @@ public class CtlSpecialInstructionsDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity and assign generated ID")
-    void shouldPersistEntity_withGeneratedId() {
+    void shouldPersistEntity_withGeneratedId() throws Exception {
         CtlSpecialInstructions entity = new CtlSpecialInstructions();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -67,7 +67,7 @@ public class CtlSpecialInstructionsDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return all special instructions in order")
-    void shouldReturnAllInstructions_whenFindAllCalled() {
+    void shouldReturnAllInstructions_whenFindAllCalled() throws Exception {
         CtlSpecialInstructions csi1 = new CtlSpecialInstructions();
         EntityDataGenerator.generateTestDataForModelClass(csi1);
         dao.persist(csi1);

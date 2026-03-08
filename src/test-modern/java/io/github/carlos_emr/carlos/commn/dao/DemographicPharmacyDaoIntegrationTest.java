@@ -60,7 +60,7 @@ public class DemographicPharmacyDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist pharmacy with generated ID")
-    void shouldPersistPharmacy_whenValidDataProvided() {
+    void shouldPersistPharmacy_whenValidDataProvided() throws Exception {
         DemographicPharmacy entity = new DemographicPharmacy();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -77,7 +77,7 @@ public class DemographicPharmacyDaoIntegrationTest extends CarlosTestBase {
         @Tag("create")
         @Tag("read")
         @DisplayName("should add pharmacy and find it by demographic ID")
-        void shouldAddPharmacyAndFindIt_byDemographicId() {
+        void shouldAddPharmacyAndFindIt_byDemographicId() throws Exception {
             dao.addPharmacyToDemographic(1, 100, 1);
             hibernateTemplate.flush();
 
@@ -147,7 +147,7 @@ public class DemographicPharmacyDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list for demographic with no pharmacies")
-        void shouldReturnEmptyList_forDemographicWithNoPharmacies() {
+        void shouldReturnEmptyList_forDemographicWithNoPharmacies() throws Exception {
             List<DemographicPharmacy> result = dao.findByDemographicId(99999);
 
             assertThat(result).isEmpty();

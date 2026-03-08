@@ -50,7 +50,7 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private WcbDao dao;
 
-    private Wcb createEntity(int billingNo, int demographicNo) {
+    private Wcb createEntity(int billingNo, int demographicNo) throws Exception {
         Wcb entity = new Wcb();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setBillingNo(billingNo);
@@ -61,7 +61,7 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated test data")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         Wcb entity = new Wcb();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -71,7 +71,7 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find entity by ID with correct field values")
-    void shouldReturnEntity_whenValidIdProvided() {
+    void shouldReturnEntity_whenValidIdProvided() throws Exception {
         Wcb saved = createEntity(1001, 2001);
         dao.persist(saved);
 
@@ -85,7 +85,7 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find WCB records by billing number")
-    void shouldReturnMatchingRecords_byBillingNo() {
+    void shouldReturnMatchingRecords_byBillingNo() throws Exception {
         Wcb match1 = createEntity(5000, 100);
         Wcb match2 = createEntity(5000, 200);
         Wcb noMatch = createEntity(9999, 300);
@@ -101,7 +101,7 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when billing number not found")
-    void shouldReturnEmptyList_whenBillingNoNotFound() {
+    void shouldReturnEmptyList_whenBillingNoNotFound() throws Exception {
         Wcb entity = createEntity(5000, 100);
         dao.persist(entity);
 
@@ -112,7 +112,7 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find WCB records by demographic number")
-    void shouldReturnMatchingRecords_byDemographicNo() {
+    void shouldReturnMatchingRecords_byDemographicNo() throws Exception {
         Wcb match1 = createEntity(1001, 8888);
         Wcb match2 = createEntity(1002, 8888);
         Wcb noMatch = createEntity(1003, 9999);
@@ -128,7 +128,7 @@ public class WcbDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when demographic number not found")
-    void shouldReturnEmptyList_whenDemographicNoNotFound() {
+    void shouldReturnEmptyList_whenDemographicNoNotFound() throws Exception {
         Wcb entity = createEntity(1001, 100);
         dao.persist(entity);
 

@@ -55,7 +55,7 @@ public class TeleplanAdjCodesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             TeleplanAdjCodes entity = new TeleplanAdjCodes();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             teleplanAdjCodesDao.persist(entity);
@@ -65,11 +65,11 @@ public class TeleplanAdjCodesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
+        void shouldFind_whenValidIdProvided() throws Exception {
             TeleplanAdjCodes saved = new TeleplanAdjCodes();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             teleplanAdjCodesDao.persist(saved);
-            TeleplanAdjCodes found = dao.find(saved.getId());
+            TeleplanAdjCodes found = teleplanAdjCodesDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }

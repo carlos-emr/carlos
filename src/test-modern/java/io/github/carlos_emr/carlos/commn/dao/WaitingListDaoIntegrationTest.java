@@ -65,7 +65,7 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist waiting list entry with generated ID")
-        void shouldPersistWaitingList_whenValidDataProvided() {
+        void shouldPersistWaitingList_whenValidDataProvided() throws Exception {
             WaitingList entity = new WaitingList();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -81,7 +81,7 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find waiting lists by demographic number")
-        void shouldFindWaitingLists_byDemographic() {
+        void shouldFindWaitingLists_byDemographic() throws Exception {
             WaitingListName wn = new WaitingListName();
             wn.setCreateDate(new Date());
             wn.setName("NAHBLIAYH");
@@ -106,7 +106,7 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no waiting lists match demographic")
-        void shouldReturnEmptyList_whenNoDemographicMatch() {
+        void shouldReturnEmptyList_whenNoDemographicMatch() throws Exception {
             List<Object[]> lists = dao.findByDemographic(999999);
             assertThat(lists).isEmpty();
         }
@@ -114,7 +114,7 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list for waiting lists and demographics with no matching data")
-        void shouldReturnEmptyList_whenNoWaitingListsAndDemographicsMatch() {
+        void shouldReturnEmptyList_whenNoWaitingListsAndDemographicsMatch() throws Exception {
             List<Object[]> results = dao.findWaitingListsAndDemographics(999999);
             assertThat(results).isEmpty();
         }
@@ -122,7 +122,7 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty appointments when no appointments match waiting list")
-        void shouldReturnEmptyList_whenNoAppointmentsForWaitingList() {
+        void shouldReturnEmptyList_whenNoAppointmentsForWaitingList() throws Exception {
             WaitingList w = new WaitingList();
             w.setDemographicNo(1);
             w.setOnListSince(new Date());
@@ -134,7 +134,7 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no entries match waiting list ID and demographic ID")
-        void shouldReturnEmptyList_whenNoMatchByWaitingListIdAndDemographicId() {
+        void shouldReturnEmptyList_whenNoMatchByWaitingListIdAndDemographicId() throws Exception {
             List<WaitingList> wls = dao.findByWaitingListIdAndDemographicId(999999, 999999);
             assertThat(wls).isEmpty();
         }
@@ -142,7 +142,7 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find entries by waiting list ID and demographic ID")
-        void shouldFindEntries_byWaitingListIdAndDemographicId() {
+        void shouldFindEntries_byWaitingListIdAndDemographicId() throws Exception {
             WaitingList w1 = new WaitingList();
             w1.setDemographicNo(100);
             w1.setListId(50);
@@ -170,7 +170,7 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return zero max position when no entries exist for list")
-        void shouldReturnZero_whenNoEntriesForMaxPosition() {
+        void shouldReturnZero_whenNoEntriesForMaxPosition() throws Exception {
             Integer maxPos = dao.getMaxPosition(999999);
             assertThat(maxPos).isEqualTo(0);
         }
@@ -178,7 +178,7 @@ public class WaitingListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return correct max position for waiting list")
-        void shouldReturnCorrectMaxPosition_whenEntriesExist() {
+        void shouldReturnCorrectMaxPosition_whenEntriesExist() throws Exception {
             WaitingList w1 = new WaitingList();
             w1.setDemographicNo(10);
             w1.setListId(77);

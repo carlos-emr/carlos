@@ -96,7 +96,7 @@ class MEDITECHUploadHandlerUnitTest {
     @DisplayName("should successfully parse MEDITECH HL7 message for upload")
     void shouldSuccessfullyParse_meditechHl7Message(String hl7Body) throws Exception {
         MEDITECHHandler handler = new MEDITECHHandler();
-        String result = handler.parse(new ByteArrayInputStream(hl7Body.getBytes(StandardCharsets.UTF_8)));
+        java.util.List<String> result = handler.parse(new ByteArrayInputStream(hl7Body.getBytes(StandardCharsets.UTF_8)));
         assertThat(result).isNotNull();
     }
 }

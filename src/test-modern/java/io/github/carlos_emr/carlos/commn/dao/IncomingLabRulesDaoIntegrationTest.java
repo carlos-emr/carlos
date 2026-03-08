@@ -59,7 +59,7 @@ public class IncomingLabRulesDaoIntegrationTest extends CarlosTestBase {
     /**
      * Helper to create and persist an IncomingLabRules entity.
      */
-    private IncomingLabRules createRule(String providerNo, String frwdProviderNo, String archive) {
+    private IncomingLabRules createRule(String providerNo, String frwdProviderNo, String archive) throws Exception {
         IncomingLabRules entity = new IncomingLabRules();
         entity.setProviderNo(providerNo);
         entity.setFrwdProviderNo(frwdProviderNo);
@@ -76,7 +76,7 @@ public class IncomingLabRulesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist incoming lab rules with generated ID")
-        void shouldPersistIncomingLabRules_whenValidDataProvided() {
+        void shouldPersistIncomingLabRules_whenValidDataProvided() throws Exception {
             IncomingLabRules entity = new IncomingLabRules();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -87,7 +87,7 @@ public class IncomingLabRulesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find incoming lab rule by ID with correct fields")
-        void shouldFindIncomingLabRule_whenValidIdProvided() {
+        void shouldFindIncomingLabRule_whenValidIdProvided() throws Exception {
             IncomingLabRules saved = createRule("PR001", "FW001", "0");
             hibernateTemplate.flush();
 
@@ -107,7 +107,7 @@ public class IncomingLabRulesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find rules by provider number")
-        void shouldFindRules_byProviderNo() {
+        void shouldFindRules_byProviderNo() throws Exception {
             createRule("PR100", "FW100", "0");
             createRule("PR100", "FW200", "1");
             createRule("PR200", "FW300", "0");
@@ -122,7 +122,7 @@ public class IncomingLabRulesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no rules exist for provider")
-        void shouldReturnEmptyList_whenNoRulesExistForProvider() {
+        void shouldReturnEmptyList_whenNoRulesExistForProvider() throws Exception {
             List<IncomingLabRules> result = dao.findByProviderNo("NONEXIST");
 
             assertThat(result).isEmpty();
@@ -131,7 +131,7 @@ public class IncomingLabRulesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find current (non-archived) rules by provider number")
-        void shouldFindCurrentRules_byProviderNo() {
+        void shouldFindCurrentRules_byProviderNo() throws Exception {
             createRule("PR300", "FW100", "0");
             createRule("PR300", "FW200", "1");
             createRule("PR300", "FW300", "0");
@@ -146,7 +146,7 @@ public class IncomingLabRulesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find rules by provider number and forward provider")
-        void shouldFindRules_byProviderNoAndFrwdProvider() {
+        void shouldFindRules_byProviderNoAndFrwdProvider() throws Exception {
             createRule("PR400", "FW400", "0");
             createRule("PR400", "FW400", "1");
             createRule("PR400", "FW500", "0");
@@ -161,7 +161,7 @@ public class IncomingLabRulesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find current rules by provider and forward provider")
-        void shouldFindCurrentRules_byProviderNoAndFrwdProvider() {
+        void shouldFindCurrentRules_byProviderNoAndFrwdProvider() throws Exception {
             createRule("PR500", "FW500", "0");
             createRule("PR500", "FW500", "1");
             createRule("PR500", "FW600", "0");

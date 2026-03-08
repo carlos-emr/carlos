@@ -60,7 +60,7 @@ public class MyGroupAccessRestrictionDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist mygroupaccessrestriction with generated ID")
-        void shouldPersistMyGroupAccessRestriction_whenValidDataProvided() {
+        void shouldPersistMyGroupAccessRestriction_whenValidDataProvided() throws Exception {
             MyGroupAccessRestriction entity = new MyGroupAccessRestriction();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             myGroupAccessRestrictionDao.persist(entity);
@@ -70,11 +70,11 @@ public class MyGroupAccessRestrictionDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find mygroupaccessrestriction by ID")
-        void shouldFindMyGroupAccessRestriction_whenValidIdProvided() {
+        void shouldFindMyGroupAccessRestriction_whenValidIdProvided() throws Exception {
             MyGroupAccessRestriction saved = new MyGroupAccessRestriction();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             myGroupAccessRestrictionDao.persist(saved);
-            MyGroupAccessRestriction found = dao.find(saved.getId());
+            MyGroupAccessRestriction found = myGroupAccessRestrictionDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class MyGroupAccessRestrictionDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all mygroupaccessrestriction records")
-        void shouldCountAllMyGroupAccessRestrictions() {
+        void shouldCountAllMyGroupAccessRestrictions() throws Exception {
             MyGroupAccessRestriction entity = new MyGroupAccessRestriction();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             myGroupAccessRestrictionDao.persist(entity);

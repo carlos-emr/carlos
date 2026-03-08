@@ -53,7 +53,7 @@ public class DesAnnualReviewPlanDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity and assign generated ID")
-    void shouldPersistEntity_withGeneratedId() {
+    void shouldPersistEntity_withGeneratedId() throws Exception {
         DesAnnualReviewPlan entity = new DesAnnualReviewPlan();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -64,7 +64,7 @@ public class DesAnnualReviewPlanDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find entity by formNo and demographicNo returning highest formNo match")
-    void shouldFindEntity_whenSearchingByFormNoAndDemographicNo() {
+    void shouldFindEntity_whenSearchingByFormNoAndDemographicNo() throws Exception {
         DesAnnualReviewPlan entity1 = new DesAnnualReviewPlan();
         EntityDataGenerator.generateTestDataForModelClass(entity1);
         entity1.setDemographicNo(100);
@@ -91,7 +91,7 @@ public class DesAnnualReviewPlanDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return null when no matching demographicNo exists")
-    void shouldReturnNull_whenNonMatchingDemographicNo() {
+    void shouldReturnNull_whenNonMatchingDemographicNo() throws Exception {
         DesAnnualReviewPlan entity = new DesAnnualReviewPlan();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setDemographicNo(200);
@@ -107,7 +107,7 @@ public class DesAnnualReviewPlanDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return entity with highest formNo not exceeding search parameter")
-    void shouldReturnHighestFormNo_whenMultipleFormNosExist() {
+    void shouldReturnHighestFormNo_whenMultipleFormNosExist() throws Exception {
         DesAnnualReviewPlan entity1 = new DesAnnualReviewPlan();
         EntityDataGenerator.generateTestDataForModelClass(entity1);
         entity1.setDemographicNo(300);

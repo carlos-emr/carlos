@@ -60,7 +60,7 @@ public class RecycleBinDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist recyclebin with generated ID")
-        void shouldPersistRecycleBin_whenValidDataProvided() {
+        void shouldPersistRecycleBin_whenValidDataProvided() throws Exception {
             RecycleBin entity = new RecycleBin();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             recycleBinDao.persist(entity);
@@ -70,11 +70,11 @@ public class RecycleBinDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find recyclebin by ID")
-        void shouldFindRecycleBin_whenValidIdProvided() {
+        void shouldFindRecycleBin_whenValidIdProvided() throws Exception {
             RecycleBin saved = new RecycleBin();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             recycleBinDao.persist(saved);
-            RecycleBin found = dao.find(saved.getId());
+            RecycleBin found = recycleBinDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class RecycleBinDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all recyclebin records")
-        void shouldCountAllRecycleBins() {
+        void shouldCountAllRecycleBins() throws Exception {
             RecycleBin entity = new RecycleBin();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             recycleBinDao.persist(entity);

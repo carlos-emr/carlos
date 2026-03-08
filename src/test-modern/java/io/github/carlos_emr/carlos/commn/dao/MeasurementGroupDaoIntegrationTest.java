@@ -60,7 +60,7 @@ public class MeasurementGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist measurementgroup with generated ID")
-        void shouldPersistMeasurementGroup_whenValidDataProvided() {
+        void shouldPersistMeasurementGroup_whenValidDataProvided() throws Exception {
             MeasurementGroup entity = new MeasurementGroup();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementGroupDao.persist(entity);
@@ -70,11 +70,11 @@ public class MeasurementGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find measurementgroup by ID")
-        void shouldFindMeasurementGroup_whenValidIdProvided() {
+        void shouldFindMeasurementGroup_whenValidIdProvided() throws Exception {
             MeasurementGroup saved = new MeasurementGroup();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             measurementGroupDao.persist(saved);
-            MeasurementGroup found = dao.find(saved.getId());
+            MeasurementGroup found = measurementGroupDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class MeasurementGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all measurementgroup records")
-        void shouldCountAllMeasurementGroups() {
+        void shouldCountAllMeasurementGroups() throws Exception {
             MeasurementGroup entity = new MeasurementGroup();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementGroupDao.persist(entity);

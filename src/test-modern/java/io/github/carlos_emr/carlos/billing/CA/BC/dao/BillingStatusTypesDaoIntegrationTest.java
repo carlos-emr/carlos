@@ -55,7 +55,7 @@ public class BillingStatusTypesDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private BillingStatusTypesDao dao;
 
-    @PersistenceContext(unitName = "testPersistenceUnit")
+    @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
     @BeforeEach

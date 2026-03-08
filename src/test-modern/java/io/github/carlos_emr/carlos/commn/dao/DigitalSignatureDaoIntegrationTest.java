@@ -60,7 +60,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist digitalsignature with generated ID")
-        void shouldPersistDigitalSignature_whenValidDataProvided() {
+        void shouldPersistDigitalSignature_whenValidDataProvided() throws Exception {
             DigitalSignature entity = new DigitalSignature();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             digitalSignatureDao.persist(entity);
@@ -70,11 +70,11 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find digitalsignature by ID")
-        void shouldFindDigitalSignature_whenValidIdProvided() {
+        void shouldFindDigitalSignature_whenValidIdProvided() throws Exception {
             DigitalSignature saved = new DigitalSignature();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             digitalSignatureDao.persist(saved);
-            DigitalSignature found = dao.find(saved.getId());
+            DigitalSignature found = digitalSignatureDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all digitalsignature records")
-        void shouldCountAllDigitalSignatures() {
+        void shouldCountAllDigitalSignatures() throws Exception {
             DigitalSignature entity = new DigitalSignature();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             digitalSignatureDao.persist(entity);

@@ -55,7 +55,7 @@ public class ViewDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist view entity with generated ID")
-    void shouldPersistView_whenValidDataProvided() {
+    void shouldPersistView_whenValidDataProvided() throws Exception {
         View entity = new View();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -66,7 +66,7 @@ public class ViewDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return view map filtered by view name, role, and provider number")
-    void shouldReturnViewMap_whenFilteredByViewNameRoleAndProviderNo() {
+    void shouldReturnViewMap_whenFilteredByViewNameRoleAndProviderNo() throws Exception {
         String role1 = "alpha";
         String role2 = "bravo";
         String providerNo1 = "000000";

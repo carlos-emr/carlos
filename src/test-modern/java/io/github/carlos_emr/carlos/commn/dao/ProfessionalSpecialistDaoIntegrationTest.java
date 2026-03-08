@@ -55,7 +55,7 @@ public class ProfessionalSpecialistDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ProfessionalSpecialistDao dao;
 
-    private ProfessionalSpecialist createSpecialist(String firstName, String lastName) {
+    private ProfessionalSpecialist createSpecialist(String firstName, String lastName) throws Exception {
         ProfessionalSpecialist ps = new ProfessionalSpecialist();
         EntityDataGenerator.generateTestDataForModelClass(ps);
         ps.setDeleted(false);
@@ -72,7 +72,7 @@ public class ProfessionalSpecialistDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return all non-deleted specialists ordered by last name")
-        void shouldReturnAllSpecialists_whenFindAllCalled() {
+        void shouldReturnAllSpecialists_whenFindAllCalled() throws Exception {
             ProfessionalSpecialist ps1 = createSpecialist("FirstName2", "LastName2");
             ProfessionalSpecialist ps2 = createSpecialist("FirstName3", "LastName3");
             ProfessionalSpecialist ps3 = createSpecialist("FirstName1", "LastName1");
@@ -88,7 +88,7 @@ public class ProfessionalSpecialistDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return only specialists with non-null eDataUrl ordered by last name")
-        void shouldReturnSpecialists_whenEDataUrlNotNull() {
+        void shouldReturnSpecialists_whenEDataUrlNotNull() throws Exception {
             ProfessionalSpecialist ps1 = createSpecialist("FirstName2", "LastName2");
             ps1.seteDataUrl("eData1");
             dao.merge(ps1);
@@ -121,7 +121,7 @@ public class ProfessionalSpecialistDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find specialists by full name (last name and first name)")
-        void shouldFindSpecialists_byFullName() {
+        void shouldFindSpecialists_byFullName() throws Exception {
             ProfessionalSpecialist ps1 = createSpecialist("FirstName1", "LastName1");
             createSpecialist("FirstName3", "LastName3");
             ProfessionalSpecialist ps3 = createSpecialist("FirstName1", "LastName1");
@@ -136,7 +136,7 @@ public class ProfessionalSpecialistDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find specialists by last name")
-        void shouldFindSpecialists_byLastName() {
+        void shouldFindSpecialists_byLastName() throws Exception {
             ProfessionalSpecialist ps1 = createSpecialist("FirstName1", "LastName1");
             createSpecialist("FirstName3", "LastName3");
             ProfessionalSpecialist ps3 = createSpecialist("FirstName1", "LastName1");
@@ -151,7 +151,7 @@ public class ProfessionalSpecialistDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find specialists by specialty type ordered by last name")
-        void shouldFindSpecialists_bySpecialty() {
+        void shouldFindSpecialists_bySpecialty() throws Exception {
             ProfessionalSpecialist ps1 = new ProfessionalSpecialist();
             EntityDataGenerator.generateTestDataForModelClass(ps1);
             ps1.setDeleted(false);
@@ -183,7 +183,7 @@ public class ProfessionalSpecialistDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find specialists by referral number ordered by last name")
-        void shouldFindSpecialists_byReferralNo() {
+        void shouldFindSpecialists_byReferralNo() throws Exception {
             ProfessionalSpecialist ps1 = new ProfessionalSpecialist();
             EntityDataGenerator.generateTestDataForModelClass(ps1);
             ps1.setDeleted(false);
@@ -215,7 +215,7 @@ public class ProfessionalSpecialistDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should get single specialist by referral number")
-        void shouldGetSpecialist_byReferralNo() {
+        void shouldGetSpecialist_byReferralNo() throws Exception {
             ProfessionalSpecialist ps1 = new ProfessionalSpecialist();
             EntityDataGenerator.generateTestDataForModelClass(ps1);
             ps1.setDeleted(false);

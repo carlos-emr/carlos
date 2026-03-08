@@ -60,7 +60,7 @@ public class FlowsheetDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist flowsheet with generated ID")
-        void shouldPersistFlowsheet_whenValidDataProvided() {
+        void shouldPersistFlowsheet_whenValidDataProvided() throws Exception {
             Flowsheet entity = new Flowsheet();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -76,7 +76,7 @@ public class FlowsheetDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return all persisted flowsheets")
-        void shouldReturnAllFlowsheets_whenMultipleExist() {
+        void shouldReturnAllFlowsheets_whenMultipleExist() throws Exception {
             Flowsheet fs1 = new Flowsheet();
             EntityDataGenerator.generateTestDataForModelClass(fs1);
             dao.persist(fs1);
@@ -107,7 +107,7 @@ public class FlowsheetDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return flowsheet matching the given name")
-        void shouldReturnFlowsheet_whenNameMatches() {
+        void shouldReturnFlowsheet_whenNameMatches() throws Exception {
             Flowsheet fs1 = new Flowsheet();
             EntityDataGenerator.generateTestDataForModelClass(fs1);
             fs1.setName("alpha");

@@ -54,7 +54,7 @@ public class GstControlDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private GstControlDao dao;
 
-    private GstControl createEntity(BigDecimal gstPercent, Boolean gstFlag) {
+    private GstControl createEntity(BigDecimal gstPercent, Boolean gstFlag) throws Exception {
         GstControl entity = new GstControl();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setGstPercent(gstPercent);
@@ -65,7 +65,7 @@ public class GstControlDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         GstControl entity = createEntity(new BigDecimal("13.00"), true);
         dao.persist(entity);
         assertThat(entity.getId()).isPositive();
@@ -74,7 +74,7 @@ public class GstControlDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find entity by ID with correct GST values")
-    void shouldReturnEntity_whenValidIdProvided() {
+    void shouldReturnEntity_whenValidIdProvided() throws Exception {
         GstControl saved = createEntity(new BigDecimal("5.00"), true);
         dao.persist(saved);
 
@@ -88,7 +88,7 @@ public class GstControlDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return all persisted GST control records")
-    void shouldReturnAllRecords_whenFindAllCalled() {
+    void shouldReturnAllRecords_whenFindAllCalled() throws Exception {
         GstControl entity1 = createEntity(new BigDecimal("5.00"), true);
         GstControl entity2 = createEntity(new BigDecimal("7.00"), false);
         GstControl entity3 = createEntity(new BigDecimal("13.00"), true);
@@ -103,7 +103,7 @@ public class GstControlDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no records exist")
-    void shouldReturnEmptyList_whenNoRecordsExist() {
+    void shouldReturnEmptyList_whenNoRecordsExist() throws Exception {
         List<GstControl> results = dao.findAll();
         assertThat(results).isEmpty();
     }

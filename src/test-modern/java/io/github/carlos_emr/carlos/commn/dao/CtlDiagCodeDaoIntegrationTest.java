@@ -60,7 +60,7 @@ public class CtlDiagCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist ctldiagcode with generated ID")
-        void shouldPersistCtlDiagCode_whenValidDataProvided() {
+        void shouldPersistCtlDiagCode_whenValidDataProvided() throws Exception {
             CtlDiagCode entity = new CtlDiagCode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             ctlDiagCodeDao.persist(entity);
@@ -70,11 +70,11 @@ public class CtlDiagCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find ctldiagcode by ID")
-        void shouldFindCtlDiagCode_whenValidIdProvided() {
+        void shouldFindCtlDiagCode_whenValidIdProvided() throws Exception {
             CtlDiagCode saved = new CtlDiagCode();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             ctlDiagCodeDao.persist(saved);
-            CtlDiagCode found = dao.find(saved.getId());
+            CtlDiagCode found = ctlDiagCodeDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class CtlDiagCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all ctldiagcode records")
-        void shouldCountAllCtlDiagCodes() {
+        void shouldCountAllCtlDiagCodes() throws Exception {
             CtlDiagCode entity = new CtlDiagCode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             ctlDiagCodeDao.persist(entity);

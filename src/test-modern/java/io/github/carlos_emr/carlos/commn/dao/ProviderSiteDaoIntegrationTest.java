@@ -63,14 +63,14 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist provider site with composite key")
-        void shouldPersistProviderSite_whenValidDataProvided() {
+        void shouldPersistProviderSite_whenValidDataProvided() throws Exception {
             ProviderSite entity = new ProviderSite();
             entity.setId(new ProviderSitePK());
             entity.getId().setProviderNo("000001");
             entity.getId().setSiteId(1);
             dao.persist(entity);
 
-            assertThat(entity.getId()).isPositive();
+            assertThat(entity.getId()).isNotNull();
             ProviderSite found = dao.find(entity.getId());
             assertThat(found).isNotNull();
             assertThat(found.getId().getProviderNo()).isEqualTo("000001");
@@ -85,7 +85,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return sites for the given provider number")
-        void shouldReturnSites_whenProviderNoMatches() {
+        void shouldReturnSites_whenProviderNoMatches() throws Exception {
             String providerNo1 = "101";
             String providerNo2 = "202";
 
@@ -110,7 +110,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no sites match provider number")
-        void shouldReturnEmptyList_whenNoSitesForProvider() {
+        void shouldReturnEmptyList_whenNoSitesForProvider() throws Exception {
             List<ProviderSite> result = dao.findByProviderNo("999999");
             assertThat(result).isEmpty();
         }
@@ -118,7 +118,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return multiple sites for same provider")
-        void shouldReturnMultipleSites_whenProviderHasMultiple() {
+        void shouldReturnMultipleSites_whenProviderHasMultiple() throws Exception {
             String providerNo = "303";
 
             ProviderSite ps1 = new ProviderSite();
@@ -152,7 +152,7 @@ public class ProviderSiteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no active providers with sites exist")
-        void shouldReturnEmptyList_whenNoActiveProvidersWithSites() {
+        void shouldReturnEmptyList_whenNoActiveProvidersWithSites() throws Exception {
             List<Provider> result = dao.findActiveProvidersWithSites("100");
 
             assertThat(result).isEmpty();

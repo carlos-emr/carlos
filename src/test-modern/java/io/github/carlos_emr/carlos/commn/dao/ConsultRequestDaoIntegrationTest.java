@@ -146,7 +146,7 @@ public class ConsultRequestDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count consultations filtered by demographic, status, team, urgency")
-        void shouldCountConsultations_filteredByDemographicStatusTeamUrgency() {
+        void shouldCountConsultations_filteredByDemographicStatusTeamUrgency() throws Exception {
             ConsultationRequestSearchFilter filter = new ConsultationRequestSearchFilter();
             filter.setDemographicNo(demoNo1);
             filter.setStatus(Integer.valueOf(STATUS_1));
@@ -161,7 +161,7 @@ public class ConsultRequestDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count consultations filtered by appointment date range")
-        void shouldCountConsultations_filteredByAppointmentDateRange() {
+        void shouldCountConsultations_filteredByAppointmentDateRange() throws Exception {
             ConsultationRequestSearchFilter filter = new ConsultationRequestSearchFilter();
             filter.setAppointmentStartDate(DateUtils.setDays(date2, 20));
             filter.setAppointmentEndDate(DateUtils.setDays(date2, 27));
@@ -174,7 +174,7 @@ public class ConsultRequestDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count consultations filtered by referral date range")
-        void shouldCountConsultations_filteredByReferralDateRange() {
+        void shouldCountConsultations_filteredByReferralDateRange() throws Exception {
             ConsultationRequestSearchFilter filter = new ConsultationRequestSearchFilter();
             filter.setReferralStartDate(DateUtils.setDays(date1, 1));
             filter.setReferralEndDate(DateUtils.setDays(date1, 10));

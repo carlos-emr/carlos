@@ -69,7 +69,7 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return valid payment amount when matching ext record exists")
-    void shouldReturnPayment_whenValidDataProvided() {
+    void shouldReturnPayment_whenValidDataProvided() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
         paymentRecord.setBillingNo(1);
         paymentRecord.setPaymentDate(new Date());
@@ -91,7 +91,7 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return zero when no matching payment ext records exist")
-    void shouldReturnZeroPayment_whenNoMatchingRecordsExist() {
+    void shouldReturnZeroPayment_whenNoMatchingRecordsExist() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
         paymentRecord.setBillingNo(1);
         paymentRecord.setPaymentDate(new Date());
@@ -112,7 +112,7 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return zero when payment value is not a valid number")
-    void shouldReturnZeroPayment_whenValueIsInvalid() {
+    void shouldReturnZeroPayment_whenValueIsInvalid() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
         paymentRecord.setBillingNo(1);
         paymentRecord.setPaymentDate(new Date());
@@ -136,7 +136,7 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return valid refund amount when matching ext record exists")
-    void shouldReturnRefund_whenValidDataProvided() {
+    void shouldReturnRefund_whenValidDataProvided() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
         paymentRecord.setBillingNo(1);
         paymentRecord.setPaymentDate(new Date());
@@ -158,7 +158,7 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return zero refund when no matching refund ext records exist")
-    void shouldReturnZeroRefund_whenNoMatchingRecordsExist() {
+    void shouldReturnZeroRefund_whenNoMatchingRecordsExist() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
         paymentRecord.setBillingNo(1);
         paymentRecord.setPaymentDate(new Date());
@@ -179,7 +179,7 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return zero refund when refund value is not a valid number")
-    void shouldReturnZeroRefund_whenValueIsInvalid() {
+    void shouldReturnZeroRefund_whenValueIsInvalid() throws Exception {
         BillingONPayment paymentRecord = new BillingONPayment();
         paymentRecord.setBillingNo(1);
         paymentRecord.setPaymentDate(new Date());
@@ -335,7 +335,7 @@ public class BillingONExtDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return non-null result when finding by billingNo, key, and date range")
-    void shouldReturnNonNullResult_whenFindingByBillingNoKeyAndDateRange() {
+    void shouldReturnNonNullResult_whenFindingByBillingNoKeyAndDateRange() throws Exception {
         List<BillingONExt> result = dao.find(100, "KEY", new Date(), new Date());
         assertThat(result).isNotNull();
         assertThat(result).isEmpty();

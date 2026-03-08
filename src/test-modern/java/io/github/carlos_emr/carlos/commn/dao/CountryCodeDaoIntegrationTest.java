@@ -60,7 +60,7 @@ public class CountryCodeDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should persist entity with generated id")
-        void shouldPersistEntity_withGeneratedId() {
+        void shouldPersistEntity_withGeneratedId() throws Exception {
             CountryCode entity = new CountryCode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -75,7 +75,7 @@ public class CountryCodeDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return increased count after persisting new country code")
-        void shouldReturnIncreasedCount_afterPersistingNewCountryCode() {
+        void shouldReturnIncreasedCount_afterPersistingNewCountryCode() throws Exception {
             int initialSize = dao.findAll().size();
 
             CountryCode entity = new CountryCode();
@@ -94,10 +94,10 @@ public class CountryCodeDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return country with correct name when code is CA")
-        void shouldReturnCountryWithCorrectName_whenCodeIsCA() {
+        void shouldReturnCountryWithCorrectName_whenCodeIsCA() throws Exception {
             CountryCode country = new CountryCode();
             EntityDataGenerator.generateTestDataForModelClass(country);
-            country.setCountryCode("CA");
+            country.setCountryId("CA");
             country.setCountryName("Canada");
             dao.persist(country);
             hibernateTemplate.flush();

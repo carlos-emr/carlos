@@ -62,7 +62,7 @@ public class BillingONRepoDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist billingonrepo with generated ID")
-        void shouldPersistBillingONRepo_whenValidDataProvided() {
+        void shouldPersistBillingONRepo_whenValidDataProvided() throws Exception {
             BillingONRepo entity = new BillingONRepo();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             billingONRepoDao.persist(entity);
@@ -72,7 +72,7 @@ public class BillingONRepoDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find billingonrepo by ID with correct field values")
-        void shouldFindBillingONRepo_whenValidIdProvided() {
+        void shouldFindBillingONRepo_whenValidIdProvided() throws Exception {
             BillingONRepo saved = new BillingONRepo();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             saved.setCategory("test-category");
@@ -93,7 +93,7 @@ public class BillingONRepoDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when billingonrepo not found by ID")
-        void shouldReturnNull_whenBillingONRepoNotFoundById() {
+        void shouldReturnNull_whenBillingONRepoNotFoundById() throws Exception {
             BillingONRepo found = billingONRepoDao.find(99999);
             assertThat(found).isNull();
         }
@@ -106,7 +106,7 @@ public class BillingONRepoDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all billingonrepo records accurately")
-        void shouldCountAllBillingONRepos() {
+        void shouldCountAllBillingONRepos() throws Exception {
             BillingONRepo entity1 = new BillingONRepo();
             EntityDataGenerator.generateTestDataForModelClass(entity1);
             billingONRepoDao.persist(entity1);

@@ -57,7 +57,7 @@ public class BillRecipientsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             BillRecipients entity = new BillRecipients();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setBillingNo(100);
@@ -68,7 +68,7 @@ public class BillRecipientsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with matching field values")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             BillRecipients saved = new BillRecipients();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             saved.setBillingNo(200);
@@ -88,7 +88,7 @@ public class BillRecipientsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenInvalidIdProvided() {
+        void shouldReturnNull_whenInvalidIdProvided() throws Exception {
             BillRecipients found = billRecipientsDao.find(-999);
             assertThat(found).isNull();
         }
@@ -101,7 +101,7 @@ public class BillRecipientsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return recipients matching the billing number")
-        void shouldReturnRecipients_whenBillingNoMatches() {
+        void shouldReturnRecipients_whenBillingNoMatches() throws Exception {
             BillRecipients match1 = new BillRecipients();
             EntityDataGenerator.generateTestDataForModelClass(match1);
             match1.setBillingNo(300);
@@ -129,7 +129,7 @@ public class BillRecipientsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no recipients match billing number")
-        void shouldReturnEmptyList_whenNoBillingNoMatches() {
+        void shouldReturnEmptyList_whenNoBillingNoMatches() throws Exception {
             List<BillRecipients> results = billRecipientsDao.findByBillingNo(-1);
             assertThat(results).isEmpty();
         }

@@ -59,7 +59,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should save and update billing unit for billing number")
-    void shouldSaveAndUpdateBillingUnit_whenValidBillingProvided() {
+    void shouldSaveAndUpdateBillingUnit_whenValidBillingProvided() throws Exception {
         Billingmaster master = new Billingmaster();
         EntityDataGenerator.generateTestDataForModelClass(master);
         master.setBillingNo(99999);
@@ -72,7 +72,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("update")
     @DisplayName("should update billing unit for existing billing number")
-    void shouldUpdateBillingUnit_whenBillingNumberExists() {
+    void shouldUpdateBillingUnit_whenBillingNumberExists() throws Exception {
         Billingmaster b = new Billingmaster();
         b.setBillingUnit("AS");
         b.setBillingNo(999);
@@ -85,7 +85,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("update")
     @DisplayName("should mark list of billings as billed")
-    void shouldMarkListAsBilled_whenBillingNumbersProvided() {
+    void shouldMarkListAsBilled_whenBillingNumbersProvided() throws Exception {
         Billingmaster b = new Billingmaster();
         b.setBillingUnit("AS");
         b.setBillingNo(999);
@@ -113,7 +113,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return null WCB when billing number does not exist")
-    void shouldReturnNull_whenWcbBillingNoNotFound() {
+    void shouldReturnNull_whenWcbBillingNoNotFound() throws Exception {
         WCB found = dao.getWcbByBillingNo(999999);
         assertThat(found).isNull();
     }
@@ -121,7 +121,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list for various field combinations with no matching data")
-    void shouldReturnEmptyList_whenNoMatchingBillingMasterData() {
+    void shouldReturnEmptyList_whenNoMatchingBillingMasterData() throws Exception {
         List<Object[]> results1 = dao.getBillingMasterByVariousFields("ST", null, null, null);
         assertThat(results1).isEmpty();
 
@@ -141,7 +141,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list for WCB report when no matching data")
-    void shouldReturnEmptyList_whenNoWcbReportData() {
+    void shouldReturnEmptyList_whenNoWcbReportData() throws Exception {
         List<Object[]> results = dao.select_user_bill_report_wcb(1);
         assertThat(results).isEmpty();
     }
@@ -149,7 +149,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list for teleplan bill when no matching data")
-    void shouldReturnEmptyList_whenNoTeleplanBillData() {
+    void shouldReturnEmptyList_whenNoTeleplanBillData() throws Exception {
         List<Billing> results = dao.search_teleplanbill(1);
         assertThat(results).isEmpty();
     }
@@ -157,7 +157,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no billings match demo, code, and statuses")
-    void shouldReturnEmptyList_whenNoBillingsMatchDemoCodeStatuses() {
+    void shouldReturnEmptyList_whenNoBillingsMatchDemoCodeStatuses() throws Exception {
         List<Billingmaster> results = dao.findByDemoNoCodeAndStatuses(100, "10", Arrays.asList("A"));
         assertThat(results).isEmpty();
     }
@@ -165,7 +165,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find billings by demo number, code and statuses")
-    void shouldReturnMatchingBillings_whenDemoNoCodeAndStatusesMatch() {
+    void shouldReturnMatchingBillings_whenDemoNoCodeAndStatusesMatch() throws Exception {
         Billingmaster b1 = new Billingmaster();
         EntityDataGenerator.generateTestDataForModelClass(b1);
         b1.setDemographicNo(200);
@@ -182,7 +182,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
         b2.setBillingNo(1002);
         dao.save(b2);
 
-        entityManager.flush();
+        hibernateTemplate.flush();
 
         // statuses is a NOT IN filter, so "A" excluded means b1 (status P) should be returned
         List<Billingmaster> results = dao.findByDemoNoCodeAndStatuses(200, "TESTCODE", Arrays.asList("A"));
@@ -193,7 +193,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no billings match demo, code and year")
-    void shouldReturnEmptyList_whenNoBillingsMatchDemoCodeYear() {
+    void shouldReturnEmptyList_whenNoBillingsMatchDemoCodeYear() throws Exception {
         List<Billingmaster> results = dao.findByDemoNoCodeStatusesAndYear(100, new Date(), "CODE");
         assertThat(results).isEmpty();
     }
@@ -201,7 +201,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("update")
     @DisplayName("should return zero when no billings match for update")
-    void shouldReturnZero_whenNoBillingsMatchUpdateCriteria() {
+    void shouldReturnZero_whenNoBillingsMatchUpdateCriteria() throws Exception {
         int count = dao.updateBillingUnitForBillingNumber("XX", 999999);
         assertThat(count).isEqualTo(0);
     }
@@ -209,7 +209,7 @@ public class BillingmasterDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("update")
     @DisplayName("should return zero when marking empty list as billed")
-    void shouldReturnZero_whenMarkingEmptyListAsBilled() {
+    void shouldReturnZero_whenMarkingEmptyListAsBilled() throws Exception {
         int count = dao.markListAsBilled(Arrays.asList());
         assertThat(count).isEqualTo(0);
     }

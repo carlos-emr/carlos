@@ -60,7 +60,7 @@ public class DiseasesDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should persist entity with generated id")
-        void shouldPersistEntity_withGeneratedId() {
+        void shouldPersistEntity_withGeneratedId() throws Exception {
             Diseases entity = new Diseases();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -75,7 +75,7 @@ public class DiseasesDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return one disease when demographic number matches")
-        void shouldReturnOnDisease_whenDemographicNoMatches() {
+        void shouldReturnOnDisease_whenDemographicNoMatches() throws Exception {
             Diseases entity = new Diseases();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setDemographicNo(1);
@@ -93,7 +93,7 @@ public class DiseasesDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return one disease when icd9 code matches")
-        void shouldReturnOneDisease_whenIcd9CodeMatches() {
+        void shouldReturnOneDisease_whenIcd9CodeMatches() throws Exception {
             Diseases entity = new Diseases();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setDemographicNo(1);

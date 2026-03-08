@@ -57,7 +57,7 @@ public class QueueDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private QueueDao dao;
 
-    private Queue createQueue(String name) {
+    private Queue createQueue(String name) throws Exception {
         Queue q = new Queue();
         EntityDataGenerator.generateTestDataForModelClass(q);
         q.setName(name);
@@ -72,7 +72,7 @@ public class QueueDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return hash map of queues with id-to-name mapping")
-        void shouldReturnHashMap_whenGetHashMapOfQueuesCalled() {
+        void shouldReturnHashMap_whenGetHashMapOfQueuesCalled() throws Exception {
             Queue q1 = createQueue("alpha");
 
             HashMap<Integer, String> expectedResult = new HashMap<>();
@@ -86,7 +86,7 @@ public class QueueDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return list of queues as hashtables")
-        void shouldReturnQueueList_whenGetQueuesCalled() {
+        void shouldReturnQueueList_whenGetQueuesCalled() throws Exception {
             createQueue("alpha");
             createQueue("bravo");
 
@@ -98,7 +98,7 @@ public class QueueDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return the last (max) queue ID")
-        void shouldReturnLastId_whenGetLastIdCalled() {
+        void shouldReturnLastId_whenGetLastIdCalled() throws Exception {
             Queue q1 = createQueue("alpha");
             Queue q2 = createQueue("bravo");
             Queue q3 = createQueue("charlie");
@@ -113,7 +113,7 @@ public class QueueDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return queue name by ID")
-        void shouldReturnQueueName_byId() {
+        void shouldReturnQueueName_byId() throws Exception {
             createQueue("alpha");
             Queue q2 = createQueue("bravo");
             createQueue("charlie");
@@ -126,7 +126,7 @@ public class QueueDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return queue ID by name")
-        void shouldReturnQueueId_byName() {
+        void shouldReturnQueueId_byName() throws Exception {
             createQueue("alpha");
             Queue q2 = createQueue("10001");
             createQueue("charlie");
@@ -139,7 +139,7 @@ public class QueueDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should add new queue successfully")
-        void shouldReturnTrue_whenAddNewQueueCalled() {
+        void shouldReturnTrue_whenAddNewQueueCalled() throws Exception {
             boolean result = dao.addNewQueue("Sigma");
 
             assertThat(result).isTrue();

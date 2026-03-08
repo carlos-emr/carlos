@@ -60,21 +60,21 @@ public class EncounterWindowDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist encounterwindow with generated ID")
-        void shouldPersistEncounterWindow_whenValidDataProvided() {
+        void shouldPersistEncounterWindow_whenValidDataProvided() throws Exception {
             EncounterWindow entity = new EncounterWindow();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterWindowDao.persist(entity);
-            assertThat(entity.getId()).isPositive();
+            assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
         @DisplayName("should find encounterwindow by ID")
-        void shouldFindEncounterWindow_whenValidIdProvided() {
+        void shouldFindEncounterWindow_whenValidIdProvided() throws Exception {
             EncounterWindow saved = new EncounterWindow();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             encounterWindowDao.persist(saved);
-            EncounterWindow found = dao.find(saved.getId());
+            EncounterWindow found = encounterWindowDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class EncounterWindowDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all encounterwindow records")
-        void shouldCountAllEncounterWindows() {
+        void shouldCountAllEncounterWindows() throws Exception {
             EncounterWindow entity = new EncounterWindow();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterWindowDao.persist(entity);

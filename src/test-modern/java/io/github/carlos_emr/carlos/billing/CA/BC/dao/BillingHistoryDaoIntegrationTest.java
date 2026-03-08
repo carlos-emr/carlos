@@ -55,7 +55,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private BillingHistoryDao dao;
 
-    @PersistenceContext(unitName = "testPersistenceUnit")
+    @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
     @Nested
@@ -65,7 +65,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated test data")
-        void shouldPersistEntity_whenValidDataProvided() {
+        void shouldPersistEntity_whenValidDataProvided() throws Exception {
             BillingHistory entity = new BillingHistory();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -75,7 +75,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with matching field values")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             BillingHistory entity = new BillingHistory();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setBillingMasterNo(500);
@@ -95,7 +95,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenInvalidIdProvided() {
+        void shouldReturnNull_whenInvalidIdProvided() throws Exception {
             BillingHistory found = dao.find(-999);
             assertThat(found).isNull();
         }
@@ -108,7 +108,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no history exists for billing master number")
-        void shouldReturnEmptyList_whenNoBillingMasterNoMatches() {
+        void shouldReturnEmptyList_whenNoBillingMasterNoMatches() throws Exception {
             List<Object[]> results = dao.findByBillingMasterNo(-999);
             assertThat(results).isEmpty();
         }
@@ -116,7 +116,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return billing history with payment type for matching billing master number")
-        void shouldReturnHistoryWithPaymentType_whenBillingMasterNoMatches() {
+        void shouldReturnHistoryWithPaymentType_whenBillingMasterNoMatches() throws Exception {
             BillingPaymentType paymentType = new BillingPaymentType();
             paymentType.setPaymentType("Cash");
             entityManager.persist(paymentType);
@@ -149,7 +149,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return zero when no history exists for billing master number")
-        void shouldReturnZero_whenNoHistoryExists() {
+        void shouldReturnZero_whenNoHistoryExists() throws Exception {
             Double total = dao.getTotalPaidFromHistory(-999, false);
             assertThat(total).isEqualTo(0.0);
         }
@@ -157,7 +157,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return zero when no history exists with IA exclusion")
-        void shouldReturnZero_whenNoHistoryExistsWithIaExclusion() {
+        void shouldReturnZero_whenNoHistoryExistsWithIaExclusion() throws Exception {
             Double total = dao.getTotalPaidFromHistory(-999, true);
             assertThat(total).isEqualTo(0.0);
         }
@@ -165,7 +165,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should sum amount received for matching billing master number")
-        void shouldSumAmountReceived_whenHistoryExists() {
+        void shouldSumAmountReceived_whenHistoryExists() throws Exception {
             BillingHistory h1 = new BillingHistory();
             EntityDataGenerator.generateTestDataForModelClass(h1);
             h1.setBillingMasterNo(800);
@@ -196,7 +196,7 @@ public class BillingHistoryDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should exclude IA payment type when ignoreIA is true")
-        void shouldExcludeIaPaymentType_whenIgnoreIaIsTrue() {
+        void shouldExcludeIaPaymentType_whenIgnoreIaIsTrue() throws Exception {
             // PAYTYPE_IA = "10"
             BillingHistory h1 = new BillingHistory();
             EntityDataGenerator.generateTestDataForModelClass(h1);

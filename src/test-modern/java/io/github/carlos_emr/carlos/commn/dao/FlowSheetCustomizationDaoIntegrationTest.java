@@ -60,7 +60,7 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist flowsheetcustomization with generated ID")
-        void shouldPersistFlowSheetCustomization_whenValidDataProvided() {
+        void shouldPersistFlowSheetCustomization_whenValidDataProvided() throws Exception {
             FlowSheetCustomization entity = new FlowSheetCustomization();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetCustomizationDao.persist(entity);
@@ -70,11 +70,11 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find flowsheetcustomization by ID")
-        void shouldFindFlowSheetCustomization_whenValidIdProvided() {
+        void shouldFindFlowSheetCustomization_whenValidIdProvided() throws Exception {
             FlowSheetCustomization saved = new FlowSheetCustomization();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             flowSheetCustomizationDao.persist(saved);
-            FlowSheetCustomization found = dao.find(saved.getId());
+            FlowSheetCustomization found = flowSheetCustomizationDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class FlowSheetCustomizationDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all flowsheetcustomization records")
-        void shouldCountAllFlowSheetCustomizations() {
+        void shouldCountAllFlowSheetCustomizations() throws Exception {
             FlowSheetCustomization entity = new FlowSheetCustomization();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetCustomizationDao.persist(entity);

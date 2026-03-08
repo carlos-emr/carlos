@@ -55,7 +55,7 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             Hl7Msh entity = new Hl7Msh();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hl7MshDao.persist(entity);
@@ -65,7 +65,7 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with matching fields")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             Hl7Msh saved = new Hl7Msh();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             saved.setMessageId(9001);
@@ -85,7 +85,7 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenEntityNotFound() {
+        void shouldReturnNull_whenEntityNotFound() throws Exception {
             Hl7Msh found = hl7MshDao.find(-999);
             assertThat(found).isNull();
         }
@@ -93,7 +93,7 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("update")
         @DisplayName("should update entity fields after merge")
-        void shouldUpdateFields_whenMerged() {
+        void shouldUpdateFields_whenMerged() throws Exception {
             Hl7Msh entity = new Hl7Msh();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setSendingApp("OriginalApp");

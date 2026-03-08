@@ -61,7 +61,7 @@ public class Hl7OrcDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             Hl7Orc entity = new Hl7Orc();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hl7OrcDao.persist(entity);
@@ -71,7 +71,7 @@ public class Hl7OrcDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with correct fields")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             Hl7Orc saved = new Hl7Orc();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             saved.setPidId(300);
@@ -91,7 +91,7 @@ public class Hl7OrcDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenEntityNotFound() {
+        void shouldReturnNull_whenEntityNotFound() throws Exception {
             Hl7Orc found = hl7OrcDao.find(-999);
             assertThat(found).isNull();
         }
@@ -104,7 +104,7 @@ public class Hl7OrcDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return joined ORC and PID records for a given message ID")
-        void shouldReturnJoinedResults_whenMatchingDataExists() {
+        void shouldReturnJoinedResults_whenMatchingDataExists() throws Exception {
             Hl7Pid pid = new Hl7Pid();
             EntityDataGenerator.generateTestDataForModelClass(pid);
             pid.setMessageId(4000);
@@ -123,7 +123,7 @@ public class Hl7OrcDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no matching message ID")
-        void shouldReturnEmptyList_whenNoMatchingMessageId() {
+        void shouldReturnEmptyList_whenNoMatchingMessageId() throws Exception {
             List<Object[]> results = hl7OrcDao.findOrcAndPidByMessageId(99999);
             assertThat(results).isEmpty();
         }

@@ -64,7 +64,7 @@ public class CaseManagementTmpSaveDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should persist entity with generated id")
-        void shouldPersistEntity_withGeneratedId() {
+        void shouldPersistEntity_withGeneratedId() throws Exception {
             CaseManagementTmpSave entity = new CaseManagementTmpSave();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -79,7 +79,7 @@ public class CaseManagementTmpSaveDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return matching record when provider, demographic and program match")
-        void shouldReturnMatchingRecord_whenProviderDemographicProgramMatch() {
+        void shouldReturnMatchingRecord_whenProviderDemographicProgramMatch() throws Exception {
             String providerNo1 = "alpha";
             int demographicNo1 = 101, demographicNo2 = 202;
             int programId1 = 111, programId2 = 222;

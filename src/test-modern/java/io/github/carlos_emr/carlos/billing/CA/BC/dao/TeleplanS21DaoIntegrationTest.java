@@ -50,7 +50,7 @@ public class TeleplanS21DaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private TeleplanS21Dao dao;
 
-    private TeleplanS21 createEntity(String fileName, String payment, String payeeNo, Character status) {
+    private TeleplanS21 createEntity(String fileName, String payment, String payeeNo, Character status) throws Exception {
         TeleplanS21 entity = new TeleplanS21();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setFileName(fileName);
@@ -63,7 +63,7 @@ public class TeleplanS21DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         TeleplanS21 entity = new TeleplanS21();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -73,7 +73,7 @@ public class TeleplanS21DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find entity by ID with matching field values")
-    void shouldReturnEntity_whenValidIdProvided() {
+    void shouldReturnEntity_whenValidIdProvided() throws Exception {
         TeleplanS21 saved = createEntity("file1.txt", "PAY1", "PN001", 'A');
         dao.persist(saved);
 
@@ -88,7 +88,7 @@ public class TeleplanS21DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find records by filename, payment, and payee number")
-    void shouldReturnMatchingRecords_byFilenamePaymentPayeeNo() {
+    void shouldReturnMatchingRecords_byFilenamePaymentPayeeNo() throws Exception {
         TeleplanS21 match = createEntity("remit.txt", "PMT100", "PY001", 'A');
         TeleplanS21 diffFile = createEntity("other.txt", "PMT100", "PY001", 'A');
         TeleplanS21 diffPay = createEntity("remit.txt", "PMT999", "PY001", 'A');
@@ -106,7 +106,7 @@ public class TeleplanS21DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no matching filename/payment/payee")
-    void shouldReturnEmptyList_whenNoMatchingFilenamePaymentPayee() {
+    void shouldReturnEmptyList_whenNoMatchingFilenamePaymentPayee() throws Exception {
         TeleplanS21 entity = createEntity("file.txt", "PAY1", "PN1", 'A');
         dao.persist(entity);
 
@@ -117,7 +117,7 @@ public class TeleplanS21DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should search all records excluding given status")
-    void shouldReturnRecordsExcludingStatus_whenSearchAllTahd() {
+    void shouldReturnRecordsExcludingStatus_whenSearchAllTahd() throws Exception {
         TeleplanS21 active = createEntity("f1.txt", "PAY1", "PN1", 'A');
         TeleplanS21 deleted = createEntity("f2.txt", "PAY2", "PN2", 'D');
         TeleplanS21 active2 = createEntity("f3.txt", "PAY3", "PN3", 'A');
@@ -135,7 +135,7 @@ public class TeleplanS21DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return all records when excluded status does not match any")
-    void shouldReturnAllRecords_whenExcludedStatusNotPresent() {
+    void shouldReturnAllRecords_whenExcludedStatusNotPresent() throws Exception {
         TeleplanS21 e1 = createEntity("f1.txt", "PAY1", "PN1", 'A');
         TeleplanS21 e2 = createEntity("f2.txt", "PAY2", "PN2", 'B');
         dao.persist(e1);

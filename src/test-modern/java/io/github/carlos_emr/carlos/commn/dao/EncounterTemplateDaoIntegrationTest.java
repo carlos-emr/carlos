@@ -60,21 +60,21 @@ public class EncounterTemplateDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist encountertemplate with generated ID")
-        void shouldPersistEncounterTemplate_whenValidDataProvided() {
+        void shouldPersistEncounterTemplate_whenValidDataProvided() throws Exception {
             EncounterTemplate entity = new EncounterTemplate();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterTemplateDao.persist(entity);
-            assertThat(entity.getId()).isPositive();
+            assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
         @DisplayName("should find encountertemplate by ID")
-        void shouldFindEncounterTemplate_whenValidIdProvided() {
+        void shouldFindEncounterTemplate_whenValidIdProvided() throws Exception {
             EncounterTemplate saved = new EncounterTemplate();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             encounterTemplateDao.persist(saved);
-            EncounterTemplate found = dao.find(saved.getId());
+            EncounterTemplate found = encounterTemplateDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class EncounterTemplateDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all encountertemplate records")
-        void shouldCountAllEncounterTemplates() {
+        void shouldCountAllEncounterTemplates() throws Exception {
             EncounterTemplate entity = new EncounterTemplate();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             encounterTemplateDao.persist(entity);

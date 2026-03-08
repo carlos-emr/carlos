@@ -58,7 +58,7 @@ public class PrivateBillTransactionsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             BillingPrivateTransactions entity = new BillingPrivateTransactions();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setCreationDate(new Date());
@@ -69,7 +69,7 @@ public class PrivateBillTransactionsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with correct fields")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             BillingPrivateTransactions saved = new BillingPrivateTransactions(
                     100, 55.50, new Date(), 1
             );
@@ -87,7 +87,7 @@ public class PrivateBillTransactionsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenEntityNotFound() {
+        void shouldReturnNull_whenEntityNotFound() throws Exception {
             BillingPrivateTransactions found = privateBillTransactionsDao.find(-999);
             assertThat(found).isNull();
         }
@@ -100,7 +100,7 @@ public class PrivateBillTransactionsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should save a private bill transaction with correct fields")
-        void shouldSaveTransaction_withCorrectFields() {
+        void shouldSaveTransaction_withCorrectFields() throws Exception {
             BillingPrivateTransactions saved = privateBillTransactionsDao
                     .savePrivateBillTransaction(200, 99.99, 2);
 
@@ -115,7 +115,7 @@ public class PrivateBillTransactionsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist multiple transactions with different billing master numbers")
-        void shouldPersistMultipleTransactions_withDifferentBillingMasters() {
+        void shouldPersistMultipleTransactions_withDifferentBillingMasters() throws Exception {
             BillingPrivateTransactions tx1 = privateBillTransactionsDao
                     .savePrivateBillTransaction(301, 10.00, 1);
             BillingPrivateTransactions tx2 = privateBillTransactionsDao

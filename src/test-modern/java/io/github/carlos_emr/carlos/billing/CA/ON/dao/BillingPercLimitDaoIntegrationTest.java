@@ -58,7 +58,7 @@ public class BillingPercLimitDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         BillingPercLimit entity = new BillingPercLimit();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -68,7 +68,7 @@ public class BillingPercLimitDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find all records by service code")
-    void shouldFindByServiceCode_whenMatchingRecordsExist() {
+    void shouldFindByServiceCode_whenMatchingRecordsExist() throws Exception {
         BillingPercLimit limit1 = new BillingPercLimit();
         EntityDataGenerator.generateTestDataForModelClass(limit1);
         limit1.setService_code("A001");
@@ -100,7 +100,7 @@ public class BillingPercLimitDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no records match service code")
-    void shouldReturnEmptyList_whenNoRecordsMatchServiceCode() {
+    void shouldReturnEmptyList_whenNoRecordsMatchServiceCode() throws Exception {
         BillingPercLimit entity = new BillingPercLimit();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setService_code("EXISTS");
@@ -114,7 +114,7 @@ public class BillingPercLimitDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find record by service code and effective date")
-    void shouldFindByServiceCodeAndEffectiveDate_whenExactMatchExists() {
+    void shouldFindByServiceCodeAndEffectiveDate_whenExactMatchExists() throws Exception {
         Calendar cal = Calendar.getInstance();
         cal.set(2025, Calendar.JUNE, 1, 0, 0, 0);
         cal.set(Calendar.MILLISECOND, 0);
@@ -148,7 +148,7 @@ public class BillingPercLimitDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return null when no record matches service code and effective date")
-    void shouldReturnNull_whenNoRecordMatchesServiceCodeAndEffectiveDate() {
+    void shouldReturnNull_whenNoRecordMatchesServiceCodeAndEffectiveDate() throws Exception {
         Calendar cal = Calendar.getInstance();
         cal.set(2025, Calendar.JUNE, 1, 0, 0, 0);
         cal.set(Calendar.MILLISECOND, 0);
@@ -161,7 +161,7 @@ public class BillingPercLimitDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find records by service code and latest date not exceeding query date")
-    void shouldFindByServiceCodeAndLatestDate_whenMatchingRecordsExist() {
+    void shouldFindByServiceCodeAndLatestDate_whenMatchingRecordsExist() throws Exception {
         Calendar cal = Calendar.getInstance();
 
         // Create a record with an old effective date
@@ -213,7 +213,7 @@ public class BillingPercLimitDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no records have effective date before query date")
-    void shouldReturnEmptyList_whenNoRecordsHaveEffectiveDateBeforeQueryDate() {
+    void shouldReturnEmptyList_whenNoRecordsHaveEffectiveDateBeforeQueryDate() throws Exception {
         Calendar cal = Calendar.getInstance();
         cal.set(2025, Calendar.JUNE, 1, 0, 0, 0);
         cal.set(Calendar.MILLISECOND, 0);

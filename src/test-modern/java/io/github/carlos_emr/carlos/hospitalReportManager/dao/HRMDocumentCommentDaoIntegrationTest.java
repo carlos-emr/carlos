@@ -53,7 +53,7 @@ public class HRMDocumentCommentDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist HRM document comment with generated ID")
-    void shouldPersistHrmDocumentComment_whenValidDataProvided() {
+    void shouldPersistHrmDocumentComment_whenValidDataProvided() throws Exception {
         HRMDocumentComment entity = new HRMDocumentComment();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         hrmDocumentCommentDao.persist(entity);

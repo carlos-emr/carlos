@@ -55,7 +55,7 @@ public class MeasurementCSSLocationDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist measurement CSS location with generated ID")
-    void shouldPersistMeasurementCSSLocation_whenValidDataProvided() {
+    void shouldPersistMeasurementCSSLocation_whenValidDataProvided() throws Exception {
         MeasurementCSSLocation entity = new MeasurementCSSLocation();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -66,7 +66,7 @@ public class MeasurementCSSLocationDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return matching locations when filtered by location string")
-    void shouldReturnMatchingLocations_whenFilteredByLocation() {
+    void shouldReturnMatchingLocations_whenFilteredByLocation() throws Exception {
         String location1 = "alpha", location2 = "bravo";
 
         MeasurementCSSLocation mCSSL1 = new MeasurementCSSLocation();

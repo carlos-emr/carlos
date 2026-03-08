@@ -60,7 +60,7 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist favorites with generated ID")
-        void shouldPersistFavorites_whenValidDataProvided() {
+        void shouldPersistFavorites_whenValidDataProvided() throws Exception {
             Favorites entity = new Favorites();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             favoritesDao.persist(entity);
@@ -70,11 +70,11 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find favorites by ID")
-        void shouldFindFavorites_whenValidIdProvided() {
+        void shouldFindFavorites_whenValidIdProvided() throws Exception {
             Favorites saved = new Favorites();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             favoritesDao.persist(saved);
-            Favorites found = dao.find(saved.getId());
+            Favorites found = favoritesDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all favorites records")
-        void shouldCountAllFavoritess() {
+        void shouldCountAllFavoritess() throws Exception {
             Favorites entity = new Favorites();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             favoritesDao.persist(entity);

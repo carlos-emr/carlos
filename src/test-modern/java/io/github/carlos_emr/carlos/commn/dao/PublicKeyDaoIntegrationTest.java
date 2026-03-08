@@ -60,21 +60,21 @@ public class PublicKeyDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist publickey with generated ID")
-        void shouldPersistPublicKey_whenValidDataProvided() {
+        void shouldPersistPublicKey_whenValidDataProvided() throws Exception {
             PublicKey entity = new PublicKey();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             publicKeyDao.persist(entity);
-            assertThat(entity.getId()).isPositive();
+            assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
         @DisplayName("should find publickey by ID")
-        void shouldFindPublicKey_whenValidIdProvided() {
+        void shouldFindPublicKey_whenValidIdProvided() throws Exception {
             PublicKey saved = new PublicKey();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             publicKeyDao.persist(saved);
-            PublicKey found = dao.find(saved.getId());
+            PublicKey found = publicKeyDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class PublicKeyDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all publickey records")
-        void shouldCountAllPublicKeys() {
+        void shouldCountAllPublicKeys() throws Exception {
             PublicKey entity = new PublicKey();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             publicKeyDao.persist(entity);

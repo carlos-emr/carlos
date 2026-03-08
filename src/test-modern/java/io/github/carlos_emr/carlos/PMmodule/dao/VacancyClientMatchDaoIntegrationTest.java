@@ -54,7 +54,7 @@ public class VacancyClientMatchDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist vacancy client match with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         VacancyClientMatch entity = new VacancyClientMatch();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -65,7 +65,7 @@ public class VacancyClientMatchDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return vacancy client matches filtered by client ID")
-    void shouldReturnMatches_byClientId() {
+    void shouldReturnMatches_byClientId() throws Exception {
         int clientId1 = 101, clientId2 = 202;
 
         VacancyClientMatch vCM1 = new VacancyClientMatch();
@@ -102,7 +102,7 @@ public class VacancyClientMatchDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return vacancy client matches filtered by status")
-    void shouldReturnMatches_byStatus() {
+    void shouldReturnMatches_byStatus() throws Exception {
         int clientId1 = 101, clientId2 = 202;
 
         VacancyClientMatch vCM1 = new VacancyClientMatch();
@@ -139,7 +139,7 @@ public class VacancyClientMatchDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("update")
     @DisplayName("should update status of vacancy client match")
-    void shouldUpdateStatus_whenValidClientAndVacancyProvided() {
+    void shouldUpdateStatus_whenValidClientAndVacancyProvided() throws Exception {
         VacancyClientMatch v = new VacancyClientMatch();
         v.setVacancy_id(1);
         v.setClient_id(1);

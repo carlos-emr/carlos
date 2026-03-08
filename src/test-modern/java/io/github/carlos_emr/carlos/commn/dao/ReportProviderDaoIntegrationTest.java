@@ -60,7 +60,7 @@ public class ReportProviderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist reportprovider with generated ID")
-        void shouldPersistReportProvider_whenValidDataProvided() {
+        void shouldPersistReportProvider_whenValidDataProvided() throws Exception {
             ReportProvider entity = new ReportProvider();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportProviderDao.persist(entity);
@@ -70,11 +70,11 @@ public class ReportProviderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find reportprovider by ID")
-        void shouldFindReportProvider_whenValidIdProvided() {
+        void shouldFindReportProvider_whenValidIdProvided() throws Exception {
             ReportProvider saved = new ReportProvider();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             reportProviderDao.persist(saved);
-            ReportProvider found = dao.find(saved.getId());
+            ReportProvider found = reportProviderDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class ReportProviderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all reportprovider records")
-        void shouldCountAllReportProviders() {
+        void shouldCountAllReportProviders() throws Exception {
             ReportProvider entity = new ReportProvider();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportProviderDao.persist(entity);

@@ -58,7 +58,7 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated test data")
-        void shouldPersistEntity_whenValidDataProvided() {
+        void shouldPersistEntity_whenValidDataProvided() throws Exception {
             TeleplanC12 entity = new TeleplanC12();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -68,7 +68,7 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with correct fields")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             TeleplanC12 entity = new TeleplanC12();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setOfficeFolioClaimNo("CLM-001");
@@ -93,7 +93,7 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return records with non-error status")
-        void shouldReturnNonErrorRecords_whenQueried() {
+        void shouldReturnNonErrorRecords_whenQueried() throws Exception {
             TeleplanC12 openRecord = new TeleplanC12();
             EntityDataGenerator.generateTestDataForModelClass(openRecord);
             openRecord.setStatus('O');
@@ -123,7 +123,7 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return records matching the office claim number")
-        void shouldReturnMatchingRecords_whenClaimNoMatches() {
+        void shouldReturnMatchingRecords_whenClaimNoMatches() throws Exception {
             TeleplanC12 match = new TeleplanC12();
             EntityDataGenerator.generateTestDataForModelClass(match);
             match.setOfficeFolioClaimNo("CLM-200");
@@ -143,7 +143,7 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no records match")
-        void shouldReturnEmptyList_whenNoClaimNoMatches() {
+        void shouldReturnEmptyList_whenNoClaimNoMatches() throws Exception {
             List<TeleplanC12> results = dao.findByOfficeClaimNo("NONEXISTENT");
             assertThat(results).isEmpty();
         }
@@ -156,7 +156,7 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return records matching both status and claim number")
-        void shouldReturnMatchingRecords_whenStatusAndClaimNoMatch() {
+        void shouldReturnMatchingRecords_whenStatusAndClaimNoMatch() throws Exception {
             TeleplanC12 entity = new TeleplanC12();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setStatus('O');
@@ -179,7 +179,7 @@ public class TeleplanC12DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no records match status and claim number")
-        void shouldReturnEmptyList_whenNoMatch() {
+        void shouldReturnEmptyList_whenNoMatch() throws Exception {
             List<TeleplanC12> results = dao.select_c12_record("X", "NONEXISTENT");
             assertThat(results).isEmpty();
         }

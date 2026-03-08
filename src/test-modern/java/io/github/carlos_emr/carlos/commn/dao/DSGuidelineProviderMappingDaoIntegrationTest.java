@@ -63,7 +63,7 @@ public class DSGuidelineProviderMappingDaoIntegrationTest extends CarlosTestBase
 
         @Test
         @DisplayName("should persist entity with generated id")
-        void shouldPersistEntity_withGeneratedId() {
+        void shouldPersistEntity_withGeneratedId() throws Exception {
             DSGuidelineProviderMapping dsGPM = new DSGuidelineProviderMapping();
             EntityDataGenerator.generateTestDataForModelClass(dsGPM);
             dao.persist(dsGPM);
@@ -78,7 +78,7 @@ public class DSGuidelineProviderMappingDaoIntegrationTest extends CarlosTestBase
 
         @Test
         @DisplayName("should return mappings for matching provider number")
-        void shouldReturnMappings_forMatchingProviderNo() {
+        void shouldReturnMappings_forMatchingProviderNo() throws Exception {
             String providerNo1 = "101";
             String providerNo2 = "202";
 
@@ -115,7 +115,7 @@ public class DSGuidelineProviderMappingDaoIntegrationTest extends CarlosTestBase
 
         @Test
         @DisplayName("should return true when mapping exists with matching provider and guideline")
-        void shouldReturnTrue_whenMappingExists() {
+        void shouldReturnTrue_whenMappingExists() throws Exception {
             String providerNo1 = "101";
             String providerNo2 = "202";
             String guidelineUUID1 = "alpha";

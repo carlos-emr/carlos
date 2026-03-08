@@ -59,7 +59,7 @@ public class CtlBillingServiceAgeRulesDaoIntegrationTest extends CarlosTestBase 
     @Test
     @Tag("create")
     @DisplayName("should persist sex rules entity via age rules dao and assign generated ID")
-    void shouldPersistSexRulesEntity_withGeneratedId() {
+    void shouldPersistSexRulesEntity_withGeneratedId() throws Exception {
         CtlBillingServiceSexRules entity = new CtlBillingServiceSexRules();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setId(null);
@@ -71,7 +71,7 @@ public class CtlBillingServiceAgeRulesDaoIntegrationTest extends CarlosTestBase 
     @Test
     @Tag("read")
     @DisplayName("should return age rules matching service code")
-    void shouldReturnMatchingRules_whenSearchingByServiceCode() {
+    void shouldReturnMatchingRules_whenSearchingByServiceCode() throws Exception {
         String serviceCode1 = "alpha";
         String serviceCode2 = "bravo";
 

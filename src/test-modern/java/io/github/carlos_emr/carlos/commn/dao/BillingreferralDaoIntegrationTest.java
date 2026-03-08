@@ -53,7 +53,7 @@ public class BillingreferralDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity via updateBillingreferral and assign generated ID")
-    void shouldPersistEntity_whenUpdateBillingreferralCalled() {
+    void shouldPersistEntity_whenUpdateBillingreferralCalled() throws Exception {
         Billingreferral entity = new Billingreferral();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setBillingreferralNo(null);
@@ -65,7 +65,7 @@ public class BillingreferralDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find referral by referral code, last name, and first name")
-    void shouldReturnResults_whenSearchingByReferralCode() {
+    void shouldReturnResults_whenSearchingByReferralCode() throws Exception {
         Billingreferral entity = new Billingreferral();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setBillingreferralNo(null);

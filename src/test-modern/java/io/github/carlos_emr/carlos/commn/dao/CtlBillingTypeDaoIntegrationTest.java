@@ -56,19 +56,19 @@ public class CtlBillingTypeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with explicit string ID")
-    void shouldPersistEntity_withExplicitStringId() {
+    void shouldPersistEntity_withExplicitStringId() throws Exception {
         CtlBillingType entity = new CtlBillingType();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setId("test");
         dao.persist(entity);
 
-        assertThat(entity.getId()).isPositive();
+        assertThat(entity.getId()).isNotNull();
     }
 
     @Test
     @Tag("read")
     @DisplayName("should return billing types matching service type")
-    void shouldReturnMatchingTypes_whenSearchingByServiceType() {
+    void shouldReturnMatchingTypes_whenSearchingByServiceType() throws Exception {
         String id1 = "alpha";
         String id2 = "bravo";
 

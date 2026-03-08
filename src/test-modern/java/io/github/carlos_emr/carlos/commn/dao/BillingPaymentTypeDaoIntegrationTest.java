@@ -57,7 +57,7 @@ public class BillingPaymentTypeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity and assign generated ID")
-    void shouldPersistEntity_withGeneratedId() {
+    void shouldPersistEntity_withGeneratedId() throws Exception {
         BillingPaymentType entity = new BillingPaymentType();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -68,7 +68,7 @@ public class BillingPaymentTypeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return all billing payment types")
-    void shouldReturnAllPaymentTypes_whenFindAllCalled() {
+    void shouldReturnAllPaymentTypes_whenFindAllCalled() throws Exception {
         BillingPaymentType bPT1 = new BillingPaymentType();
         EntityDataGenerator.generateTestDataForModelClass(bPT1);
         dao.persist(bPT1);

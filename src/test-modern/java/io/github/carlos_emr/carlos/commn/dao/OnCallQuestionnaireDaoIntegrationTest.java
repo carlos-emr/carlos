@@ -60,7 +60,7 @@ public class OnCallQuestionnaireDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist oncallquestionnaire with generated ID")
-        void shouldPersistOnCallQuestionnaire_whenValidDataProvided() {
+        void shouldPersistOnCallQuestionnaire_whenValidDataProvided() throws Exception {
             OnCallQuestionnaire entity = new OnCallQuestionnaire();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             onCallQuestionnaireDao.persist(entity);
@@ -70,11 +70,11 @@ public class OnCallQuestionnaireDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find oncallquestionnaire by ID")
-        void shouldFindOnCallQuestionnaire_whenValidIdProvided() {
+        void shouldFindOnCallQuestionnaire_whenValidIdProvided() throws Exception {
             OnCallQuestionnaire saved = new OnCallQuestionnaire();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             onCallQuestionnaireDao.persist(saved);
-            OnCallQuestionnaire found = dao.find(saved.getId());
+            OnCallQuestionnaire found = onCallQuestionnaireDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class OnCallQuestionnaireDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all oncallquestionnaire records")
-        void shouldCountAllOnCallQuestionnaires() {
+        void shouldCountAllOnCallQuestionnaires() throws Exception {
             OnCallQuestionnaire entity = new OnCallQuestionnaire();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             onCallQuestionnaireDao.persist(entity);

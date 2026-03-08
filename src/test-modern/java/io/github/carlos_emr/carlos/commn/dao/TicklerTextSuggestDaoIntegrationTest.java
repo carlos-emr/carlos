@@ -54,7 +54,7 @@ public class TicklerTextSuggestDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private TicklerTextSuggestDao ticklerTextSuggestDao;
 
-    private TicklerTextSuggest createSuggest(boolean active, String text) {
+    private TicklerTextSuggest createSuggest(boolean active, String text) throws Exception {
         TicklerTextSuggest entity = new TicklerTextSuggest();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setActive(active);
@@ -70,7 +70,7 @@ public class TicklerTextSuggestDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("filter")
         @DisplayName("should return only active tickler text suggestions")
-        void shouldReturnOnlyActiveSuggestions_whenActiveAndInactiveExist() {
+        void shouldReturnOnlyActiveSuggestions_whenActiveAndInactiveExist() throws Exception {
             TicklerTextSuggest active1 = createSuggest(true, "This tickler is active");
             TicklerTextSuggest active2 = createSuggest(true, "This tickler is also active");
             createSuggest(false, "This tickler is not active");
@@ -86,7 +86,7 @@ public class TicklerTextSuggestDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("filter")
         @DisplayName("should return empty list when no active suggestions exist")
-        void shouldReturnEmptyList_whenNoActiveSuggestionsExist() {
+        void shouldReturnEmptyList_whenNoActiveSuggestionsExist() throws Exception {
             createSuggest(false, "inactive only");
             hibernateTemplate.flush();
 
@@ -102,7 +102,7 @@ public class TicklerTextSuggestDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("filter")
         @DisplayName("should return only inactive tickler text suggestions")
-        void shouldReturnOnlyInactiveSuggestions_whenActiveAndInactiveExist() {
+        void shouldReturnOnlyInactiveSuggestions_whenActiveAndInactiveExist() throws Exception {
             createSuggest(false, "This tickler is not active");
             createSuggest(false, "This tickler is also not active");
             createSuggest(true, "This tickler is active");
@@ -118,7 +118,7 @@ public class TicklerTextSuggestDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("filter")
         @DisplayName("should return empty list when no inactive suggestions exist")
-        void shouldReturnEmptyList_whenNoInactiveSuggestionsExist() {
+        void shouldReturnEmptyList_whenNoInactiveSuggestionsExist() throws Exception {
             createSuggest(true, "active only");
             hibernateTemplate.flush();
 

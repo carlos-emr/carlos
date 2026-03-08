@@ -53,7 +53,7 @@ public class CriteriaTypeOptionDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist criteria type option with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         CriteriaTypeOption entity = new CriteriaTypeOption();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -64,7 +64,7 @@ public class CriteriaTypeOptionDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return all criteria type options")
-    void shouldReturnAllOptions_whenFindAllCalled() {
+    void shouldReturnAllOptions_whenFindAllCalled() throws Exception {
         CriteriaTypeOption cTO1 = new CriteriaTypeOption();
         EntityDataGenerator.generateTestDataForModelClass(cTO1);
         dao.persist(cTO1);
@@ -90,7 +90,7 @@ public class CriteriaTypeOptionDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return criteria type options filtered by type ID")
-    void shouldReturnOptions_byCriteriaTypeId() {
+    void shouldReturnOptions_byCriteriaTypeId() throws Exception {
         int criteriaTypeId1 = 101, criteriaTypeId2 = 202;
 
         CriteriaTypeOption cTO1 = new CriteriaTypeOption();
@@ -127,7 +127,7 @@ public class CriteriaTypeOptionDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return criteria type option by option value")
-    void shouldReturnOption_byValue() {
+    void shouldReturnOption_byValue() throws Exception {
         String optionValue1 = "alpha", optionValue2 = "bravo", optionValue3 = "charlie";
 
         CriteriaTypeOption cTO1 = new CriteriaTypeOption();
@@ -153,7 +153,7 @@ public class CriteriaTypeOptionDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return criteria type option by value and type ID")
-    void shouldReturnOption_byValueAndTypeId() {
+    void shouldReturnOption_byValueAndTypeId() throws Exception {
         int criteriaTypeId1 = 101, criteriaTypeId2 = 202;
         String optionValue1 = "alpha", optionValue2 = "bravo";
 

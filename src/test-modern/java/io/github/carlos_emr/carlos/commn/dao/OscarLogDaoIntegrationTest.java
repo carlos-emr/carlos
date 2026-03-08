@@ -56,7 +56,7 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
     private OscarLogDao dao;
 
     private OscarLog createOscarLog(Integer demographicId, String providerNo, String action,
-                                     String content, String contentId) {
+                                     String content, String contentId) throws Exception {
         OscarLog log = new OscarLog();
         EntityDataGenerator.generateTestDataForModelClass(log);
         log.setDemographicId(demographicId);
@@ -76,7 +76,7 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return logs for specific demographic ID")
-        void shouldReturnLogs_forSpecificDemographicId() {
+        void shouldReturnLogs_forSpecificDemographicId() throws Exception {
             // Given
             int demoId1 = 100;
             int demoId2 = 200;
@@ -97,7 +97,7 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no logs for demographic")
-        void shouldReturnEmptyList_whenNoLogsForDemographic() {
+        void shouldReturnEmptyList_whenNoLogsForDemographic() throws Exception {
             // Given
             createOscarLog(100, "prov1", "read", "content", "1");
 
@@ -116,7 +116,7 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return true when provider has read the content")
-        void shouldReturnTrue_whenProviderHasReadContent() {
+        void shouldReturnTrue_whenProviderHasReadContent() throws Exception {
             // Given
             String providerNo = "100";
             String content = "epsilon";
@@ -136,7 +136,7 @@ public class OscarLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return false when provider has not read the content")
-        void shouldReturnFalse_whenProviderHasNotReadContent() {
+        void shouldReturnFalse_whenProviderHasNotReadContent() throws Exception {
             // Given
             createOscarLog(null, "100", "write", "epsilon", "111");
 

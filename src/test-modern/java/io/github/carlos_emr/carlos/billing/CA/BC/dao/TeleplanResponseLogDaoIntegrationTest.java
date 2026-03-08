@@ -60,7 +60,7 @@ public class TeleplanResponseLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             TeleplanResponseLog entity = new TeleplanResponseLog();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setTransactionNo("TX-001");
@@ -72,7 +72,7 @@ public class TeleplanResponseLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with correct fields")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             TeleplanResponseLog saved = new TeleplanResponseLog();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             saved.setTransactionNo("TX-100");
@@ -96,7 +96,7 @@ public class TeleplanResponseLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenEntityNotFound() {
+        void shouldReturnNull_whenEntityNotFound() throws Exception {
             TeleplanResponseLog found = teleplanResponseLogDao.find(-999);
             assertThat(found).isNull();
         }
@@ -104,7 +104,7 @@ public class TeleplanResponseLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("update")
         @DisplayName("should update entity fields after merge")
-        void shouldUpdateFields_whenMerged() {
+        void shouldUpdateFields_whenMerged() throws Exception {
             TeleplanResponseLog entity = new TeleplanResponseLog();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setResult("PENDING");
@@ -124,7 +124,7 @@ public class TeleplanResponseLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("delete")
         @DisplayName("should remove entity from database")
-        void shouldRemoveEntity_whenDeleted() {
+        void shouldRemoveEntity_whenDeleted() throws Exception {
             TeleplanResponseLog entity = new TeleplanResponseLog();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             teleplanResponseLogDao.persist(entity);
@@ -141,7 +141,7 @@ public class TeleplanResponseLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist multiple entities with distinct IDs")
-        void shouldPersistMultipleEntities_withDistinctIds() {
+        void shouldPersistMultipleEntities_withDistinctIds() throws Exception {
             TeleplanResponseLog entity1 = new TeleplanResponseLog();
             EntityDataGenerator.generateTestDataForModelClass(entity1);
             entity1.setTransactionNo("TX-301");

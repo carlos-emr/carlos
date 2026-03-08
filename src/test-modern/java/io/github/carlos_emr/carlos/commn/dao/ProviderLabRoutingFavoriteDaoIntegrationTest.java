@@ -60,7 +60,7 @@ public class ProviderLabRoutingFavoriteDaoIntegrationTest extends CarlosTestBase
         @Test
         @Tag("create")
         @DisplayName("should persist providerlabroutingfavorite with generated ID")
-        void shouldPersistProviderLabRoutingFavorite_whenValidDataProvided() {
+        void shouldPersistProviderLabRoutingFavorite_whenValidDataProvided() throws Exception {
             ProviderLabRoutingFavorite entity = new ProviderLabRoutingFavorite();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             providerLabRoutingFavoritesDao.persist(entity);
@@ -70,7 +70,7 @@ public class ProviderLabRoutingFavoriteDaoIntegrationTest extends CarlosTestBase
         @Test
         @Tag("read")
         @DisplayName("should find providerlabroutingfavorite by ID")
-        void shouldFindProviderLabRoutingFavorite_whenValidIdProvided() {
+        void shouldFindProviderLabRoutingFavorite_whenValidIdProvided() throws Exception {
             ProviderLabRoutingFavorite saved = new ProviderLabRoutingFavorite();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             providerLabRoutingFavoritesDao.persist(saved);
@@ -87,7 +87,7 @@ public class ProviderLabRoutingFavoriteDaoIntegrationTest extends CarlosTestBase
         @Test
         @Tag("query")
         @DisplayName("should find favorites by provider number")
-        void shouldFindFavorites_byProviderNo() {
+        void shouldFindFavorites_byProviderNo() throws Exception {
             String providerNo1 = "100";
             String providerNo2 = "200";
 

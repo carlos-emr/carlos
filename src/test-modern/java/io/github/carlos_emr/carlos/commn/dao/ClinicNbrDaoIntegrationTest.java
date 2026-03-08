@@ -62,7 +62,7 @@ public class ClinicNbrDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return persisted entries in the list")
-        void shouldReturnPersistedEntries_whenFindAllCalled() {
+        void shouldReturnPersistedEntries_whenFindAllCalled() throws Exception {
             ClinicNbr nbr1 = new ClinicNbr();
             EntityDataGenerator.generateTestDataForModelClass(nbr1);
             nbr1.setNbrStatus("A");
@@ -87,17 +87,17 @@ public class ClinicNbrDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should set status to D when entry is removed")
-        void shouldSetStatusToD_whenEntryRemoved() {
+        void shouldSetStatusToD_whenEntryRemoved() throws Exception {
             ClinicNbr nbr1 = new ClinicNbr();
             EntityDataGenerator.generateTestDataForModelClass(nbr1);
             nbr1.setNbrStatus("A");
             dao.persist(nbr1);
             hibernateTemplate.flush();
 
-            dao.removeEntry(1);
+            dao.removeEntry(nbr1.getId());
             hibernateTemplate.flush();
 
-            ClinicNbr found = dao.find(1);
+            ClinicNbr found = dao.find(nbr1.getId());
             assertThat(found.getNbrStatus()).isEqualTo("D");
         }
     }
@@ -112,7 +112,7 @@ public class ClinicNbrDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should persist entry with correct value and string")
-        void shouldPersistEntry_withCorrectValueAndString() {
+        void shouldPersistEntry_withCorrectValueAndString() throws Exception {
             String nbrValue = "A";
             String nbrString = "RMA";
 

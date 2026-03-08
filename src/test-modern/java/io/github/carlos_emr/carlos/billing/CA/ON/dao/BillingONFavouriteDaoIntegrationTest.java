@@ -56,7 +56,7 @@ public class BillingONFavouriteDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         BillingONFavourite entity = new BillingONFavourite();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -66,7 +66,7 @@ public class BillingONFavouriteDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find favourites by name")
-    void shouldFindByName_whenMatchingRecordsExist() {
+    void shouldFindByName_whenMatchingRecordsExist() throws Exception {
         BillingONFavourite fav1 = new BillingONFavourite();
         EntityDataGenerator.generateTestDataForModelClass(fav1);
         fav1.setName("TestFav");
@@ -95,7 +95,7 @@ public class BillingONFavouriteDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no favourites match name")
-    void shouldReturnEmptyList_whenNoFavouritesMatchName() {
+    void shouldReturnEmptyList_whenNoFavouritesMatchName() throws Exception {
         BillingONFavourite fav = new BillingONFavourite();
         EntityDataGenerator.generateTestDataForModelClass(fav);
         fav.setName("Existing");
@@ -109,7 +109,7 @@ public class BillingONFavouriteDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find favourites by name and provider number")
-    void shouldFindByNameAndProviderNo_whenMatchingRecordExists() {
+    void shouldFindByNameAndProviderNo_whenMatchingRecordExists() throws Exception {
         BillingONFavourite fav1 = new BillingONFavourite();
         EntityDataGenerator.generateTestDataForModelClass(fav1);
         fav1.setName("SharedFav");
@@ -132,7 +132,7 @@ public class BillingONFavouriteDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find only current (non-deleted) favourites")
-    void shouldFindCurrent_whenMixOfDeletedAndActiveExist() {
+    void shouldFindCurrent_whenMixOfDeletedAndActiveExist() throws Exception {
         BillingONFavourite active1 = new BillingONFavourite();
         EntityDataGenerator.generateTestDataForModelClass(active1);
         active1.setDeleted(0);

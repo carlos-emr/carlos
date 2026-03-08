@@ -60,7 +60,7 @@ public class EFormValueDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist eformvalue with generated ID")
-        void shouldPersistEFormValue_whenValidDataProvided() {
+        void shouldPersistEFormValue_whenValidDataProvided() throws Exception {
             EFormValue entity = new EFormValue();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             eFormValueDao.persist(entity);
@@ -70,11 +70,11 @@ public class EFormValueDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find eformvalue by ID")
-        void shouldFindEFormValue_whenValidIdProvided() {
+        void shouldFindEFormValue_whenValidIdProvided() throws Exception {
             EFormValue saved = new EFormValue();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             eFormValueDao.persist(saved);
-            EFormValue found = dao.find(saved.getId());
+            EFormValue found = eFormValueDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class EFormValueDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all records")
-        void shouldCountAllRecords() {
+        void shouldCountAllRecords() throws Exception {
             EFormValue entity = new EFormValue();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             eFormValueDao.persist(entity);

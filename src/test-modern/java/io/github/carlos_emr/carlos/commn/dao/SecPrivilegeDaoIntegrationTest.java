@@ -60,7 +60,7 @@ public class SecPrivilegeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist secprivilege with generated ID")
-        void shouldPersistSecPrivilege_whenValidDataProvided() {
+        void shouldPersistSecPrivilege_whenValidDataProvided() throws Exception {
             SecPrivilege entity = new SecPrivilege();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             secPrivilegeDao.persist(entity);
@@ -70,11 +70,11 @@ public class SecPrivilegeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find secprivilege by ID")
-        void shouldFindSecPrivilege_whenValidIdProvided() {
+        void shouldFindSecPrivilege_whenValidIdProvided() throws Exception {
             SecPrivilege saved = new SecPrivilege();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             secPrivilegeDao.persist(saved);
-            SecPrivilege found = dao.find(saved.getId());
+            SecPrivilege found = secPrivilegeDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class SecPrivilegeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all records")
-        void shouldCountAllRecords() {
+        void shouldCountAllRecords() throws Exception {
             SecPrivilege entity = new SecPrivilege();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             secPrivilegeDao.persist(entity);

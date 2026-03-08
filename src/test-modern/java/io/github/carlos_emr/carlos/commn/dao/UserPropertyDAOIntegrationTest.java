@@ -55,7 +55,7 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
     @Autowired
     private UserPropertyDAO userPropertyDAO;
 
-    private UserProperty createProperty(String providerNo, String name, String value) {
+    private UserProperty createProperty(String providerNo, String name, String value) throws Exception {
         UserProperty prop = new UserProperty();
         EntityDataGenerator.generateTestDataForModelClass(prop);
         prop.setProviderNo(providerNo);
@@ -72,7 +72,7 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return property matching provider number and name")
-        void shouldReturnProperty_whenProviderNoAndNameMatch() {
+        void shouldReturnProperty_whenProviderNoAndNameMatch() throws Exception {
             UserProperty prop1 = createProperty("100", "alpha", "val1");
             createProperty("200", "bravo", "val2");
             hibernateTemplate.flush();
@@ -86,7 +86,7 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when no property matches provider and name")
-        void shouldReturnNull_whenNoPropertyMatchesProviderAndName() {
+        void shouldReturnNull_whenNoPropertyMatchesProviderAndName() throws Exception {
             createProperty("100", "alpha", "val1");
             hibernateTemplate.flush();
 
@@ -102,7 +102,7 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return property matching name")
-        void shouldReturnProperty_whenNameMatches() {
+        void shouldReturnProperty_whenNameMatches() throws Exception {
             UserProperty prop1 = createProperty("100", "alpha", "val1");
             createProperty("200", "bravo", "val2");
             hibernateTemplate.flush();
@@ -121,7 +121,7 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return all properties for a given provider number")
-        void shouldReturnAllProperties_forGivenProviderNo() {
+        void shouldReturnAllProperties_forGivenProviderNo() throws Exception {
             UserProperty prop1 = createProperty("100", "name1", "val1");
             createProperty("200", "name2", "val2");
             UserProperty prop3 = createProperty("100", "name3", "val3");
@@ -137,7 +137,7 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no properties exist for provider")
-        void shouldReturnEmptyList_whenNoPropertiesExistForProvider() {
+        void shouldReturnEmptyList_whenNoPropertiesExistForProvider() throws Exception {
             createProperty("100", "name1", "val1");
             hibernateTemplate.flush();
 
@@ -153,7 +153,7 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return properties as name-value map for provider")
-        void shouldReturnPropertiesAsMap_forGivenProviderNo() {
+        void shouldReturnPropertiesAsMap_forGivenProviderNo() throws Exception {
             createProperty("100", "alpha", "Value1");
             createProperty("100", "bravo", "Value2");
             createProperty("200", "charlie", "Value3");
@@ -169,7 +169,7 @@ public class UserPropertyDAOIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty map when no properties exist for provider")
-        void shouldReturnEmptyMap_whenNoPropertiesExistForProvider() {
+        void shouldReturnEmptyMap_whenNoPropertiesExistForProvider() throws Exception {
             createProperty("100", "alpha", "Value1");
             hibernateTemplate.flush();
 

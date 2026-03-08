@@ -55,7 +55,7 @@ public class HRMProviderConfidentialityStatementDaoIntegrationTest extends Carlo
     @Test
     @Tag("create")
     @DisplayName("should persist HRM provider confidentiality statement with assigned provider number ID")
-    void shouldPersistStatement_whenValidProviderNoProvided() {
+    void shouldPersistStatement_whenValidProviderNoProvided() throws Exception {
         HRMProviderConfidentialityStatement entity = new HRMProviderConfidentialityStatement();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         // HRMProviderConfidentialityStatement has a String @Id (providerNo), not auto-generated

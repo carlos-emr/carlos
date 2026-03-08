@@ -53,7 +53,7 @@ public class ClinicDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity and assign generated ID")
-    void shouldPersistEntity_withGeneratedId() {
+    void shouldPersistEntity_withGeneratedId() throws Exception {
         Clinic entity = new Clinic();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -64,7 +64,7 @@ public class ClinicDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return first clinic when getClinic called")
-    void shouldReturnFirstClinic_whenGetClinicCalled() {
+    void shouldReturnFirstClinic_whenGetClinicCalled() throws Exception {
         Clinic clinic1 = new Clinic();
         EntityDataGenerator.generateTestDataForModelClass(clinic1);
         dao.persist(clinic1);

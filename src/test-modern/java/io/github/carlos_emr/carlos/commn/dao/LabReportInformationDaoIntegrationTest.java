@@ -60,7 +60,7 @@ public class LabReportInformationDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist labreportinformation with generated ID")
-        void shouldPersistLabReportInformation_whenValidDataProvided() {
+        void shouldPersistLabReportInformation_whenValidDataProvided() throws Exception {
             LabReportInformation entity = new LabReportInformation();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             labReportInformationDao.persist(entity);
@@ -70,11 +70,11 @@ public class LabReportInformationDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find labreportinformation by ID")
-        void shouldFindLabReportInformation_whenValidIdProvided() {
+        void shouldFindLabReportInformation_whenValidIdProvided() throws Exception {
             LabReportInformation saved = new LabReportInformation();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             labReportInformationDao.persist(saved);
-            LabReportInformation found = dao.find(saved.getId());
+            LabReportInformation found = labReportInformationDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class LabReportInformationDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all labreportinformation records")
-        void shouldCountAllLabReportInformations() {
+        void shouldCountAllLabReportInformations() throws Exception {
             LabReportInformation entity = new LabReportInformation();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             labReportInformationDao.persist(entity);

@@ -104,7 +104,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return result without error for any service code")
-        void shouldReturnResult_forAnyServiceCode() {
+        void shouldReturnResult_forAnyServiceCode() throws Exception {
             List<BillingService> result = dao.getBillingCodeAttr("A001A");
             assertThat(result).isNotNull();
         }
@@ -169,7 +169,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return false when table is empty")
-        void shouldReturnFalse_whenTableIsEmpty() {
+        void shouldReturnFalse_whenTableIsEmpty() throws Exception {
             assertThat(dao.codeRequiresSLI("service001")).isFalse();
         }
     }
@@ -331,7 +331,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return default dashes when no matching records")
-        void shouldReturnDefaultDashes_whenNoMatchingRecords() {
+        void shouldReturnDefaultDashes_whenNoMatchingRecords() throws Exception {
             String result = dao.searchDescBillingCode("service001", "ON");
 
             assertThat(result).isEqualTo("----");
@@ -661,7 +661,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no matching display style")
-        void shouldReturnEmpty_whenNoMatchingDisplayStyle() {
+        void shouldReturnEmpty_whenNoMatchingDisplayStyle() throws Exception {
             List<BillingService> result = dao.findBillingCodesByFontStyle(1111);
 
             assertThat(result).isEmpty();
@@ -675,7 +675,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-null result for any region, group, and type")
-        void shouldReturnNonNull_forAnyRegionGroupAndType() {
+        void shouldReturnNonNull_forAnyRegionGroupAndType() throws Exception {
             List<BillingService> result = dao.findByRegionGroupAndType("REG", "GRP", "TYP");
 
             assertThat(result).isNotNull();
@@ -689,7 +689,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-null result for any service code")
-        void shouldReturnNonNull_forAnyServiceCode() {
+        void shouldReturnNonNull_forAnyServiceCode() throws Exception {
             List<BillingService> result = dao.findByServiceCodeOrDescription("VOTGVNO");
 
             assertThat(result).isNotNull();
@@ -703,7 +703,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-null result for any service code")
-        void shouldReturnNonNull_forAnyServiceCode() {
+        void shouldReturnNonNull_forAnyServiceCode() throws Exception {
             List<BillingService> result = dao.findMostRecentByServiceCode("VOTGVNO");
 
             assertThat(result).isNotNull();
@@ -717,7 +717,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-null result for any service code and date")
-        void shouldReturnNonNull_forAnyServiceCodeAndDate() {
+        void shouldReturnNonNull_forAnyServiceCodeAndDate() throws Exception {
             List<BillingService> result = dao.findByServiceCodeAndDate("PRSHA", new Date());
 
             assertThat(result).isNotNull();
@@ -731,7 +731,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-null result for any code and date")
-        void shouldReturnNonNull_forAnyCodeAndDate() {
+        void shouldReturnNonNull_forAnyCodeAndDate() throws Exception {
             List<BillingService> result = dao.findGst("CODE", new Date());
 
             assertThat(result).isNotNull();
@@ -745,7 +745,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-null result for any service code and date")
-        void shouldReturnNonNull_forAnyServiceCodeAndDate() {
+        void shouldReturnNonNull_forAnyServiceCodeAndDate() throws Exception {
             assertThat(dao.findByServiceCodeAndLatestDate("CDO", new Date())).isNotNull();
         }
     }
@@ -757,7 +757,7 @@ public class BillingServiceDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-null result for any code and termination date")
-        void shouldReturnNonNull_forAnyCodeAndTerminationDate() {
+        void shouldReturnNonNull_forAnyCodeAndTerminationDate() throws Exception {
             assertThat(dao.findBillingCodesByCodeAndTerminationDate("CDE", new Date())).isNotNull();
         }
     }

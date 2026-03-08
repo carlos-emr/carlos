@@ -61,7 +61,7 @@ public class ReportConfigDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist report config with generated ID")
-        void shouldPersistReportConfig_whenValidDataProvided() {
+        void shouldPersistReportConfig_whenValidDataProvided() throws Exception {
             ReportConfig entity = new ReportConfig();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -77,7 +77,7 @@ public class ReportConfigDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("search")
         @DisplayName("should return configs matching all five criteria")
-        void shouldReturnMatchingConfigs_whenAllCriteriaMatch() {
+        void shouldReturnMatchingConfigs_whenAllCriteriaMatch() throws Exception {
             int reportId1 = 101, reportId2 = 202;
             String name1 = "alpha", name2 = "bravo";
             String caption1 = "charlie", caption2 = "delta";
@@ -171,7 +171,7 @@ public class ReportConfigDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("search")
         @DisplayName("should return configs matching reportId and save with orderNo >= threshold")
-        void shouldReturnMatchingConfigs_withGtOrderNo() {
+        void shouldReturnMatchingConfigs_withGtOrderNo() throws Exception {
             int reportId1 = 101, reportId2 = 202;
             int orderNo1 = 111, orderNo2 = 222;
             String save1 = "alpha", save2 = "bravo";

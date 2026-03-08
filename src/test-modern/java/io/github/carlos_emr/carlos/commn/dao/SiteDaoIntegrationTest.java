@@ -64,7 +64,7 @@ public class SiteDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ProviderSiteDao providerSiteDao;
 
-    private Site createSite(String shortName) {
+    private Site createSite(String shortName) throws Exception {
         Site entity = new Site();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setStatus((byte) 1);
@@ -80,7 +80,7 @@ public class SiteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist site with generated ID")
-        void shouldPersistSite_whenValidDataProvided() {
+        void shouldPersistSite_whenValidDataProvided() throws Exception {
             Site entity = createSite("test1");
             hibernateTemplate.flush();
 
@@ -91,7 +91,7 @@ public class SiteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find site by ID after persist")
-        void shouldFindSite_whenValidIdProvided() {
+        void shouldFindSite_whenValidIdProvided() throws Exception {
             Site saved = createSite("find1");
             hibernateTemplate.flush();
 
@@ -108,7 +108,7 @@ public class SiteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should load providers associated with site via providersite join table")
-        void shouldLoadProviders_whenSiteHasAssociatedProviders() {
+        void shouldLoadProviders_whenSiteHasAssociatedProviders() throws Exception {
             Site site1 = createSite("name1");
             Site site2 = createSite("name2");
             hibernateTemplate.flush();

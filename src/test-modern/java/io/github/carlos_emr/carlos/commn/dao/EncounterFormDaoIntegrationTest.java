@@ -56,7 +56,7 @@ public class EncounterFormDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return all encounter forms")
-    void shouldReturnAllForms_whenFindAllCalled() {
+    void shouldReturnAllForms_whenFindAllCalled() throws Exception {
         EncounterForm form1 = new EncounterForm();
         EntityDataGenerator.generateTestDataForModelClass(form1);
         form1.setFormName("FormA");
@@ -86,7 +86,7 @@ public class EncounterFormDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return forms matching specified form name")
-    void shouldReturnMatchingForms_whenSearchingByFormName() {
+    void shouldReturnMatchingForms_whenSearchingByFormName() throws Exception {
         String formName = "EncounterForm";
 
         EncounterForm form1 = new EncounterForm();

@@ -54,7 +54,7 @@ public class TicklerLinkDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private TicklerLinkDao ticklerLinkDao;
 
-    private TicklerLink createTicklerLink(String tableName, long tableId, int ticklerNo) {
+    private TicklerLink createTicklerLink(String tableName, long tableId, int ticklerNo) throws Exception {
         TicklerLink entity = new TicklerLink();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setTableName(tableName);
@@ -71,7 +71,7 @@ public class TicklerLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist tickler link with generated ID")
-        void shouldPersistTicklerLink_whenValidDataProvided() {
+        void shouldPersistTicklerLink_whenValidDataProvided() throws Exception {
             TicklerLink entity = new TicklerLink();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             ticklerLinkDao.persist(entity);
@@ -88,7 +88,7 @@ public class TicklerLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return links matching table name and table ID")
-        void shouldReturnLinks_forMatchingTableNameAndTableId() {
+        void shouldReturnLinks_forMatchingTableNameAndTableId() throws Exception {
             String tableName1 = "alp";
             String tableName2 = "brv";
             long tableId1 = 101L;
@@ -110,7 +110,7 @@ public class TicklerLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no links match table name and ID")
-        void shouldReturnEmptyList_whenNoLinksMatchTableNameAndId() {
+        void shouldReturnEmptyList_whenNoLinksMatchTableNameAndId() throws Exception {
             createTicklerLink("other", 999L, 1);
             hibernateTemplate.flush();
 
@@ -126,7 +126,7 @@ public class TicklerLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return links matching tickler number")
-        void shouldReturnLinks_forMatchingTicklerNo() {
+        void shouldReturnLinks_forMatchingTicklerNo() throws Exception {
             int ticklerNo1 = 101;
             int ticklerNo2 = 202;
 
@@ -146,7 +146,7 @@ public class TicklerLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no links match tickler number")
-        void shouldReturnEmptyList_whenNoLinksMatchTicklerNo() {
+        void shouldReturnEmptyList_whenNoLinksMatchTicklerNo() throws Exception {
             createTicklerLink("t1", 1L, 999);
             hibernateTemplate.flush();
 

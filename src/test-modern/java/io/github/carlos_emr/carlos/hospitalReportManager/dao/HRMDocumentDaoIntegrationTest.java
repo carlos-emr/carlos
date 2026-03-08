@@ -142,30 +142,6 @@ public class HRMDocumentDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
-    @Nested
-    @DisplayName("findByKey (facility + report number + delivery)")
-    class FindByKey {
-
-        @Test
-        @Tag("query")
-        @DisplayName("should find documents by composite key")
-        void shouldFindDocuments_byCompositeKey() {
-            HRMDocument doc = createDocument("hash-key-1", "FacilityX");
-            doc.setSourceFacilityReportNo("RPT-001");
-            doc.setDeliverToUserId("DOC001");
-            hrmDocumentDao.merge(doc);
-            hibernateTemplate.flush();
-
-            List<HRMDocument> results = hrmDocumentDao.findByKey("FacilityX", "RPT-001", "DOC001");
-            assertThat(results).isNotEmpty();
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("should return empty when key does not match")
-        void shouldReturnEmpty_whenKeyDoesNotMatch() {
-            List<HRMDocument> results = hrmDocumentDao.findByKey("NONE", "NONE", "NONE");
-            assertThat(results).isEmpty();
-        }
-    }
+    // findByKey tests removed: HRMDocumentDao does not have findByKey() and
+    // HRMDocument does not have setDeliverToUserId() — nonexistent API
 }

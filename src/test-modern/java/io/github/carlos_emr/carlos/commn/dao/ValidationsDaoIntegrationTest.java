@@ -135,7 +135,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return all validations")
-        void shouldReturnAllValidations() {
+        void shouldReturnAllValidations() throws Exception {
             List<Validations> all = dao.findAll();
             assertThat(all).hasSizeGreaterThanOrEqualTo(2);
             assertThat(all).extracting(Validations::getName)
@@ -145,7 +145,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find validations by regularExp parameter")
-        void shouldFindValidations_byRegularExpParameter() {
+        void shouldFindValidations_byRegularExpParameter() throws Exception {
             List<Validations> results = dao.findByAll("^[0-9]+$", null, null, null, null, null, null);
             assertThat(results).isNotEmpty();
             assertThat(results).allSatisfy(v ->
@@ -155,7 +155,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find validations by isNumeric parameter")
-        void shouldFindValidations_byIsNumericParameter() {
+        void shouldFindValidations_byIsNumericParameter() throws Exception {
             List<Validations> numericResults = dao.findByAll(null, null, null, null, null, true, null);
             assertThat(numericResults).isNotEmpty();
             assertThat(numericResults).allSatisfy(v ->
@@ -170,7 +170,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find validations by isDate parameter")
-        void shouldFindValidations_byIsDateParameter() {
+        void shouldFindValidations_byIsDateParameter() throws Exception {
             List<Validations> dateResults = dao.findByAll(null, null, null, null, null, null, true);
             assertThat(dateResults).isNotEmpty();
             assertThat(dateResults).allSatisfy(v ->
@@ -180,7 +180,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find validations by multiple parameters combined")
-        void shouldFindValidations_byMultipleParametersCombined() {
+        void shouldFindValidations_byMultipleParametersCombined() throws Exception {
             List<Validations> results = dao.findByAll("^[0-9]+$", 0.0, 200.0, 1, 5, true, false);
             assertThat(results).hasSize(1);
             assertThat(results.get(0).getName()).isEqualTo("NumericRange");
@@ -189,7 +189,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no matching parameters")
-        void shouldReturnEmptyList_whenNoMatchingParameters() {
+        void shouldReturnEmptyList_whenNoMatchingParameters() throws Exception {
             List<Validations> results = dao.findByAll("nonexistent_regex", null, null, null, null, null, null);
             assertThat(results).isEmpty();
         }
@@ -197,7 +197,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find validations by name")
-        void shouldFindValidations_byName() {
+        void shouldFindValidations_byName() throws Exception {
             List<Validations> found = dao.findByName("NumericRange");
             assertThat(found).hasSize(1);
             assertThat(found.get(0).getName()).isEqualTo("NumericRange");
@@ -207,7 +207,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list for non-existent name")
-        void shouldReturnEmptyList_forNonExistentName() {
+        void shouldReturnEmptyList_forNonExistentName() throws Exception {
             List<Validations> found = dao.findByName("NoSuchValidation");
             assertThat(found).isEmpty();
         }
@@ -215,7 +215,7 @@ public class ValidationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty results when no measurements match")
-        void shouldReturnEmptyResults_whenNoMeasurementsMatch() {
+        void shouldReturnEmptyResults_whenNoMeasurementsMatch() throws Exception {
             List<Object[]> results = dao.findValidationsBy(999999, "BP", numericValidation.getId());
             assertThat(results).isEmpty();
         }

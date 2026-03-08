@@ -57,7 +57,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
     /**
      * Helper to create and persist a Dxresearch entity with specific fields.
      */
-    private Dxresearch createDxresearch(Integer demographicNo, String code, String codingSystem, Character status) {
+    private Dxresearch createDxresearch(Integer demographicNo, String code, String codingSystem, Character status) throws Exception {
         Dxresearch dr = new Dxresearch();
         EntityDataGenerator.generateTestDataForModelClass(dr);
         dr.setDemographicNo(demographicNo);
@@ -76,7 +76,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist dxresearch with generated ID")
-        void shouldPersistDxresearch_whenValidDataProvided() {
+        void shouldPersistDxresearch_whenValidDataProvided() throws Exception {
             Dxresearch dr = new Dxresearch();
             EntityDataGenerator.generateTestDataForModelClass(dr);
             dao.persist(dr);
@@ -87,7 +87,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find dxresearch by ID after persist")
-        void shouldFindDxresearch_whenValidIdProvided() {
+        void shouldFindDxresearch_whenValidIdProvided() throws Exception {
             Dxresearch dr = new Dxresearch();
             EntityDataGenerator.generateTestDataForModelClass(dr);
             dao.persist(dr);
@@ -107,7 +107,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find by demographic no, research code and coding system with active status")
-        void shouldFindDxresearch_byDemographicNoResearchCodeAndCodingSystem() {
+        void shouldFindDxresearch_byDemographicNoResearchCodeAndCodingSystem() throws Exception {
             // The query filters for status 'A' or 'C' only
             Dxresearch active = createDxresearch(500, "CODE1", "ICD9", 'A');
             Dxresearch deleted = createDxresearch(500, "CODE1", "ICD9", 'D');
@@ -123,7 +123,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no matching entries exist")
-        void shouldReturnEmptyList_whenNoMatchingEntriesExist() {
+        void shouldReturnEmptyList_whenNoMatchingEntriesExist() throws Exception {
             createDxresearch(600, "ABC", "ICD9", 'A');
             hibernateTemplate.flush();
 
@@ -135,7 +135,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list for INR report when no matching data exists")
-        void shouldReturnEmptyList_whenNoInrReportDataExists() {
+        void shouldReturnEmptyList_whenNoInrReportDataExists() throws Exception {
             Date now = new Date();
             List<Object[]> list = dao.getDataForInrReport(now, now);
 
@@ -145,7 +145,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count zero researches when no matching code exists")
-        void shouldCountZeroResearches_whenNoMatchingCodeExists() {
+        void shouldCountZeroResearches_whenNoMatchingCodeExists() throws Exception {
             Date pastDate = new Date(0);
             Date futureDate = new Date(System.currentTimeMillis() + 86400000L);
 
@@ -157,7 +157,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count zero billing researches when no matching data exists")
-        void shouldCountZeroBillingResearches_whenNoMatchingDataExists() {
+        void shouldCountZeroBillingResearches_whenNoMatchingDataExists() throws Exception {
             Date pastDate = new Date(0);
             Date futureDate = new Date(System.currentTimeMillis() + 86400000L);
 
@@ -169,7 +169,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find entries by demographic number")
-        void shouldFindEntries_byDemographicNo() {
+        void shouldFindEntries_byDemographicNo() throws Exception {
             createDxresearch(700, "DX1", "ICD9", 'A');
             createDxresearch(700, "DX2", "ICD9", 'A');
             createDxresearch(701, "DX3", "ICD9", 'A');
@@ -184,7 +184,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should check entry existence correctly")
-        void shouldCheckEntryExistence_whenEntryExistsOrNot() {
+        void shouldCheckEntryExistence_whenEntryExistsOrNot() throws Exception {
             createDxresearch(800, "EXISTS", "ICD9", 'A');
             hibernateTemplate.flush();
 
@@ -198,7 +198,7 @@ public class DxresearchDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find non-deleted entries by demographic number")
-        void shouldFindNonDeletedEntries_byDemographicNo() {
+        void shouldFindNonDeletedEntries_byDemographicNo() throws Exception {
             createDxresearch(900, "ND1", "ICD9", 'A');
             createDxresearch(900, "ND2", "ICD9", 'C');
             createDxresearch(900, "ND3", "ICD9", 'D');

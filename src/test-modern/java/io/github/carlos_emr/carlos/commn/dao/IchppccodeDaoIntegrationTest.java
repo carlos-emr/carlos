@@ -60,21 +60,21 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist ichppccode with generated ID")
-        void shouldPersistIchppccode_whenValidDataProvided() {
+        void shouldPersistIchppccode_whenValidDataProvided() throws Exception {
             Ichppccode entity = new Ichppccode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             ichppccodeDao.persist(entity);
-            assertThat(entity.getId()).isPositive();
+            assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
         @DisplayName("should find ichppccode by ID")
-        void shouldFindIchppccode_whenValidIdProvided() {
+        void shouldFindIchppccode_whenValidIdProvided() throws Exception {
             Ichppccode saved = new Ichppccode();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             ichppccodeDao.persist(saved);
-            Ichppccode found = dao.find(saved.getId());
+            Ichppccode found = ichppccodeDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class IchppccodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all ichppccode records")
-        void shouldCountAllIchppccodes() {
+        void shouldCountAllIchppccodes() throws Exception {
             Ichppccode entity = new Ichppccode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             ichppccodeDao.persist(entity);

@@ -60,7 +60,7 @@ public class LogTeleplanTxDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             LogTeleplanTx entity = new LogTeleplanTx();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setSequenceNo(10);
@@ -72,7 +72,7 @@ public class LogTeleplanTxDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with correct fields")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             LogTeleplanTx saved = new LogTeleplanTx();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             saved.setSequenceNo(42);
@@ -92,7 +92,7 @@ public class LogTeleplanTxDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenEntityNotFound() {
+        void shouldReturnNull_whenEntityNotFound() throws Exception {
             LogTeleplanTx found = logTeleplanTxDao.find(-999);
             assertThat(found).isNull();
         }
@@ -100,7 +100,7 @@ public class LogTeleplanTxDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("update")
         @DisplayName("should update entity fields after merge")
-        void shouldUpdateFields_whenMerged() {
+        void shouldUpdateFields_whenMerged() throws Exception {
             LogTeleplanTx entity = new LogTeleplanTx();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setSequenceNo(1);
@@ -120,7 +120,7 @@ public class LogTeleplanTxDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("delete")
         @DisplayName("should remove entity from database")
-        void shouldRemoveEntity_whenDeleted() {
+        void shouldRemoveEntity_whenDeleted() throws Exception {
             LogTeleplanTx entity = new LogTeleplanTx();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             logTeleplanTxDao.persist(entity);
@@ -137,7 +137,7 @@ public class LogTeleplanTxDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist multiple entities with distinct IDs")
-        void shouldPersistMultipleEntities_withDistinctIds() {
+        void shouldPersistMultipleEntities_withDistinctIds() throws Exception {
             LogTeleplanTx entity1 = new LogTeleplanTx();
             EntityDataGenerator.generateTestDataForModelClass(entity1);
             entity1.setSequenceNo(1);

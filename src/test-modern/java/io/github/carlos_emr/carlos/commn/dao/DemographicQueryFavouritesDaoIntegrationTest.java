@@ -56,7 +56,7 @@ public class DemographicQueryFavouritesDaoIntegrationTest extends CarlosTestBase
     @Test
     @Tag("create")
     @DisplayName("should persist favourite with generated ID")
-    void shouldPersistFavourite_whenValidDataProvided() {
+    void shouldPersistFavourite_whenValidDataProvided() throws Exception {
         DemographicQueryFavourite entity = new DemographicQueryFavourite();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -68,7 +68,7 @@ public class DemographicQueryFavouritesDaoIntegrationTest extends CarlosTestBase
     @Test
     @Tag("query")
     @DisplayName("should return favourites matching archived status")
-    void shouldReturnFavourites_forMatchingArchivedStatus() {
+    void shouldReturnFavourites_forMatchingArchivedStatus() throws Exception {
         DemographicQueryFavourite entity1 = new DemographicQueryFavourite();
         EntityDataGenerator.generateTestDataForModelClass(entity1);
         entity1.setArchived("1");
@@ -95,7 +95,7 @@ public class DemographicQueryFavouritesDaoIntegrationTest extends CarlosTestBase
     @Test
     @Tag("query")
     @DisplayName("should return empty list when no favourites match archived status")
-    void shouldReturnEmptyList_whenNoFavouritesMatchArchivedStatus() {
+    void shouldReturnEmptyList_whenNoFavouritesMatchArchivedStatus() throws Exception {
         DemographicQueryFavourite entity = new DemographicQueryFavourite();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setArchived("0");

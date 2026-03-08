@@ -53,7 +53,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     private TeleplanS00Dao dao;
 
     private TeleplanS00 createEntity(String mspCtlNo, String officeNo, String practitionerNo,
-                                     Integer s21Id, String s00Type) {
+                                     Integer s21Id, String s00Type) throws Exception {
         TeleplanS00 entity = new TeleplanS00();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setMspCtlNo(mspCtlNo);
@@ -67,7 +67,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated test data")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         TeleplanS00 entity = new TeleplanS00();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -77,7 +77,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find all persisted records")
-    void shouldReturnAllRecords_whenFindAllCalled() {
+    void shouldReturnAllRecords_whenFindAllCalled() throws Exception {
         TeleplanS00 entity1 = createEntity("CTL1", "OFF1", "PR1", 1, "T1");
         TeleplanS00 entity2 = createEntity("CTL2", "OFF2", "PR2", 2, "T2");
         dao.persist(entity1);
@@ -90,7 +90,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find records by billing number (mspCtlNo)")
-    void shouldReturnMatchingRecords_byBillingNo() {
+    void shouldReturnMatchingRecords_byBillingNo() throws Exception {
         TeleplanS00 match = createEntity("MATCH1", "OFF1", "PR1", 1, "T1");
         TeleplanS00 noMatch = createEntity("OTHER1", "OFF2", "PR2", 2, "T2");
         dao.persist(match);
@@ -104,7 +104,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when billing number not found")
-    void shouldReturnEmptyList_whenBillingNoNotFound() {
+    void shouldReturnEmptyList_whenBillingNoNotFound() throws Exception {
         TeleplanS00 entity = createEntity("CTL1", "OFF1", "PR1", 1, "T1");
         dao.persist(entity);
 
@@ -115,7 +115,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find records by single office number")
-    void shouldReturnMatchingRecords_byOfficeNumber() {
+    void shouldReturnMatchingRecords_byOfficeNumber() throws Exception {
         TeleplanS00 match = createEntity("CTL1", "OFF-A", "PR1", 1, "T1");
         TeleplanS00 noMatch = createEntity("CTL2", "OFF-B", "PR2", 2, "T2");
         dao.persist(match);
@@ -129,7 +129,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find records by multiple office numbers")
-    void shouldReturnMatchingRecords_byMultipleOfficeNumbers() {
+    void shouldReturnMatchingRecords_byMultipleOfficeNumbers() throws Exception {
         TeleplanS00 match1 = createEntity("CTL1", "OFF-X", "PR1", 1, "T1");
         TeleplanS00 match2 = createEntity("CTL2", "OFF-Y", "PR2", 2, "T2");
         TeleplanS00 noMatch = createEntity("CTL3", "OFF-Z", "PR3", 3, "T3");
@@ -144,7 +144,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list for empty office numbers list")
-    void shouldReturnEmptyList_whenOfficeNumbersListEmpty() {
+    void shouldReturnEmptyList_whenOfficeNumbersListEmpty() throws Exception {
         TeleplanS00 entity = createEntity("CTL1", "OFF1", "PR1", 1, "T1");
         dao.persist(entity);
 
@@ -155,7 +155,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find BG records across all exp fields")
-    void shouldReturnBgRecords_whenExpFieldContainsBg() {
+    void shouldReturnBgRecords_whenExpFieldContainsBg() throws Exception {
         TeleplanS00 bgInExp1 = createEntity("CTL1", "OFF1", "PR1", 1, "T1");
         bgInExp1.setExp1("BG");
         bgInExp1.setExp2("XX");
@@ -193,7 +193,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no BG records exist")
-    void shouldReturnEmptyList_whenNoBgRecordsExist() {
+    void shouldReturnEmptyList_whenNoBgRecordsExist() throws Exception {
         TeleplanS00 noBg = createEntity("CTL1", "OFF1", "PR1", 1, "T1");
         noBg.setExp1("XX");
         noBg.setExp2("YY");
@@ -211,7 +211,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should search S00 records by s21Id, excluding type, matching practitioner")
-    void shouldReturnFilteredRecords_byS21IdAndTypeAndPractitioner() {
+    void shouldReturnFilteredRecords_byS21IdAndTypeAndPractitioner() throws Exception {
         TeleplanS00 match = createEntity("CTL1", "OFF1", "PR100", 10, "S00");
         TeleplanS00 wrongType = createEntity("CTL2", "OFF2", "PR100", 10, "EXCL");
         TeleplanS00 wrongS21 = createEntity("CTL3", "OFF3", "PR100", 99, "S00");
@@ -229,7 +229,7 @@ public class TeleplanS00DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should search S01 records by s21Id, excluding type, matching practitioner")
-    void shouldReturnFilteredRecords_forSearchTaS01() {
+    void shouldReturnFilteredRecords_forSearchTaS01() throws Exception {
         TeleplanS00 match = createEntity("CTL1", "OFF1", "PR200", 20, "S01");
         TeleplanS00 excluded = createEntity("CTL2", "OFF2", "PR200", 20, "SKIP");
         dao.persist(match);

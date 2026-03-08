@@ -62,7 +62,7 @@ public class Hl7PidDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated test data")
-        void shouldPersistEntity_whenValidDataProvided() {
+        void shouldPersistEntity_whenValidDataProvided() throws Exception {
             Hl7Pid entity = new Hl7Pid();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -72,7 +72,7 @@ public class Hl7PidDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with correct fields")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             Hl7Pid entity = new Hl7Pid();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setMessageId(5000);
@@ -97,7 +97,7 @@ public class Hl7PidDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return PIDs matching the given message ID")
-        void shouldReturnMatchingPids_whenMessageIdMatches() {
+        void shouldReturnMatchingPids_whenMessageIdMatches() throws Exception {
             Hl7Pid match1 = new Hl7Pid();
             EntityDataGenerator.generateTestDataForModelClass(match1);
             match1.setMessageId(6000);
@@ -123,7 +123,7 @@ public class Hl7PidDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no PIDs match message ID")
-        void shouldReturnEmptyList_whenNoMessageIdMatches() {
+        void shouldReturnEmptyList_whenNoMessageIdMatches() throws Exception {
             List<Hl7Pid> results = dao.findByMessageId(99999);
             assertThat(results).isEmpty();
         }
@@ -136,7 +136,7 @@ public class Hl7PidDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return joined PID and MSH records for a given message ID")
-        void shouldReturnJoinedResults_whenMatchingDataExists() {
+        void shouldReturnJoinedResults_whenMatchingDataExists() throws Exception {
             Hl7Msh msh = new Hl7Msh();
             EntityDataGenerator.generateTestDataForModelClass(msh);
             msh.setMessageId(7000);
@@ -155,7 +155,7 @@ public class Hl7PidDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no matching message ID")
-        void shouldReturnEmptyList_whenNoMatchingMessageId() {
+        void shouldReturnEmptyList_whenNoMatchingMessageId() throws Exception {
             List<Object[]> results = dao.findPidsAndMshByMessageId(99999);
             assertThat(results).isEmpty();
         }

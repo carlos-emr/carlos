@@ -56,7 +56,7 @@ public class Hl7TextMessageDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("query")
     @DisplayName("should return messages matching file upload check ID")
-    void shouldReturnMessages_forMatchingFileUploadCheckId() {
+    void shouldReturnMessages_forMatchingFileUploadCheckId() throws Exception {
         int fileUploadCheckId1 = 1111;
         int fileUploadCheckId2 = 2222;
 
@@ -87,7 +87,7 @@ public class Hl7TextMessageDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("query")
     @DisplayName("should return empty list when no messages match file upload check ID")
-    void shouldReturnEmptyList_whenNoMessagesMatchFileUploadCheckId() {
+    void shouldReturnEmptyList_whenNoMessagesMatchFileUploadCheckId() throws Exception {
         List<Hl7TextMessage> result = dao.findByFileUploadCheckId(99999);
 
         assertThat(result).isEmpty();

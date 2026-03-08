@@ -60,7 +60,7 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist remoteattachments with generated ID")
-        void shouldPersistRemoteAttachments_whenValidDataProvided() {
+        void shouldPersistRemoteAttachments_whenValidDataProvided() throws Exception {
             RemoteAttachments entity = new RemoteAttachments();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             remoteAttachmentsDao.persist(entity);
@@ -70,11 +70,11 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find remoteattachments by ID")
-        void shouldFindRemoteAttachments_whenValidIdProvided() {
+        void shouldFindRemoteAttachments_whenValidIdProvided() throws Exception {
             RemoteAttachments saved = new RemoteAttachments();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             remoteAttachmentsDao.persist(saved);
-            RemoteAttachments found = dao.find(saved.getId());
+            RemoteAttachments found = remoteAttachmentsDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class RemoteAttachmentsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all remoteattachments records")
-        void shouldCountAllRemoteAttachmentss() {
+        void shouldCountAllRemoteAttachmentss() throws Exception {
             RemoteAttachments entity = new RemoteAttachments();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             remoteAttachmentsDao.persist(entity);

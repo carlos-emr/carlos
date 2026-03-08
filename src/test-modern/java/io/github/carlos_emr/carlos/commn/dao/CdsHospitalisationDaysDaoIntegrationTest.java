@@ -60,7 +60,7 @@ public class CdsHospitalisationDaysDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist cdshospitalisationdays with generated ID")
-        void shouldPersistCdsHospitalisationDays_whenValidDataProvided() {
+        void shouldPersistCdsHospitalisationDays_whenValidDataProvided() throws Exception {
             CdsHospitalisationDays entity = new CdsHospitalisationDays();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             cdsHospitalisationDaysDao.persist(entity);
@@ -70,11 +70,11 @@ public class CdsHospitalisationDaysDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find cdshospitalisationdays by ID")
-        void shouldFindCdsHospitalisationDays_whenValidIdProvided() {
+        void shouldFindCdsHospitalisationDays_whenValidIdProvided() throws Exception {
             CdsHospitalisationDays saved = new CdsHospitalisationDays();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             cdsHospitalisationDaysDao.persist(saved);
-            CdsHospitalisationDays found = dao.find(saved.getId());
+            CdsHospitalisationDays found = cdsHospitalisationDaysDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class CdsHospitalisationDaysDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all cdshospitalisationdays records")
-        void shouldCountAllCdsHospitalisationDayss() {
+        void shouldCountAllCdsHospitalisationDayss() throws Exception {
             CdsHospitalisationDays entity = new CdsHospitalisationDays();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             cdsHospitalisationDaysDao.persist(entity);

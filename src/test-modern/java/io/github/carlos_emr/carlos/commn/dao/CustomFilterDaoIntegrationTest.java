@@ -97,7 +97,7 @@ public class CustomFilterDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when filter does not exist")
-        void shouldReturnNull_whenFilterDoesNotExist() {
+        void shouldReturnNull_whenFilterDoesNotExist() throws Exception {
             CustomFilter cf = dao.find(99999);
 
             assertThat(cf).isNull();

@@ -55,14 +55,14 @@ public class MeasurementMapDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private MeasurementMapDao dao;
 
-    private MeasurementMap createMap() {
+    private MeasurementMap createMap() throws Exception {
         MeasurementMap mm = new MeasurementMap();
         EntityDataGenerator.generateTestDataForModelClass(mm);
         dao.persist(mm);
         return mm;
     }
 
-    private MeasurementMap createMapWithLoincAndLabType(String loincCode, String labType) {
+    private MeasurementMap createMapWithLoincAndLabType(String loincCode, String labType) throws Exception {
         MeasurementMap mm = new MeasurementMap();
         EntityDataGenerator.generateTestDataForModelClass(mm);
         mm.setLoincCode(loincCode);
@@ -78,7 +78,7 @@ public class MeasurementMapDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist measurement map with generated ID")
-        void shouldPersistMeasurementMap_whenValidDataProvided() {
+        void shouldPersistMeasurementMap_whenValidDataProvided() throws Exception {
             MeasurementMap entity = new MeasurementMap();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -94,7 +94,7 @@ public class MeasurementMapDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return all measurement maps")
-        void shouldReturnAllMaps_whenGetAllMapsCalled() {
+        void shouldReturnAllMaps_whenGetAllMapsCalled() throws Exception {
             MeasurementMap mm1 = createMap();
             MeasurementMap mm2 = createMap();
             MeasurementMap mm3 = createMap();
@@ -112,7 +112,7 @@ public class MeasurementMapDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find maps by ident code")
-        void shouldFindMaps_byIdentCode() {
+        void shouldFindMaps_byIdentCode() throws Exception {
             MeasurementMap mm1 = new MeasurementMap();
             EntityDataGenerator.generateTestDataForModelClass(mm1);
             mm1.setIdentCode("101");
@@ -138,7 +138,7 @@ public class MeasurementMapDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find maps by LOINC code")
-        void shouldFindMaps_byLoincCode() {
+        void shouldFindMaps_byLoincCode() throws Exception {
             MeasurementMap mm1 = new MeasurementMap();
             EntityDataGenerator.generateTestDataForModelClass(mm1);
             mm1.setLoincCode("alpha");
@@ -164,7 +164,7 @@ public class MeasurementMapDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find maps by LOINC code and lab type")
-        void shouldFindMaps_byLoincCodeAndLabType() {
+        void shouldFindMaps_byLoincCodeAndLabType() throws Exception {
             MeasurementMap mm1 = createMapWithLoincAndLabType("alpha", "sigma");
             createMapWithLoincAndLabType("bravo", "sigma");
             MeasurementMap mm3 = createMapWithLoincAndLabType("alpha", "sigma");
@@ -180,7 +180,7 @@ public class MeasurementMapDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find distinct lab types")
-        void shouldReturnDistinctLabTypes() {
+        void shouldReturnDistinctLabTypes() throws Exception {
             createMapWithLoincAndLabType("a", "sigma");
             createMapWithLoincAndLabType("b", "sigma");
             createMapWithLoincAndLabType("c", "bravo");
@@ -195,7 +195,7 @@ public class MeasurementMapDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find distinct LOINC codes")
-        void shouldReturnDistinctLoincCodes() {
+        void shouldReturnDistinctLoincCodes() throws Exception {
             createMapWithLoincAndLabType("alpha", "a");
             createMapWithLoincAndLabType("bravo", "b");
             createMapWithLoincAndLabType("alpha", "c");

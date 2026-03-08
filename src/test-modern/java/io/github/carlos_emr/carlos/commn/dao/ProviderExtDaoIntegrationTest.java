@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
-import io.github.carlos_emr.carlos.commn.model.ProviderExt;
+import io.github.carlos_emr.carlos.casemgmt.model.ProviderExt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /**
  * Integration tests for {@link ProviderExtDao} covering provider extension
- * data CRUD, key-value lookups, and provider-specific queries.
+ * data CRUD and provider-specific queries.
  *
  * <p>Migrated from legacy {@code ProviderExtDaoTest} (JUnit 4 / DaoTestFixtures).</p>
  *
@@ -53,11 +53,10 @@ public class ProviderExtDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ProviderExtDao providerExtDao;
 
-    private ProviderExt createProviderExt(String providerNo, String key, String value) {
+    private ProviderExt createProviderExt(String providerNo, String signature) {
         ProviderExt ext = new ProviderExt();
         ext.setProviderNo(providerNo);
-        ext.setKeyVal(key);
-        ext.setValue(value);
+        ext.setSignature(signature);
         providerExtDao.persist(ext);
         return ext;
     }
@@ -68,21 +67,21 @@ public class ProviderExtDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("create")
-        @DisplayName("should persist provider extension with generated ID")
+        @DisplayName("should persist provider extension with provider number as ID")
         void shouldPersistProviderExt_whenValidDataProvided() {
-            ProviderExt ext = createProviderExt("100001", "pref_language", "en");
-            assertThat(ext.getId()).isPositive();
+            ProviderExt ext = createProviderExt("100001", "test-signature");
+            assertThat(ext.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
         @DisplayName("should find provider extension by ID")
         void shouldFindProviderExt_whenValidIdProvided() {
-            ProviderExt saved = createProviderExt("100002", "pref_theme", "dark");
+            ProviderExt saved = createProviderExt("100002", "dark-sig");
             ProviderExt found = providerExtDao.find(saved.getId());
             assertThat(found).isNotNull();
-            assertThat(found.getKeyVal()).isEqualTo("pref_theme");
-            assertThat(found.getValue()).isEqualTo("dark");
+            assertThat(found.getProviderNo()).isEqualTo("100002");
+            assertThat(found.getSignature()).isEqualTo("dark-sig");
         }
     }
 
@@ -94,9 +93,9 @@ public class ProviderExtDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should find all provider extensions")
         void shouldFindAllExtensions() {
-            createProviderExt("200001", "key1", "val1");
-            createProviderExt("200001", "key2", "val2");
-            createProviderExt("200002", "key1", "val3");
+            createProviderExt("200001", "sig1");
+            createProviderExt("200002", "sig2");
+            createProviderExt("200003", "sig3");
 
             List<ProviderExt> all = providerExtDao.findAll(0, 100);
             assertThat(all).hasSizeGreaterThanOrEqualTo(3);
@@ -106,7 +105,7 @@ public class ProviderExtDaoIntegrationTest extends CarlosTestBase {
         @Tag("query")
         @DisplayName("should count all provider extensions")
         void shouldCountAllExtensions() {
-            createProviderExt("300001", "count_key", "count_val");
+            createProviderExt("300001", "count-sig");
             long count = providerExtDao.getCountAll();
             assertThat(count).isEqualTo(1);
         }

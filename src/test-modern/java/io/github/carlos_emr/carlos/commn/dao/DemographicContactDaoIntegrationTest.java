@@ -54,7 +54,7 @@ public class DemographicContactDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private DemographicContactDao dao;
 
-    private DemographicContact createContact(int demoNo, boolean deleted, String category, String contactId) {
+    private DemographicContact createContact(int demoNo, boolean deleted, String category, String contactId) throws Exception {
         DemographicContact contact = new DemographicContact();
         EntityDataGenerator.generateTestDataForModelClass(contact);
         contact.setDemographicNo(demoNo);
@@ -69,7 +69,7 @@ public class DemographicContactDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist contact with generated ID")
-    void shouldPersistContact_whenValidDataProvided() {
+    void shouldPersistContact_whenValidDataProvided() throws Exception {
         DemographicContact entity = new DemographicContact();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -85,7 +85,7 @@ public class DemographicContactDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-deleted contacts for demographic number")
-        void shouldReturnNonDeletedContacts_forDemographicNo() {
+        void shouldReturnNonDeletedContacts_forDemographicNo() throws Exception {
             int demoNo = 10;
 
             DemographicContact contact1 = createContact(demoNo, false, "CAT1", "100");
@@ -105,7 +105,7 @@ public class DemographicContactDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when all contacts are deleted")
-        void shouldReturnEmptyList_whenAllContactsAreDeleted() {
+        void shouldReturnEmptyList_whenAllContactsAreDeleted() throws Exception {
             createContact(20, true, "CAT1", "100");
 
             List<DemographicContact> result = dao.findByDemographicNo(20);
@@ -121,7 +121,7 @@ public class DemographicContactDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return contacts matching demographic and category")
-        void shouldReturnContacts_forMatchingDemographicAndCategory() {
+        void shouldReturnContacts_forMatchingDemographicAndCategory() throws Exception {
             int demoNo = 10;
             String category = "CAT1";
 
@@ -149,7 +149,7 @@ public class DemographicContactDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-deleted contacts matching demographic and contact ID")
-        void shouldReturnContacts_forMatchingDemographicAndContactId() {
+        void shouldReturnContacts_forMatchingDemographicAndContactId() throws Exception {
             int demoNo = 10;
             String contactId = "101";
 

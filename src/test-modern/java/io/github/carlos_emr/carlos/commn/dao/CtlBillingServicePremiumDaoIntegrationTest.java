@@ -56,7 +56,7 @@ public class CtlBillingServicePremiumDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity and assign generated ID")
-    void shouldPersistEntity_withGeneratedId() {
+    void shouldPersistEntity_withGeneratedId() throws Exception {
         CtlBillingServicePremium entity = new CtlBillingServicePremium();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -67,7 +67,7 @@ public class CtlBillingServicePremiumDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return premiums matching service code")
-    void shouldReturnMatchingPremiums_whenSearchingByServiceCode() {
+    void shouldReturnMatchingPremiums_whenSearchingByServiceCode() throws Exception {
         String serviceCode1 = "alpha";
         String serviceCode2 = "bravo";
 

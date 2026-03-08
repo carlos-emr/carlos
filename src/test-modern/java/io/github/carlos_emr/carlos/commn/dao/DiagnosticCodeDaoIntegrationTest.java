@@ -91,7 +91,7 @@ public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when diagnostic code does not match")
-        void shouldReturnEmptyList_whenDiagnosticCodeNotFound() {
+        void shouldReturnEmptyList_whenDiagnosticCodeNotFound() throws Exception {
             DiagnosticCode entity = new DiagnosticCode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setDiagnosticCode("existing");
@@ -122,7 +122,7 @@ public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when region does not match")
-        void shouldReturnEmptyList_whenRegionDoesNotMatch() {
+        void shouldReturnEmptyList_whenRegionDoesNotMatch() throws Exception {
             DiagnosticCode entity = new DiagnosticCode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setDiagnosticCode("x");
@@ -136,7 +136,7 @@ public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list for findByRegionAndType with no matching data")
-        void shouldReturnEmptyList_whenNoRegionAndTypeMatch() {
+        void shouldReturnEmptyList_whenNoRegionAndTypeMatch() throws Exception {
             // This query joins with CtlDiagCode table; with no data in that table, expect empty
             List<DiagnosticCode> codes = dao.findByRegionAndType("REG", "TYPE");
             assertThat(codes).isEmpty();
@@ -145,7 +145,7 @@ public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list for findDiagnosticsAndCtlDiagCodes with no matching data")
-        void shouldReturnEmptyList_whenNoCtlDiagCodesExist() {
+        void shouldReturnEmptyList_whenNoCtlDiagCodesExist() throws Exception {
             // This query joins with CtlDiagCode table; with no data in that table, expect empty
             List<Object[]> results = dao.findDiagnosictsAndCtlDiagCodesByServiceType("TYPE");
             assertThat(results).isEmpty();
@@ -154,7 +154,7 @@ public class DiagnosticCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find only codes matching specific diagnostic code among multiple")
-        void shouldReturnOnlyMatchingCodes_whenMultipleCodesExist() {
+        void shouldReturnOnlyMatchingCodes_whenMultipleCodesExist() throws Exception {
             DiagnosticCode code1 = new DiagnosticCode();
             EntityDataGenerator.generateTestDataForModelClass(code1);
             code1.setDiagnosticCode("ABC");

@@ -96,7 +96,7 @@ class IHAPOIUploadHandlerUnitTest {
     @DisplayName("should successfully parse IHAPOI HL7 message for upload")
     void shouldSuccessfullyParse_ihapoiHl7Message(String hl7Body) throws Exception {
         IHAPOIHandler handler = new IHAPOIHandler();
-        String result = handler.parse(new ByteArrayInputStream(hl7Body.getBytes(StandardCharsets.UTF_8)));
+        java.util.Map<String, String> result = handler.parse(new ByteArrayInputStream(hl7Body.getBytes(StandardCharsets.UTF_8)));
         assertThat(result).isNotNull();
     }
 }

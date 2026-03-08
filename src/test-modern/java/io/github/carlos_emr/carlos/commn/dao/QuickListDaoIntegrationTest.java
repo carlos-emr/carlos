@@ -55,7 +55,7 @@ public class QuickListDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist quick list with generated ID")
-    void shouldPersistQuickList_whenValidDataProvided() {
+    void shouldPersistQuickList_whenValidDataProvided() throws Exception {
         QuickList ql = new QuickList();
         EntityDataGenerator.generateTestDataForModelClass(ql);
         dao.persist(ql);
@@ -66,7 +66,7 @@ public class QuickListDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return matching entries when filtered by name, research code, and coding system")
-    void shouldReturnMatchingEntries_whenFilteredByNameResearchCodeAndCodingSystem() {
+    void shouldReturnMatchingEntries_whenFilteredByNameResearchCodeAndCodingSystem() throws Exception {
         String quickListName1 = "alpha";
         String quickListName2 = "bravo";
         String dxResearchCode1 = "111";

@@ -60,7 +60,7 @@ public class ReportTemplatesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist report template with generated ID")
-        void shouldPersistReportTemplate_whenValidDataProvided() {
+        void shouldPersistReportTemplate_whenValidDataProvided() throws Exception {
             ReportTemplates entity = new ReportTemplates();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -76,7 +76,7 @@ public class ReportTemplatesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return all persisted report templates")
-        void shouldReturnAllTemplates_whenMultipleExist() {
+        void shouldReturnAllTemplates_whenMultipleExist() throws Exception {
             ReportTemplates rt1 = new ReportTemplates();
             EntityDataGenerator.generateTestDataForModelClass(rt1);
             dao.persist(rt1);
@@ -107,7 +107,7 @@ public class ReportTemplatesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return only templates with active status of 1")
-        void shouldReturnActiveTemplates_whenMixedActiveStatusExists() {
+        void shouldReturnActiveTemplates_whenMixedActiveStatusExists() throws Exception {
             int active = 1;
             int inactive = 2;
 

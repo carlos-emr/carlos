@@ -68,7 +68,7 @@ public class ContactDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should return contacts matching last name and first name")
-        void shouldReturnContacts_whenLastNameAndFirstNameMatch() {
+        void shouldReturnContacts_whenLastNameAndFirstNameMatch() throws Exception {
             String keyword = "Smith, Jon";
             String orderBy = "c.id";
             String searchMode = "search_name";
@@ -114,7 +114,7 @@ public class ContactDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should return contacts matching last name only")
-        void shouldReturnContacts_whenLastNameMatches() {
+        void shouldReturnContacts_whenLastNameMatches() throws Exception {
             String keyword = "Smith";
             String orderBy = "c.id";
             String searchMode = "search_name";
@@ -156,7 +156,7 @@ public class ContactDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should return contacts matching province when search mode is province")
-        void shouldReturnContacts_whenProvinceMatches() {
+        void shouldReturnContacts_whenProvinceMatches() throws Exception {
             String keyword = "ON";
             String orderBy = "c.id";
             String searchMode = "province";

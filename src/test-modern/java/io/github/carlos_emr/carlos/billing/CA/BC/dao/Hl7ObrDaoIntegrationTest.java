@@ -70,7 +70,7 @@ public class Hl7ObrDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated test data")
-        void shouldPersistEntity_whenValidDataProvided() {
+        void shouldPersistEntity_whenValidDataProvided() throws Exception {
             Hl7Obr entity = new Hl7Obr();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -80,7 +80,7 @@ public class Hl7ObrDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with correct fields")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             Hl7Obr entity = new Hl7Obr();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setPidId(555);
@@ -105,7 +105,7 @@ public class Hl7ObrDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return OBR records matching the given PID")
-        void shouldReturnMatchingRecords_whenPidMatches() {
+        void shouldReturnMatchingRecords_whenPidMatches() throws Exception {
             Hl7Obr matching1 = new Hl7Obr();
             EntityDataGenerator.generateTestDataForModelClass(matching1);
             matching1.setPidId(700);
@@ -131,7 +131,7 @@ public class Hl7ObrDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no OBR records match the PID")
-        void shouldReturnEmptyList_whenNoPidMatches() {
+        void shouldReturnEmptyList_whenNoPidMatches() throws Exception {
             List<Hl7Obr> results = dao.findByPid(99999);
             assertThat(results).isEmpty();
         }
@@ -144,7 +144,7 @@ public class Hl7ObrDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return joined OBR and OBX records for a given PID")
-        void shouldReturnJoinedResults_whenMatchingDataExists() {
+        void shouldReturnJoinedResults_whenMatchingDataExists() throws Exception {
             Hl7Obr obr = new Hl7Obr();
             EntityDataGenerator.generateTestDataForModelClass(obr);
             obr.setPidId(800);
@@ -164,7 +164,7 @@ public class Hl7ObrDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no matching lab results")
-        void shouldReturnEmptyList_whenNoMatchingLabResults() {
+        void shouldReturnEmptyList_whenNoMatchingLabResults() throws Exception {
             List<Object[]> results = dao.findLabResultsByPid(99999);
             assertThat(results).isEmpty();
         }

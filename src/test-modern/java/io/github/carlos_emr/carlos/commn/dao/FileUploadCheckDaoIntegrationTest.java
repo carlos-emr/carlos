@@ -52,7 +52,7 @@ public class FileUploadCheckDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity and assign generated ID")
-    void shouldPersistEntity_withGeneratedId() {
+    void shouldPersistEntity_withGeneratedId() throws Exception {
         FileUploadCheck entity = new FileUploadCheck();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -63,7 +63,7 @@ public class FileUploadCheckDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find entities matching the MD5 sum")
-    void shouldFindEntities_whenMatchingMd5SumExists() {
+    void shouldFindEntities_whenMatchingMd5SumExists() throws Exception {
         FileUploadCheck entity1 = new FileUploadCheck();
         EntityDataGenerator.generateTestDataForModelClass(entity1);
         entity1.setMd5sum("abc123def456");
@@ -93,7 +93,7 @@ public class FileUploadCheckDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no matching MD5 sum exists")
-    void shouldReturnEmptyList_whenNoMatchingMd5SumExists() {
+    void shouldReturnEmptyList_whenNoMatchingMd5SumExists() throws Exception {
         FileUploadCheck entity = new FileUploadCheck();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setMd5sum("exists123");

@@ -53,7 +53,7 @@ public class HRMDocumentToProviderDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist HRM document to provider mapping with generated ID")
-    void shouldPersistHrmDocumentToProvider_whenValidDataProvided() {
+    void shouldPersistHrmDocumentToProvider_whenValidDataProvided() throws Exception {
         HRMDocumentToProvider entity = new HRMDocumentToProvider();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         hrmDocumentToProviderDao.persist(entity);

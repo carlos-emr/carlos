@@ -56,7 +56,7 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
     /**
      * Helper to create and persist an Icd9 entity.
      */
-    private Icd9 createIcd9(String code, String description) {
+    private Icd9 createIcd9(String code, String description) throws Exception {
         Icd9 entity = new Icd9();
         entity.setIcd9(code);
         entity.setDescription(description);
@@ -71,7 +71,7 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist ICD-9 code with generated ID")
-        void shouldPersistIcd9_whenValidDataProvided() {
+        void shouldPersistIcd9_whenValidDataProvided() throws Exception {
             Icd9 entity = new Icd9();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -82,7 +82,7 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find ICD-9 by ID with correct fields")
-        void shouldFindIcd9_whenValidIdProvided() {
+        void shouldFindIcd9_whenValidIdProvided() throws Exception {
             Icd9 saved = createIcd9("250.0", "Diabetes mellitus");
             hibernateTemplate.flush();
 
@@ -102,7 +102,7 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find ICD-9 codes by exact code match")
-        void shouldFindIcd9Codes_byExactCode() {
+        void shouldFindIcd9Codes_byExactCode() throws Exception {
             createIcd9("401.1", "Hypertension benign");
             createIcd9("401.9", "Hypertension unspecified");
             hibernateTemplate.flush();
@@ -116,7 +116,7 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when code does not exist")
-        void shouldReturnEmptyList_whenCodeDoesNotExist() {
+        void shouldReturnEmptyList_whenCodeDoesNotExist() throws Exception {
             List<Icd9> result = dao.getIcd9Code("999.99");
 
             assertThat(result).isEmpty();
@@ -125,7 +125,7 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should search ICD-9 by code or description using LIKE")
-        void shouldSearchIcd9_byCodeOrDescription() {
+        void shouldSearchIcd9_byCodeOrDescription() throws Exception {
             createIcd9("780.6", "Fever of unknown origin");
             createIcd9("780.7", "Malaise and fatigue");
             createIcd9("250.0", "Diabetes mellitus type 2");
@@ -145,7 +145,7 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find by code returning exact match or null")
-        void shouldFindByCode_returningExactMatchOrNull() {
+        void shouldFindByCode_returningExactMatchOrNull() throws Exception {
             createIcd9("427.31", "Atrial fibrillation");
             hibernateTemplate.flush();
 
@@ -160,7 +160,7 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find by coding system using LIKE match")
-        void shouldFindByCodingSystem_usingLikeMatch() {
+        void shouldFindByCodingSystem_usingLikeMatch() throws Exception {
             createIcd9("493.0", "Extrinsic asthma");
             hibernateTemplate.flush();
 
@@ -173,7 +173,7 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return null from findByCodingSystem when no match")
-        void shouldReturnNull_whenFindByCodingSystemHasNoMatch() {
+        void shouldReturnNull_whenFindByCodingSystemHasNoMatch() throws Exception {
             AbstractCodeSystemModel<?> result = dao.findByCodingSystem("ZZZZZ");
 
             assertThat(result).isNull();
@@ -182,7 +182,7 @@ public class Icd9DaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should search code using searchCode method")
-        void shouldSearchCode_usingSearchCodeMethod() {
+        void shouldSearchCode_usingSearchCodeMethod() throws Exception {
             createIcd9("715.0", "Osteoarthrosis generalized");
             createIcd9("715.1", "Osteoarthrosis localized");
             hibernateTemplate.flush();

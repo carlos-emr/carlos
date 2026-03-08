@@ -61,7 +61,7 @@ public class FavoritesPrivilegeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist favorites privilege with generated ID")
-        void shouldPersistFavoritesPrivilege_whenValidDataProvided() {
+        void shouldPersistFavoritesPrivilege_whenValidDataProvided() throws Exception {
             FavoritesPrivilege entity = new FavoritesPrivilege();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -77,7 +77,7 @@ public class FavoritesPrivilegeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return provider numbers where open to public is true")
-        void shouldReturnPublicProviders_whenOpenToPublicIsTrue() {
+        void shouldReturnPublicProviders_whenOpenToPublicIsTrue() throws Exception {
             String providerNo1 = "111";
             String providerNo2 = "222";
             String providerNo3 = "333";
@@ -114,7 +114,7 @@ public class FavoritesPrivilegeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return favorites privilege for the given provider")
-        void shouldReturnFavoritesPrivilege_whenProviderNoMatches() {
+        void shouldReturnFavoritesPrivilege_whenProviderNoMatches() throws Exception {
             String providerNo1 = "111";
             String providerNo2 = "222";
             String providerNo3 = "333";

@@ -63,7 +63,7 @@ public class CtlRelationshipsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should persist entity with generated id")
-        void shouldPersistEntity_withGeneratedId() {
+        void shouldPersistEntity_withGeneratedId() throws Exception {
             CtlRelationships entity = new CtlRelationships();
             entity.setValue("value");
             entity.setLabel("label");
@@ -79,7 +79,7 @@ public class CtlRelationshipsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return only active relationships")
-        void shouldReturnOnlyActiveRelationships() {
+        void shouldReturnOnlyActiveRelationships() throws Exception {
             boolean isActive = true;
 
             CtlRelationships ctlRelation1 = new CtlRelationships();
@@ -115,7 +115,7 @@ public class CtlRelationshipsDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return active relationship matching value")
-        void shouldReturnActiveRelationship_whenValueMatches() {
+        void shouldReturnActiveRelationship_whenValueMatches() throws Exception {
             boolean isActive = true;
             String value1 = "alpha";
             String value2 = "bravo";

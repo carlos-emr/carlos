@@ -60,7 +60,7 @@ public class QuickListUserDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist quicklistuser with generated ID")
-        void shouldPersistQuickListUser_whenValidDataProvided() {
+        void shouldPersistQuickListUser_whenValidDataProvided() throws Exception {
             QuickListUser entity = new QuickListUser();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             quickListUserDao.persist(entity);
@@ -70,11 +70,11 @@ public class QuickListUserDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find quicklistuser by ID")
-        void shouldFindQuickListUser_whenValidIdProvided() {
+        void shouldFindQuickListUser_whenValidIdProvided() throws Exception {
             QuickListUser saved = new QuickListUser();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             quickListUserDao.persist(saved);
-            QuickListUser found = dao.find(saved.getId());
+            QuickListUser found = quickListUserDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class QuickListUserDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all quicklistuser records")
-        void shouldCountAllQuickListUsers() {
+        void shouldCountAllQuickListUsers() throws Exception {
             QuickListUser entity = new QuickListUser();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             quickListUserDao.persist(entity);

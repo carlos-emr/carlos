@@ -61,7 +61,7 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
     private Integer inactiveFormId;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         // Create an active form (current=true)
         EForm activeForm = new EForm();
         EntityDataGenerator.generateTestDataForModelClass(activeForm);
@@ -88,7 +88,7 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return only active forms when status is true")
-        void shouldReturnActiveForms_whenStatusTrue() {
+        void shouldReturnActiveForms_whenStatusTrue() throws Exception {
             List<EForm> activeForms = dao.findByStatus(true, EFormSortOrder.NAME);
 
             assertThat(activeForms).isNotEmpty();
@@ -99,7 +99,7 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return only inactive forms when status is false")
-        void shouldReturnInactiveForms_whenStatusFalse() {
+        void shouldReturnInactiveForms_whenStatusFalse() throws Exception {
             List<EForm> inactiveForms = dao.findByStatus(false);
 
             assertThat(inactiveForms).isNotEmpty();
@@ -110,7 +110,7 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return forms sorted by different sort orders without error")
-        void shouldReturnForms_withDifferentSortOrders() {
+        void shouldReturnForms_withDifferentSortOrders() throws Exception {
             List<EForm> byDate = dao.findByStatus(true, EFormSortOrder.DATE);
             List<EForm> byFileName = dao.findByStatus(true, EFormSortOrder.FILE_NAME);
             List<EForm> bySubject = dao.findByStatus(true, EFormSortOrder.SUBJECT);
@@ -129,7 +129,7 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return the max ID for the active form with matching name")
-        void shouldReturnMaxId_whenActiveFormExists() {
+        void shouldReturnMaxId_whenActiveFormExists() throws Exception {
             // Create a second active form with the same name
             EForm secondForm = new EForm();
             EntityDataGenerator.generateTestDataForModelClass(secondForm);
@@ -145,7 +145,7 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return null when no active form matches the name")
-        void shouldReturnNull_whenNoActiveFormMatchesName() {
+        void shouldReturnNull_whenNoActiveFormMatchesName() throws Exception {
             Integer id = dao.findMaxIdForActiveForm("NONEXISTENT_FORM_XYZ");
 
             assertThat(id).isNull();
@@ -159,7 +159,7 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return zero when only one active form exists with matching name")
-        void shouldReturnZero_whenOnlyOneActiveFormWithName() {
+        void shouldReturnZero_whenOnlyOneActiveFormWithName() throws Exception {
             Long count = dao.countFormsOtherThanSpecified("TESTFORM_ACTIVE", activeFormId);
 
             assertThat(count).isEqualTo(0L);
@@ -167,7 +167,7 @@ public class EFormDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should count other active forms with same name excluding specified ID")
-        void shouldCountOtherForms_whenMultipleActiveFormsExist() {
+        void shouldCountOtherForms_whenMultipleActiveFormsExist() throws Exception {
             // Create a second active form with the same name
             EForm secondForm = new EForm();
             EntityDataGenerator.generateTestDataForModelClass(secondForm);

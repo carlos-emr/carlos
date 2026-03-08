@@ -60,7 +60,7 @@ public class MdsOBRDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist mdsobr with generated ID")
-        void shouldPersistMdsOBR_whenValidDataProvided() {
+        void shouldPersistMdsOBR_whenValidDataProvided() throws Exception {
             MdsOBR entity = new MdsOBR();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsOBRDao.persist(entity);
@@ -70,11 +70,11 @@ public class MdsOBRDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find mdsobr by ID")
-        void shouldFindMdsOBR_whenValidIdProvided() {
+        void shouldFindMdsOBR_whenValidIdProvided() throws Exception {
             MdsOBR saved = new MdsOBR();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             mdsOBRDao.persist(saved);
-            MdsOBR found = dao.find(saved.getId());
+            MdsOBR found = mdsOBRDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class MdsOBRDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all mdsobr records")
-        void shouldCountAllMdsOBRs() {
+        void shouldCountAllMdsOBRs() throws Exception {
             MdsOBR entity = new MdsOBR();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsOBRDao.persist(entity);

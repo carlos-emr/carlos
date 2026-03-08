@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.WcbBpCode;
+import io.github.carlos_emr.carlos.billing.CA.dao.WcbBpCodeDao;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -55,7 +56,7 @@ public class WcbBpCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             WcbBpCode entity = new WcbBpCode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             wcbBpCodeDao.persist(entity);
@@ -65,11 +66,11 @@ public class WcbBpCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID")
-        void shouldFind_whenValidIdProvided() {
+        void shouldFind_whenValidIdProvided() throws Exception {
             WcbBpCode saved = new WcbBpCode();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             wcbBpCodeDao.persist(saved);
-            WcbBpCode found = dao.find(saved.getId());
+            WcbBpCode found = wcbBpCodeDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }

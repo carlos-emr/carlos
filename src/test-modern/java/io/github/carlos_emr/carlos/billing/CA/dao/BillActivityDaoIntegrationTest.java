@@ -63,7 +63,7 @@ public class BillActivityDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         BillActivity entity = new BillActivity();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);

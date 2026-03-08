@@ -54,7 +54,7 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private BillingDetailDao dao;
 
-    private BillingDetail createEntity(int billingNo, String status, String serviceCode) {
+    private BillingDetail createEntity(int billingNo, String status, String serviceCode) throws Exception {
         BillingDetail entity = new BillingDetail();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setBillingNo(billingNo);
@@ -66,7 +66,7 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         BillingDetail entity = new BillingDetail();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -76,7 +76,7 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find billing details by billing number (int)")
-    void shouldReturnMatchingRecords_byBillingNoInt() {
+    void shouldReturnMatchingRecords_byBillingNoInt() throws Exception {
         BillingDetail match1 = createEntity(3000, "A", "SVC1");
         BillingDetail match2 = createEntity(3000, "B", "SVC2");
         BillingDetail noMatch = createEntity(4000, "A", "SVC3");
@@ -92,7 +92,7 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when billing number not found (int)")
-    void shouldReturnEmptyList_whenBillingNoIntNotFound() {
+    void shouldReturnEmptyList_whenBillingNoIntNotFound() throws Exception {
         BillingDetail entity = createEntity(3000, "A", "SVC1");
         dao.persist(entity);
 
@@ -103,7 +103,7 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find billing details by billing number and status")
-    void shouldReturnMatchingRecords_byBillingNoAndStatus() {
+    void shouldReturnMatchingRecords_byBillingNoAndStatus() throws Exception {
         BillingDetail match = createEntity(5000, "PAID", "SVC1");
         BillingDetail diffStatus = createEntity(5000, "PEND", "SVC2");
         BillingDetail diffBilling = createEntity(6000, "PAID", "SVC3");
@@ -120,7 +120,7 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no matching billing number and status")
-    void shouldReturnEmptyList_whenNoMatchingBillingNoAndStatus() {
+    void shouldReturnEmptyList_whenNoMatchingBillingNoAndStatus() throws Exception {
         BillingDetail entity = createEntity(5000, "PAID", "SVC1");
         dao.persist(entity);
 
@@ -131,7 +131,7 @@ public class BillingDetailDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find billing details by Integer billing number excluding status D")
-    void shouldReturnNonDeletedRecords_byBillingNoInteger() {
+    void shouldReturnNonDeletedRecords_byBillingNoInteger() throws Exception {
         BillingDetail active = createEntity(7000, "A", "SVC1");
         BillingDetail deleted = createEntity(7000, "D", "SVC2");
         BillingDetail otherBilling = createEntity(8000, "A", "SVC3");

@@ -139,7 +139,7 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count responses filtered by demographic, status, team, urgency")
-        void shouldCountResponses_filteredByDemographicStatusTeamUrgency() {
+        void shouldCountResponses_filteredByDemographicStatusTeamUrgency() throws Exception {
             ConsultationResponseSearchFilter filter = new ConsultationResponseSearchFilter();
             filter.setDemographicNo(demoNo1);
             filter.setStatus(Integer.valueOf(STATUS_1));
@@ -154,7 +154,7 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count responses filtered by appointment date range")
-        void shouldCountResponses_filteredByAppointmentDateRange() {
+        void shouldCountResponses_filteredByAppointmentDateRange() throws Exception {
             ConsultationResponseSearchFilter filter = new ConsultationResponseSearchFilter();
             filter.setAppointmentStartDate(DateUtils.setDays(date2, 20));
             filter.setAppointmentEndDate(DateUtils.setDays(date2, 27));
@@ -167,7 +167,7 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count responses filtered by referral date range")
-        void shouldCountResponses_filteredByReferralDateRange() {
+        void shouldCountResponses_filteredByReferralDateRange() throws Exception {
             ConsultationResponseSearchFilter filter = new ConsultationResponseSearchFilter();
             filter.setReferralStartDate(DateUtils.setDays(date1, 1));
             filter.setReferralEndDate(DateUtils.setDays(date1, 10));
@@ -180,7 +180,7 @@ public class ConsultResponseDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count responses filtered by response date range")
-        void shouldCountResponses_filteredByResponseDateRange() {
+        void shouldCountResponses_filteredByResponseDateRange() throws Exception {
             ConsultationResponseSearchFilter filter = new ConsultationResponseSearchFilter();
             filter.setResponseStartDate(date1);
             filter.setResponseEndDate(DateUtils.setDays(date1, 25));

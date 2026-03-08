@@ -58,7 +58,7 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         BillingONDiskName entity = new BillingONDiskName();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -68,7 +68,7 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find by group number and return most recent record")
-    void shouldFindByGroupNo_whenMatchingRecordExists() {
+    void shouldFindByGroupNo_whenMatchingRecordExists() throws Exception {
         BillingONDiskName entity1 = new BillingONDiskName();
         EntityDataGenerator.generateTestDataForModelClass(entity1);
         entity1.setGroupNo("GRP01");
@@ -98,7 +98,7 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return null when no matching group number exists")
-    void shouldReturnNull_whenNoMatchingGroupNo() {
+    void shouldReturnNull_whenNoMatchingGroupNo() throws Exception {
         BillingONDiskName entity = new BillingONDiskName();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setGroupNo("EXISTS");
@@ -112,7 +112,7 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find previous disk create date before given date")
-    void shouldFindPrevDiskCreateDate_whenOlderRecordExists() {
+    void shouldFindPrevDiskCreateDate_whenOlderRecordExists() throws Exception {
         Calendar cal = Calendar.getInstance();
         cal.set(2025, Calendar.JANUARY, 1, 0, 0, 0);
         cal.set(Calendar.MILLISECOND, 0);
@@ -155,7 +155,7 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find by create date range and status")
-    void shouldFindByCreateDateRangeAndStatus_whenMatchingRecordsExist() {
+    void shouldFindByCreateDateRangeAndStatus_whenMatchingRecordsExist() throws Exception {
         Calendar cal = Calendar.getInstance();
         cal.set(2025, Calendar.MARCH, 15, 0, 0, 0);
         cal.set(Calendar.MILLISECOND, 0);
@@ -198,7 +198,7 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no records match date range and status")
-    void shouldReturnEmptyList_whenNoRecordsMatchDateRangeAndStatus() {
+    void shouldReturnEmptyList_whenNoRecordsMatchDateRangeAndStatus() throws Exception {
         BillingONDiskName entity = new BillingONDiskName();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setCreateDateTime(new Date());

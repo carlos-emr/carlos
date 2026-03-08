@@ -93,7 +93,7 @@ class DiseaseRegistryHandlerIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should add ICD9 code to disease registry for all demographics")
-    void shouldAddIcd9Code_toDiseaseRegistryForAllDemographics() {
+    void shouldAddIcd9Code_toDiseaseRegistryForAllDemographics() throws Exception {
         String icd9code = "338.2";
         String icd9codesys = "icd9";
 

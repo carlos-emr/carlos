@@ -55,7 +55,7 @@ public class CtlFrequencyDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity and assign generated ID")
-    void shouldPersistEntity_withGeneratedId() {
+    void shouldPersistEntity_withGeneratedId() throws Exception {
         CtlFrequency entity = new CtlFrequency();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -66,7 +66,7 @@ public class CtlFrequencyDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return incremented count after persisting new entity")
-    void shouldReturnIncrementedCount_afterPersistingNewEntity() {
+    void shouldReturnIncrementedCount_afterPersistingNewEntity() throws Exception {
         int startNo = dao.findAll().size();
 
         CtlFrequency entity = new CtlFrequency();
@@ -83,7 +83,7 @@ public class CtlFrequencyDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should include persisted entity in findAll results")
-    void shouldIncludePersistedEntity_inFindAllResults() {
+    void shouldIncludePersistedEntity_inFindAllResults() throws Exception {
         CtlFrequency entity = new CtlFrequency();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);

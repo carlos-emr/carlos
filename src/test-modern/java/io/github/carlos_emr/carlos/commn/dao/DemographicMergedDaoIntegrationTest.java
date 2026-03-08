@@ -67,7 +67,7 @@ public class DemographicMergedDaoIntegrationTest extends CarlosTestBase {
      * on the demographic_merged table.
      */
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         Demographic demo1 = new Demographic();
         EntityDataGenerator.generateTestDataForModelClass(demo1);
         demo1.setDemographicNo(null);
@@ -84,7 +84,7 @@ public class DemographicMergedDaoIntegrationTest extends CarlosTestBase {
         demoId2 = demo2.getDemographicNo();
     }
 
-    private DemographicMerged createMerged(int demoNo, int mergedTo, int deleted) {
+    private DemographicMerged createMerged(int demoNo, int mergedTo, int deleted) throws Exception {
         DemographicMerged entity = new DemographicMerged();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setDemographicNo(demoNo);
@@ -98,7 +98,7 @@ public class DemographicMergedDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist merged record with generated ID")
-    void shouldPersistMergedRecord_whenValidDataProvided() {
+    void shouldPersistMergedRecord_whenValidDataProvided() throws Exception {
         DemographicMerged entity = new DemographicMerged();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setMergedTo(demoId1);
@@ -115,7 +115,7 @@ public class DemographicMergedDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-deleted records matching mergedTo")
-        void shouldReturnNonDeletedRecords_forMergedTo() {
+        void shouldReturnNonDeletedRecords_forMergedTo() throws Exception {
             DemographicMerged merged1 = createMerged(demoId1, demoId1, 0);
             createMerged(demoId2, demoId2, 0);
             DemographicMerged merged3 = createMerged(demoId1, demoId1, 0);
@@ -132,7 +132,7 @@ public class DemographicMergedDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when all records are deleted")
-        void shouldReturnEmptyList_whenAllRecordsAreDeleted() {
+        void shouldReturnEmptyList_whenAllRecordsAreDeleted() throws Exception {
             createMerged(demoId1, demoId1, 1);
 
             List<DemographicMerged> result = dao.findCurrentByMergedTo(demoId1);
@@ -148,7 +148,7 @@ public class DemographicMergedDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-deleted records matching demographic number")
-        void shouldReturnNonDeletedRecords_forDemographicNo() {
+        void shouldReturnNonDeletedRecords_forDemographicNo() throws Exception {
             DemographicMerged merged1 = createMerged(demoId1, demoId1, 0);
             createMerged(demoId2, demoId2, 0);
             DemographicMerged merged3 = createMerged(demoId1, demoId1, 0);
@@ -170,7 +170,7 @@ public class DemographicMergedDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return all records matching demographic number regardless of deleted status")
-        void shouldReturnAllRecords_forDemographicNo() {
+        void shouldReturnAllRecords_forDemographicNo() throws Exception {
             DemographicMerged merged1 = createMerged(demoId1, demoId1, 0);
             createMerged(demoId2, demoId2, 0);
             createMerged(demoId2, demoId2, 0);
@@ -184,7 +184,7 @@ public class DemographicMergedDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list for non-existent demographic")
-        void shouldReturnEmptyList_forNonExistentDemographic() {
+        void shouldReturnEmptyList_forNonExistentDemographic() throws Exception {
             List<DemographicMerged> result = dao.findByDemographicNo(99999);
 
             assertThat(result).isEmpty();

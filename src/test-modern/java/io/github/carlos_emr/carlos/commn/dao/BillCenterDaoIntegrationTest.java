@@ -60,21 +60,21 @@ public class BillCenterDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist billcenter with generated ID")
-        void shouldPersistBillCenter_whenValidDataProvided() {
+        void shouldPersistBillCenter_whenValidDataProvided() throws Exception {
             BillCenter entity = new BillCenter();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             billCenterDao.persist(entity);
-            assertThat(entity.getId()).isPositive();
+            assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
         @DisplayName("should find billcenter by ID")
-        void shouldFindBillCenter_whenValidIdProvided() {
+        void shouldFindBillCenter_whenValidIdProvided() throws Exception {
             BillCenter saved = new BillCenter();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             billCenterDao.persist(saved);
-            BillCenter found = dao.find(saved.getId());
+            BillCenter found = billCenterDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class BillCenterDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all billcenter records")
-        void shouldCountAllBillCenters() {
+        void shouldCountAllBillCenters() throws Exception {
             BillCenter entity = new BillCenter();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             billCenterDao.persist(entity);

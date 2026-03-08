@@ -63,7 +63,7 @@ public class RaHeaderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist RaHeader with generated ID")
-        void shouldPersistRaHeader_whenValidDataProvided() {
+        void shouldPersistRaHeader_whenValidDataProvided() throws Exception {
             RaHeader entity = new RaHeader();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -79,7 +79,7 @@ public class RaHeaderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find current headers by filename and payment date excluding deleted")
-        void shouldFindCurrentHeaders_byFilenameAndPaymentDate() {
+        void shouldFindCurrentHeaders_byFilenameAndPaymentDate() throws Exception {
             RaHeader rh1 = new RaHeader();
             EntityDataGenerator.generateTestDataForModelClass(rh1);
             rh1.setFilename("alpha");
@@ -125,7 +125,7 @@ public class RaHeaderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find headers by filename and payment date")
-        void shouldFindHeaders_byFilenameAndPaymentDate() {
+        void shouldFindHeaders_byFilenameAndPaymentDate() throws Exception {
             RaHeader rh1 = new RaHeader();
             EntityDataGenerator.generateTestDataForModelClass(rh1);
             rh1.setFilename("alpha");
@@ -166,7 +166,7 @@ public class RaHeaderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find all headers excluding a specific status")
-        void shouldFindAllHeaders_excludingStatus() {
+        void shouldFindAllHeaders_excludingStatus() throws Exception {
             RaHeader rh1 = new RaHeader();
             EntityDataGenerator.generateTestDataForModelClass(rh1);
             rh1.setStatus("A");
@@ -212,7 +212,7 @@ public class RaHeaderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return results for findByHeaderDetailsAndProviderMagic")
-        void shouldReturnResults_whenFindByHeaderDetailsAndProviderMagic() {
+        void shouldReturnResults_whenFindByHeaderDetailsAndProviderMagic() throws Exception {
             List<RaHeader> result = dao.findByHeaderDetailsAndProviderMagic("STS", "100");
             assertThat(result).isEmpty();
         }
@@ -220,7 +220,7 @@ public class RaHeaderDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return results for findByStatusAndProviderMagic")
-        void shouldReturnResults_whenFindByStatusAndProviderMagic() {
+        void shouldReturnResults_whenFindByStatusAndProviderMagic() throws Exception {
             List<RaHeader> result = dao.findByStatusAndProviderMagic("STS", "100");
             assertThat(result).isEmpty();
         }

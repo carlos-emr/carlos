@@ -60,7 +60,7 @@ public class BatchEligibilityDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist batcheligibility with generated ID")
-        void shouldPersistBatchEligibility_whenValidDataProvided() {
+        void shouldPersistBatchEligibility_whenValidDataProvided() throws Exception {
             BatchEligibility entity = new BatchEligibility();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             batchEligibilityDao.persist(entity);
@@ -70,11 +70,11 @@ public class BatchEligibilityDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find batcheligibility by ID")
-        void shouldFindBatchEligibility_whenValidIdProvided() {
+        void shouldFindBatchEligibility_whenValidIdProvided() throws Exception {
             BatchEligibility saved = new BatchEligibility();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             batchEligibilityDao.persist(saved);
-            BatchEligibility found = dao.find(saved.getId());
+            BatchEligibility found = batchEligibilityDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class BatchEligibilityDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all batcheligibility records")
-        void shouldCountAllBatchEligibilitys() {
+        void shouldCountAllBatchEligibilitys() throws Exception {
             BatchEligibility entity = new BatchEligibility();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             batchEligibilityDao.persist(entity);

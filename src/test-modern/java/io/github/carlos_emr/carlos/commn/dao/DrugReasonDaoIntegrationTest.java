@@ -66,7 +66,7 @@ public class DrugReasonDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should return true when drug reason is persisted successfully")
-        void shouldReturnTrue_whenDrugReasonPersisted() {
+        void shouldReturnTrue_whenDrugReasonPersisted() throws Exception {
             Integer drugId = 10;
             String codingSystem = "NDC";
             String code = "0123456789";
@@ -95,7 +95,7 @@ public class DrugReasonDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should return true when matching drug reason exists")
-        void shouldReturnTrue_whenMatchingDrugReasonExists() {
+        void shouldReturnTrue_whenMatchingDrugReasonExists() throws Exception {
             Integer drugId = 10;
             String codingSystem = "NDC";
             String code = "0123456789";
@@ -134,7 +134,7 @@ public class DrugReasonDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should return reasons with opposite archived flag for matching drug id")
-        void shouldReturnReasons_withOppositeArchivedFlagForDrugId() {
+        void shouldReturnReasons_withOppositeArchivedFlagForDrugId() throws Exception {
             Integer drugId = 10;
             boolean archivedFlag = true;
 

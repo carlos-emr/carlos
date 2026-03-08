@@ -65,7 +65,7 @@ public class Hl7TextInfoDaoIntegrationTest extends CarlosTestBase {
         info.setLastName(lastName);
         info.setHealthNumber(healthNo);
         info.setObrDate(new Date().toString());
-        info.setLastUpdateDate(new Date());
+        info.setReportStatus("F");
         hl7TextInfoDao.persist(info);
         return info;
     }

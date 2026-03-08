@@ -57,7 +57,7 @@ public class FormsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private FormsDao formsDao;
 
-    @PersistenceContext(unitName = "testPersistenceUnit")
+    @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager em;
 
     @BeforeEach

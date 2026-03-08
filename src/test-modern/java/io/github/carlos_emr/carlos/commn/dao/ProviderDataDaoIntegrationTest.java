@@ -53,7 +53,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ProviderDataDao dao;
 
-    private ProviderData newProvider(String id) {
+    private ProviderData newProvider(String id) throws Exception {
         ProviderData result = new ProviderData();
         result.set(id);
         try {
@@ -71,7 +71,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find providers by type and OHIP number")
-        void shouldFindProviders_byTypeAndOhip() {
+        void shouldFindProviders_byTypeAndOhip() throws Exception {
             ProviderData pd = newProvider("10001");
             pd.setProviderType("doctor");
             pd.setOhipNo("OH123");
@@ -95,7 +95,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no providers match type and OHIP")
-        void shouldReturnEmptyList_whenNoTypeAndOhipMatch() {
+        void shouldReturnEmptyList_whenNoTypeAndOhipMatch() throws Exception {
             List<ProviderData> data = dao.findByTypeAndOhip("doctor", "NONEXISTENT");
             assertThat(data).isEmpty();
         }
@@ -103,7 +103,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find active providers by type")
-        void shouldFindProviders_byType() {
+        void shouldFindProviders_byType() throws Exception {
             ProviderData pd = newProvider("20001");
             pd.setProviderType("nurse");
             pd.setStatus("1");
@@ -124,7 +124,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list for type with no matching providers")
-        void shouldReturnEmptyList_whenNoTypeMatch() {
+        void shouldReturnEmptyList_whenNoTypeMatch() throws Exception {
             List<ProviderData> data = dao.findByType("nonexistent_type");
             assertThat(data).isEmpty();
         }
@@ -132,7 +132,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find providers by first name")
-        void shouldFindProviders_byFirstName() {
+        void shouldFindProviders_byFirstName() throws Exception {
             ProviderData pd = newProvider("30001");
             pd.setFirstName("Alice");
             pd.setLastName("Smith");
@@ -155,7 +155,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find providers by last name")
-        void shouldFindProviders_byLastName() {
+        void shouldFindProviders_byLastName() throws Exception {
             ProviderData pd = newProvider("30003");
             pd.setFirstName("Carol");
             pd.setLastName("Walker");
@@ -171,7 +171,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should filter only active providers when onlyActive is true")
-        void shouldReturnOnlyActive_whenOnlyActiveFlagSet() {
+        void shouldReturnOnlyActive_whenOnlyActiveFlagSet() throws Exception {
             ProviderData active = newProvider("30004");
             active.setFirstName("Dan");
             active.setLastName("Active");
@@ -196,7 +196,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no providers match name")
-        void shouldReturnEmptyList_whenNoNameMatches() {
+        void shouldReturnEmptyList_whenNoNameMatches() throws Exception {
             List<ProviderData> data = dao.findByName("Zzzzz", "Yyyyy", false);
             assertThat(data).isEmpty();
         }
@@ -204,7 +204,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find all providers with active flag filtering")
-        void shouldFindAllProviders_withActiveFlag() {
+        void shouldFindAllProviders_withActiveFlag() throws Exception {
             ProviderData active = newProvider("40001");
             active.setStatus("1");
             dao.persist(active);
@@ -226,7 +226,7 @@ public class ProviderDataDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return last provider ID")
-        void shouldReturnLastId_whenProvidersExist() {
+        void shouldReturnLastId_whenProvidersExist() throws Exception {
             ProviderData pd = newProvider("-1001");
             dao.persist(pd);
 

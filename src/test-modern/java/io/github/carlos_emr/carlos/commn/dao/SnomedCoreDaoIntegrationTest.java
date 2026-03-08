@@ -60,7 +60,7 @@ public class SnomedCoreDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist snomedcore with generated ID")
-        void shouldPersistSnomedCore_whenValidDataProvided() {
+        void shouldPersistSnomedCore_whenValidDataProvided() throws Exception {
             SnomedCore entity = new SnomedCore();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             snomedCoreDao.persist(entity);
@@ -70,11 +70,11 @@ public class SnomedCoreDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find snomedcore by ID")
-        void shouldFindSnomedCore_whenValidIdProvided() {
+        void shouldFindSnomedCore_whenValidIdProvided() throws Exception {
             SnomedCore saved = new SnomedCore();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             snomedCoreDao.persist(saved);
-            SnomedCore found = dao.find(saved.getId());
+            SnomedCore found = snomedCoreDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class SnomedCoreDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all snomedcore records")
-        void shouldCountAllSnomedCores() {
+        void shouldCountAllSnomedCores() throws Exception {
             SnomedCore entity = new SnomedCore();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             snomedCoreDao.persist(entity);

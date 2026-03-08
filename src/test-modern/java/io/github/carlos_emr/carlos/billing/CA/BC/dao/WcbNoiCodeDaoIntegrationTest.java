@@ -50,7 +50,7 @@ public class WcbNoiCodeDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private WcbNoiCodeDao dao;
 
-    private WcbNoiCode createEntity(String code, String level1, String level2, String level3) {
+    private WcbNoiCode createEntity(String code, String level1, String level2, String level3) throws Exception {
         WcbNoiCode entity = new WcbNoiCode();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setCode(code);
@@ -63,7 +63,7 @@ public class WcbNoiCodeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         WcbNoiCode entity = new WcbNoiCode();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -73,7 +73,7 @@ public class WcbNoiCodeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find entity by ID with correct field values")
-    void shouldReturnEntity_whenValidIdProvided() {
+    void shouldReturnEntity_whenValidIdProvided() throws Exception {
         WcbNoiCode saved = createEntity("C001", "Injuries", "Head", "Skull");
         dao.persist(saved);
 
@@ -89,7 +89,7 @@ public class WcbNoiCodeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find records by exact code match")
-    void shouldReturnMatchingRecords_byCodeMatch() {
+    void shouldReturnMatchingRecords_byCodeMatch() throws Exception {
         WcbNoiCode match = createEntity("BURN", "Burns", "Chemical", "Acid");
         WcbNoiCode noMatch = createEntity("FRAC", "Fractures", "Arm", "Radius");
         dao.persist(match);
@@ -104,7 +104,7 @@ public class WcbNoiCodeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find records by level1 match")
-    void shouldReturnMatchingRecords_byLevel1Match() {
+    void shouldReturnMatchingRecords_byLevel1Match() throws Exception {
         WcbNoiCode match = createEntity("C010", "Sprains", "Knee", "ACL");
         WcbNoiCode noMatch = createEntity("C020", "Fractures", "Hip", "Femur");
         dao.persist(match);
@@ -118,7 +118,7 @@ public class WcbNoiCodeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find records by level2 match")
-    void shouldReturnMatchingRecords_byLevel2Match() {
+    void shouldReturnMatchingRecords_byLevel2Match() throws Exception {
         WcbNoiCode match = createEntity("C030", "Injuries", "Shoulder", "Rotator");
         WcbNoiCode noMatch = createEntity("C040", "Injuries", "Elbow", "Tendon");
         dao.persist(match);
@@ -132,7 +132,7 @@ public class WcbNoiCodeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find records by level3 match")
-    void shouldReturnMatchingRecords_byLevel3Match() {
+    void shouldReturnMatchingRecords_byLevel3Match() throws Exception {
         WcbNoiCode match = createEntity("C050", "Injuries", "Hand", "Carpal");
         WcbNoiCode noMatch = createEntity("C060", "Injuries", "Hand", "Finger");
         dao.persist(match);
@@ -146,7 +146,7 @@ public class WcbNoiCodeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no matching code or level")
-    void shouldReturnEmptyList_whenNoMatchFound() {
+    void shouldReturnEmptyList_whenNoMatchFound() throws Exception {
         WcbNoiCode entity = createEntity("ABC", "Level1", "Level2", "Level3");
         dao.persist(entity);
 
@@ -157,7 +157,7 @@ public class WcbNoiCodeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find records matching across multiple fields via OR")
-    void shouldReturnMultipleRecords_whenMatchAcrossFields() {
+    void shouldReturnMultipleRecords_whenMatchAcrossFields() throws Exception {
         // "MATCH" appears as code in one record and level1 in another
         WcbNoiCode matchByCode = createEntity("MATCH", "Other1", "Other2", "Other3");
         WcbNoiCode matchByLevel1 = createEntity("DIFF", "MATCH", "Other2", "Other3");

@@ -54,7 +54,7 @@ public class FacilityDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private FacilityDao dao;
 
-    private Facility createFacility(String name, boolean disabled) {
+    private Facility createFacility(String name, boolean disabled) throws Exception {
         Facility entity = new Facility();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setName(name);
@@ -67,7 +67,7 @@ public class FacilityDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist facility with generated ID")
-    void shouldPersistFacility_whenValidDataProvided() {
+    void shouldPersistFacility_whenValidDataProvided() throws Exception {
         Facility entity = new Facility();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -83,7 +83,7 @@ public class FacilityDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return only disabled facilities when active is false")
-        void shouldReturnDisabledFacilities_whenActiveIsFalse() {
+        void shouldReturnDisabledFacilities_whenActiveIsFalse() throws Exception {
             createFacility("bravo", true);
             createFacility("delta", false);
             createFacility("charlie", true);
@@ -106,7 +106,7 @@ public class FacilityDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return only active facilities when active is true")
-        void shouldReturnActiveFacilities_whenActiveIsTrue() {
+        void shouldReturnActiveFacilities_whenActiveIsTrue() throws Exception {
             createFacility("bravo", true);
             createFacility("delta", false);
             createFacility("sigma", false);
@@ -121,7 +121,7 @@ public class FacilityDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return all facilities when active is null")
-        void shouldReturnAllFacilities_whenActiveIsNull() {
+        void shouldReturnAllFacilities_whenActiveIsNull() throws Exception {
             createFacility("alpha", true);
             createFacility("beta", false);
 

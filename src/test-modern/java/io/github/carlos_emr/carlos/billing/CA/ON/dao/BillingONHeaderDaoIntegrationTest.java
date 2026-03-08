@@ -56,7 +56,7 @@ public class BillingONHeaderDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         BillingONHeader entity = new BillingONHeader();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -66,7 +66,7 @@ public class BillingONHeaderDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find headers by disk ID and provider registration number")
-    void shouldFindByDiskIdAndProviderRegNum_whenMatchingRecordsExist() {
+    void shouldFindByDiskIdAndProviderRegNum_whenMatchingRecordsExist() throws Exception {
         BillingONHeader match = new BillingONHeader();
         EntityDataGenerator.generateTestDataForModelClass(match);
         match.setDiskId(100);
@@ -96,7 +96,7 @@ public class BillingONHeaderDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return multiple headers when several match disk ID and provider")
-    void shouldReturnMultipleHeaders_whenSeveralMatchDiskIdAndProvider() {
+    void shouldReturnMultipleHeaders_whenSeveralMatchDiskIdAndProvider() throws Exception {
         BillingONHeader h1 = new BillingONHeader();
         EntityDataGenerator.generateTestDataForModelClass(h1);
         h1.setDiskId(200);
@@ -119,7 +119,7 @@ public class BillingONHeaderDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no headers match criteria")
-    void shouldReturnEmptyList_whenNoHeadersMatchCriteria() {
+    void shouldReturnEmptyList_whenNoHeadersMatchCriteria() throws Exception {
         BillingONHeader entity = new BillingONHeader();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setDiskId(300);

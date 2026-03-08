@@ -56,7 +56,7 @@ public class BillingCdmServiceCodesDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with null ID and assign generated ID")
-    void shouldPersistEntity_withGeneratedId() {
+    void shouldPersistEntity_withGeneratedId() throws Exception {
         BillingCdmServiceCodes entity = new BillingCdmServiceCodes();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setId(null);
@@ -68,7 +68,7 @@ public class BillingCdmServiceCodesDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return all billing CDM service codes")
-    void shouldReturnAllCodes_whenFindAllCalled() {
+    void shouldReturnAllCodes_whenFindAllCalled() throws Exception {
         BillingCdmServiceCodes bCSC1 = new BillingCdmServiceCodes();
         EntityDataGenerator.generateTestDataForModelClass(bCSC1);
         dao.persist(bCSC1);

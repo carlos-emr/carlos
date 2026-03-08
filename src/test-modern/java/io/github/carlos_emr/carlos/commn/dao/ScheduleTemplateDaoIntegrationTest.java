@@ -70,7 +70,7 @@ public class ScheduleTemplateDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should persist schedule template code")
         void shouldPersistTemplateCode_whenValidDataProvided() {
             ScheduleTemplateCode code = new ScheduleTemplateCode();
-            code.setCode("A");
+            code.setCode('A');
             code.setDescription("Available");
             code.setDuration("15");
             code.setColor("green");
@@ -85,7 +85,7 @@ public class ScheduleTemplateDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find template code by ID")
         void shouldFindTemplateCode_whenValidIdProvided() {
             ScheduleTemplateCode code = new ScheduleTemplateCode();
-            code.setCode("B");
+            code.setCode('B');
             code.setDescription("Busy");
             code.setDuration("30");
             code.setColor("red");
@@ -103,7 +103,7 @@ public class ScheduleTemplateDaoIntegrationTest extends CarlosTestBase {
         @DisplayName("should find all template codes")
         void shouldFindAllTemplateCodes() {
             ScheduleTemplateCode code1 = new ScheduleTemplateCode();
-            code1.setCode("X");
+            code1.setCode('X');
             code1.setDescription("Test X");
             code1.setDuration("15");
             code1.setColor("blue");
@@ -113,7 +113,7 @@ public class ScheduleTemplateDaoIntegrationTest extends CarlosTestBase {
 
             List<ScheduleTemplateCode> all = scheduleTemplateCodeDao.findAll(0, 100);
             assertThat(all).hasSizeGreaterThanOrEqualTo(1);
-            assertThat(all).extracting(ScheduleTemplateCode::getCode).contains("X");
+            assertThat(all).extracting(ScheduleTemplateCode::getCode).contains('X');
         }
     }
 

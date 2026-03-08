@@ -97,10 +97,10 @@ class PATHL7HandlerUnitTest {
 
     @ParameterizedTest
     @MethodSource("hl7MessageProvider")
-    @DisplayName("should parse sending application from MSH segment")
-    void shouldParseSendingApplication_fromMshSegment(String hl7Body) throws HL7Exception {
+    @DisplayName("should parse message type from MSH segment")
+    void shouldParseMsgType_fromMshSegment(String hl7Body) throws HL7Exception {
         PATHL7Handler handler = createHandler(hl7Body);
-        assertThat(handler.getSendingApplication()).isNotNull();
+        assertThat(handler.getMsgType()).isNotNull();
     }
 
     @ParameterizedTest

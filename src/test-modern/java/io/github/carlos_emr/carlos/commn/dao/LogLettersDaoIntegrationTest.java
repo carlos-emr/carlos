@@ -60,7 +60,7 @@ public class LogLettersDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist logletters with generated ID")
-        void shouldPersistLogLetters_whenValidDataProvided() {
+        void shouldPersistLogLetters_whenValidDataProvided() throws Exception {
             LogLetters entity = new LogLetters();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             logLettersDao.persist(entity);
@@ -70,11 +70,11 @@ public class LogLettersDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find logletters by ID")
-        void shouldFindLogLetters_whenValidIdProvided() {
+        void shouldFindLogLetters_whenValidIdProvided() throws Exception {
             LogLetters saved = new LogLetters();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             logLettersDao.persist(saved);
-            LogLetters found = dao.find(saved.getId());
+            LogLetters found = logLettersDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class LogLettersDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all logletters records")
-        void shouldCountAllLogLetterss() {
+        void shouldCountAllLogLetterss() throws Exception {
             LogLetters entity = new LogLetters();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             logLettersDao.persist(entity);

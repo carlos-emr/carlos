@@ -56,7 +56,7 @@ public class CtlBillingServiceSexRulesDaoIntegrationTest extends CarlosTestBase 
     @Test
     @Tag("create")
     @DisplayName("should persist entity and assign generated ID")
-    void shouldPersistEntity_withGeneratedId() {
+    void shouldPersistEntity_withGeneratedId() throws Exception {
         CtlBillingServiceSexRules entity = new CtlBillingServiceSexRules();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setId(null);
@@ -68,7 +68,7 @@ public class CtlBillingServiceSexRulesDaoIntegrationTest extends CarlosTestBase 
     @Test
     @Tag("read")
     @DisplayName("should return sex rules matching service code")
-    void shouldReturnMatchingRules_whenSearchingByServiceCode() {
+    void shouldReturnMatchingRules_whenSearchingByServiceCode() throws Exception {
         String serviceCode1 = "alpha";
         String serviceCode2 = "bravo";
 

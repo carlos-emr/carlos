@@ -53,7 +53,7 @@ public class HRMCategoryDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist HRM category with generated ID")
-    void shouldPersistHrmCategory_whenValidDataProvided() {
+    void shouldPersistHrmCategory_whenValidDataProvided() throws Exception {
         HRMCategory entity = new HRMCategory();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         hrmCategoryDao.persist(entity);

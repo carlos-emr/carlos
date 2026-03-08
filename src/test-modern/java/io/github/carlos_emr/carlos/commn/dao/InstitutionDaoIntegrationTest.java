@@ -60,7 +60,7 @@ public class InstitutionDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist institution with generated ID")
-        void shouldPersistInstitution_whenValidDataProvided() {
+        void shouldPersistInstitution_whenValidDataProvided() throws Exception {
             Institution entity = new Institution();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             institutionDao.persist(entity);
@@ -70,11 +70,11 @@ public class InstitutionDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find institution by ID")
-        void shouldFindInstitution_whenValidIdProvided() {
+        void shouldFindInstitution_whenValidIdProvided() throws Exception {
             Institution saved = new Institution();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             institutionDao.persist(saved);
-            Institution found = dao.find(saved.getId());
+            Institution found = institutionDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class InstitutionDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all institution records")
-        void shouldCountAllInstitutions() {
+        void shouldCountAllInstitutions() throws Exception {
             Institution entity = new Institution();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             institutionDao.persist(entity);

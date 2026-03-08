@@ -65,7 +65,7 @@ public class PrescriptionDaoIntegrationTest extends CarlosTestBase {
         rx.setDemographicId(demographicNo);
         rx.setProviderNo("999998");
         rx.setDatePrescribed(new Date());
-        rx.setLastUpdateDate(new Date());
+        rx.setDatePrinted(new Date());
         prescriptionDao.persist(rx);
         return rx;
     }

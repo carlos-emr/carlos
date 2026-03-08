@@ -57,7 +57,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
     /**
      * Helper to create and persist an EFormGroup with specific group name and form ID.
      */
-    private EFormGroup createEFormGroup(String groupName, int formId) {
+    private EFormGroup createEFormGroup(String groupName, int formId) throws Exception {
         EFormGroup entity = new EFormGroup();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setGroupName(groupName);
@@ -73,7 +73,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist eformgroup with generated ID")
-        void shouldPersistEFormGroup_whenValidDataProvided() {
+        void shouldPersistEFormGroup_whenValidDataProvided() throws Exception {
             EFormGroup entity = new EFormGroup();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             eFormGroupDao.persist(entity);
@@ -84,7 +84,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find eformgroup by ID with correct fields")
-        void shouldFindEFormGroup_whenValidIdProvided() {
+        void shouldFindEFormGroup_whenValidIdProvided() throws Exception {
             EFormGroup saved = createEFormGroup("TestGroup", 42);
             hibernateTemplate.flush();
 
@@ -104,7 +104,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all records accurately")
-        void shouldCountAllRecords() {
+        void shouldCountAllRecords() throws Exception {
             int initialCount = eFormGroupDao.getCountAll();
 
             createEFormGroup("CountGroup", 1);
@@ -119,7 +119,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return groups filtered by group name")
-        void shouldReturnGroups_byGroupName() {
+        void shouldReturnGroups_byGroupName() throws Exception {
             createEFormGroup("AlphaGroup", 10);
             createEFormGroup("AlphaGroup", 20);
             createEFormGroup("BetaGroup", 30);
@@ -134,7 +134,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when group name does not exist")
-        void shouldReturnEmptyList_whenGroupNameNotFound() {
+        void shouldReturnEmptyList_whenGroupNameNotFound() throws Exception {
             List<EFormGroup> result = eFormGroupDao.getByGroupName("NonExistentGroup");
 
             assertThat(result).isEmpty();
@@ -143,7 +143,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return distinct group names")
-        void shouldReturnDistinctGroupNames() {
+        void shouldReturnDistinctGroupNames() throws Exception {
             createEFormGroup("UniqueGroupA", 1);
             createEFormGroup("UniqueGroupA", 2);
             createEFormGroup("UniqueGroupB", 3);
@@ -164,7 +164,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("delete")
         @DisplayName("should delete by group name and form ID")
-        void shouldDeleteByNameAndFormId() {
+        void shouldDeleteByNameAndFormId() throws Exception {
             createEFormGroup("DeleteGroup", 100);
             createEFormGroup("DeleteGroup", 200);
             hibernateTemplate.flush();
@@ -181,7 +181,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("delete")
         @DisplayName("should delete all entries by group name")
-        void shouldDeleteAllEntries_byGroupName() {
+        void shouldDeleteAllEntries_byGroupName() throws Exception {
             createEFormGroup("DeleteAllGroup", 10);
             createEFormGroup("DeleteAllGroup", 20);
             createEFormGroup("KeepGroup", 30);

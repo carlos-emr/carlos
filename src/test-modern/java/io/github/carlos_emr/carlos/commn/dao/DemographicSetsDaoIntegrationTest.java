@@ -56,7 +56,7 @@ public class DemographicSetsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private DemographicSetsDao dao;
 
-    private DemographicSets createSet(String name, String archive) {
+    private DemographicSets createSet(String name, String archive) throws Exception {
         DemographicSets entity = new DemographicSets();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setName(name);
@@ -69,7 +69,7 @@ public class DemographicSetsDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist set with generated ID")
-    void shouldPersistSet_whenValidDataProvided() {
+    void shouldPersistSet_whenValidDataProvided() throws Exception {
         DemographicSets entity = new DemographicSets();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -85,7 +85,7 @@ public class DemographicSetsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-archived sets matching name")
-        void shouldReturnNonArchivedSets_forMatchingName() {
+        void shouldReturnNonArchivedSets_forMatchingName() throws Exception {
             createSet("a", "0");
             createSet("a", "0");
 
@@ -97,7 +97,7 @@ public class DemographicSetsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should exclude archived sets from results")
-        void shouldExcludeArchivedSets_fromResults() {
+        void shouldExcludeArchivedSets_fromResults() throws Exception {
             createSet("a", "0");
             createSet("a", "1");
 
@@ -114,7 +114,7 @@ public class DemographicSetsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-archived sets matching any of the provided names")
-        void shouldReturnNonArchivedSets_forMultipleNames() {
+        void shouldReturnNonArchivedSets_forMultipleNames() throws Exception {
             createSet("a", "0");
             createSet("b", "0");
 
@@ -132,7 +132,7 @@ public class DemographicSetsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return sets matching name and eligibility")
-        void shouldReturnSets_forMatchingNameAndEligibility() {
+        void shouldReturnSets_forMatchingNameAndEligibility() throws Exception {
             DemographicSets entity1 = new DemographicSets();
             EntityDataGenerator.generateTestDataForModelClass(entity1);
             entity1.setName("a");
@@ -159,7 +159,7 @@ public class DemographicSetsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return distinct set names for demographic with archived status")
-        void shouldReturnDistinctSetNames_forDemographic() {
+        void shouldReturnDistinctSetNames_forDemographic() throws Exception {
             DemographicSets entity1 = new DemographicSets();
             EntityDataGenerator.generateTestDataForModelClass(entity1);
             entity1.setName("a");
@@ -190,7 +190,7 @@ public class DemographicSetsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return distinct set names across all sets")
-        void shouldReturnDistinctSetNames_acrossAllSets() {
+        void shouldReturnDistinctSetNames_acrossAllSets() throws Exception {
             createSet("a", "0");
             createSet("b", "0");
             // duplicate name - should not increase distinct count

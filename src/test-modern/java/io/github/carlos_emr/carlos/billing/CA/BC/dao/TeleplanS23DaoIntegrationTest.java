@@ -50,7 +50,7 @@ public class TeleplanS23DaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private TeleplanS23Dao dao;
 
-    private TeleplanS23 createEntity(Integer s21Id, String s23Type, String aji) {
+    private TeleplanS23 createEntity(Integer s21Id, String s23Type, String aji) throws Exception {
         TeleplanS23 entity = new TeleplanS23();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setS21Id(s21Id);
@@ -62,7 +62,7 @@ public class TeleplanS23DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         TeleplanS23 entity = new TeleplanS23();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -72,7 +72,7 @@ public class TeleplanS23DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find entity by ID with correct field values")
-    void shouldReturnEntity_whenValidIdProvided() {
+    void shouldReturnEntity_whenValidIdProvided() throws Exception {
         TeleplanS23 saved = createEntity(10, "TYPE1", "AJI001");
         dao.persist(saved);
 
@@ -87,7 +87,7 @@ public class TeleplanS23DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should search S23 records by s21Id, excluding type, matching aji")
-    void shouldReturnFilteredRecords_byS21IdExcludingTypeAndAji() {
+    void shouldReturnFilteredRecords_byS21IdExcludingTypeAndAji() throws Exception {
         TeleplanS23 match = createEntity(40, "KEEP", "ADJ01");
         TeleplanS23 excludedType = createEntity(40, "EXCL", "ADJ01");
         TeleplanS23 wrongS21 = createEntity(99, "KEEP", "ADJ01");
@@ -107,7 +107,7 @@ public class TeleplanS23DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no S23 records match criteria")
-    void shouldReturnEmptyList_whenNoS23RecordsMatch() {
+    void shouldReturnEmptyList_whenNoS23RecordsMatch() throws Exception {
         TeleplanS23 entity = createEntity(40, "EXCL", "ADJ01");
         dao.persist(entity);
 
@@ -119,7 +119,7 @@ public class TeleplanS23DaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return multiple matching S23 records ordered by ID")
-    void shouldReturnMultipleRecords_orderedById() {
+    void shouldReturnMultipleRecords_orderedById() throws Exception {
         TeleplanS23 first = createEntity(25, "A", "ADJ50");
         TeleplanS23 second = createEntity(25, "B", "ADJ50");
         dao.persist(first);

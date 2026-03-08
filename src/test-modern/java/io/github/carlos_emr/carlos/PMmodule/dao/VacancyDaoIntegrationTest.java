@@ -53,7 +53,7 @@ public class VacancyDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist vacancy entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         Vacancy entity = new Vacancy();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -64,7 +64,7 @@ public class VacancyDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return vacancies filtered by wlProgramId")
-    void shouldReturnVacancies_byWlProgramId() {
+    void shouldReturnVacancies_byWlProgramId() throws Exception {
         int wlProgramId1 = 101, wlProgramId2 = 202;
         String name = "alpha";
 
@@ -107,7 +107,7 @@ public class VacancyDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return vacancies filtered by name")
-    void shouldReturnVacancies_byName() {
+    void shouldReturnVacancies_byName() throws Exception {
         String name1 = "alpha", name2 = "charlie";
 
         Vacancy vacancy1 = new Vacancy();
@@ -144,7 +144,7 @@ public class VacancyDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return vacancy by ID")
-    void shouldReturnVacancy_byId() {
+    void shouldReturnVacancy_byId() throws Exception {
         Vacancy vacancy1 = new Vacancy();
         EntityDataGenerator.generateTestDataForModelClass(vacancy1);
         dao.saveEntity(vacancy1);
@@ -165,7 +165,7 @@ public class VacancyDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return vacancies filtered by wlProgramId and status")
-    void shouldReturnVacancies_byWlProgramIdAndStatus() {
+    void shouldReturnVacancies_byWlProgramIdAndStatus() throws Exception {
         int wlProgramId1 = 101, wlProgramId2 = 202;
         String status1 = "delta", status2 = "omega";
 
@@ -208,7 +208,7 @@ public class VacancyDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return current active vacancies")
-    void shouldReturnCurrentVacancies_whenFindCurrentCalled() {
+    void shouldReturnCurrentVacancies_whenFindCurrentCalled() throws Exception {
         String status1 = "ACTIVE", status2 = "NOTACTIVE";
 
         Vacancy vacancy1 = new Vacancy();

@@ -66,7 +66,7 @@ public class DxDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should remove all associations when records exist")
-        void shouldRemoveAllAssociations_whenRecordsExist() {
+        void shouldRemoveAllAssociations_whenRecordsExist() throws Exception {
             DxAssociation dx1 = new DxAssociation();
             EntityDataGenerator.generateTestDataForModelClass(dx1);
             dx1.setDxCodeType("A");
@@ -108,7 +108,7 @@ public class DxDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should return matching associations when code and codeType match")
-        void shouldReturnMatchingAssociations_whenCodeAndCodeTypeMatch() {
+        void shouldReturnMatchingAssociations_whenCodeAndCodeTypeMatch() throws Exception {
             String codeType = "A";
             String code = "A1";
 
@@ -145,7 +145,7 @@ public class DxDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should return all associations ordered by codeType and code")
-        void shouldReturnAllAssociations_orderedByCodeTypeAndCode() {
+        void shouldReturnAllAssociations_orderedByCodeTypeAndCode() throws Exception {
             DxAssociation dx1 = new DxAssociation();
             EntityDataGenerator.generateTestDataForModelClass(dx1);
             dx1.setDxCodeType("A");

@@ -63,7 +63,7 @@ public class Billing3rdPartyAddressDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should persist entity with generated id")
-        void shouldPersistEntity_withGeneratedId() {
+        void shouldPersistEntity_withGeneratedId() throws Exception {
             Billing3rdPartyAddress entity = new Billing3rdPartyAddress();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -78,7 +78,7 @@ public class Billing3rdPartyAddressDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return all addresses matching company name")
-        void shouldReturnAllAddresses_whenCompanyNameMatches() {
+        void shouldReturnAllAddresses_whenCompanyNameMatches() throws Exception {
             String companyName1 = "sigma";
             String companyName2 = "epsilon";
 
@@ -119,7 +119,7 @@ public class Billing3rdPartyAddressDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return empty list when no addresses match company name")
-        void shouldReturnEmptyList_whenNoCompanyNameMatches() {
+        void shouldReturnEmptyList_whenNoCompanyNameMatches() throws Exception {
             Billing3rdPartyAddress addr = new Billing3rdPartyAddress();
             EntityDataGenerator.generateTestDataForModelClass(addr);
             addr.setCompanyName("ExistingCorp");
@@ -132,7 +132,7 @@ public class Billing3rdPartyAddressDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should not return addresses with different company name")
-        void shouldExcludeAddresses_whenCompanyNameDiffers() {
+        void shouldExcludeAddresses_whenCompanyNameDiffers() throws Exception {
             String targetName = "TargetCorp";
             String otherName = "OtherCorp";
 
@@ -160,7 +160,7 @@ public class Billing3rdPartyAddressDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return empty list when no data exists and all parameters are null")
-        void shouldReturnEmptyList_whenAllParametersAreNullAndNoData() {
+        void shouldReturnEmptyList_whenAllParametersAreNullAndNoData() throws Exception {
             List<Billing3rdPartyAddress> result = dao.findAddresses(null, null, null, null, null);
             assertThat(result).isEmpty();
         }

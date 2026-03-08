@@ -53,7 +53,7 @@ public class ImmunizationsDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist immunization with generated ID")
-    void shouldPersistImmunization_whenValidDataProvided() {
+    void shouldPersistImmunization_whenValidDataProvided() throws Exception {
         Immunizations entity = new Immunizations();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);

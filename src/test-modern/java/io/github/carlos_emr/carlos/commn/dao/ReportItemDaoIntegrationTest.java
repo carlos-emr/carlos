@@ -60,7 +60,7 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist reportitem with generated ID")
-        void shouldPersistReportItem_whenValidDataProvided() {
+        void shouldPersistReportItem_whenValidDataProvided() throws Exception {
             ReportItem entity = new ReportItem();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportItemDao.persist(entity);
@@ -70,11 +70,11 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find reportitem by ID")
-        void shouldFindReportItem_whenValidIdProvided() {
+        void shouldFindReportItem_whenValidIdProvided() throws Exception {
             ReportItem saved = new ReportItem();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             reportItemDao.persist(saved);
-            ReportItem found = dao.find(saved.getId());
+            ReportItem found = reportItemDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all reportitem records")
-        void shouldCountAllReportItems() {
+        void shouldCountAllReportItems() throws Exception {
             ReportItem entity = new ReportItem();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportItemDao.persist(entity);

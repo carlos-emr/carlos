@@ -55,7 +55,7 @@ public class FlowSheetDrugDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist flow sheet drug with generated ID")
-    void shouldPersistFlowSheetDrug_whenValidDataProvided() {
+    void shouldPersistFlowSheetDrug_whenValidDataProvided() throws Exception {
         FlowSheetDrug entity = new FlowSheetDrug();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -66,7 +66,7 @@ public class FlowSheetDrugDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return matching non-archived drugs when filtered by flowsheet and demographic")
-    void shouldReturnMatchingDrugs_whenFilteredByFlowsheetAndDemographic() {
+    void shouldReturnMatchingDrugs_whenFilteredByFlowsheetAndDemographic() throws Exception {
         String flowsheet1 = "alpha";
         String flowsheet2 = "bravo";
         boolean isArchived = true;

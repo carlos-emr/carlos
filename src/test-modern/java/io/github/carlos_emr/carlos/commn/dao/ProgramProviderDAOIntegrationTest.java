@@ -61,7 +61,7 @@ public class ProgramProviderDAOIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("update")
     @DisplayName("should update provider role without error")
-    void shouldUpdateProviderRole_whenValidProgramProviderProvided() {
+    void shouldUpdateProviderRole_whenValidProgramProviderProvided() throws Exception {
         // Given
         String providerId = "111";
 

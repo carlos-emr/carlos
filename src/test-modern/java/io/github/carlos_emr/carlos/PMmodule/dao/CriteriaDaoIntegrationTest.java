@@ -53,7 +53,7 @@ public class CriteriaDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist criteria entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         Criteria entity = new Criteria();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -64,7 +64,7 @@ public class CriteriaDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return criteria filtered by template ID")
-    void shouldReturnCriteria_byTemplateId() {
+    void shouldReturnCriteria_byTemplateId() throws Exception {
         int templateId1 = 101;
         int templateId2 = 202;
 
@@ -102,7 +102,7 @@ public class CriteriaDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return single criteria by template ID, vacancy ID, and type ID")
-    void shouldReturnCriteria_byTemplateIdVacancyIdAndTypeId() {
+    void shouldReturnCriteria_byTemplateIdVacancyIdAndTypeId() throws Exception {
         int templateId1 = 101, templateId2 = 202;
         int vacancyId1 = 111, vacancyId2 = 222;
         int typeId1 = 333, typeId2 = 444;
@@ -143,7 +143,7 @@ public class CriteriaDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return criteria filtered by vacancy ID")
-    void shouldReturnCriterias_byVacancyId() {
+    void shouldReturnCriterias_byVacancyId() throws Exception {
         int vacancyId1 = 101, vacancyId2 = 202;
 
         Criteria criteria1 = new Criteria();
@@ -180,7 +180,7 @@ public class CriteriaDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return refined criteria by vacancy ID excluding adhoc zero")
-    void shouldReturnRefinedCriterias_byVacancyId() {
+    void shouldReturnRefinedCriterias_byVacancyId() throws Exception {
         int vacancyId1 = 101, vacancyId2 = 202;
         int canBeAdhoc1 = 0, canBeAdhoc2 = 11;
 
@@ -223,7 +223,7 @@ public class CriteriaDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return refined criteria by template ID excluding adhoc zero")
-    void shouldReturnRefinedCriterias_byTemplateId() {
+    void shouldReturnRefinedCriterias_byTemplateId() throws Exception {
         int templateId1 = 101, templateId2 = 202;
         int canBeAdhoc1 = 0, canBeAdhoc2 = 11;
 

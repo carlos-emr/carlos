@@ -53,7 +53,7 @@ public class HRMDocumentToDemographicDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist HRM document to demographic mapping with generated ID")
-    void shouldPersistHrmDocumentToDemographic_whenValidDataProvided() {
+    void shouldPersistHrmDocumentToDemographic_whenValidDataProvided() throws Exception {
         HRMDocumentToDemographic entity = new HRMDocumentToDemographic();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         hrmDocumentToDemographicDao.persist(entity);

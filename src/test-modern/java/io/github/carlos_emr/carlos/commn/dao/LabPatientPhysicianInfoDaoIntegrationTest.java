@@ -60,7 +60,7 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist labpatientphysicianinfo with generated ID")
-        void shouldPersistLabPatientPhysicianInfo_whenValidDataProvided() {
+        void shouldPersistLabPatientPhysicianInfo_whenValidDataProvided() throws Exception {
             LabPatientPhysicianInfo entity = new LabPatientPhysicianInfo();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             labPatientPhysicianInfoDao.persist(entity);
@@ -70,11 +70,11 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find labpatientphysicianinfo by ID")
-        void shouldFindLabPatientPhysicianInfo_whenValidIdProvided() {
+        void shouldFindLabPatientPhysicianInfo_whenValidIdProvided() throws Exception {
             LabPatientPhysicianInfo saved = new LabPatientPhysicianInfo();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             labPatientPhysicianInfoDao.persist(saved);
-            LabPatientPhysicianInfo found = dao.find(saved.getId());
+            LabPatientPhysicianInfo found = labPatientPhysicianInfoDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class LabPatientPhysicianInfoDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all labpatientphysicianinfo records")
-        void shouldCountAllLabPatientPhysicianInfos() {
+        void shouldCountAllLabPatientPhysicianInfos() throws Exception {
             LabPatientPhysicianInfo entity = new LabPatientPhysicianInfo();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             labPatientPhysicianInfoDao.persist(entity);

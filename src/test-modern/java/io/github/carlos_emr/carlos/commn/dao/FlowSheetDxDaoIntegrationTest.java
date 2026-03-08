@@ -60,7 +60,7 @@ public class FlowSheetDxDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist flowsheetdx with generated ID")
-        void shouldPersistFlowSheetDx_whenValidDataProvided() {
+        void shouldPersistFlowSheetDx_whenValidDataProvided() throws Exception {
             FlowSheetDx entity = new FlowSheetDx();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetDxDao.persist(entity);
@@ -70,11 +70,11 @@ public class FlowSheetDxDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find flowsheetdx by ID")
-        void shouldFindFlowSheetDx_whenValidIdProvided() {
+        void shouldFindFlowSheetDx_whenValidIdProvided() throws Exception {
             FlowSheetDx saved = new FlowSheetDx();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             flowSheetDxDao.persist(saved);
-            FlowSheetDx found = dao.find(saved.getId());
+            FlowSheetDx found = flowSheetDxDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class FlowSheetDxDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all flowsheetdx records")
-        void shouldCountAllFlowSheetDxs() {
+        void shouldCountAllFlowSheetDxs() throws Exception {
             FlowSheetDx entity = new FlowSheetDx();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             flowSheetDxDao.persist(entity);

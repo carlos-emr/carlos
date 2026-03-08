@@ -60,7 +60,7 @@ public class HashAuditDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist hashaudit with generated ID")
-        void shouldPersistHashAudit_whenValidDataProvided() {
+        void shouldPersistHashAudit_whenValidDataProvided() throws Exception {
             HashAudit entity = new HashAudit();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hashAuditDao.persist(entity);
@@ -70,11 +70,11 @@ public class HashAuditDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find hashaudit by ID")
-        void shouldFindHashAudit_whenValidIdProvided() {
+        void shouldFindHashAudit_whenValidIdProvided() throws Exception {
             HashAudit saved = new HashAudit();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             hashAuditDao.persist(saved);
-            HashAudit found = dao.find(saved.getId());
+            HashAudit found = hashAuditDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class HashAuditDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all hashaudit records")
-        void shouldCountAllHashAudits() {
+        void shouldCountAllHashAudits() throws Exception {
             HashAudit entity = new HashAudit();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hashAuditDao.persist(entity);

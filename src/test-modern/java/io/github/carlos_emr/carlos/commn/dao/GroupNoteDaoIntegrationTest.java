@@ -60,7 +60,7 @@ public class GroupNoteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return active links for the given demographic")
-        void shouldReturnActiveLinks_whenDemographicNoMatches() {
+        void shouldReturnActiveLinks_whenDemographicNoMatches() throws Exception {
             int demographicNo1 = 101;
             int demographicNo2 = 202;
 
@@ -102,7 +102,7 @@ public class GroupNoteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return active links for the given note ID")
-        void shouldReturnActiveLinks_whenNoteIdMatches() {
+        void shouldReturnActiveLinks_whenNoteIdMatches() throws Exception {
             int noteId1 = 101;
             int noteId2 = 202;
 
@@ -144,7 +144,7 @@ public class GroupNoteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("aggregate")
         @DisplayName("should return count of all links for the given note ID")
-        void shouldReturnLinkCount_whenNoteIdMatches() {
+        void shouldReturnLinkCount_whenNoteIdMatches() throws Exception {
             int noteId1 = 101;
             int noteId2 = 202;
 

@@ -53,7 +53,7 @@ public class CriteriaTypeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist criteria type entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         CriteriaType entity = new CriteriaType();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -64,7 +64,7 @@ public class CriteriaTypeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return all criteria types")
-    void shouldReturnAllCriteriaTypes_whenFindAllCalled() {
+    void shouldReturnAllCriteriaTypes_whenFindAllCalled() throws Exception {
         CriteriaType cT1 = new CriteriaType();
         EntityDataGenerator.generateTestDataForModelClass(cT1);
         dao.persist(cT1);
@@ -90,7 +90,7 @@ public class CriteriaTypeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find criteria type by field name")
-    void shouldReturnCriteriaType_byFieldName() {
+    void shouldReturnCriteriaType_byFieldName() throws Exception {
         String fieldName1 = "alpha", fieldName2 = "bravo", fieldName3 = "charlie";
 
         CriteriaType cT1 = new CriteriaType();
@@ -116,7 +116,7 @@ public class CriteriaTypeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return all criteria types with wlProgramId of 1")
-    void shouldReturnCriteriaTypes_whenGetAllCriteriaTypesCalled() {
+    void shouldReturnCriteriaTypes_whenGetAllCriteriaTypesCalled() throws Exception {
         String fieldName1 = "alpha", fieldName2 = "bravo", fieldName3 = "charlie", fieldName4 = "delta", fieldName5 = "sigma";
         int wlProgramId1 = 1, wlProgramId2 = 222;
 
@@ -159,7 +159,7 @@ public class CriteriaTypeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return all criteria types filtered by wlProgramId")
-    void shouldReturnCriteriaTypes_byWlProgramId() {
+    void shouldReturnCriteriaTypes_byWlProgramId() throws Exception {
         String fieldName1 = "alpha", fieldName2 = "bravo", fieldName3 = "charlie", fieldName4 = "delta", fieldName5 = "sigma";
         int wlProgramId1 = 111, wlProgramId2 = 222;
 

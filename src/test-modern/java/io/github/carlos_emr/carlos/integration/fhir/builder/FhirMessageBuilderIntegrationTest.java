@@ -25,25 +25,30 @@
  */
 package io.github.carlos_emr.carlos.integration.fhir.builder;
 
-import java.sql.Date;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 
 import org.hl7.fhir.dstu3.model.Bundle;
 import org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.integration.fhir.manager.OscarFhirConfigurationManager;
 import io.github.carlos_emr.carlos.integration.fhir.model.Immunization;
 import io.github.carlos_emr.carlos.integration.fhir.model.AbstractOscarFhirResource;
@@ -54,8 +59,10 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.Settings;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.FhirDestination;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.Region;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 
 /**
  * Integration tests for {@link FhirBundleBuilder}, verifying DHIR-formatted FHIR
@@ -64,6 +71,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Migrated from legacy JUnit 4 {@code FhirMessageBuilderTest}. The original
  * BIS-formatted message test was already commented out due to SenderFactory
  * static initialization issues.</p>
+ *
+ * <p>Uses a class-level MockedStatic for SpringUtils because {@link SenderFactory}
+ * calls {@code SpringUtils.getBean(ClinicDAO.class)} in a static field initializer.
+ * The mock must be active before the class is loaded and persist for all tests
+ * (static initializers only run once per classloader).</p>
  *
  * @see FhirBundleBuilder
  * @see OscarFhirConfigurationManager
@@ -74,6 +86,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("FHIR Message Builder Integration Tests")
 class FhirMessageBuilderIntegrationTest {
 
+    private static MockedStatic<SpringUtils> springUtilsMock;
+
     private Clinic clinic;
     private Provider provider;
     private Provider nurse;
@@ -81,6 +95,23 @@ class FhirMessageBuilderIntegrationTest {
     private Demographic demographic;
     private Prevention prevention;
     private Prevention prevention2;
+
+    @BeforeAll
+    static void setUpSpringUtilsMock() {
+        springUtilsMock = Mockito.mockStatic(SpringUtils.class);
+        ClinicDAO mockClinicDao = Mockito.mock(ClinicDAO.class);
+        springUtilsMock.when(() -> SpringUtils.getBean(any(Class.class)))
+            .thenReturn(null);
+        springUtilsMock.when(() -> SpringUtils.getBean(ClinicDAO.class))
+            .thenReturn(mockClinicDao);
+    }
+
+    @AfterAll
+    static void tearDownSpringUtilsMock() {
+        if (springUtilsMock != null) {
+            springUtilsMock.close();
+        }
+    }
 
     @BeforeEach
     void setUp() {
@@ -182,13 +213,6 @@ class FhirMessageBuilderIntegrationTest {
         prevention = null;
     }
 
-    /**
-     * Note: The BIS formatted message test (testGetBISFormattedMessage) from the legacy test
-     * was already commented out due to SenderFactory static initialization issues.
-     * It required the test to extend DaoTestFixtures and have a 'clinic' table available.
-     * This placeholder preserves awareness of that test gap.
-     */
-
     @Nested
     @DisplayName("DHIR formatted FHIR Bundle generation")
     class DhirBundleGeneration {
@@ -250,13 +274,13 @@ class FhirMessageBuilderIntegrationTest {
         @Test
         @DisplayName("should contain Bundle resource type in JSON")
         void shouldContainBundleResourceType_inJson() {
-            assertThat(json).contains("\"resourceType\": \"Bundle\"");
+            assertThat(json).contains("\"resourceType\" : \"Bundle\"");
         }
 
         @Test
         @DisplayName("should contain MessageHeader as first entry")
         void shouldContainMessageHeader_asFirstEntry() {
-            assertThat(json).contains("\"resourceType\": \"MessageHeader\"");
+            assertThat(json).contains("\"resourceType\" : \"MessageHeader\"");
         }
 
         @Test
@@ -269,13 +293,13 @@ class FhirMessageBuilderIntegrationTest {
         @Test
         @DisplayName("should contain immunization resources in JSON")
         void shouldContainImmunizationResources_inJson() {
-            assertThat(json).contains("\"resourceType\": \"Immunization\"");
+            assertThat(json).contains("\"resourceType\" : \"Immunization\"");
         }
 
         @Test
         @DisplayName("should contain practitioner resources in JSON")
         void shouldContainPractitionerResources_inJson() {
-            assertThat(json).contains("\"resourceType\": \"Practitioner\"");
+            assertThat(json).contains("\"resourceType\" : \"Practitioner\"");
         }
 
         @Test

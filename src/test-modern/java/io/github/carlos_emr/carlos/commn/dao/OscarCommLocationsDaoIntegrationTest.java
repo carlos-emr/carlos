@@ -60,7 +60,7 @@ public class OscarCommLocationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist oscarcommlocations with generated ID")
-        void shouldPersistOscarCommLocations_whenValidDataProvided() {
+        void shouldPersistOscarCommLocations_whenValidDataProvided() throws Exception {
             OscarCommLocations entity = new OscarCommLocations();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             oscarCommLocationsDao.persist(entity);
@@ -70,11 +70,11 @@ public class OscarCommLocationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find oscarcommlocations by ID")
-        void shouldFindOscarCommLocations_whenValidIdProvided() {
+        void shouldFindOscarCommLocations_whenValidIdProvided() throws Exception {
             OscarCommLocations saved = new OscarCommLocations();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             oscarCommLocationsDao.persist(saved);
-            OscarCommLocations found = dao.find(saved.getId());
+            OscarCommLocations found = oscarCommLocationsDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class OscarCommLocationsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all oscarcommlocations records")
-        void shouldCountAllOscarCommLocationss() {
+        void shouldCountAllOscarCommLocationss() throws Exception {
             OscarCommLocations entity = new OscarCommLocations();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             oscarCommLocationsDao.persist(entity);

@@ -58,7 +58,7 @@ public class ScratchPadDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist scratch pad with generated ID")
-        void shouldPersistScratchPad_whenValidDataProvided() {
+        void shouldPersistScratchPad_whenValidDataProvided() throws Exception {
             ScratchPad entity = new ScratchPad();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -74,7 +74,7 @@ public class ScratchPadDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return true when provider has scratch pad entry")
-        void shouldReturnTrue_whenProviderHasScratchPad() {
+        void shouldReturnTrue_whenProviderHasScratchPad() throws Exception {
             String providerNo1 = "111";
             String providerNo2 = "222";
 
@@ -101,7 +101,7 @@ public class ScratchPadDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return scratch pad for the given provider")
-        void shouldReturnScratchPad_whenProviderNoMatches() {
+        void shouldReturnScratchPad_whenProviderNoMatches() throws Exception {
             String providerNo1 = "111";
             String providerNo2 = "222";
 

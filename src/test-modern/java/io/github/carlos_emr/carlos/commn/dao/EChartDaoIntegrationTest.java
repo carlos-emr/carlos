@@ -58,7 +58,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
     /**
      * Helper to create and persist an EChart with specific demographic and subject.
      */
-    private EChart createEChart(int demographicNo, String subject, Date timestamp) {
+    private EChart createEChart(int demographicNo, String subject, Date timestamp) throws Exception {
         EChart entity = new EChart();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setDemographicNo(demographicNo);
@@ -75,7 +75,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist echart with generated ID")
-        void shouldPersistEChart_whenValidDataProvided() {
+        void shouldPersistEChart_whenValidDataProvided() throws Exception {
             EChart entity = new EChart();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             eChartDao.persist(entity);
@@ -86,7 +86,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find echart by ID with matching fields")
-        void shouldFindEChart_whenValidIdProvided() {
+        void shouldFindEChart_whenValidIdProvided() throws Exception {
             EChart saved = new EChart();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             saved.setDemographicNo(111);
@@ -110,7 +110,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all records accurately")
-        void shouldCountAllRecords() {
+        void shouldCountAllRecords() throws Exception {
             int initialCount = eChartDao.getCountAll();
 
             EChart entity1 = new EChart();
@@ -131,7 +131,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return latest chart by timestamp for demographic")
-        void shouldReturnLatestChart_byTimestampForDemographic() {
+        void shouldReturnLatestChart_byTimestampForDemographic() throws Exception {
             Date olderDate = new Date(1000000L);
             Date newerDate = new Date(2000000L);
 
@@ -149,7 +149,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return null when no chart exists for demographic")
-        void shouldReturnNull_whenNoChartExistsForDemographic() {
+        void shouldReturnNull_whenNoChartExistsForDemographic() throws Exception {
             EChart result = eChartDao.getLatestChart(99999);
 
             assertThat(result).isNull();
@@ -158,7 +158,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return max ID for demographic")
-        void shouldReturnMaxId_forDemographic() {
+        void shouldReturnMaxId_forDemographic() throws Exception {
             EChart first = createEChart(333, "Sub1", new Date());
             EChart second = createEChart(333, "Sub2", new Date());
             hibernateTemplate.flush();
@@ -171,7 +171,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return all charts for demographic ordered by ID desc")
-        void shouldReturnAllCharts_forDemographic() {
+        void shouldReturnAllCharts_forDemographic() throws Exception {
             createEChart(444, "SubA", new Date());
             createEChart(444, "SubB", new Date());
             createEChart(445, "SubC", new Date());
@@ -186,7 +186,7 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find charts by demographic and subject")
-        void shouldFindCharts_byDemoIdAndSubject() {
+        void shouldFindCharts_byDemoIdAndSubject() throws Exception {
             createEChart(555, "MatchSubject", new Date());
             createEChart(555, "OtherSubject", new Date());
             createEChart(555, "MatchSubject", new Date());

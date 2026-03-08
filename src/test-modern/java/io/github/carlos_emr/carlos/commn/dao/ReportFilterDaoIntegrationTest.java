@@ -60,7 +60,7 @@ public class ReportFilterDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist reportfilter with generated ID")
-        void shouldPersistReportFilter_whenValidDataProvided() {
+        void shouldPersistReportFilter_whenValidDataProvided() throws Exception {
             ReportFilter entity = new ReportFilter();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportFilterDao.persist(entity);
@@ -70,11 +70,11 @@ public class ReportFilterDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find reportfilter by ID")
-        void shouldFindReportFilter_whenValidIdProvided() {
+        void shouldFindReportFilter_whenValidIdProvided() throws Exception {
             ReportFilter saved = new ReportFilter();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             reportFilterDao.persist(saved);
-            ReportFilter found = dao.find(saved.getId());
+            ReportFilter found = reportFilterDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class ReportFilterDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all reportfilter records")
-        void shouldCountAllReportFilters() {
+        void shouldCountAllReportFilters() throws Exception {
             ReportFilter entity = new ReportFilter();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             reportFilterDao.persist(entity);

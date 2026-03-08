@@ -74,7 +74,7 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistServiceSpecialists_whenCompositeKeyProvided() {
             ServiceSpecialists entity = createServiceSpecialist(1, 100);
 
-            assertThat(entity.getId()).isPositive();
+            assertThat(entity.getId()).isNotNull();
             assertThat(entity.getId().getServiceId()).isEqualTo(1);
             assertThat(entity.getId().getSpecId()).isEqualTo(100);
         }

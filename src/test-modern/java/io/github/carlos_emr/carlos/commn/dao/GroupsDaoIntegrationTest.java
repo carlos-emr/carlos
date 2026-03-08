@@ -55,7 +55,7 @@ public class GroupsDaoIntegrationTest extends CarlosTestBase {
     /**
      * Helper to create and persist a Groups entity with specific parent ID and description.
      */
-    private Groups createGroup(int parentId, String description) {
+    private Groups createGroup(int parentId, String description) throws Exception {
         Groups entity = new Groups();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setParentId(parentId);
@@ -71,7 +71,7 @@ public class GroupsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist groups entity with generated ID")
-        void shouldPersistGroups_whenValidDataProvided() {
+        void shouldPersistGroups_whenValidDataProvided() throws Exception {
             Groups entity = new Groups();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -82,7 +82,7 @@ public class GroupsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find group by ID with correct fields")
-        void shouldFindGroup_whenValidIdProvided() {
+        void shouldFindGroup_whenValidIdProvided() throws Exception {
             Groups saved = createGroup(50, "TestDescription");
             hibernateTemplate.flush();
 
@@ -102,7 +102,7 @@ public class GroupsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find groups by parent ID")
-        void shouldFindGroups_byParentId() {
+        void shouldFindGroups_byParentId() throws Exception {
             createGroup(1000, "Child1");
             createGroup(1000, "Child2");
             createGroup(2000, "OtherChild");
@@ -117,7 +117,7 @@ public class GroupsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no groups match parent ID")
-        void shouldReturnEmptyList_whenNoGroupsMatchParentId() {
+        void shouldReturnEmptyList_whenNoGroupsMatchParentId() throws Exception {
             List<Groups> result = dao.findByParentId(99999);
 
             assertThat(result).isEmpty();
@@ -126,7 +126,7 @@ public class GroupsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all records accurately")
-        void shouldCountAllRecords() {
+        void shouldCountAllRecords() throws Exception {
             int initialCount = dao.getCountAll();
 
             createGroup(3000, "New1");

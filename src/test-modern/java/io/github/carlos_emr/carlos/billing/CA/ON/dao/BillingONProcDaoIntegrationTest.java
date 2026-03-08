@@ -55,7 +55,7 @@ public class BillingONProcDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         BillingONProc entity = new BillingONProc();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -65,7 +65,7 @@ public class BillingONProcDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find persisted entity by ID with correct field values")
-    void shouldFindEntity_whenValidIdProvided() {
+    void shouldFindEntity_whenValidIdProvided() throws Exception {
         BillingONProc entity = new BillingONProc();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setCreator("TestCreator");
@@ -85,7 +85,7 @@ public class BillingONProcDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return null when entity not found by ID")
-    void shouldReturnNull_whenEntityNotFoundById() {
+    void shouldReturnNull_whenEntityNotFoundById() throws Exception {
         BillingONProc found = dao.find(99999);
 
         assertThat(found).isNull();
@@ -94,7 +94,7 @@ public class BillingONProcDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should count all persisted entities")
-    void shouldCountAllEntities_afterPersisting() {
+    void shouldCountAllEntities_afterPersisting() throws Exception {
         BillingONProc entity1 = new BillingONProc();
         EntityDataGenerator.generateTestDataForModelClass(entity1);
         dao.persist(entity1);

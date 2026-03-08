@@ -60,7 +60,7 @@ public class FaxClientLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist faxclientlog with generated ID")
-        void shouldPersistFaxClientLog_whenValidDataProvided() {
+        void shouldPersistFaxClientLog_whenValidDataProvided() throws Exception {
             FaxClientLog entity = new FaxClientLog();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             faxClientLogDao.persist(entity);
@@ -70,11 +70,11 @@ public class FaxClientLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find faxclientlog by ID")
-        void shouldFindFaxClientLog_whenValidIdProvided() {
+        void shouldFindFaxClientLog_whenValidIdProvided() throws Exception {
             FaxClientLog saved = new FaxClientLog();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             faxClientLogDao.persist(saved);
-            FaxClientLog found = dao.find(saved.getId());
+            FaxClientLog found = faxClientLogDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class FaxClientLogDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all faxclientlog records")
-        void shouldCountAllFaxClientLogs() {
+        void shouldCountAllFaxClientLogs() throws Exception {
             FaxClientLog entity = new FaxClientLog();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             faxClientLogDao.persist(entity);

@@ -52,7 +52,7 @@ public class TeleplanSubmissionLinkDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         TeleplanSubmissionLink entity = new TeleplanSubmissionLink();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setBillActivityId(100);
@@ -64,7 +64,7 @@ public class TeleplanSubmissionLinkDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find entity by ID with correct field values")
-    void shouldReturnEntity_whenValidIdProvided() {
+    void shouldReturnEntity_whenValidIdProvided() throws Exception {
         TeleplanSubmissionLink saved = new TeleplanSubmissionLink();
         EntityDataGenerator.generateTestDataForModelClass(saved);
         saved.setBillActivityId(555);
@@ -81,7 +81,7 @@ public class TeleplanSubmissionLinkDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return null when entity not found by ID")
-    void shouldReturnNull_whenEntityNotFound() {
+    void shouldReturnNull_whenEntityNotFound() throws Exception {
         TeleplanSubmissionLink found = dao.find(999999);
         assertThat(found).isNull();
     }
@@ -89,7 +89,7 @@ public class TeleplanSubmissionLinkDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("update")
     @DisplayName("should merge updated entity with new values")
-    void shouldMergeUpdatedEntity_whenFieldsChanged() {
+    void shouldMergeUpdatedEntity_whenFieldsChanged() throws Exception {
         TeleplanSubmissionLink entity = new TeleplanSubmissionLink();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setBillActivityId(100);

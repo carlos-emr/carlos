@@ -60,7 +60,7 @@ public class MeasurementTypeDeletedDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist measurementtypedeleted with generated ID")
-        void shouldPersistMeasurementTypeDeleted_whenValidDataProvided() {
+        void shouldPersistMeasurementTypeDeleted_whenValidDataProvided() throws Exception {
             MeasurementTypeDeleted entity = new MeasurementTypeDeleted();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementTypeDeletedDao.persist(entity);
@@ -70,11 +70,11 @@ public class MeasurementTypeDeletedDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find measurementtypedeleted by ID")
-        void shouldFindMeasurementTypeDeleted_whenValidIdProvided() {
+        void shouldFindMeasurementTypeDeleted_whenValidIdProvided() throws Exception {
             MeasurementTypeDeleted saved = new MeasurementTypeDeleted();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             measurementTypeDeletedDao.persist(saved);
-            MeasurementTypeDeleted found = dao.find(saved.getId());
+            MeasurementTypeDeleted found = measurementTypeDeletedDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class MeasurementTypeDeletedDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all measurementtypedeleted records")
-        void shouldCountAllMeasurementTypeDeleteds() {
+        void shouldCountAllMeasurementTypeDeleteds() throws Exception {
             MeasurementTypeDeleted entity = new MeasurementTypeDeleted();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             measurementTypeDeletedDao.persist(entity);

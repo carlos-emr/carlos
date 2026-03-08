@@ -56,7 +56,7 @@ public class PreventionsLotNrsDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private PreventionsLotNrsDao dao;
 
-    private PreventionsLotNrs createLotNr(String prevention, String lotNr, boolean deleted) {
+    private PreventionsLotNrs createLotNr(String prevention, String lotNr, boolean deleted) throws Exception {
         PreventionsLotNrs p = new PreventionsLotNrs();
         EntityDataGenerator.generateTestDataForModelClass(p);
         p.setLotNr(lotNr);
@@ -76,7 +76,7 @@ public class PreventionsLotNrsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return non-deleted lot numbers when querying for active records")
-        void shouldReturnNonDeletedLotNumbers_whenQueryingForActiveRecords() {
+        void shouldReturnNonDeletedLotNumbers_whenQueryingForActiveRecords() throws Exception {
             // Given
             PreventionsLotNrs p1 = createLotNr("Flu", "abcdef1", false);
             PreventionsLotNrs p2 = createLotNr("Flu", "abcdef2", false);
@@ -93,7 +93,7 @@ public class PreventionsLotNrsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when querying for deleted records that do not exist")
-        void shouldReturnEmptyList_whenQueryingForDeletedRecordsThatDoNotExist() {
+        void shouldReturnEmptyList_whenQueryingForDeletedRecordsThatDoNotExist() throws Exception {
             // Given
             createLotNr("Flu", "abcdef1", false);
             createLotNr("Flu", "abcdef2", false);
@@ -113,7 +113,7 @@ public class PreventionsLotNrsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return deleted lot number when searching by prevention type and lot number")
-        void shouldReturnDeletedLotNumber_whenSearchingByPreventionTypeAndLotNumber() {
+        void shouldReturnDeletedLotNumber_whenSearchingByPreventionTypeAndLotNumber() throws Exception {
             // Given
             createLotNr("Flu", "abcdef1", false);
             createLotNr("Flu", "abcdef2", false);
@@ -135,7 +135,7 @@ public class PreventionsLotNrsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return all lot number strings for prevention type regardless of deletion status")
-        void shouldReturnAllLotNumberStrings_forPreventionTypeRegardlessOfDeletionStatus() {
+        void shouldReturnAllLotNumberStrings_forPreventionTypeRegardlessOfDeletionStatus() throws Exception {
             // Given
             createLotNr("Flu", "abcdef1", false);
             createLotNr("Flu", "abcdef2", false);
@@ -157,7 +157,7 @@ public class PreventionsLotNrsDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return all records within page bounds for prevention type")
-        void shouldReturnAllRecords_withinPageBoundsForPreventionType() {
+        void shouldReturnAllRecords_withinPageBoundsForPreventionType() throws Exception {
             // Given
             createLotNr("Flu", "abcdef1", false);
             createLotNr("Flu", "abcdef2", false);

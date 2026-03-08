@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -54,11 +55,10 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private CtlDocumentDao ctlDocumentDao;
 
-    private CtlDocument createCtlDocument(int documentNo, String module, String docType, String status) {
+    private CtlDocument createCtlDocument(int documentNo, String module, String status) {
         CtlDocument doc = new CtlDocument();
-        doc.getCtlDocumentPK().setDocumentNo(documentNo);
-        doc.getCtlDocumentPK().setModule(module);
-        doc.setDocType(docType);
+        doc.getId().setDocumentNo(documentNo);
+        doc.getId().setModule(module);
         doc.setStatus(status);
         ctlDocumentDao.persist(doc);
         return doc;
@@ -72,10 +72,10 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
         @Tag("create")
         @DisplayName("should persist control document")
         void shouldPersistCtlDocument_whenValidDataProvided() {
-            CtlDocument doc = createCtlDocument(10001, "demographic", "Lab Report", "A");
-            CtlDocument found = ctlDocumentDao.find(doc.getCtlDocumentPK());
+            CtlDocument doc = createCtlDocument(10001, "demographic", "A");
+            CtlDocument found = ctlDocumentDao.find(doc.getId());
             assertThat(found).isNotNull();
-            assertThat(found.getDocType()).isEqualTo("Lab Report");
+            assertThat(found.getStatus()).isEqualTo("A");
         }
     }
 
@@ -85,9 +85,9 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
 
         @BeforeEach
         void setUp() {
-            createCtlDocument(20001, "demographic", "Consult", "A");
-            createCtlDocument(20002, "demographic", "Lab", "A");
-            createCtlDocument(20003, "encounter", "Note", "A");
+            createCtlDocument(20001, "demographic", "A");
+            createCtlDocument(20002, "demographic", "A");
+            createCtlDocument(20003, "encounter", "A");
         }
 
         @Test
@@ -96,7 +96,7 @@ public class CtlDocumentDaoIntegrationTest extends CarlosTestBase {
         void shouldFindDocuments_byDocumentNoAndModule() {
             List<CtlDocument> results = ctlDocumentDao.findByDocumentNoAndModule(20001, "demographic");
             assertThat(results).hasSize(1);
-            assertThat(results.get(0).getDocType()).isEqualTo("Consult");
+            assertThat(results.get(0).getStatus()).isEqualTo("A");
         }
 
         @Test

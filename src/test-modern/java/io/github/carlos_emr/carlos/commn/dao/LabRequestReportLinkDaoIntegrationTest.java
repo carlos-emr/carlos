@@ -61,7 +61,7 @@ public class LabRequestReportLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist lab request report link with generated ID")
-        void shouldPersistLabRequestReportLink_whenValidDataProvided() {
+        void shouldPersistLabRequestReportLink_whenValidDataProvided() throws Exception {
             LabRequestReportLink entity = new LabRequestReportLink();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -77,7 +77,7 @@ public class LabRequestReportLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("search")
         @DisplayName("should return links matching report table and report ID")
-        void shouldReturnLinks_whenReportTableAndIdMatch() {
+        void shouldReturnLinks_whenReportTableAndIdMatch() throws Exception {
             String reportTable1 = "alpha", reportTable2 = "bravo";
             int reportId1 = 101, reportId2 = 202;
 
@@ -131,7 +131,7 @@ public class LabRequestReportLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("search")
         @DisplayName("should return links matching request table and request ID")
-        void shouldReturnLinks_whenRequestTableAndIdMatch() {
+        void shouldReturnLinks_whenRequestTableAndIdMatch() throws Exception {
             String requestTable1 = "alpha", requestTable2 = "bravo";
             int requestId1 = 101, requestId2 = 202;
 

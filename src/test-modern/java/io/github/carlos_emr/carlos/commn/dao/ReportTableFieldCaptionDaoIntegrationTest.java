@@ -55,7 +55,7 @@ public class ReportTableFieldCaptionDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist report table field caption with generated ID")
-    void shouldPersistReportTableFieldCaption_whenValidDataProvided() {
+    void shouldPersistReportTableFieldCaption_whenValidDataProvided() throws Exception {
         ReportTableFieldCaption entity = new ReportTableFieldCaption();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -66,7 +66,7 @@ public class ReportTableFieldCaptionDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return matching captions when filtered by table name and name")
-    void shouldReturnMatchingCaptions_whenFilteredByTableNameAndName() {
+    void shouldReturnMatchingCaptions_whenFilteredByTableNameAndName() throws Exception {
         String tableName1 = "table1", tableName2 = "table2";
         String name1 = "alpha", name2 = "bravo";
 

@@ -66,7 +66,7 @@ public class RScheduleDaoIntegrationTest extends CarlosTestBase {
     private RSchedule createRSchedule(String providerNo, Date sdate, String available, String dayOfWeek) {
         RSchedule rs = new RSchedule();
         rs.setProviderNo(providerNo);
-        rs.setSdate(sdate);
+        rs.setsDate(sdate);
         rs.setAvailable(available);
         rs.setDayOfWeek(dayOfWeek);
         rScheduleDao.persist(rs);

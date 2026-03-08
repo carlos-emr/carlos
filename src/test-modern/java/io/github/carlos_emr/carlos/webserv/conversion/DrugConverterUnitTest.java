@@ -339,7 +339,7 @@ class DrugConverterUnitTest {
         }
 
         @Override
-        public Boolean populateDrugStrength(Drug d, DrugTo1 t) {
+        public boolean populateDrugStrength(Drug d, DrugTo1 t) {
             return super.populateDrugStrength(d, t);
         }
 

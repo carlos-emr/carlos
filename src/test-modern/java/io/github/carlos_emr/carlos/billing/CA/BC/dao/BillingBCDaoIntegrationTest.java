@@ -56,7 +56,7 @@ public class BillingBCDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private BillingBCDao dao;
 
-    @PersistenceContext(unitName = "testPersistenceUnit")
+    @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
     @Nested

@@ -664,7 +664,7 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @Override
-        public void persist(Drug d) {
+        public void persist(AbstractModel<?> o) {
         }
 
         @Override

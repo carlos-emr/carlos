@@ -63,7 +63,7 @@ public class Hl7LinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with explicitly set ID")
-        void shouldPersistEntity_whenValidDataProvided() {
+        void shouldPersistEntity_whenValidDataProvided() throws Exception {
             Hl7Link entity = new Hl7Link();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setId(1);
@@ -83,7 +83,7 @@ public class Hl7LinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenInvalidIdProvided() {
+        void shouldReturnNull_whenInvalidIdProvided() throws Exception {
             Hl7Link found = dao.find(-999);
             assertThat(found).isNull();
         }
@@ -96,7 +96,7 @@ public class Hl7LinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no linked labs exist")
-        void shouldReturnEmptyList_whenNoLinkedLabsExist() {
+        void shouldReturnEmptyList_whenNoLinkedLabsExist() throws Exception {
             List<Object[]> results = dao.findLabs();
             assertThat(results).isEmpty();
         }
@@ -109,7 +109,7 @@ public class Hl7LinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no magic links exist")
-        void shouldReturnEmptyList_whenNoMagicLinksExist() {
+        void shouldReturnEmptyList_whenNoMagicLinksExist() throws Exception {
             List<Object[]> results = dao.findMagicLinks();
             assertThat(results).isEmpty();
         }
@@ -122,7 +122,7 @@ public class Hl7LinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no links exist for demographic")
-        void shouldReturnEmptyList_whenNoDemographicMatches() {
+        void shouldReturnEmptyList_whenNoDemographicMatches() throws Exception {
             List<Object[]> results = dao.findLinksAndRequestDates(-999);
             assertThat(results).isEmpty();
         }
@@ -135,7 +135,7 @@ public class Hl7LinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when command is null")
-        void shouldReturnEmptyList_whenCommandIsNull() {
+        void shouldReturnEmptyList_whenCommandIsNull() throws Exception {
             List<Object[]> results = dao.findReports(new Date(), new Date(), "-ULL", "patient_name", null);
             assertThat(results).isEmpty();
         }
@@ -143,7 +143,7 @@ public class Hl7LinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when command is empty string")
-        void shouldReturnEmptyList_whenCommandIsEmpty() {
+        void shouldReturnEmptyList_whenCommandIsEmpty() throws Exception {
             List<Object[]> results = dao.findReports(new Date(), new Date(), "-APL", "patient_name", "");
             assertThat(results).isEmpty();
         }

@@ -63,7 +63,7 @@ public class MeasurementGroupStyleDaoIntegrationTest extends CarlosTestBase {
         @Disabled("Skipping until issue is resolved - mirrors legacy @Ignore")
         @Tag("read")
         @DisplayName("should return all persisted measurement group styles")
-        void shouldReturnAllStyles_whenMultipleExist() {
+        void shouldReturnAllStyles_whenMultipleExist() throws Exception {
             MeasurementGroupStyle mgs1 = new MeasurementGroupStyle();
             EntityDataGenerator.generateTestDataForModelClass(mgs1);
             dao.persist(mgs1);
@@ -90,7 +90,7 @@ public class MeasurementGroupStyleDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("search")
         @DisplayName("should return styles matching the given group name")
-        void shouldReturnStyles_whenGroupNameMatches() {
+        void shouldReturnStyles_whenGroupNameMatches() throws Exception {
             String groupName1 = "alpha";
             String groupName2 = "bravo";
 
@@ -128,7 +128,7 @@ public class MeasurementGroupStyleDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("search")
         @DisplayName("should return styles matching the given CSS ID")
-        void shouldReturnStyles_whenCssIdMatches() {
+        void shouldReturnStyles_whenCssIdMatches() throws Exception {
             int cssId1 = 101;
             int cssId2 = 202;
 

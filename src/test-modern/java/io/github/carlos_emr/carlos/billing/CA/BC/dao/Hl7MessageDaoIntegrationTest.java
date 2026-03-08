@@ -54,7 +54,7 @@ public class Hl7MessageDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private Hl7MessageDao hl7MessageDao;
 
-    @PersistenceContext(unitName = "testPersistenceUnit")
+    @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
     @Nested
@@ -64,7 +64,7 @@ public class Hl7MessageDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             Hl7Message entity = new Hl7Message();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setNotes("Test HL7 message");
@@ -76,7 +76,7 @@ public class Hl7MessageDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with matching field values")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             Hl7Message saved = new Hl7Message();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             saved.setNotes("Important message");
@@ -93,7 +93,7 @@ public class Hl7MessageDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenInvalidIdProvided() {
+        void shouldReturnNull_whenInvalidIdProvided() throws Exception {
             Hl7Message found = hl7MessageDao.find(-999);
             assertThat(found).isNull();
         }
@@ -106,7 +106,7 @@ public class Hl7MessageDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no routing matches demographic and lab type")
-        void shouldReturnEmptyList_whenNoMatchExists() {
+        void shouldReturnEmptyList_whenNoMatchExists() throws Exception {
             List<Object[]> results = hl7MessageDao.findByDemographicAndLabType(-999, "NONEXISTENT");
             assertThat(results).isEmpty();
         }
@@ -114,7 +114,7 @@ public class Hl7MessageDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return messages matching demographic and lab type via patient lab routing")
-        void shouldReturnMessages_whenRoutingMatchesDemographicAndLabType() {
+        void shouldReturnMessages_whenRoutingMatchesDemographicAndLabType() throws Exception {
             Hl7Message msg1 = new Hl7Message();
             EntityDataGenerator.generateTestDataForModelClass(msg1);
             msg1.setNotes("Lab Result A");
@@ -163,7 +163,7 @@ public class Hl7MessageDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should not return messages for different lab type")
-        void shouldNotReturnMessages_whenLabTypeDiffers() {
+        void shouldNotReturnMessages_whenLabTypeDiffers() throws Exception {
             Hl7Message msg = new Hl7Message();
             EntityDataGenerator.generateTestDataForModelClass(msg);
             msg.setNotes("CML Lab");

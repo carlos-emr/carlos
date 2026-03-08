@@ -55,7 +55,7 @@ public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private QueueDocumentLinkDao dao;
 
-    private QueueDocumentLink createLink() {
+    private QueueDocumentLink createLink() throws Exception {
         QueueDocumentLink qdl = new QueueDocumentLink();
         EntityDataGenerator.generateTestDataForModelClass(qdl);
         dao.persist(qdl);
@@ -69,7 +69,7 @@ public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist queue document link with generated ID")
-        void shouldPersistQueueDocumentLink_whenValidDataProvided() {
+        void shouldPersistQueueDocumentLink_whenValidDataProvided() throws Exception {
             QueueDocumentLink entity = new QueueDocumentLink();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -85,7 +85,7 @@ public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return all queue document links")
-        void shouldReturnAllLinks_whenGetQueueDocLinksCalled() {
+        void shouldReturnAllLinks_whenGetQueueDocLinksCalled() throws Exception {
             QueueDocumentLink qdl1 = createLink();
             QueueDocumentLink qdl2 = createLink();
             QueueDocumentLink qdl3 = createLink();
@@ -103,7 +103,7 @@ public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return only active queue document links")
-        void shouldReturnActiveLinks_whenGetActiveQueueDocLinkCalled() {
+        void shouldReturnActiveLinks_whenGetActiveQueueDocLinkCalled() throws Exception {
             QueueDocumentLink qdl1 = new QueueDocumentLink();
             EntityDataGenerator.generateTestDataForModelClass(qdl1);
             qdl1.setStatus("A");
@@ -133,7 +133,7 @@ public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find queue links by document ID")
-        void shouldFindLinks_byDocumentId() {
+        void shouldFindLinks_byDocumentId() throws Exception {
             QueueDocumentLink qdl1 = new QueueDocumentLink();
             EntityDataGenerator.generateTestDataForModelClass(qdl1);
             qdl1.setDocId(111);
@@ -165,7 +165,7 @@ public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find document links by queue ID")
-        void shouldFindLinks_byQueueId() {
+        void shouldFindLinks_byQueueId() throws Exception {
             QueueDocumentLink qdl1 = new QueueDocumentLink();
             EntityDataGenerator.generateTestDataForModelClass(qdl1);
             qdl1.setQueueId(111);
@@ -197,7 +197,7 @@ public class QueueDocumentLinkDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return true when queue has been linked with document")
-        void shouldReturnTrue_whenQueueLinkedWithDocument() {
+        void shouldReturnTrue_whenQueueLinkedWithDocument() throws Exception {
             QueueDocumentLink qdl1 = new QueueDocumentLink();
             EntityDataGenerator.generateTestDataForModelClass(qdl1);
             qdl1.setDocId(101);

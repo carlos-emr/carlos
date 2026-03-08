@@ -60,7 +60,7 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist lookuplistitem with generated ID")
-        void shouldPersistLookupListItem_whenValidDataProvided() {
+        void shouldPersistLookupListItem_whenValidDataProvided() throws Exception {
             LookupListItem entity = new LookupListItem();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             lookupListItemDao.persist(entity);
@@ -70,11 +70,11 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find lookuplistitem by ID")
-        void shouldFindLookupListItem_whenValidIdProvided() {
+        void shouldFindLookupListItem_whenValidIdProvided() throws Exception {
             LookupListItem saved = new LookupListItem();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             lookupListItemDao.persist(saved);
-            LookupListItem found = dao.find(saved.getId());
+            LookupListItem found = lookupListItemDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class LookupListItemDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all records")
-        void shouldCountAllRecords() {
+        void shouldCountAllRecords() throws Exception {
             LookupListItem entity = new LookupListItem();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             lookupListItemDao.persist(entity);

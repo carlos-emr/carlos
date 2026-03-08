@@ -56,7 +56,7 @@ public class BillingONFilenameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         BillingONFilename entity = new BillingONFilename();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -66,7 +66,7 @@ public class BillingONFilenameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find all filenames by disk ID")
-    void shouldFindByDiskId_whenMatchingRecordsExist() {
+    void shouldFindByDiskId_whenMatchingRecordsExist() throws Exception {
         BillingONFilename f1 = new BillingONFilename();
         EntityDataGenerator.generateTestDataForModelClass(f1);
         f1.setDiskId(100);
@@ -95,7 +95,7 @@ public class BillingONFilenameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find filenames by disk ID and status")
-    void shouldFindByDiskIdAndStatus_whenMatchingRecordsExist() {
+    void shouldFindByDiskIdAndStatus_whenMatchingRecordsExist() throws Exception {
         BillingONFilename active = new BillingONFilename();
         EntityDataGenerator.generateTestDataForModelClass(active);
         active.setDiskId(200);
@@ -118,7 +118,7 @@ public class BillingONFilenameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find filenames by disk ID and provider")
-    void shouldFindByDiskIdAndProvider_whenMatchingRecordsExist() {
+    void shouldFindByDiskIdAndProvider_whenMatchingRecordsExist() throws Exception {
         BillingONFilename match = new BillingONFilename();
         EntityDataGenerator.generateTestDataForModelClass(match);
         match.setDiskId(300);
@@ -141,7 +141,7 @@ public class BillingONFilenameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find current (non-deleted) filenames by disk ID")
-    void shouldFindCurrentByDiskId_whenMixOfDeletedAndActiveExist() {
+    void shouldFindCurrentByDiskId_whenMixOfDeletedAndActiveExist() throws Exception {
         BillingONFilename active = new BillingONFilename();
         EntityDataGenerator.generateTestDataForModelClass(active);
         active.setDiskId(400);
@@ -173,7 +173,7 @@ public class BillingONFilenameDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when no filenames match disk ID")
-    void shouldReturnEmptyList_whenNoFilenamesMatchDiskId() {
+    void shouldReturnEmptyList_whenNoFilenamesMatchDiskId() throws Exception {
         BillingONFilename entity = new BillingONFilename();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setDiskId(500);

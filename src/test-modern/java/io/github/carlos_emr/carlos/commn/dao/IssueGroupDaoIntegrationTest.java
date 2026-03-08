@@ -60,7 +60,7 @@ public class IssueGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist issuegroup with generated ID")
-        void shouldPersistIssueGroup_whenValidDataProvided() {
+        void shouldPersistIssueGroup_whenValidDataProvided() throws Exception {
             IssueGroup entity = new IssueGroup();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             issueGroupDao.persist(entity);
@@ -70,11 +70,11 @@ public class IssueGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find issuegroup by ID")
-        void shouldFindIssueGroup_whenValidIdProvided() {
+        void shouldFindIssueGroup_whenValidIdProvided() throws Exception {
             IssueGroup saved = new IssueGroup();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             issueGroupDao.persist(saved);
-            IssueGroup found = dao.find(saved.getId());
+            IssueGroup found = issueGroupDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class IssueGroupDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all issuegroup records")
-        void shouldCountAllIssueGroups() {
+        void shouldCountAllIssueGroups() throws Exception {
             IssueGroup entity = new IssueGroup();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             issueGroupDao.persist(entity);

@@ -60,7 +60,7 @@ public class SpecialistsJavascriptDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist specialistsjavascript with generated ID")
-        void shouldPersistSpecialistsJavascript_whenValidDataProvided() {
+        void shouldPersistSpecialistsJavascript_whenValidDataProvided() throws Exception {
             SpecialistsJavascript entity = new SpecialistsJavascript();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             specialistsJavascriptDao.persist(entity);
@@ -70,11 +70,11 @@ public class SpecialistsJavascriptDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find specialistsjavascript by ID")
-        void shouldFindSpecialistsJavascript_whenValidIdProvided() {
+        void shouldFindSpecialistsJavascript_whenValidIdProvided() throws Exception {
             SpecialistsJavascript saved = new SpecialistsJavascript();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             specialistsJavascriptDao.persist(saved);
-            SpecialistsJavascript found = dao.find(saved.getId());
+            SpecialistsJavascript found = specialistsJavascriptDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class SpecialistsJavascriptDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all specialistsjavascript records")
-        void shouldCountAllSpecialistsJavascripts() {
+        void shouldCountAllSpecialistsJavascripts() throws Exception {
             SpecialistsJavascript entity = new SpecialistsJavascript();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             specialistsJavascriptDao.persist(entity);

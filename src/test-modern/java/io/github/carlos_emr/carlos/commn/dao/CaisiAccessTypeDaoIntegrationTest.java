@@ -60,7 +60,7 @@ public class CaisiAccessTypeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist caisiaccesstype with generated ID")
-        void shouldPersistCaisiAccessType_whenValidDataProvided() {
+        void shouldPersistCaisiAccessType_whenValidDataProvided() throws Exception {
             CaisiAccessType entity = new CaisiAccessType();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             caisiAccessTypeDao.persist(entity);
@@ -70,11 +70,11 @@ public class CaisiAccessTypeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find caisiaccesstype by ID")
-        void shouldFindCaisiAccessType_whenValidIdProvided() {
+        void shouldFindCaisiAccessType_whenValidIdProvided() throws Exception {
             CaisiAccessType saved = new CaisiAccessType();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             caisiAccessTypeDao.persist(saved);
-            CaisiAccessType found = dao.find(saved.getId());
+            CaisiAccessType found = caisiAccessTypeDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class CaisiAccessTypeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all caisiaccesstype records")
-        void shouldCountAllCaisiAccessTypes() {
+        void shouldCountAllCaisiAccessTypes() throws Exception {
             CaisiAccessType entity = new CaisiAccessType();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             caisiAccessTypeDao.persist(entity);

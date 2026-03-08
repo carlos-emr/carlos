@@ -60,7 +60,7 @@ public class EpisodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist episode with generated ID")
-        void shouldPersistEpisode_whenValidDataProvided() {
+        void shouldPersistEpisode_whenValidDataProvided() throws Exception {
             Episode entity = new Episode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             episodeDao.persist(entity);
@@ -70,11 +70,11 @@ public class EpisodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find episode by ID")
-        void shouldFindEpisode_whenValidIdProvided() {
+        void shouldFindEpisode_whenValidIdProvided() throws Exception {
             Episode saved = new Episode();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             episodeDao.persist(saved);
-            Episode found = dao.find(saved.getId());
+            Episode found = episodeDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class EpisodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all episode records")
-        void shouldCountAllEpisodes() {
+        void shouldCountAllEpisodes() throws Exception {
             Episode entity = new Episode();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             episodeDao.persist(entity);

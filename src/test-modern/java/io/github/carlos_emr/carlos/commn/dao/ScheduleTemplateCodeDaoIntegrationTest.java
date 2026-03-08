@@ -55,7 +55,7 @@ public class ScheduleTemplateCodeDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ScheduleTemplateCodeDao dao;
 
-    private ScheduleTemplateCode createCode(char code) {
+    private ScheduleTemplateCode createCode(char code) throws Exception {
         ScheduleTemplateCode entity = new ScheduleTemplateCode();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setCode(code);
@@ -67,7 +67,7 @@ public class ScheduleTemplateCodeDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist schedule template code with generated ID")
-    void shouldPersistScheduleTemplateCode_whenValidDataProvided() {
+    void shouldPersistScheduleTemplateCode_whenValidDataProvided() throws Exception {
         // Given
         ScheduleTemplateCode entity = new ScheduleTemplateCode();
         EntityDataGenerator.generateTestDataForModelClass(entity);
@@ -88,7 +88,7 @@ public class ScheduleTemplateCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return all persisted schedule template codes")
-        void shouldReturnAllPersistedScheduleTemplateCodes_afterPersist() {
+        void shouldReturnAllPersistedScheduleTemplateCodes_afterPersist() throws Exception {
             // Given
             ScheduleTemplateCode code1 = createCode('x');
             ScheduleTemplateCode code2 = createCode('y');
@@ -111,7 +111,7 @@ public class ScheduleTemplateCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return matching template code when searching by char code")
-        void shouldReturnMatchingTemplateCode_whenSearchingByCharCode() {
+        void shouldReturnMatchingTemplateCode_whenSearchingByCharCode() throws Exception {
             // Given
             createCode('s');
             ScheduleTemplateCode expected = createCode('a');
@@ -133,7 +133,7 @@ public class ScheduleTemplateCodeDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return matching template code when searching by string code")
-        void shouldReturnMatchingTemplateCode_whenSearchingByStringCode() {
+        void shouldReturnMatchingTemplateCode_whenSearchingByStringCode() throws Exception {
             // Given
             createCode('a');
             ScheduleTemplateCode expected = createCode('b');

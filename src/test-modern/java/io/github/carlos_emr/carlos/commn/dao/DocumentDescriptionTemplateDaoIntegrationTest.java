@@ -63,7 +63,7 @@ public class DocumentDescriptionTemplateDaoIntegrationTest extends CarlosTestBas
 
         @Test
         @DisplayName("should persist entity with generated id")
-        void shouldPersistEntity_withGeneratedId() {
+        void shouldPersistEntity_withGeneratedId() throws Exception {
             DocumentDescriptionTemplate entity = new DocumentDescriptionTemplate();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -78,7 +78,7 @@ public class DocumentDescriptionTemplateDaoIntegrationTest extends CarlosTestBas
 
         @Test
         @DisplayName("should return correct entity when found by id")
-        void shouldReturnCorrectEntity_whenFoundById() {
+        void shouldReturnCorrectEntity_whenFoundById() throws Exception {
             DocumentDescriptionTemplate ddt1 = new DocumentDescriptionTemplate();
             EntityDataGenerator.generateTestDataForModelClass(ddt1);
             ddt1.setDescription("alpha");
@@ -114,7 +114,7 @@ public class DocumentDescriptionTemplateDaoIntegrationTest extends CarlosTestBas
 
         @Test
         @DisplayName("should return matching templates when docType and providerNo match")
-        void shouldReturnMatchingTemplates_whenDocTypeAndProviderNoMatch() {
+        void shouldReturnMatchingTemplates_whenDocTypeAndProviderNoMatch() throws Exception {
             String docType = "mylab";
             String providerNo = "123456";
 

@@ -56,7 +56,7 @@ public class ProgramDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ProgramDao dao;
 
-    @PersistenceContext(unitName = "testPersistenceUnit")
+    @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
     private static final AtomicInteger ID_COUNTER = new AtomicInteger(90000);

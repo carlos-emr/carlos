@@ -71,7 +71,7 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
          */
         @Test
         @DisplayName("should return first persisted form as latest for facility and client")
-        void shouldReturnLatestForm_forFacilityAndClient() {
+        void shouldReturnLatestForm_forFacilityAndClient() throws Exception {
             int facilityId = 101;
             int clientId = 109;
 
@@ -101,7 +101,7 @@ public class CdsClientFormDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @DisplayName("should return all forms for matching facility and client")
-        void shouldReturnAllForms_forMatchingFacilityAndClient() {
+        void shouldReturnAllForms_forMatchingFacilityAndClient() throws Exception {
             int facilityId = 101;
             int clientId = 109;
 

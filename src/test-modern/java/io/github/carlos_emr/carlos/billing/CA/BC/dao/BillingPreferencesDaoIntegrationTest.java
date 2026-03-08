@@ -56,7 +56,7 @@ public class BillingPreferencesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             BillingPreference entity = new BillingPreference();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setProviderNo("100001");
@@ -67,7 +67,7 @@ public class BillingPreferencesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with matching field values")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             BillingPreference saved = new BillingPreference();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             saved.setProviderNo("200001");
@@ -85,7 +85,7 @@ public class BillingPreferencesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenInvalidIdProvided() {
+        void shouldReturnNull_whenInvalidIdProvided() throws Exception {
             BillingPreference found = billingPreferencesDAO.find(-999);
             assertThat(found).isNull();
         }
@@ -98,7 +98,7 @@ public class BillingPreferencesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return preference for matching provider number")
-        void shouldReturnPreference_whenProviderNoMatches() {
+        void shouldReturnPreference_whenProviderNoMatches() throws Exception {
             BillingPreference pref = new BillingPreference();
             EntityDataGenerator.generateTestDataForModelClass(pref);
             pref.setProviderNo("300001");
@@ -117,7 +117,7 @@ public class BillingPreferencesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when no preference exists for provider number")
-        void shouldReturnNull_whenNoPreferenceExists() {
+        void shouldReturnNull_whenNoPreferenceExists() throws Exception {
             BillingPreference found = billingPreferencesDAO.getUserBillingPreference("NONEXISTENT");
             assertThat(found).isNull();
         }
@@ -125,7 +125,7 @@ public class BillingPreferencesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return correct preference when multiple providers have preferences")
-        void shouldReturnCorrectPreference_whenMultipleProvidersExist() {
+        void shouldReturnCorrectPreference_whenMultipleProvidersExist() throws Exception {
             BillingPreference pref1 = new BillingPreference();
             EntityDataGenerator.generateTestDataForModelClass(pref1);
             pref1.setProviderNo("400001");

@@ -61,7 +61,7 @@ public class JointAdmissionDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist joint admission with generated ID")
-        void shouldPersistJointAdmission_whenValidDataProvided() {
+        void shouldPersistJointAdmission_whenValidDataProvided() throws Exception {
             JointAdmission entity = new JointAdmission();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -77,7 +77,7 @@ public class JointAdmissionDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return non-archived dependents for the head client")
-        void shouldReturnNonArchivedDependents_forHeadClient() {
+        void shouldReturnNonArchivedDependents_forHeadClient() throws Exception {
             int headClientId1 = 101, headClientId2 = 202;
 
             JointAdmission ja1 = new JointAdmission();
@@ -124,7 +124,7 @@ public class JointAdmissionDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return first non-archived joint admission for the client")
-        void shouldReturnNonArchivedAdmission_forClientId() {
+        void shouldReturnNonArchivedAdmission_forClientId() throws Exception {
             int clientId1 = 101, clientId2 = 202;
 
             JointAdmission ja1 = new JointAdmission();

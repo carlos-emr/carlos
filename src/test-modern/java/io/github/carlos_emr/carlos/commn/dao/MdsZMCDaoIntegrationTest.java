@@ -60,7 +60,7 @@ public class MdsZMCDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist mdszmc with generated ID")
-        void shouldPersistMdsZMC_whenValidDataProvided() {
+        void shouldPersistMdsZMC_whenValidDataProvided() throws Exception {
             MdsZMC entity = new MdsZMC();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsZMCDao.persist(entity);
@@ -70,11 +70,11 @@ public class MdsZMCDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find mdszmc by ID")
-        void shouldFindMdsZMC_whenValidIdProvided() {
+        void shouldFindMdsZMC_whenValidIdProvided() throws Exception {
             MdsZMC saved = new MdsZMC();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             mdsZMCDao.persist(saved);
-            MdsZMC found = dao.find(saved.getId());
+            MdsZMC found = mdsZMCDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class MdsZMCDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all mdszmc records")
-        void shouldCountAllMdsZMCs() {
+        void shouldCountAllMdsZMCs() throws Exception {
             MdsZMC entity = new MdsZMC();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             mdsZMCDao.persist(entity);

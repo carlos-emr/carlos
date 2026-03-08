@@ -54,7 +54,7 @@ public class BillingInrDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private BillingInrDao dao;
 
-    private BillingInr createEntity(String providerNo, String status) {
+    private BillingInr createEntity(String providerNo, String status) throws Exception {
         BillingInr entity = new BillingInr();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setProviderNo(providerNo);
@@ -65,7 +65,7 @@ public class BillingInrDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         BillingInr entity = new BillingInr();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -75,7 +75,7 @@ public class BillingInrDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find entity by ID with correct field values")
-    void shouldReturnEntity_whenValidIdProvided() {
+    void shouldReturnEntity_whenValidIdProvided() throws Exception {
         BillingInr saved = createEntity("DR001", "A");
         saved.setServiceCode("SVC01");
         saved.setBillingAmount("100.00");
@@ -93,7 +93,7 @@ public class BillingInrDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should find current billing INR records by provider number")
-    void shouldReturnCurrentRecords_byProviderNo() {
+    void shouldReturnCurrentRecords_byProviderNo() throws Exception {
         BillingInr active1 = createEntity("DR100", "A");
         BillingInr active2 = createEntity("DR100", "B");
         BillingInr deleted = createEntity("DR100", "D");
@@ -115,7 +115,7 @@ public class BillingInrDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should exclude deleted records from current provider results")
-    void shouldExcludeDeletedRecords_whenFindingCurrentByProvider() {
+    void shouldExcludeDeletedRecords_whenFindingCurrentByProvider() throws Exception {
         BillingInr deleted = createEntity("DR300", "D");
         dao.persist(deleted);
 
@@ -126,7 +126,7 @@ public class BillingInrDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return empty list when provider number not found")
-    void shouldReturnEmptyList_whenProviderNoNotFound() {
+    void shouldReturnEmptyList_whenProviderNoNotFound() throws Exception {
         BillingInr entity = createEntity("DR100", "A");
         dao.persist(entity);
 
@@ -137,7 +137,7 @@ public class BillingInrDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should support LIKE matching on provider number")
-    void shouldSupportLikeMatching_byProviderNo() {
+    void shouldSupportLikeMatching_byProviderNo() throws Exception {
         BillingInr entity = createEntity("DR100", "A");
         dao.persist(entity);
 

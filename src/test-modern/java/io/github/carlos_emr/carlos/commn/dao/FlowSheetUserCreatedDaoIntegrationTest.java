@@ -55,7 +55,7 @@ public class FlowSheetUserCreatedDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist flow sheet user created with generated ID")
-    void shouldPersistFlowSheetUserCreated_whenValidDataProvided() {
+    void shouldPersistFlowSheetUserCreated_whenValidDataProvided() throws Exception {
         FlowSheetUserCreated entity = new FlowSheetUserCreated();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -66,7 +66,7 @@ public class FlowSheetUserCreatedDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return only non-archived flow sheets when getting all user created")
-    void shouldReturnNonArchivedFlowSheets_whenGettingAllUserCreated() {
+    void shouldReturnNonArchivedFlowSheets_whenGettingAllUserCreated() throws Exception {
         boolean isArchived = true;
 
         FlowSheetUserCreated flowSheetUserCreated1 = new FlowSheetUserCreated();

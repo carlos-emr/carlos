@@ -60,21 +60,21 @@ public class FunctionalCentreDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist functionalcentre with generated ID")
-        void shouldPersistFunctionalCentre_whenValidDataProvided() {
+        void shouldPersistFunctionalCentre_whenValidDataProvided() throws Exception {
             FunctionalCentre entity = new FunctionalCentre();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             functionalCentreDao.persist(entity);
-            assertThat(entity.getId()).isPositive();
+            assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
         @DisplayName("should find functionalcentre by ID")
-        void shouldFindFunctionalCentre_whenValidIdProvided() {
+        void shouldFindFunctionalCentre_whenValidIdProvided() throws Exception {
             FunctionalCentre saved = new FunctionalCentre();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             functionalCentreDao.persist(saved);
-            FunctionalCentre found = dao.find(saved.getId());
+            FunctionalCentre found = functionalCentreDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class FunctionalCentreDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all records")
-        void shouldCountAllRecords() {
+        void shouldCountAllRecords() throws Exception {
             FunctionalCentre entity = new FunctionalCentre();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             functionalCentreDao.persist(entity);

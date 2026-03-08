@@ -79,7 +79,8 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistAndFind_whenValidDataProvided() {
             CtlBillingService svc = createService("MFP", "Med Fee Prac", "A001", "GRP1", "Group One", "A");
 
-            CtlBillingService found = dao.find(svc.getId());
+            hibernateTemplate.flush();
+            CtlBillingService found = hibernateTemplate.get(CtlBillingService.class, svc.getId());
 
             assertThat(found).isNotNull();
             assertThat(found.getId()).isEqualTo(svc.getId());
@@ -95,10 +96,10 @@ public class CtlBillingServiceDaoIntegrationTest extends CarlosTestBase {
             Integer id = svc.getId();
 
             dao.remove(id);
-            entityManager.flush();
-            entityManager.clear();
+            hibernateTemplate.flush();
+            hibernateTemplate.clear();
 
-            CtlBillingService found = dao.find(id);
+            CtlBillingService found = hibernateTemplate.get(CtlBillingService.class, id);
             assertThat(found).isNull();
         }
     }

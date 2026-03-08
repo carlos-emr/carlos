@@ -60,21 +60,21 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist specialty with generated ID")
-        void shouldPersistSpecialty_whenValidDataProvided() {
+        void shouldPersistSpecialty_whenValidDataProvided() throws Exception {
             Specialty entity = new Specialty();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             specialtyDao.persist(entity);
-            assertThat(entity.getId()).isPositive();
+            assertThat(entity.getId()).isNotNull();
         }
 
         @Test
         @Tag("read")
         @DisplayName("should find specialty by ID")
-        void shouldFindSpecialty_whenValidIdProvided() {
+        void shouldFindSpecialty_whenValidIdProvided() throws Exception {
             Specialty saved = new Specialty();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             specialtyDao.persist(saved);
-            Specialty found = dao.find(saved.getId());
+            Specialty found = specialtyDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class SpecialtyDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all specialty records")
-        void shouldCountAllSpecialtys() {
+        void shouldCountAllSpecialtys() throws Exception {
             Specialty entity = new Specialty();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             specialtyDao.persist(entity);

@@ -54,7 +54,7 @@ public class DemographicArchiveDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private DemographicArchiveDao dao;
 
-    private DemographicArchive createArchive(int demoNo) {
+    private DemographicArchive createArchive(int demoNo) throws Exception {
         DemographicArchive entity = new DemographicArchive();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setDemographicNo(demoNo);
@@ -63,7 +63,7 @@ public class DemographicArchiveDaoIntegrationTest extends CarlosTestBase {
         return entity;
     }
 
-    private DemographicArchive createArchiveWithRosterStatus(int demoNo, String rosterStatus) {
+    private DemographicArchive createArchiveWithRosterStatus(int demoNo, String rosterStatus) throws Exception {
         DemographicArchive entity = new DemographicArchive();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setDemographicNo(demoNo);
@@ -76,7 +76,7 @@ public class DemographicArchiveDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist archive with generated ID")
-    void shouldPersistArchive_whenValidDataProvided() {
+    void shouldPersistArchive_whenValidDataProvided() throws Exception {
         DemographicArchive entity = new DemographicArchive();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -92,7 +92,7 @@ public class DemographicArchiveDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return archives matching demographic number")
-        void shouldReturnArchives_forMatchingDemographicNo() {
+        void shouldReturnArchives_forMatchingDemographicNo() throws Exception {
             int demoNo1 = 101;
             int demoNo2 = 202;
 
@@ -110,7 +110,7 @@ public class DemographicArchiveDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list for non-existent demographic")
-        void shouldReturnEmptyList_forNonExistentDemographic() {
+        void shouldReturnEmptyList_forNonExistentDemographic() throws Exception {
             List<DemographicArchive> result = dao.findByDemographicNo(99999);
 
             assertThat(result).isEmpty();
@@ -124,7 +124,7 @@ public class DemographicArchiveDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return deduplicated roster status history for demographic")
-        void shouldReturnDeduplicatedHistory_forDemographic() {
+        void shouldReturnDeduplicatedHistory_forDemographic() throws Exception {
             int demoNo1 = 101;
             int demoNo2 = 202;
 
@@ -147,7 +147,7 @@ public class DemographicArchiveDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list for demographic with no archives")
-        void shouldReturnEmptyList_forDemographicWithNoArchives() {
+        void shouldReturnEmptyList_forDemographicWithNoArchives() throws Exception {
             List<DemographicArchive> result = dao.findRosterStatusHistoryByDemographicNo(99999);
 
             assertThat(result).isEmpty();

@@ -54,7 +54,7 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
     /**
      * Helper to create a Favorite with specific provider number and name.
      */
-    private Favorite createFavorite(String providerNo, String name) {
+    private Favorite createFavorite(String providerNo, String name) throws Exception {
         Favorite entity = new Favorite();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setProviderNo(providerNo);
@@ -70,7 +70,7 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity and assign generated ID")
-        void shouldPersistEntity_withGeneratedId() {
+        void shouldPersistEntity_withGeneratedId() throws Exception {
             Favorite entity = new Favorite();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -86,7 +86,7 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find favorites by provider number")
-        void shouldFindFavorites_byProviderNo() {
+        void shouldFindFavorites_byProviderNo() throws Exception {
             createFavorite("P001", "Aspirin");
             createFavorite("P001", "Ibuprofen");
             createFavorite("P002", "Tylenol");
@@ -101,7 +101,7 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when provider has no favorites")
-        void shouldReturnEmptyList_whenProviderHasNoFavorites() {
+        void shouldReturnEmptyList_whenProviderHasNoFavorites() throws Exception {
             List<Favorite> result = dao.findByProviderNo("NONEXISTENT");
 
             assertThat(result).isEmpty();
@@ -110,7 +110,7 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find exact match with findByEverything")
-        void shouldFindExactMatch_withFindByEverything() {
+        void shouldFindExactMatch_withFindByEverything() throws Exception {
             Favorite fav = new Favorite();
             fav.setProviderNo("P100");
             fav.setName("TestFav");
@@ -146,7 +146,7 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null from findByEverything when no exact match")
-        void shouldReturnNull_whenNoExactMatchInFindByEverything() {
+        void shouldReturnNull_whenNoExactMatchInFindByEverything() throws Exception {
             Favorite found = dao.findByEverything(
                     "NONE", "NONE", "NONE", "NONE", "NONE",
                     0, 0, "NONE", "NONE", "NONE", "NONE", 0,

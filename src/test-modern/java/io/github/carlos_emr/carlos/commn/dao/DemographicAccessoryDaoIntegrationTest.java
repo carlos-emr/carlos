@@ -54,7 +54,7 @@ public class DemographicAccessoryDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         DemographicAccessory entity = new DemographicAccessory();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setDemographicNo(1);
@@ -67,7 +67,7 @@ public class DemographicAccessoryDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return count of one for demographic with single accessory")
-    void shouldReturnCountOfOne_forDemographicWithSingleAccessory() {
+    void shouldReturnCountOfOne_forDemographicWithSingleAccessory() throws Exception {
         DemographicAccessory entity = new DemographicAccessory();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         entity.setDemographicNo(100);
@@ -80,7 +80,7 @@ public class DemographicAccessoryDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return zero count for demographic with no accessories")
-    void shouldReturnZeroCount_forDemographicWithNoAccessories() {
+    void shouldReturnZeroCount_forDemographicWithNoAccessories() throws Exception {
         assertThat(dao.findCount(99999)).isEqualTo(0);
     }
 }

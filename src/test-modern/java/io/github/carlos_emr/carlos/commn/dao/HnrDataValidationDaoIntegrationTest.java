@@ -60,7 +60,7 @@ public class HnrDataValidationDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist hnrdatavalidation with generated ID")
-        void shouldPersistHnrDataValidation_whenValidDataProvided() {
+        void shouldPersistHnrDataValidation_whenValidDataProvided() throws Exception {
             HnrDataValidation entity = new HnrDataValidation();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hnrDataValidationDao.persist(entity);
@@ -70,11 +70,11 @@ public class HnrDataValidationDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find hnrdatavalidation by ID")
-        void shouldFindHnrDataValidation_whenValidIdProvided() {
+        void shouldFindHnrDataValidation_whenValidIdProvided() throws Exception {
             HnrDataValidation saved = new HnrDataValidation();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             hnrDataValidationDao.persist(saved);
-            HnrDataValidation found = dao.find(saved.getId());
+            HnrDataValidation found = hnrDataValidationDao.find(saved.getId());
             assertThat(found.getId()).isEqualTo(saved.getId());
         }
     }
@@ -86,7 +86,7 @@ public class HnrDataValidationDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all hnrdatavalidation records")
-        void shouldCountAllHnrDataValidations() {
+        void shouldCountAllHnrDataValidations() throws Exception {
             HnrDataValidation entity = new HnrDataValidation();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             hnrDataValidationDao.persist(entity);

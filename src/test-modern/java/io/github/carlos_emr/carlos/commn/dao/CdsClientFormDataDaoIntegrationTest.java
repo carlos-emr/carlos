@@ -56,7 +56,7 @@ public class CdsClientFormDataDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return form data matching clientFormId and question")
-    void shouldReturnMatchingData_whenSearchingByQuestion() {
+    void shouldReturnMatchingData_whenSearchingByQuestion() throws Exception {
         int cdsClientFormId = 10;
         String question = "Test question";
 
@@ -92,7 +92,7 @@ public class CdsClientFormDataDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return form data matching clientFormId and answer")
-    void shouldReturnMatchingData_whenSearchingByAnswer() {
+    void shouldReturnMatchingData_whenSearchingByAnswer() throws Exception {
         int cdsClientFormId = 10;
         String answer = "Test answer";
 

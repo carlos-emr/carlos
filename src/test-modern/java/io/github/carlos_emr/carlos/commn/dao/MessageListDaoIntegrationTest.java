@@ -54,7 +54,7 @@ public class MessageListDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private MessageListDao dao;
 
-    private MessageList createMessageList(String providerNo, long messageNo) {
+    private MessageList createMessageList(String providerNo, long messageNo) throws Exception {
         MessageList ml = new MessageList();
         EntityDataGenerator.generateTestDataForModelClass(ml);
         ml.setProviderNo(providerNo);
@@ -67,7 +67,7 @@ public class MessageListDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("query")
     @DisplayName("should return matching message lists when filtering by provider and message number")
-    void shouldReturnMatchingMessageLists_whenFilteringByProviderAndMessageNo() {
+    void shouldReturnMatchingMessageLists_whenFilteringByProviderAndMessageNo() throws Exception {
         // Given
         String providerNo1 = "111";
         String providerNo2 = "222";
@@ -91,7 +91,7 @@ public class MessageListDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("query")
     @DisplayName("should return empty list when no messages match provider and message number")
-    void shouldReturnEmptyList_whenNoMessagesMatchProviderAndMessageNo() {
+    void shouldReturnEmptyList_whenNoMessagesMatchProviderAndMessageNo() throws Exception {
         // Given
         createMessageList("111", 101L);
 

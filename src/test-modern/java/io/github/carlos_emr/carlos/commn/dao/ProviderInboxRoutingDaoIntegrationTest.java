@@ -58,7 +58,7 @@ public class ProviderInboxRoutingDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist provider inbox item with generated ID")
-    void shouldPersistProviderInboxItem_whenValidDataProvided() {
+    void shouldPersistProviderInboxItem_whenValidDataProvided() throws Exception {
         // Given
         ProviderInboxItem entity = new ProviderInboxItem();
         EntityDataGenerator.generateTestDataForModelClass(entity);
@@ -74,7 +74,7 @@ public class ProviderInboxRoutingDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should not throw PersistenceException when adding to provider inbox")
-    void shouldNotThrowPersistenceException_whenAddingToProviderInbox() {
+    void shouldNotThrowPersistenceException_whenAddingToProviderInbox() throws Exception {
         // When / Then - should not throw PersistenceException (JPA config issue)
         // Note: may throw other exceptions due to missing prerequisite data,
         // but PersistenceException indicates a JPA configuration problem

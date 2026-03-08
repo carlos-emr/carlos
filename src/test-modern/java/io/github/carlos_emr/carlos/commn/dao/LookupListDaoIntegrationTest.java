@@ -60,7 +60,7 @@ public class LookupListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist lookup list with generated ID")
-        void shouldPersistLookupList_whenValidDataProvided() {
+        void shouldPersistLookupList_whenValidDataProvided() throws Exception {
             LookupList entity = new LookupList();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             dao.persist(entity);
@@ -76,7 +76,7 @@ public class LookupListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return only active lookup lists ordered by name")
-        void shouldReturnActiveLists_orderedByName() {
+        void shouldReturnActiveLists_orderedByName() throws Exception {
             LookupList ll1 = new LookupList();
             EntityDataGenerator.generateTestDataForModelClass(ll1);
             ll1.setActive(true);
@@ -116,7 +116,7 @@ public class LookupListDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return lookup list matching the given name")
-        void shouldReturnLookupList_whenNameMatches() {
+        void shouldReturnLookupList_whenNameMatches() throws Exception {
             LookupList ll1 = new LookupList();
             EntityDataGenerator.generateTestDataForModelClass(ll1);
             ll1.setName("bravo");

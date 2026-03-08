@@ -88,21 +88,21 @@ class ExcludeDemographicHandlerIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should return empty list when no demographics are excluded")
-    void shouldReturnEmptyList_whenNoDemographicsAreExcluded() {
+    void shouldReturnEmptyList_whenNoDemographicsAreExcluded() throws Exception {
         String indicatorName = "indicatorName_getDemoIds";
         assertThat(excludeDemographicHandler.getDemoIds(indicatorName)).isEmpty();
     }
 
     @Test
     @DisplayName("should return empty list of demographic extensions when none excluded")
-    void shouldReturnEmptyDemoExts_whenNoneExcluded() {
+    void shouldReturnEmptyDemoExts_whenNoneExcluded() throws Exception {
         String indicatorName = "indicatorName_getDemoExts";
         assertThat(excludeDemographicHandler.getDemoExts(indicatorName)).isEmpty();
     }
 
     @Test
     @DisplayName("should exclude single demographic and return it in excluded list")
-    void shouldExcludeSingleDemographic_andReturnInExcludedList() {
+    void shouldExcludeSingleDemographic_andReturnInExcludedList() throws Exception {
         String indicatorName = "myIndicatorName_setDemoId";
         assertThat(demoNos).hasSize(10);
 
@@ -117,7 +117,7 @@ class ExcludeDemographicHandlerIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should exclude list of demographics and return all in excluded list")
-    void shouldExcludeDemographicList_andReturnAllInExcludedList() {
+    void shouldExcludeDemographicList_andReturnAllInExcludedList() throws Exception {
         String indicatorName = "myIndicatorName_setDemoIDList";
         excludeDemographicHandler.excludeDemoIds(demoNos, indicatorName);
 
@@ -133,7 +133,7 @@ class ExcludeDemographicHandlerIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should un-exclude demographics and return empty list")
-    void shouldUnExcludeDemographics_andReturnEmptyList() {
+    void shouldUnExcludeDemographics_andReturnEmptyList() throws Exception {
         String indicatorName = "myIndicatorName_unsetDemoIDList";
         excludeDemographicHandler.excludeDemoIds(demoNos, indicatorName);
 
@@ -146,7 +146,7 @@ class ExcludeDemographicHandlerIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should exclude demographics from JSON string and return all in excluded list")
-    void shouldExcludeDemographics_fromJsonString() {
+    void shouldExcludeDemographics_fromJsonString() throws Exception {
         String indicatorName = "myIndicatorName_setDemoIdJson";
         String jsonStr = getJsonDemoNoStr(demoNos);
 
@@ -162,7 +162,7 @@ class ExcludeDemographicHandlerIntegrationTest extends CarlosTestBase {
 
     @Test
     @DisplayName("should un-exclude demographics from JSON string and return empty list")
-    void shouldUnExcludeDemographics_fromJsonString() {
+    void shouldUnExcludeDemographics_fromJsonString() throws Exception {
         String indicatorName = "myIndicatorName_unsetDemoIdJson";
         String jsonStr = getJsonDemoNoStr(demoNos);
 

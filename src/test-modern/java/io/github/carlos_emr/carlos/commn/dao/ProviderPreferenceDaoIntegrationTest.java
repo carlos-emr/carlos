@@ -54,7 +54,7 @@ public class ProviderPreferenceDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist provider preference with string-based ID")
-    void shouldPersistProviderPreference_whenValidProviderNoProvided() {
+    void shouldPersistProviderPreference_whenValidProviderNoProvided() throws Exception {
         // Given
         ProviderPreference entity = new ProviderPreference();
         EntityDataGenerator.generateTestDataForModelClass(entity);

@@ -67,7 +67,7 @@ public class WaitingListNameDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("aggregate")
         @DisplayName("should count only non-history waiting list names")
-        void shouldCountActiveNames_whenMixOfHistoryAndNonHistory() {
+        void shouldCountActiveNames_whenMixOfHistoryAndNonHistory() throws Exception {
             WaitingListName wl1 = new WaitingListName();
             EntityDataGenerator.generateTestDataForModelClass(wl1);
             wl1.setIsHistory("N");
@@ -101,7 +101,7 @@ public class WaitingListNameDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("search")
         @DisplayName("should return non-history entries matching name and group")
-        void shouldReturnMatchingEntries_whenFilteredByNameAndGroup() {
+        void shouldReturnMatchingEntries_whenFilteredByNameAndGroup() throws Exception {
             String name1 = "alpha";
             String name2 = "bravo";
             String groupNo1 = "101";
@@ -156,7 +156,7 @@ public class WaitingListNameDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("search")
         @DisplayName("should return active waiting lists for provider groups sorted by name")
-        void shouldReturnActiveEntries_forProviderGroups() {
+        void shouldReturnActiveEntries_forProviderGroups() throws Exception {
             String name1 = "charlie";
             String name2 = "bravo";
             String name3 = "delta";

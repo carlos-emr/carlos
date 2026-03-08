@@ -28,6 +28,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.CdsFormOption;
@@ -53,6 +55,9 @@ public class CdsFormOptionDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private CdsFormOptionDao dao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     /**
      * Inserts a CdsFormOption row via native SQL to bypass the @PreUpdate/@PreRemove

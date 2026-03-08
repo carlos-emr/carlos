@@ -57,7 +57,7 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist entity with generated ID")
-        void shouldPersist_whenValidDataProvided() {
+        void shouldPersist_whenValidDataProvided() throws Exception {
             CtlServiceCodesDxCodes entity = new CtlServiceCodesDxCodes();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setServiceCode("SVC100");
@@ -69,7 +69,7 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find entity by ID with matching field values")
-        void shouldReturnMatchingEntity_whenFoundById() {
+        void shouldReturnMatchingEntity_whenFoundById() throws Exception {
             CtlServiceCodesDxCodes saved = new CtlServiceCodesDxCodes();
             EntityDataGenerator.generateTestDataForModelClass(saved);
             saved.setServiceCode("SVC101");
@@ -85,7 +85,7 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null when entity not found by ID")
-        void shouldReturnNull_whenInvalidIdProvided() {
+        void shouldReturnNull_whenInvalidIdProvided() throws Exception {
             CtlServiceCodesDxCodes found = ctlServiceCodesDxCodesDao.find(-999);
             assertThat(found).isNull();
         }
@@ -98,7 +98,7 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return all persisted entities")
-        void shouldReturnAllEntities_whenMultipleExist() {
+        void shouldReturnAllEntities_whenMultipleExist() throws Exception {
             CtlServiceCodesDxCodes e1 = new CtlServiceCodesDxCodes();
             EntityDataGenerator.generateTestDataForModelClass(e1);
             e1.setServiceCode("ALL1");
@@ -120,7 +120,7 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no entities exist")
-        void shouldReturnEmptyList_whenNoEntitiesExist() {
+        void shouldReturnEmptyList_whenNoEntitiesExist() throws Exception {
             List<CtlServiceCodesDxCodes> results = ctlServiceCodesDxCodesDao.findAll();
             assertThat(results).isEmpty();
         }
@@ -133,7 +133,7 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return entities matching the service code")
-        void shouldReturnEntities_whenServiceCodeMatches() {
+        void shouldReturnEntities_whenServiceCodeMatches() throws Exception {
             CtlServiceCodesDxCodes match1 = new CtlServiceCodesDxCodes();
             EntityDataGenerator.generateTestDataForModelClass(match1);
             match1.setServiceCode("MATCH");
@@ -161,7 +161,7 @@ public class CtlServiceCodesDxCodesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return empty list when no entities match service code")
-        void shouldReturnEmptyList_whenNoServiceCodeMatches() {
+        void shouldReturnEmptyList_whenNoServiceCodeMatches() throws Exception {
             CtlServiceCodesDxCodes entity = new CtlServiceCodesDxCodes();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setServiceCode("EXISTS");

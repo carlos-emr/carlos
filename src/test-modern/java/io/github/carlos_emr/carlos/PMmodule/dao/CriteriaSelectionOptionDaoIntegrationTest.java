@@ -53,7 +53,7 @@ public class CriteriaSelectionOptionDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("create")
     @DisplayName("should persist criteria selection option with generated ID")
-    void shouldPersistEntity_whenValidDataProvided() {
+    void shouldPersistEntity_whenValidDataProvided() throws Exception {
         CriteriaSelectionOption entity = new CriteriaSelectionOption();
         EntityDataGenerator.generateTestDataForModelClass(entity);
         dao.persist(entity);
@@ -64,7 +64,7 @@ public class CriteriaSelectionOptionDaoIntegrationTest extends CarlosTestBase {
     @Test
     @Tag("read")
     @DisplayName("should return criteria selected options filtered by criteria ID")
-    void shouldReturnSelectedOptions_byCriteriaId() {
+    void shouldReturnSelectedOptions_byCriteriaId() throws Exception {
         int criteriaId1 = 101, criteriaId2 = 202;
 
         CriteriaSelectionOption cSO1 = new CriteriaSelectionOption();

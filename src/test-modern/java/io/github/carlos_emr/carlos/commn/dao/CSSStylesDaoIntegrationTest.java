@@ -61,7 +61,7 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist CssStyle with generated ID")
-        void shouldPersistCssStyle_whenValidDataProvided() {
+        void shouldPersistCssStyle_whenValidDataProvided() throws Exception {
             CssStyle entity = new CssStyle();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             cSSStylesDAO.persist(entity);
@@ -71,7 +71,7 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should find CssStyle by ID with correct field values")
-        void shouldFindCssStyle_whenValidIdProvided() {
+        void shouldFindCssStyle_whenValidIdProvided() throws Exception {
             CssStyle saved = new CssStyle();
             saved.setName("TestStyle");
             saved.setStyle("body { color: red; }");
@@ -95,7 +95,7 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should find only active styles, ordered by name")
-        void shouldFindAllActiveStyles_orderedByName() {
+        void shouldFindAllActiveStyles_orderedByName() throws Exception {
             CssStyle activeB = new CssStyle();
             activeB.setName("BetaStyle");
             activeB.setStyle(".beta { }");
@@ -128,7 +128,7 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should return empty list when no active styles exist")
-        void shouldReturnEmptyList_whenNoActiveStylesExist() {
+        void shouldReturnEmptyList_whenNoActiveStylesExist() throws Exception {
             CssStyle deleted = new CssStyle();
             deleted.setName("OnlyDeleted");
             deleted.setStyle(".d { }");
@@ -143,7 +143,7 @@ public class CSSStylesDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("should count all CssStyle records including deleted")
-        void shouldCountAllCssStyles() {
+        void shouldCountAllCssStyles() throws Exception {
             CssStyle active = new CssStyle();
             active.setName("Active");
             active.setStyle(".a { }");

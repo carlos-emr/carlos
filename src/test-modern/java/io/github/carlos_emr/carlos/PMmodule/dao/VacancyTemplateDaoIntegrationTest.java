@@ -53,10 +53,10 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private VacancyTemplateDao dao;
 
-    @PersistenceContext(unitName = "testPersistenceUnit")
+    @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
-    private VacancyTemplate createTemplate(String name, Integer wlProgramId, boolean active) {
+    private VacancyTemplate createTemplate(String name, Integer wlProgramId, boolean active) throws Exception {
         VacancyTemplate vt = new VacancyTemplate(wlProgramId, name, active);
         return vt;
     }
@@ -79,7 +79,7 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("create")
         @DisplayName("should persist and retrieve vacancy template via saveVacancyTemplate")
-        void shouldPersistAndRetrieve_viaSaveVacancyTemplate() {
+        void shouldPersistAndRetrieve_viaSaveVacancyTemplate() throws Exception {
             VacancyTemplate vt = createTemplate("Save Test Template", 100, true);
             dao.saveVacancyTemplate(vt);
             entityManager.flush();
@@ -96,7 +96,7 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("read")
         @DisplayName("should return null for non-existent template ID")
-        void shouldReturnNull_whenTemplateNotFound() {
+        void shouldReturnNull_whenTemplateNotFound() throws Exception {
             VacancyTemplate found = dao.getVacancyTemplate(99999);
             assertThat(found).isNull();
         }
@@ -104,7 +104,7 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("update")
         @DisplayName("should update vacancy template via mergeVacancyTemplate")
-        void shouldUpdateTemplate_viaMerge() {
+        void shouldUpdateTemplate_viaMerge() throws Exception {
             VacancyTemplate vt = createTemplate("Before Merge", 200, true);
             dao.saveVacancyTemplate(vt);
             entityManager.flush();
@@ -126,7 +126,7 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
         @Tag("read")
         @Tag("query")
         @DisplayName("should return templates matching wlProgramId and exclude others")
-        void shouldReturnTemplates_byWlProgramId() {
+        void shouldReturnTemplates_byWlProgramId() throws Exception {
             VacancyTemplate vt1 = createTemplate("Prog 300 Template A", 300, true);
             dao.saveVacancyTemplate(vt1);
 
@@ -147,7 +147,7 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
         @Tag("read")
         @Tag("query")
         @DisplayName("should return empty list when no templates match wlProgramId")
-        void shouldReturnEmptyList_whenNoTemplatesMatchWlProgramId() {
+        void shouldReturnEmptyList_whenNoTemplatesMatchWlProgramId() throws Exception {
             VacancyTemplate vt = createTemplate("Other Prog", 400, true);
             dao.saveVacancyTemplate(vt);
             entityManager.flush();
@@ -160,7 +160,7 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
         @Tag("read")
         @Tag("query")
         @DisplayName("should return only active templates by wlProgramId")
-        void shouldReturnOnlyActiveTemplates_byWlProgramId() {
+        void shouldReturnOnlyActiveTemplates_byWlProgramId() throws Exception {
             VacancyTemplate activeVt = createTemplate("Active Template", 500, true);
             dao.saveVacancyTemplate(activeVt);
 
@@ -181,7 +181,7 @@ public class VacancyTemplateDaoIntegrationTest extends CarlosTestBase {
         @Tag("read")
         @Tag("query")
         @DisplayName("should return empty list when no active templates exist for wlProgramId")
-        void shouldReturnEmptyList_whenNoActiveTemplatesExist() {
+        void shouldReturnEmptyList_whenNoActiveTemplatesExist() throws Exception {
             VacancyTemplate inactiveVt = createTemplate("Inactive Only", 600, false);
             dao.saveVacancyTemplate(inactiveVt);
             entityManager.flush();

@@ -103,7 +103,7 @@ public class PreventionExtDaoIntegrationTest extends CarlosTestBase {
             PreventionExt saved = createExt(prev.getId(), "manufacturer", "Pfizer");
             PreventionExt found = preventionExtDao.find(saved.getId());
             assertThat(found).isNotNull();
-            assertThat(found.getKeyval()).isEqualTo("manufacturer");
+            assertThat(found.getkeyval()).isEqualTo("manufacturer");
             assertThat(found.getVal()).isEqualTo("Pfizer");
         }
     }
