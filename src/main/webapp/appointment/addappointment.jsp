@@ -1111,7 +1111,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStartTime"/>:</label>
                             <div class="col-sm-8">
                                 <input type="time" name="start_time" class="form-control form-control-sm"
-                                       value='<%=request.getParameter("start_time")%>'
+                                       value='<%=Encode.forHtmlAttribute(request.getParameter("start_time") == null ? "" : request.getParameter("start_time"))%>'
                                        onChange="checkTimeTypeIn(this);checkPageLock()">
                             </div>
                         </div>
@@ -1121,7 +1121,7 @@ Ontario, Canada
                                 <input type="number" name="duration" id="duration" class="form-control form-control-sm"
                                        value="<%=duration%>" onChange="checkPageLock()" onblur="calculateEndTime();">
                                 <input type="hidden" name="end_time"
-                                       value='<%=request.getParameter("end_time")%>'
+                                       value='<%=Encode.forHtmlAttribute(request.getParameter("end_time") == null ? "" : request.getParameter("end_time"))%>'
                                        onChange="checkTimeTypeIn(this)">
                             </div>
                         </div>
@@ -1256,7 +1256,7 @@ Ontario, Canada
                                 </select>
                                 <% } else { %>
                                 <input type="text" name="status" class="form-control form-control-sm"
-                                       value='<%=bFirstDisp?"t":request.getParameter("status")==null?"":request.getParameter("status").equals("")?"":request.getParameter("status")%>'>
+                                       value='<%=Encode.forHtmlAttribute(bFirstDisp ? "t" : (request.getParameter("status") == null ? "" : request.getParameter("status")))%>'>
                                 <% } %>
                             </div>
                         </div>
@@ -1347,14 +1347,6 @@ Ontario, Canada
                                 <div class="form-check mt-1">
                                     <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
                                 </div>
-                            </div>
-                        </div>
-                        <% } %>
-                        <% if (pros.isPropertyActive("mc_number")) { %>
-                        <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formMC"/>:</label>
-                            <div class="col-sm-8">
-                                <input type="text" name="appt_mc_number" class="form-control form-control-sm"/>
                             </div>
                         </div>
                         <% } %>
@@ -1531,7 +1523,7 @@ Ontario, Canada
                                 <tr>
                                     <td><%=ConversionUtils.toDateString(a.getAppointmentDate())%></td>
                                     <td><%=ConversionUtils.toTimeString(a.getStartTime())%></td>
-                                    <td><%=p.getFormattedName()%></td>
+                                    <td><%=Encode.forHtml(p.getFormattedName())%></td>
                                     <td><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : ""))%></td>
                                 </tr>
                             <%
@@ -1549,7 +1541,7 @@ Ontario, Canada
                                 <tr>
                                     <td><%=ConversionUtils.toDateString(a.getAppointmentDate())%></td>
                                     <td><%=ConversionUtils.toTimeString(a.getStartTime())%></td>
-                                    <td><%=p.getFormattedName()%></td>
+                                    <td><%=Encode.forHtml(p.getFormattedName())%></td>
                                     <td><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : ""))%></td>
                                 </tr>
                             <%

@@ -459,10 +459,10 @@
                 if (bOne || bTwo) {
                     otherAppt.setProperty(other.getProviderNo() + "apptno", String.valueOf(other.getId()));
                     appt += "<b>" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getStartTime())).substring(0, 5) + "-" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getEndTime())).substring(0, 5) + "|"
-                            + dotStr + other.getName() + "</b>|";
+                            + dotStr + Encode.forHtml(other.getName() == null ? "" : other.getName()) + "</b>|";
                 } else {
                     appt += String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getStartTime())).substring(0, 5) + "-" + String.valueOf(ConversionUtils.toTimeStringNoSeconds(other.getEndTime())).substring(0, 5) + "|"
-                            + dotStr + other.getName() + "|";
+                            + dotStr + Encode.forHtml(other.getName() == null ? "" : other.getName()) + "|";
                 }
 
                 if (!String.valueOf(other.getProviderNo()).equals(temp)) {
@@ -482,7 +482,7 @@
                 temp = e.nextElement().toString();
                 if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
                     continue;
-                out.println("<input type='hidden' name='" + temp + "' value=\"" + UtilMisc.htmlEscape(request.getParameter(temp)) + "\">");
+                out.println("<input type=\"hidden\" name=\"" + Encode.forHtmlAttribute(temp) + "\" value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) == null ? "" : request.getParameter(temp)) + "\">");
             }
         %>
 
