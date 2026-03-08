@@ -1373,6 +1373,8 @@
                     );
                     newWindow.addEventListener('load', function() {
                         var doc = newWindow.document;
+                        var nameEl = doc.getElementById('name');
+                        if (nameEl) nameEl.value = item.value || '';
                         var dinEl = doc.getElementById('din');
                         if (dinEl) dinEl.value = item.din || '';
                         var doseEls = doc.getElementsByName('dose');
