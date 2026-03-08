@@ -161,6 +161,7 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/css/autocomplete.css">
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.css">
+        <link href="<%= request.getContextPath() %>/css/fontawesome-all.min.css" rel="stylesheet"><!-- fontawesome 6.x -->
         <script src="<%= request.getContextPath() %>/library/bootstrap/5.0.2/js/bootstrap.bundle.js"></script>
 
         <script src="<%= request.getContextPath() %>/share/javascript/popupmenu.js" type="text/javascript"></script>
@@ -257,7 +258,7 @@
 
             function showImmunizationOnlyPrintButton() {
                 document.getElementById('print_buttons').insertAdjacentHTML('beforeend',
-                    '<input type="button" class="noPrint" name="printImmButton" onclick="printImmOnly()" value="Print Immunizations Only">');
+                    '<input type="button" class="noPrint btn btn-secondary" name="printImmButton" onclick="printImmOnly()" value="Print Immunizations Only">');
             }
 
             function onPrint() {
@@ -398,7 +399,7 @@
             }
 
             div.preventionProcedure p {
-                font-size: 0.8em;
+                font-size: 0.7em;
                 font-family: verdana, tahoma, sans-serif;
                 background: #F0F0E7;
                 margin: 0;
@@ -453,27 +454,12 @@
             table.colour_codes {
                 width: 8px;
                 height: 10px;
-                border: 1px solid #999999;
+
             }
 
         </style>
 
-        <!--[if IE]>
-        <style type="text/css">
 
-            table.legend {
-                border: 0;
-                margin-top: 10px;
-                width: 370px;
-            }
-
-            table.legend td {
-                font-size: 10;
-                text-align: left;
-            }
-
-        </style>
-        <![endif]-->
 
         <script>
             function disableSSOWarning() {
@@ -609,34 +595,25 @@
     %>
     <table class="MainTable" id="scrollNumber1">
         <tr class="MainTableTopRow">
-            <td class="MainTableTopRowLeftColumn"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></td>
-            <td class="MainTableTopRowRightColumn">
-                <table class="TopStatusBar">
+            <td class="MainTableTopRowLeftColumnx"><h3><i class="fa-solid fa-syringe"></i><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></h3></td>
+            <td class="MainTableTopRowRightColumnx">
+                <table class="TopStatusBarx">
                     <tr>
-                        <td><%=nameAge%>
+                        <td><h4><%=nameAge%></h4>
                         </td>
-                        <td style="padding: 0 8px;">
-                            <div style="position: relative;">
-                                <input type="text" id="immunization" class="form-control form-control-sm"
-                                       style="width: 300px;" placeholder="Pick vaccine brand" autocomplete="off">
-                                <div id="immunization_choices" class="autocomplete"></div>
-                            </div>
-                        </td>
-                        <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'About.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'License.jsp')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.license"/></a></td>
+
+                        <td></td>
                     </tr>
                 </table>
             </td>
         </tr>
         <tr>
-            <td class="MainTableLeftColumn" valign="top">
-
+            <td class="MainTableLeftColumnX" style="width: 190px;">
 
                 <div class="leftBox">
                     <h3>&nbsp;Preventions</h3>
-                    <div style="background-color: #EEEEFF;">
-                        <p>Screenings</p>
+                    <div style="background-color: lightgray;">
+                        <span>Screenings</span>
                         <ul>
                             <%
                                 for (int i = 0; i < prevList.size(); i++) {
@@ -649,7 +626,7 @@
                                             List<CVCMapping> mappings = cvcMappingDao.findMultipleByOscarName(prevName);
                                             if (mappings != null && mappings.size() > 1) {
                             %>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=h.get("desc")%>">
@@ -657,7 +634,7 @@
                             </a></li>
                             <% } else {
                             %>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=h.get("desc")%>">
@@ -671,7 +648,7 @@
                             %>
 
                         </ul>
-                        <p>Immunizations</p>
+                        <span>Immunizations</span>
                         <ul>
                             <%
                                 for (int i = 0; i < prevList.size(); i++) {
@@ -691,7 +668,7 @@
                                             List<CVCMapping> mappings = cvcMappingDao.findMultipleByOscarName(prevName);
                                             if (mappings != null && mappings.size() > 1) {
                             %>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=h.get("desc")%>">
@@ -699,7 +676,7 @@
                             </a></li>
                             <% } else {
                             %>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=h.get("desc")%>">
@@ -712,7 +689,7 @@
                                 }
                             %>
                         </ul>
-                        <p>Other</p>
+                        <span>Other</span>
                         <ul>
                             <%
                                 for (int i = 0; i < prevList.size(); i++) {
@@ -727,7 +704,7 @@
 
                                             List<CVCMapping> mappings = cvcMappingDao.findMultipleByOscarName(prevName);
                                             if (mappings != null && mappings.size() > 1) {%>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=h.get("desc")%>">
@@ -735,7 +712,7 @@
                             </a></li>
                             <% } else {
                             %>
-                            <li style="margin-top: 2px;"><a
+                            <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
                                     title="<%=h.get("desc")%>">
@@ -801,13 +778,21 @@
                         %>
                         <span style="font-size: larger;">Prevention Recommendations</span>
                         <div class="mt-1">
-                            <% for (int i = 0; i < warnings.size(); i++) {
-                                String warn = (String) warnings.get(i);%>
-                            <div class="alert alert-danger py-1 mb-1" role="alert"><%=warn%></div>
+                            <% if (warnings.size() > 0 ) {
+                            %><div class="alert alert-danger py-1 mb-1" role="alert">
+                                <%for (int i = 0; i < warnings.size(); i++) {
+                                    String warn = (String) warnings.get(i);%>
+                                <%=warn%><br>
+                                <%}%>
+                            </div>
                             <%}%>
+                            <% if (recomendations.size() > 0 ) {
+                            %><div class="alert alert-info py-1 mb-1" role="alert">
                             <% for (int i = 0; i < recomendations.size(); i++) {
                                 String warn = (String) recomendations.get(i);%>
-                            <div class="alert alert-info py-1 mb-1" role="alert"><%=warn%></div>
+                            <%=warn%><br>
+                            <%}%>
+                            </div>
                             <%}%>
                             <% if (dsProblems) { %>
                             <div class="alert alert-danger py-1 mb-1" role="alert">Decision Support Had Errors Running.</div>
@@ -816,16 +801,18 @@
                     </div>
                     <% } %>
 
-                    <br/>
+
+
+                            </div>
+
                     <%if (!StringUtils.isEmpty(OscarProperties.getInstance().getProperty("cvc.url"))) { %>
-                    <table>
-                        <tr>
-                            <td style="font-size:12pt">Add by Brand/Generic/Lot#</td>
-                            <td><input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" size="20"/>
+                                <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm"
+                                       style="width: 300px;" placeholder="Add by Brand/Generic/Lot#" autocomplete="off">
                                 <div id="lotNumberToAdd2_choices" class="autocomplete"></div>
-                            </td>
-                        </tr>
-                    </table>
+                    <% } else {%>
+                                <input type="text" id="immunization" class="form-control form-control-sm"
+                                       style="width: 300px;" placeholder="Pick vaccine brand/generic" autocomplete="off">
+                                <div id="immunization_choices" class="autocomplete"></div>
                     <% } %>
                     <%
                         String[] ColourCodesArray = new String[7];
@@ -1136,9 +1123,9 @@
                 </td>
         </tr>
         <tr>
-            <td class="MainTableBottomRowLeftColumn">
+            <td class="MainTableBottomRowLeftColumnX">
 			<span id="print_buttons">
-				<input type="button" class="noPrint" name="printButton" onclick="EnablePrint(this)"
+				<input type="button" class="noPrint btn btn-secondary" name="printButton" onclick="EnablePrint(this)"
                        value="Enable Print">
 			</input>
             </td>
@@ -1346,14 +1333,14 @@
                     var vPath = '<%=request.getContextPath()%>';
                     var demographicNo = '<%=demographic_no%>';
                     var newWindow = window.open(
-                        vPath + '/oscarPrevention/AddPreventionData.jsp?1=1&prevention=' + encodeURIComponent(item.value) + '&demographic_no=' + demographicNo,
+                        vPath + '/oscarPrevention/AddPreventionData.jsp?1=1&prevention=' + encodeURIComponent(item.name) + '&demographic_no=' + demographicNo,
                         'AddPreventionWindow',
                         'width=1000,height=700'
                     );
                     newWindow.addEventListener('load', function() {
                         var doc = newWindow.document;
                         var dinEl = doc.getElementById('din');
-                        if (dinEl) dinEl.textContent = item.din || '';
+                        if (dinEl) dinEl.value = item.din || '';
                         var doseEls = doc.getElementsByName('dose');
                         if (doseEls.length) doseEls[0].value = item.dose || '';
                         var routeEl = doc.getElementById('route');
