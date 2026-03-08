@@ -527,11 +527,14 @@ end
 // --------------------------------------------------------------------------
 // VZ: Varicella (Chickenpox) vaccine (4 rules)
 // NACI Schedule: Dose 1 at 15mo, catch-up at 4-6yr
-// Rules 1-2: First dose at 15-24mo, requiring 28+ days since last MMR
-//   Rule 1: Normal case (>=28 days since MMR - safe to give live vaccine)
-//   Rule 2: No MMR on record (days since last == 0, meaning never given)
-// Rules 3-4: Catch-up at 4-6 years with same MMR spacing logic
-// Live vaccine interval: Must wait 28 days after MMR (both are live vaccines)
+// Rules 1-2: First dose at 15-24mo, requiring 28+ days since last live vaccine
+//   Rule 1: Live-vaccine spacing respected (>=28 days since last MMR or MMRV)
+//   Rule 2: No MMR or MMRV on record (days since both == 0, meaning never given)
+// Rules 3-4: Catch-up at 4-6 years with same MMR/MMRV spacing logic
+// Live vaccine interval: Must wait 28 days after MMR or MMRV (all are live vaccines)
+// Uses Math.max(mmrDays, mmrvDays) so that whichever live vaccine was given most
+// recently governs the spacing check — prevents recommending VZ too soon when MMRV
+// (rather than MMR) was the first dose.
 // --------------------------------------------------------------------------
 rule "VZ 1"
     when
@@ -539,7 +542,9 @@ rule "VZ 1"
         eval( prev.getAgeInMonths() >= 15 )
         eval( prev.getAgeInMonths() <= 24 )
         eval( prev.getNumberOfPreventionType("VZ") == 0 )
-        eval( prev.getHowManyDaysSinceLast("MMR") >= 28 )
+        $mmrDays : Integer() from prev.getHowManyDaysSinceLast("MMR")
+        $mmrvDays : Integer() from prev.getHowManyDaysSinceLast("MMRV")
+        eval( Math.max($mmrDays, $mmrvDays) >= 28 )
     then
         prev.log("VZ 1");
         prev.addWarning("VZ", "Needs VZ");
@@ -551,7 +556,7 @@ rule "VZ 2"
         eval( prev.getAgeInMonths() >= 15 )
         eval( prev.getAgeInMonths() <= 24 )
         eval( prev.getNumberOfPreventionType("VZ") == 0 )
-        eval( prev.getHowManyDaysSinceLast("MMR") == 0 )
+        eval( prev.getHowManyDaysSinceLast("MMR") == 0 && prev.getHowManyDaysSinceLast("MMRV") == 0 )
     then
         prev.log("VZ 2");
         prev.addWarning("VZ", "Needs VZ");
@@ -563,7 +568,9 @@ rule "VZ 3"
         eval( prev.getAgeInYears() >= 4 )
         eval( prev.getAgeInYears() <= 6 )
         eval( prev.getNumberOfPreventionType("VZ") == 0 )
-        eval( prev.getHowManyDaysSinceLast("MMR") >= 28 )
+        $mmrDays : Integer() from prev.getHowManyDaysSinceLast("MMR")
+        $mmrvDays : Integer() from prev.getHowManyDaysSinceLast("MMRV")
+        eval( Math.max($mmrDays, $mmrvDays) >= 28 )
     then
         prev.log("VZ 3");
         prev.addWarning("VZ", "Needs VZ");
@@ -575,7 +582,7 @@ rule "VZ 4"
         eval( prev.getAgeInYears() >= 4 )
         eval( prev.getAgeInYears() <= 6 )
         eval( prev.getNumberOfPreventionType("VZ") == 0 )
-        eval( prev.getHowManyDaysSinceLast("MMR") == 0 )
+        eval( prev.getHowManyDaysSinceLast("MMR") == 0 && prev.getHowManyDaysSinceLast("MMRV") == 0 )
     then
         prev.log("VZ 4");
         prev.addWarning("VZ", "Needs VZ");
