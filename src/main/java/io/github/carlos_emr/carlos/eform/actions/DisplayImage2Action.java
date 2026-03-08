@@ -161,6 +161,8 @@ public class DisplayImage2Action extends ActionSupport {
                 contentType = "text/javascript";
             } else if (extension(file.getName()).equalsIgnoreCase("css")) { // for CSS
                 contentType = "text/css";
+            } else if (extension(file.getName()).equalsIgnoreCase("json")) { // for JSON
+                contentType = "application/json";
             } else if (extension(file.getName()).equalsIgnoreCase("rtl") || extension(file.getName()).equalsIgnoreCase("html") || extension(file.getName()).equalsIgnoreCase("htm")) { // for HTML
                 contentType = "text/html";
             } else {
