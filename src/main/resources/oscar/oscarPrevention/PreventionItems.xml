@@ -679,7 +679,7 @@ Varicella Immunoglobulin	VarIg
 			desc="DTaP-Hib=Diphtheria, Tetanus, Acellular Pertussis, Haemophilus Influenzae type b - pediatric"
 			name="DTaP-Hib"
 			headingName="Other"
-			healthCanadaType="DTaP-IPV-HB"
+			healthCanadaType="DTaP-Hib"
 			layout="injection" atc=""
 			showIfMinRecordNum="1"/>
 

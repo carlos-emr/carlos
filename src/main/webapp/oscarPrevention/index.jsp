@@ -697,16 +697,16 @@
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%>
                             </a></li>
                             <% } else {
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%>
                             </a></li>
                             <%
                                             }
@@ -739,16 +739,16 @@
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%><%=ispa1 %>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%><%=ispa1 %>
                             </a></li>
                             <% } else {
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%><%=ispa1 %>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%><%=ispa1 %>
                             </a></li>
                             <%
                                             }
@@ -775,16 +775,16 @@
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionDataDisambiguate.jsp?<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%>
                             </a></li>
                             <% } else {
                             %>
                             <li class="py-0"><a
                                     href="javascript: function myFunction() {return false; }"
                                     onclick="javascript:popup(600,900,'AddPreventionData.jsp?4=4&<%=snomedId != null ? "snomedId=" + snomedId + "&" : ""%>prevention=<%= java.net.URLEncoder.encode(prevName, StandardCharsets.UTF_8) %>&amp;demographic_no=<%=demographic_no%>&amp;prevResultDesc=<%= java.net.URLEncoder.encode(h.get("resultDesc"), StandardCharsets.UTF_8) %>','addPreventionData<%=Math.abs(prevName.hashCode()) %>')"
-                                    title="<%=h.get("desc")%>">
-                                <%=prevName%>
+                                    title="<%=Encode.forHtmlAttribute(h.get("desc"))%>">
+                                <%=Encode.forHtml(prevName)%>
                             </a></li>
                             <%
                                             }
@@ -875,10 +875,6 @@
                         </div>
                     </div>
                     <% } %>
-
-
-
-                            </div>
 
                     <%if (!StringUtils.isEmpty(OscarProperties.getInstance().getProperty("cvc.url"))) { %>
                                 <input type="text" id="lotNumberToAdd2" name="lotNumberToAdd2" class="form-control form-control-sm"
@@ -1326,10 +1322,18 @@
          */
         function initAutocomplete(input, dropdown, getResults, renderItem, onSelect, minLen) {
             minLen = minLen || 2;
+            var dropdownId = dropdown.id || ('ac-dropdown-' + Math.random().toString(36).slice(2));
+            dropdown.id = dropdownId;
+            input.setAttribute('role', 'combobox');
+            input.setAttribute('aria-expanded', 'false');
+            input.setAttribute('aria-controls', dropdownId);
+            input.setAttribute('aria-autocomplete', 'list');
+            dropdown.setAttribute('role', 'listbox');
+            dropdown.setAttribute('aria-hidden', 'true');
             var activeIdx = -1;
 
             function clearActive(items) {
-                items.forEach(function(el) { el.classList.remove('active'); });
+                items.forEach(function(el) { el.classList.remove('active'); el.setAttribute('aria-selected', 'false'); });
             }
 
             function renderDropdown(results) {
@@ -1337,19 +1341,30 @@
                 activeIdx = -1;
                 if (!results || results.length === 0) {
                     dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
                     return;
                 }
-                results.forEach(function(item) {
+                results.forEach(function(item, idx) {
                     var div = document.createElement('div');
                     div.className = 'ac-item';
+                    div.id = dropdownId + '-opt-' + idx;
+                    div.setAttribute('role', 'option');
+                    div.setAttribute('aria-selected', 'false');
                     div.innerHTML = renderItem(item);
                     div.addEventListener('mousedown', function(e) {
                         e.preventDefault();
                         onSelect(item);
                         dropdown.style.display = 'none';
+                        input.setAttribute('aria-expanded', 'false');
+                        dropdown.setAttribute('aria-hidden', 'true');
+                        input.removeAttribute('aria-activedescendant');
                     });
                     dropdown.appendChild(div);
                 });
+                input.setAttribute('aria-expanded', 'true');
+                dropdown.setAttribute('aria-hidden', 'false');
                 dropdown.style.display = 'block';
             }
 
@@ -1357,6 +1372,9 @@
                 var q = this.value.trim();
                 if (q.length < minLen) {
                     dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
                     return;
                 }
                 var results = getResults(q);
@@ -1371,22 +1389,34 @@
                     activeIdx = Math.min(activeIdx + 1, items.length - 1);
                     clearActive(items);
                     items[activeIdx].classList.add('active');
+                    items.forEach(function(el) { el.setAttribute('aria-selected', 'false'); });
+                    items[activeIdx].setAttribute('aria-selected', 'true');
+                    input.setAttribute('aria-activedescendant', items[activeIdx].id);
                 } else if (e.key === 'ArrowUp') {
                     e.preventDefault();
                     activeIdx = Math.max(activeIdx - 1, 0);
                     clearActive(items);
                     items[activeIdx].classList.add('active');
+                    items.forEach(function(el) { el.setAttribute('aria-selected', 'false'); });
+                    items[activeIdx].setAttribute('aria-selected', 'true');
+                    input.setAttribute('aria-activedescendant', items[activeIdx].id);
                 } else if (e.key === 'Enter' && activeIdx >= 0) {
                     e.preventDefault();
                     items[activeIdx].dispatchEvent(new MouseEvent('mousedown'));
                 } else if (e.key === 'Escape') {
                     dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
                 }
             });
 
             document.addEventListener('click', function(e) {
                 if (!input.contains(e.target) && !dropdown.contains(e.target)) {
                     dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
                 }
             });
         }
@@ -1456,10 +1486,12 @@
             if (!input || !dropdown) return;
 
             var debounceTimer;
+            var requestSeq = 0;
             var cachedResults = [];
 
             function fetchResults(q, callback) {
                 clearTimeout(debounceTimer);
+                var seq = ++requestSeq;
                 debounceTimer = setTimeout(function() {
                     fetch('<%=request.getContextPath()%>/cvc.do?method=query', {
                         method: 'POST',
@@ -1468,10 +1500,14 @@
                     })
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
+                        if (seq !== requestSeq) return;
                         cachedResults = data.results || [];
                         callback(cachedResults);
                     })
-                    .catch(function() { callback([]); });
+                    .catch(function() {
+                        if (seq !== requestSeq) return;
+                        callback([]);
+                    });
                 }, 250);
             }
 
