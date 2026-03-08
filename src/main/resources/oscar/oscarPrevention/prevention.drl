@@ -453,22 +453,16 @@ rule "MMR 2"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 48 )
         eval( prev.getAgeInYears() < 10 )
-        eval( prev.getNumberOfPreventionType("MMR") == 1 )
+        eval( prev.getNumberOfPreventionType("MMR") + prev.getNumberOfPreventionType("MMRV") == 1 )
     then
-        prev.log("MMR 2");
-        prev.addWarning("MMR", "Needs Second MMR or MMRV");
+        prev.log("MMR/MMRV Second Dose Needed");
+        if (prev.getNumberOfPreventionType("MMR") == 1) {
+              prev.addWarning("MMR", "Needs Second MMR or MMRV");
+          } else {
+              prev.addWarning("MMRV", "Needs Second MMR or MMRV");
+          }
 end
 
-rule "MMRV 1"
-    when
-        prev : Prevention()
-        eval( prev.getAgeInMonths() >= 48 )
-        eval( prev.getAgeInYears() < 10 )
-        eval( prev.getNumberOfPreventionType("MMRV") == 1 )
-    then
-        prev.log("MMRV 1");
-        prev.addWarning("MMRV", "Needs Second MMR or MMRV");
-end
 
 // --------------------------------------------------------------------------
 // MenC-C: Meningococcal C Conjugate (3 rules)
