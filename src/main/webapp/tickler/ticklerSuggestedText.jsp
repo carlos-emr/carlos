@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.TicklerTextSuggest, io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
@@ -139,21 +140,14 @@
             }
         }
     </script>
-    <link href="<%=request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
-          type="text/css">
+    <%@ include file="/includes/global-head.jspf" %>
     <style>
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-
         .text-selection {
             width: 300px;
         }
-
     </style>
 </head>
-<body style="font-family:arial, sans-serif;">
+<body>
 <div class="container">
     <h3>Tickler <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.textSuggestTitle"/></h3>
     <form action="${pageContext.request.contextPath}/tickler/EditTicklerTextSuggest.do" method="post">
@@ -167,7 +161,7 @@
             </tr>
             <tr>
                 <td style="vertical-align: top">
-                    <select class="form-control text-selection" name="activeText" multiple="true"
+                    <select class="form-select text-selection" name="activeText" multiple="true"
                                  size="10">
                         <% java.util.List<TicklerTextSuggest> activeTexts = ticklerTextSuggestDao.getActiveTicklerTextSuggests();
                             if (activeTexts.isEmpty()) {
@@ -178,7 +172,7 @@
                             for (TicklerTextSuggest tTextSuggestActive : activeTexts) {
                         %>
                         <option
-                                value="<%=tTextSuggestActive.getId().toString()%>"><%=tTextSuggestActive.getSuggestedText()%>
+                                value="<%=tTextSuggestActive.getId().toString()%>"><%=Encode.forHtmlContent(tTextSuggestActive.getSuggestedText())%>
                         </option>
                         <% }
                         }
@@ -186,14 +180,14 @@
                     </select>
                 </td>
                 <td>
-                    <input type="button" class="btn" name="movetoInactive" value=">>"
+                    <input type="button" class="btn btn-outline-secondary" name="movetoInactive" value=">>"
                            onclick="swap('activeText','inactiveText')"/>
                     <br/>
-                    <input type="button" class="btn" name="movetoActive" value="<<"
+                    <input type="button" class="btn btn-outline-secondary" name="movetoActive" value="<<"
                            onclick="swap('inactiveText','activeText')"/>
                 </td>
                 <td style="vertical-align: top">
-                    <select class="form-control text-selection" name="inactiveText" multiple="true"
+                    <select class="form-select text-selection" name="inactiveText" multiple="true"
                                  size="10">
                         <%
                             java.util.List<TicklerTextSuggest> inactiveTexts = ticklerTextSuggestDao.getInactiveTicklerTextSuggests();
@@ -205,7 +199,7 @@
                             for (TicklerTextSuggest tTextSuggestInactive : inactiveTexts) {
                         %>
                         <option
-                                value="<%=tTextSuggestInactive.getId().toString()%>"><%=tTextSuggestInactive.getSuggestedText()%>
+                                value="<%=tTextSuggestInactive.getId().toString()%>"><%=Encode.forHtmlContent(tTextSuggestInactive.getSuggestedText())%>
                         </option>
                         <% }
                         }
@@ -219,22 +213,20 @@
                     <div class="input-group">
                         <input id="newTextSuggest" class="form-control" name="newTextSuggest" type="text"
                                maxlength="100"/>
-                        <div class="input-group-btn">
-                            <input type="button" class="btn btn-default" name="addNewTextSuggest"
-                                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.addText"/>"
-                                   onclick="addToList('activeText','newTextSuggest')"/>
-                        </div>
+                        <input type="button" class="btn btn-outline-secondary" name="addNewTextSuggest"
+                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.addText"/>"
+                               onclick="addToList('activeText','newTextSuggest')"/>
                     </div>
                 </td>
             </tr>
             <tr>
                 <td colspan="3">
-                    <div class="form-group pull-right">
+                    <div class="float-end">
                         <input type="button" class="btn btn-primary" name="saveTextChanges"
                                value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.save"/>"
                                onclick="doSelect('activeText');doSelect('inactiveText');document.tsTicklerForm.submit();"/>
-                        <input type="button" class="btn btn-danger" name="cancelTextChanges"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerTextSuggest.cancel"/>"
+                        <input type="button" class="btn btn-secondary" name="cancelTextChanges"
+                               value="Back"
                                onclick="window.close()"/>
                     </div>
                 </td>

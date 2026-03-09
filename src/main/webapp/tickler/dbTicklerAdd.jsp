@@ -33,6 +33,7 @@
 
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerLink" %>
@@ -83,7 +84,16 @@
 
 
     Tickler tickler = new Tickler();
-    tickler.setDemographicNo(Integer.parseInt(module_id));
+    if (module_id == null || module_id.trim().isEmpty()) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing demographic_no");
+        return;
+    }
+    try {
+        tickler.setDemographicNo(Integer.parseInt(module_id));
+    } catch (NumberFormatException e) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic_no");
+        return;
+    }
     tickler.setUpdateDate(new java.util.Date());
     if (docpriority != null && docpriority.equalsIgnoreCase("High")) {
         tickler.setPriority(Tickler.PRIORITY.High);
@@ -127,38 +137,19 @@
 
     if (rowsAffected) {
 %>
-<script LANGUAGE="JavaScript">
+<script type="text/javascript">
+    var parentId = "<%=Encode.forJavaScript(parentAjaxId != null ? parentAjaxId : "")%>";
+    var updateParent = "<%=Encode.forJavaScript(updateParent != null ? updateParent : "")%>" === "true";
+    var demo = "<%=Encode.forJavaScript(module_id)%>";
+    var updateTicklerNav = "<%=Encode.forJavaScript(updateTicklerNav != null ? updateTicklerNav : "")%>" === "true";
 
-    var parentId = "<%=parentAjaxId%>";
-    var updateParent = <%=updateParent%>;
-    var demo = "<%=module_id%>";
-    var updateTicklerNav = <%=updateTicklerNav%>;
-    var Url = window.opener.URLs;
-
-    /*because the url for demomaintickler is truncated by the delete action, we need
-      to reconstruct it if necessary
-    */
-    if (parentId != "" && updateParent == true && !window.opener.closed) {
-        if (updateTicklerNav != "" && updateTicklerNav == true) {
-            window.opener.reloadNav(parentId);
-            window.close();
-        } else {
-            var ref = window.opener.location.href;
-            if (ref.indexOf("?") > -1 && ref.indexOf("updateParent") == -1)
-                ref = ref + "&updateParent=true";
-            else if (ref.indexOf("?") == -1)
-                ref = ref + "?demoview=" + demo + "&parentAjaxId=" + parentId + "&updateParent=true";
-
-            window.opener.location = ref;
+    try {
+        if (window.opener && !window.opener.closed) {
+            window.opener.location.reload();
         }
-    } else if (parentId != "" && !window.opener.closed) {
-        if (window.opener.document.forms['encForm']) {
-            window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentId;
-        }
-        window.opener.updateNeeded = true;
-    } else if (updateParent == true && !window.opener.closed)
-        window.opener.location.reload();
-
-    self.close();
+    } catch (e) {
+        // opener may be cross-origin or closed
+    }
+    setTimeout(function() { self.close(); }, 500);
 </script>
 <%}%>

@@ -43,6 +43,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="java.util.*" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -82,6 +83,7 @@
     if (demographic_no == null || demographic_no.isEmpty()) {
         demographic_no = "0";
     }
+    boolean isDemoView = !"0".equals(demographic_no) && demographic_no != null;
 
     Map<String, View> ticklerView = viewDao.getView("tickler", userRole, user_no);
 
@@ -121,10 +123,6 @@
     }
 
     String xml_vdate = "";
-//	View beginDateView = ticklerView.get("dateBegin");
-//	if (beginDateView != null && !doCreateReport) {
-//		xml_vdate = beginDateView.getValue();
-//	} else
     if (request.getParameter("xml_vdate") != null) {
         xml_vdate = request.getParameter("xml_vdate");
     }
@@ -135,10 +133,6 @@
     int curDay = now.get(Calendar.DAY_OF_MONTH);
 
     String xml_appointment_date = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
-//	View endDateView = ticklerView.get("dateEnd");
-//	else if (endDateView != null && !doCreateReport) {
-//		xml_appointment_date = endDateView.getValue();
-//	}
     if (request.getParameter("xml_appointment_date") != null) {
         xml_appointment_date = request.getParameter("xml_appointment_date");
     }
@@ -146,6 +140,8 @@
         xml_appointment_date = "8888-12-31";
     }
 
+    String parentAjaxId = request.getParameter("parentAjaxId");
+    String demoviewParam = request.getParameter("demoview");
 %>
 
 <html>
@@ -154,59 +150,120 @@
 
         <%@ include file="/includes/global-head.jspf" %>
         <script type="text/javascript"
-                src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+                src="<%= request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
         <script type="text/javascript"
-                src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
-        <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.css"
+                src="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/js/jquery.dataTables.js"></script>
+        <link href="<%= request.getContextPath() %>/library/DataTables/DataTables-1.13.4/css/jquery.dataTables.css"
               rel="stylesheet" type="text/css"/>
-        <link rel="stylesheet" type="text/css" media="all" href="${pageContext.request.contextPath}/css/print.css"/>
+        <link rel="stylesheet" type="text/css" media="print" href="<%= request.getContextPath() %>/css/print.css"/>
 
         <style>
+            /* Comment rows */
+            table tr.comment-row td:nth-of-type(3) { color: transparent; }
+            tr.comment-row td { color: grey; background-color: white !important; }
+            a.noteDialogLink { text-decoration: none !important; }
 
-            table tr.comment-row td:nth-of-type(3) {
-                color: transparent;
+            tr.error td { color: red !important; }
+
+            /* Table links — CARLOS primary blue */
+            #ticklerResults a { color: #337ab7; }
+            #ticklerResults a:hover { color: #28619a; }
+
+            /* 3. Table headers — prevent wrapping */
+            #ticklerResults thead th {
+                white-space: nowrap;
+                font-size: 13px;
             }
 
-            table tr:not(tr.comment-row, table#tablefoot *) td:last-of-type {
-                border-right: lightgrey inset thin !important;
+            /* 2. Message column — constrain width with truncation on hover */
+            #ticklerResults td:nth-child(10) {
+                max-width: 220px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            #ticklerResults td:nth-child(10):hover {
+                white-space: normal;
+                overflow: visible;
+                word-break: break-word;
             }
 
-            table tr:not(tr.comment-row, table#tablefoot *) td:first-of-type {
-                border-left: lightgrey inset thin !important;
+            /* 1. Filter bar — compact inline controls */
+            .tickler-filters {
+                padding: 10px 15px;
+            }
+            .tickler-filters label {
+                margin-bottom: 0;
+                margin-right: 2px;
+            }
+            .tickler-filters .form-select,
+            .tickler-filters .form-control {
+                display: inline-block;
+                width: auto;
+            }
+            .tickler-filters .form-select {
+                max-width: 180px;
             }
 
-            table tr:not(tr.comment-row, table#tablefoot *) td {
-                border-top: lightgrey outset thin !important;
-                border-bottom: lightgrey outset thin !important;
-            }
-
-            tr.error td {
-                color: red !important;
-            }
-
-            a.noteDialogLink {
-                text-decoration: none !important;
-                text-underline: none !important;
-            }
-
-            *:not(h2) {
-                line-height: 1 !important;
-                font-size: 12px !important;
-            }
-
-            tr.comment-row td {
-                color: grey;
-                background-color: white !important;
-            }
-
-            table#tablefoot {
+            /* 4. Action bar — grouped sections */
+            .action-bar {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                margin-top: 8px;
                 margin-bottom: 50px;
+                gap: 6px;
+            }
+            .action-bar .action-group {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .action-bar .action-separator {
+                width: 1px;
+                height: 24px;
+                background: #ddd;
+                margin: 0 6px;
+            }
+
+            /* 5. Hide DataTables "Show entries" — filter bar controls the view */
+            .dataTables_wrapper .dataTables_length { display: none; }
+
+            /* CARLOS primary (#337ab7) on all buttons */
+            .btn-primary {
+                background-color: #337ab7 !important;
+                border-color: #337ab7 !important;
+            }
+            .btn-primary:hover {
+                background-color: #286090 !important;
+                border-color: #204d74 !important;
+            }
+
+            /* DataTables — CARLOS design overrides */
+            table.dataTable thead th {
+                background-color: #f5f5f5 !important;
+                border-bottom: 2px solid #337ab7 !important;
+                color: #333;
+                font-weight: 600;
+            }
+            .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+            .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+                background: #337ab7 !important;
+                color: white !important;
+                border-color: #337ab7 !important;
+            }
+            .dataTables_wrapper .dataTables_info,
+            .dataTables_wrapper .dataTables_paginate {
+                font-size: 13px;
+            }
+
+            @media print {
+                .searchBox, .page-header-bar { display: none; }
             }
         </style>
         <script type="application/javascript">
 
-
-            const ctx = '${pageContext.request.contextPath}';
+            const ctx = '<%= request.getContextPath() %>';
             let ticklerResultsTable;
             jQuery(document).ready(function () {
                 jQuery("#note-form").dialog({
@@ -218,14 +275,7 @@
 
                     }
                 });
-                //
-                // const editFormDialog = jQuery( "#edit-form" ).dialog({
-                //     autoOpen: false,
-                //     modal: true,
-                //     close: function() {
-                //
-                //     }
-                // });
+
                 var savedPageLength = localStorage.getItem('ticklerPageLength');
                 var parsedPageLength = savedPageLength ? parseInt(savedPageLength, 10) : 50;
                 var initialPageLength = [25, 50, 75, 100].indexOf(parsedPageLength) !== -1 ? parsedPageLength : 50;
@@ -425,7 +475,6 @@
                 jQuery("#tickler_note_editor").html('');
                 jQuery("#tickler_note_obsDate").html('');
 
-                //is there an existing note?
                 jQuery.ajax({
                     method: "POST", url: ctx + '/CaseManagementEntry.do',
                     data: {method: "ticklerGetNote", ticklerNo: jQuery('#tickler_note_ticklerNo').val()},
@@ -454,7 +503,6 @@
             }
 
             function saveNoteDialog() {
-                //alert('not yet implemented');
                 jQuery.ajax({
                     url: ctx + '/CaseManagementEntry.do',
                     data: {
@@ -472,11 +520,9 @@
                         alert(errorThrown);
                     }
                 });
-
-
             }
 
-            function popupPage(vheight, vwidth, varpage) { //open a new popup window
+            function popupPage(vheight, vwidth, varpage) {
                 var page = "" + varpage;
                 windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes";
                 var popup = window.open(page, "attachment", windowprops);
@@ -487,46 +533,17 @@
                 }
             }
 
-            function selectprovider(s) {
-                if (self.location.href.lastIndexOf("&providerview=") > 0) a = self.location.href.substring(0, self.location.href.lastIndexOf("&providerview="));
-                else a = self.location.href;
-                self.location.href = a + "&providerview=" + s.options[s.selectedIndex].value;
-            }
-
-            function openBrWindow(theURL, winName, features) {
-                window.open(theURL, winName, features);
-            }
-
             function setfocus() {
                 this.focus();
             }
 
-            function refresh() {
-                var u = self.location.href;
-                if (u.lastIndexOf("view=1") > 0) {
-                    self.location.href = u.substring(0, u.lastIndexOf("view=1")) + "view=0" + u.substring(eval(u.lastIndexOf("view=1") + 6));
-                } else {
-                    history.go(0);
-                }
-            }
-
-
             function allYear() {
-                var newD = "8888-12-31";
-                var beginD = "1900-01-01"
-                document.serviceform.xml_appointment_date.value = newD;
-                document.serviceform.xml_vdate.value = beginD;
+                document.serviceform.xml_appointment_date.value = "8888-12-31";
+                document.serviceform.xml_vdate.value = "1900-01-01";
             }
 
-            function Check(e) {
-                e.checked = true;
-                //Highlight(e);
-            }
-
-            function Clear(e) {
-                e.checked = false;
-                //Unhighlight(e);
-            }
+            function Check(e) { e.checked = true; }
+            function Clear(e) { e.checked = false; }
 
             function reportWindow(page) {
                 windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
@@ -539,11 +556,8 @@
                 var len = ml.elements.length;
                 for (var i = 0; i < len; i++) {
                     var e = ml.elements[i];
-                    if (e.name === "checkbox") {
-                        Check(e);
-                    }
+                    if (e.name === "checkbox") Check(e);
                 }
-                //ml.toggleAll.checked = true;
             }
 
             function ClearAll() {
@@ -551,136 +565,32 @@
                 var len = ml.elements.length;
                 for (var i = 0; i < len; i++) {
                     var e = ml.elements[i];
-                    if (e.name === "checkbox") {
-                        Clear(e);
-                    }
-                }
-                //ml.toggleAll.checked = false;
-            }
-
-            function Highlight(e) {
-                var r = null;
-                if (e.parentNode && e.parentNode.parentNode) {
-                    r = e.parentNode.parentNode;
-                } else if (e.parentElement && e.parentElement.parentElement) {
-                    r = e.parentElement.parentElement;
-                }
-                if (r) {
-                    if (r.className === "msgnew") {
-                        r.className = "msgnews";
-                    } else if (r.className === "msgold") {
-                        r.className = "msgolds";
-                    }
+                    if (e.name === "checkbox") Clear(e);
                 }
             }
-
-            function Unhighlight(e) {
-                var r = null;
-                if (e.parentNode && e.parentNode.parentNode) {
-                    r = e.parentNode.parentNode;
-                } else if (e.parentElement && e.parentElement.parentElement) {
-                    r = e.parentElement.parentElement;
-                }
-                if (r) {
-                    if (r.className === "msgnews") {
-                        r.className = "msgnew";
-                    } else if (r.className === "msgolds") {
-                        r.className = "msgold";
-                    }
-                }
-            }
-
-            function AllChecked() {
-                ml = document.messageList;
-                len = ml.elements.length;
-                for (var i = 0; i < len; i++) {
-                    if (ml.elements[i].name == "Mid" && !ml.elements[i].checked) {
-                        return false;
-                    }
-                }
-                return true;
-            }
-
-            function Delete() {
-                var ml = document.messageList;
-                ml.DEL.value = "1";
-                ml.submit();
-            }
-
-            // function SynchMoves(which) {
-            // var ml=document.messageList;
-            // if(which==1) {
-            //     ml.destBox2.selectedIndex=ml.destBox.selectedIndex;
-            // }
-            // else {
-            //     ml.destBox.selectedIndex=ml.destBox2.selectedIndex;
-            // }
-            // }
-
-            // function SynchFlags(which)
-            // {
-            // var ml=document.messageList;
-            // if (which == 1) {
-            //     ml.flags2.selectedIndex = ml.flags.selectedIndex;
-            // }
-            // else {
-            //     ml.flags.selectedIndex = ml.flags2.selectedIndex;
-            // }
-            // }
-
-            <%--function SetFlags()--%>
-            <%--{--%>
-            <%--var ml = document.messageList;--%>
-            <%--ml.FLG.value = "1";--%>
-            <%--ml.submit();--%>
-            <%--}--%>
-
-            <%--function Move() {--%>
-            <%--var ml = document.messageList;--%>
-            <%--var dbox = ml.destBox;--%>
-            <%--if(dbox.options[dbox.selectedIndex].value == "@NEW") {--%>
-            <%--    nn = window.prompt("<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgFolderName"/>","");--%>
-            <%--    if(nn == null || nn == "null" || nn == "") {--%>
-            <%--	dbox.selectedIndex = 0;--%>
-            <%--	ml.destBox2.selectedIndex = 0;--%>
-            <%--    }--%>
-            <%--    else {--%>
-            <%--	ml.NewFol.value = nn;--%>
-            <%--	ml.MOV.value = "1";--%>
-            <%--	ml.submit();--%>
-            <%--    }--%>
-            <%--}--%>
-            <%--else {--%>
-            <%--    ml.MOV.value = "1";--%>
-            <%--    ml.submit();--%>
-            <%--}--%>
-            <%--}--%>
 
             function saveView() {
                 let url = ctx + "/saveWorkView.do";
                 let params = {
                     method: 'save',
                     view_name: 'tickler',
-                    userrole: '${userrole}',
-                    providerno: '${user}',
+                    userrole: '<%= Encode.forJavaScript(userRole) %>',
+                    providerno: '<%= Encode.forJavaScript(user_no) %>',
                     ticklerview: document.getElementById('ticklerview').value,
-                    // dateBegin: document.getElementById('xml_vdate').value,
-                    // dateEnd: document.getElementById('xml_appointment_date').value,
                     providerview: document.getElementById('providerview').value,
                     assignedTo: document.getElementById('assignedTo').value,
                     mrpview: document.getElementById('mrpview').value
                 };
-                console.log(params)
                 jQuery.post(url, params).done(function () {
-                    jQuery("#saveViewButton").attr('class', 'btn btn-success')
+                    jQuery("#saveViewButton").addClass('btn-success').removeClass('btn-primary');
                 })
                     .fail(function () {
-                        jQuery("#saveViewButton").attr('class', 'btn btn-danger')
+                        jQuery("#saveViewButton").addClass('btn-danger').removeClass('btn-primary');
                     });
             }
 
             function generateRenalLabReq(demographicNo) {
-                var url = ctx + '/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographicNo + '&formId=0&provNo=<%=session.getAttribute("user")%>&fromSession=true';
+                var url = ctx + '/form/formlabreq<%=labReqVer%>.jsp?demographic_no=' + demographicNo + '&formId=0&provNo=<%=Encode.forJavaScript((String)session.getAttribute("user"))%>&fromSession=true';
                 jQuery.ajax({
                     type: 'POST',
                     url: ctx + '/renal/Renal.do',
@@ -692,75 +602,80 @@
                 });
             }
 
+            // Listen for tickler refresh broadcasts from edit popup
+            try {
+                var ticklerChannel = new BroadcastChannel('carlos_tickler_refresh');
+                ticklerChannel.onmessage = function(event) {
+                    var data = event.data;
+                    if (data === 'refresh' || (data && data.action === 'refresh')) {
+                        location.reload();
+                    }
+                };
+            } catch (e) {}
+
         </script>
 
     </head>
 
     <body>
     <div class="container">
+        <div class="searchBox">
 
-        <h2>
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-feather"
-                 viewBox="0 0 16 16">
-                <path d="M15.807.531c-.174-.177-.41-.289-.64-.363a3.765 3.765 0 0 0-.833-.15c-.62-.049-1.394 0-2.252.175C10.365.545 8.264 1.415 6.315 3.1c-1.95 1.686-3.168 3.724-3.758 5.423-.294.847-.44 1.634-.429 2.268.005.316.05.62.154.88.017.04.035.082.056.122A68.362 68.362 0 0 0 .08 15.198a.528.528 0 0 0 .157.72.504.504 0 0 0 .705-.16 67.606 67.606 0 0 1 2.158-3.26c.285.141.616.195.958.182.513-.02 1.098-.188 1.723-.49 1.25-.605 2.744-1.787 4.303-3.642l1.518-1.55a.528.528 0 0 0 0-.739l-.729-.744 1.311.209a.504.504 0 0 0 .443-.15c.222-.23.444-.46.663-.684.663-.68 1.292-1.325 1.763-1.892.314-.378.585-.752.754-1.107.163-.345.278-.773.112-1.188a.524.524 0 0 0-.112-.172ZM3.733 11.62C5.385 9.374 7.24 7.215 9.309 5.394l1.21 1.234-1.171 1.196a.526.526 0 0 0-.027.03c-1.5 1.789-2.891 2.867-3.977 3.393-.544.263-.99.378-1.324.39a1.282 1.282 0 0 1-.287-.018Zm6.769-7.22c1.31-1.028 2.7-1.914 4.172-2.6a6.85 6.85 0 0 1-.4.523c-.442.533-1.028 1.134-1.681 1.804l-.51.524-1.581-.25Zm3.346-3.357C9.594 3.147 6.045 6.8 3.149 10.678c.007-.464.121-1.086.37-1.806.533-1.535 1.65-3.415 3.455-4.976 1.807-1.561 3.746-2.36 5.31-2.68a7.97 7.97 0 0 1 1.564-.173Z"/>
-            </svg>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgTickler"/> Manager
-        </h2>
+            <div class="page-header-bar">
+                <h4 class="page-header-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="page-header-icon bi bi-feather"
+                         viewBox="0 0 16 16">
+                        <path d="M15.807.531c-.174-.177-.41-.289-.64-.363a3.765 3.765 0 0 0-.833-.15c-.62-.049-1.394 0-2.252.175C10.365.545 8.264 1.415 6.315 3.1c-1.95 1.686-3.168 3.724-3.758 5.423-.294.847-.44 1.634-.429 2.268.005.316.05.62.154.88.017.04.035.082.056.122A68.362 68.362 0 0 0 .08 15.198a.528.528 0 0 0 .157.72.504.504 0 0 0 .705-.16 67.606 67.606 0 0 1 2.158-3.26c.285.141.616.195.958.182.513-.02 1.098-.188 1.723-.49 1.25-.605 2.744-1.787 4.303-3.642l1.518-1.55a.528.528 0 0 0 0-.739l-.729-.744 1.311.209a.504.504 0 0 0 .443-.15c.222-.23.444-.46.663-.684.663-.68 1.292-1.325 1.763-1.892.314-.378.585-.752.754-1.107.163-.345.278-.773.112-1.188a.524.524 0 0 0-.112-.172ZM3.733 11.62C5.385 9.374 7.24 7.215 9.309 5.394l1.21 1.234-1.171 1.196a.526.526 0 0 0-.027.03c-1.5 1.789-2.891 2.867-3.977 3.393-.544.263-.99.378-1.324.39a1.282 1.282 0 0 1-.287-.018Zm6.769-7.22c1.31-1.028 2.7-1.914 4.172-2.6a6.85 6.85 0 0 1-.4.523c-.442.533-1.028 1.134-1.681 1.804l-.51.524-1.581-.25Zm3.346-3.357C9.594 3.147 6.045 6.8 3.149 10.678c.007-.464.121-1.086.37-1.806.533-1.535 1.65-3.415 3.455-4.976 1.807-1.561 3.746-2.36 5.31-2.68a7.97 7.97 0 0 1 1.564-.173Z"/>
+                    </svg>
+                    &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgTickler"/> Manager
+                </h4>
+            </div>
 
-        <form name="serviceform" method="get" action="ticklerMain.jsp" class="form-inline">
-            <input type="hidden" name="Submit" value="">
-            <input type="hidden" name="demoview" value="${param.demoview}">
+            <form name="serviceform" method="get" action="ticklerMain.jsp">
+                <input type="hidden" name="Submit" value="">
+                <input type="hidden" name="demoview" value="<%= Encode.forHtmlAttribute(demoviewParam != null ? demoviewParam : "") %>">
 
-            <c:if test="${empty param.demoview}">
-                <div class="control-container">
-                    <label for="dateRange"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDateRange"/> <a
-                            href="javascript:void(0)" id="dateRange" onClick="allYear()"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnViewAll"/></a></label>
-                    <div class="form-group">
-                        <label for="xml_vdate">From</label>
+                <% if (!isDemoView) { %>
+                    <div class="tickler-filters d-flex flex-wrap align-items-center gap-2">
+                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDateRange"/></label>
+                        <a href="javascript:void(0)" onClick="allYear()" style="font-size:11px;"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnViewAll"/></a>
+
+                        <label>From:</label>
                         <input type="date" class="form-control" name="xml_vdate" id="xml_vdate"
-                               value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_vdate)%>">
-                    </div>
-                    <div class="form-group">
-                        <label for="xml_appointment_date">To</label>
+                               value="<%=Encode.forHtmlAttribute(xml_vdate)%>">
+                        <label>To:</label>
                         <input type="date" class="form-control" name="xml_appointment_date" id="xml_appointment_date"
-                               value="<%=org.owasp.encoder.Encode.forHtmlAttribute(xml_appointment_date)%>">
-                    </div>
+                               value="<%=Encode.forHtmlAttribute(xml_appointment_date)%>">
 
-                    <div class="form-group">
-                        <label for="mrpview"> <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.MRP"/></label>
-                        <select id="mrpview" class="form-control" name="mrpview">
+                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.MRP"/></label>
+                        <%
+                            ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
+                            List<Provider> providers = providerDao.getActiveProviders();
+                        %>
+                        <select id="mrpview" class="form-select" name="mrpview">
                             <option value="all" <%=mrpview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
-                                ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-                                List<Provider> providers = providerDao.getActiveProviders();
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=p.getProviderNo()%>" <%=mrpview.equals(p.getProviderNo()) ? "selected" : ""%>><%=p.getLastName()%>
-                                ,<%=p.getFirstName()%>
-                            </option>
+                            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=mrpview.equals(p.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%></option>
                             <%
                                 }
                             %>
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="providerview"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/></label>
 
-                        <select id="providerview" class="form-control" name="providerview">
+                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/></label>
+                        <select id="providerview" class="form-select" name="providerview">
                             <option value="all" <%=providerview.equals("all") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formAllProviders"/></option>
                             <%
                                 for (Provider p : providers) {
                             %>
-                            <option value="<%=p.getProviderNo()%>" <%=providerview.equals(p.getProviderNo()) ? "selected" : ""%>><%=p.getLastName()%>
-                                ,<%=p.getFirstName()%>
-                            </option>
+                            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=providerview.equals(p.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%></option>
                             <%
                                 }
                             %>
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="assignedTo"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo"/></label>
+
+                        <label><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgAssignedTo"/></label>
                         <%
                             if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) {
                                 SiteDao siteDao = (SiteDao) SpringUtils.getBean(SiteDao.class);
@@ -770,41 +685,39 @@
                             let _providers = [];
                             <%for (int i=0; i<sites.size(); i++) {%>
                             _providers["<%=sites.get(i).getSiteId()%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
-							while (iter.hasNext()) {
-								Provider p=iter.next();
-								if ("1".equals(p.getStatus())) {%><option value='<%=p.getProviderNo()%>'><%=p.getLastName()%>, <%=p.getFirstName()%></option><%}%>";
+                            while (iter.hasNext()) {
+                                Provider p=iter.next();
+                                if ("1".equals(p.getStatus())) {%><option value='<%=Encode.forHtmlAttribute(p.getProviderNo())%>'><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%></option><%}%>";
                             <%}}%>
 
                             function changeSite(sel) {
                                 sel.form.assignedTo.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
                             }
                         </script>
-                        <select id="site" class="form-control" name="site" onchange="changeSite(this)">
+                        <select id="site" class="form-select" name="site" onchange="changeSite(this)">
                             <option value="none">---select clinic---</option>
                             <%
                                 for (int i = 0; i < sites.size(); i++) {
                             %>
-                            <option value="<%=sites.get(i).getSiteId()%>" <%=sites.get(i).getSiteId().toString().equals(request.getParameter("site")) ? "selected" : ""%>><%=sites.get(i).getName()%>
-                            </option>
+                            <option value="<%=Encode.forHtmlAttribute(String.valueOf(sites.get(i).getSiteId()))%>" <%=sites.get(i).getSiteId().toString().equals(request.getParameter("site")) ? "selected" : ""%>><%=Encode.forHtml(sites.get(i).getName())%></option>
                             <%
                                 }
                             %>
                         </select>
-                        <select id="assignedTo" name="assignedTo" style="width:140px"></select>
+                        <select id="assignedTo" name="assignedTo" class="form-select"></select>
                         <%
                             if (request.getParameter("assignedTo") != null) {
                         %>
                         <script>
                             changeSite(document.getElementById("site"));
-                            document.getElementById("assignedTo").value = '<%=request.getParameter("assignedTo")%>';
+                            document.getElementById("assignedTo").value = '<%=Encode.forJavaScript(request.getParameter("assignedTo"))%>';
                         </script>
                         <%
                             }
                         } else {
                         %>
-                        <select id="assignedTo" class="form-control" name="assignedTo">
+                        <select id="assignedTo" class="form-select" name="assignedTo">
                             <%
-                                // Check for property to default assigned providers and if present - default to user logged in
                                 boolean ticklerDefaultAssignedProvier = OscarProperties.getInstance().isPropertyActive("tickler_default_assigned_provider");
                                 if (ticklerDefaultAssignedProvier) {
                                     if ("all".equals(assignedTo)) {
@@ -817,9 +730,7 @@
                                 List<Provider> providersActive = providerDao.getActiveProviders();
                                 for (Provider p : providersActive) {
                             %>
-                            <option value="<%=p.getProviderNo()%>" <%=assignedTo.equals(p.getProviderNo()) ? "selected" : ""%>><%=p.getLastName()%>
-                                , <%=p.getFirstName()%>
-                            </option>
+                            <option value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>" <%=assignedTo.equals(p.getProviderNo()) ? "selected" : ""%>><%=Encode.forHtml(p.getLastName())%>, <%=Encode.forHtml(p.getFirstName())%></option>
                             <%
                                 }
                             %>
@@ -827,78 +738,48 @@
                         <%
                             }
                         %>
+
+                        <label>Status</label>
+                        <select id="ticklerview" class="form-select" name="ticklerview">
+                            <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
+                            <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
+                            <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
+                        </select>
+
+                        <input type="button" class="btn btn-sm btn-primary noprint" id="formSubmitBtn"
+                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnCreateReport'/>">
+                        <input type="button" class="btn btn-sm btn-primary noprint" id="saveViewButton"
+                               value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.msgSaveView'/>" onclick="saveView();">
                     </div>
-                    <div class="form-group">
-					    <label for="ticklerview">Filter</label>
-                        <select id="ticklerview" class="form-control" name="ticklerview">
-                            <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>>
-                                <fmt:setBundle basename="oscarResources"/>
-                                <fmt:message key="tickler.ticklerMain.formActive"/></option>
-                            <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>>
-                                <fmt:setBundle basename="oscarResources"/>
-                                <fmt:message key="tickler.ticklerMain.formCompleted"/></option>
-                            <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>>
-                                <fmt:setBundle basename="oscarResources"/>
-                                <fmt:message key="tickler.ticklerMain.formDeleted"/></option>
+                <% } else { %>
+                    <div class="tickler-filters d-flex flex-wrap align-items-center gap-2">
+                        <label>Status</label>
+                        <select id="ticklerview" class="form-select" name="ticklerview">
+                            <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
+                            <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
+                            <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
                         </select>
                     </div>
-                    <div class="form-group" style="padding-top:15px;">
-                        <input type="button" class="btn btn-primary mbttn noprint" id="formSubmitBtn"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCreateReport"/>">
-                        <label for="saveViewButton"> </label>
-                        <input type="button" class="btn" id="saveViewButton"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgSaveView"/>" onclick="saveView();">
-                    </div>
+                <% } %>
+            </form>
 
-                </div>
-
-            </c:if>
-            <c:if test="${not empty param.demoview}">
-            <div class="pull-left" style="margin-bottom:10px;">
-                <label for="ticklerview">Filter</label>
-                <select id="ticklerview" class="form-control" name="ticklerview">
-                    <option value="A" <%=ticklerview.equals("A") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formActive"/></option>
-                    <option value="C" <%=ticklerview.equals("C") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formCompleted"/></option>
-                    <option value="D" <%=ticklerview.equals("D") ? "selected" : ""%>><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.formDeleted"/></option>
-                </select>
-            </div>
-            </c:if>
-        </form>
+        </div>
 
         <form name="ticklerform" method="post" action="dbTicklerMain.jsp">
-            <input type="hidden" name="parentAjaxId" value="<c:out value='${param.parentAjaxId}' />"/>
-            <table id="ticklerResults" class="table table-striped table-compact" style="width:100%">
+            <input type="hidden" name="parentAjaxId" value="<%= Encode.forHtmlAttribute(parentAjaxId != null ? parentAjaxId : "") %>"/>
+            <table id="ticklerResults" class="table table-sm table-striped table-hover" style="width:100%; margin-top:10px;">
                 <thead>
                 <tr>
-                    <th>&nbsp</th>
+                    <th class="col-checkbox">&nbsp;</th>
                     <th>&nbsp;</th>
-                    <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDemographicName"/>
-                    </th>
-                    <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/>
-                    </th>
-                    <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDate"/>
-                    </th>
-                    <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDateofMsg"/>
-                    </th>
-
-                    <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.Priority"/>
-                    </th>
-
-                    <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.taskAssignedTo"/>
-                    </th>
-
-                    <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.status"/>
-                    </th>
-                    <th>
-                        <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgMessage"/>
-                    </th>
+                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDemographicName"/></th>
+                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgCreator"/></th>
+                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDate"/></th>
+                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgDateofMsg"/></th>
+                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.Priority"/></th>
+                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.taskAssignedTo"/></th>
+                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.status"/></th>
+                    <th><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.msgMessage"/></th>
                     <th></th>
                 </tr>
                 </thead>
@@ -906,42 +787,43 @@
                 </tbody>
             </table>
 
-            <table id="tablefoot">
+            <div class="action-bar noprint">
+                <input type="hidden" name="submit_form" value="">
 
-                <tr class="noprint">
-                    <td class="white"><a id="checkAllLink" name="checkAllLink"
-                                         href="javascript:CheckAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a> - <a href="javascript:ClearAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
+                <div class="action-group">
+                    <a href="javascript:CheckAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a>
+                    <span style="color:#999;">|</span>
+                    <a href="javascript:ClearAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
+                    <%
+                        if (ticklerview.compareTo("D") == 0) {
+                    %>
+                    <input type="button" class="btn btn-sm btn-danger"
+                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnEraseCompletely'/>"
+                           onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
+                    <%
+                    } else {
+                    %>
+                    <input type="button" class="btn btn-sm btn-primary"
+                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnComplete'/>"
+                           onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
+                    <input type="button" class="btn btn-sm btn-danger"
+                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnDelete'/>"
+                           onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
+                    <%
+                        }
+                    %>
+                </div>
 
-                        <input type="hidden" name="submit_form" value="">
-                        <%
-                            if (ticklerview.compareTo("D") == 0) {
-                        %>
-                        <input type="button" class="btn"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnEraseCompletely"/>" class="sbttn"
-                               onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
-                        <%
-                        } else {
-                        %>
-                        <input type="button" class="btn" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnComplete"/>"
-                               class="sbttn"
-                               onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
-                        <input type="button" class="btn btn-danger"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnDelete"/>" class="sbttn"
-                               onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
-                        <%
-                            }
-                        %>
-                        <input type="button" class="btn btn-primary" name="button"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerMain.btnAddTickler"/>"
-                               onClick="popupPage('500','800', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=${parentAjaxId}&bFirstDisp=false&messageID=null&demographic_no=${param.demoview}')"
-                               class="sbttn">
-                        <input type="button" name="button" class="btn btn-warning"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>" onClick="window.close()" class="sbttn">
-                    </td>
-                </tr>
-            </table>
+                <div class="action-separator"></div>
 
-
+                <div class="action-group">
+                    <input type="button" class="btn btn-sm btn-primary"
+                           value="<fmt:setBundle basename='oscarResources'/><fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
+                           onClick="popupPage('500','800', 'ticklerAdd.jsp?updateParent=true&parentAjaxId=<%= Encode.forUriComponent(parentAjaxId != null ? parentAjaxId : "") %>&bFirstDisp=false&messageID=null&demographic_no=<%= Encode.forUriComponent(demoviewParam != null ? demoviewParam : "") %>')">
+                    <input type="button" class="btn btn-sm btn-secondary"
+                           value="Back" onClick="try{var bc=new BroadcastChannel('carlos_tickler_refresh');bc.postMessage({action:'refresh'});bc.close();}catch(e){}window.close()">
+                </div>
+            </div>
         </form>
 
         <p class="yesprint">
@@ -954,42 +836,30 @@
                 <input type="hidden" name="tickler_note_ticklerNo" id="tickler_note_ticklerNo" value=""/>
                 <input type="hidden" name="tickler_note_noteId" id="tickler_note_noteId" value=""/>
 
-                <table style="width:100%;">
-                    <tr>
-                        <td>
-                            <label for="tickler_note">Tickler Note</label>
-                            <textarea class="form-control" id="tickler_note" rows="5" name="tickler_note"
-                                      style="width:100%;"
-                                      oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"'
-                                      onfocus='this.style.height = "";this.style.height = this.scrollHeight + "px"'></textarea>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td nowrap="nowrap">
-                            <label for="tickler_note_obsDate">Date:</label>
-                            <span id="tickler_note_obsDate"></span>
-
-                            <label for="tickler_note_revision_url">Rev:</label>
-                            <a id="tickler_note_revision_url" href="javascript:void(0)" onClick="">
-                                <span id="tickler_note_revision"></span>
-                            </a>
-
-                            <label for="tickler_note_editor">Editor:</label>
-                            <span id="tickler_note_editor"></span>
-                        </td>
-                    </tr>
-
-                </table>
-                <div class="pull-right">
-                    <button class="btn btn-primary" onclick="saveNoteDialog()">Save</button>
-                    <button class="btn btn-danger" onclick="closeNoteDialog()">Exit</button>
+                <div style="margin-bottom:8px;">
+                    <label for="tickler_note">Tickler Note</label>
+                    <textarea class="form-control" id="tickler_note" rows="5" name="tickler_note"
+                              style="width:100%;"
+                              oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"'
+                              onfocus='this.style.height = "";this.style.height = this.scrollHeight + "px"'></textarea>
                 </div>
-
+                <div style="font-size:12px; color:#666; margin-bottom:8px;">
+                    <label for="tickler_note_obsDate">Date:</label>
+                    <span id="tickler_note_obsDate"></span>
+                    &nbsp;
+                    <label for="tickler_note_revision_url">Rev:</label>
+                    <a id="tickler_note_revision_url" href="javascript:void(0)" onClick="">
+                        <span id="tickler_note_revision"></span>
+                    </a>
+                    &nbsp;
+                    <label for="tickler_note_editor">Editor:</label>
+                    <span id="tickler_note_editor"></span>
+                </div>
+                <div style="text-align:right;">
+                    <button class="btn btn-sm btn-primary" onclick="saveNoteDialog()">Save</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="closeNoteDialog()">Exit</button>
+                </div>
             </form>
-        </div>
-
-        <div id="edit-form" title="Edit Tickler">
-                <%--    onclick="editFormDialog.load('${pageContext.request.contextPath}/tickler/ticklerEdit.jsp?tickler_no=<%=t.getId()%>').dialog('open')">--%>
         </div>
 
     </div>

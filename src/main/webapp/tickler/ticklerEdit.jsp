@@ -118,20 +118,57 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <title><fmt:message key="tickler.ticklerEdit.title"/></title>
+        <%@ include file="/includes/global-head.jspf" %>
         <style>
-            .tickler-comment-row:nth-child(odd) td {
-                background-color: whitesmoke;
+            /* Links — CARLOS primary blue */
+            a { color: var(--carlos-primary); }
+            a:hover { color: #28619a; }
+
+            /* Section headers — CARLOS primary */
+            .section-header {
+                background-color: var(--carlos-primary);
+                color: #fff;
+                font-weight: 600;
+                padding: 6px 10px;
+                margin-top: 10px;
+                margin-bottom: 0;
+                font-size: 14px;
+                border-radius: 3px 3px 0 0;
             }
 
-            .tickler-comment-row:nth-child(even) td {
-                background-color: white;
+            /* Demographic card */
+            .demo-card {
+                background: #fff;
+                border: 1px solid var(--carlos-border);
+                border-radius: 4px;
+                padding: 10px 14px;
+                margin-bottom: 10px;
+                font-size: 13px;
+                line-height: 1.5;
             }
-
-            *:not(h2) {
-                line-height: 1 !important;
-                font-size: 12px !important;
+            .demo-card .demo-label {
+                font-weight: 600;
+                color: #666;
+                font-size: 11px;
+                text-transform: uppercase;
+                margin-bottom: 1px;
             }
+            .demo-card .demo-value { font-size: 13px; }
+            .demo-card .demo-name { font-size: 15px; font-weight: 600; }
 
+            /* Message history */
+            .msg-table { font-size: 13px; }
+            .msg-table td { vertical-align: top; }
+            .msg-table .msg-original { font-weight: 600; }
+            .msg-table tr.tickler-comment-row:nth-child(odd) td { background-color: #fafafa; }
+            .msg-table tr.tickler-comment-row:nth-child(even) td { background-color: #fff; }
+
+            /* Right-side controls — compact spacing */
+            .edit-controls label { font-weight: 600; font-size: 13px; margin-bottom: 2px; display: block; }
+            .edit-controls .form-select, .edit-controls .form-control { margin-bottom: 10px; }
+
+            /* Quick-pick date grid */
             .grid {
                 display: grid;
                 grid-template-columns: repeat(10, 1fr);
@@ -140,31 +177,42 @@
             }
 
             .grid a, .today-button {
-                background-color: #E6E6FA;
+                background-color: var(--carlos-bg-light);
+                border: 1px solid var(--carlos-border);
                 text-align: center;
-                width: auto;
-                height: auto;
                 padding: 2px;
                 margin: 1px;
                 display: flex;
                 justify-content: center;
                 text-decoration: none;
-                color: black;
-                font-size: 11px !important;
+                color: var(--carlos-text);
+                font-size: 11px;
                 border-radius: 3px;
             }
 
             .grid a:hover, .today-button:hover {
-                background-color: #EE82EE;
-                color: white;
+                background-color: var(--carlos-primary);
+                color: #fff;
             }
 
             .today-button {
                 width: 125px;
                 cursor: pointer;
             }
+
+            /* Action bar */
+            .action-bar-bottom {
+                background: var(--carlos-bg-light);
+                border-top: 1px solid var(--carlos-border);
+                padding: 10px 15px;
+                margin-top: 15px;
+                display: flex;
+                justify-content: flex-end;
+                align-items: center;
+                gap: 8px;
+                border-radius: 0 0 4px 4px;
+            }
         </style>
-        <title><fmt:message key="tickler.ticklerEdit.title"/></title>
         <script type="application/javascript">
             //open a new popup window
             function popupPage(vheight, vwidth, varpage) {
@@ -260,11 +308,29 @@
                 return dat;
             }
 
-            function validate(form, writeToEncounter) {
+            function validate(form) {
                 if (validateDate(form) <%=caisiEnabled?"&& validateSelectedProgram()":""%>) {
-                    if (writeToEncounter) {
-                        window.open('<%=request.getContextPath()%>/oscarEncounter/IncomingEncounter.do?demographicNo=<%=d.getDemographicNo()%>&providerNo=<%=loggedInInfo.getLoggedInProviderNo()%>&curDate=<%=curYear%>-<%=curMonth%>-<%=curDay%>&encType=&status=', '', 'height=700,width=960');
-                    }
+                    var iframe = document.createElement('iframe');
+                    iframe.name = 'ticklerEditFrame';
+                    iframe.style.display = 'none';
+                    document.body.appendChild(iframe);
+                    form.target = 'ticklerEditFrame';
+                    iframe.onload = function() {
+                        try {
+                            if (iframe.contentWindow.location.href === 'about:blank') return;
+                        } catch (e) {}
+                        try {
+                            if (window.opener && !window.opener.closed) {
+                                window.opener.location.reload();
+                            }
+                        } catch (e) {}
+                        try {
+                            var bc = new BroadcastChannel('carlos_tickler_refresh');
+                            bc.postMessage({ action: 'refresh' });
+                            bc.close();
+                        } catch (e) {}
+                        setTimeout(function() { window.close(); }, 500);
+                    };
                     form.submit();
                     return true;
                 }
@@ -286,231 +352,162 @@
                 }
             }
         </script>
-        <link href="<%= request.getContextPath() %>/library/bootstrap/3.0.0/css/bootstrap.css" rel="stylesheet"
-              type="text/css">
-
     </head>
 
     <body onLoad="addQuickPick()">
-    <div class="container">
-        <form name="serviceform" action="${pageContext.request.contextPath}/tickler/EditTickler.do" method="post">
+    <div class="container" style="max-width: 860px;">
+        <form name="serviceform" action="<%=request.getContextPath()%>/tickler/EditTickler.do" method="post">
             <input type="hidden" name="method" value="editTickler"/>
             <input type="hidden" name="ticklerNo" value="<%=ticklerNo%>"/>
-            <input type="hidden" name="parentAjaxId" value="<e:forHtml value='${param.parentAjaxId}' />"/>
-            <h2><fmt:message key="tickler.ticklerEdit.title"/></h2>
-            <div id="error" class="alert alert-error" style="display:none;"></div>
+            <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(request.getParameter("parentAjaxId") != null ? request.getParameter("parentAjaxId") : "")%>"/>
+            <div class="page-header-bar">
+                <h2 class="page-header-title"><fmt:message key="tickler.ticklerEdit.title"/></h2>
+            </div>
+            <div id="error" class="alert alert-danger" style="display:none;"></div>
 
-            <table class="table table-condensed">
+            <%-- 1. Compact demographic card --%>
+            <div class="demo-card">
+                <div class="row">
+                    <div class="col-sm-4">
+                        <div class="demo-label"><fmt:message key="tickler.ticklerEdit.demographicName"/></div>
+                        <div class="demo-name"><a href="javascript:void(0)"
+                            onClick="popupPage(600,800,'<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=d.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')"><%=Encode.forHtmlContent(d.getLastName())%>, <%=Encode.forHtmlContent(d.getFirstName())%></a></div>
+                        <div class="demo-value"><%=d.getAge()%> (<%=d.getFormattedDob()%>)</div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="demo-label"><fmt:message key="tickler.ticklerEdit.phoneNumbers"/></div>
+                        <div class="demo-value">(H) <%=Encode.forHtmlContent(d.getPhone())%></div>
+                        <div class="demo-value">(W) <%=Encode.forHtmlContent(d.getPhone2())%></div>
+                        <div class="demo-value">(C) <%=Encode.forHtmlContent(d.getCellPhone())%></div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="demo-label"><fmt:message key="tickler.ticklerEdit.chartNo"/></div>
+                        <div class="demo-value"><%=d.getChartNo() != null ? Encode.forHtmlContent(d.getChartNo()) : ""%></div>
+                        <div class="demo-label mt-1"><fmt:message key="tickler.ticklerEdit.email"/></div>
+                        <div class="demo-value"><%=Encode.forHtmlContent(d.getEmail())%></div>
+                    </div>
+                </div>
+            </div>
 
-                <tr>
-                    <th style="background-color: #EEEEFF"><fmt:message key="tickler.ticklerEdit.demographicName"/></th>
-                    <td><a href="javascript:void(0)"
-                           onClick="popupPage(600,800,'<%=request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=d.getDemographicNo()%>&displaymode=edit&dboperation=search_detail')">
-                        <%=Encode.forHtmlContent(d.getLastName())%>,<%=Encode.forHtmlContent(d.getFirstName())%>
-                    </a></td>
-                    <th style="background-color: #EEEEFF"><fmt:message key="tickler.ticklerEdit.phoneNumbers"/></th>
-                    <td>(H) <%=Encode.forHtmlContent(d.getPhone())%><br>(W) <%=Encode.forHtmlContent(d.getPhone2())%>
-                        <br>(C) <%=Encode.forHtmlContent(d.getCellPhone())%>
-                    </td>
-                </tr>
-                <tr>
-                    <th style="background-color: #EEEEFF"><fmt:message key="tickler.ticklerEdit.chartNo"/></th>
-                    <td><%=d.getChartNo()%>
-                    </td>
-                    <th style="background-color: #EEEEFF"><fmt:message key="tickler.ticklerEdit.phoneComments"/></th>
-                    <td><%=Encode.forHtmlContent(d.getPhoneComment())%>
-                    </td>
-                </tr>
-                <tr>
-                    <th style="background-color: #EEEEFF"><fmt:message key="tickler.ticklerEdit.age"/></th>
-                    <td><%=d.getAge()%>(<%=d.getFormattedDob()%>)</td>
-                    <th style="background-color: #EEEEFF"><fmt:message key="tickler.ticklerEdit.email"/></th>
-                    <td><%=Encode.forHtmlContent(d.getEmail())%>
-                    </td>
-                </tr>
+            <%-- 2. Message history --%>
+            <div class="section-header"><fmt:message key="tickler.ticklerEdit.messages"/></div>
+            <table class="table table-sm msg-table mb-0" style="border: 1px solid var(--carlos-border); border-top: none;">
+                <thead>
+                    <tr>
+                        <th style="width:50%"><fmt:message key="tickler.ticklerEdit.messages"/></th>
+                        <th><fmt:message key="tickler.ticklerEdit.addedBy"/></th>
+                        <th><fmt:message key="tickler.ticklerEdit.dateAdded"/></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="msg-original">
+                        <td style="white-space:pre-wrap;"><%=Encode.forHtmlContent(t.getMessage())%></td>
+                        <td><%=Encode.forHtmlContent(t.getProvider().getLastName())%>, <%=Encode.forHtmlContent(t.getProvider().getFirstName())%></td>
+                        <td><%=datetimeFormat.format(t.getCreateDate())%></td>
+                    </tr>
+                    <%
+                        Set<TicklerComment> tComments = t.getComments();
+                        for (TicklerComment tc : tComments) {
+                    %>
+                    <tr class="tickler-comment-row">
+                        <td style="white-space:pre-wrap;"><%=Encode.forHtmlContent(tc.getMessage())%></td>
+                        <td><%=Encode.forHtmlContent(tc.getProvider().getLastName())%>, <%=Encode.forHtmlContent(tc.getProvider().getFirstName())%></td>
+                        <td><%=datetimeFormat.format(tc.getUpdateDate())%></td>
+                    </tr>
+                    <%}%>
+                </tbody>
+            </table>
 
-                <tr>
-                    <td colspan="4" style="padding-bottom:1em;"></td>
-                </tr>
-                <tr>
-                    <th colspan="2" style="background-color: #336666;color:white;"><fmt:message key="tickler.ticklerEdit.messages"/></th>
-                    <th style="background-color: #336666;color:white;"><fmt:message key="tickler.ticklerEdit.addedBy"/>
-                    <th style="background-color: #336666;color:white;"><fmt:message key="tickler.ticklerEdit.dateAdded"/>
-                </tr>
+            <%-- 3. Edit area — two-column layout --%>
+            <div class="row mt-3">
+                <%-- Left column: suggested text + message textarea --%>
+                <div class="col-md-7">
+                    <div class="section-header"><fmt:message key="tickler.ticklerEdit.newMessage"/></div>
+                    <div style="border: 1px solid var(--carlos-border); border-top: none; padding: 10px;">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <label for="suggestedText" class="mb-0" style="white-space: nowrap; font-size: 13px;">
+                                <a href="javascript:void(0)"
+                                   onclick="openBrWindow('./ticklerSuggestedText.jsp','tickler_suggested_text','width=680,height=400')"
+                                   style="font-weight:bold"><fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:
+                            </label>
+                            <select class="form-select form-select-sm" name="suggestedText" id="suggestedText" style="flex:1;">
+                                <option value="">---</option>
+                                <%
+                                    TicklerTextSuggestDao ticklerTextSuggestDao = (TicklerTextSuggestDao) SpringUtils.getBean(TicklerTextSuggestDao.class);
+                                    for (TicklerTextSuggest tTextSuggest : ticklerTextSuggestDao.getActiveTicklerTextSuggests()) { %>
+                                <option><%=Encode.forHtmlContent(tTextSuggest.getSuggestedText())%></option>
+                                <% } %>
+                            </select>
+                            <input type="button" class="btn btn-outline-secondary btn-sm" name="pasteMessage" onclick="pasteMessageText()"
+                                   value="<fmt:message key="tickler.ticklerEdit.pasteMessage"/>"/>
+                        </div>
+                        <textarea class="form-control" rows="10" id="newMessage" name="newMessage"></textarea>
+                    </div>
+                </div>
 
-                <tr>
-                    <td colspan="2"
-                        style="font-weight: bold; white-space:pre-wrap;"><%=Encode.forHtmlContent(t.getMessage())%>
-                    </td>
-                    <td style="font-weight: bold"><%=Encode.forHtmlContent(t.getProvider().getLastName())%>
-                        ,<%=Encode.forHtmlContent(t.getProvider().getFirstName())%>
-                    </td>
-                    <td style="font-weight: bold"><%=datetimeFormat.format(t.getCreateDate())%>
-                    </td>
-                </tr>
-
-                <%
-                    Set<TicklerComment> tComments = t.getComments();
-                    for (TicklerComment tc : tComments) {
-                %>
-                <tr class="tickler-comment-row">
-                    <td colspan="2" style="white-space:pre-wrap;"><%=Encode.forHtmlContent(tc.getMessage())%>
-                    </td>
-                    <td><%=Encode.forHtmlContent(tc.getProvider().getLastName())%>
-                        ,<%=Encode.forHtmlContent(tc.getProvider().getFirstName())%>
-                    </td>
-                    <td><%=datetimeFormat.format(tc.getUpdateDate())%>
-                    </td>
-                </tr>
-                <%}%>
-
-                <tr>
-                    <td colspan="4" style="padding-top:1em;"></td>
-                </tr>
-                <tr>
-                    <th colspan="2" style="background-color: #666699;color:white;"><fmt:message key="tickler.ticklerEdit.newMessage"/></th>
-                    <th colspan="2" style="background-color: #666699;color:white;"><label for="status"><fmt:message key="tickler.ticklerEdit.status"/></label></th>
-                </tr>
-                <tr>
-                    <td><label for="suggestedText"><a href="javascript:void(0)"
-                                                      onclick="openBrWindow('./ticklerSuggestedText.jsp','tickler_suggested_text','width=680,height=400')"
-                                                      style="font-weight:bold">
-                        <fmt:message key="tickler.ticklerEdit.suggestedText"/></a>:</label></td>
-                    <td>
-                        <select class="form-control" name="suggestedText" id="suggestedText">
-                            <option value="">---</option>
-                            <%
-                                TicklerTextSuggestDao ticklerTextSuggestDao = (TicklerTextSuggestDao) SpringUtils.getBean(TicklerTextSuggestDao.class);
-                                for (TicklerTextSuggest tTextSuggest : ticklerTextSuggestDao.getActiveTicklerTextSuggests()) { %>
-                            <option><%=Encode.forHtmlContent(tTextSuggest.getSuggestedText())%>
-                            </option>
-                            <% } %>
-                        </select>
-                    </td>
-
-                    <td colspan="2">
-                        <select class="form-control" name="status" id="status">
-                                    <% if (t.getStatusDesc(vLocale).equals(stActive)){selected="selected";}else{selected="";}%>
+                <%-- Right column: status, priority, assigned to, service date, quick-pick --%>
+                <div class="col-md-5 edit-controls">
+                    <div class="section-header"><fmt:message key="tickler.ticklerEdit.status"/> / <fmt:message key="tickler.ticklerEdit.priority"/></div>
+                    <div style="border: 1px solid var(--carlos-border); border-top: none; padding: 10px;">
+                        <label for="status"><fmt:message key="tickler.ticklerEdit.status"/></label>
+                        <select class="form-select" name="status" id="status">
+                            <% if (t.getStatusDesc(vLocale).equals(stActive)){selected="selected";}else{selected="";}%>
                             <option <%=selected%> value="A"><fmt:message key="tickler.ticklerMain.stActive"/></option>
-                                    <% if (t.getStatusDesc(vLocale).equals(stComplete)){selected="selected";}else{selected="";}%>
+                            <% if (t.getStatusDesc(vLocale).equals(stComplete)){selected="selected";}else{selected="";}%>
                             <option <%=selected%> value="C"><fmt:message key="tickler.ticklerMain.stComplete"/></option>
-                                    <% if (t.getStatusDesc(vLocale).equals(stDeleted)){selected="selected";}else{selected="";}%>
+                            <% if (t.getStatusDesc(vLocale).equals(stDeleted)){selected="selected";}else{selected="";}%>
                             <option <%=selected%> value="D"><fmt:message key="tickler.ticklerMain.stDeleted"/></option>
-                            <select>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2" style="border: none;"><label for="newMessage"><fmt:message key="tickler.ticklerEdit.messageText"/>:</label></td>
-                    <th colspan="2" style="background-color: #666699;color:white;"><label for="priority"><fmt:message key="tickler.ticklerEdit.priority"/></label></th>
-                </tr>
-
-                <tr>
-                    <td colspan="2" rowspan="7" style="border: none;">
-                        <textarea class="form-control" rows="23" style="width:100%;" id="newMessage"
-                                  name="newMessage"></textarea>
-                        <input type="button" class="btn" name="pasteMessage" onclick="pasteMessageText()"
-                               value="<fmt:message key="tickler.ticklerEdit.pasteMessage"/>"/>
-                    </td>
-
-                    <td colspan="2">
-                        <select class="form-control" name="priority" id="priority">
-                            <% if (t.getPriorityWeb().equals(prHigh)) {
-                                selected = "selected";
-                            } else {
-                                selected = "";
-                            }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.high"/>">
-                                <fmt:message key="tickler.ticklerMain.priority.high"/></option>
-                            <% if (t.getPriorityWeb().equals(prNormal)) {
-                                selected = "selected";
-                            } else {
-                                selected = "";
-                            }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.normal"/>">
-                                <fmt:message key="tickler.ticklerMain.priority.normal"/></option>
-                            <% if (t.getPriorityWeb().equals(prLow)) {
-                                selected = "selected";
-                            } else {
-                                selected = "";
-                            }%>
-                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.low"/>">
-                                <fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
-                    </td>
-                </tr>
 
-                <tr>
-                    <th colspan="2" style="background-color: #666699;color:white;">
+                        <label for="priority"><fmt:message key="tickler.ticklerEdit.priority"/></label>
+                        <select class="form-select" name="priority" id="priority">
+                            <% if (t.getPriorityWeb().equals(prHigh)) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.high"/>"><fmt:message key="tickler.ticklerMain.priority.high"/></option>
+                            <% if (t.getPriorityWeb().equals(prNormal)) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.normal"/>"><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+                            <% if (t.getPriorityWeb().equals(prLow)) { selected = "selected"; } else { selected = ""; }%>
+                            <option <%=selected%> value="<fmt:message key="tickler.ticklerMain.priority.low"/>"><fmt:message key="tickler.ticklerMain.priority.low"/></option>
+                        </select>
+
                         <label for="assignedToProviders"><fmt:message key="tickler.ticklerEdit.assignedTo"/></label>
-                    </th>
-                </tr>
-                <tr>
-                    <td colspan="2">
-                        <select class="form-control" name="assignedToProviders" id="assignedToProviders">
+                        <select class="form-select" name="assignedToProviders" id="assignedToProviders">
                             <%
                                 ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
                                 List<Provider> providers = providerDao.getActiveProviders();
                                 for (Provider p : providers) {
-
-                                    if (p.equals(t.getAssignee())) {
-                                        selected = "selected";
-                                    } else {
-                                        selected = "";
-                                    }
+                                    if (p.equals(t.getAssignee())) { selected = "selected"; } else { selected = ""; }
                             %>
-                            <option <%=selected%>
-                                    value="<%=p.getProviderNo()%>"><%=Encode.forHtmlContent(p.getLastName())%>
-                                ,<%=Encode.forHtmlContent(p.getFirstName())%>
-                            </option>
+                            <option <%=selected%> value="<%=Encode.forHtmlAttribute(p.getProviderNo())%>"><%=Encode.forHtmlContent(p.getLastName())%>, <%=Encode.forHtmlContent(p.getFirstName())%></option>
                             <% } %>
                         </select>
-                    </td>
-                </tr>
 
-                <tr>
-                    <th colspan="2" style="background-color: #666699;color:white;">
-                        <fmt:message key="tickler.ticklerEdit.serviceDate"/>
-                    </th>
-                </tr>
-                <tr>
-                    <%
-
-
-                        DateFormat dateformat = new SimpleDateFormat("yyyy-MM-dd");
-                        String strDate = dateformat.format(t.getServiceDate());
-
-
-                    %>
-                    <td colspan="2" style="border: none;">
-                        <label for="xml_appointment_date"><fmt:message key="tickler.ticklerEdit.calendarLookup"/></label>
+                        <%
+                            DateFormat dateformat = new SimpleDateFormat("yyyy-MM-dd");
+                            String strDate = dateformat.format(t.getServiceDate());
+                        %>
+                        <label for="xml_appointment_date"><fmt:message key="tickler.ticklerEdit.serviceDate"/></label>
                         <input name="xml_appointment_date" class="form-control" id="xml_appointment_date" type="date"
                                maxlength="10" value="<%=strDate%>"/>
-                    </td>
 
-                </tr>
-                <tr>
-                    <td colspan="2" style="border: none;">
-                        <!-- Today button placed before the grid -->
-                        <div id="todayButton" class="today-button" onclick="addTime(0, 'days')">Today</div>
-                        <div id="quickPickDateOptions" class="grid">
-                            <!-- Quick pick will be added here using JavaScript -->
-                        </div>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2" style="vertical-align: bottom;text-align:right; padding-top:15px; border:none;">
-                        <oscar:oscarPropertiesCheck property="tickler_email_enabled" value="true">
-                            <input type="checkbox" name="emailDemographic" value="true" /><fmt:message key="tickler.ticklerEdit.emailDemographic"/>
-                        </oscar:oscarPropertiesCheck>
+                        <div id="todayButton" class="today-button mt-2" onclick="addTime(0, 'days')">Today</div>
+                        <div id="quickPickDateOptions" class="grid"></div>
+                    </div>
+                </div>
+            </div>
 
-                        <input type="button" class="btn btn-primary" name="updateTickler"
-                               value="<fmt:message key="tickler.ticklerEdit.update"/>" onClick="validate(this.form, false)"/>
-                        <input type="button" class="btn" name="cancelChangeTickler"
-                               value="<fmt:message key="tickler.ticklerEdit.cancel"/>" onClick="window.close()"/>
-
-                    </td>
-                </tr>
-            </table>
+            <%-- 4. Sticky action bar --%>
+            <div class="action-bar-bottom">
+                <oscar:oscarPropertiesCheck property="tickler_email_enabled" value="true">
+                    <label class="mb-0 me-2" style="font-size:13px;">
+                        <input type="checkbox" name="emailDemographic" value="true" class="form-check-input me-1"/>
+                        <fmt:message key="tickler.ticklerEdit.emailDemographic"/>
+                    </label>
+                </oscar:oscarPropertiesCheck>
+                <input type="button" class="btn btn-primary" name="updateTickler"
+                       value="<fmt:message key="tickler.ticklerEdit.update"/>" onClick="validate(this.form)"/>
+                <input type="button" class="btn btn-secondary" name="cancelChangeTickler"
+                       value="Back" onClick="try{var bc=new BroadcastChannel('carlos_tickler_refresh');bc.postMessage({action:'refresh'});bc.close();}catch(e){}window.close()"/>
+            </div>
         </form>
     </div>
 

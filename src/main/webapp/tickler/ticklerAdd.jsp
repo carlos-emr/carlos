@@ -125,7 +125,6 @@
         demoName = "";
     }
 
-    Boolean writeToEncounter = false;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     Boolean caisiEnabled = OscarProperties.getInstance().isPropertyActive("caisi");
     Integer defaultProgramId = null;
@@ -257,7 +256,7 @@
             const display = document.createElement('div');
             display.style.margin = '5px 0';
             display.style.fontSize = '0.9em';
-            display.style.color = '#336';
+            display.style.color = '#337ab7';
             display.innerHTML = '&nbsp;'; // Reserve vertical space
             display.style.minHeight = '1.5em'; // Adjust height to match expected line height
             container.parentNode.insertBefore(display, container);
@@ -397,7 +396,7 @@
             window.open(theURL, winName, features);
         }
 
-        function setfocus() {
+        function initTicklerAdd() {
             this.focus();
             document.ADDAPPT.keyword.focus();
             document.ADDAPPT.keyword.select();
@@ -420,13 +419,33 @@
             if (newHeight > 50) messageBox.style.height = newHeight + "px";
         }
 
-        function validate(form, writeToEncounter = false) {
+        function validate(form) {
             if (validateDemoNo()<%= caisiEnabled ? " && validateSelectedProgram()" : "" %>) {
-                if (writeToEncounter) {
-                    form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?writeToEncounter=true";
-                } else {
-                    form.action = "<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp?updateTicklerNav=true";
-                }
+                // Submit form into a hidden iframe so the page stays here
+                var iframe = document.createElement('iframe');
+                iframe.name = 'ticklerSubmitFrame';
+                iframe.style.display = 'none';
+                document.body.appendChild(iframe);
+                form.target = 'ticklerSubmitFrame';
+                iframe.onload = function() {
+                    // Skip the initial about:blank load
+                    try {
+                        if (iframe.contentWindow.location.href === 'about:blank') return;
+                    } catch (e) {}
+                    // Notify opener to refresh via multiple methods
+                    try {
+                        if (window.opener && !window.opener.closed) {
+                            window.opener.location.reload();
+                        }
+                    } catch (e) {}
+                    // Use BroadcastChannel for cross-window communication
+                    try {
+                        var bc = new BroadcastChannel('carlos_tickler_refresh');
+                        bc.postMessage({ action: 'refresh' });
+                        bc.close();
+                    } catch (e) {}
+                    setTimeout(function() { window.close(); }, 500);
+                };
                 form.submit();
             }
         }
@@ -481,46 +500,62 @@
         }
         </script>
 
-        <link href="<%=request.getContextPath() %>/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet">
-        <script src="<%=request.getContextPath() %>/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js"></script>
-        <style media="all">
+        <%@ include file="/includes/global-head.jspf" %>
+        <style>
+            /* Links — CARLOS primary blue */
+            a { color: var(--carlos-primary); }
+            a:hover { color: #28619a; }
+
             .tickler-label {
-                color: #003366;
-                font-weight: bold;
+                color: var(--carlos-primary);
+                font-weight: 600;
+                font-size: 13px;
+                white-space: nowrap;
             }
 
-            table {
-                width: 100%;
-            }
-
-            * {
-                font-size: 12px !important;
-            }
+            /* Quick-pick date grid — CARLOS tokens */
             #quickPickDateOptions {
                 display: block !important;
+                margin-top: 6px;
             }
             #quickPickDateOptions > div {
                 display: flex;
-                gap: 6px;
-                margin-bottom: 6px;
+                gap: 4px;
+                margin-bottom: 4px;
             }
             #quickPickDateOptions button {
-                font-size: 0.7em;
+                background-color: var(--carlos-bg-light);
+                border: 1px solid var(--carlos-border);
+                color: var(--carlos-text);
+                font-size: 11px;
                 padding: 3px 6px;
                 cursor: pointer;
+                border-radius: 3px;
+                text-decoration: none;
+            }
+            #quickPickDateOptions button:hover {
+                background-color: var(--carlos-primary);
+                color: #fff;
+            }
+
+            /* Action bar */
+            .action-bar-bottom {
+                background: var(--carlos-bg-light);
+                border-top: 1px solid var(--carlos-border);
+                padding: 10px 15px;
+                margin-top: 10px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
             }
         </style>
     </head>
 
-    <body onload="setfocus();initResize()">
-    <table>
-        <tr style="background-color: black">
-            <td style="text-align:left; padding:10px; font-weight: 900; height:40px; font-size: large; font-family: arial, sans-serif; color: white">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.titleHeading"/></td>
-        </tr>
-    </table>
-
-    <div class="container-fluid p-3">
+    <body onload="initTicklerAdd();initResize()">
+    <div class="container" style="max-width: 860px;">
+        <div class="page-header-bar">
+            <h2 class="page-header-title"><fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.titleHeading"/></h2>
+        </div>
         <%
             String searchMode = request.getParameter("search_mode");
             if (searchMode == null || searchMode.isEmpty()) {
@@ -573,11 +608,12 @@
                 </tr>
             </table>
         </form>
-        <form name="serviceform" method="post">
+        <form name="serviceform" method="post" action="<%= request.getContextPath() %>/tickler/dbTicklerAdd.jsp">
             <input type="hidden" name="parentAjaxId" value="<%=Encode.forHtmlAttribute(parentAjaxId)%>">
             <input type="hidden" name="updateParent" value="<%=Encode.forHtmlAttribute(updateParent)%>">
+            <input type="hidden" name="updateTicklerNav" value="true">
             <input type="hidden" name="user_no" value="<%=Encode.forHtmlAttribute(user_no)%>">
-            <input type="hidden" name="writeToEncounter" value="<%=Encode.forHtmlAttribute(writeToEncounter.toString())%>">
+
             <table class="table table-sm">
 
                 <tr>
@@ -780,20 +816,16 @@
                     <td><textarea name="ticklerMessage" id="ticklerMessage" class="form-control"></textarea>
                     </td>
                 </tr>
-                <tr>
-                    <td colspan="2"><input type="button" name="Button" class="btn btn-primary"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSubmit"/>"
-                               onclick="validate(this.form);">
-                        <input type="button" name="Button" class="btn btn-secondary"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnWriteSubmit"/>"
-                               onclick="validate(this.form, true)">
-                        <input type="button" name="Button" class="btn btn-danger"
-                               value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnCancel"/>"
-                               onclick="window.close()">
-                    </td>
-                </tr>
 
             </table>
+            <div class="action-bar-bottom">
+                <input type="button" name="Button" class="btn btn-primary"
+                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="tickler.ticklerAdd.btnSubmit"/>"
+                       onclick="validate(this.form);">
+<input type="button" name="Button" class="btn btn-secondary"
+                       value="Back"
+                       onclick="window.close()">
+            </div>
         </form>
     </div>
     </body>

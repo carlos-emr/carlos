@@ -324,6 +324,17 @@
                 popColumn(url, name, name, null, null);
             }
 
+            // Listen for tickler refresh broadcasts from popup windows
+            try {
+                var ticklerChannel = new BroadcastChannel('carlos_tickler_refresh');
+                ticklerChannel.onmessage = function(event) {
+                    var data = event.data;
+                    if (data === 'refresh' || (data && data.action === 'refresh')) {
+                        reloadNav('tickler');
+                    }
+                };
+            } catch (e) {}
+
             function addPrintOption(name, bean) {
                 var test1Str = "<img style=\"cursor: pointer;\" title=\"Print " + name + "\" id=\"img" + name + "\" alt=\"Print " + name + "\" onclick=\"return printInfo(this, 'extPrint" + name + "');\" src=\"" + ctx + "/oscarEncounter/graphics/printer.png\">&nbsp;" + name;
                 jQuery("#printDateRow").before("<tr><td></td><td>" + test1Str + "</tr></tr>");
