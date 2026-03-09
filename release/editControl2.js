@@ -224,12 +224,17 @@ function insertEditControl() {
 	// THIRD WRITE THE EDIT CONTROL TO THE WEB PAGE
 	if (document.designMode) {
         //console.log(editControlHTML);
-		document.write(editControlHTML);
+		document.body.insertAdjacentHTML('beforeend', editControlHTML);
 		//InitToolbarButtons(cfg_editorname);
 	} else {
 		// create a normal <textarea> if document.designMode does not exist
 		//alert("Design mode is not supported by your browser \n- reverting to classic mode");
-		document.write('<textarea id="' + cfg_editorname + '" style="width:' + cfg_width + '; height:' + editControlHeight + 'px; ' + editControlStyle + '"></textarea>');
+		var ta = document.createElement('textarea');
+		ta.id = cfg_editorname;
+		ta.style.width = cfg_width;
+		ta.style.height = editControlHeight + 'px';
+		ta.setAttribute('style', 'width:' + cfg_width + '; height:' + editControlHeight + 'px; ' + editControlStyle);
+		document.body.appendChild(ta);
 	}
 }
 
@@ -319,7 +324,7 @@ function loadDefaultTemplate() {
 		var obj = document.getElementById(cfg_editorname);
 		obj.onload = function() { parseTemplate(); }
 		//for IE put some delay to ensure that the new src is loaded before we parse it
-    	if (isIE()) { setTimeout('parseTemplate()',1000); } //if M$ like browser    	
+    	if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
 	} else {
 		var blankTemplate = '<html><head><title>Blank Document Template</title><meta http-equiv=\"Content-Type\" content=\"text/html; charset=iso-8859-1\"><style type=\"text/css\">body {font-size: 1em; font-family:\"Times New Roman\", Times, serif; background-color: #FFFFFF;}</style><style type=\"text/css\" media=\"print\">* {color: #000000;}.DoNotPrint {display: none;}</style></head><body contenteditable onLoad=\"document.designMode = \'on\';\"></body></html>';
 		document.getElementById(cfg_editorname).src = "data:text/html;charset=utf-8," + escape(blankTemplate);
@@ -341,7 +346,7 @@ function loadTemplate(selectname){
 		var obj = document.getElementById(cfg_editorname);
 		obj.onload = function() { parseTemplate(); }
 		//for IE put some delay to ensure that the new src is loaded before we parse it
-    		if (isIE()) { setTimeout('parseTemplate()',1000); } //if M$ like browser
+    		if (isIE()) { setTimeout(parseTemplate, 1000); } //if M$ like browser
     	}
 }
 
@@ -633,7 +638,7 @@ function printKey (key) {
 function submitFaxButton() {
 	document.getElementById('faxEForm').value=true;
 	saveRTL();
-	setTimeout('document.RichTextLetter.submit()',1000);
+	setTimeout(function() { document.RichTextLetter.submit(); }, 1000);
 }
 	
 
