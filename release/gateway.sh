@@ -31,13 +31,14 @@ fi
 
 if test -n "$(find ${TMP} -maxdepth 1 -name '*.txt' -print -quit)"; then
 	echo "Faxes found to be sent"
-	for f in `ls ${TMP}*.txt`; do 
-		t=`echo $f | sed -e s"/${TMP}\////" -e s"/[._][0-9]*.txt//" -e s"/prescription_/Rx-/"`
-#		mutt -s "Oscar Fax $t" 1`sed s"/ *//g" $f|tr -d "\n"`@srfax.com -a `echo $f | sed s"/txt/pdf/"` < /dev/null
-#		mutt -s "Oscar Fax" 1`sed s"/ *//g" $f|tr -d "\n"`@metrofax.com -a `echo $f | sed s"/txt/pdf/"` < /dev/null
-#		mutt -s "Oscar Fax" 1`sed s"/ *//g" $f|tr -d "\n"`@rcfax.com -a `echo $f | sed s"/txt/pdf/"` < /dev/null
-#		mutt -s "Oscar Fax 2442" `sed s"/ *//g" $f|tr -d "\n"`@prestofax.com -a `echo $f | sed s"/txt/pdf/"` < /dev/null
-#		rm $f; 
-#		rm `echo $f | sed s"/txt/pdf/"`; 
+	for f in $(ls "${TMP}"*.txt); do
+		t=$(echo "$f" | sed -e s"/${TMP}\////" -e s"/[._][0-9]*.txt//" -e s"/prescription_/Rx-/")
+#		mutt -s "Oscar Fax $t" 1$(sed s"/ *//g" "$f"|tr -d "\n")@srfax.com -a "$(echo "$f" | sed s"/txt/pdf/")" < /dev/null
+#		mutt -s "Oscar Fax" 1$(sed s"/ *//g" "$f"|tr -d "\n")@metrofax.com -a "$(echo "$f" | sed s"/txt/pdf/")" < /dev/null
+#		mutt -s "Oscar Fax" 1$(sed s"/ *//g" "$f"|tr -d "\n")@rcfax.com -a "$(echo "$f" | sed s"/txt/pdf/")" < /dev/null
+#		mutt -s "Oscar Fax 2442" $(sed s"/ *//g" "$f"|tr -d "\n")@prestofax.com -a "$(echo "$f" | sed s"/txt/pdf/")" < /dev/null
+		# Remove processed fax files to prevent reprocessing on next cron run
+		rm -- "$f"
+		rm -- "$(echo "$f" | sed 's/txt$/pdf/')"
 	done
 fi

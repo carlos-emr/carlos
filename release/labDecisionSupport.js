@@ -608,7 +608,7 @@ function decisionSupport(){
 		AddIfMissingTitle('CBC1',"On Atypical with last bloodwork over 12 months ago");
 		hilite('DM1');
 		hilite('LIPID1');
-		hilite('LFT1')
+		hilite('LFT1');
 		hilite('CBC1');
 		AddIfMissingStyle('A1Cdate',cssString);
 		AddIfMissingStyle('ALTdate',cssString);
@@ -663,7 +663,7 @@ function decisionSupport(){
 		onClick=\"\
 			add('subject','Lithium ');\
 			document.lab.DrugMonitoring.value='X';\
-			add('DrugName1','Lithium ';)\
+			add('DrugName1','Lithium ');\
 			document.lab.Sodium.value='X';\
 			document.lab.Potassium.value='X';\
 			document.lab.Creatinine.value='X';\

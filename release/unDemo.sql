@@ -11,7 +11,6 @@ DELETE FROM `preventions` WHERE demographic_no IN (@id, @id2);
 DELETE FROM `drugs` WHERE demographic_no IN (@id, @id2);
 DELETE FROM `measurements` WHERE demographicNo IN (@id, @id2);
 DELETE FROM `dxresearch` WHERE demographic_no IN (@id, @id2);
-DELETE FROM `drugs` WHERE demographic_no IN (@id, @id2);
 DELETE FROM `admission` WHERE client_id IN (@id, @id2);
 DELETE FROM `demographic` WHERE demographic_no IN (@id, @id2);
 DELETE FROM `appointment` WHERE demographic_no IN (@id, @id2);
@@ -38,6 +37,4 @@ DELETE FROM `serviceSpecialists` WHERE `specId` <2;
 
 
 DELETE FROM `drugs` WHERE `drugid`=1;
-DELETE FROM `preventions` WHERE demographic_no IN (@id, @id2);
-DELETE FROM `client_image` WHERE demographic_no IN (@id, @id2);
 

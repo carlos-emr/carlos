@@ -46,13 +46,13 @@ LOCKDIR=/tmp/${SCRIPT_FILE}.lock
 # --- sanity check run as root
 if [ "$(id -u)" != "0" ];
 then
-        echo "The ${SCRIPTFILE} script must be run as root" 1>&2
+        echo "The ${SCRIPT_FILE} script must be run as root" 1>&2
         exit 1
 fi
 
 # --- prevent more than one instance running at a time
 if ! mkdir "$LOCKDIR"; then
-    echo "The ${SCRIPTFILE} script is already running." 1>&2
+    echo "The ${SCRIPT_FILE} script is already running." 1>&2
     exit 1
 fi
 # Remove lockdir when the script finishes, or when it receives a signal
@@ -88,23 +88,23 @@ shopt -s nullglob
 for f in *.tar.gz.enc
 do
 	echo "Decrypting file - $f"
-        openssl enc -d -aes-256-cbc -salt -in $f -out ${f%%.*} -pass env:DB_PASSWORD
+        openssl enc -d -aes-256-cbc -salt -in "$f" -out "${f%%.*}" -pass env:DB_PASSWORD
 	echo "Expanding contents of file - ${f%%.*}"
 	# --- use p to preserve permissions in the untarring
-	tar -pxzf ${f%%.*} -C $DOCS
+	tar -pxzf "${f%%.*}" -C "$DOCS" && echo "Extraction successful." || { echo "Extraction failed." >> /dev/stderr; exit 1; }
 	echo "Cleanup, deleting files - $f and ${f%%.*}"
-	rm $f
-	rm ${f%%.*}
+	rm "$f"
+	rm "${f%%.*}"
 done
 
 echo "Changing directories to ${DOCS}"
 # --- thats where all the files have been extracted including the OscarBackup.sql
-cd ${DOCS}
+cd "${DOCS}" || { echo "Failed to change to ${DOCS}" >&2; exit 1; }
 
 if [ -f OscarBackup.sql.gz ] ; then
 	gunzip OscarBackup.sql.gz
 	echo "Loading backup database into mysql... you might have time for a coffee"
-	mysql -uroot -p${db_password} ${db_name} < OscarBackup.sql 
+	MYSQL_PWD="${db_password}" mysql -uroot ${db_name} < OscarBackup.sql
 	echo "Cleanup, deleting OscarBackup.sql... its huge"
 	rm OscarBackup.sql
 else

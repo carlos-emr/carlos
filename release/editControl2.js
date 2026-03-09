@@ -222,19 +222,24 @@ function insertEditControl() {
 	editControlHTML = editControlHTML.replace("[paste]", "");
 
 	// THIRD WRITE THE EDIT CONTROL TO THE WEB PAGE
+	// Use document.currentScript to insert at the script's location rather than end of body
+	// This ensures correct placement for JSPs that include the script mid-form
+	var _insertionPoint = document.currentScript || (function() {
+		var scripts = document.getElementsByTagName('script');
+		return scripts[scripts.length - 1];
+	})();
 	if (document.designMode) {
         //console.log(editControlHTML);
-		document.body.insertAdjacentHTML('beforeend', editControlHTML);
+		_insertionPoint.insertAdjacentHTML('afterend', editControlHTML);
 		//InitToolbarButtons(cfg_editorname);
 	} else {
 		// create a normal <textarea> if document.designMode does not exist
 		//alert("Design mode is not supported by your browser \n- reverting to classic mode");
 		var ta = document.createElement('textarea');
 		ta.id = cfg_editorname;
-		ta.style.width = cfg_width;
-		ta.style.height = editControlHeight + 'px';
-		ta.setAttribute('style', 'width:' + cfg_width + '; height:' + editControlHeight + 'px; ' + editControlStyle);
-		document.body.appendChild(ta);
+		var editControlStyle = '';
+		ta.setAttribute('style', 'width:' + cfg_width + '; height:' + cfg_height + 'px; ' + editControlStyle);
+		_insertionPoint.parentNode.insertBefore(ta, _insertionPoint.nextSibling);
 	}
 }
 
@@ -511,7 +516,13 @@ function doExport() {
 }
 
 function doEdit() {
-	$.ajax({ url: window.frames[0].location, success: function(data) { window[cfg_editorname].contentWindow.document.write(data); } });
+	$.ajax({ url: window.frames[0].location, success: function(data) {
+		var iframe = window[cfg_editorname];
+		if (iframe) {
+			// Use srcdoc to avoid document.write (eval-like behavior)
+			iframe.srcdoc = data;
+		}
+	} });
 }
 
 function doBreak(){
@@ -940,13 +951,15 @@ function submitFaxButton() {
 		var address = cache.get('clinic_addressLineFull')
 				+ '<br>Fax:' + cache.get('clinic_fax')
 				+ ' Phone:' + cache.get('clinic_phone');
+		// Initialize res with a safe default (clinic name as fallback)
+		var res = ['', cache.get('clinic_name') || 'Clinic'];
 		// use the doctors name to allow for a secretary to write a letter under direction
 		if (cache.contains("doctor")) {
 			var str = cache.get('doctor');
-			var res = str.split(", "); //last, first
+			res = str.split(", "); //last, first
 			console.log("doctor="+res[0]);
 		}
-		// use the current user instead if they have a signature on file 
+		// use the current user instead if they have a signature on file
 		if (cache.contains("current_user")) {
 			var str = cache.get('current_user');
 			console.log(str);
@@ -955,9 +968,8 @@ function submitFaxButton() {
 		        var UserName = ListItemArr[0];
 		        var FileName = ListItemArr[1]; void FileName; // retained for external API consumers
 		        if (str.indexOf(UserName)>=0){
-					console.log('current user '+str+' has a signature so use their name');					
-		            var str = cache.get('current_user');
-					var res = str.split(", "); //last, first
+					console.log('current user '+str+' has a signature so use their name');
+					res = str.split(", "); //last, first
 			        }
 				}
 		}
@@ -1126,21 +1138,31 @@ function collapseFooter() {
 
                     // Request finished. Do processing here.
                     var data = JSON.parse(this.response);
-                    var results_html = "";
-                    if (data.length > 0) {
-                        results_html += "<ul class=\"custom-dropdown\">";
-                        for (i = 0; i <= data.length - 1; i++) {
-                            results_html += "<li onclick=\"populateInputField(this, 'consultant')\" data-id=\"" + data[i].id + " \" data-address=\"" + data[i].firstName + ' ' + data[i].lastName + '\r\n' + data[i].streetAddress + ' \r\nFax: ' + data[i].fax + "\">" + data[i].lastName + ", " + data[i].firstName + "</li>";
-                        }
-                        results_html += "</ul>";
-                    } else {
-                        results_html = "No results found matching <b>" + term + "</b>.";
-                    }
-
-
                     //ensure the loader has time to display
                     setTimeout(() => {
-                        document.getElementById('tempBin').innerHTML = results_html;
+                        var tempBin = document.getElementById('tempBin');
+                        // Clear previous content
+                        while (tempBin.firstChild) { tempBin.removeChild(tempBin.firstChild); }
+                        if (data.length > 0) {
+                            var ul = document.createElement('ul');
+                            ul.className = 'custom-dropdown';
+                            for (var idx = 0; idx < data.length; idx++) {
+                                var li = document.createElement('li');
+                                li.setAttribute('data-id', String(data[idx].id).trim());
+                                li.setAttribute('data-address', data[idx].firstName + ' ' + data[idx].lastName + '\r\n' + data[idx].streetAddress + ' \r\nFax: ' + data[idx].fax);
+                                li.textContent = data[idx].lastName + ', ' + data[idx].firstName;
+                                li.addEventListener('click', function() { populateInputField(this, 'consultant'); });
+                                ul.appendChild(li);
+                            }
+                            tempBin.appendChild(ul);
+                        } else {
+                            var noResult = document.createElement('span');
+                            noResult.textContent = 'No results found matching ';
+                            var bold = document.createElement('b');
+                            bold.textContent = term;
+                            noResult.appendChild(bold);
+                            tempBin.appendChild(noResult);
+                        }
                     }, 500);
 
 

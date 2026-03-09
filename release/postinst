@@ -42,7 +42,7 @@ C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
 SRC=/usr/share/${PACKAGE}/
 priorschema=oscar_12
-db_password=liyi
+db_password=CHANGEME
 DOCS=OscarDocument
 billregion=ON
 COUNTRY=Unknown
@@ -155,7 +155,9 @@ else
 fi
 
 
-MYSQL="mysql -u root -p${db_password} " 
+# Export MYSQL_PWD so mysql commands don't expose password in process list
+export MYSQL_PWD="${db_password}"
+MYSQL="mysql -u root"
 #echo password = ${db_password} >> $LOG_FILE
 
 echo "test the obtained password before proceeding!!"  >>$LOG_FILE
@@ -560,6 +562,21 @@ else
 	#$MYSQL ${db_name} -e "insert into issue (code,description,role,update_date,sortOrderId) select icd9.icd9, icd9.description, 'doctor', now(), '0' from icd9;"
 	#echo  Populated the issues table in ${db_name} with ICD9 codes >>$LOG_FILE
 
+	# --- Load initial drugref data for NEW INSTALLS ONLY ---
+	# The user will provide a truncated drugref.sql in the release directory.
+	# The drugref WAR manages its own schema updates after first startup.
+	# This block does NOT run for CARLOS updates or OSCAR 19 migrations.
+	if [ -f "${SRC}drugref.sql" ] ; then
+		ncecho " [x] Loading initial drugref database (new install only) "
+		echo "Creating drugref database for new install" >>$LOG_FILE
+		$MYSQL -e "CREATE DATABASE IF NOT EXISTS drugref DEFAULT CHARACTER SET utf8 DEFAULT COLLATE utf8_general_ci;" 2>>$LOG_FILE
+		$MYSQL drugref < "${SRC}drugref.sql" 2>>$LOG_FILE &
+		pid=$!;progress $pid
+		echo drugref initial data loaded >>$LOG_FILE
+	else
+		echo "No drugref.sql found in ${SRC} - skipping initial drugref load" >>$LOG_FILE
+	fi
+
 	#SNOMED requires a license from the NIH https://uts.nlm.nih.gov/ and the data that the license provides in the table SnomedCore
 	#$MYSQL ${db_name} -e "INSERT INTO issue (code, description, role, update_date, type) SELECT SnomedCore.SnomedCore, SnomedCore.description, 'doctor', now(), 'SnomedCore' FROM SnomedCore;"
 	#echo  Populated the issues table in ${db_name} with SNOMED codes >>$LOG_FILE
@@ -850,13 +867,9 @@ fi
     fi
 	
 	#echo "60" ; sleep 1
-	ncecho " [x] Updating drugref database " 
-	echo  creating the Oscar Drug database if not exists >>$LOG_FILE
-	$MYSQL -e "CREATE DATABASE IF NOT EXISTS drugref DEFAULT CHARACTER SET utf8  DEFAULT COLLATE utf8_general_ci;" 2>>$LOG_FILE
-	# note that this requires a drugref.sql with DROP TABLE syntax
-	$MYSQL drugref <  ${SRC}drugref.sql 2>>$LOG_FILE &
-	pid=$!;progress $pid
-	echo  drugref populated >>$LOG_FILE
+	# drugref database is managed by the drugref WAR (deployed as /drugref)
+	# and updates itself on startup. No drugref.sql loading needed here.
+	ncecho " [x] drugref WAR deployed (will init its own schema on first startup) "
 
 	#ncecho " [x] Applying TallMAN rules to drugref " 
     #echo  patching the Oscar Drug database with tallMAN rules and removing generics from search >>$LOG_FILE

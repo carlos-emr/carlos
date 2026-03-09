@@ -1,8 +1,8 @@
 Template: carlos-emr/gui_loader
 Type: boolean
 Default: true
-Description: Do you want to lauch the GUI interface to install?
- The carlos deb has a graphical interface installer for intalls from
+Description: Do you want to launch the GUI interface to install?
+ The carlos deb has a graphical interface installer for installs from
  the desktop.  Say false to continue in console mode.
 
 Template: carlos-emr/upgrade
@@ -19,7 +19,7 @@ Type: select
 Choices: ON, BC, Other
 Default: ON
 Description: Which jurisdiction do you want configured?
- Select the jurisdiction that you want configureg.  Select BC if you live in British Columbia.
+ Select the jurisdiction that you want configured.  Select BC if you live in British Columbia.
 
 Template: carlos-emr/triumvirate
 Type: boolean
@@ -43,7 +43,7 @@ Template: carlos-emr/eyeform
 Type: boolean
 Default: false
 Description: Do you want to install the eyeform version?
- An optional version of carlos is designed for Opthalmology.
+ An optional version of carlos is designed for Ophthalmology.
 
 Template: carlos-emr/appt_intake_form
 Type: boolean

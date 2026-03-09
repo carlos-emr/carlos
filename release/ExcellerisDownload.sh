@@ -120,7 +120,7 @@ CERTFILE="${DOWNLOAD_DIR}/cert/${PFX}:${CERT_PASS}"
 function notify_error () {
     DownSubject="Labs Auto-Downloader Status - Failure"
     error="Labs Auto-Downloader ON server(`hostname`) has stopped working.  Please check!!!\n"
-    echo -e $error | mail -s "$DownSubject on `hostname`" $EMAIL
+    echo -e "$error" | mail -s "$DownSubject on $(hostname)" "$EMAIL"
     echo "Auto-Downloader failed, sent email to $EMAIL"
     echo `date '+%F-%T'` - "<<<<<< finished running script WITH ERRORS"
     echo
@@ -128,23 +128,23 @@ function notify_error () {
 
 # Create a lock so that script will not run twice
 (
-flock -x -w 10 200 || { notify_error exit 1; }
+flock -x -w 10 200 || { notify_error; exit 1; }
 
 echo -n "Step 1: Authentication"
 # login to excelleris and get coookie
 # -k accept self-signed -s silent -S show errors -X POST set request to post -L accept redirection -A user agent
-result=$(curl -k -s -S -G -L -A "$USER_AGENT" --cookie-jar "$COOKIEFILE" --data "$LOGINPARAMS" --cert-type P12 --cert "$CERTFILE" "$HL7URLPATH")
+result=$(curl -s -S -G -L -A "$USER_AGENT" --cookie-jar "$COOKIEFILE" --data "$LOGINPARAMS" --cert-type P12 --cert "$CERTFILE" "$HL7URLPATH")
 
 # **** check result to see if login is successful
-if [ $result == "<Authentication>AccessGranted</Authentication>" ]
+if [[ $result == "<Authentication>AccessGranted</Authentication>" ]]
     then echo "... Authenticated"
 fi
-if [ $result == "<Authentication>AccessDenied</Authentication>" ]
+if [[ $result == "<Authentication>AccessDenied</Authentication>" ]]
     then echo "... ERROR Access Denied"
     notify_error
     exit 1
 fi
-if [ $result != "<Authentication>AccessGranted</Authentication>" ]
+if [[ $result != "<Authentication>AccessGranted</Authentication>" ]]
     then echo "... ERROR NOT Authenticated"
     notify_error
     exit 1
@@ -152,11 +152,11 @@ fi
 
 echo -n "Step 2: Query results"
 # pull results and save to file
-result=$(curl -k -s -S -G -L -A "$USER_AGENT" --output $OUTPUTFILE --cookie $COOKIEFILE --data $PULLXMLPARAMS --cert-type P12 --cert "$CERTFILE" $HL7URLPATH)
-
-# check result to see if lab results are pulled and saved into a file
-# get the exit code of the last command executed
-status_code=$?
+# Use if/then to preserve error handling even with set -e
+status_code=0
+if ! curl -s -S -G -L -A "$USER_AGENT" --output "$OUTPUTFILE" --cookie "$COOKIEFILE" --data "$PULLXMLPARAMS" --cert-type P12 --cert "$CERTFILE" "$HL7URLPATH"; then
+    status_code=$?
+fi
 filecheck="1"
 if [ ${status_code} != "0" ] || [ ! -s ${OUTPUTFILE} ] ; then
 	echo "... Download failed"
@@ -181,7 +181,7 @@ fi
 
 echo -n "Step 3: Acknowledgment"
 #acknowledge hl7 downloaded, ensure that you send either a positive or negative ack
-result=$(curl -k -s -S -G -L -A "$USER_AGENT"  --cookie $COOKIEFILE --data $ACKHL7PULLPARAMS --cert-type P12 --cert "$CERTFILE" $HL7URLPATH)
+result=$(curl -s -S -G -L -A "$USER_AGENT"  --cookie $COOKIEFILE --data $ACKHL7PULLPARAMS --cert-type P12 --cert "$CERTFILE" $HL7URLPATH)
 
 # check result to see if pulled labs are set successfully
 # received positive or negative ack is <HL7Messages/>
@@ -195,7 +195,7 @@ fi
 
 echo "Step 4: Excelleris logout... Sent"
 #logout
-result=$(curl -k -s -S -G -L  -A "$USER_AGENT" --cookie $COOKIEFILE --data $LOGOUTPARAMS --cert-type P12 --cert "$CERTFILE" $HL7URLPATH)
+result=$(curl -s -S -G -L  -A "$USER_AGENT" --cookie $COOKIEFILE --data $LOGOUTPARAMS --cert-type P12 --cert "$CERTFILE" $HL7URLPATH)
 # the result will be empty
 rm $COOKIEFILE
 

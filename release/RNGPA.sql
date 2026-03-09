@@ -1,6 +1,7 @@
 -- Out of Basket codes for RNGPA
 
-INSERT INTO `cssStyles` (`id`, `name`, `style`, `status`) VALUES (3, 'Out of Basket', 'color:#CC3300;', 'A');
+INSERT INTO `cssStyles` (`id`, `name`, `style`, `status`) VALUES (3, 'Out of Basket', 'color:#CC3300;', 'A')
+  ON DUPLICATE KEY UPDATE `name`='Out of Basket', `style`='color:#CC3300;', `status`='A';
 
 UPDATE `billingservice` SET `displaystyle`=3 WHERE `service_code` IN (
 'C989A','E079A','E409A','E410A','E411A',

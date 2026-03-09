@@ -4,7 +4,8 @@
 --  Copyright Peter Hutten-Czapski 2012 released under the GPL v2
 --
 
-INSERT INTO `cssStyles` (`id`, `name`, `style`, `status`) VALUES (1,'Office Procedures', 'font-weight:bold;', 'A');
+INSERT INTO `cssStyles` (`id`, `name`, `style`, `status`) VALUES (1, 'Office Procedures', 'font-weight:bold;', 'A')
+  ON DUPLICATE KEY UPDATE `name`='Office Procedures', `style`='font-weight:bold;', `status`='A';
 
 
 UPDATE `billingservice` SET `displaystyle`=1 WHERE `service_code` IN (

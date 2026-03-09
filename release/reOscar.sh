@@ -32,25 +32,23 @@ then
 fi
 
 
-# --- select the running Tomcat or the highest installed version
-TOMCAT=$(ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{ print $1 }')
-TOMCAT_PID=$(ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{ print $2 }')
-if [ -z "$TOMCAT" ]; then
-    #Tomcat is not running, find the highest installed version
-    if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-            TOMCAT=tomcat9
-            TMP=$(find /tmp -type d -wholename "*tomcat*/tmp")           
-        else
-        if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-            TOMCAT=tomcat8
-            else
-            if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
-                TOMCAT=tomcat7
-            fi
-        fi
-            TMP=/tmp/${TOMCAT}-${TOMCAT}-tmp
-    fi
+# --- determine supported Tomcat service name and tmp directory
+# Detect highest installed version first (service name is reliable unlike process owner)
+if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
+    TOMCAT=tomcat9
+    TMP=$(find /tmp -type d -wholename "*tomcat*/tmp" 2>/dev/null | head -1)
+    TMP="${TMP:-/tmp/tomcat9-tomcat9-tmp}"
+elif [ -f /usr/share/tomcat8/bin/version.sh ] ; then
+    TOMCAT=tomcat8
+    TMP=/tmp/${TOMCAT}-${TOMCAT}-tmp
+elif [ -f /usr/share/tomcat7/bin/version.sh ] ; then
+    TOMCAT=tomcat7
+    TMP=/tmp/${TOMCAT}-${TOMCAT}-tmp
+else
+    echo "No supported Tomcat installation found (7, 8 or 9)" 1>&2
+    exit 1
 fi
+TOMCAT_PID=$(ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{ print $2 }')
 
 
 

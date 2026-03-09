@@ -1,7 +1,8 @@
 -- Special Payment codes for Primary Care Models eg FHN, FHO etc
 -- Version 19.01
 
-INSERT INTO `cssStyles` (`id`, `name`, `style`, `status`) VALUES (2, 'Special Payment', 'font-weight:bold;', 'A');
+INSERT INTO `cssStyles` (`id`, `name`, `style`, `status`) VALUES (2, 'Special Payment', 'font-weight:bold;', 'A')
+  ON DUPLICATE KEY UPDATE `name`='Special Payment', `style`='font-weight:bold;', `status`='A';
 
 UPDATE `billingservice` SET `displaystyle`=2 WHERE `service_code` IN (
 -- palliative care

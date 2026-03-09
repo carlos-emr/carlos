@@ -230,10 +230,13 @@ fi
 
 
 if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
-        echo "WARNING Tomcat 7 is deprecated" 
+        echo "WARNING Tomcat 7 is deprecated"
         echo "WARNING attempting to install on outdated Tomcat 7 !!"  >> $LOG_FILE
-                cp /var/lib/tomcat9/webapps/carlos.war /var/lib/tomcat7/webapps/carlos.war
-                cp /var/lib/tomcat9/webapps/drugref.war /var/lib/tomcat7/webapps/drugref.war
+                # Determine source webapps dir (use package-bundled location if available)
+                SRC_WEBAPPS="${SRC_WEBAPPS:-/var/lib/${PACKAGE}/webapps}"
+                [ ! -d "${SRC_WEBAPPS}" ] && SRC_WEBAPPS="/var/lib/tomcat9/webapps"
+                cp "${SRC_WEBAPPS}/carlos.war" /var/lib/tomcat7/webapps/carlos.war
+                cp "${SRC_WEBAPPS}/drugref.war" /var/lib/tomcat7/webapps/drugref.war
 else
         # if tomcat8 then need to move the wars from the DEB installed directories to the tomcat8 directory
         if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
@@ -248,8 +251,8 @@ else
                         
                         # add carlos directory structure to the paths that tomcat9 can read and write to
                         # DO NOT ADD read write to non existing paths or Tomcat will fail to start
-                        if [ -d "etc/systemd/system/tomcat9.service.d" ] ; then
-                                if [ ! -f etc/systemd/system/tomcat9.service.d/override.conf ] ; then
+                        if [ -d "/etc/systemd/system/tomcat9.service.d" ] ; then
+                                if [ ! -f /etc/systemd/system/tomcat9.service.d/override.conf ] ; then
                                         touch /etc/systemd/system/tomcat9.service.d/override.conf
                                         echo "[Service]" >> /etc/systemd/system/tomcat9.service.d/override.conf
                                         echo "ReadWritePaths=/var/lib/OscarDocument/" >> /etc/systemd/system/tomcat9.service.d/override.conf
@@ -671,7 +674,8 @@ echo billregion=${billregion}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 echo phoneprefix=${phoneprefix}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 
 
-rm -f ${PROGRAM}.tmp
+# Move the assembled properties file to its final location
+mv ${PROGRAM}.tmp ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
 echo  ${C_HOME}${PROGRAM}.properties created >>$LOG_FILE
 
 echo "the CARLOS properties file contains a plaintext password..." >>$LOG_FILE

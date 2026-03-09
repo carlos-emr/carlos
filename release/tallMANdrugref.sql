@@ -28,7 +28,6 @@ UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'DOBUTAMINE' , 'DOBUTamine'
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'DOPAMINE' , 'DOPamine') WHERE `name` LIKE '%DOPAMINE%' ;
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'DOCETAXEL' , 'DOCEtaxel') WHERE `name` LIKE '%DOCETAXEL%' ;
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'PACLITAXEL' , 'PACLitaxel') WHERE `name` LIKE '%PACLITAXEL%' ;
-UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'DOXORUBICIN' , 'DOXOrubicin') WHERE `name` LIKE '%DOXORUBICIN%' ;
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'IDARUBICIN' , 'IDArubicin') WHERE `name` LIKE '%IDARUBICIN%' ;
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'EPHEDRINE' , 'ePHEDrine') WHERE `name` LIKE '%EPHEDRINE%' ;
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'ERIBULIN' , 'eriBULin') WHERE `name` LIKE '%ERIBULIN%' ;
@@ -42,7 +41,7 @@ UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'RITUXIMAB' , 'riTUXimab') 
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'LAMIVUDINE' , 'lamiVUDine') WHERE `name` LIKE '%LAMIVUDINE%' ;
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'LAMOTRIGINE' , 'lamoTRIgine') WHERE `name` LIKE '%LAMOTRIGINE%' ;
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'MITOXANTRONE' , 'mitoXANTRONE') WHERE `name` LIKE '%MITOXANTRONE%' ;
-UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'NILOTINIBB' , 'niLOtinib') WHERE `name` LIKE '%NILOTINIB%' ;
+UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'NILOTINIB' , 'niLOtinib') WHERE `name` LIKE '%NILOTINIB%' ;
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'NILUTAMIDE' , 'niLUTAmide') WHERE `name` LIKE '%NILUTAMIDE%' ;
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'OBINUTUZUMAB' , 'oBINutuzumab') WHERE `name` LIKE '%OBINUTUZUMAB%' ;
 UPDATE `cd_drug_search` SET `name` = REPLACE(`name`, 'OFATUMUMAB' , 'oFAtumumab') WHERE `name` LIKE '%OFATUMUMAB%' ;
@@ -123,7 +122,6 @@ DELETE FROM `cd_drug_search` WHERE `name` LIKE 'PMSC-%';
 DELETE FROM `cd_drug_search` WHERE `name` LIKE 'PRIVA-%';
 DELETE FROM `cd_drug_search` WHERE `name` LIKE 'PRO-%';
 DELETE FROM `cd_drug_search` WHERE `name` LIKE 'PRZ-%';
-DELETE FROM `cd_drug_search` WHERE `name` LIKE 'PHL-%';
 DELETE FROM `cd_drug_search` WHERE `name` LIKE 'Q-%';
 DELETE FROM `cd_drug_search` WHERE `name` LIKE 'RAN-%';
 DELETE FROM `cd_drug_search` WHERE `name` LIKE 'RATIO %';

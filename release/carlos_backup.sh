@@ -280,13 +280,13 @@ echo ${DATABASE}
 echo "Log file =$LOG_ERR"
 
 if [ ${NO_GZIP_MYSQLDUMP_FLAG} == 1 ]; then
-  mysqldump ${DUMP_OPTIONS} ${DATABASE} -u${db_username} -p${db_password} > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql 2>> $LOG_ERR
-  mysqldump ${DATABASE} ${MyISAM_TABLES} -u${db_username} -p${db_password} > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql 2>> $LOG_ERR 
-  mysqldump ${DUMP_OPTIONS} drugref -u${db_username} -p${db_password} > $BASE_DOCUMENT_DIR/carlos/drugref.sql 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" mysqldump ${DUMP_OPTIONS} ${DATABASE} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" mysqldump ${DATABASE} ${MyISAM_TABLES} -u${db_username} > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" mysqldump ${DUMP_OPTIONS} drugref -u${db_username} > $BASE_DOCUMENT_DIR/carlos/drugref.sql 2>> $LOG_ERR
 else
-  mysqldump ${DUMP_OPTIONS} ${DATABASE} -u${db_username} -p${db_password}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql.gz 2>> $LOG_ERR
-  mysqldump ${DATABASE} ${MyISAM_TABLES} -u${db_username} -p${db_password} |gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql.gz 2>> $LOG_ERR
-  mysqldump ${DUMP_OPTIONS} drugref -u${db_username} -p${db_password}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/drugref.sql.gz 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" mysqldump ${DUMP_OPTIONS} ${DATABASE} -u${db_username}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/CarlosBackup.sql.gz 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" mysqldump ${DATABASE} ${MyISAM_TABLES} -u${db_username} |gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/MyISAMBackup.sql.gz 2>> $LOG_ERR
+  MYSQL_PWD="${db_password}" mysqldump ${DUMP_OPTIONS} drugref -u${db_username}|gzip --rsyncable -c -9 > $BASE_DOCUMENT_DIR/carlos/drugref.sql.gz 2>> $LOG_ERR
 fi
 cp -u $WAR_FILE $BASE_DOCUMENT_DIR/carlos/ 2>> $LOG_ERR
 cp -u $PROPFILE $BASE_DOCUMENT_DIR/carlos/ 2>> $LOG_ERR
@@ -300,11 +300,11 @@ checkFile ${CACHEDIR_TAG} || echo -e "Signature: 8a477f597d28d172789f06886806bc5
 if [ ${COMPLETE_BACKUP} = 1 ]; then 
   echo "NEW Full.CarlosBackup" >> $LOG_ERR
   OUTFILE=${BACKUPDIR}/Full.CarlosBackup.${DATABASE}.${DATE_TIME}.tar.gz.enc 2>> $LOG_ERR
-  cd $BASE_DOCUMENT_DIR 2>> $LOG_ERR
+  cd "$BASE_DOCUMENT_DIR" 2>> $LOG_ERR || { echo "Failed to cd to $BASE_DOCUMENT_DIR" >> $LOG_ERR; exit 1; }
   tar --exclude-caches -c carlos 2>> $LOG_ERR | gzip -v -c -9 2>> $LOG_ERR | openssl enc $ENC_OPTIONS -pass env:DB_PASSWORD_6606913a > $OUTFILE 2>> $LOG_ERR
   ls -l $OUTFILE --time-style=long-iso | awk '{ print  "<OUTFILE SIZE=\""$5 "\" filename=\""  $8 "\" /> "}' >> $LOG_ERR
 	if [ ${REMOTE_UPLOAD_FLAG} == 1 ]; then
-		for REMOTE_SERVER in ${BACKUPSERVERS[@]}
+		for REMOTE_SERVER in "${BACKUPSERVERS[@]}"
 		do
 		nice rsync -t $RSYNC_OPTIONS --bwlimit=${BWLIMIT} --rsh="$SSH_OPTIONS -p $COMMON_BACKUPSERVER_PORT" $OUTFILE $REMOTE_SERVER >> $LOG_ERR 2>&1
 		done
@@ -317,7 +317,7 @@ else
   confirmVar $LAST_FULL_BACKUP_FILE
   OUTFILE="${BACKUPDIR}/CarlosBackup.${DATABASE}.${DATE_TIME}.Document.tar.gz.enc" 2>> $LOG_ERR
   DB_OUTFILE="${BACKUPDIR}/CarlosBackup.${DATABASE}.${DATE_TIME}.Database.tar.gz.enc" 2>> $LOG_ERR
-  cd $BASE_DOCUMENT_DIR/carlos 2>> $LOG_ERR
+  cd "$BASE_DOCUMENT_DIR/carlos" 2>> $LOG_ERR || { echo "Failed to cd to $BASE_DOCUMENT_DIR/carlos" >> $LOG_ERR; exit 1; }
   tar -c CarlosBackup.sql* MyISAMBackup.sql* 2>> $LOG_ERR | gzip -v -c -9 2>> $LOG_ERR | openssl enc $ENC_OPTIONS -pass env:DB_PASSWORD_6606913a > $DB_OUTFILE 2>> $LOG_ERR
   find . -type f -newer $LAST_FULL_BACKUP_FILE -print|grep -Ev "^\./document_cache|^\./CarlosBackup.sql$|^\./CarlosBackup.sql.gz$|^\./carlos.war" > filelist.txt 2>> $LOG_ERR
   tar -c -T filelist.txt 2>> $LOG_ERR | gzip -v -c -9 2>> $LOG_ERR | openssl enc $ENC_OPTIONS -pass env:DB_PASSWORD_6606913a > $OUTFILE 2>> $LOG_ERR

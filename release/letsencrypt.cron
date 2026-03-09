@@ -19,11 +19,12 @@ fi
 if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
         TOMCAT=tomcat9
         TOMCAT_USER=tomcat
-    else
-    if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
+elif [ -f /usr/share/tomcat8/bin/version.sh ] ; then
         TOMCAT=tomcat8
         TOMCAT_USER=tomcat8
-    fi
+else
+    echo "No supported Tomcat installation found" 1>&2
+    exit 1
 fi
 
 data_path=/usr/share/oscar-emr
@@ -33,7 +34,7 @@ LOG_FILE=${data_path}/letsencrypt.log
 echo "#########" `date` "#########"  >> $LOG_FILE
 
 # we have apache2 serve phpmyadmin, stop it
-service apache2 stop 2>&1>> $LOG_FILE
+service apache2 stop >> $LOG_FILE 2>&1
 BACK_PID=$!
 wait $BACK_PID
 
@@ -43,9 +44,12 @@ wait $BACK_PID
 #ufw --force enable 2>&1>> $LOG_FILE
 
 # stop Tomcat only if a new certificate is being installed
-certbot renew --pre-hook "service ${TOMCAT} stop" 
-cp /etc/letsencrypt/live/www.haileyburyfht.org/*.pem /etc/${TOMCAT}/ 2>&1>> $LOG_$
-chown ${TOMCAT_USER}:${TOMCAT_USER} /etc/${TOMCAT}/*.pem 2>&1>> $LOG_FILE
+# CERT_DOMAIN should be set to your domain name (e.g., www.yourdomain.org)
+# Set this variable in /etc/environment or before calling this script
+CERT_DOMAIN="${CERT_DOMAIN:-www.haileyburyfht.org}"
+certbot renew --pre-hook "service ${TOMCAT} stop" >> $LOG_FILE 2>&1
+cp /etc/letsencrypt/live/${CERT_DOMAIN}/*.pem /etc/${TOMCAT}/ >> $LOG_FILE 2>&1
+chown ${TOMCAT_USER}:${TOMCAT_USER} /etc/${TOMCAT}/*.pem >> $LOG_FILE 2>&1
 
 # --- reload Tomcat
 tomcat_pid() {
@@ -56,8 +60,8 @@ if [ -n "$pid" ]; then
         echo "#########" `date` "#########" 1 >> $LOG_FILE
         echo "tomcat is still running..?" >> $LOG_FILE
 else
-        service ${TOMCAT} start 2>&1>>$LOG_FILE
+        service ${TOMCAT} start >> $LOG_FILE 2>&1
 fi
-service apache2 start 2>&1>> $LOG_FILE
+service apache2 start >> $LOG_FILE 2>&1
 #ufw enable
 

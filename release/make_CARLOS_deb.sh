@@ -70,7 +70,7 @@ db_switch=\'?characterEncoding=UTF-8\\\&zeroDateTimeBehavior=round\\\&useOldAlia
 # and the target of mvn 3 is
 TARGET=carlos-0-SNAPSHOT.war
 
-buildDateTime=date 
+buildDateTime=$(date)
 SHA1=""
 
 echo "+++++++++++++++++++++++"
@@ -96,7 +96,7 @@ if [ -d "${RELEASE_DIR}/${DEBNAME}" ]; then
 	# A previous partial build exists; remove it so we start clean.
 	echo prexisting directory with this build found
 	SKIP_NEW_WAR=true
-	rm -R "${RELEASE_DIR}/${DEBNAME}/"
+	rm -R "${RELEASE_DIR:?}/${DEBNAME:?}/"
 else
     if [ $custom ]; then
         echo custom build
@@ -125,7 +125,7 @@ mkdir -p "${RELEASE_DIR}/${DEBNAME}/DEBIAN/"
 # --- Move to repo root for Maven build ---
 # All file paths after this point are relative to the repository root,
 # so use ${RELEASE_DIR}/xxx for release/ files and ./xxx for repo-root files.
-cd "${REPO_ROOT}"
+cd "${REPO_ROOT}" || { echo "ERROR: Failed to cd to ${REPO_ROOT}" >&2; exit 1; }
 mvn -Dmaven.test.skip=true -Dcheckstyle.skip=true package
 mkdir -p "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/"
 cp "${REPO_ROOT}/target/carlos-0-SNAPSHOT.war" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/carlos.war"
@@ -415,7 +415,12 @@ echo "getting and loading wars"
 # The webapps directory was already created above during the Maven build section.
 # drugref.war: downloaded from upstream at package build time.
 # The drugref webapp creates its own schema on first startup — no drugref.sql is needed.
-curl -o "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/drugref.war" https://bitbucket.org/oscaremr/drugref2/downloads/drugref2.48.war
+DRUGREF_WAR="${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/drugref.war"
+curl -o "${DRUGREF_WAR}" https://bitbucket.org/oscaremr/drugref2/downloads/drugref2.48.war
+# Verify SHA256 checksum of drugref.war (update DRUGREF_SHA256 when upgrading drugref version)
+# DRUGREF_SHA256="<sha256_of_drugref2.48.war>"
+# echo "${DRUGREF_SHA256}  ${DRUGREF_WAR}" | sha256sum -c - || { echo "Checksum mismatch for drugref.war"; exit 1; }
+echo "WARNING: drugref.war SHA256 checksum not yet configured. Set DRUGREF_SHA256 and uncomment the sha256sum check above."
 cp "${REPO_ROOT}/${TARGET}" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/${PROGRAM}.war"
 
 # --- OscarDocument directory skeleton ---

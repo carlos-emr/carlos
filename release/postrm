@@ -76,7 +76,7 @@ case "$1" in
 
         # delete patient data!!
         # SANITY CHECK FOR PRODUCTION PURGE
-        patientCount=$( mysql -u root -p${db_password} oscar_15 -s -e "SELECT COUNT(*) FROM oscar_15.demographic;")
+        patientCount=$( MYSQL_PWD="${db_password}" mysql -u root oscar_15 -s -e "SELECT COUNT(*) FROM demographic;")
         if [ "${patientCount}" -gt "3" ]; then
                 # the demo sql installs 2 patients purging that is not an issue
                 echo "Purging will delete YOUR data and settings"
@@ -154,15 +154,15 @@ case "$1" in
 	    echo "Deleting certificate"
         rm -f /etc/${TOMCAT}/cert.pem  2>>$LOG_FILE
     fi 
-        if [ -f etc/systemd/system/tomcat9.service.d/override.conf ] ; then
+        if [ -f /etc/systemd/system/tomcat9.service.d/override.conf ] ; then
                 echo "Deleting override for tomcat9 systemd"
-        rm -f etc/systemd/system/tomcat9.service.d/override.conf 2>>$LOG_FILE
+        rm -f /etc/systemd/system/tomcat9.service.d/override.conf 2>>$LOG_FILE
         systemctl daemon-reload
     fi  
 
     # remove property files and the oscar schema      
     echo "Dropping ${db_name}"
-    mysql -u root -p${db_password} --execute="drop database if exists oscar_15;"  2>>$LOG_FILE
+    MYSQL_PWD="${db_password}" mysql -u root --execute="drop database if exists oscar_15;"  2>>$LOG_FILE
     if [ -e "${C_HOME}${PROGRAM}.properties" ]; then
         echo "Deleting ${PROGRAM}.properties"
         rm -f ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
