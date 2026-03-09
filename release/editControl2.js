@@ -472,7 +472,12 @@ void [
 	parseText, block, doTime, doDate,
 	doTable, doExport, doEdit, doBreak,
 	viewsource, usecss, popup,
-	printKey, submitFaxButton
+	printKey, submitFaxButton,
+	// Lab-grid and autocomplete functions defined later in the file; used by
+	// external JSP pages and inline onclick handlers that static analysis cannot see.
+	isGenderLookup, Start, htmlLine,
+	formIsRTL, formPath, getMeasures,
+	collapseFooter, consultantSearch, populateInputField
 ];
 
 function doTable() {
@@ -574,13 +579,13 @@ function popup(location) {
 }
 	
 function gup(name, url) {
-	if (url == null) { url = window.location.href; }
-	name = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	var regexS = "[\\?&]"+name+"=([^&#]*)";
-	var regex = new RegExp(regexS);
-	var results = regex.exec(url);
-	if (results == null) { return ""; }
-	else { return results[1]; }
+	// Use URLSearchParams for reliable query-string parsing (copilot suggestion).
+	// Falls back to window.location.search when no url argument is provided.
+	var searchStr = (url != null)
+		? (url.indexOf('?') >= 0 ? url.substring(url.indexOf('?')) : '')
+		: window.location.search;
+	var params = new URLSearchParams(searchStr);
+	return params.get(name) || "";
 }
 
 var demographicNo ="";
@@ -1024,7 +1029,8 @@ var measureDateArray = [];
 
 function getMeasures(measure, max) {
     var xmlhttp = new XMLHttpRequest();
-    var pathArray = window.location.pathname.split('/');
+    // pathArray was originally used to build newURL; kept for potential future use by callers.
+    var pathArray = window.location.pathname.split('/'); void pathArray;
     var newURL = "..//oscarEncounter/oscarMeasurements/SetupDisplayHistory.do?type=" + measure;
     xmlhttp.onreadystatechange = function() {
         if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {

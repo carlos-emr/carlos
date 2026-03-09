@@ -266,25 +266,8 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
     ## pid=$!;progress $pid
     ## echo  CVC updated >>$LOG_FILE
 
-    newtdate=$(date --date="$newdate" +"%s")
-    #olddate="2018-04-18 14:46:23"
-	olddate=$($MYSQL drugref -s -e "SELECT DATE(date_time) FROM drugref.history ORDER BY id DESC LIMIT 1;")
-    oldtdate=$(date --date="$olddate" +"%s")
-    if [ $newtdate -gt $oldtdate ] ; then
-	    ncecho " [x] Updating drugref database " 
-	    echo  Replacing existing Drug database of ${olddate} with ${newdate} >>$LOG_FILE
-	    $MYSQL drugref <  ${SRC}drugref.sql 2>>$LOG_FILE &
-	    pid=$!;progress $pid
-	    echo  drugref populated >>$LOG_FILE
-	    #ncecho " [x] Applying TallMAN rules to drugref " 
-        #echo  patching the Oscar Drug database with tallMAN rules and removing generics from search >>$LOG_FILE
-	    #$MYSQL drugref <  ${SRC}tallMANdrugref.sql 2>>$LOG_FILE &
-	    #pid=$!;progress $pid
-        #echo  drugref patched >>$LOG_FILE
-    else
-	    echo " [x] drugref database of ${olddate} is up to date" 
-	    echo  No need to replace existing Drug database of ${olddate} with ${newdate} >>$LOG_FILE
-    fi
+    # drugref database is managed by the drugref WAR (deployed as /drugref) and updates
+    # itself on startup.  No drugref.sql is bundled with this package; no action needed here.
 
 
     GEOIP2=$(curl --silent -f http://ip-api.com/csv/ |  tr -d '"')
@@ -536,32 +519,29 @@ else
         ## service ${TOMCAT} restart >> $LOG_FILE 2>&1 &
         ## pid=$!;progress $pid
 
+	# --- Generate fresh oscar_15 schema from bundled database scripts ---
+	# The schema/ directory was populated at package build time from database/mysql/.
+	# We cd into schema/ so the createdatabase_*.sh helper scripts can use relative paths.
+	SCHEMA_DIR="${SRC}schema"
+	ncecho " [x] Generating oscar_15 schema from database scripts "
 	if [ "${billregion}" = "BC" ] ; then
-		ncecho " [x] Populating database with BC data " 
-# TODO fix this for 20
-#		$MYSQL ${db_name} < ${SRC}OscarBC${VERSION}.sql 2>>$LOG_FILE &
-		$MYSQL ${db_name} < ${SRC}OscarBC19.sql 2>>$LOG_FILE &
-		pid=$!;progress $pid
-		echo  populated the Oscar database with ${billregion} data >>$LOG_FILE
+		echo "Running createdatabase_bc.sh for BC province" >>$LOG_FILE
+		# createdatabase_bc.sh [mysql_user] [mysql_password] [database_name]
+		# The helper calls createdatabase_generic.sh with province=bc and ICD version 9.
+		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_bc.sh root "${db_password}" "${db_name}") >>$LOG_FILE 2>>$LOG_FILE
+		echo "Populated ${db_name} with BC province schema" >>$LOG_FILE
 	else
-		ncecho " [x] Populating database with ON data "
-# TODO fix this for 20
-#		$MYSQL ${db_name} < ${SRC}OscarON${VERSION}.sql 2>>$LOG_FILE &
-		$MYSQL ${db_name} < ${SRC}OscarON19.sql 2>>$LOG_FILE &
-		pid=$!;progress $pid
-		echo  populated database ${db_name} with ${PROVINCE} data >>$LOG_FILE
+		echo "Running createdatabase_on.sh for ON province" >>$LOG_FILE
+		# createdatabase_on.sh [mysql_user] [mysql_password] [database_name]
+		# The helper calls createdatabase_generic.sh with province=on and ICD version 9.
+		# It also loads olis/olisinit.sql for Ontario Laboratory Information System tables.
+		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_on.sh root "${db_password}" "${db_name}") >>$LOG_FILE 2>>$LOG_FILE
+		echo "Populated ${db_name} with ON province schema" >>$LOG_FILE
+
 		ncecho " [x] Populating database with OLIS data "
 		$MYSQL ${db_name} < ${SRC}OLIS.sql 2>>$LOG_FILE &
 		pid=$!;progress $pid
-		echo  Populated database ${db_name} with OLIS data >>$LOG_FILE
-		#ncecho " [x] Populating database with Office Codes "
-		#$MYSQL ${db_name} < ${SRC}OfficeCodes.sql 2>>$LOG_FILE &
-		#pid=$!;progress $pid
-		#echo  Populated database ${db_name} with Office Codes >>$LOG_FILE
-		#ncecho " [x] Populating database with Special Codes "
-		#$MYSQL ${db_name} < ${SRC}special.sql 2>>$LOG_FILE &
-		#pid=$!;progress $pid
-		#echo  Populated database ${db_name} with special codes >>$LOG_FILE
+		echo "Populated database ${db_name} with OLIS lab panel data" >>$LOG_FILE
 	fi
 	#ncecho " [x] Patching database to early ${PROGRAM} schema with patch1"
 	#$MYSQL ${db_name} < ${SRC}oscar_15_to_oscar_19.sql >>$LOG_FILE 2>>$LOG_FILE &
