@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.PMmodule.dao;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -724,7 +725,7 @@ public class ProgramDaoImpl extends AbstractDaoImpl<Program> implements ProgramD
         if (p1 == null || p2 == null)
             return false;
 
-        return (p1.getFacilityId() == p2.getFacilityId());
+        return Objects.equals(p1.getFacilityId(), p2.getFacilityId());
     }
 
     /**

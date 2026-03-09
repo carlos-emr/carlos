@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for displaying and managing the main message inbox/outbox interface.
@@ -268,6 +269,7 @@ public class MsgDisplayMessages2Action extends ActionSupport {
      *
      * @param mess String[] array of message IDs selected for processing
      */
+    @StrutsParameter
     public void setMessageNo(String[] mess) {
         this.messageNo = mess;
     }

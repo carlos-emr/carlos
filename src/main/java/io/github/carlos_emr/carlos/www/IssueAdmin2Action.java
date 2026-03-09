@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 // use your IDE to handle imports
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class IssueAdmin2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -168,10 +169,12 @@ public class IssueAdmin2Action extends ActionSupport {
 
     private Issue issueAdmin;
 
+    @StrutsParameter(depth = 1)
     public Issue getIssueAdmin() {
         return issueAdmin;
     }
 
+    @StrutsParameter
     public void setIssueAdmin(Issue issueAdmin) {
         this.issueAdmin = issueAdmin;
     }

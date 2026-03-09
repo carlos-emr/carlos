@@ -352,10 +352,6 @@ public interface MessageHandler {
 
     public String getFillerOrderNumber();
 
-    public String getEncounterId();
-
-    public String getRadiologistInfo();
-
     public String getNteForOBX(int i, int j);
 
     public String getNteForPID();

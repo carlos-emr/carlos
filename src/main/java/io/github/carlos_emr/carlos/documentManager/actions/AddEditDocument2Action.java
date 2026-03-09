@@ -79,11 +79,32 @@ import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.itextpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfReader;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Struts2 action for adding and editing documents in the CARLOS EMR document management system.
+ *
+ * <p>Handles document upload, metadata editing, file persistence, and page count extraction.
+ * Supports both standard form-based uploads and HTML5 multi-file uploads. When a document
+ * is added under a patient demographic, a case management note is automatically created
+ * to record the event.
+ *
+ * <p>Security: All operations require the {@code _edoc} write privilege, enforced via
+ * {@link SecurityInfoManager}. File paths are validated using {@link PathValidationUtils}
+ * to prevent path traversal attacks. Filenames are sanitized before storage.
+ *
+ * <p>PDF page counting uses OpenPDF {@link PdfReader} to determine the number of pages
+ * in uploaded PDF documents.
+ *
+ * @see ManageDocument2Action
+ * @see EDocUtil
+ * @see PathValidationUtils
+ * @since 2006-07-27
+ */
 public class AddEditDocument2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -91,6 +112,15 @@ public class AddEditDocument2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Handles HTML5 multi-file document uploads. Validates file size, saves the file
+     * locally, counts PDF pages using OpenPDF, persists the document record, and routes
+     * it to the specified provider inbox and queue.
+     *
+     * @return String null (response is sent directly via HTTP headers)
+     * @throws Exception if file write or document persistence fails
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
     public String html5MultiUpload() throws Exception {
         ResourceBundle props = ResourceBundle.getBundle("oscarResources");
 
@@ -158,7 +188,14 @@ public class AddEditDocument2Action extends ActionSupport {
 
     }
 
-    public static int countNumOfPages(String fileName) {// count number of pages in a local pdf file
+    /**
+     * Counts the number of pages in a local PDF file using OpenPDF PdfReader.
+     * The file is located in the configured DOCUMENT_DIR.
+     *
+     * @param fileName String the PDF filename (relative to DOCUMENT_DIR)
+     * @return int the number of pages, or 0 if the file cannot be read
+     */
+    public static int countNumOfPages(String fileName) {
 
         int numOfPage = 0;
         String docdownload = OscarProperties.getInstance().getDocumentDirectory();
@@ -178,6 +215,14 @@ public class AddEditDocument2Action extends ActionSupport {
         return numOfPage;
     }
 
+    /**
+     * Main Struts2 entry point. Dispatches to {@link #html5MultiUpload()} if the
+     * request method parameter is "html5MultiUpload", otherwise delegates to
+     * {@link #execute2()} for standard add/edit operations.
+     *
+     * @return String the Struts2 result name
+     * @throws Exception if document processing fails
+     */
     public String execute() throws Exception {
         if ("html5MultiUpload".equals(request.getParameter("method"))) {
             return html5MultiUpload();
@@ -185,6 +230,13 @@ public class AddEditDocument2Action extends ActionSupport {
         return execute2();
     }
 
+    /**
+     * Handles the standard add/edit document workflow. Routes to add mode, edit mode,
+     * or returns a file-size error based on the current mode and function parameters.
+     *
+     * @return String the Struts2 result name ("failEdit", "failAdd", "successEdit", or NONE)
+     * @throws SecurityException if the user lacks _edoc write privilege
+     */
     public String execute2() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -232,7 +284,14 @@ public class AddEditDocument2Action extends ActionSupport {
         }
     }
 
-    // returns true if successful
+    /**
+     * Adds a new document: validates required fields, saves the uploaded file locally,
+     * persists the EDoc record, creates audit log entries, and generates a case management
+     * note when the document is linked to a patient demographic.
+     *
+     * @param request HttpServletRequest the current request for session and parameter access
+     * @return boolean true if the document was added successfully, false on validation or I/O error
+     */
     private boolean addDocument(HttpServletRequest request) {
 
         Hashtable errors = new Hashtable();
@@ -365,6 +424,13 @@ public class AddEditDocument2Action extends ActionSupport {
         return true;
     }
 
+    /**
+     * Edits an existing document's metadata and optionally replaces its file content.
+     * Handles reviewer assignment, extra reviewer tracking, and document type updates.
+     *
+     * @param request HttpServletRequest the current request for session and parameter access
+     * @return String the Struts2 result name ("successEdit" or "failEdit")
+     */
     private String editDocument(HttpServletRequest request) {
         Hashtable errors = new Hashtable();
 
@@ -469,6 +535,15 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     }
 
 
+    /**
+     * Writes an uploaded file to the local document storage directory. The destination
+     * path is validated using {@link PathValidationUtils} to prevent path traversal.
+     *
+     * @param is InputStream the input stream of the file content to write
+     * @param fileName String the target filename (relative to DOCUMENT_DIR)
+     * @return File the written file, or null if an error occurred
+     * @throws Exception if the output stream cannot be closed
+     */
     public static File writeLocalFile(InputStream is, String fileName) throws Exception {
         FileOutputStream fos = null;
         File file = null;
@@ -501,6 +576,14 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return file;
     }
 
+    /**
+     * Stores the binary contents of a document file in the database as a {@link DocumentStorage}
+     * record. This provides an alternative to file-system-only storage.
+     *
+     * @param file File the document file to store
+     * @param documentNo Integer the document number to associate the storage record with
+     * @return int the generated storage record ID, or 0 if an error occurred
+     */
     public static int storeDocumentInDatabase(File file, Integer documentNo) {
         Integer ret = 0;
         FileInputStream fin = null;
@@ -563,6 +646,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return function;
     }
 
+    @StrutsParameter
     public void setFunction(String function) {
         this.function = function;
     }
@@ -571,6 +655,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return functionId;
     }
 
+    @StrutsParameter
     public void setFunctionId(String functionId) {
         this.functionId = functionId;
     }
@@ -579,6 +664,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docType;
     }
 
+    @StrutsParameter
     public void setDocType(String docType) {
         this.docType = docType;
     }
@@ -587,6 +673,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docClass;
     }
 
+    @StrutsParameter
     public void setDocClass(String docClass) {
         this.docClass = docClass;
     }
@@ -595,6 +682,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docSubClass;
     }
 
+    @StrutsParameter
     public void setDocSubClass(String docSubClass) {
         this.docSubClass = docSubClass;
     }
@@ -603,6 +691,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docDesc;
     }
 
+    @StrutsParameter
     public void setDocDesc(String docDesc) {
         this.docDesc = docDesc;
     }
@@ -611,6 +700,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docCreator;
     }
 
+    @StrutsParameter
     public void setDocCreator(String docCreator) {
         this.docCreator = docCreator;
     }
@@ -619,6 +709,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return responsibleId;
     }
 
+    @StrutsParameter
     public void setResponsibleId(String responsibleId) {
         this.responsibleId = responsibleId;
     }
@@ -627,6 +718,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return source;
     }
 
+    @StrutsParameter
     public void setSource(String source) {
         this.source = source;
     }
@@ -635,6 +727,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return sourceFacility;
     }
 
+    @StrutsParameter
     public void setSourceFacility(String sourceFacility) {
         this.sourceFacility = sourceFacility;
     }
@@ -643,6 +736,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docFile;
     }
 
+    @StrutsParameter
     public void setDocFile(File docFile) {
         this.docFile = docFile;
     }
@@ -651,6 +745,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return mode;
     }
 
+    @StrutsParameter
     public void setMode(String mode) {
         this.mode = mode;
     }
@@ -659,6 +754,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return docPublic;
     }
 
+    @StrutsParameter
     public void setDocPublic(String docPublic) {
         this.docPublic = docPublic;
     }
@@ -667,6 +763,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return observationDate;
     }
 
+    @StrutsParameter
     public void setObservationDate(String observationDate) {
         this.observationDate = observationDate;
     }
@@ -675,6 +772,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return reviewerId;
     }
 
+    @StrutsParameter
     public void setReviewerId(String reviewerId) {
         this.reviewerId = reviewerId;
     }
@@ -683,6 +781,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return reviewDateTime;
     }
 
+    @StrutsParameter
     public void setReviewDateTime(String reviewDateTime) {
         this.reviewDateTime = reviewDateTime;
     }
@@ -691,6 +790,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return contentDateTime;
     }
 
+    @StrutsParameter
     public void setContentDateTime(String contentDateTime) {
         this.contentDateTime = contentDateTime;
     }
@@ -699,6 +799,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return reviewDoc;
     }
 
+    @StrutsParameter
     public void setReviewDoc(boolean reviewDoc) {
         this.reviewDoc = reviewDoc;
     }
@@ -707,6 +808,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return html;
     }
 
+    @StrutsParameter
     public void setHtml(String html) {
         this.html = html;
     }
@@ -715,6 +817,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return filedata;
     }
 
+    @StrutsParameter
     public void setFiledata(File Filedata) {
         this.filedata = Filedata;
     }
@@ -723,6 +826,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return appointmentNo;
     }
 
+    @StrutsParameter
     public void setAppointmentNo(String appointment) {
         this.appointmentNo = appointment;
     }
@@ -731,6 +835,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return restrictToProgram;
     }
 
+    @StrutsParameter
     public void setRestrictToProgram(boolean restrictToProgram) {
         this.restrictToProgram = restrictToProgram;
     }
@@ -739,6 +844,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return receivedDate;
     }
 
+    @StrutsParameter
     public void setReceivedDate(String receivedDate) {
         this.receivedDate = receivedDate;
     }
@@ -747,6 +853,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return abnormal;
     }
 
+    @StrutsParameter
     public void setAbnormal(String abnormal) {
         this.abnormal = abnormal;
     }
@@ -755,6 +862,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return extraReviewerId;
     }
 
+    @StrutsParameter
     public void setExtraReviewerId(String extraReviewerId) {
         this.extraReviewerId = extraReviewerId;
     }
@@ -763,6 +871,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return extraReviewDoc;
     }
 
+    @StrutsParameter
     public void setExtraReviewDoc(boolean extraReviewDoc) {
         this.extraReviewDoc = extraReviewDoc;
     }
@@ -770,10 +879,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private String docFileFileName;    
     private String docFileContentType; 
 
+    @StrutsParameter
     public void setDocFileFileName(String docFileFileName) {
         this.docFileFileName = docFileFileName;
     }
 
+    @StrutsParameter
     public void setDocFileContentType(String docFileContentType) {
         this.docFileContentType = docFileContentType;
     }

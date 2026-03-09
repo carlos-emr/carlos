@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.interceptor.ServletRequestAware;
 import org.apache.struts2.interceptor.ServletResponseAware;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class GstControl2Action extends ActionSupport implements ServletRequestAware, ServletResponseAware  {
     private HttpServletRequest request;
@@ -91,6 +92,7 @@ public class GstControl2Action extends ActionSupport implements ServletRequestAw
         return gstPercent;
     }
 
+    @StrutsParameter
     public void setGstPercent(String gstPercent) {
         this.gstPercent = gstPercent;
     }

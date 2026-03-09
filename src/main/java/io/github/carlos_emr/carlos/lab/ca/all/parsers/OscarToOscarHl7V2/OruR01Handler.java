@@ -140,18 +140,6 @@ public final class OruR01Handler extends ChainnedMessageAdapter<ORU_R01> {
     }
 
     @Override
-    public String getEncounterId() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public String getRadiologistInfo() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
     public String getNteForOBX(int i, int j) {
         // TODO Auto-generated method stub
         return null;

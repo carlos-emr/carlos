@@ -33,6 +33,7 @@ import com.opensymphony.xwork2.ActionSupport;
 import org.apache.cxf.helpers.FileUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.integration.mcedt.DelegateFactory;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtMessageCreator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -418,6 +419,7 @@ public class Upload2Action extends ActionSupport {
         return description;
     }
 
+    @StrutsParameter
     public void setDescription(String description) {
         this.description = description;
     }
@@ -426,6 +428,7 @@ public class Upload2Action extends ActionSupport {
         return resourceType;
     }
 
+    @StrutsParameter
     public void setResourceType(String resourceType) {
         this.resourceType = resourceType;
     }
@@ -434,6 +437,7 @@ public class Upload2Action extends ActionSupport {
         return fileName;
     }
 
+    @StrutsParameter
     public void setFileName(String fileName) {
         this.fileName = fileName;
     }
@@ -442,6 +446,7 @@ public class Upload2Action extends ActionSupport {
         return resourceId;
     }
 
+    @StrutsParameter
     public void setResourceId(BigInteger resourceId) {
         this.resourceId = resourceId;
     }
@@ -450,6 +455,7 @@ public class Upload2Action extends ActionSupport {
         return addUploadFile;
     }
 
+    @StrutsParameter
     public void setAddUploadFile(File addUploadFile) {
         this.addUploadFile = addUploadFile;
     }
@@ -457,6 +463,7 @@ public class Upload2Action extends ActionSupport {
     public String getAddUploadFileFileName() {
         return addUploadFileFileName;
     }
+    @StrutsParameter
     public void setAddUploadFileFileName(String addUploadFileFileName) {
         this.addUploadFileFileName = addUploadFileFileName;
         this.setFileName(addUploadFileFileName); // set the file name to the upload file name
@@ -465,6 +472,7 @@ public class Upload2Action extends ActionSupport {
     public String getAddUploadFileContentType() {
         return addUploadFileContentType;
     }
+    @StrutsParameter
     public void setAddUploadFileContentType(String addUploadFileContentType) {
         this.addUploadFileContentType = addUploadFileContentType;
         this.setResourceType(addUploadFileContentType); // set the resource type to the upload file content type

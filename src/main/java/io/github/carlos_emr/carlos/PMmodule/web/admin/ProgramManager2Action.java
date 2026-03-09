@@ -35,6 +35,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -91,6 +92,7 @@ import io.github.carlos_emr.carlos.services.security.RolesManager;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts 2 action for comprehensive program management in the PMmodule.
@@ -162,76 +164,94 @@ public class ProgramManager2Action extends ActionSupport {
     private ProgramClientStatus client_status;
     private ProgramClientRestriction restriction;
 
+    @StrutsParameter(depth = 1)
     public ProgramClientRestriction getRestriction() {
         return restriction;
     }
 
+    @StrutsParameter
     public void setRestriction(ProgramClientRestriction restriction) {
         this.restriction = restriction;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramClientStatus getClient_status() {
         return client_status;
     }
 
+    @StrutsParameter
     public void setClient_status(ProgramClientStatus client_status) {
         this.client_status = client_status;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramTeam getTeam() {
         return team;
     }
 
+    @StrutsParameter
     public void setTeam(ProgramTeam team) {
         this.team = team;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramQueue getQueue() {
         return queue;
     }
 
+    @StrutsParameter
     public void setQueue(ProgramQueue queue) {
         this.queue = queue;
     }
 
     private ProgramTeam team;
 
+    @StrutsParameter(depth = 1)
     public ProgramFunctionalUser getFunction() {
         return function;
     }
 
+    @StrutsParameter
     public void setFunction(ProgramFunctionalUser function) {
         this.function = function;
     }
 
+    @StrutsParameter(depth = 1)
     public Program getProgram() {
         return program;
     }
 
+    @StrutsParameter
     public void setProgram(Program program) {
         this.program = program;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramProvider getProvider() {
         return provider;
     }
 
+    @StrutsParameter
     public void setProvider(ProgramProvider provider) {
         this.provider = provider;
     }
 
+    @StrutsParameter(depth = 1)
     public Admission getAdmission() {
         return admission;
     }
 
+    @StrutsParameter
     public void setAdmission(Admission admission) {
         this.admission = admission;
     }
 
+    @StrutsParameter(depth = 1)
     public ProgramAccess getAccess() {
         return access;
     }
 
+    @StrutsParameter
     public void setAccess(ProgramAccess access) {
         this.access = access;
     }
@@ -1528,7 +1548,7 @@ public class ProgramManager2Action extends ActionSupport {
                 || (program1.isAlcohol() ^ program2.isAlcohol())
                 || (program1.isPhysicalHealth() ^ program2.isPhysicalHealth())
                 || (program1.isMentalHealth() ^ program2.isMentalHealth())
-                || (program1.getFacilityId() != program2.getFacilityId())
+                || (!Objects.equals(program1.getFacilityId(), program2.getFacilityId()))
                 || (program1.isHousing() ^ program2.isHousing()))
 
             changed = true;
@@ -1613,6 +1633,7 @@ public class ProgramManager2Action extends ActionSupport {
         return searchStatus;
     }
 
+    @StrutsParameter
     public void setSearchStatus(String searchStatus) {
         this.searchStatus = searchStatus;
     }
@@ -1621,6 +1642,7 @@ public class ProgramManager2Action extends ActionSupport {
         return searchType;
     }
 
+    @StrutsParameter
     public void setSearchType(String searchType) {
         this.searchType = searchType;
     }
@@ -1629,6 +1651,7 @@ public class ProgramManager2Action extends ActionSupport {
         return searchFacilityId;
     }
 
+    @StrutsParameter
     public void setSearchFacilityId(String searchFacilityId) {
         this.searchFacilityId = searchFacilityId;
     }
@@ -1637,6 +1660,7 @@ public class ProgramManager2Action extends ActionSupport {
         return vacancyOrTemplateId;
     }
 
+    @StrutsParameter
     public void setVacancyOrTemplateId(String vacancyOrTemplateId) {
         this.vacancyOrTemplateId = vacancyOrTemplateId;
     }

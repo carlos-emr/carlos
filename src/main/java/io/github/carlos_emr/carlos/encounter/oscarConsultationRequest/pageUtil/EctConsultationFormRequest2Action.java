@@ -45,6 +45,7 @@ import org.apache.commons.text.StringEscapeUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01;
 import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.OruR01.ObservationData;
 import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.RefI12;
@@ -52,7 +53,7 @@ import io.github.carlos_emr.carlos.commn.hl7.v2.oscar_to_oscar.SendingUtils;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
-import com.itextpdf.text.DocumentException;
+import org.openpdf.text.DocumentException;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
@@ -79,6 +80,37 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+/**
+ * Struts2 action that handles creating, updating, printing, faxing, and electronically
+ * sending consultation requests (clinical referrals).
+ *
+ * <p>This is the primary controller for the consultation request form. It processes form
+ * submissions based on the {@code submission} parameter prefix:</p>
+ * <ul>
+ *   <li><b>"Submit..."</b> - creates a new {@link ConsultationRequest}, persists it with all
+ *       attached documents (labs, forms, eForms, HRM reports), and processes digital signatures</li>
+ *   <li><b>"Update..."</b> - archives the existing consultation request, updates it with new
+ *       form data, and re-attaches documents</li>
+ *   <li><b>"...And Print Preview"</b> - renders the consultation form with attachments as a
+ *       base64-encoded PDF for inline preview</li>
+ *   <li><b>"...And Fax"</b> - prepares fax parameters (accounts, recipients, attached document
+ *       descriptions) and forwards to the fax confirmation page</li>
+ *   <li><b>"...esend"</b> - transmits the consultation via HL7 REF_I12 message to the
+ *       specialist's remote EMR system, with attached documents sent as ORU_R01 messages</li>
+ * </ul>
+ *
+ * <p>Supports the Health Care Team integration when the
+ * {@code ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS} property is enabled,
+ * bridging between the newer DemographicContact model and the legacy ProfessionalSpecialist
+ * module for backward compatibility.</p>
+ *
+ * <p>Requires {@code _con} write privilege via {@link SecurityInfoManager}.</p>
+ *
+ * @see ConsultationPDFCreator
+ * @see DocumentAttachmentManager
+ * @see ConsultationManager
+ * @since 2003-07-21
+ */
 public class EctConsultationFormRequest2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -94,6 +126,16 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Processes the consultation request form submission.
+     *
+     * <p>Dispatches to create, update, print preview, fax, or HL7 e-send based on the
+     * {@code submission} parameter. All paths enforce {@code _con} write privilege.</p>
+     *
+     * @return String the Struts2 result name ("success", "fax", "error", or NONE for redirects)
+     * @throws ServletException when form rendering encounters a servlet error
+     * @throws IOException      when an I/O error occurs during response writing or HL7 sending
+     */
     @Override
     public String execute() throws ServletException, IOException {
 
@@ -521,6 +563,17 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return NONE;
     }
 
+    /**
+     * Creates a consultation request extension entry for storing custom form fields.
+     *
+     * <p>Extension entries store additional key-value data beyond the core consultation
+     * request fields, identified by the {@code ext_} parameter name prefix.</p>
+     *
+     * @param requestId String the consultation request ID
+     * @param name      String the extension key (parameter name after "ext_" prefix)
+     * @param value     String the extension value
+     * @return ConsultationRequestExt the new extension entry ready for persistence
+     */
     private ConsultationRequestExt createExtEntry(String requestId, String name, String value) {
         ConsultationRequestExt obj = new ConsultationRequestExt();
         obj.setDateCreated(new Date());
@@ -530,6 +583,27 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return obj;
     }
 
+    /**
+     * Sends the consultation request and its attachments to the specialist's remote EMR via HL7.
+     *
+     * <p>Constructs an HL7 REF_I12 referral message for the consultation request and sends
+     * it to the specialist's remote endpoint. Then iterates over attached documents and lab
+     * results, wrapping each as an ORU_R01 observation message with the binary data payload,
+     * and sends them individually.</p>
+     *
+     * @param loggedInInfo          LoggedInInfo the authenticated session context
+     * @param consultationRequestId Integer the consultation request ID to send
+     * @throws InvalidKeyException      when cryptographic key validation fails
+     * @throws SignatureException        when digital signature operation fails
+     * @throws NoSuchAlgorithmException  when a required cryptographic algorithm is unavailable
+     * @throws NoSuchPaddingException    when a required padding scheme is unavailable
+     * @throws IllegalBlockSizeException when block cipher input size is incorrect
+     * @throws BadPaddingException       when decrypted data padding is incorrect
+     * @throws InvalidKeySpecException   when key specification is invalid
+     * @throws IOException               when an I/O error occurs during transmission
+     * @throws HL7Exception              when HL7 message construction or parsing fails
+     * @throws ServletException          when the remote server returns a non-OK status
+     */
     private void doHl7Send(LoggedInInfo loggedInInfo, Integer consultationRequestId) throws InvalidKeyException, SignatureException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeySpecException, IOException, HL7Exception, ServletException {
 
         ConsultationRequestDao consultationRequestDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
@@ -593,6 +667,19 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Renders the consultation form with all attachments as a base64-encoded PDF.
+     *
+     * <p>Sets the generated PDF and a suggested filename as request attributes for
+     * the print preview page. Returns false and sets an error message attribute
+     * if PDF generation fails.</p>
+     *
+     * @param request       HttpServletRequest the current request
+     * @param response      HttpServletResponse the current response
+     * @param requestId     String the consultation request ID
+     * @param demographicNo String the patient demographic number
+     * @return boolean true if PDF generation succeeded, false on error
+     */
     private boolean renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response, String requestId, String demographicNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -616,6 +703,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return true;
     }
 
+    /**
+     * Writes a JSON response containing the base64-encoded PDF, filename, and any error message.
+     *
+     * @param request  HttpServletRequest containing the PDF data and filename as attributes
+     * @param response HttpServletResponse where the JSON is written
+     */
     private void generatePDFResponse(HttpServletRequest request, HttpServletResponse response) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("consultPDF", (String) request.getAttribute("consultPDF"));
@@ -629,6 +722,13 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         }
     }
 
+    /**
+     * Generates a PDF filename in the format {@code yyyy_MM_dd_LastName.pdf} for the given patient.
+     *
+     * @param loggedInInfo  LoggedInInfo the authenticated session context
+     * @param demographicNo int the patient demographic number
+     * @return String the generated filename
+     */
     private String generateFileName(LoggedInInfo loggedInInfo, int demographicNo) {
         DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
         String demographicLastName = demographicManager.getDemographicFormattedName(loggedInInfo, demographicNo).split(", ")[0];
@@ -734,6 +834,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(professionalSpecialistName));
     }
 
+    @StrutsParameter
     public void setProfessionalSpecialistName(String professionalSpecialistName) {
         this.professionalSpecialistName = professionalSpecialistName;
     }
@@ -742,6 +843,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(professionalSpecialistPhone));
     }
 
+    @StrutsParameter
     public void setProfessionalSpecialistPhone(String professionalSpecialistPhone) {
         this.professionalSpecialistPhone = professionalSpecialistPhone;
     }
@@ -750,6 +852,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(professionalSpecialistAddress));
     }
 
+    @StrutsParameter
     public void setProfessionalSpecialistAddress(String professionalSpecialistAddress) {
         this.professionalSpecialistAddress = professionalSpecialistAddress;
     }
@@ -758,6 +861,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eReferral;
     }
 
+    @StrutsParameter
     public void seteReferral(boolean eReferral) {
         this.eReferral = eReferral;
     }
@@ -766,6 +870,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eReferralService;
     }
 
+    @StrutsParameter
     public void seteReferralService(String eReferralService) {
         this.eReferralService = eReferralService;
     }
@@ -774,6 +879,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eReferralId;
     }
 
+    @StrutsParameter
     public void seteReferralId(String eReferralId) {
         this.eReferralId = eReferralId;
     }
@@ -782,6 +888,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(providerName));
     }
 
+    @StrutsParameter
     public void setProviderName(String providerName) {
         this.providerName = providerName;
     }
@@ -790,6 +897,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientAge));
     }
 
+    @StrutsParameter
     public void setPatientAge(String patientAge) {
         this.patientAge = patientAge;
     }
@@ -883,90 +991,112 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     }
 
 
+    @StrutsParameter
     public void setAllergies(String str) {
         allergies = str;
     }
 
+    @StrutsParameter
     public void setAppointmentDate(String str) {
         appointmentDate = str;
     }
 
+    @StrutsParameter
     public void setAppointmentHour(String str) {
         appointmentHour = str;
     }
 
+    @StrutsParameter
     public void setAppointmentMinute(String str) {
         appointmentMinute = str;
     }
 
+    @StrutsParameter
     public void setAppointmentNotes(String str) {
         appointmentNotes = str;
     }
 
+    @StrutsParameter
     public void setAppointmentPm(String str) {
         appointmentPm = str;
     }
 
+    @StrutsParameter
     public void setAppointmentTime(String str) {
         appointmentTime = str;
     }
 
+    @StrutsParameter
     public void setClinicalInformation(String str) {
         clinicalInformation = str;
     }
 
+    @StrutsParameter
     public void setConcurrentProblems(String str) {
         concurrentProblems = str;
     }
 
+    @StrutsParameter
     public void setCurrentMedications(String str) {
         currentMedications = str;
     }
 
+    @StrutsParameter
     public void setDemographicNo(String str) {
         demographicNo = str;
     }
 
+    @StrutsParameter
     public void setPatientWillBook(String str) {
         this.patientWillBook = str;
     }
 
+    @StrutsParameter
     public void setProviderNo(String str) {
         providerNo = str;
     }
 
+    @StrutsParameter
     public void setReasonForConsultation(String str) {
         reasonForConsultation = str;
     }
 
+    @StrutsParameter
     public void setReferalDate(String str) {
         referalDate = str;
     }
 
+    @StrutsParameter
     public void setRequestId(String str) {
         requestId = str;
     }
 
+    @StrutsParameter
     public void setSendTo(String str) {
         sendTo = str;
     }
 
+    @StrutsParameter
     public void setService(String str) {
         service = str;
     }
 
+    @StrutsParameter
     public void setSpecialist(String str) {
         specialist = str;
     }
 
+    @StrutsParameter
     public void setStatus(String str) {
         status = str;
     }
 
+    @StrutsParameter
     public void setSubmission(String str) {
         submission = str;
     }
 
+    @StrutsParameter
     public void setUrgency(String str) {
         urgency = str;
     }
@@ -979,6 +1109,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientAddress));
     }
 
+    @StrutsParameter
     public void setPatientAddress(String patientAddress) {
         this.patientAddress = patientAddress;
     }
@@ -987,6 +1118,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientPhone));
     }
 
+    @StrutsParameter
     public void setPatientPhone(String patientPhone) {
         this.patientPhone = patientPhone;
     }
@@ -995,6 +1127,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientWPhone));
     }
 
+    @StrutsParameter
     public void setPatientWPhone(String patientWPhone) {
         this.patientWPhone = patientWPhone;
     }
@@ -1003,10 +1136,12 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return StringUtils.trimToEmpty(patientCellPhone);
     }
 
+    @StrutsParameter
     public void setPatientCellPhone(String patientCellPhone) {
         this.patientCellPhone = patientCellPhone;
     }
 
+    @StrutsParameter
     public void setPatientEmail(String patientEmail) {
         this.patientEmail = patientEmail;
     }
@@ -1019,6 +1154,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientDOB));
     }
 
+    @StrutsParameter
     public void setPatientDOB(String patientDOB) {
         this.patientDOB = patientDOB;
     }
@@ -1027,6 +1163,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientSex));
     }
 
+    @StrutsParameter
     public void setPatientSex(String patientSex) {
         this.patientSex = patientSex;
     }
@@ -1035,6 +1172,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientHealthNum));
     }
 
+    @StrutsParameter
     public void setPatientHealthNum(String patientHealthNum) {
         this.patientHealthNum = patientHealthNum;
     }
@@ -1043,6 +1181,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientHealthCardVersionCode));
     }
 
+    @StrutsParameter
     public void setPatientHealthCardVersionCode(String patientHealthCardVersionCode) {
         this.patientHealthCardVersionCode = patientHealthCardVersionCode;
     }
@@ -1051,6 +1190,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return (StringUtils.trimToEmpty(patientHealthCardType));
     }
 
+    @StrutsParameter
     public void setPatientHealthCardType(String patientHealthCardType) {
         this.patientHealthCardType = patientHealthCardType;
     }
@@ -1059,6 +1199,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return hl7TextMessageId;
     }
 
+    @StrutsParameter
     public void setHl7TextMessageId(Integer hl7TextMessageId) {
         this.hl7TextMessageId = hl7TextMessageId;
     }
@@ -1067,6 +1208,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return patientFirstName;
     }
 
+    @StrutsParameter
     public void setPatientFirstName(String patientFirstName) {
         this.patientFirstName = patientFirstName;
     }
@@ -1075,12 +1217,18 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return patientLastName;
     }
 
+    @StrutsParameter
     public void setPatientLastName(String patientLastName) {
         this.patientLastName = patientLastName;
     }
 
     /**
-     * This url will include the context path.
+     * Builds the URL for the ORU_R01 lab sending page, including the context path and
+     * patient demographic query parameters. The returned URL is HTML-escaped for safe
+     * embedding in JSP output.
+     *
+     * @param request HttpServletRequest used to obtain the context path
+     * @return String the HTML-escaped URL string with query parameters
      */
     public String getOruR01UrlString(HttpServletRequest request) {
         // /lab/CA/ALL/sendOruR01.jsp
@@ -1106,15 +1254,20 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     }
 
     /**
-     * @return the followUpDate
+     * Returns the follow-up date for the consultation request.
+     *
+     * @return String the follow-up date in yyyy-MM-dd or yyyy/MM/dd format
      */
     public String getFollowUpDate() {
         return followUpDate;
     }
 
     /**
-     * @param followUpDate the followUpDate to set
+     * Sets the follow-up date for the consultation request.
+     *
+     * @param followUpDate String the follow-up date in yyyy-MM-dd or yyyy/MM/dd format
      */
+    @StrutsParameter
     public void setFollowUpDate(String followUpDate) {
         this.followUpDate = followUpDate;
     }
@@ -1126,6 +1279,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return siteName;
     }
 
+    @StrutsParameter
     public void setSiteName(String str) {
         this.siteName = str;
     }
@@ -1134,6 +1288,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return signatureImg;
     }
 
+    @StrutsParameter
     public void setSignatureImg(String signatureImg) {
         this.signatureImg = signatureImg;
     }
@@ -1142,6 +1297,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadName;
     }
 
+    @StrutsParameter
     public void setLetterheadName(String letterheadName) {
         this.letterheadName = letterheadName;
     }
@@ -1150,6 +1306,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadAddress;
     }
 
+    @StrutsParameter
     public void setLetterheadAddress(String letterheadAddress) {
         this.letterheadAddress = letterheadAddress;
     }
@@ -1158,6 +1315,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadPhone;
     }
 
+    @StrutsParameter
     public void setLetterheadPhone(String letterheadPhone) {
         this.letterheadPhone = letterheadPhone;
     }
@@ -1166,6 +1324,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return letterheadFax;
     }
 
+    @StrutsParameter
     public void setLetterheadFax(String letterheadFax) {
         this.letterheadFax = letterheadFax;
     }
@@ -1174,6 +1333,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return fdid;
     }
 
+    @StrutsParameter
     public void setFdid(Integer fdid) {
         this.fdid = fdid;
     }
@@ -1182,6 +1342,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return source;
     }
 
+    @StrutsParameter
     public void setSource(String source) {
         this.source = source;
     }
@@ -1190,6 +1351,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return appointmentInstructions;
     }
 
+    @StrutsParameter
     public void setAppointmentInstructions(String appointmentInstructions) {
         this.appointmentInstructions = appointmentInstructions;
     }
@@ -1198,6 +1360,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return appointmentInstructionsLabel;
     }
 
+    @StrutsParameter
     public void setAppointmentInstructionsLabel(String appointmentInstructionsLabel) {
         this.appointmentInstructionsLabel = appointmentInstructionsLabel;
     }
@@ -1209,6 +1372,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return docNo;
     }
 
+    @StrutsParameter
     public void setDocNo(String[] docNo) {
         this.docNo = docNo;
     }
@@ -1220,6 +1384,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return labNo;
     }
 
+    @StrutsParameter
     public void setLabNo(String[] labNo) {
         this.labNo = labNo;
     }
@@ -1231,6 +1396,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return formNo;
     }
 
+    @StrutsParameter
     public void setFormNo(String[] formNo) {
         this.formNo = formNo;
     }
@@ -1242,6 +1408,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return eFormNo;
     }
 
+    @StrutsParameter
     public void seteFormNo(String[] eFormNo) {
         this.eFormNo = eFormNo;
     }
@@ -1253,6 +1420,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 		return hrmNo;
 	}
 	
+	@StrutsParameter
 	public void setHrmNo(String[] hrmNo) {
 		this.hrmNo = hrmNo;
 	}
@@ -1261,6 +1429,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 		return faxAccount;
 	}
 
+	@StrutsParameter
 	public void setFaxAccount(String faxAccount) {
 		this.faxAccount = faxAccount;
 	}

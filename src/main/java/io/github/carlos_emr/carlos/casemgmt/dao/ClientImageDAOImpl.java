@@ -39,7 +39,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.QueueCache;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
  * add/remove items as appropriate.
  */
 @Transactional
-public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientImageDAO {
+public class ClientImageDAOImpl extends AbstractHibernateDao implements ClientImageDAO {
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -63,14 +63,26 @@ public class ClientImageDAOImpl extends HibernateDaoSupport implements ClientIma
     public void saveClientImage(ClientImage clientImage) {
         ClientImage existing = getClientImage(clientImage.getDemographic_no());
         if (existing != null) {
+            // Update the managed instance so Hibernate tracks the change correctly
             existing.setImage_data(clientImage.getImage_data());
             existing.setImage_type(clientImage.getImage_type());
             existing.setUpdate_date(new Date());
+            currentSession().saveOrUpdate(existing);
+        } else {
+            currentSession().saveOrUpdate(clientImage);
         }
-        getHibernateTemplate().saveOrUpdate(clientImage);
 
         // update cache
         dataCache.remove(clientImage.getDemographic_no());
+    }
+
+    @Override
+    public void deleteClientImage(Integer clientId) {
+        ClientImage clientImage = getClientImage(clientId);
+        if (clientImage != null) {
+            currentSession().delete(clientImage);
+            dataCache.remove(clientId);
+        }
     }
 
     @Override

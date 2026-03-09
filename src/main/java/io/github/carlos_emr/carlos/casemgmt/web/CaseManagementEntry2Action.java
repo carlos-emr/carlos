@@ -42,10 +42,15 @@ import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.SessionAware;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramAccess;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProgramManager;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
@@ -764,7 +769,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         boolean programSet = false;
 
         List<ProviderDefaultProgram> programs = defaultProgramDao.getProgramByProviderNo(providerNo);
-        HashMap<Program, List<Secrole>> rolesForDemo = NotePermissions2Action.getAllProviderAccessibleRolesForDemo(providerNo, demographicNo);
+        HashMap<Program, List<Secrole>> rolesForDemo = getAllProviderAccessibleRolesForDemo(providerNo, demographicNo);
         for (ProviderDefaultProgram pdp : programs) {
             for (Program p : rolesForDemo.keySet()) {
                 if (pdp.getProgramId() == p.getId().intValue()) {
@@ -1435,23 +1440,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         note.setUpdate_date(now);
-
-        // Checks whether the user can set the program via the UI - if so, make sure that they can't screw it up if they do
-        if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
-            String noteProgramNo = request.getParameter("_note_program_no");
-            String noteRoleId = request.getParameter("_note_role_id");
-
-            if (noteProgramNo != null && noteRoleId != null && noteProgramNo.trim().length() > 0 && noteRoleId.trim().length() > 0) {
-                if (noteProgramNo.equalsIgnoreCase("-2") || noteRoleId.equalsIgnoreCase("-2")) {
-                    throw new Exception("Patient is not admitted to any programs user has access to. [roleId=-2, programNo=-2]");
-                } else if (!noteProgramNo.equalsIgnoreCase("-1") && !noteRoleId.equalsIgnoreCase("-1")) {
-                    note.setProgram_no(noteProgramNo);
-                    note.setReporter_caisi_role(noteRoleId);
-                }
-            } else {
-                throw new Exception("Missing role id or program number. [roleId=" + noteRoleId + ", programNo=" + noteProgramNo + "]");
-            }
-        }
 
         if (sessionBean.appointmentNo != null && sessionBean.appointmentNo.length() > 0) {
             note.setAppointmentNo(Integer.parseInt(sessionBean.appointmentNo));
@@ -2756,7 +2744,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     public String displayNotes() throws Exception {
-        response.setContentType("text/html");
+        response.setContentType("text/html;charset=UTF-8");
         doDisplayNotes(request, response.getWriter());
         return null;
     }
@@ -3215,7 +3203,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         if (!programSet) {
             List<ProviderDefaultProgram> programs = defaultProgramDao.getProgramByProviderNo(providerNo);
-            HashMap<Program, List<Secrole>> rolesForDemo = NotePermissions2Action.getAllProviderAccessibleRolesForDemo(providerNo, demographicNo);
+            HashMap<Program, List<Secrole>> rolesForDemo = getAllProviderAccessibleRolesForDemo(providerNo, demographicNo);
             for (ProviderDefaultProgram pdp : programs) {
                 for (Program p : rolesForDemo.keySet()) {
                     if (pdp.getProgramId() == p.getId().intValue()) {
@@ -3270,15 +3258,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return caseManagementMgr.getDemoDOB(demoNo);
     }
 
-    protected boolean inCaseIssue(Issue iss, List<CaseManagementIssue> issues) {
-        Iterator<CaseManagementIssue> itr = issues.iterator();
-        while (itr.hasNext()) {
-            CaseManagementIssue cIss = itr.next();
-            if (iss.getId().longValue() == cIss.getIssue_id())
-                return true;
-        }
-        return false;
-    }
+
 
     protected void SetChecked(List<CheckBoxBean> checkedlist, int id) {
         for (int i = 0; i < checkedlist.size(); i++) {
@@ -3505,6 +3485,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.observation_date;
     }
 
+    @StrutsParameter
     public void setObservation_date(String date) {
         this.observation_date = date;
     }
@@ -3513,6 +3494,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return caseNote_history;
     }
 
+    @StrutsParameter
     public void setCaseNote_history(String caseNote_history) {
         this.caseNote_history = caseNote_history;
     }
@@ -3521,6 +3503,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return deleteId;
     }
 
+    @StrutsParameter
     public void setDeleteId(String deleteId) {
         this.deleteId = deleteId;
     }
@@ -3529,14 +3512,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return includeIssue;
     }
 
+    @StrutsParameter
     public void setIncludeIssue(String includeIssue) {
         this.includeIssue = includeIssue;
     }
 
+    @StrutsParameter(depth = 1)
     public List<CheckBoxBean> getIssueCheckList() {
         return issueCheckList;
     }
 
+    @StrutsParameter
     public void setIssueCheckList(List<CheckBoxBean> issueCheckList) {
         // Only set if it's a valid list with persisted objects (not from Struts parameter binding)
         // During parameter binding, Struts creates NEW unpersisted objects which causes errors
@@ -3559,6 +3545,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return lineId;
     }
 
+    @StrutsParameter
     public void setLineId(String lineId) {
         this.lineId = lineId;
     }
@@ -3567,22 +3554,27 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return method;
     }
 
+    @StrutsParameter
     public void setMethod(String method) {
         this.method = method;
     }
 
+    @StrutsParameter(depth = 1)
     public CheckIssueBoxBean[] getNewIssueCheckList() {
         return newIssueCheckList;
     }
 
+    @StrutsParameter
     public void setNewIssueCheckList(CheckIssueBoxBean[] newIssueCheckList) {
         this.newIssueCheckList = newIssueCheckList;
     }
 
+    @StrutsParameter(depth = 1)
     public List getNewIssueList() {
         return newIssueList;
     }
 
+    @StrutsParameter
     public void setNewIssueList(List newIssueList) {
         this.newIssueList = newIssueList;
     }
@@ -3591,6 +3583,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return noteId;
     }
 
+    @StrutsParameter
     public void setNoteId(String noteId) {
         this.noteId = noteId;
     }
@@ -3599,6 +3592,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return searString;
     }
 
+    @StrutsParameter
     public void setSearString(String searString) {
         this.searString = searString;
     }
@@ -3607,6 +3601,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return showList;
     }
 
+    @StrutsParameter
     public void setShowList(String showList) {
         this.showList = showList;
     }
@@ -3615,14 +3610,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return sign;
     }
 
+    @StrutsParameter
     public void setSign(String sign) {
         this.sign = sign;
     }
 
+    @StrutsParameter(depth = 1)
     public CaseManagementNote getCaseNote() {
         return caseNote;
     }
 
+    @StrutsParameter
     public void setCaseNote(CaseManagementNote caseNote) {
         this.caseNote = caseNote;
     }
@@ -3631,6 +3629,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return demoNo;
     }
 
+    @StrutsParameter
     public void setDemoNo(String demoNo) {
         this.demoNo = demoNo;
     }
@@ -3639,6 +3638,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return demographicNo;
     }
 
+    @StrutsParameter
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -3647,6 +3647,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return demoName;
     }
 
+    @StrutsParameter
     public void setDemoName(String demoName) {
         this.demoName = demoName;
     }
@@ -3655,6 +3656,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return providerNo;
     }
 
+    @StrutsParameter
     public void setProviderNo(String providerNo) {
         this.providerNo = providerNo;
     }
@@ -3663,15 +3665,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return programNo;
     }
 
+    @StrutsParameter
     public void setProgramNo(String programNo) {
         this.programNo = programNo;
     }
 
 
+    @StrutsParameter(depth = 1)
     public CaseManagementCPP getCpp() {
         return cpp;
     }
 
+    @StrutsParameter
     public void setCpp(CaseManagementCPP cpp) {
         this.cpp = cpp;
     }
@@ -3681,6 +3686,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return caseNote_note;
     }
 
+    @StrutsParameter
     public void setCaseNote_note(String caseNote_note) {
 
         this.caseNote.setNote(caseNote_note);
@@ -3691,6 +3697,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return chain;
     }
 
+    @StrutsParameter
     public void setChain(String chain) {
         this.chain = chain;
     }
@@ -3699,6 +3706,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return appointmentNo;
     }
 
+    @StrutsParameter
     public void setAppointmentNo(String appointmentNo) {
         this.appointmentNo = appointmentNo;
     }
@@ -3707,6 +3715,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.appointmentDate;
     }
 
+    @StrutsParameter
     public void setAppointmentDate(String appointmentDate) {
         this.appointmentDate = appointmentDate;
     }
@@ -3715,6 +3724,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.startTime;
     }
 
+    @StrutsParameter
     public void setStart_time(String startTime) {
         this.startTime = startTime;
     }
@@ -3723,6 +3733,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.billRegion;
     }
 
+    @StrutsParameter
     public void setBillRegion(String billRegion) {
         this.billRegion = billRegion;
     }
@@ -3731,6 +3742,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.apptProvider;
     }
 
+    @StrutsParameter
     public void setApptProvider(String apptProvider) {
         this.apptProvider = apptProvider;
     }
@@ -3739,6 +3751,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return this.providerview;
     }
 
+    @StrutsParameter
     public void setProviderview(String providerview) {
         this.providerview = providerview;
     }
@@ -3747,6 +3760,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return groupNote;
     }
 
+    @StrutsParameter
     public void setGroupNote(boolean groupNote) {
         this.groupNote = groupNote;
     }
@@ -3755,6 +3769,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return groupNoteClientIds;
     }
 
+    @StrutsParameter
     public void setGroupNoteClientIds(String[] groupNoteClientIds) {
         this.groupNoteClientIds = groupNoteClientIds;
     }
@@ -3763,6 +3778,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return startTime;
     }
 
+    @StrutsParameter
     public void setStartTime(String startTime) {
         this.startTime = startTime;
     }
@@ -3771,6 +3787,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return groupNoteTotalAnonymous;
     }
 
+    @StrutsParameter
     public void setGroupNoteTotalAnonymous(int groupNoteTotalAnonymous) {
         this.groupNoteTotalAnonymous = groupNoteTotalAnonymous;
     }
@@ -3783,6 +3800,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return hourOfEncounterTime;
     }
 
+    @StrutsParameter
     public void setHourOfEncounterTime(Integer hourOfEncounterTime) {
         this.hourOfEncounterTime = hourOfEncounterTime;
     }
@@ -3791,6 +3809,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return minuteOfEncounterTime;
     }
 
+    @StrutsParameter
     public void setMinuteOfEncounterTime(Integer minuteOfEncounterTime) {
         this.minuteOfEncounterTime = minuteOfEncounterTime;
     }
@@ -3799,6 +3818,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return hourOfEncTransportationTime;
     }
 
+    @StrutsParameter
     public void setHourOfEncTransportationTime(Integer hourOfEncTransportationTime) {
         this.hourOfEncTransportationTime = hourOfEncTransportationTime;
     }
@@ -3807,6 +3827,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return minuteOfEncTransportationTime;
     }
 
+    @StrutsParameter
     public void setMinuteOfEncTransportationTime(Integer minuteOfEncTransportationTime) {
         this.minuteOfEncTransportationTime = minuteOfEncTransportationTime;
     }
@@ -3815,6 +3836,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return reloadUrl;
     }
 
+    @StrutsParameter
     public void setReloadUrl(String reloadUrl) {
         this.reloadUrl = reloadUrl;
     }
@@ -3882,6 +3904,65 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // Default to rejecting unknown patterns
         return false;
+    }
+
+    /**
+     * Returns a map of programs and accessible roles for a given provider and demographic.
+     * This is an independent copy of the equivalent method formerly in NotePermissions2Action (GPL2-only),
+     * mirroring the private copy already present in NotesService (GPL2+).
+     */
+    private static HashMap<Program, List<Secrole>> getAllProviderAccessibleRolesForDemo(String providerNo, String demoNo) {
+        ProgramProviderDAO programProviderDao = (ProgramProviderDAO) SpringUtils.getBean(ProgramProviderDAO.class);
+        ProgramAccessDAO programAccessDAO = (ProgramAccessDAO) SpringUtils.getBean(ProgramAccessDAO.class);
+        SecroleDao secroleDao = (SecroleDao) SpringUtils.getBean(SecroleDao.class);
+        RoleProgramAccessDAO roleProgramAccessDao = (RoleProgramAccessDAO) SpringUtils.getBean(RoleProgramAccessDAO.class);
+        AdmissionDao admissionDao = (AdmissionDao) SpringUtils.getBean(AdmissionDao.class);
+
+        HashMap<Program, List<Secrole>> visibleRoles = new HashMap<Program, List<Secrole>>();
+
+        @SuppressWarnings("unchecked")
+        List<ProgramProvider> programProviderList = programProviderDao.getProgramProvidersByProvider(providerNo);
+
+        List<Integer> demoPrograms = new ArrayList<Integer>();
+        for (Admission a : admissionDao.getCurrentAdmissions(Integer.parseInt(demoNo))) {
+            demoPrograms.add(a.getProgramId());
+        }
+
+        for (ProgramProvider provider : programProviderList) {
+            if (!demoPrograms.contains(provider.getProgram().getId()))
+                continue;
+
+            if (!visibleRoles.containsKey(provider.getProgram())) {
+                visibleRoles.put(provider.getProgram(), new ArrayList<Secrole>());
+            }
+
+            List<Secrole> roleList = visibleRoles.get(provider.getProgram());
+            if (!roleList.contains(provider.getRole())) {
+                roleList.add(provider.getRole());
+
+                // This role definitely has access to these permissions -> get role names and add to list
+                List<DefaultRoleAccess> defaultAccess = roleProgramAccessDao.getDefaultSpecificAccessRightByRole(provider.getRoleId(), "read%notes");
+                for (DefaultRoleAccess access : defaultAccess) {
+                    String roleName = access.getAccess_type().getName().substring(5, access.getAccess_type().getName().length() - 6);
+                    Secrole role = secroleDao.getRoleByName(roleName);
+                    if (!roleList.contains(role))
+                        roleList.add(role);
+                }
+
+                // This role also has access to these permissions -> add them to the list as well
+                List<ProgramAccess> programAccess = programAccessDAO.getProgramAccessListByType(provider.getProgramId(), "read%notes");
+                for (ProgramAccess access : programAccess) {
+                    if (access.getRoles().contains(provider.getRole())) {
+                        String roleName = access.getAccessType().getName().substring(5, access.getAccessType().getName().length() - 6);
+                        Secrole role = secroleDao.getRoleByName(roleName);
+                        if (!roleList.contains(role))
+                            roleList.add(role);
+                    }
+                }
+            }
+        }
+
+        return visibleRoles;
     }
 
 }

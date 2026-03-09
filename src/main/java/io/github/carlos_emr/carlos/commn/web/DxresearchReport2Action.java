@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.dxresearch.util.dxResearchCodingSystem;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class DxresearchReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -324,6 +325,7 @@ public class DxresearchReport2Action extends ActionSupport {
         return quickListName;
     }
 
+    @StrutsParameter
     public void setQuickListName(String quickListName) {
         this.quickListName = quickListName;
     }

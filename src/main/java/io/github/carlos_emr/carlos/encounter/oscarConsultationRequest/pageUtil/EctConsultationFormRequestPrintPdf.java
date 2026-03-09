@@ -32,9 +32,6 @@
  * EctConsultationFormRequestPrintPdf.java
  *
  * Created on November 19, 2007, 4:05 PM
- *
- * To change this template, choose Tools | Template Manager
- * and open the template in the editor.
  */
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
@@ -66,22 +63,39 @@ import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.itextpdf.text.BaseColor;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Element;
-import com.itextpdf.text.Font;
-import com.itextpdf.text.Phrase;
-import com.itextpdf.text.Rectangle;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.ColumnText;
-import com.itextpdf.text.pdf.PdfContentByte;
-import com.itextpdf.text.pdf.PdfImportedPage;
-import com.itextpdf.text.pdf.PdfReader;
-import com.itextpdf.text.pdf.PdfWriter;
+import java.awt.Color;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.Element;
+import org.openpdf.text.Font;
+import org.openpdf.text.Phrase;
+import org.openpdf.text.Rectangle;
+import org.openpdf.text.pdf.BaseFont;
+import org.openpdf.text.pdf.ColumnText;
+import org.openpdf.text.pdf.PdfContentByte;
+import org.openpdf.text.pdf.PdfImportedPage;
+import org.openpdf.text.pdf.PdfReader;
+import org.openpdf.text.pdf.PdfWriter;
 
 /**
- * @author wrighd
+ * Generates a consultation request PDF using a pre-designed PDF template with absolute-positioned
+ * text fields, then concatenates attached documents and lab results.
+ *
+ * <p>Unlike {@link ConsultationPDFCreator} which builds a table-based layout programmatically,
+ * this class overlays consultation data onto a pre-existing PDF template located at
+ * {@code /oscar/oscarEncounter/oscarConsultationRequest/props/consultationFormRequest.pdf}.
+ * Text is positioned using absolute coordinates via OpenPDF's {@link PdfContentByte} and
+ * {@link ColumnText} for flowing text sections (clinical information, medications, etc.).</p>
+ *
+ * <p>The output PDF is saved to the configured {@code DOCUMENT_DIR}, then combined with
+ * all attached PDF documents and lab results via {@link ConcatPDF}. Lab results are
+ * rendered into temporary PDFs using {@link LabPDFCreator}. The final concatenated PDF
+ * is streamed directly to the HTTP response as a download attachment.</p>
+ *
+ * @see ConsultationPDFCreator
+ * @see ConcatPDF
+ * @see LabPDFCreator
+ * @since 2007-12-15
  */
 public class EctConsultationFormRequestPrintPdf {
     private HttpServletRequest request;
@@ -98,13 +112,27 @@ public class EctConsultationFormRequestPrintPdf {
     private final float FONTSIZE = 10;
 
     /**
-     * Creates a new instance of EctConsultationFormRequestPrintPdf
+     * Constructs a new instance with the given HTTP request and response.
+     *
+     * @param request  HttpServletRequest containing the consultation request ID and demographic data
+     * @param response HttpServletResponse where the final combined PDF will be streamed
      */
     public EctConsultationFormRequestPrintPdf(HttpServletRequest request, HttpServletResponse response) {
         this.request = request;
         this.response = response;
     }
 
+    /**
+     * Generates the consultation request PDF from the template and combines it with attached documents.
+     *
+     * <p>Loads the consultation request data, overlays it onto the PDF template with
+     * absolute-positioned text fields, saves the result to {@code DOCUMENT_DIR}, then
+     * calls {@link #combinePDFs} to append all attached documents and lab results.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated session context
+     * @throws IOException       when an I/O error occurs reading the template or writing the PDF
+     * @throws DocumentException when OpenPDF encounters an error during PDF construction
+     */
     public void printPdf(LoggedInInfo loggedInInfo) throws IOException, DocumentException {
 
         EctConsultationFormRequestUtil reqForm = new EctConsultationFormRequestUtil();
@@ -131,7 +159,6 @@ public class EctConsultationFormRequestPrintPdf {
 
         //Create the document we are going to write to
         document = new Document();
-        // writer = PdfWriter.getInstance(document,out);
         writer = PdfWriterFactory.newInstance(document, out, FontSettings.HELVETICA_6PT);
 
         //Use the template located at '/oscar/oscarEncounter/oscarConsultationRequest/props'
@@ -141,7 +168,7 @@ public class EctConsultationFormRequestPrintPdf {
         document.setPageSize(pSize);
 
         document.addTitle("Consultation Form Request");
-        document.addCreator("OSCAR");
+        document.addCreator("CARLOS EMR");
         document.open();
 
         //Create the font we are going to print to
@@ -149,7 +176,7 @@ public class EctConsultationFormRequestPrintPdf {
 
         cb = writer.getDirectContent();
         ct = new ColumnText(cb);
-        cb.setColorStroke(new BaseColor(0, 0, 0));
+        cb.setColorStroke(Color.BLACK);
 
         // start writing the pdf document
         PdfImportedPage page1 = writer.getImportedPage(reader, 1);
@@ -176,6 +203,20 @@ public class EctConsultationFormRequestPrintPdf {
     }
 
 
+    /**
+     * Adds a labeled text section at a dynamically calculated vertical position.
+     *
+     * <p>Calculates the required vertical space based on text length. If insufficient
+     * room remains on the current page, starts a new page before rendering. The label
+     * is displayed in bold followed by the text content in normal font.</p>
+     *
+     * @param name          String the bold label text (e.g., "Reason For Consultation: ")
+     * @param text          String the content text to display
+     * @param dynamicHeight float the current vertical offset from the starting position
+     * @param reqForm       EctConsultationFormRequestUtil used for page header data on new pages
+     * @return float the updated dynamic height after adding this text section
+     * @throws DocumentException when OpenPDF encounters an error rendering the text
+     */
     private float addDynamicPositionedText(String name, String text, float dynamicHeight, EctConsultationFormRequestUtil reqForm) throws DocumentException {
         if (text != null && text.length() > 0) {
             Font boldFont = new Font(bf, FONTSIZE, Font.BOLD);
@@ -198,6 +239,13 @@ public class EctConsultationFormRequestPrintPdf {
         return dynamicHeight;
     }
 
+    /**
+     * Renders the static consultation request fields (clinic header, specialist info, patient info)
+     * at their fixed positions on the first page of the PDF template.
+     *
+     * @param reqForm EctConsultationFormRequestUtil containing all consultation request data
+     * @throws DocumentException when OpenPDF encounters an error during text rendering
+     */
     private void setAppointmentInfo(EctConsultationFormRequestUtil reqForm) throws DocumentException {
 
         printClinicData();
@@ -236,6 +284,12 @@ public class EctConsultationFormRequestPrintPdf {
         cb.endText();
     }
 
+    /**
+     * Starts a new page using page 2 of the PDF template and prints the clinic header
+     * and patient name.
+     *
+     * @param reqForm EctConsultationFormRequestUtil containing the patient name for the header
+     */
     private void nextPage(EctConsultationFormRequestUtil reqForm) {
         PdfImportedPage page2 = writer.getImportedPage(reader, 2);
         document.newPage();
@@ -248,6 +302,9 @@ public class EctConsultationFormRequestPrintPdf {
         cb.endText();
     }
 
+    /**
+     * Renders the clinic name, address, phone, and fax at the top of the current page.
+     */
     private void printClinicData() {
         ClinicData clinic = new ClinicData();
         clinic.refreshClinicData();
@@ -265,6 +322,18 @@ public class EctConsultationFormRequestPrintPdf {
         cb.endText();
     }
 
+    /**
+     * Combines the generated consultation PDF with all attached documents and lab results,
+     * then streams the concatenated PDF to the HTTP response.
+     *
+     * <p>Collects attached PDF documents, generates PDFs for attached lab results using
+     * {@link LabPDFCreator}, and concatenates everything using {@link ConcatPDF}.
+     * The combined PDF is served as a downloadable attachment.</p>
+     *
+     * @param loggedInInfo    LoggedInInfo the authenticated session context
+     * @param currentFileName String the path to the consultation form PDF just generated
+     * @throws IOException when an I/O error occurs during file reading or response writing
+     */
     private void combinePDFs(LoggedInInfo loggedInInfo, String currentFileName) throws IOException {
 
         String demoNo = (String) request.getAttribute("demo");

@@ -63,7 +63,7 @@ public class BillingService extends AbstractModel<Integer> implements Serializab
     private String serviceCode;
     // @Column(name = "description")
     private String description;
-    // @Column(name = "value")
+    @Column(name = "`value`")
     private String value;
     // @Column(name = "percentage")
     private String percentage;

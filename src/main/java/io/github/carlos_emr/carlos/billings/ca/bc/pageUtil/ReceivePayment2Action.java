@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import java.util.List;
 
@@ -86,6 +87,7 @@ public class ReceivePayment2Action
         return amountReceived;
     }
 
+    @StrutsParameter
     public void setAmountReceived(String amountReceived) {
         this.amountReceived = amountReceived;
     }
@@ -94,6 +96,7 @@ public class ReceivePayment2Action
         return payment;
     }
 
+    @StrutsParameter
     public void setPayment(String payment) {
         this.payment = payment;
     }
@@ -102,14 +105,17 @@ public class ReceivePayment2Action
         return paymentMethod;
     }
 
+    @StrutsParameter
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
 
+    @StrutsParameter(depth = 1)
     public List getPaymentMethodList() {
         return paymentMethodList;
     }
 
+    @StrutsParameter
     public void setPaymentMethodList(List paymentMethodList) {
         this.paymentMethodList = paymentMethodList;
     }
@@ -118,6 +124,7 @@ public class ReceivePayment2Action
         return billingmasterNo;
     }
 
+    @StrutsParameter
     public void setBillingmasterNo(String billingmasterNo) {
         this.billingmasterNo = billingmasterNo;
     }
@@ -126,6 +133,7 @@ public class ReceivePayment2Action
         return billNo;
     }
 
+    @StrutsParameter
     public void setBillNo(String billNo) {
         this.billNo = billNo;
     }
@@ -134,6 +142,7 @@ public class ReceivePayment2Action
         return paymentReceived;
     }
 
+    @StrutsParameter
     public void setPaymentReceived(boolean paymentReceived) {
         this.paymentReceived = paymentReceived;
     }
@@ -142,6 +151,7 @@ public class ReceivePayment2Action
         return isRefund;
     }
 
+    @StrutsParameter
     public void setIsRefund(String isRefund) {
         this.isRefund = isRefund;
     }
@@ -150,6 +160,7 @@ public class ReceivePayment2Action
         return payeeProviderNo;
     }
 
+    @StrutsParameter
     public void setPayeeProviderNo(String payeeProviderNo) {
         this.payeeProviderNo = payeeProviderNo;
     }

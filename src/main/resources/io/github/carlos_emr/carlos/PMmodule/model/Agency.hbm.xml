@@ -23,7 +23,7 @@
 	<class name="io.github.carlos_emr.carlos.PMmodule.model.Agency" table="agency">
 		<meta attribute="sync-DAO">false</meta>
 		<id name="id" type="java.lang.Long" column="id">
-			<generator class="native" />
+			<generator class="identity" />
 		</id>
 		<property name="intakeQuick" column="intake_quick" type="integer"
 			not-null="true" length="10" />

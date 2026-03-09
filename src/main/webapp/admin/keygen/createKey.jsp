@@ -213,16 +213,12 @@
                             <option value="GDML">GDML</option>
                             <option value="HHSEMR">HHSEMR</option>
                             <option value="HRMXML">HRM XML</option>
-                            <option value="ICL">ICL</option>
                             <option value="IHA">IHA</option>
                             <option value="IHAPOI">IHAPOI</option>
                             <option value="MDS">MDS/Lifelabs</option>
-                            <option value="MEDVUE">MEDVUE</option>
                             <!-- <option value="HL7">HL7</option> -->
                             <option value="OSCAR_TO_OSCAR_HL7_V2">OSCAR_TO_OSCAR_HL7_V2</option>
-                            <option value="PFHT">PFHT</option>
                             <option value="SIOUX">SIOUX</option>
-                            <option value="TDIS">TDIS</option>
                             <option value="Spire">Spire</option>
                             <option value="PDFDOC">PDFDOC</option>
                             <option value="BIOTEST">BioTest</option>

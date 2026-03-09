@@ -54,6 +54,7 @@ import io.github.carlos_emr.OscarProperties;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -169,6 +170,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
         return file;
     }
 
+    @StrutsParameter
     public void setFile(File file) {
         this.file = file;
     }
@@ -177,6 +179,7 @@ public class EctAddMeasurementStyleSheet2Action extends ActionSupport {
         return fileName;
     }
 
+    @StrutsParameter
     public void setFileFileName(String fileName) {
         this.fileName = fileName;
     }

@@ -29,6 +29,7 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.OnCallQuestionnaireDao;
 import io.github.carlos_emr.carlos.commn.model.OnCallQuestionnaire;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -91,6 +92,7 @@ public class OnCallQuestionnaire2Action extends ActionSupport {
         return type_health;
     }
 
+    @StrutsParameter
     public void setType_health(String type_health) {
         this.type_health = type_health;
     }
@@ -99,6 +101,7 @@ public class OnCallQuestionnaire2Action extends ActionSupport {
         return nurse;
     }
 
+    @StrutsParameter
     public void setNurse(String nurse) {
         this.nurse = nurse;
     }
@@ -107,6 +110,7 @@ public class OnCallQuestionnaire2Action extends ActionSupport {
         return course_action;
     }
 
+    @StrutsParameter
     public void setCourse_action(String course_action) {
         this.course_action = course_action;
     }
@@ -115,6 +119,7 @@ public class OnCallQuestionnaire2Action extends ActionSupport {
         return physician_consult;
     }
 
+    @StrutsParameter
     public void setPhysician_consult(String physician_consult) {
         this.physician_consult = physician_consult;
     }
@@ -123,6 +128,7 @@ public class OnCallQuestionnaire2Action extends ActionSupport {
         return date;
     }
 
+    @StrutsParameter
     public void setDate(String date) {
         this.date = date;
     }
@@ -131,6 +137,7 @@ public class OnCallQuestionnaire2Action extends ActionSupport {
         return time;
     }
 
+    @StrutsParameter
     public void setTime(String time) {
         this.time = time;
     }

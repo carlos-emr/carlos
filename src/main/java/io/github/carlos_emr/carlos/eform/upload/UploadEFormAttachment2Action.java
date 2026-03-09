@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.owasp.encoder.Encode;
 
 public class UploadEFormAttachment2Action extends ActionSupport {
@@ -115,6 +116,7 @@ public class UploadEFormAttachment2Action extends ActionSupport {
         return uploadFileName;
     }
 
+    @StrutsParameter
     public void setUploadFileName(String uploadFileName) {
         this.uploadFileName = uploadFileName;
     }

@@ -37,22 +37,14 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.FunctionalUserType;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramFunctionalUser;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.hibernate.SessionFactory;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements ProgramFunctionalUserDAO {
+public class ProgramFunctionalUserDAOImpl extends AbstractHibernateDao implements ProgramFunctionalUserDAO {
 
     private static Logger log = MiscUtils.getLogger();
-    public SessionFactory sessionFactory;
-
-    @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
-    }
 
     @Override
     public List<FunctionalUserType> getFunctionalUserTypes() {
@@ -71,7 +63,7 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
             throw new IllegalArgumentException();
         }
 
-        FunctionalUserType result = this.getHibernateTemplate().get(FunctionalUserType.class, id);
+        FunctionalUserType result = currentSession().get(FunctionalUserType.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUserType: id=" + id + ",found=" + (result != null));
@@ -86,7 +78,7 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().saveOrUpdate(fut);
+        currentSession().saveOrUpdate(fut);
 
         if (log.isDebugEnabled()) {
             log.debug("saveFunctionalUserType:" + fut.getId());
@@ -99,7 +91,7 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().delete(getFunctionalUserType(id));
+        currentSession().delete(getFunctionalUserType(id));
 
         if (log.isDebugEnabled()) {
             log.debug("deleteFunctionalUserType:" + id);
@@ -127,7 +119,7 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
             throw new IllegalArgumentException();
         }
 
-        ProgramFunctionalUser result = this.getHibernateTemplate().get(ProgramFunctionalUser.class, id);
+        ProgramFunctionalUser result = currentSession().get(ProgramFunctionalUser.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getFunctionalUser: id=" + id + ",found=" + (result != null));
@@ -142,7 +134,7 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().saveOrUpdate(pfu);
+        currentSession().saveOrUpdate(pfu);
 
         if (log.isDebugEnabled()) {
             log.debug("saveFunctionalUser:" + pfu.getId());
@@ -155,7 +147,7 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
             throw new IllegalArgumentException();
         }
 
-        this.getHibernateTemplate().delete(getFunctionalUser(id));
+        currentSession().delete(getFunctionalUser(id));
 
         if (log.isDebugEnabled()) {
             log.debug("deleteFunctionalUser:" + id);
@@ -164,10 +156,10 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
 
     @Override
     /**
-     * Retrieves the functional user ID based on the provided program and user type IDs.
+     * Retrieves the primary key (Id) of the ProgramFunctionalUser record matching the given program and user type.
      *
      * This method first validates the input parameters to ensure they are not null and greater than zero.
-     * It then constructs a SQL query to fetch the ProgramId from the ProgramFunctionalUser table using
+     * It then constructs an HQL query to fetch the entity Id from the ProgramFunctionalUser table using
      * the specified programId and userTypeId. If results are found, the first result is returned.
      * Debug logging is performed to trace the input parameters and the result.
      *
@@ -184,7 +176,7 @@ public class ProgramFunctionalUserDAOImpl extends HibernateDaoSupport implements
 
         Long result = null;
 
-        String sSQL = "select pfu.ProgramId from ProgramFunctionalUser pfu where pfu.ProgramId = ?1 and pfu.UserTypeId = ?2";
+        String sSQL = "select pfu.Id from ProgramFunctionalUser pfu where pfu.ProgramId = ?1 and pfu.UserTypeId = ?2";
         @SuppressWarnings("unchecked")
         List<Long> results = (List<Long>) HqlQueryHelper.find(currentSession(), sSQL, programId, userTypeId);
 

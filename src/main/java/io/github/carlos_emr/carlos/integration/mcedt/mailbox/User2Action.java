@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -105,6 +106,7 @@ public class User2Action extends ActionSupport {
         return username;
     }
 
+    @StrutsParameter
     public void setUsername(String username) {
         this.username = username;
     }
@@ -113,6 +115,7 @@ public class User2Action extends ActionSupport {
         return password;
     }
 
+    @StrutsParameter
     public void setPassword(String password) {
         this.password = password;
     }
@@ -121,6 +124,7 @@ public class User2Action extends ActionSupport {
         return pin;
     }
 
+    @StrutsParameter
     public void setPin(String pin) {
         this.pin = pin;
     }
@@ -129,6 +133,7 @@ public class User2Action extends ActionSupport {
         return propname;
     }
 
+    @StrutsParameter
     public void setPropname(String propname) {
         this.propname = propname;
     }
@@ -137,6 +142,7 @@ public class User2Action extends ActionSupport {
         return oldPassword;
     }
 
+    @StrutsParameter
     public void setOldPassword(String oldPassword) {
         this.oldPassword = oldPassword;
     }
@@ -145,6 +151,7 @@ public class User2Action extends ActionSupport {
         return newPassword;
     }
 
+    @StrutsParameter
     public void setNewPassword(String newPassword) {
         this.newPassword = newPassword;
     }
@@ -153,6 +160,7 @@ public class User2Action extends ActionSupport {
         return confirmPassword;
     }
 
+    @StrutsParameter
     public void setConfirmPassword(String confirmPassword) {
         this.confirmPassword = confirmPassword;
     }

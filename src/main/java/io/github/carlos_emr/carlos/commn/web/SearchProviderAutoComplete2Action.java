@@ -73,7 +73,7 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
         Hashtable d = new Hashtable();
         d.put("results", provList);
 
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         ObjectNode jsonArray = objectMapper.valueToTree(d);
         response.getWriter().write(jsonArray.toString());
         return null;
@@ -110,7 +110,7 @@ public class SearchProviderAutoComplete2Action extends ActionSupport {
         }
 
         searchResults.append("]");
-        response.setContentType("text/x-json");
+        response.setContentType("application/json");
         response.getWriter().write(searchResults.toString());
 
         return null;

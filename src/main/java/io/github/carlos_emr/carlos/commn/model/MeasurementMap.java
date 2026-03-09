@@ -82,7 +82,7 @@ public class MeasurementMap extends AbstractModel<Integer> {
         CML, 
         /** GDML laboratory systems */
         GDML, 
-        /** ICL laboratory systems */
+        /** ICL measurement mapping only; parser handler removed */
         ICL
     }
 

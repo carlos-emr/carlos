@@ -43,12 +43,12 @@ import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements CaseManagementIssueDAO {
+public class CaseManagementIssueDAOImpl extends AbstractHibernateDao implements CaseManagementIssueDAO {
 
     private static Logger log = MiscUtils.getLogger();
 
@@ -103,7 +103,7 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
     public CaseManagementIssue getIssuebyId(String demo, String id) {
         @SuppressWarnings("unchecked")
         List<CaseManagementIssue> list = (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
-                "from CaseManagementIssue cmi where cmi.issue_id = ?1 and demographic_no = ?2",
+                "from CaseManagementIssue cmi where cmi.issue_id = ?1 and cmi.demographic_no = ?2",
                 Long.parseLong(id), Integer.valueOf(demo));
         if (list != null && list.size() == 1)
             return list.get(0);
@@ -130,7 +130,7 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
 
     @Override
     public void deleteIssueById(CaseManagementIssue issue) {
-        getHibernateTemplate().delete(issue);
+        currentSession().delete(issue);
         return;
 
     }
@@ -142,9 +142,9 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
             CaseManagementIssue cmi = itr.next();
             cmi.setUpdate_date(new Date());
             if (cmi.getId() != null && cmi.getId().longValue() > 0) {
-                getHibernateTemplate().update(cmi);
+                currentSession().update(cmi);
             } else {
-                getHibernateTemplate().save(cmi);
+                currentSession().save(cmi);
             }
         }
 
@@ -152,14 +152,14 @@ public class CaseManagementIssueDAOImpl extends HibernateDaoSupport implements C
 
     public void saveIssue(CaseManagementIssue issue) {
         issue.setUpdate_date(new Date());
-        getHibernateTemplate().saveOrUpdate(issue);
+        currentSession().saveOrUpdate(issue);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getAllCertainIssues() {
-        return (List<CaseManagementIssue>) getHibernateTemplate()
-                .find("from CaseManagementIssue cmi where cmi.certain = true");
+        return (List<CaseManagementIssue>) HqlQueryHelper.find(currentSession(),
+                "from CaseManagementIssue cmi where cmi.certain = true");
     }
 
     @SuppressWarnings("unchecked")

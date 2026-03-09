@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.util.Doc2PDF;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * Struts2 action for attaching PDF documents to messages.
@@ -241,6 +242,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param attachmentCount the number of attachments as a string
      */
+    @StrutsParameter
     public void setAttachmentCount(String attachmentCount) {
         this.attachmentCount = attachmentCount;
     }
@@ -259,6 +261,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param attachmentTitle the title to set for the attachment
      */
+    @StrutsParameter
     public void setAttachmentTitle(String attachmentTitle) {
         this.attachmentTitle = attachmentTitle;
     }
@@ -277,6 +280,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param srcText the HTML content to convert
      */
+    @StrutsParameter
     public void setSrcText(String srcText) {
         this.srcText = srcText;
     }
@@ -295,6 +299,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param preview true to enable preview mode, false to disable
      */
+    @StrutsParameter
     public void setIsPreview(boolean preview) {
         isPreview = preview;
     }
@@ -313,6 +318,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param attaching true if attachment is in progress
      */
+    @StrutsParameter
     public void setIsAttaching(boolean attaching) {
         isAttaching = attaching;
     }
@@ -331,6 +337,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param aNew true to indicate a new session requiring attachment clearing
      */
+    @StrutsParameter
     public void setIsNew(boolean aNew) {
         isNew = aNew;
     }
@@ -349,6 +356,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
      * 
      * @param indexArray the array of indices to set
      */
+    @StrutsParameter
     public void setIndexArray(String[] indexArray) {
         this.indexArray = indexArray;
     }

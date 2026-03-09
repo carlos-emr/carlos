@@ -44,7 +44,7 @@ package io.github.carlos_emr.carlos.util;
 
 
 /**
- * This class demonstrates copying a PDF file using iText.
+ * Concatenates multiple PDF files into a single output document using Apache PDFBox.
  *
  * @author Mark Thompson
  */
@@ -64,10 +64,10 @@ public class ConcatPDF {
 
 
     public static void concat(ArrayList<Object> alist, String filename) {
-        try (OutputStream os = new FileOutputStream(filename);) {
+        try (OutputStream os = new FileOutputStream(filename)) {
             concat(alist, os);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Failed to concatenate {} PDF documents to file: {}", alist.size(), filename, e);
         }
     }
 
@@ -78,6 +78,9 @@ public class ConcatPDF {
     public static void concat(List<Object> fileOrInputStreamPdfList, OutputStream outputStream) {
         PDFMergerUtility pdfMerger = new PDFMergerUtility();
         PDDocument documentReader;
+        int totalFiles = fileOrInputStreamPdfList.size();
+        int skippedFiles = 0;
+
         for (Object o : fileOrInputStreamPdfList) {
             //load pdf file
             try {
@@ -93,6 +96,7 @@ public class ConcatPDF {
                     documentReader.setAllSecurityToBeRemoved(true);
                 }
             } catch (IOException e) {
+                skippedFiles++;
                 MiscUtils.getLogger().error("Failed to open file for concatenation: " + o, e);
                 continue;
             }
@@ -107,15 +111,22 @@ public class ConcatPDF {
                     }
                 }
             } catch (IOException e) {
+                skippedFiles++;
                 MiscUtils.getLogger().error("Document could not be added to merge " + o, e);
             }
+        }
+
+        if (skippedFiles > 0) {
+            MiscUtils.getLogger().error("PDF merge: {} of {} documents could not be included in the merged output",
+                    skippedFiles, totalFiles);
         }
 
         try {
             pdfMerger.setDestinationStream(outputStream);
             pdfMerger.mergeDocuments(MemoryUsageSetting.setupMainMemoryOnly());
-        } catch (Exception e) {
+        } catch (IOException e) {
             MiscUtils.getLogger().error("Document merge failed.", e);
+            throw new RuntimeException("PDF merge failed after processing " + totalFiles + " documents", e);
         }
     }
 

@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctTypeDispl
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class EctSetupEditMeasurementGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -77,6 +78,7 @@ public class EctSetupEditMeasurementGroup2Action extends ActionSupport {
 
     private String groupName;
 
+    @StrutsParameter
     public void setGroupName(String groupName) {
         this.groupName = groupName;
     }

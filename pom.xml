@@ -550,6 +550,13 @@
             <artifactId>common-lang</artifactId>
             <version>3.13.0</version>
         </dependency>
+        <!-- TwelveMonkeys ImageIO TIFF plugin - required for multi-page TIFF handling
+             after OpenPDF 3.0 removed its built-in TiffImage codec -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-tiff</artifactId>
+            <version>3.13.0</version>
+        </dependency>
 
         <!-- Glassfish JSTL 1.2.5 implementation (javax namespace for Servlet 4.0 compatibility) -->
         <dependency>
@@ -566,16 +573,44 @@
 
         <!-- XMLBeans for AR2005 and CKD - using existing 3.1.0 version below -->
 
-        <!-- itext -->
+        <!-- OpenPDF (LGPL) - replaces iText 5 (AGPL) for PDF creation.
+             Version 3.0.2 uses org.openpdf.* packages (final namespace). -->
         <dependency>
-            <groupId>com.itextpdf</groupId>
-            <artifactId>itextpdf</artifactId>
-            <version>5.5.13.5</version>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>3.0.2</version>
+            <exclusions>
+                <!-- Swing GUI PDF viewer - not used (server-side app).
+                     Also eliminates discontinued org.swinglabs:pdf-renderer:1.0.5 -->
+                <exclusion>
+                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <artifactId>pdf-swing</artifactId>
+                </exclusion>
+                <!-- Kotlin bindings - not used (Java project) -->
+                <exclusion>
+                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <artifactId>openpdf-kotlin</artifactId>
+                </exclusion>
+                <!-- PDF renderer engine - not used directly (server-side PDF generation only) -->
+                <exclusion>
+                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <artifactId>openpdf-renderer</artifactId>
+                </exclusion>
+                <!-- CLI tools and examples - not used -->
+                <exclusion>
+                    <groupId>com.github.librepdf.openpdf</groupId>
+                    <artifactId>pdf-toolbox</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
+        <!-- openpdf-html: Flying Saucer's XhtmlRenderer integration and HTML schema resources.
+             Note: HTMLWorker (org.openpdf.text.html.simpleparser.HTMLWorker) is in the main
+             openpdf artifact, NOT in this module. This module provides org.openpdf.simple.*
+             classes for advanced HTML rendering. Retained for transitive compatibility. -->
         <dependency>
-            <groupId>com.itextpdf.tool</groupId>
-            <artifactId>xmlworker</artifactId>
-            <version>5.5.13.5</version>
+            <groupId>com.github.librepdf.openpdf</groupId>
+            <artifactId>openpdf-html</artifactId>
+            <version>3.0.2</version>
         </dependency>
 
         <dependency>
@@ -584,11 +619,11 @@
             <version>1.0.11</version>
         </dependency>
 
-        <!-- Modern RTF support via OpenRTF (actively maintained, released Aug 2025) -->
+        <!-- Modern RTF support via OpenRTF (actively maintained, uses org.openpdf.* namespace) -->
         <dependency>
             <groupId>com.github.librepdf</groupId>
             <artifactId>openrtf</artifactId>
-            <version>2.0.0</version>
+            <version>3.0.0</version>
         </dependency>
 
 
@@ -727,13 +762,9 @@
             <version>4.3.1</version>
         </dependency>
 
-        <!-- HRM module: XSD classes now included directly in codebase -->
-        <!-- HRM module 4.3: can be found in the local_repo folder -->
-        <dependency>
-            <groupId>omd</groupId>
-            <artifactId>hrm</artifactId>
-            <version>4.3</version>
-        </dependency>
+        <!-- HRM module: XSD classes included directly in codebase as
+             io.github.carlos_emr.carlos.hospitalReportManager.xsd -->
+        <!-- omd:hrm:4.3 dependency removed - classes inlined -->
 
 
         <!-- apache xml beans -->
@@ -1116,25 +1147,7 @@
             <version>4.5.0</version>
         </dependency>
         
-        <!-- OWASP ESAPI for ClickjackFilter -->
-        <!-- Added higher version to avoid security issue, suggested by GitHub Dependabot -->
-        <!-- https://mvnrepository.com/artifact/org.owasp.esapi/esapi -->
-        <dependency>
-            <groupId>org.owasp.esapi</groupId>
-            <artifactId>esapi</artifactId>
-            <version>2.6.2.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-lang</groupId>
-                    <artifactId>commons-lang</artifactId>
-                </exclusion>
-                <!-- CVE-2025-46392: Only used by ESAPI AccessControlRule classes, not by ClickjackFilter -->
-                <exclusion>
-                    <groupId>commons-configuration</groupId>
-                    <artifactId>commons-configuration</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        <!-- ESAPI removed: ClickjackFilter replaced by security headers in ResponseDefaultsFilter -->
 
         <!-- Apache Commons Exec - used by ExternalEDocConverter -->
         <dependency>
@@ -1248,11 +1261,11 @@
             <version>33.5.0-jre</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.xhtmlrenderer/flying-saucer-pdf -->
+        <!-- Flying Saucer 10.0.7 - HTML/CSS to PDF via OpenPDF 3.0.x (org.openpdf.* namespace) -->
         <dependency>
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-pdf</artifactId>
-            <version>9.13.3</version>
+            <version>10.0.7</version>
         </dependency>
 
 
@@ -1344,11 +1357,11 @@
             <artifactId>caffeine</artifactId>
             <version>3.1.8</version>
         </dependency>
-		<!-- https://mvnrepository.com/artifact/org.jboss.aerogear/aerogear-otp-java -->
+		<!-- https://mvnrepository.com/artifact/dev.samstevens.totp/totp -->
 		<dependency>
-			<groupId>org.jboss.aerogear</groupId>
-			<artifactId>aerogear-otp-java</artifactId>
-			<version>1.0.0</version>
+			<groupId>dev.samstevens.totp</groupId>
+			<artifactId>totp</artifactId>
+			<version>1.7.1</version>
 		</dependency>
 
 

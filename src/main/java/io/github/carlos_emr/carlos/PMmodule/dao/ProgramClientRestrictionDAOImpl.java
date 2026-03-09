@@ -37,15 +37,26 @@ import java.util.List;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramClientRestriction;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import org.springframework.beans.factory.annotation.Required;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 /**
+ * DAO implementation for managing {@link ProgramClientRestriction} records.
  *
+ * <p>Provides methods to find, save, and manage restrictions that control
+ * client access to specific programs. Restrictions may be scoped by program,
+ * client (demographic), or facility, and can be enabled or disabled.</p>
+ *
+ * <p>Each retrieved restriction is hydrated with its related {@code client},
+ * {@code program}, and {@code provider} objects via {@code setRelationships()}.</p>
+ *
+ * @since 2005-05-28
+ * @see ProgramClientRestrictionDAO
+ * @see ProgramClientRestriction
  */
 @Transactional
-public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport implements ProgramClientRestrictionDAO {
+public class ProgramClientRestrictionDAOImpl extends AbstractHibernateDao implements ProgramClientRestrictionDAO {
     private DemographicDao demographicDao;
     private ProgramDao programDao;
     private ProviderDao providerDao;
@@ -61,11 +72,11 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     public void save(ProgramClientRestriction restriction) {
-        getHibernateTemplate().saveOrUpdate(restriction);
+        currentSession().saveOrUpdate(restriction);
     }
 
     public ProgramClientRestriction find(int restrictionId) {
-        return setRelationships(getHibernateTemplate().get(ProgramClientRestriction.class, restrictionId));
+        return setRelationships(currentSession().get(ProgramClientRestriction.class, restrictionId));
     }
 
     public Collection<ProgramClientRestriction> findForProgram(int programId) {
@@ -114,6 +125,7 @@ public class ProgramClientRestrictionDAOImpl extends HibernateDaoSupport impleme
     }
 
     private ProgramClientRestriction setRelationships(ProgramClientRestriction pcr) {
+        if (pcr == null) return null;
         pcr.setClient(demographicDao.getDemographic("" + pcr.getDemographicNo()));
         pcr.setProgram(programDao.getProgram(pcr.getProgramId()));
         pcr.setProvider(providerDao.getProvider(pcr.getProviderNo()));

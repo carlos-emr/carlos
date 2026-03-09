@@ -34,6 +34,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS;
@@ -424,6 +425,7 @@ public class Fax2Action extends ActionSupport {
         return faxFilePath;
     }
 
+    @StrutsParameter
     public void setFaxFilePath(String faxFilePath) {
         this.faxFilePath = faxFilePath;
     }
@@ -432,6 +434,7 @@ public class Fax2Action extends ActionSupport {
         return transactionId;
     }
 
+    @StrutsParameter
     public void setTransactionId(Integer transactionId) {
         this.transactionId = transactionId;
     }
@@ -440,6 +443,7 @@ public class Fax2Action extends ActionSupport {
         return demographicNo;
     }
 
+    @StrutsParameter
     public void setDemographicNo(Integer demographicNo) {
         this.demographicNo = demographicNo;
     }
@@ -448,6 +452,7 @@ public class Fax2Action extends ActionSupport {
         return transactionType;
     }
 
+    @StrutsParameter
     public void setTransactionType(String transactionType) {
         this.transactionType = transactionType;
     }
@@ -456,6 +461,7 @@ public class Fax2Action extends ActionSupport {
         return recipient;
     }
 
+    @StrutsParameter
     public void setRecipient(String recipient) {
         this.recipient = recipient;
     }
@@ -464,6 +470,7 @@ public class Fax2Action extends ActionSupport {
         return recipientFaxNumber;
     }
 
+    @StrutsParameter
     public void setRecipientFaxNumber(String recipientFaxNumber) {
         this.recipientFaxNumber = recipientFaxNumber;
     }
@@ -472,6 +479,7 @@ public class Fax2Action extends ActionSupport {
         return letterheadFax;
     }
 
+    @StrutsParameter
     public void setLetterheadFax(String letterheadFax) {
         this.letterheadFax = letterheadFax;
     }
@@ -480,6 +488,7 @@ public class Fax2Action extends ActionSupport {
         return senderFaxNumber;
     }
 
+    @StrutsParameter
     public void setSenderFaxNumber(String senderFaxNumber) {
         this.senderFaxNumber = senderFaxNumber;
     }
@@ -488,6 +497,7 @@ public class Fax2Action extends ActionSupport {
         return comments;
     }
 
+    @StrutsParameter
     public void setComments(String comments) {
         this.comments = comments;
     }
@@ -496,6 +506,7 @@ public class Fax2Action extends ActionSupport {
         return coverpage;
     }
 
+    @StrutsParameter
     public void setCoverpage(String coverpage) {
         this.coverpage = coverpage;
     }
@@ -504,6 +515,7 @@ public class Fax2Action extends ActionSupport {
         return copyToRecipients;
     }
 
+    @StrutsParameter
     public void setCopyToRecipients(String[] copyToRecipients) {
         this.copyToRecipients = copyToRecipients;
     }

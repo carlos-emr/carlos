@@ -92,7 +92,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
         jQuery("#createLabel").click(function () {
             jQuery.ajax({
                 type: "POST",
-                url: '<%=request.getContextPath()%>' + "/lab/CA/ALL/createLabelTDIS.do",
+                url: '<%=request.getContextPath()%>' + "/lab/CA/ALL/createLabLabel.do",
                 dataType: "json",
                 data: {
                     lab_no: jQuery("#labNum").val(),
@@ -127,7 +127,7 @@ if ( request.getParameter("searchProviderNo") == null || request.getParameter("s
     }
 
     function submitLabel(lblval) {
-        document.forms['TDISLabelForm'].label.value = document.forms['acknowledgeForm'].label.value;
+        document.forms['labLabelForm'].label.value = document.forms['acknowledgeForm'].label.value;
 
     }
 </script>

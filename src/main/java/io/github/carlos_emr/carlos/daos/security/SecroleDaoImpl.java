@@ -35,18 +35,21 @@ import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
+import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
-public class SecroleDaoImpl extends HibernateDaoSupport implements SecroleDao {
+@Transactional
+public class SecroleDaoImpl extends AbstractHibernateDao implements SecroleDao {
 
     private Logger logger = MiscUtils.getLogger();
 
     @Override
     public List<Secrole> getRoles() {
         @SuppressWarnings("unchecked")
-        List<Secrole> results = (List<Secrole>) this.getHibernateTemplate().find("from Secrole r order by roleName");
+        List<Secrole> results = (List<Secrole>) HqlQueryHelper.find(currentSession(), "from Secrole r order by roleName");
 
         logger.debug("getRoles: # of results=" + results.size());
 
@@ -59,7 +62,7 @@ public class SecroleDaoImpl extends HibernateDaoSupport implements SecroleDao {
             throw new IllegalArgumentException();
         }
 
-        Secrole result = this.getHibernateTemplate().get(Secrole.class, Long.valueOf(id));
+        Secrole result = currentSession().get(Secrole.class, Long.valueOf(id));
 
         logger.debug("getRole: id=" + id + ",found=" + (result != null));
 
@@ -73,7 +76,7 @@ public class SecroleDaoImpl extends HibernateDaoSupport implements SecroleDao {
             throw new IllegalArgumentException();
         }
 
-        List lst = this.getHibernateTemplate().find("from Secrole r where r.roleName='" + roleName + "'");
+        List lst = HqlQueryHelper.find(currentSession(), "from Secrole r where r.roleName = ?1", roleName);
         if (lst != null && lst.size() > 0)
             result = (Secrole) lst.get(0);
 
@@ -84,7 +87,7 @@ public class SecroleDaoImpl extends HibernateDaoSupport implements SecroleDao {
 
     @Override
     public List getDefaultRoles() {
-        return this.getHibernateTemplate().find("from Secrole r where r.userDefined=0");
+        return HqlQueryHelper.find(currentSession(), "from Secrole r where r.userDefined=0");
     }
 
     @Override
@@ -93,7 +96,7 @@ public class SecroleDaoImpl extends HibernateDaoSupport implements SecroleDao {
             throw new IllegalArgumentException();
         }
 
-        getHibernateTemplate().saveOrUpdate(secrole);
+        currentSession().saveOrUpdate(secrole);
 
     }
 

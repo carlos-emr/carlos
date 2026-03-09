@@ -262,6 +262,7 @@
     pageContext.setAttribute("quickLinksList", quickLinkCollection);
     pageContext.setAttribute("formNamesList", formNamesList);
     pageContext.setAttribute("eFormsList", eFormIdCollection);
+    request.setAttribute("providerPreference", providerPreference);
 
     StringBuilder eformIds = new StringBuilder();
     for (ProviderPreference.EformLink eform : eFormIdCollection) {
@@ -275,8 +276,6 @@
     // end get eform form links
 
     boolean prescriptionQrCodes = providerPreference.isPrintQrCodeOnPrescriptions();
-
-    boolean bShortcutIntakeForm = oscarVariables.getProperty("appt_intake_form", "").equalsIgnoreCase("on") ? true : false;
 
     String newticklerwarningwindow = null;
     String default_pmm = null;
@@ -653,16 +652,6 @@
             }
         </style>
 
-        <%
-            if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) {
-        %>
-        <script src="${pageContext.servletContext.contextPath}/hcHandler/hcHandler.js"></script>
-        <script src="${pageContext.servletContext.contextPath}/hcHandler/hcHandlerAppointment.js"></script>
-        <link rel="stylesheet" href="${pageContext.servletContext.contextPath}/hcHandler/hcHandler.css"
-              type="text/css"/>
-        <%
-            }
-        %>
 
     </head>
     <%
@@ -2183,8 +2172,6 @@
                                                         <% }
                                                         } // end if not is week view %>
 
-                                                        <%= (bShortcutIntakeForm) ? "| <a href='#' onClick='popupPage(700, 1024, \"formIntake.jsp?demographic_no=" + demographic_no + "\")' title='Intake Form'>In</a>" : "" %>
-
                                                         <!-- billing code block -->
                                                         <% if (!isWeekView) { %>
                                                         <c:if test="${billingRights}">
@@ -2284,13 +2271,13 @@
                                                             <c:out value="${fn:substring(eform.eFormName, 0, truncateLimit)}"/>
                                                             </a>
                                                         </c:forEach>
-                                                        <c:forEach items="${quickLinksList}" var="quickLink">
-                                                            |<a href="javascript:void(0)" onClick='popupPage2("<c:out
-                                                                value="${quickLink.url}"/>")' title='<c:out
-                                                                value="${quickLink.name}"/>'>
-                                                            <c:out value="${fn:substring(quickLink.name, 0, truncateLimit)}"/>
-                                                            </a>
-                                                        </c:forEach>
+                                                        <c:if test="${not empty quickLinksList}">
+                                                            <jsp:include page="appointmentFormsLinks.jspf">
+                                                                <jsp:param name="demographic_no" value="${appointment.demographicNo}"/>
+                                                                <jsp:param name="appointment_no" value="${appointment.id}"/>
+                                                                <jsp:param name="skipFormsAndEforms" value="true"/>
+                                                            </jsp:include>
+                                                        </c:if>
 
                                                         <oscar:oscarPropertiesCheck
                                                                 property="appt_pregnancy" value="true"
@@ -2464,9 +2451,6 @@
         });
     </script>
     <!-- end of keycode block -->
-    <% if (OscarProperties.getInstance().getBooleanProperty("indivica_hc_read_enabled", "true")) { %>
-    <jsp:include page="/hcHandler/hcHandler.html"/>
-    <% } %>
     </body>
 </html>
 
@@ -2493,4 +2477,5 @@
     if (unclaimedLabLink) {
         unclaimedLabLink.setAttribute("onclick", unclaimedLabLinkClickEvent);
     }
+
 </script>

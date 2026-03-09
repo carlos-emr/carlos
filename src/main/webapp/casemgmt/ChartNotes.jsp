@@ -432,79 +432,6 @@
                     &nbsp;
                 </div>
             </fieldset>
-            <fieldset>
-                <legend>Research</legend>
-
-                <input type="text" id="keyword" name="keyword" value=""
-                       onkeypress="return grabEnter('searchButton',event)">
-
-                <div style="display:inline-block; text-align: left;">
-                    <!-- channel -->
-                    <select id="channel">
-                        <option value="http://resource.oscarmcmaster.org/oscarResource/OSCAR_search?query=">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.oscarSearch"/></option>
-                        <option value="http://www.google.com/search?q="><fmt:setBundle basename="oscarResources"/><fmt:message key="global.google"/></option>
-                        <option value="http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?SUBMIT=y&amp;CDM=Search&amp;DB=PubMed&amp;term=">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.pubmed"/></option>
-                        <option value="http://search.nlm.nih.gov/medlineplus/query?DISAMBIGUATION=true&amp;FUNCTION=search&amp;SERVER2=server2&amp;SERVER1=server1&amp;PARAMETER=">
-                            <fmt:setBundle basename="oscarResources"/><fmt:message key="global.medlineplus"/></option>
-                        <option value="casemgmt/tripsearch.jsp?searchterm=">Trip Database</option>
-                        <option value="https://empendium.com/mcmtextbook/search?type=textbook&q=">McMaster Text Book
-                        </option>
-                    </select>
-                </div>
-                <input type="button" id="searchButton" name="button"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnSearch"/>"
-                       onClick="popupPage(600,800,'<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.popupSearchPageWindow"/>',$('channel').options[$('channel').selectedIndex].value+urlencode($F('keyword')) ); return false;"/>
-            </fieldset>
-
-            <fieldset>
-                <legend>Tools</legend>
-
-                <oscar:oscarPropertiesCheck value="BC" property="billregion">
-                <security:oscarSec roleName="<%=roleName$%>" objectName="_careconnect" rights="r">
-                <c:if test="${ not empty careconnecturl }">
-                <input type="button" title="Connect to BC Care Connect" value="CareConnect"
-                       onclick="callCareConnect('${ careconnecturl }', '${ demographic.hin }', '${ demographic.firstName }',
-                               '${ demographic.lastName }', '${ demographic.formattedDob }', '${ demographic.sex }',
-                               '${ OscarProperties.getInstance()['BC_CARECONNECT_REGION'] }' )"/>
-                </c:if>
-                </security:oscarSec>
-                </oscar:oscarPropertiesCheck>
-
-                <input type="button" value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Filter.title"/>" onclick="showFilter();"/>
-                        <%
-					String roleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
-					String pAge = Integer.toString(UtilDateUtilities.calcAge(bean.yearOfBirth,bean.monthOfBirth,bean.dateOfBirth));
-				%>
-                <security:oscarSec roleName="<%=roleName%>" objectName="_newCasemgmt.calculators" rights="r"
-                                   reverse="false">
-                    <%@include file="calculatorsSelectList.jspf" %>
-                </security:oscarSec>
-
-                <security:oscarSec roleName="<%=roleName%>" objectName="_newCasemgmt.templates" rights="r">
-                <select onchange="javascript:popupPage(700,700,'Templates',this.value);">
-                    <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Header.Templates"/></option>
-                    <option value="-1">------------------</option>
-                    <security:oscarSec roleName="<%=roleName%>" objectName="_newCasemgmt.templates" rights="w">
-                        <option value="<%=request.getContextPath()%>/admin/providertemplate.jsp">New / Edit Template
-                        </option>
-                        <option value="-1">------------------</option>
-                    </security:oscarSec>
-                    <%
-                        EncounterTemplateDao encounterTemplateDao = (EncounterTemplateDao) SpringUtils.getBean(EncounterTemplateDao.class);
-                        List<EncounterTemplate> allTemplates = encounterTemplateDao.findAll();
-
-                        for (EncounterTemplate encounterTemplate : allTemplates) {
-                            String templateName = StringEscapeUtils.escapeHtml4(encounterTemplate.getEncounterTemplateName());
-                    %>
-                    <option value="<%=request.getContextPath()+"/admin/providertemplate.jsp?dboperation=Edit&name="+templateName%>"><%=templateName%>
-                    </option>
-                    <%
-                        }
-                    %>
-                </select>
-                </security:oscarSec>
 
         </div>
     </form>
@@ -590,13 +517,6 @@
     <input type="hidden" name="pStartDate" id="pStartDate" value="">
     <input type="hidden" name="pEndDate" id="pEndDate" value="">
     <input type="hidden" id="annotation_attribname" name="annotation_attribname" value="">
-    <%
-        if (OscarProperties.getInstance().getBooleanProperty("note_program_ui_enabled", "true")) {
-    %>
-    <input type="hidden" name="_note_program_no" value=""/>
-    <input type="hidden" name="_note_role_id" value=""/>
-    <% } %>
-
     <span id="notesLoading">
 		<img src="<c:out value="${ctx}/images/DMSLoader.gif" />">Loading Notes...
 	</span>
@@ -624,6 +544,16 @@
 
             <div id="form-control-panel">
                 <div id="save-sign-bill-buttons">
+                    <button type="button" onclick="pasteTimer()" id="aTimer"
+                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.pasteTimer"/>">00:00
+                    </button>
+                    <button type="button" id="toggleTimer" onclick="toggleATimer(this)"
+                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.toggleTimer"/>'>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                             class="bi bi-pause-fill" viewBox="0 0 16 16">
+                            <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"></path>
+                        </svg>
+                    </button>
                     <%
 
                         if (facility.isEnableGroupNotes()) {
@@ -675,43 +605,17 @@
                            src="<c:out value="${ctx}/oscarEncounter/graphics/document-print.png"/>"
                            onclick="return printSetup(event);"
                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnPrint"/>' id="imgPrintEncounter">
-                </div>
-                <div id="timer-control">
-                    <input type="text" placeholder="Time Label" id="timer-note" title="Time Label"/>
-                    <button type="button" onclick="pasteTimer()" id="aTimer"
-                            title="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.pasteTimer"/>">00:00
-                    </button>
-                    <button type="button" id="toggleTimer" onclick="toggleATimer(this)"
-                            title='<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.toggleTimer"/>'>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                             class="bi bi-pause-fill" viewBox="0 0 16 16">
-                            <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5m5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5"></path>
-                        </svg>
-                    </button>
-                </div>
             </div>
-            <div id="assignIssueSection">
-                <input tabindex="8" type="text" id="issueAutocomplete" class="issueAutocomplete"
-                       placeholder="Search Issue" title="Search Issues" name="issueSearch"
-                       onkeydown="return submitIssue(event);">
-                <input tabindex="9" type="button" id="asgnIssues" title="Assign Selected Issue"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.assign.title"/>">
-                <span id="busy" style="display: none">
-		            <img src="<c:out value="${ctx}/oscarEncounter/graphics/busy.gif"/>"
-                         alt="<fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnWorking"/>">
-		        </span>
-            </div>
+                </div>
         </div>
         <div class="row">
             <div id="note-control-panel">
-                <button type="button" onclick="return showHideIssues(event, 'noteIssues-resolved');"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnDisplayResolvedIssues"/></button>
-                <button type="button" onclick="return showHideIssues(event, 'noteIssues-unresolved');"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnDisplayUnresolvedIssues"/></button>
-                <button type="button" onclick="notesLoadAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnLoadAllNotes"/></button>
-                <button type="button" onclick="toggleFullViewForAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btneExpandLoadedNotes"/></button>
-                <button type="button" onclick="toggleCollapseViewForAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCollapseLoadedNotes"/></button>
                 <button type="button"
                         onclick="popupPage(500,200,'noteBrowser<%=bean.demographicNo%>','casemgmt/noteBrowser.jsp?demographic_no=<%=bean.demographicNo%>&FirstTime=1');">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.BrowseNotes"/></button>
+                <button type="button" onclick="notesLoadAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnLoadAllNotes"/></button>
+                <button type="button" onclick="toggleFullViewForAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btneExpandLoadedNotes"/></button>
+                <button type="button" onclick="toggleCollapseViewForAll();"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.Index.btnCollapseLoadedNotes"/></button>
             </div>
         </div>
     </div>

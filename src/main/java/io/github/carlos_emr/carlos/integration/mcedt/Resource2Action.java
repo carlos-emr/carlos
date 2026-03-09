@@ -46,6 +46,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class Resource2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -231,6 +232,7 @@ public class Resource2Action extends ActionSupport {
         return resourceType;
     }
 
+    @StrutsParameter
     public void setResourceType(String resourceType) {
         this.resourceType = resourceType;
     }
@@ -239,6 +241,7 @@ public class Resource2Action extends ActionSupport {
         return status;
     }
 
+    @StrutsParameter
     public void setStatus(String status) {
         this.status = status;
     }
@@ -247,6 +250,7 @@ public class Resource2Action extends ActionSupport {
         return pageNo;
     }
 
+    @StrutsParameter
     public void setPageNo(Integer pageNo) {
         this.pageNo = pageNo;
     }
@@ -286,6 +290,7 @@ public class Resource2Action extends ActionSupport {
         return serviceIdSent;
     }
 
+    @StrutsParameter
     public void setServiceIdSent(String serviceId) {
         this.serviceIdSent = serviceId;
     }

@@ -537,7 +537,7 @@ public class AdmissionDaoImpl extends AbstractDaoImpl<Admission> implements Admi
             throw new IllegalArgumentException();
         }
 
-        Admission admission = entityManager.find(Admission.class, id.intValue());
+        Admission admission = entityManager.find(Admission.class, id);
 
         if (log.isDebugEnabled()) {
             log.debug("getAdmission: id= " + id + ", found: " + (admission != null));

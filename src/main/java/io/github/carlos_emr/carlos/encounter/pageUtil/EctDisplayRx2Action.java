@@ -36,18 +36,15 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import org.owasp.encoder.Encode;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 public class EctDisplayRx2Action extends EctDisplayAction {
     private String cmd = "Rx";
-
-    public static final Comparator<Prescription> ACTIVE_FIRST =
-        Comparator.comparingInt(drug -> isActiveDrug(drug) ? 0 : 1);
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
@@ -70,10 +67,6 @@ public class EctDisplayRx2Action extends EctDisplayAction {
             Dao.setRightURL(url);
             Dao.setRightHeadingID(cmd);  //no menu so set div id to unique id for this action
 
-            //grab all of the diseases associated with patient and add a list item for each
-            String dbFormat = "yyyy-MM-dd";
-            String serviceDateStr;
-            Date date;
             RxPrescriptionData prescriptData = new RxPrescriptionData();
             Prescription[] arr = prescriptData.getUniquePrescriptionsByPatient(Integer.parseInt(bean.demographicNo));
 
@@ -83,10 +76,8 @@ public class EctDisplayRx2Action extends EctDisplayAction {
             CppPreferencesUIBean prefsBean = new CppPreferencesUIBean(loggedInInfo.getLoggedInProviderNo());
             prefsBean.loadValues();
 
-            // Sort active medications to the top of the list, preserving
-            // relative order within each group (stable sort).
-            // Lower value = sorted higher in the list (0 = active first, 1 = non-active after).
-            uniqueDrugs.sort(ACTIVE_FIRST);
+            // Stable partition: active prescriptions first, preserving relative order.
+            stablePartitionActiveFirst(uniqueDrugs);
 
             long now = System.currentTimeMillis();
             long month = 1000L * 60L * 60L * 24L * 30L;
@@ -98,14 +89,11 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                 }
 
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-                date = drug.getRxDate();
-                serviceDateStr = DateUtils.formatDate(date, request.getLocale());
 
                 if (prefsBean != null && "on".equals(prefsBean.getEnable())) {
                     Locale locale = request.getLocale();
 
                     String descr = "";
-                    String title = "";
 
                     if (!StringUtils.isNullOrEmpty(drug.getCustomName())) {
                         descr = drug.getCustomName();
@@ -119,32 +107,26 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     if (prefsBean != null && "on".equals(prefsBean.getMedicationEndDate()) && !drug.isLongTerm()) {
                         descr += " End Date:" + DateUtils.formatDate(drug.getEndDate(), locale);
                     }
-                    if (prefsBean != null && "on".equals(prefsBean.getMedicationQty())) {
-                        descr += " Qty:" + drug.getQuantity();
-                    }
-                    if (prefsBean != null && "on".equals(prefsBean.getMedicationRepeats())) {
-                        descr += " Repeats:" + drug.getRepeat();
-                    }
-
                     String tmp = "";
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
+                    tmp = stripQtyRepeats(tmp);
 
                     descr = "<span " + getClassColour(drug, now, month) + ">" + descr + "</span>";
 
                     item.setTitle(descr);
-                    item.setLinkTitle(tmp + " " + serviceDateStr + " - " + drug.getEndDate());
+                    item.setLinkTitle(Encode.forHtml(tmp));
 
                 } else {
                     String tmp = "";
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
+                    tmp = stripQtyRepeats(tmp);
 
                     String strTitle = StringUtils.maxLenString(tmp, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-                    // strTitle = "<span " + styleColor + ">" + strTitle + "</span>";
                     strTitle = "<span " + getClassColour(drug, now, month) + ">" + strTitle + "</span>";
                     item.setTitle(strTitle);
-                    item.setLinkTitle(tmp + " " + serviceDateStr + " - " + drug.getEndDate());
+                    item.setLinkTitle(Encode.forHtml(tmp));
                 }
 
                 item.setURL("return false;");
@@ -153,6 +135,11 @@ public class EctDisplayRx2Action extends EctDisplayAction {
 
             return true;
         }
+    }
+
+    private static String stripQtyRepeats(String text) {
+        if (text == null) return "";
+        return text.replaceFirst("Qty:.*", "").trim();
     }
 
     String getClassColour(Prescription drug, long referenceTime, long durationToSoon) {
@@ -202,21 +189,46 @@ public class EctDisplayRx2Action extends EctDisplayAction {
      * Determines whether a prescription is considered active for display purposes.
      *
      * <p>A drug is active if it is current and not archived, or if it is long-term.
-     * This definition is shared between the medication sort order ({@link #ACTIVE_FIRST})
+     * This definition is shared between {@link #stablePartitionActiveFirst(List)}
      * and the CSS class assignment in {@link #getClassColour}.</p>
      *
      * <p><b>Note:</b> This method does not filter archived long-term drugs — it will
      * return {@code true} for a drug that is long-term even if archived. In
      * {@link #getInfo}, archived drugs are filtered during iteration <em>after</em>
-     * the {@code uniqueDrugs.sort(ACTIVE_FIRST)} call and are therefore not displayed.
+     * the {@code stablePartitionActiveFirst} call and are therefore not displayed.
      * If using this method in other contexts, additional checks (for example,
      * {@code !drug.isArchived()}) may be required to exclude archived items.</p>
      *
      * @param drug Prescription the prescription to evaluate
      * @return boolean {@code true} if the drug is considered active
      */
-    public static boolean isActiveDrug(Prescription drug) {
-        return (drug.isCurrent() && !drug.isArchived()) || drug.isLongTerm();
+    private static boolean isActiveDrug(Prescription drug) {
+        return (!drug.isArchived() && drug.isCurrent()) || drug.isLongTerm();
+    }
+
+    /**
+     * Reorders {@code drugs} in-place so that active prescriptions come first,
+     * preserving the original relative order within each group (stable partition).
+     *
+     * <p>Calls {@link #isActiveDrug(Prescription)} exactly once per element
+     * (O(n)), avoiding the repeated {@link java.util.GregorianCalendar} allocations
+     * that would occur if the same check were used inside a sort comparator.</p>
+     *
+     * @param drugs List the mutable list of prescriptions to reorder
+     */
+    public static void stablePartitionActiveFirst(List<Prescription> drugs) {
+        List<Prescription> active = new ArrayList<>(drugs.size());
+        List<Prescription> inactive = new ArrayList<>(drugs.size());
+        for (Prescription drug : drugs) {
+            if (isActiveDrug(drug)) {
+                active.add(drug);
+            } else {
+                inactive.add(drug);
+            }
+        }
+        drugs.clear();
+        drugs.addAll(active);
+        drugs.addAll(inactive);
     }
 
     public String getCmd() {

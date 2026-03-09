@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.billing.CA.ON.web;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.CSSStylesDAO;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
@@ -151,6 +152,7 @@ public class ManageCSS2Action extends ActionSupport {
         return styleText;
     }
 
+    @StrutsParameter
     public void setStyleText(String styleText) {
         this.styleText = styleText;
     }
@@ -159,6 +161,7 @@ public class ManageCSS2Action extends ActionSupport {
         return selectedStyle;
     }
 
+    @StrutsParameter
     public void setSelectedStyle(String selectedStyle) {
         this.selectedStyle = selectedStyle;
     }
@@ -167,6 +170,7 @@ public class ManageCSS2Action extends ActionSupport {
         return editStyle;
     }
 
+    @StrutsParameter
     public void setEditStyle(String editStyle) {
         this.editStyle = editStyle;
     }
@@ -175,6 +179,7 @@ public class ManageCSS2Action extends ActionSupport {
         return styleName;
     }
 
+    @StrutsParameter
     public void setStyleName(String styleName) {
         this.styleName = styleName;
     }

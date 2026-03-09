@@ -520,6 +520,22 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
         return results;
     }
 
+    /**
+     * Returns distinct document descriptions matching the keyword, in descending document number order.
+    /**
+     * Retrieves distinct document descriptions matching the keyword.
+     */
+    public List<String> findDocumentDescriptions(String keyword) {
+        if (keyword == null) {
+            keyword = "%";
+        }
+        String jpql = "SELECT d.docdesc FROM Document d WHERE d.status != 'D' AND d.docdesc LIKE ?1 AND d.docdesc IS NOT NULL AND d.docdesc <> '' GROUP BY d.docdesc ORDER BY MAX(d.documentNo) DESC";
+        Query query = entityManager.createQuery(jpql);
+        query.setParameter(1, keyword);
+        query.setMaxResults(20);
+        return query.getResultList();
+    }
+
     @Override
     public Document findByDemographicAndFilename(int demographicId, String fileName) {
         Query query = entityManager.createNativeQuery(

@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgr
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 public class AppointmentStatus2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -142,6 +143,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return ID;
     }
 
+    @StrutsParameter
     public void setID(int ID) {
         this.ID = ID;
     }
@@ -150,6 +152,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return apptStatus;
     }
 
+    @StrutsParameter
     public void setApptStatus(String apptStatus) {
         this.apptStatus = apptStatus;
     }
@@ -158,6 +161,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return apptDesc;
     }
 
+    @StrutsParameter
     public void setApptDesc(String apptDesc) {
         this.apptDesc = apptDesc;
     }
@@ -166,6 +170,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return apptOldColor;
     }
 
+    @StrutsParameter
     public void setApptOldColor(String apptOldColor) {
         this.apptOldColor = apptOldColor;
     }
@@ -174,6 +179,7 @@ public class AppointmentStatus2Action extends ActionSupport {
         return apptColor;
     }
 
+    @StrutsParameter
     public void setApptColor(String apptColor) {
         this.apptColor = apptColor;
     }

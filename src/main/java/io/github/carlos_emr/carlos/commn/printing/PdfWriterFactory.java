@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -34,101 +34,92 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.casemgmt.service.PageNumberStamper;
 import io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.OscarProperties;
+import org.openpdf.text.Document;
+import org.openpdf.text.DocumentException;
+import org.openpdf.text.pdf.PdfWriter;
+import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 
-public class PdfWriterFactory {
+/**
+ * Factory for creating pre-configured {@link PdfWriter} instances
+ * used throughout CARLOS EMR for clinical PDF generation.
+ *
+ * <p>Each writer produced by {@link #newInstance} is automatically equipped with a
+ * {@link PdfPageEventForwarder} that chains up to three page-event
+ * stampers (depending on configuration; all enabled stampers render on every page):</p>
+ * <ol>
+ *   <li><strong>Confidentiality statement</strong> &mdash; from the {@code confidentialityStatement}
+ *       property (displayed 30 points below the bottom margin)</li>
+ *   <li><strong>Promotional / clinic text</strong> &mdash; from the {@code FORMS_PROMOTEXT} property
+ *       with the current date appended (displayed 20 points below the bottom margin)</li>
+ *   <li><strong>Page numbers</strong> &mdash; rendered 10 points below the bottom margin via {@link PageNumberStamper}</li>
+ * </ol>
+ *
+ * <p><strong>Important:</strong> OpenPDF 3.x auto-wraps multiple {@code setPageEvent()} calls
+ * in a {@code PdfPageEventForwarder}, but this factory creates the forwarder explicitly for
+ * clarity and to guarantee deterministic stamper ordering. Callers that need additional page
+ * events (e.g. {@code LabPDFCreator}) should retrieve the existing forwarder via
+ * {@code writer.getPageEvent()} and add to it for consistency.</p>
+ *
+ * @see FontSettings
+ * @see PageNumberStamper
+ * @see PromoTextStamper
+ * @since 2012-09-10
+ */
+public final class PdfWriterFactory {
 
-    private static String confidentialtyStatement = OscarProperties.getConfidentialityStatement();
-    private static String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
+    /** Confidentiality statement loaded once from system properties at class init. */
+    private static final String confidentialityStatement = OscarProperties.getConfidentialityStatement();
+    /** Promotional text (clinic branding) loaded once from system properties at class init. */
+    private static final String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT");
 
-    /**
-     * @param pdfContentByte
-     * @param settings
-     * @return
-     * @Deprecated: use the newer Itext PDF method with the same signature.
-     */
-    @Deprecated
-    public static com.lowagie.text.pdf.PdfContentByte setFont(com.lowagie.text.pdf.PdfContentByte pdfContentByte, FontSettings settings) {
-        try {
-            com.lowagie.text.pdf.BaseFont baseFont = com.lowagie.text.pdf.BaseFont.createFont(settings.getFont(), settings.getCodePage(), settings.isEmbedded());
-            pdfContentByte.setFontAndSize(baseFont, settings.getFontSize());
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed creation of PDF Base Font ", e);
-        }
-        return pdfContentByte;
+    private PdfWriterFactory() {
+        throw new AssertionError("utility class");
     }
 
     /**
-     * @param document
-     * @param stream
-     * @param settings
-     * @return
-     * @Deprecated: use the newer Itext PDF method with the same signature.
-     */
-    @Deprecated
-    public static com.lowagie.text.pdf.PdfWriter newInstance(com.lowagie.text.Document document, OutputStream stream, FontSettings settings) {
-        com.lowagie.text.pdf.PdfWriter result;
-        try {
-            result = com.lowagie.text.pdf.PdfWriter.getInstance(document, stream);
-        } catch (com.lowagie.text.DocumentException e) {
-            MiscUtils.getLogger().error("Unable to create new PdfWriter instance", e);
-            return null;
-        }
-
-//		String confidentialtyStatement = OscarProperties.getConfidentialityStatement();
-//		PromoTextStamper pts = new PromoTextStamper(confidentialtyStatement, 30);
-//		pts.setFontSize(settings.getFontSize());
-//		result.setPageEvent(pts);
-//
-//		SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd");
-//		String promoText = OscarProperties.getInstance().getProperty("FORMS_PROMOTEXT") + " " + f.format(new Date());
-//		pts = new PromoTextStamper(promoText, 20);
-//		pts.setFontSize(settings.getFontSize());
-//		result.setPageEvent(pts);
-
-//		PageNumberStamper pns = new PageNumberStamper(10);
-//		pns.setFontSize(settings.getFontSize());
-//		result.setPageEvent(pns);
-
-        return result;
-    }
-
-    /**
-     * Creates a new instance of the PDF writer.
+     * Creates a new instance of the PDF writer with promo text, confidentiality
+     * statement, and page numbering enabled. Uses {@link PdfPageEventForwarder}
+     * to chain multiple page event handlers so all stampers run on each page.
      *
-     * @param document
-     * @param stream
-     * @param settings
-     * @return PdfWriter
+     * @param document Document the PDF document
+     * @param stream OutputStream the output stream to write to
+     * @param settings FontSettings font settings for the writer (font name, size, encoding, and embedding are all applied to stampers)
+     * @return PdfWriter instance configured with all page event stampers
+     * @throws DocumentException if the PdfWriter cannot be created
      */
-    public static com.itextpdf.text.pdf.PdfWriter newInstance(com.itextpdf.text.Document document, OutputStream stream, FontSettings settings) {
-        com.itextpdf.text.pdf.PdfWriter result;
-        try {
-            result = com.itextpdf.text.pdf.PdfWriter.getInstance(document, stream);
-        } catch (com.itextpdf.text.DocumentException e) {
-            MiscUtils.getLogger().error("Unable to create new PdfWriter instance", e);
-            return null;
-        }
+    public static PdfWriter newInstance(Document document, OutputStream stream, FontSettings settings) throws DocumentException {
+        java.util.Objects.requireNonNull(document, "document must not be null");
+        java.util.Objects.requireNonNull(stream, "stream must not be null");
+        java.util.Objects.requireNonNull(settings, "settings must not be null");
+
+        PdfWriter result = PdfWriter.getInstance(document, stream);
+
+        // Use an explicit PdfPageEventForwarder to guarantee deterministic stamper ordering.
+        // OpenPDF 3.x auto-chains setPageEvent() calls, but explicit wiring is clearer.
+        PdfPageEventForwarder pageEvents = new PdfPageEventForwarder();
+
         PromoTextStamper pts;
 
-        if (confidentialtyStatement != null && !confidentialtyStatement.isEmpty()) {
-            pts = new PromoTextStamper(confidentialtyStatement, 30);
-            pts.setFontSize(settings.getFontSize());
-            result.setPageEvent(pts);
+        if (confidentialityStatement != null && !confidentialityStatement.isEmpty()) {
+            pts = new PromoTextStamper(confidentialityStatement, 30);
+            pts.applyFont(settings);
+            pageEvents.addPageEvent(pts);
         }
         if (promoText != null && !promoText.isEmpty()) {
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
             String promoTextDate = promoText + " " + simpleDateFormat.format(new Date());
             pts = new PromoTextStamper(promoTextDate, 20);
-            pts.setFontSize(settings.getFontSize());
-            result.setPageEvent(pts);
+            pts.applyFont(settings);
+            pageEvents.addPageEvent(pts);
         }
 
         PageNumberStamper pns = new PageNumberStamper(10);
-        pns.setFontSize(settings.getFontSize());
-        result.setPageEvent(pns);
+        pns.applyFont(settings);
+        pageEvents.addPageEvent(pns);
+
+        result.setPageEvent(pageEvents);
 
         return result;
     }

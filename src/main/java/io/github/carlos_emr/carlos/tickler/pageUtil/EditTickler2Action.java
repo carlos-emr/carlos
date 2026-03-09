@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.tickler.pageUtil;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.TicklerComment;
@@ -280,6 +281,7 @@ public class EditTickler2Action extends ActionSupport {
         return activeText;
     }
 
+    @StrutsParameter
     public void setActiveText(String[] activeText) {
         this.activeText = activeText;
     }
@@ -288,6 +290,7 @@ public class EditTickler2Action extends ActionSupport {
         return inactiveText;
     }
 
+    @StrutsParameter
     public void setInactiveText(String[] inactiveText) {
         this.inactiveText = inactiveText;
     }

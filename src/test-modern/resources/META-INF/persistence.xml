@@ -100,6 +100,35 @@
         <mapping-file>io/github/carlos_emr/carlos/PMmodule/model/ProgramSignature.hbm.xml</mapping-file>
         <!-- Lookup / organization code mappings for LIKE-semantics tests -->
         <mapping-file>com/quatro/model/LstOrgcd.hbm.xml</mapping-file>
+        <!-- ProviderFacility entities for ProviderDao facility-based query tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.ProviderFacility</class>
+        <class>io.github.carlos_emr.carlos.commn.model.ProviderFacilityPK</class>
+        <!-- Appointment-related entities for OscarAppointmentDao integration tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.MyGroup</class>
+        <class>io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey</class>
+        <!-- Billing entities for BillingONCHeader1Dao and BillingDao integration tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.BillingONCHeader1</class>
+        <class>io.github.carlos_emr.carlos.commn.model.BillingONItem</class>
+        <class>io.github.carlos_emr.carlos.commn.model.Billing</class>
+        <class>io.github.carlos_emr.carlos.commn.model.BillingService</class>
+        <class>io.github.carlos_emr.carlos.billing.CA.ON.model.BillingPercLimit</class>
+        <class>io.github.carlos_emr.carlos.billing.CA.model.BillingDetail</class>
+        <!-- EForm entities for EFormDataDao integration tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.EFormData</class>
+        <!-- Document entities for DocumentDao integration tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.Document</class>
+        <class>io.github.carlos_emr.carlos.commn.model.DocumentReview</class>
+        <class>io.github.carlos_emr.carlos.commn.model.MeasurementsExt</class>
+        <!-- MeasurementType for MeasurementDao query tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.MeasurementType</class>
+        <!-- CtlDocument entities for DocumentDao JPQL join tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.CtlDocument</class>
+        <!-- ProviderLabRoutingModel for InboxResultsDao native SQL tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel</class>
+        <!-- EFormDocs for DocumentDao findDocsAndEFormDocsByFdid tests -->
+        <class>io.github.carlos_emr.carlos.commn.model.EFormDocs</class>
+        <!-- SystemPreferences for InboxResultsDao date search config -->
+        <class>io.github.carlos_emr.carlos.commn.model.SystemPreferences</class>
     </persistence-unit>
 
 </persistence>

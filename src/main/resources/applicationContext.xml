@@ -62,7 +62,6 @@
 	<import resource="classpath:spring_ws.xml" />
 	<!-- <context:component-scan base-package="io.github.carlos_emr.carlos.commn.dao" /> -->
 	
-	<bean id="hl7HandlerMSHMappingDao" class="io.github.carlos_emr.carlos.commn.dao.HL7HandlerMSHMappingDaoImpl" autowire="byName" />
 	<!-- hibernated DAO -->
     <bean id="gstControlDao" class="io.github.carlos_emr.carlos.billing.CA.dao.GstControlDaoImpl" autowire="byName" />
 	<bean id="programDao" class="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDaoImpl" autowire="byName" />
@@ -136,7 +135,6 @@
         <bean id="queueDocumentLinkDAO" class="io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDaoImpl" autowire="byName"/>
 
 	<bean id="inboxResultsDao" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsDaoImpl" autowire="byName" />
-    <bean id="inboxResultsRepository" class="io.github.carlos_emr.carlos.commn.dao.InboxResultsRepositoryImpl" autowire="byName" />
     <bean id="securityDao" class="io.github.carlos_emr.carlos.commn.dao.SecurityDaoImpl" autowire="byName" />
     <bean id="oscarLogDao" class="io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl" autowire="byName" />
     <bean id="providerPreferenceDao" class="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDaoImpl" autowire="byName" />

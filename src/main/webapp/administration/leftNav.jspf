@@ -603,11 +603,8 @@ String curProvider_no = (String)session.getAttribute("user");
 
 				<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.document" rights="r" reverse="<%=false%>">			
 								
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/displayDocumentCategories.jsp"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentCategories"/></a></li>
-                                                
-					<li><a href='javascript:void(0);'
-						class="xlink" rel="${ctx}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>		
+				<li><a href='javascript:void(0);'
+					class="xlink" rel="${ctx}/admin/displayDocumentDescriptionTemplate.jsp?setDefault=true"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.DocumentDescriptionTemplate"/></a></li>		
 				</security:oscarSec>		
 						
 						
@@ -797,9 +794,7 @@ String curProvider_no = (String)session.getAttribute("user");
 					<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.traceabilityReport"/></a></li>
 				</security:oscarSec>				
 				
-<%--				<sec:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r" reverse="<%=false%>">--%>
-<%--					<li><a href='javascript:void(0);' class="xlink" rel="${ctx}/admin/oscarStatus.do"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.oscarStatus.oscarStatus"/></a></li>--%>
-<%--				</sec:oscarSec>	--%>
+
 							
 				</ul>	
 				</div>

@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web;
 
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business.BpmhForm2Handler;
@@ -159,10 +160,12 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
 
     private BpmhForm2Bean form;
 
+    @StrutsParameter(depth = 1)
     public BpmhForm2Bean getForm() {
         return form;
     }
 
+    @StrutsParameter
     public void setForm(BpmhForm2Bean form) {
         this.form = form;
     }

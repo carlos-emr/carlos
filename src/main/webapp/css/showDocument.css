@@ -115,11 +115,3 @@ div.content fieldset table tr td ul li a {
     color: red;
     margin-left: 5px;
 }
-
-ul.ui-menu {
-    max-height: 400px;
-    max-width: 260px;
-    overflow-y: scroll;
-    overflow-wrap: anywhere;
-    overflow-x: hidden;
-}

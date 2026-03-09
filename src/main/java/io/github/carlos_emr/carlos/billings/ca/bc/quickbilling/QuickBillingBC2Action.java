@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData.BillingVi
  */
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSessionBean;
 
 public class QuickBillingBC2Action extends ActionSupport {
@@ -136,10 +137,12 @@ public class QuickBillingBC2Action extends ActionSupport {
     private String creator;
     private String halfBilling;
 
+    @StrutsParameter(depth = 1)
     public ArrayList<BillingSessionBean> getBillingData() {
         return billingData;
     }
 
+    @StrutsParameter
     public void setBillingData(ArrayList<BillingSessionBean> billingData) {
         this.billingData = billingData;
     }
@@ -148,6 +151,7 @@ public class QuickBillingBC2Action extends ActionSupport {
         return billingProvider;
     }
 
+    @StrutsParameter
     public void setBillingProvider(String billingProvider) {
         this.billingProvider = billingProvider;
     }
@@ -156,6 +160,7 @@ public class QuickBillingBC2Action extends ActionSupport {
         return billingProviderNo;
     }
 
+    @StrutsParameter
     public void setBillingProviderNo(String billingProviderNo) {
         this.billingProviderNo = billingProviderNo;
     }
@@ -164,6 +169,7 @@ public class QuickBillingBC2Action extends ActionSupport {
         return serviceDate;
     }
 
+    @StrutsParameter
     public void setServiceDate(String serviceDate) {
         this.serviceDate = serviceDate;
     }
@@ -172,22 +178,27 @@ public class QuickBillingBC2Action extends ActionSupport {
         return visitLocation;
     }
 
+    @StrutsParameter
     public void setVisitLocation(String visitLocation) {
         this.visitLocation = visitLocation;
     }
 
+    @StrutsParameter(depth = 1)
     public List<BillingVisit> getBillingVisitTypes() {
         return billingVisitTypes;
     }
 
+    @StrutsParameter
     public void setBillingVisitTypes(List<BillingVisit> billingVisitTypes) {
         this.billingVisitTypes = billingVisitTypes;
     }
 
+    @StrutsParameter(depth = 1)
     public List<ProviderData> getProviderList() {
         return providerList;
     }
 
+    @StrutsParameter
     public void setProviderList(List<ProviderData> providerList) {
         this.providerList = providerList;
     }
@@ -196,6 +207,7 @@ public class QuickBillingBC2Action extends ActionSupport {
         return isHeaderSet;
     }
 
+    @StrutsParameter
     public void setHeaderSet(Boolean headerSet) {
         isHeaderSet = headerSet;
     }
@@ -204,6 +216,7 @@ public class QuickBillingBC2Action extends ActionSupport {
         return creator;
     }
 
+    @StrutsParameter
     public void setCreator(String creator) {
         this.creator = creator;
     }
@@ -212,6 +225,7 @@ public class QuickBillingBC2Action extends ActionSupport {
         return halfBilling;
     }
 
+    @StrutsParameter
     public void setHalfBilling(String halfBilling) {
         this.halfBilling = halfBilling;
     }

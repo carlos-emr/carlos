@@ -46,7 +46,6 @@ billregion=ON
 billcenter=G
 signature_tablet=no
 ENABLE_EDIT_APPT_STATUS=yes
-appt_intake_form=off
 new_flowsheet_enabled=true
 NEW_CONTACTS_UI=false
 enableFax=false
@@ -328,9 +327,6 @@ echo "For a new install from console so probe for some settings" >>$LOG_FILE
 	db_reset oscar-emr/eyeform || true
 	db_set oscar-emr/eyeform false || true
 	eyeform=false
-	db_set oscar-emr/appt_intake_form true || true
-	appt_intake_form="on"
-
 	db_go || true
 
 	db_get oscar-emr/eyeform
@@ -653,7 +649,6 @@ else
 	-e 's/\(^billcenter =\)/#\1/' \
 	-e 's/\(^SINGLE_PAGE_CHART\)/#\1/' \
 	-e 's/\(^signature_tablet\)/#\1/' \
-	-e 's/\(^appt_intake_form\)/#\1/' \
 	-e 's/\(^new_flowsheet_enabled\)/#\1/' \
 	-e 's/\(^enableFax\)/#\1/' \
 	-e 's/\(^DOCUMENT_DIR\)/#\1/' \
@@ -789,7 +784,6 @@ if [ "${skip12}" = "false" ] ; then
 	echo "">> ${PROGRAM}.tmp 2>>$LOG_FILE
 	echo "## The following are new for Oscar 12">> ${PROGRAM}.tmp 2>>$LOG_FILE
 	echo signature_tablet=${signature_tablet}>> ${PROGRAM}.tmp 2>>$LOG_FILE
-	echo appt_intake_form=${appt_intake_form}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 	echo new_flowsheet_enabled=${new_flowsheet_enabled}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 	echo enableFax=${enableFax}>> ${PROGRAM}.tmp 2>>$LOG_FILE
 	#echo DOCUMENT_DIR=${DOCUMENT_DIR}>> ${PROGRAM}.tmp 2>>$LOG_FILE

@@ -400,7 +400,7 @@ this.focus();
 
 function popupPage(vheight,vwidth,varpage) {
 var page = "" + varpage;
-if (openEncounterInTab) { return popupTab(page); }
+if (openEncounterInTab && !isForceWindowUrl(page)) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
 var popup=window.open(page, "<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.apptProvider"/>", windowprops);
 if (popup != null) {
@@ -413,7 +413,7 @@ popup.focus();
 
 function popUpEncounter(vheight,vwidth,varpage) {
 var page = "" + varpage;
-if (openEncounterInTab) { return popupTab(page); }
+if (openEncounterInTab && !isForceWindowUrl(page)) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
 var popup=window.open(page, "Encounter", windowprops);
 
@@ -442,7 +442,7 @@ changePassword.moveTo(0,0);
 }
 function popupInboxManager(varpage, height = 700, width = 1215) {
 var page = "" + varpage;
-if (openEncounterInTab) { return popupTab(page); }
+if (openEncounterInTab && !isForceWindowUrl(page)) { return popupTab(page); }
 var windowname="apptProviderInbox";
     windowprops = "height=" + height + ",width=" + width + ",location=no,"
 + "scrollbars=yes,menubars=no,toolbars=no,resizable=yes,top=10,left=0";
@@ -470,7 +470,7 @@ windowname = typeof(windowname)!= 'undefined' ? windowname : 'apptProviderSearch
 vheight = typeof(vheight) != 'undefined' ? vheight : '700px';
 vwidth = typeof(vwidth) != 'undefined' ? vwidth : '1024px';
 var page = "" + varpage;
-if (openEncounterInTab) { return popupTab(page); }
+if (openEncounterInTab && !isForceWindowUrl(page)) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
 var popup = window.open(page, windowname, windowprops);
 if (popup != null) {
@@ -484,7 +484,7 @@ popup.focus();
 <!--messenger code block-->
 function popupOscarRx(vheight,vwidth,varpage) {
 var page = varpage;
-if (openEncounterInTab) { return popupTab(page); }
+if (openEncounterInTab && !isForceWindowUrl(page)) { return popupTab(page); }
 windowprops = "height="+vheight+",width="+vwidth+",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=0,screenY=0,top=0,left=0";
 var popup=window.open(varpage, "<fmt:setBundle basename="oscarResources"/><fmt:message key="global.oscarRx"/>_appt", windowprops);
 if (popup != null) {

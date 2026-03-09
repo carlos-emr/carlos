@@ -52,15 +52,9 @@
 <html>
 
     <head>
+        <%@ include file="/includes/global-head.jspf" %>
         <title>
-                <%--	    <c:choose>--%>
-                <%--	    	<c:when test="${ not empty LoginResourceBean.tabName }">--%>
-                <%--	    		<c:out value="${ LoginResourceBean.tabName }" />--%>
-                <%--	    	</c:when>--%>
-                <%--	    	<c:otherwise>--%>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="loginApplication.title"/>
-                <%--	    	</c:otherwise>--%>
-                <%--	    </c:choose>--%>
         </title>
 
         <link rel="icon" href="${pageContext.request.contextPath}/images/Oscar.ico"/>
@@ -99,6 +93,10 @@
                 document.loginForm.username.focus();
                 document.loginForm.username.select();
             }
+
+            // Clear any stale logout signal from a previous session so it does not
+            // cause an immediate logout loop if the user logs in again in this tab.
+            try { localStorage.removeItem('carlos_logout_signal'); } catch(e) {}
 
             function popupPage(vheight, vwidth, varpage) {
                 var page = "" + varpage;
@@ -546,13 +544,23 @@
               mask-position: center;
             }
         </style>
-
+<style>
+body {
+  background-image: url("${pageContext.request.contextPath}/images/cloud-bg.svg");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+</style>
     </head>
 
     <body onLoad="setfocus()">
+
+
     <div class="content">
         <div class="topbar">
-            <span id="buildInfo">
+            <span id="buildInfo" style="color:black;">
             	<c:out value="${ LoginResourceBean.buildTag }"/>
             </span>
         </div>
@@ -568,6 +576,11 @@
                 </a>
             </div>
 
+<div>
+<br>
+<span style="font-size: 40px; font-weight: bold; color: white; text-shadow: 2px 2px 5px rgba(0,0,0,0.7);">CARLOS</span>
+<br>
+</div>
             <!-- Clinic info -->
             <div id="clinic_text">
                 <h2 id="clinic_name">

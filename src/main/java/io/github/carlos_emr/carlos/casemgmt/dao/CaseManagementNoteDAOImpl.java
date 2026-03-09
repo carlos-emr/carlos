@@ -47,41 +47,30 @@ import java.util.TreeMap;
 import java.util.UUID;
 
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Criteria;
-import org.hibernate.SQLQuery;
+import org.hibernate.Hibernate;
 import org.hibernate.Session;
-import org.hibernate.criterion.Expression;
-import org.hibernate.criterion.Order;
-import org.hibernate.criterion.Restrictions;
 import org.hibernate.query.NativeQuery;
+import org.hibernate.query.Query;
 
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.dao.AbstractHibernateDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.orm.hibernate5.support.HibernateDaoSupport;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.hibernate.SessionFactory;
 import org.springframework.transaction.annotation.Transactional;
 
-import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.HqlQueryHelper;
 
 @Transactional
-public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements CaseManagementNoteDAO {
+public class CaseManagementNoteDAOImpl extends AbstractHibernateDao implements CaseManagementNoteDAO {
 
     private static Logger log = MiscUtils.getLogger();
-
-    @Autowired
-    public void setSessionFactoryOverride(SessionFactory sessionFactory) {
-        super.setSessionFactory(sessionFactory);
-    }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> findAll() {
-        logger.warn(
+        log.warn(
                 "A METHOD THAT IS LIKELY TO CAUSE A CRASH HAS BEEN INVOKED. PLEASE LIMIT THE USE OF THIS METHOD, AS IT'S LIKELY TO EXHAUST MEMORY AND MAY LEAD TO A SERVER CRASH. CONSIDER PAGINATING THE INVOCATION INSTEAD");
         return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), "FROM CaseManagementNote");
     }
@@ -140,8 +129,12 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
 
     @Override
     public CaseManagementNote getNote(Long id) {
-        CaseManagementNote note = this.getHibernateTemplate().get(CaseManagementNote.class, id);
-        getHibernateTemplate().initialize(note.getIssues());
+        CaseManagementNote note = currentSession().get(CaseManagementNote.class, id);
+        // currentSession().get() returns null when no record exists for the given id;
+        // guard prevents NPE on lazy-collection initialization for deleted or missing notes
+        if (note != null) {
+            Hibernate.initialize(note.getIssues());
+        }
         return note;
     }
 
@@ -163,9 +156,10 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
                     "where cmn.uuid = :uuid and cmn.id = (" +
                     "select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = :uuid)";
 
+        Map<String, Object> params = new HashMap<>();
+        params.put("uuid", uuid);
         @SuppressWarnings("unchecked")
-        List<CaseManagementNote> tmp = (List<CaseManagementNote>) this.getHibernateTemplate()
-            .findByNamedParam(hql, "uuid", uuid);
+        List<CaseManagementNote> tmp = (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, params);
 
         if (tmp == null || tmp.isEmpty())
             return null;
@@ -238,13 +232,10 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, String staleDate) {
-        if (OscarProperties.getInstance().getDbType().equals("oracle")) {
-            return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentTimeOra",
-                    demographic_no, staleDate);
-        } else {
-            return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentTime",
-                    demographic_no, staleDate);
-        }
+        Query<?> q = currentSession().createNamedQuery("mostRecentTime");
+        q.setParameter("demographicNo", demographic_no);
+        q.setParameter("staleDate", staleDate);
+        return (List<CaseManagementNote>) q.list();
     }
 
     // This was created by OSCAR. if all notes' UUID are same like null, it will
@@ -252,13 +243,8 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no) {
-        if (OscarProperties.getInstance().getDbType().equals("oracle")) {
-            return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentOra",
-                    demographic_no);
-        } else {
-            String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
-            return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, demographic_no);
-        }
+        String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date";
+        return (List<CaseManagementNote>) HqlQueryHelper.find(currentSession(), hql, demographic_no);
     }
 
     @Override
@@ -298,23 +284,9 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographic(String demographic_no, Integer maxNotes) {
-        if (OscarProperties.getInstance().getDbType().equals("oracle")) {
-            return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentOra",
-                    demographic_no);
-        } else {
-            String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date desc";
-            return (List<CaseManagementNote>) HqlQueryHelper.findWithLimit(currentSession(), hql, maxNotes, demographic_no);
-        }
+        String hql = "select cmn from CaseManagementNote cmn where cmn.demographic_no = ?1 and cmn.id = (select max(cmn2.id) from CaseManagementNote cmn2 where cmn2.uuid = cmn.uuid) order by cmn.observation_date desc";
+        return (List<CaseManagementNote>) HqlQueryHelper.findWithLimit(currentSession(), hql, maxNotes, demographic_no);
     }
-
-    // This is the original method. It was created by CAISI, to get all notes for
-    // each client.
-    /*
-     * public List getNotesByDemographic(String demographic_no) { return
-     * this.getHibernateTemplate().
-     * find("from CaseManagementNote cmn where cmn.demographic_no = ? ORDER BY cmn.update_date DESC"
-     *, new Object[] {demographic_no}); }
-     */
 
     @SuppressWarnings("unchecked")
     @Override
@@ -391,8 +363,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
                                                                              String[] issueCodes) {
         Session session = currentSession();
         List<CaseManagementNote> notes = new ArrayList<CaseManagementNote>();
-        try {
-            StringBuilder sqlCommand = new StringBuilder(
+        StringBuilder sqlCommand = new StringBuilder(
                 "select distinct casemgmt_note.note_id from issue,casemgmt_issue,casemgmt_issue_notes,casemgmt_note " +
                 "where casemgmt_issue.issue_id=issue.issue_id and casemgmt_issue.demographic_no=:demographicNo ");
             
@@ -402,20 +373,22 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             
             sqlCommand.append("and casemgmt_issue_notes.id=casemgmt_issue.id and casemgmt_issue_notes.note_id=casemgmt_note.note_id");
             
-            SQLQuery query = session.createSQLQuery(sqlCommand.toString());
+            NativeQuery<?> query = session.createNativeQuery(sqlCommand.toString());
             query.setParameter("demographicNo", demographic_no);
-            
+
             if (issueCodes != null && issueCodes.length > 0) {
                 query.setParameterList("issueCodes", issueCodes);
             }
-            
+
             @SuppressWarnings("unchecked")
-            List<Integer> ids = query.list();
-            for (Integer id : ids)
-                notes.add(getNote(id.longValue()));
-        } finally {
-            //session.close();
-        }
+            List<?> ids = query.list();
+            for (Object id : ids) {
+                if (id instanceof Number) {
+                    notes.add(getNote(((Number) id).longValue()));
+                } else {
+                    log.warn("findNotesByDemographicAndIssueCode: unexpected non-Number id type: {}", id == null ? "null" : id.getClass().getName());
+                }
+            }
 
         // make unique for uuid
         HashMap<String, CaseManagementNote> uniqueForUuid = new HashMap<String, CaseManagementNote>();
@@ -439,24 +412,30 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
     @Override
     public List<CaseManagementNote> getNotesByDemographicDateRange(String demographic_no, Date startDate,
                                                                    Date endDate) {
-        return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentDateRange",
-                demographic_no, startDate, endDate);
+        Query<?> q = currentSession().createNamedQuery("mostRecentDateRange");
+        q.setParameter("demographicNo", demographic_no);
+        q.setParameter("startDate", startDate);
+        q.setParameter("endDate", endDate);
+        return (List<CaseManagementNote>) q.list();
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementNote> getNotesByDemographicLimit(String demographic_no, Integer offset,
                                                                Integer numToReturn) {
-        return (List<CaseManagementNote>) getHibernateTemplate().findByNamedQuery("mostRecentLimit",
-                demographic_no, offset, numToReturn);
+        Query<?> q = currentSession().createNamedQuery("mostRecentLimit");
+        q.setParameter("demographicNo", demographic_no);
+        q.setFirstResult(offset);
+        q.setMaxResults(numToReturn);
+        return (List<CaseManagementNote>) q.list();
     }
 
     @Override
     @Transactional(readOnly = false)
     public void updateNote(CaseManagementNote note) {
         note.setUpdate_date(new Date());
-        this.getHibernateTemplate().update(note);
-        this.getHibernateTemplate().flush();
+        currentSession().update(note);
+        currentSession().flush();
     }
 
     @Override
@@ -469,8 +448,8 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         if (note.getUpdate_date() == null) {
             note.setUpdate_date(new Date());
         }
-        this.getHibernateTemplate().save(note);
-        this.getHibernateTemplate().flush();
+        currentSession().save(note);
+        currentSession().flush();
     }
 
     @Override
@@ -483,29 +462,26 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
         if (note.getUpdate_date() == null) {
             note.setUpdate_date(new Date());
         }
-        return this.getHibernateTemplate().save(note);
+        return currentSession().save(note);
     }
 
     @Override
     public List<CaseManagementNote> search(CaseManagementSearchBean searchBean) {
         SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 
-        // Session session = getSession();
-        Session session = currentSession();
-
-        List<CaseManagementNote> results = null;
-
         try {
-            Criteria criteria = session.createCriteria(CaseManagementNote.class);
-
-            criteria.add(Expression.eq("demographic_no", searchBean.getDemographicNo()));
+            String hql = "FROM CaseManagementNote cmn WHERE cmn.demographic_no = :demoNo";
+            Map<String, Object> params = new HashMap<>();
+            params.put("demoNo", searchBean.getDemographicNo());
 
             if (searchBean.getSearchRoleId() > 0) {
-                criteria.add(Expression.eq("reporter_caisi_role", String.valueOf(searchBean.getSearchRoleId())));
+                hql += " AND cmn.reporter_caisi_role = :roleId";
+                params.put("roleId", String.valueOf(searchBean.getSearchRoleId()));
             }
 
             if (searchBean.getSearchProgramId() > 0) {
-                criteria.add(Expression.eq("program_no", String.valueOf(searchBean.getSearchProgramId())));
+                hql += " AND cmn.program_no = :programId";
+                params.put("programId", String.valueOf(searchBean.getSearchProgramId()));
             }
 
             Date startDate;
@@ -520,19 +496,21 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             } else {
                 endDate = new Date();
             }
-            criteria.add(Restrictions.between("update_date", startDate, endDate));
+            hql += " AND cmn.update_date BETWEEN :startDate AND :endDate";
+            params.put("startDate", startDate);
+            params.put("endDate", endDate);
 
-            criteria.addOrder(Order.desc("update_date"));
-            results = criteria.list();
+            hql += " ORDER BY cmn.update_date DESC";
+
+            @SuppressWarnings("unchecked")
+            List<CaseManagementNote> results = (List<CaseManagementNote>) HqlQueryHelper.find(
+                    currentSession(), hql, params);
+            return results;
 
         } catch (ParseException e) {
-            log.warn("Warning", e);
-        } finally {
-            //session.close();
+            log.warn("search: failed to parse date range from search bean", e);
+            return Collections.emptyList();
         }
-
-        return results;
-
     }
 
     @Override
@@ -544,39 +522,21 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
 
     @Override
     public boolean haveIssue(Long issid, String demoNo) {
-        // Session session = getSession();
-        Session session = currentSession();
-        try {
-            SQLQuery query = session.createSQLQuery("select * from casemgmt_issue_notes where id=" + issid.longValue());
-            List results = query.list();
-            // log.info("haveIssue - DAO - # of results = " + results.size());
-            if (results.size() > 0)
-                return true;
-            return false;
-        } finally {
-            //session.close();
-        }
+        NativeQuery<?> query = currentSession().createNativeQuery(
+                "SELECT * FROM casemgmt_issue_notes WHERE id = :issId");
+        query.setParameter("issId", issid);
+        List<?> results = query.list();
+        return !results.isEmpty();
     }
 
     @Override
     public boolean haveIssue(String issueCode, Integer demographicId) {
-        // Session session=getSession();
-        Session session = currentSession();
-        try {
-            SQLQuery query = session.createSQLQuery(
-                    "select casemgmt_issue.id from casemgmt_issue_notes,casemgmt_issue,issue " +
-                    "where issue.issue_id=casemgmt_issue.issue_id and casemgmt_issue.id=casemgmt_issue_notes.id " +
-                    "and demographic_no=:demographicId and issue.code=:issueCode");
-            query.setParameter("demographicId", demographicId);
-            query.setParameter("issueCode", issueCode);
-            List results = query.list();
-            // log.info("haveIssue - DAO - # of results = " + results.size());
-            if (results.size() > 0)
-                return true;
-            return false;
-        } finally {
-            //session.close();
-        }
+        NativeQuery<?> query = currentSession().createNativeQuery(
+                "SELECT casemgmt_issue.id FROM casemgmt_issue_notes, casemgmt_issue, issue WHERE issue.issue_id = casemgmt_issue.issue_id AND casemgmt_issue.id = casemgmt_issue_notes.id AND demographic_no = :demographicId AND issue.code = :issueCode");
+        query.setParameter("demographicId", demographicId);
+        query.setParameter("issueCode", issueCode);
+        List<?> results = query.list();
+        return !results.isEmpty();
     }
 
     /*
@@ -595,11 +555,11 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             query.setParameter("startDate", new Timestamp(startDate.getTime()));
             query.setParameter("endDate", new Timestamp(endDate.getTime()));
 
-            BigInteger result = query.uniqueResult();
+            BigInteger result = (BigInteger) query.uniqueResultOptional().orElse(null);
             return result != null ? result.intValue() : 0;
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-            return 0;
+        } catch (RuntimeException e) {
+            log.error("getNoteCountForProviderForDateRange failed for providerNo={}", providerNo, e);
+            throw e;
         }
     }
 
@@ -617,7 +577,7 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             NativeQuery<Integer> issueQuery = session.createNativeQuery(getIssueIdSql);
             issueQuery.setParameter("issueCode", issueCode);
 
-            Integer issueId = issueQuery.uniqueResult();
+            Integer issueId = (Integer) issueQuery.uniqueResultOptional().orElse(null);
             if (issueId == null) {
                 log.debug("Could not find issueCode: " + issueCode);
                 return 0;
@@ -636,12 +596,12 @@ public class CaseManagementNoteDAOImpl extends HibernateDaoSupport implements Ca
             countQuery.setParameter("startDate", new Timestamp(startDate.getTime()));
             countQuery.setParameter("endDate", new Timestamp(endDate.getTime()));
 
-            BigInteger result = countQuery.uniqueResult();
+            BigInteger result = (BigInteger) countQuery.uniqueResultOptional().orElse(null);
             int finalCount = result != null ? result.intValue() : 0;
             return finalCount;
-        } catch (Exception e) {
-            log.error("Error counting notes for issue :" + issueCode, e);
-            return 0;
+        } catch (RuntimeException e) {
+            log.error("getNoteCountForProviderForDateRangeWithIssueId failed for issueCode={}", issueCode, e);
+            throw e;
         }
     }
 
