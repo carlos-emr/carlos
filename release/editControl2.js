@@ -575,7 +575,7 @@ function popup(location) {
 	
 function gup(name, url) {
 	if (url == null) { url = window.location.href; }
-	name = name.replace(/[\[]/,"\\\[").replace(/[\]]/,"\\\]");
+	name = name.replace(/\[/g,"\\[").replace(/\]/g,"\\]");
 	var regexS = "[\\?&]"+name+"=([^&#]*)";
 	var regex = new RegExp(regexS);
 	var results = regex.exec(url);
@@ -781,7 +781,7 @@ function submitFaxButton() {
 				for (i=0; i<ImgArray.length;i++){
 					var ListItemArr =  ImgArray[i].split("|");
 					var UserName = ListItemArr[0];
-					var FileName = ListItemArr[1];
+					var FileName = ListItemArr[1]; void FileName; // retained for external API consumers
 					if (cache.get('current_user').indexOf(UserName)>=0){
 						console.log('current user has a signature so use it in the closing salutation');					
 							salutation=(frag+cache.get("current_user_fname_lname") + ", MD");
@@ -943,7 +943,7 @@ function submitFaxButton() {
 			for (i=0; i<ImgArray.length;i++){
 		        var ListItemArr =  ImgArray[i].split("|");
 		        var UserName = ListItemArr[0];
-		        var FileName = ListItemArr[1];
+		        var FileName = ListItemArr[1]; void FileName; // retained for external API consumers
 		        if (str.indexOf(UserName)>=0){
 					console.log('current user '+str+' has a signature so use their name');					
 		            var str = cache.get('current_user');

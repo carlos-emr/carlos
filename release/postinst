@@ -206,6 +206,12 @@ if [ -d /etc/apparmor.d/  ] ; then
 fi
 
 
+### ============================================================
+### SECTION: EXISTING CARLOS REVISION UPDATE
+### Triggered when: carlos.properties exists but its build tag differs from this WAR.
+### Applies database schema patches and exits without re-populating data.
+### Condition tested: lastbuild (from carlos.properties) != VERSION.REVISION
+### ============================================================
 if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
     # its an upgrade, so there should be existing oscar files expanded from the previous war
     # as they are not necessarily overwritten with the new war best to delete the expanded files
@@ -403,6 +409,12 @@ echo Upgrade=${UPGRADE}>>$LOG_FILE
 
 
 
+### ============================================================
+### DATABASE EXISTENCE CHECK
+### Determines which install path to take:
+###   - DB already exists  → WAR-upgrade-only path (restart Tomcat and exit)
+###   - DB does not exist  → Proceed with full install or OSCAR 19 migration
+### ============================================================
 echo  "see if the database exists before proceeding!!"  >>$LOG_FILE
 result=$($MYSQL -e "SHOW DATABASES LIKE '${db_name}';")
 if [ -z "$result" ]; then 
@@ -456,6 +468,13 @@ fi
 
 echo  Created the Oscar database ${db_name} >>$LOG_FILE
 
+### ============================================================
+### SECTION: OSCAR 19 TO CARLOS MIGRATION (MAJOR SCHEMA UPGRADE)
+### Triggered when: UPGRADE=true AND the target database was just created.
+### This means an existing OSCAR 19 installation was detected by the config
+### script (oscar.properties existed, carlos.properties did NOT), and the
+### old schema tables are being copied into the new database then patched.
+### ============================================================
 if [ "${UPGRADE}" = "true" ] ; then
 
 	# Major version upgrade section
@@ -505,6 +524,13 @@ if [ "${UPGRADE}" = "true" ] ; then
 	echo Upgraded ${priorschema} to ${db_name}>>$LOG_FILE
 
 else
+	### ============================================================
+	### SECTION: NEW INSTALL
+	### Triggered when: UPGRADE=false AND the target database did not exist.
+	### This is a first-time installation of CARLOS EMR with no prior OSCAR.
+	### Populates the database with fresh regional data (BC or ON) and
+	### generates unique initial admin credentials for the 'carlos' user.
+	### ============================================================
 	# New Install Section doesn't seem to fully expand so lets leave to the end
         ## ncecho " [x] Expanding War files"
         ## service ${TOMCAT} restart >> $LOG_FILE 2>&1 &
@@ -590,7 +616,25 @@ else
     ## take the top 30 characters from dev/urandom, uencode it
     SECRET=$(head -c 30 /dev/urandom | base32)
     $MYSQL ${db_name} -e "UPDATE security SET totp_secret='${SECRET}' WHERE user_name='oscardoc' LIMIT 1;"
-	
+
+    echo "Generating random initial credentials for 'carlos' admin user" >> $LOG_FILE
+    # Generate a password meeting CARLOS default requirements:
+    #   - min 8 characters, with uppercase, lowercase, digit, and special character
+    # Password is stored as plaintext here.
+    # CARLOS will bcrypt-hash it automatically on first successful login.
+    UPPER2=$(head -c 32 /dev/urandom | base64 | tr -dc 'ABCDEFGHJKLMNPQRSTUVWXYZ' | head -c 2)
+    LOWER4=$(head -c 32 /dev/urandom | base64 | tr -dc 'abcdefghjkmnpqrstuvwxyz' | head -c 4)
+    DIGIT2=$(head -c 16 /dev/urandom | od -An -tu1 | tr -dc '0-9' | head -c 2)
+    CARLOS_PASS="${UPPER2}${LOWER4}${DIGIT2}!"
+    # Generate a random 4-digit PIN
+    CARLOS_PIN=$(printf '%04d' $(( $(od -An -N2 -tu2 < /dev/urandom | tr -d ' ') % 10000 )))
+    # Insert 'carlos' user into the security table, copying provider_no and lock settings
+    # from the existing 'oscardoc' account so privileges are the same.
+    # Account expires in 1 month (b_ExpireSet=1, date_ExpireDate = now + 1 month)
+    # and requires a password change at first login (forcePasswordReset=1).
+    $MYSQL ${db_name} -e "INSERT INTO security (user_name, password, provider_no, pin, b_ExpireSet, date_ExpireDate, b_LocalLockSet, b_RemoteLockSet, forcePasswordReset, lastUpdateDate, lastUpdateUser) SELECT 'carlos', '${CARLOS_PASS}', provider_no, '${CARLOS_PIN}', 1, DATE_ADD(CURDATE(), INTERVAL 1 MONTH), b_LocalLockSet, b_RemoteLockSet, 1, NOW(), 'system' FROM security WHERE user_name='oscardoc' LIMIT 1;" 2>>$LOG_FILE
+    ncecho " [x] Created initial carlos admin user in security table "
+
 	echo "probing for Java" >>$LOG_FILE
 
     # About Java
@@ -947,9 +991,15 @@ else
 			cecho "Login at http://localhost:8080/${PROGRAM}"
 			cecho "Please configure Tomcat for SSL connections"
 		fi
-		cecho "Your username is oscardoc"
-		cecho "Initial password mac2002"
-		cecho "second level password (pin) 1117"
+		if [ -n "${CARLOS_PASS}" ] ; then
+			cecho "--- Initial CARLOS admin credentials ---"
+			cecho "Username:                 carlos"
+			cecho "Password:                 ${CARLOS_PASS}"
+			cecho "PIN (second-level password): ${CARLOS_PIN}"
+			cecho "IMPORTANT: These credentials expire in 1 month."
+			cecho "IMPORTANT: You will be required to change the password at first login."
+			cecho "IMPORTANT: Store these credentials securely now - they will not be shown again."
+		fi
 	fi
 fi
 

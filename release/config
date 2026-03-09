@@ -338,6 +338,13 @@ STATE=$RET
 echo "Chosen region =${STATE}" 1>> $LOG_FILE
 
 
+### ============================================================
+### UPGRADE DETECTION: Check for a prior OSCAR 19 installation
+### Test: oscar.properties exists in Tomcat home directory
+### If found: UPGRADE=true, which triggers the OSCAR→CARLOS migration path
+###           in postinst (tables are copied from the old schema).
+### If NOT found: UPGRADE=false, new install path proceeds below.
+### ============================================================
 echo "Checking for OSCAR to CARLOS Upgrade possibility" >>$LOG_FILE
 if [ -f "/usr/share/${TOMCAT}/oscar.properties" ] ; then
 	echo "Previous OSCAR Installation Detected" >> $LOG_FILE
@@ -346,6 +353,12 @@ if [ -f "/usr/share/${TOMCAT}/oscar.properties" ] ; then
 fi
 
 
+### ============================================================
+### SECTION: NEW INSTALL
+### Triggered when: No prior oscar.properties found (UPGRADE=false).
+### Prompts the installer for database password, billing region,
+### demo data preference, and other first-time installation options.
+### ============================================================
 if [ "${UPGRADE}" = "false" ] ; then
 echo "For a new install from console so probe for some settings" >>$LOG_FILE
 	db_set carlos-emr/upgrade false
@@ -439,12 +452,29 @@ if [ "${triumvirate}" = "true" ] ; then
 
 fi
 MIGRATE="false"
+### ============================================================
+### SECTION: UPGRADE PATH (UPGRADE=true — oscar.properties was found)
+### Three possible sub-cases handled here:
+###
+###   (a) PRIOR CARLOS UPDATE — carlos.properties EXISTS:
+###       Test: /usr/share/tomcatX/carlos.properties exists
+###       Action: Read existing DB credentials, verify schema is current, exit.
+###       The postinst will handle minor patches if the build tag has changed.
+###
+###   (b) OSCAR 19 TO CARLOS MIGRATION — oscar.properties EXISTS, carlos.properties does NOT:
+###       Test: oscar.properties exists; carlos.properties does not
+###       Action: Set MIGRATE=true; read DB credentials from oscar.properties.
+###       The postinst will copy the OSCAR database tables into the new schema.
+###
+###   (c) ERROR STATE — Neither found:
+###       Config cannot determine the installation state; exit with error.
+### ============================================================
 if [ "${UPGRADE}" = "true" ] ; then
 	db_set carlos-emr/upgrade true  || true
 
 	echo "check to see if minor upgrade of the CARLOS war is all that is necessary" >>$LOG_FILE
-	if [ -f "${C_HOME}${PROGRAM}.properties" ] ; then 
-    # just updating an existing CARLOS war
+	if [ -f "${C_HOME}${PROGRAM}.properties" ] ; then
+    # (a) PRIOR CARLOS UPDATE: just updating an existing CARLOS war
 		echo "grep the password from the properties file" >> $LOG_FILE
 		db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
 		echo "grep the previous db_name from the properties file" >> $LOG_FILE
@@ -462,11 +492,13 @@ if [ "${UPGRADE}" = "true" ] ; then
 			exit 0
 		else
       if [ -f "${C_HOME}oscar.properties" ] ; then
-        # no CARLOS but an OSCAR woot!
+        # (b) OSCAR 19 TO CARLOS MIGRATION: oscar.properties exists but carlos.properties does not.
+        # Set MIGRATE=true so postinst knows to copy tables from the OSCAR database schema.
         MIGRATE="true"
       else
+        # (c) ERROR STATE: neither carlos.properties nor oscar.properties found.
         echo "The installer can neither find a deb installed OSCAR_19 nor CARLOS and cannot be deb updated so exiting config" 1>> $LOG_FILE
-  			exit 1	
+  			exit 1
       fi
 		fi
 
