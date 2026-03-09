@@ -469,7 +469,10 @@ function doDate() {
 void [
 	cfg_isrc, cfg_bstyle, cfg_boutstyle, cfg_sepstyle,
 	insertEditControl, exprompt, Select, loadTemplate,
-	parseText, block, doTime, doDate
+	parseText, block, doTime, doDate,
+	doTable, doExport, doEdit, doBreak,
+	viewsource, usecss, popup,
+	printKey, submitFaxButton
 ];
 
 function doTable() {
