@@ -1,0 +1,13 @@
+oscarprogram (yyy-x.x) RELEASED
+
+Release of oscar-emr  
+build xxx
+
+To conserve bandwidth this deb does not contain the source.  
+The source is however made available to any who need it.  
+To obtain the source for this particular build issue the following commands
+
+git clone https://bitbucket.org/oscaremr/oscar/branches/stable
+cd stable
+git checkout SHA1
+
