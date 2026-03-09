@@ -575,7 +575,7 @@ function popup(location) {
 	
 function gup(name, url) {
 	if (url == null) { url = window.location.href; }
-	name = name.replace(/\[/g,"\\[").replace(/\]/g,"\\]");
+	name = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	var regexS = "[\\?&]"+name+"=([^&#]*)";
 	var regex = new RegExp(regexS);
 	var results = regex.exec(url);
