@@ -1,6 +1,6 @@
 #!/bin/bash
 # postinst
-# a script file for OSCAR that installs and tweaks the necessary files
+# a script file for CARLOS EMR that installs and tweaks the necessary files
 #===================================================================
 # Copyright Peter Hutten-Czapski 2012-2021 released under the GPL v2
 # v 19.16
@@ -192,7 +192,7 @@ if [ -d /etc/apparmor.d/  ] ; then
         echo wkhtmltopdf executable in usr local bin exists >> $LOG_FILE
         if [ ! -f /etc/apparmor.d/usr.local.bin.wkhtmltopdf ] ; then
 	        ncecho " [x] Creating an apparmor profile for wkhtmltopdf " 
-	        cp /usr/share/oscar-emr/usr.local.bin.wkhtmltopdf /etc/apparmor.d/usr.local.bin.wkhtmltopdf 2>>$LOG_FILE 
+	        cp /usr/share/carlos-emr/usr.local.bin.wkhtmltopdf /etc/apparmor.d/usr.local.bin.wkhtmltopdf 2>>$LOG_FILE
 	        service apparmor reload  2>>$LOG_FILE &
 	        pid=$!;progress $pid  
 	else
@@ -204,7 +204,7 @@ if [ -d /etc/apparmor.d/  ] ; then
         echo wkhtmltopdf executable exists in usr bin >> $LOG_FILE
         if [ ! -f /etc/apparmor.d/usr.bin.wkhtmltopdf ] ; then
 	        ncecho " [x] Creating an apparmor profile for wkhtmltopdf " 
-	        cp /usr/share/oscar-emr/usr.bin.wkhtmltopdf /etc/apparmor.d/usr.bin.wkhtmltopdf 2>>$LOG_FILE 
+	        cp /usr/share/carlos-emr/usr.bin.wkhtmltopdf /etc/apparmor.d/usr.bin.wkhtmltopdf 2>>$LOG_FILE
 	        service apparmor reload  2>>$LOG_FILE &
 	        pid=$!;progress $pid  
 	else
@@ -278,8 +278,8 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
     # itself on startup.  No drugref.sql is bundled with this package; no action needed here.
 
 
-    GEOIP2=$(curl --silent -f http://ip-api.com/csv/ |  tr -d '"')
-    STATE=$(echo $GEOIP2 | awk -F "," '{print $4;}')
+    GEOIP2=$(curl --silent -f --connect-timeout 5 --max-time 10 http://ip-api.com/csv/ | tr -d '"') || true
+    STATE=$(echo "$GEOIP2" | awk -F "," '{print $4;}')
 
     echo STATE=${STATE} >>$LOG_FILE
 
@@ -375,7 +375,7 @@ ncecho " [x] Determining locale "
 #STATE=$(echo $GEOIP | awk -F "," '{print $4;}')
 #LOCALITY=$(echo $GEOIP | awk -F "," '{print $6;}')
 
-GEOIP2=$(curl --silent -f http://ip-api.com/csv/ |  tr -d '"')
+GEOIP2=$(curl --silent -f --connect-timeout 5 --max-time 10 http://ip-api.com/csv/ | tr -d '"') || true
 echo GEOIP2=$GEOIP2 >>$LOG_FILE
 IP=$(echo $GEOIP2 | awk -F "," '{print $14;}')
 COUNTRY=$(echo $GEOIP2 | awk -F "," '{print $3;}')
@@ -815,7 +815,7 @@ fi
 	echo "db_url=jdbc:mysql://127.0.0.1:3306/drugref" >> drugref.tmp 2>>$LOG_FILE
 	echo "db_driver=com.mysql.jdbc.Driver" >> drugref.tmp 2>>$LOG_FILE
 	echo "sort_down_mfg_tagged_generics=true" >> drugref.tmp 2>>$LOG_FILE
-	echo "interaction_base_url=https://download.oscar-emr.com/ws/rs/accounts" >> drugref.tmp 2>>$LOG_FILE
+	echo "interaction_base_url=https://download.carlos-emr.com/ws/rs/accounts" >> drugref.tmp 2>>$LOG_FILE
 	echo "scheduled_timer=300000" >> drugref.tmp 2>>$LOG_FILE
 	mv drugref.tmp ${C_HOME}drugref2.properties 2>>$LOG_FILE &
 	pid=$!;progress $pid
@@ -872,9 +872,9 @@ if [ "${COUNTRY}" = CA ] ; then
 		pid=$!;progress $pid 
         ncecho " [x] Installing HRM xml files " 
 		echo "Installing current hospital report manager files"  >>$LOG_FILE
-		unzip -j ${C_BASE}/webapps/oscar.war  hospitalReportManager/OMD/report_manager_cds.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE
-		unzip -j ${C_BASE}/webapps/oscar.war  hospitalReportManager/OMD/report_manager_dt.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE
-		unzip -j ${C_BASE}/webapps/oscar.war  hospitalReportManager/OMD/ontariomd_cds_dt.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE &
+		unzip -j ${C_BASE}/webapps/${PROGRAM}.war  hospitalReportManager/OMD/report_manager_cds.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE
+		unzip -j ${C_BASE}/webapps/${PROGRAM}.war  hospitalReportManager/OMD/report_manager_dt.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE
+		unzip -j ${C_BASE}/webapps/${PROGRAM}.war  hospitalReportManager/OMD/ontariomd_cds_dt.xsd -d  ${SRC}OscarDocument/${PROGRAM}/hrm/OMD 1>>$LOG_FILE &
 		pid=$!;progress $pid
 	    ncecho " [x] Installing Ontario Rourke eForm under licence "
 	    $MYSQL ${db_name} < ${SRC}RourkeEform.sql 2>>$LOG_FILE &

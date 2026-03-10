@@ -28,7 +28,7 @@ installation some short cuts were taken.
 	that give you additional functionality are optional and 
 	separately configured.
   3) The installation scripts have made a few assumptions about who you are 
-	and how you want to use OSCAR.
+	and how you want to use CARLOS EMR.
 
 CARLOS system configuration CAN be done by the enterprising user.  However
 if you are a physician and you are intending to use CARLOS EMR
@@ -45,11 +45,11 @@ it for you and train you and your staff.
  =======
  We have installed drugref, our opensource drug database, with a current
  list of medications from Health Canada. When the list of meds starts feeling
- stale you can update from within OSCAR through an Admin link
+ stale you can update from within CARLOS EMR through an Admin link
 
  ROURKE 
  ======
- While OSCAR is open source software, some other components
+ While CARLOS EMR is open source software, some other components
  such as the Rourke Baby Form, when installed, 
  are included under licence from the copyright holder.
  

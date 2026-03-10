@@ -1,6 +1,6 @@
 #!/bin/sh
 # postrm
-# a script file for OSCAR that uninstalls and tweaks the necessary files
+# a script file for CARLOS EMR that uninstalls and tweaks the necessary files
 #=================================================================
 # Copyright Peter Hutten-Czapski 2012-20 released under the GPL v2
 # v 19.11
@@ -201,7 +201,7 @@ case "$1" in
 	    rm -f -r ${SRC}/OscarDocument/oscar/hrm/OMD/*.*
     fi 
 
-    # delete all OscarDocuments and files in /usr/share/oscar-emr
+    # delete all OscarDocuments and files in /usr/share/carlos-emr
     if [ -d "${SRC}" ]; then
 	    echo "Deleting ${SRC}"
 	    rm -R ${SRC}
@@ -209,7 +209,7 @@ case "$1" in
 
     # clearing these debconf settings is not possible while running the deb as it locks the database
     echo "*** To clear the stored mysql password run ***"
-    echo "echo PURGE | sudo debconf-communicate oscar-emr"
+    echo "echo PURGE | sudo debconf-communicate carlos-emr"
 
     ;;
 
