@@ -224,7 +224,9 @@ Varicella Immunoglobulin	VarIg
 
 	<item 
 		resultDesc=""
-		desc="Flu=influenza vaccine" name="Flu" healthCanadaType="Inf"
+		desc="Flu=influenza vaccine" 
+    displayName="Flu"
+    name="Inf" healthCanadaType="Inf"
 		link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#Flu"
 		layout="injection" atc="J07BB01" minAge="0" />
 
