@@ -16,30 +16,36 @@
 
 # --- Script Constants
 
-TOMCAT=$(ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{ print $1 }')
+# Derive Tomcat package name from the running process command (not the process owner)
+_TOMCAT_CMD=$(ps aux | grep org.apache.catalina.startup.Bootstrap | grep -v grep | awk '{print $11}')
+if echo "$_TOMCAT_CMD" | grep -q 'tomcat9'; then
+    TOMCAT=tomcat9
+elif echo "$_TOMCAT_CMD" | grep -q 'tomcat8'; then
+    TOMCAT=tomcat8
+elif echo "$_TOMCAT_CMD" | grep -q 'tomcat7'; then
+    TOMCAT=tomcat7
+fi
+
+# Fall back to installed-version checks if process detection did not yield a name
 if [ -z "$TOMCAT" ]; then
-    #Tomcat is not running, find the highest installed version
-    if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-            TOMCAT=tomcat9
-        else
-        if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-            TOMCAT=tomcat8
-            else
-            if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
-                TOMCAT=tomcat7
-            fi
-        fi
+    if [ -f /usr/share/tomcat9/bin/version.sh ]; then
+        TOMCAT=tomcat9
+    elif [ -f /usr/share/tomcat8/bin/version.sh ]; then
+        TOMCAT=tomcat8
+    elif [ -f /usr/share/tomcat7/bin/version.sh ]; then
+        TOMCAT=tomcat7
     fi
 fi
 
 TMP=/tmp/${TOMCAT}-${TOMCAT}-tmp
-data_path=/usr/share/oscar-emr
-PROGRAM=oscar
+data_path=/var/lib/carlos-emr
+PROGRAM=carlos
 LOG_FILE=${data_path}/${PROGRAM}.log
 LOG_ERR=${data_path}/${PROGRAM}.err
 C_HOME=/usr/share/${TOMCAT}/
-DOCS=${data_path}/OscarDocument/
+DOCS=${data_path}/OscarDocument/${PROGRAM}/
 SCRIPT_FILE=$(basename "$0")
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
 LOCKDIR=/tmp/${SCRIPT_FILE}.lock
 
 
@@ -64,7 +70,7 @@ if [ -f ${C_HOME}${PROGRAM}.properties ] ; then
 	echo "grep the password from the properties file"
 	db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 	echo "grep the db_name from the properties file"
-	db_name=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_name'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+	db_name=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_name'  | tail -n 1 | cut -d "=" -f2- | cut -d "?" -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 fi
 
 # DB_PASSWORD is derived from the properties file above.
@@ -85,7 +91,7 @@ export DB_PASSWORD="${db_password}"
 # --- prevent *.enc to be run through if there are no files in the directory
 shopt -s nullglob
 
-for f in *.tar.gz.enc
+for f in "${SCRIPT_DIR}"/*.tar.gz.enc
 do
 	echo "Decrypting file - $f"
         openssl enc -d -aes-256-cbc -salt -in "$f" -out "${f%%.*}" -pass env:DB_PASSWORD
@@ -101,12 +107,12 @@ echo "Changing directories to ${DOCS}"
 # --- thats where all the files have been extracted including the OscarBackup.sql
 cd "${DOCS}" || { echo "Failed to change to ${DOCS}" >&2; exit 1; }
 
-if [ -f OscarBackup.sql.gz ] ; then
-	gunzip OscarBackup.sql.gz
+if [ -f CarlosBackup.sql.gz ] ; then
+	gunzip CarlosBackup.sql.gz
 	echo "Loading backup database into mysql... you might have time for a coffee"
-	MYSQL_PWD="${db_password}" mysql -uroot ${db_name} < OscarBackup.sql
-	echo "Cleanup, deleting OscarBackup.sql... its huge"
-	rm OscarBackup.sql
+	MYSQL_PWD="${db_password}" mysql -uroot ${db_name} < CarlosBackup.sql
+	echo "Cleanup, deleting CarlosBackup.sql... its huge"
+	rm CarlosBackup.sql
 else
 	echo "Failed, unable to find the Backup sql"
 
