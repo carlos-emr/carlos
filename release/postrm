@@ -38,7 +38,7 @@ if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
 C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
 SRC=/usr/share/${PACKAGE}/
-db_password=liyi
+db_password=""
 DOCS=${SRC}/OscarDocument/
 
 LOG_FILE=${SRC}Oscar${VERSION}install.log
@@ -76,16 +76,20 @@ case "$1" in
 
         # delete patient data!!
         # SANITY CHECK FOR PRODUCTION PURGE
-        patientCount=$( MYSQL_PWD="${db_password}" mysql -u root oscar_15 -s -e "SELECT COUNT(*) FROM demographic;")
-        if [ "${patientCount}" -gt "3" ]; then
-                # the demo sql installs 2 patients purging that is not an issue
-                echo "Purging will delete YOUR data and settings"
-                echo "Do you REALLY want to delete ALL the data on ${patientCount} patients? " 
-                echo "*** LAST CHANCE TO HIT [CTRL] + [C] to abort ***"
-                countdown "00:00:20"
+        if [ -n "${db_password}" ]; then
+            patientCount=$( MYSQL_PWD="${db_password}" mysql -u root oscar_15 -s -e "SELECT COUNT(*) FROM demographic;" 2>/dev/null)
+            if [ "${patientCount}" -gt "3" ]; then
+                    # the demo sql installs 2 patients purging that is not an issue
+                    echo "Purging will delete YOUR data and settings"
+                    echo "Do you REALLY want to delete ALL the data on ${patientCount} patients? "
+                    echo "*** LAST CHANCE TO HIT [CTRL] + [C] to abort ***"
+                    countdown "00:00:20"
+            fi
+        else
+            echo "db_password not available; skipping patient count check" >>$LOG_FILE
         fi
         # drugref already removed by prerm
-   fi          
+   fi
         
     echo "Now proceeding with Purge"
     #delete 7 potential symlinks test for link file with -L (or -e as long as the link is not broken)
@@ -160,9 +164,13 @@ case "$1" in
         systemctl daemon-reload
     fi  
 
-    # remove property files and the oscar schema      
+    # remove property files and the oscar schema
     echo "Dropping ${db_name}"
-    MYSQL_PWD="${db_password}" mysql -u root --execute="drop database if exists oscar_15;"  2>>$LOG_FILE
+    if [ -n "${db_password}" ]; then
+        MYSQL_PWD="${db_password}" mysql -u root --execute="drop database if exists oscar_15;" 2>>$LOG_FILE
+    else
+        echo "db_password not available; skipping database drop — remove ${db_name} manually if needed" | tee -a $LOG_FILE
+    fi
     if [ -e "${C_HOME}${PROGRAM}.properties" ]; then
         echo "Deleting ${PROGRAM}.properties"
         rm -f ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE

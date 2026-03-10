@@ -139,7 +139,7 @@ case "$1" in
     configure)
 
 
-db_get oscar-emr/upgrade
+db_get carlos-emr/upgrade
 UPGRADE=$RET
 echo upgrade = ${UPGRADE}  >>$LOG_FILE
 
@@ -149,8 +149,8 @@ if [ -f "${C_HOME}${PROGRAM}.properties" ]; then
 	db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
 	db_username=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_username'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
 else
-	echo "Oops can't find ${C_HOME}${PROGRAM}.properties" >> ${LOG_FILE} ; 
-    db_get oscar-emr/password
+	echo "Oops can't find ${C_HOME}${PROGRAM}.properties" >> ${LOG_FILE} ;
+    db_get carlos-emr/password
     db_password=$RET
 fi
 
@@ -167,14 +167,20 @@ pid=$!;progress $pid
 
 echo "grep the build from the properties file" >> $LOG_FILE
 #  drop lines that start with a comment,
-#  then grep the property, just take the last instance of that, 
+#  then grep the property (accept both 'build-tag' and 'buildtag'), take the last instance,
 #  on the = delimiter, and trim whitespace to get lastbuild
-lastbuild=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'buildtag'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+lastbuild=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep -E 'build-tag|buildtag'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
 echo Build ${lastbuild} found in ${PROGRAM}.properties >> $LOG_FILE
 # 15.73~700
-lastdeb=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'buildtag'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/~.*//') 2>>$LOG_FILE
+lastdeb=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep -E 'build-tag|buildtag'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/~.*//') 2>>$LOG_FILE
 echo Last deb ${lastdeb} found in ${PROGRAM}.properties >> $LOG_FILE
 # 15.73
+# On fresh installs the properties file won't have a build tag yet - fallback to lastdeb value
+# so the build-tag gate treats this as a non-upgrade and proceeds to the new-install path
+if [ -z "${lastbuild}" ] ; then
+    lastbuild="${lastdeb}"
+    echo "lastbuild was empty (fresh install); defaulting lastbuild=${lastbuild}" >> $LOG_FILE
+fi
 
 ## probe to see if apparmor and wkhtmlto pdf are installed
 ## .. and that there is NOT a usr.local.bin.wkhtmltopdf profile installed
@@ -333,19 +339,19 @@ fi
 echo "Full version install or upgrade detected" >> $LOG_FILE
 
 
-db_get oscar-emr/demo
+db_get carlos-emr/demo
 DEMO=$RET
 echo DEMO=${DEMO}  >>$LOG_FILE
 
-db_get oscar-emr/billregion 
+db_get carlos-emr/billregion
 billregion=$RET
 echo billregion=${billregion}  >>$LOG_FILE
 
-db_get oscar-emr/priorschema 
+db_get carlos-emr/priorschema
 priorschema=$RET
 echo priorschema=${priorschema}  >>$LOG_FILE
 
-db_get oscar-emr/triumvirate
+db_get carlos-emr/triumvirate
 triumvirate=$RET
 
 
@@ -462,47 +468,13 @@ echo  Created the Oscar database ${db_name} >>$LOG_FILE
 ### ============================================================
 if [ "${UPGRADE}" = "true" ] ; then
 
-	# Major version upgrade section
- 
-	# the following is faster than using mysqldump
-	ncecho " [x] Copying the current structure ${priorschema} to ${db_name} "
-	for table in `$MYSQL -B -N -e "SHOW TABLES" $OLDDB`
-	do
-		$MYSQL -e "RENAME TABLE \`$priorschema\`.\`$table\` to \`$db_name\`.\`$table\`"
-	done 2>>$LOG_FILE &
- 	pid=$!;progress $pid
+	# OSCAR 19 to CARLOS migration: apply the 019toCARLOS.sql patch to bring the
+	# existing oscar_15 schema up to the CARLOS baseline.  The priorschema table-rename
+	# and multi-step oscar_12/10 upgrade chains have been removed; the 019toCARLOS patch
+	# is the only supported migration path.
 	ncecho " [x] Have new tables in ${db_name} default to utf8 "
 	$MYSQL -e "ALTER DATABASE \`$db_name\` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci"  2>>$LOG_FILE &
 
-	# While if the above works the priorschema will be empty
-	# You *might not* want to uncoment line below since
-	# in case of problems there will be some remaining tables
-	#mysql -e "DROP DATABASE \`$priorschema\`;"
-
-	##ncecho " [x] Adding OLIS "
-	##$MYSQL ${db_name} < ${SRC}OLIS.sql 2>>$LOG_FILE &
-	##pid=$!;progress $pid
-
-	ncecho " [x] Updating the old schema into the new "
-	if [ "${priorschema}" = "oscar_12_1" ] ; then
-		$MYSQL ${db_name} < ${SRC}oscar_12_1_to_oscar_12_1_1.sql 2>&1 >$LOG_FILE
-		$MYSQL ${db_name} < ${SRC}oscar_12_1_1_to_oscar_15.sql 2>&1 >$LOG_FILE
-	else
-		if [ "${priorschema}" = "oscar_12" ] ; then
-			$MYSQL ${db_name} < ${SRC}oscar_12_to_oscar_12_1.sql 2>&1 >$LOG_FILE
-			$MYSQL ${db_name} < ${SRC}oscar_12_1_to_oscar_12_1_1.sql 2>&1 >$LOG_FILE
-			$MYSQL ${db_name} < ${SRC}oscar_12_1_1_to_oscar_15.sql 2>&1 >$LOG_FILE
-		else
-			if  [ "${priorschema}" = "oscar_10_12" ] ; then
-				$MYSQL ${db_name} < ${SRC}oscar10_12_to_Oscar11.sql 2>&1 >$LOG_FILE
-				$MYSQL ${db_name} < ${SRC}Oscar11_to_oscar_12.sql 2>&1 >$LOG_FILE
-				$MYSQL ${db_name} < ${SRC}oscar_12_to_oscar_12_1.sql 2>&1 >$LOG_FILE
-				$MYSQL ${db_name} < ${SRC}oscar_12_1_to_oscar_12_1_1.sql 2>&1 >$LOG_FILE
-				$MYSQL ${db_name} < ${SRC}oscar_12_1_1_to_oscar_15.sql 2>&1 >$LOG_FILE
-			fi
-		fi
-	fi
-	pid=$!;progress $pid
 	ncecho " [x] Patching database to latest schema "
 	$MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>&1 >$LOG_FILE &
 	pid=$!;progress $pid
@@ -528,16 +500,18 @@ else
 	ncecho " [x] Generating oscar_15 schema from database scripts "
 	if [ "${billregion}" = "BC" ] ; then
 		echo "Running createdatabase_bc.sh for BC province" >>$LOG_FILE
-		# createdatabase_bc.sh [mysql_user] [mysql_password] [database_name]
+		# createdatabase_bc.sh [mysql_user] [database_name]
+		# Password is passed via MYSQL_PWD environment variable (not on command line).
 		# The helper calls createdatabase_generic.sh with province=bc and ICD version 9.
-		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_bc.sh root "${db_password}" "${db_name}") >>$LOG_FILE 2>>$LOG_FILE
+		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_bc.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE
 		echo "Populated ${db_name} with BC province schema" >>$LOG_FILE
 	else
 		echo "Running createdatabase_on.sh for ON province" >>$LOG_FILE
-		# createdatabase_on.sh [mysql_user] [mysql_password] [database_name]
+		# createdatabase_on.sh [mysql_user] [database_name]
+		# Password is passed via MYSQL_PWD environment variable (not on command line).
 		# The helper calls createdatabase_generic.sh with province=on and ICD version 9.
 		# It also loads olis/olisinit.sql for Ontario Laboratory Information System tables.
-		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_on.sh root "${db_password}" "${db_name}") >>$LOG_FILE 2>>$LOG_FILE
+		(cd "${SCHEMA_DIR}" && MYSQL_PWD="${db_password}" bash createdatabase_on.sh root "${db_name}") >>$LOG_FILE 2>>$LOG_FILE
 		echo "Populated ${db_name} with ON province schema" >>$LOG_FILE
 
 		ncecho " [x] Populating database with OLIS data "
@@ -764,7 +738,7 @@ else
 					echo "# Copyright Peter Hutten-Czapski 2018-2024 #"  >> ${SRC}letsencrypt.cron
 					echo "#"  >> ${SRC}letsencrypt.cron
 					echo "# stop Tomcat only if a new certificate is being installed"  >> ${SRC}letsencrypt.cron
-					echo 'certbot renew --pre-hook "service ${TOMCAT} stop" ' >> ${SRC}letsencrypt.cron 
+					echo "certbot renew --pre-hook \"service ${TOMCAT} stop\"" >> ${SRC}letsencrypt.cron
 					echo "cp /etc/letsencrypt/live/${FQDN}/privkey.pem /etc/${TOMCAT}/" >> ${SRC}letsencrypt.cron 
 					echo "cp /etc/letsencrypt/live/${FQDN}/cert.pem /etc/${TOMCAT}/" >> ${SRC}letsencrypt.cron 
 					echo "cp /etc/letsencrypt/live/${FQDN}/chain.pem /etc/${TOMCAT}/" >> ${SRC}letsencrypt.cron 
@@ -950,8 +924,7 @@ fi
 
 
 
-# TO DO need to fix this so that errors will cause this to trip
-if [ "$?" = -1 ] ; then
+if [ "$?" -ne 0 ] ; then
 	echo "Install Aborted."  >>$LOG_FILE
 	fail
 else
