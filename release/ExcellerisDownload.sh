@@ -151,30 +151,27 @@ if [[ $result != "<Authentication>AccessGranted</Authentication>" ]]
 fi
 
 echo -n "Step 2: Query results"
-# pull results and save to file
-# Use if/then to preserve error handling even with set -e
-status_code=0
-if ! curl -s -S -G -L -A "$USER_AGENT" --output "$OUTPUTFILE" --cookie "$COOKIEFILE" --data "$PULLXMLPARAMS" --cert-type P12 --cert "$CERTFILE" "$HL7URLPATH"; then
-    status_code=$?
-fi
+# pull results and save to file; capture exit code immediately after curl
+curl -s -S -G -L -A "$USER_AGENT" --output "$OUTPUTFILE" --cookie "$COOKIEFILE" --data "$PULLXMLPARAMS" --cert-type P12 --cert "$CERTFILE" "$HL7URLPATH"
+status_code=$?
 filecheck="1"
-if [ ${status_code} != "0" ] || [ ! -s ${OUTPUTFILE} ] ; then
+if [ ${status_code} != "0" ] || [ ! -s "${OUTPUTFILE}" ] ; then
 	echo "... Download failed"
     ACKHL7PULLPARAMS=$ACKHL7PULLPARAMS"Negative"
 else
-    ACKHL7PULLPARAMS=$ACKHL7PULLPARAMS"Positive"
-    filecheck="0"
-fi
-
-# If no Reports the file will have empty <HL7Messages/>
-# otherwise <HL7Messages MessageFormat="HL7" MessageCount="5" Version="2.3"><Message MsgID="1"><![CDATA[MSH...
-TMP=$(head -1 $OUTPUTFILE )
-if [ "${TMP}" == "<?xml version='1.0' encoding='UTF-8'?> <HL7Messages/>" ] ; then
-    echo "... No Reports to Download"
-    filecheck="1"
-    rm $OUTPUTFILE
-else
-    echo "... Downloaded Reports to ${OUTPUTFILE} "
+    # Validate HL7 payload: a successful pull contains <HL7Messages> with a <Message> element.
+    # An empty pull returns <HL7Messages/> or <HL7Messages MessageCount="0"/>.
+    # otherwise <HL7Messages MessageFormat="HL7" MessageCount="5" Version="2.3"><Message MsgID="1"><![CDATA[MSH...
+    TMP=$(head -1 "$OUTPUTFILE")
+    if echo "${TMP}" | grep -q '<Message '; then
+        echo "... Downloaded Reports to ${OUTPUTFILE}"
+        ACKHL7PULLPARAMS=$ACKHL7PULLPARAMS"Positive"
+        filecheck="0"
+    else
+        echo "... No Reports to Download"
+        ACKHL7PULLPARAMS=$ACKHL7PULLPARAMS"Negative"
+        rm -f "$OUTPUTFILE"
+    fi
 fi
 
 # else copy to file to be picked up and imported

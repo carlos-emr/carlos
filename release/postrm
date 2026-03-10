@@ -153,11 +153,23 @@ case "$1" in
 	if [ -e "/etc/${TOMCAT}/.keystore" ]; then
 	    echo "Deleting tomcat keystore"
         rm -f /etc/${TOMCAT}/.keystore  2>>$LOG_FILE
-    fi 
+    fi
     	if [ -e "/etc/${TOMCAT}/cert.pem" ]; then
 	    echo "Deleting certificate"
         rm -f /etc/${TOMCAT}/cert.pem  2>>$LOG_FILE
-    fi 
+    fi
+	if [ -e "/etc/${TOMCAT}/privkey.pem" ]; then
+	    echo "Deleting private key"
+        rm -f /etc/${TOMCAT}/privkey.pem  2>>$LOG_FILE
+    fi
+	if [ -e "/etc/${TOMCAT}/chain.pem" ]; then
+	    echo "Deleting certificate chain"
+        rm -f /etc/${TOMCAT}/chain.pem  2>>$LOG_FILE
+    fi
+	if [ -e "${SRC}letsencrypt.cron" ]; then
+	    echo "Deleting letsencrypt cron job"
+        rm -f "${SRC}letsencrypt.cron"  2>>$LOG_FILE
+    fi
         if [ -f /etc/systemd/system/tomcat9.service.d/override.conf ] ; then
                 echo "Deleting override for tomcat9 systemd"
         rm -f /etc/systemd/system/tomcat9.service.d/override.conf 2>>$LOG_FILE

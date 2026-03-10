@@ -22,19 +22,23 @@ DELETE FROM `casemgmt_issue` WHERE demographic_no IN (@id, @id2);
 DELETE FROM `eChart` WHERE demographicNo IN (@id, @id2);
 DELETE FROM `client_image` WHERE demographic_no IN (@id, @id2);
 
-DELETE FROM `hl7TextInfo` WHERE `requesting_client`="DR. NORMAN BETHUNE";
-DELETE FROM `hl7TextInfo` WHERE `requesting_client`="DR. OSCARDOC";
-DELETE FROM `hl7TextMessage` WHERE `lab_id`<60;
-DELETE FROM `measurements` WHERE `id`<17;
-DELETE FROM `measurementsExt` WHERE `measurement_id`<17;
-DELETE FROM `patientLabRouting` WHERE `lab_no`<60;
-DELETE FROM `providerLabRouting` WHERE `lab_no`<60;
-DELETE FROM `professionalSpecialists` WHERE `fName`="Sam" AND `lName`="Spade";
-DELETE FROM `serviceSpecialists` WHERE `specId` <2;
+-- Guard: only delete low-id demo rows when demo patient records were actually found above.
+-- If @id and @id2 are both NULL this database has no demo data so skip the block.
+SET @has_demo_data = IF(COALESCE(@id, @id2) IS NOT NULL, 1, 0);
+
+DELETE FROM `hl7TextInfo` WHERE `requesting_client`="DR. NORMAN BETHUNE" AND @has_demo_data;
+DELETE FROM `hl7TextInfo` WHERE `requesting_client`="DR. OSCARDOC" AND @has_demo_data;
+DELETE FROM `hl7TextMessage` WHERE `lab_id`<60 AND @has_demo_data;
+DELETE FROM `measurements` WHERE `id`<17 AND @has_demo_data;
+DELETE FROM `measurementsExt` WHERE `measurement_id`<17 AND @has_demo_data;
+DELETE FROM `patientLabRouting` WHERE `lab_no`<60 AND @has_demo_data;
+DELETE FROM `providerLabRouting` WHERE `lab_no`<60 AND @has_demo_data;
+DELETE FROM `professionalSpecialists` WHERE `fName`="Sam" AND `lName`="Spade" AND @has_demo_data;
+DELETE FROM `serviceSpecialists` WHERE `specId` <2 AND @has_demo_data;
 
 -- DELETE FROM `messagelisttbl` WHERE `messagelisttbl`.`id` = 1;
 -- DELETE FROM `messagetbl` WHERE `messagetbl`.`messageid` = 1;
 
 
-DELETE FROM `drugs` WHERE `drugid`=1;
+DELETE FROM `drugs` WHERE `drugid`=1 AND @has_demo_data;
 

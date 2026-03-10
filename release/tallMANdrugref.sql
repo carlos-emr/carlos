@@ -150,20 +150,25 @@ DELETE FROM `cd_drug_search` WHERE `name` LIKE 'ORB-%';
 DELETE FROM `cd_drug_search` WHERE `name` LIKE 'RHOXAL-%';
 DELETE FROM `cd_drug_search` WHERE `name` LIKE 'REDDY-%';
 
+-- Remove duplicate cd_drug_search entries in a single pass.
+-- Preference: keep the row that has a therapeutic-class entry.
+-- Tiebreaker: when both or neither have a therapeutic-class entry, keep the lower-id row.
+-- This handles all four cases (t1 has TC / t2 has TC / both / neither) correctly.
 DELETE t1 FROM `cd_drug_search` t1
-INNER  JOIN `cd_drug_search` t2
+INNER JOIN `cd_drug_search` t2
+    ON t1.name = t2.name AND t1.id != t2.id
+LEFT JOIN `cd_therapeutic_class` tc1
+    ON t1.drug_code = tc1.drug_code
+LEFT JOIN `cd_therapeutic_class` tc2
+    ON t2.drug_code = tc2.drug_code
 WHERE
-    t1.id > t2.id AND
-    t1.name = t2.name AND
-    t2.`drug_code` IN (SELECT `drug_code` FROM `cd_therapeutic_class`);
-
-
-DELETE t1 FROM `cd_drug_search` t1
-INNER  JOIN `cd_drug_search` t2
-WHERE
-    t1.id > t2.id AND
-    t1.name = t2.name AND
-    t1.`drug_code` NOT IN (SELECT `drug_code` FROM `cd_therapeutic_class`);
+    -- t2 has therapeutic class and t1 does not: delete t1
+    (tc2.drug_code IS NOT NULL AND tc1.drug_code IS NULL)
+    OR (
+        -- same therapeutic-class status (both have it or neither does): delete higher-id row
+        (tc1.drug_code IS NULL) = (tc2.drug_code IS NULL)
+        AND t1.id > t2.id
+    );
 
 
 

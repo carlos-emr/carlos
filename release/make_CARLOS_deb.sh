@@ -417,10 +417,15 @@ echo "getting and loading wars"
 # The drugref webapp creates its own schema on first startup — no drugref.sql is needed.
 DRUGREF_WAR="${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/drugref.war"
 curl -o "${DRUGREF_WAR}" https://bitbucket.org/oscaremr/drugref2/downloads/drugref2.48.war
-# Verify SHA256 checksum of drugref.war (update DRUGREF_SHA256 when upgrading drugref version)
-# DRUGREF_SHA256="<sha256_of_drugref2.48.war>"
-# echo "${DRUGREF_SHA256}  ${DRUGREF_WAR}" | sha256sum -c - || { echo "Checksum mismatch for drugref.war"; exit 1; }
-echo "WARNING: drugref.war SHA256 checksum not yet configured. Set DRUGREF_SHA256 and uncomment the sha256sum check above."
+# Verify SHA256 checksum of drugref.war (update DRUGREF_SHA256 when upgrading drugref version).
+# To obtain the hash after downloading: sha256sum "${DRUGREF_WAR}"
+# Then export DRUGREF_SHA256=<hash> before running this script.
+if [ -z "${DRUGREF_SHA256:-}" ]; then
+    echo "ERROR: DRUGREF_SHA256 environment variable must be set to the expected SHA256 of drugref2.48.war." >&2
+    echo "  Run: sha256sum ${DRUGREF_WAR}  to get the value, verify it against a trusted source, then re-run." >&2
+    exit 1
+fi
+echo "${DRUGREF_SHA256}  ${DRUGREF_WAR}" | sha256sum -c - || { echo "Checksum mismatch for drugref.war — aborting build"; exit 1; }
 cp "${REPO_ROOT}/${TARGET}" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/${PROGRAM}.war"
 
 # --- OscarDocument directory skeleton ---

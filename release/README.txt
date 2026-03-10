@@ -9,8 +9,8 @@ If you mitigate those limits it may be suitable as is for a small clinic.
 
 *or*
 
-you can just type https://localhost:8443/oscar and figure it out later
-(this file is stored at /usr/share/oscar-emr/README.txt)
+you can just type https://localhost:8443/carlos and figure it out later
+(this file is stored at /usr/share/carlos-emr/README.txt)
 
 Initial login credentials are generated at installation time.
 Check the installation console output for your credentials.
