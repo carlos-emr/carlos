@@ -887,6 +887,24 @@ rule "MAM debug"
 end
 
 // --------------------------------------------------------------------------
+// AAA: Screening for AAA by u/s (1 rule)
+// Canadian guideline: one time screening for Men ages 65-80
+// Ontario guideline: one time screening for either gender ages 65-80
+// Rule 1: WARNING - AAA screen overdue no AAA screen on record
+// --------------------------------------------------------------------------
+rule "AAA 1"
+    when
+        prev : Prevention()
+        eval( prev.getAgeInYears() >= 65 )
+        eval( prev.getAgeInYears() <= 80 )
+        eval( prev.isMale() )
+        eval( prev.getHowManyMonthsSinceLast("AAA") == -1 )
+    then
+        prev.log("AAA 1 debug");
+        prev.addWarning("AAA", "AAA is overdue for this patient");
+end
+
+// --------------------------------------------------------------------------
 // FOBT / Colonoscopy: Colorectal cancer screening (4 rules)
 // Canadian guideline: FIT/FOBT every 2 years ages 50-74; colonoscopy every 10 years
 // Rule 1: WARNING - FIT overdue (>24mo since FOBT) AND no colonoscopy on record
