@@ -261,8 +261,8 @@ else
                                         echo "Allowing tomcat9 read and write on /var/lib/OscarDocument/ and /tmp/ by override"
                                         systemctl daemon-reload
                                 else
-                               #test to see if entry present already
-                                        if grep -Fq "/usr/share/carlos-emr/" /etc/systemd/system/tomcat9.service.d/override.conf ; then
+                               #test to see if the ReadWritePaths entry is already present
+                                        if grep -Fq "ReadWritePaths=/var/lib/OscarDocument/" /etc/systemd/system/tomcat9.service.d/override.conf ; then
                                                 echo "Tomcat already has an override set, not modified"
                                         else
                                                 sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/var/lib/OscarDocument/' /etc/systemd/system/tomcat9.service.d/override.conf
@@ -315,13 +315,16 @@ fi
 
 
 
-GEOIP2=$(curl --silent -f http://ip-api.com/csv/ |  tr -d '"' | tr ' ' '+')
+GEOIP2=$(curl --silent -f --connect-timeout 5 --max-time 10 http://ip-api.com/csv/ | tr -d '"' | tr ' ' '+') || true
 #success,Canada,CA,ON,Ontario,"Temiskaming Shores",P0J,47.5776,-80.2036,America/Toronto,Parolink.net,Parolink.net,...
 echo GEOIP2=$GEOIP2 >>$LOG_FILE
-IP=$(echo $GEOIP2 | awk -F "," '{print $14;}')
-COUNTRY=$(echo $GEOIP2 | awk -F "," '{print $3;}')
-STATE=$(echo $GEOIP2 | awk -F "," '{print $4;}')
-LOCALITY=$(echo $GEOIP2 | awk -F "," '{print $6;}')
+# Only parse geo fields when the lookup returned a non-empty response
+if [ -n "${GEOIP2}" ] ; then
+  IP=$(echo $GEOIP2 | awk -F "," '{print $14;}')
+  COUNTRY=$(echo $GEOIP2 | awk -F "," '{print $3;}')
+  STATE=$(echo $GEOIP2 | awk -F "," '{print $4;}')
+  LOCALITY=$(echo $GEOIP2 | awk -F "," '{print $6;}')
+fi
 echo State=${STATE} >>$LOG_FILE
 
 #if [ "${STATE}" = "QC" ]; then
@@ -380,7 +383,7 @@ echo "For a new install from console so probe for some settings" >>$LOG_FILE
 	##db_set carlos-emr/billregion $billregion || true
 	db_reset carlos-emr/phoneprefix || true
 	# probe for local area code
-	phoneprefix=$(curl --silent -f https://www.zip-codes.com/canadian/city.asp?city=$LOCALITY\&province=$STATE |  grep '<a href="/canadian/area-code.asp?areacode='| sed "s/.*areacode=\([0-9]*\).*/\1/;s/^[[:space:]]*//;s/[[:space:]]*$//" )
+	phoneprefix=$(curl --silent -f --connect-timeout 5 --max-time 10 "https://www.zip-codes.com/canadian/city.asp?city=${LOCALITY}&province=${STATE}" | grep '<a href="/canadian/area-code.asp?areacode='| sed "s/.*areacode=\([0-9]*\).*/\1/;s/^[[:space:]]*//;s/[[:space:]]*$//") || true
 ## curl --silent -f 'https://www.zip-codes.com/canadian/city.asp?city=Timmins&province=ON' |  grep '<a href="/canadian/area-code.asp?areacode='| sed "s/.*areacode=\([0-9]*\).*/\1/;s/^[[:space:]]*//;s/[[:space:]]*$//"
 	echo "area code aka phone prefix=*${phoneprefix}*" 1>> $LOG_FILE
 
@@ -495,8 +498,8 @@ if [ "${UPGRADE}" = "true" ] ; then
 			exit 0
 		else
       if [ -f "${C_HOME}oscar.properties" ] ; then
-        # (b) OSCAR 19 TO CARLOS MIGRATION: oscar.properties exists but carlos.properties does not.
-        # Set MIGRATE=true so postinst knows to copy tables from the OSCAR database schema.
+        # (b) OSCAR 19 TO CARLOS MIGRATION: carlos.properties exists but db_name differs —
+        # treat as OSCAR migration to allow postinst to rename tables.
         MIGRATE="true"
       else
         # (c) ERROR STATE: neither carlos.properties nor oscar.properties found.
@@ -504,7 +507,18 @@ if [ "${UPGRADE}" = "true" ] ; then
   			exit 1
       fi
 		fi
-
+	else
+    # carlos.properties is absent — check if oscar.properties exists for OSCAR 19 migration
+    if [ -f "${C_HOME}oscar.properties" ] ; then
+      # (b) OSCAR 19 TO CARLOS MIGRATION: oscar.properties exists but carlos.properties does not.
+      # Set MIGRATE=true so postinst knows to copy tables from the OSCAR database schema.
+      MIGRATE="true"
+      echo "carlos.properties not found but oscar.properties present — setting MIGRATE=true for OSCAR 19 migration" >> $LOG_FILE
+    else
+      # (c) ERROR STATE: neither carlos.properties nor oscar.properties found.
+      echo "The installer can neither find a deb installed OSCAR_19 nor CARLOS and cannot be deb updated so exiting config" 1>> $LOG_FILE
+      exit 1
+    fi
 	fi
 # PHC ensure that oscar.properties carlos.properties and carlos.tmp are aligned
   if [ "${MIGRATE}" = "true" ] ; then
@@ -521,6 +535,25 @@ if [ "${UPGRADE}" = "true" ] ; then
   	db_set carlos-emr/phoneprefix ${phoneprefix}
   	echo "priorschema=${db_name}" >> $LOG_FILE
   	db_set carlos-emr/priorschema $db_name
+    # Initialize ${PROGRAM}.tmp from the bundled source carlos.properties so that the
+    # subsequent property-append block (below) has a valid base file to work from.
+    # The Tomcat path and commented-out properties are adjusted the same way as a new install.
+    echo "Initializing ${PROGRAM}.tmp from bundled source properties for OSCAR migration" >> $LOG_FILE
+    sed \
+    -e "s/\/var\/lib\/tomcat/\/var\/lib\/${TOMCAT}/" \
+    -e 's/\(^project_home\)/#\1/' \
+    -e 's/\(^tomcat_path\)/#\1/' \
+    -e 's/\(^login_local_ip\)/#\1/' \
+    -e 's/\(^buildDateTime\)/#\1/' \
+    -e 's/\(^buildtag\)/#\1/' \
+    -e 's/\(^drugref_url\)/#\1/' \
+    -e 's/\(^db_name =\)/#\1/' \
+    -e 's/\(^db_password =\)/#\1/' \
+    -e 's/\(^hibernate.dialect\)/#\1/' \
+    -e 's/\(^billregion=\)/#\1/' \
+    -e 's/\(^phoneprefix =\)/#\1/' \
+    -e 's/\(^billcenter =\)/#\1/' \
+    ${SRC}${PROGRAM}.properties > ${PROGRAM}.tmp 2>>$LOG_FILE
   fi
 else
 	db_set carlos-emr/upgrade false
@@ -529,7 +562,7 @@ else
 	echo "and comment out all of the properties that will be set below" >>$LOG_FILE
 	#-e 's/\(^backup_path\)/#\1/' \  ## the backup moves to the new spot
 	sed \
-	-e 's/\/var\/lib\/tomcat/\/var\/lib\/${TOMCAT}/' \
+	-e "s/\/var\/lib\/tomcat/\/var\/lib\/${TOMCAT}/" \
 	-e 's/\(^project_home\)/#\1/' \
 	-e 's/\(^tomcat_path\)/#\1/' \
 	-e 's/\(^login_local_ip\)/#\1/' \
@@ -731,12 +764,12 @@ else
 	echo "append the recarlos job to a new cron file" >>$LOG_FILE
     	echo "* * * * * ${SRC}recarlos.sh" >> c.temp 2>>$LOG_FILE
 fi 
-if grep -Fq "${SRC}gateway.cron" c.temp ; then
+if grep -Fq "${SRC}gateway.sh" c.temp ; then
     	echo "entry for gateway fax already present" >>$LOG_FILE
 else
 	echo "append the gateway fax job to a new cron file" >>$LOG_FILE
-    	echo "* * * * * ${SRC}gateway.cron" >> c.temp 2>>$LOG_FILE
-fi 
+    	echo "* * * * * ${SRC}gateway.sh" >> c.temp 2>>$LOG_FILE
+fi
 if grep -Fq "${SRC}2FA.sh" c.temp ; then
     	echo "entry for 2FA already present" >>$LOG_FILE
 else
