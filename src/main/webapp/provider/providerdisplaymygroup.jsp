@@ -113,14 +113,16 @@
             <fmt:setBundle basename="oscarResources"/>
             <fmt:message key="provider.providerdisplaymygroup.confirmDelete" var="confirmDeleteMsg"/>
             <fmt:message key="provider.providerdisplaymygroup.btnDelete" var="btnDeleteLabel"/>
+            <fmt:message key="provider.providerdisplaymygroup.btnNew" var="btnNewLabel"/>
+            <fmt:message key="global.btnBack" var="btnBackLabel"/>
             <input type="submit" class="btn btn-danger btn-sm"
                    value="${e:forHtmlAttribute(btnDeleteLabel)}"
                    onclick="if(!confirm('${e:forJavaScript(confirmDeleteMsg)}')){return false;} document.forms['UPDATEPRE'].submit_form.value='Delete';">
             <input type="submit" class="btn btn-primary btn-sm ms-2"
-                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
+                   value="${e:forHtmlAttribute(btnNewLabel)}"
                    onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">
             <input type="button" class="btn btn-secondary btn-sm ms-2"
-                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                   value="${e:forHtmlAttribute(btnBackLabel)}"
                    onClick="if (window.opener) { window.close(); } else { window.history.back(); }">
         </div>
 

@@ -356,7 +356,7 @@
                 <INPUT TYPE="button" class="btn btn-link"
                        onclick="document.titlesearch.keyword.value='';document.titlesearch.submit();"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.msgMostRecentPatients"/>"
-                       TITLE="Show most recently viewed patients">
+                       TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.msgMostRecentPatients"/>">
             </div>
 
             <security:oscarSec roleName="<%=roleName%>" objectName="_search.outofdomain" rights="r">

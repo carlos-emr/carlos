@@ -561,7 +561,6 @@
             <%
                     }
                     bLooperCon = true;
-                    i = 0;
                 }
             %>
             </tbody>
@@ -582,25 +581,31 @@
         <div class="d-flex justify-content-between align-items-center mt-3">
             <div>
                 <% if (bEdit) { %>
-                <input type="button" class="btn btn-primary btn-sm"
-                       onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate"/>">
-                <input type="button" class="btn btn-secondary btn-sm"
-                       onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
                 <fmt:setBundle basename="oscarResources"/>
+                <fmt:message key="appointment.appointmentgrouprecords.btnGroupUpdate" var="btnGroupUpdate"/>
+                <fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel" var="btnGroupCancel"/>
                 <fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation" var="msgDeleteConfirmation"/>
                 <fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete" var="btnGroupDelete"/>
+                <input type="button" class="btn btn-primary btn-sm"
+                       onclick="document.forms['groupappt'].groupappt.value='Group Update'; document.forms['groupappt'].submit();"
+                       value="${e:forHtmlAttribute(btnGroupUpdate)}">
+                <input type="button" class="btn btn-secondary btn-sm"
+                       onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
+                       value="${e:forHtmlAttribute(btnGroupCancel)}">
                 <input type="button" class="btn btn-danger btn-sm"
                        onclick="if(!confirm('${e:forJavaScript(msgDeleteConfirmation)}')){return false;} document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
                        value="${e:forHtmlAttribute(btnGroupDelete)}">
                 <% } else { %>
+                <fmt:setBundle basename="oscarResources"/>
+                <fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt" var="btnAddGroupAppt"/>
                 <input type="button" class="btn btn-primary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnAddGroupAppt"/>">
+                       value="${e:forHtmlAttribute(btnAddGroupAppt)}">
                 <% } %>
+                <fmt:setBundle basename="oscarResources"/>
+                <fmt:message key="global.btnBack" var="btnBack"/>
                 <input type="button" class="btn btn-secondary btn-sm"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                       value="${e:forHtmlAttribute(btnBack)}"
                        onClick="window.history.go(-1);return false;">
             </div>
         </div>

@@ -1138,7 +1138,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDuration"/>:</label>
                             <div class="col-sm-8">
                                 <input type="number" name="duration" id="duration" class="form-control form-control-sm"
-                                       value="<%=duration%>" onChange="checkPageLock()" onblur="calculateEndTime();">
+                                       value="<%=Encode.forHtmlAttribute(duration)%>" onChange="checkPageLock()" onblur="calculateEndTime();">
                                 <input type="hidden" name="end_time"
                                        value='<%=Encode.forHtmlAttribute(request.getParameter("end_time") == null ? "" : request.getParameter("end_time"))%>'
                                        onChange="checkTimeTypeIn(this)">
@@ -1509,6 +1509,9 @@ Ontario, Canada
             <% } %>
 
             <div class="<%= (bFromWL && demoNo != null && demoNo.length() > 0) ? "col-md-4" : "col-md-12" %>">
+                <fmt:setBundle basename="oscarResources"/>
+                <fmt:message key="appointment.addappointment.statusNoShow" var="statusNoShow"/>
+                <fmt:message key="appointment.addappointment.statusCancelled" var="statusCancelled"/>
                 <div class="card">
                     <div class="card-header"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgOverview"/></div>
                     <div class="card-body p-0">
@@ -1544,7 +1547,7 @@ Ontario, Canada
                                     <td><%=ConversionUtils.toDateString(a.getAppointmentDate())%></td>
                                     <td><%=ConversionUtils.toTimeString(a.getStartTime())%></td>
                                     <td><%=Encode.forHtml(p.getFormattedName())%></td>
-                                    <td><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : ""))%></td>
+                                    <td><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? pageContext.getAttribute("statusNoShow") : (a.getStatus().startsWith("C") ? pageContext.getAttribute("statusCancelled") : ""))%></td>
                                 </tr>
                             <%
                                     }
@@ -1562,7 +1565,7 @@ Ontario, Canada
                                     <td><%=ConversionUtils.toDateString(a.getAppointmentDate())%></td>
                                     <td><%=ConversionUtils.toTimeString(a.getStartTime())%></td>
                                     <td><%=Encode.forHtml(p.getFormattedName())%></td>
-                                    <td><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? "No Show" : (a.getStatus().startsWith("C") ? "Cancelled" : ""))%></td>
+                                    <td><%=a.getStatus() == null ? "" : (a.getStatus().startsWith("N") ? pageContext.getAttribute("statusNoShow") : (a.getStatus().startsWith("C") ? pageContext.getAttribute("statusCancelled") : ""))%></td>
                                 </tr>
                             <%
                                     }

@@ -77,7 +77,7 @@
             String userName = (String) session.getAttribute("userlastname") + ", " + (String) session.getAttribute("userfirstname");
             String everyNum = request.getParameter("everyNum") != null ? request.getParameter("everyNum") : "0";
             String everyUnit = request.getParameter("everyUnit") != null ? request.getParameter("everyUnit") : "day";
-            String endDate = request.getParameter("endDate") != null ? request.getParameter("endDate") : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
+            String endDate = request.getParameter("endDate") != null ? request.getParameter("endDate") : (request.getParameter("appointment_date") != null ? request.getParameter("appointment_date") : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd"));
             int delta;
             try {
                 delta = Integer.parseInt(everyNum);
@@ -251,7 +251,7 @@
         <script type="text/javascript">
             function onCheck(a) {
                 document.getElementById("everyUnit").value = a.value;
-                document.getElementById("everyUnitLabel").textContent = a.dataset.label + '(s)';
+                document.getElementById("everyUnitLabel").textContent = a.dataset.labelPlural;
             }
 
             function onExit() {
@@ -301,24 +301,28 @@
                         <fmt:message key="week" var="labelWeek"/>
                         <fmt:message key="month" var="labelMonth"/>
                         <fmt:message key="year" var="labelYear"/>
+                        <fmt:message key="day.plural" var="labelDayPlural"/>
+                        <fmt:message key="week.plural" var="labelWeekPlural"/>
+                        <fmt:message key="month.plural" var="labelMonthPlural"/>
+                        <fmt:message key="year.plural" var="labelYearPlural"/>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_day" value="day" checked
-                                   data-label="${e:forHtmlAttribute(labelDay)}" onclick='onCheck(this)'>
+                                   data-label="${e:forHtmlAttribute(labelDay)}" data-label-plural="${e:forHtmlAttribute(labelDayPlural)}" onclick='onCheck(this)'>
                             <label class="form-check-label" for="dateUnit_day">${e:forHtml(labelDay)}</label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_week" value="week"
-                                   data-label="${e:forHtmlAttribute(labelWeek)}" onclick='onCheck(this)'>
+                                   data-label="${e:forHtmlAttribute(labelWeek)}" data-label-plural="${e:forHtmlAttribute(labelWeekPlural)}" onclick='onCheck(this)'>
                             <label class="form-check-label" for="dateUnit_week">${e:forHtml(labelWeek)}</label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_month" value="month"
-                                   data-label="${e:forHtmlAttribute(labelMonth)}" onclick='onCheck(this)'>
+                                   data-label="${e:forHtmlAttribute(labelMonth)}" data-label-plural="${e:forHtmlAttribute(labelMonthPlural)}" onclick='onCheck(this)'>
                             <label class="form-check-label" for="dateUnit_month">${e:forHtml(labelMonth)}</label>
                         </div>
                         <div class="form-check form-check-inline">
                             <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_year" value="year"
-                                   data-label="${e:forHtmlAttribute(labelYear)}" onclick='onCheck(this)'>
+                                   data-label="${e:forHtmlAttribute(labelYear)}" data-label-plural="${e:forHtmlAttribute(labelYearPlural)}" onclick='onCheck(this)'>
                             <label class="form-check-label" for="dateUnit_year">${e:forHtml(labelYear)}</label>
                         </div>
                     </div>
@@ -336,7 +340,7 @@
                                 }
                             %>
                         </select>
-                        <span id="everyUnitLabel" class="text-muted">${e:forHtml(labelDay)}(s)</span>
+                        <span id="everyUnitLabel" class="text-muted">${e:forHtml(labelDayPlural)}</span>
                     </div>
                 </div>
 
@@ -376,7 +380,7 @@
                 String temp = null;
                 for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                     temp = e.nextElement().toString();
-                    if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
+                    if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals("CSRF-TOKEN"))
                         continue;
                     out.println("<input type=\"hidden\" name=\"" + Encode.forHtmlAttribute(temp) + "\" value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) == null ? "" : request.getParameter(temp)) + "\">");
                 }

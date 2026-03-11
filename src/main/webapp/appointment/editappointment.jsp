@@ -180,7 +180,7 @@
 
 
     Appointment appt = null;
-    String demono = "", chartno = "", phone = "", rosterstatus = "", alert = "", doctorNo = "";
+    String demono = "", chartno = "", phone = "", rosterstatus = "", patientStatus = "", alert = "", doctorNo = "";
     String strApptDate = bFirstDisp ? "" : request.getParameter("appointment_date");
 
     if (bFirstDisp) {
@@ -214,6 +214,7 @@
             chartno = d.getChartNo();
             phone = d.getPhone();
             rosterstatus = d.getRosterStatus();
+            patientStatus = StringUtils.defaultString(d.getPatientStatus());
         }
 
         DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demono));
@@ -833,12 +834,14 @@
     <%-- patientStatusBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
     <%
         String editRosterStatus = StringUtils.defaultString(rosterstatus);
-        boolean editShowStatus = !editRosterStatus.isEmpty() && !editRosterStatus.equalsIgnoreCase("RO");
+        boolean editDisplayRoster = !editRosterStatus.isEmpty() && !editRosterStatus.equalsIgnoreCase("RO");
+        String editPatientStatus = (patientStatus == null || patientStatus.isEmpty() || patientStatus.equalsIgnoreCase("AC")) ? "" : patientStatus;
+        boolean editShowStatus = editDisplayRoster || !editPatientStatus.isEmpty();
     %>
     <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
          data-roster-label="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>"
          style="<%= editShowStatus ? "" : "display:none" %>" role="alert">
-        <span id="patientStatusText"><%=editShowStatus ? Encode.forHtmlContent(editRosterStatus) : ""%></span>
+        <span id="patientStatusText"><%=editShowStatus ? Encode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatus : "")) : ""%></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>
     <%-- patientAlertBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
