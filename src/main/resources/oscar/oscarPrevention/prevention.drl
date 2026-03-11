@@ -474,8 +474,14 @@ end
 // MMR / MMR-Var: Measles-Mumps-Rubella (2 rules) + Varicella combo (1 rule)
 // NACI Schedule: Dose 1 at 12mo, Dose 2 at 4-6yr (or as MMR-Var)
 // MMR 1: First dose, checks both MMR and MMR-Var counts (either satisfies)
-// MMR 2: Second dose at 48mo+, only checks MMR count (not MMR-Var)
-// MMR-Var 1: Second dose for those who got MMR-Var as first dose
+// MMR 2: Second MMR-component dose at 48mo+; uses total component count
+//        (MMR + MMR-Var) to avoid false positives when MMR-Var was given
+// MMR-Var 1: Comprehensive 2-dose coverage check at 48mo for BOTH MMR and
+//   Var components. MMR-Var counts toward both component totals:
+//     MMR component total = count(MMR) + count(MMR-Var)
+//     Var component total = count(Var) + count(MMR-Var)
+//   Typical schedule: MMR@12mo + Var@15mo + MMR-Var@48mo → fully covered
+//   Warning specifies exactly which component(s) are still needed.
 // Age range: 12 months to 10 years
 // --------------------------------------------------------------------------
 rule "MMR 1"
@@ -495,21 +501,39 @@ rule "MMR 2"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 48 )
         eval( prev.getAgeInYears() < 10 )
-        eval( prev.getNumberOfPreventionType("MMR") == 1 )
+        // Use total MMR component count (MMR + MMR-Var) to avoid false
+        // positives when a combined MMR-Var dose has already been given
+        eval( prev.getNumberOfPreventionType("MMR") + prev.getNumberOfPreventionType("MMR-Var") == 1 )
+        eval( prev.getNumberOfPreventionType("MMR-Var") == 0 )
     then
         prev.log("MMR 2");
         prev.addWarning("MMR", "Needs Second MMR or MMR-Var");
 end
 
+// MMR-Var 1: At 48mo, check full 2-dose coverage for both MMR and Var
+// components. Any combination that totals 2 doses per component is valid:
+//   - 2x MMR + 2x Var (all separate)
+//   - 1x MMR + 1x Var + 1x MMR-Var (typical schedule — no warning)
+//   - 2x MMR-Var
+//   - etc.
 rule "MMR-Var 1"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 48 )
         eval( prev.getAgeInYears() < 10 )
-        eval( prev.getNumberOfPreventionType("MMR-Var") == 1 )
+        eval( (prev.getNumberOfPreventionType("MMR") + prev.getNumberOfPreventionType("MMR-Var") < 2)
+           || (prev.getNumberOfPreventionType("Var") + prev.getNumberOfPreventionType("MMR-Var") < 2) )
     then
         prev.log("MMR-Var 1");
-        prev.addWarning("MMR-Var", "Needs Second MMR or MMR-Var");
+        int mmrTotal = prev.getNumberOfPreventionType("MMR") + prev.getNumberOfPreventionType("MMR-Var");
+        int varTotal = prev.getNumberOfPreventionType("Var") + prev.getNumberOfPreventionType("MMR-Var");
+        if (mmrTotal < 2 && varTotal < 2) {
+            prev.addWarning("MMR-Var", "Needs MMR and Var immunization to complete series");
+        } else if (mmrTotal < 2) {
+            prev.addWarning("MMR-Var", "Needs MMR immunization to complete series");
+        } else {
+            prev.addWarning("MMR-Var", "Needs Var immunization to complete series");
+        }
 end
 
 // --------------------------------------------------------------------------
