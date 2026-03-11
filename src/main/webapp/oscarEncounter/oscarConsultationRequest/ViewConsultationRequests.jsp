@@ -28,6 +28,25 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    ViewConsultationRequests.jsp
+
+    Purpose: Displays a paginated, filterable list of consultation requests for a
+    provider or team, supporting date range search, team filtering, and completion
+    status toggling.
+
+    Features:
+    - Bootstrap 5 responsive table with sortable columns
+    - Filter by team, date range (referral or appointment date), and completion status
+    - Clickable rows (mouse + keyboard) to open consultation detail popup
+    - Overdue consultation highlighting based on user preferences
+    - Bulk tickler creation for "Nothing Done" consultations older than one week
+    - Multisite support with site-specific background colours
+    - Native HTML5 date inputs replacing legacy calendar widget
+    - OWASP-encoded URLs for all popup interactions
+
+    @since CARLOS EMR 1.0 (modernized 2026 from legacy OSCAR layout)
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -195,7 +214,7 @@
         }
 
 
-        ArrayList tickerList = new ArrayList();
+        List<String> tickerList = new ArrayList<String>();
     %>
 
 
@@ -373,18 +392,19 @@
                                 <div class="form-check form-check-inline">
                                     <input type="radio" name="searchDate" value="0" id="searchDateRef" class="form-check-input"
                                         <%= "0".equals(searchDate) ? "checked" : "" %> />
-                                    <label class="form-check-label small" for="searchDateRef">Referral Date</label>
+                                    <label class="form-check-label small" for="searchDateRef"><fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgRefDate"/></label>
                                 </div>
                                 <div class="form-check form-check-inline">
                                     <input type="radio" name="searchDate" value="1" id="searchDateAppt" class="form-check-input"
                                         <%= "1".equals(searchDate) ? "checked" : "" %> />
-                                    <label class="form-check-label small" for="searchDateAppt">Appt Date</label>
+                                    <label class="form-check-label small" for="searchDateAppt"><fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgApptDate"/></label>
                                 </div>
                             </div>
                         </div>
                         <div class="col-auto">
+                            <fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgSearch" var="msgSearchBtn"/>
                             <input type="submit" class="btn btn-primary btn-sm"
-                                   value="Search"/>
+                                   value="${msgSearchBtn}"/>
                         </div>
                     </div>
                     <input type="hidden" name="currentTeam" id="currentTeam" value="<%= Encode.forHtmlAttribute(team != null ? team : "") %>"/>
@@ -525,7 +545,13 @@
                                 overdue = false;
 
                                 if (timeperiod != null) {
-                                    countback = Integer.parseInt(timeperiod);
+                                    try {
+                                        countback = Integer.parseInt(timeperiod);
+                                    } catch (NumberFormatException e) {
+                                        timeperiod = null; // fall through to default logic below
+                                    }
+                                }
+                                if (timeperiod != null) {
                                     countback = countback * -1;
 
                                     if ((status.equals("1") || status.equals("2") || status.equals("3")) && dateGreaterThan(date, Calendar.MONTH, countback)) {
@@ -546,7 +572,10 @@
                                 String viewUrl = request.getContextPath() + "/oscarEncounter/ViewRequest.do?requestId=" + Encode.forUriComponent(id);
                         %>
                         <tr class="<%=overdue ? "consult-row-overdue" : ""%>"
-                            onclick="popupOscarRx(700,960,'<%=Encode.forJavaScriptAttribute(viewUrl)%>')">
+                            tabindex="0"
+                            role="button"
+                            onclick="popupOscarRx(700,960,'<%=Encode.forJavaScriptAttribute(viewUrl)%>')"
+                            onkeypress="if(event.key==='Enter'){popupOscarRx(700,960,'<%=Encode.forJavaScriptAttribute(viewUrl)%>');}">
                             <td class="consult-status-<%=Encode.forHtmlAttribute(status)%>">
                                 <% if (status.equals("1")) { %>
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgND"/>
@@ -562,15 +591,19 @@
                             </td>
                             <td class="consult-status-<%=Encode.forHtmlAttribute(status)%>">
                                 <% if (urgency.equals("1")) { %>
-                                <span class="urgency-urgent">Urgent</span>
+                                <span class="urgency-urgent"><fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyUrgent"/></span>
                                 <% } else if (urgency.equals("2")) { %>
-                                Non-Urgent
+                                <fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyNonUrgent"/>
                                 <% } else if (urgency.equals("3")) { %>
-                                Return
+                                <fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgUrgencyReturn"/>
                                 <% } %>
                             </td>
                             <td class="consult-status-<%=Encode.forHtmlAttribute(status)%>">
-                                <%=sendTo.equals("-1") ? "N/A" : Encode.forHtml(sendTo)%>
+                                <% if (sendTo.equals("-1")) { %>
+                                <fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.formTeamNotApplicable"/>
+                                <% } else { %>
+                                <%=Encode.forHtml(sendTo)%>
+                                <% } %>
                             </td>
                             <td class="consult-status-<%=Encode.forHtmlAttribute(status)%>">
                                 <%=Encode.forHtml(patient)%>
@@ -592,7 +625,7 @@
                             </td>
                             <td class="consult-status-<%=Encode.forHtmlAttribute(status)%>">
                                 <% if (patBook != null && patBook.trim().equals("1")) {%>
-                                <span class="fst-italic">Patient will book</span>
+                                <span class="fst-italic"><fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgPatientWillBook"/></span>
                                 <%} else {%>
                                 <%=Encode.forHtml(appt)%>
                                 <%}%>
@@ -617,12 +650,12 @@
                     <%
                         if (offset > 0) {
                     %><button type="button" class="btn btn-secondary btn-sm" onclick="gotoPage(false);">
-                        <i class="fas fa-chevron-left me-1"></i>Prev
+                        <i class="fas fa-chevron-left me-1"></i><fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgPrev"/>
                     </button><%
                         }
                         if (theRequests.ids.size() == limit) {
                     %><button type="button" class="btn btn-secondary btn-sm ms-1" onclick="gotoPage(true);">
-                        Next<i class="fas fa-chevron-right ms-1"></i>
+                        <fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgNext"/><i class="fas fa-chevron-right ms-1"></i>
                     </button><%
                         }
                     %>
@@ -638,10 +671,12 @@
                                 queryStr += "&demo=" + Encode.forUriComponent(demo);
                             }
                         }%>
+                    <fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerConfirm" var="addTicklerConfirmVar"/>
+                    <%  String addTicklerConfirmJs = Encode.forJavaScript((String)pageContext.getAttribute("addTicklerConfirmVar")); %>
                     <a class="btn btn-link btn-sm" target="_blank"
                        href="<%= Encode.forHtmlAttribute(request.getContextPath() + "/tickler/AddTickler.do?" + queryStr + "&message=" + java.net.URLEncoder.encode("Patient has Consultation Letter with a status of 'Nothing Done' for over one week","UTF-8")) %>"
-                       onclick="return confirm('Are you sure you want to add a tickler for all consultations with Nothing Done status for more than one week?');">
-                        <i class="fas fa-bell me-1"></i>Add Tickler for Consults with ND for more than one week
+                       onclick="return confirm('<%=addTicklerConfirmJs%>');">
+                        <i class="fas fa-bell me-1"></i><fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerBtn"/>
                     </a>
                     <%}%>
                 </div>
