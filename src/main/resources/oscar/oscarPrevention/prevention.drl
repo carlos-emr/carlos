@@ -244,18 +244,19 @@ end
 // Strict upper age limits: dose 1 by 5mo, dose 2 by 6mo
 // QUIRK: Uses System.out.println() instead of prev.log() (original code)
 // Uses isNextDateSet() for dose 2 sequencing
-// MULTI-TYPE NOTE: Rules check "Rota" only. Records typed as "Rota-1" (Rotarix)
-//   or "Rota-5" (RotaTeq) will NOT satisfy these conditions. Consider migrating
-//   all Rota-1/Rota-5 records to "Rota" via SQL, or extend conditions like:
-//   eval( prev.getNumberOfPreventionType("Rota") + prev.getNumberOfPreventionType("Rota-1")
-//       + prev.getNumberOfPreventionType("Rota-5") == 0 )
+// MULTI-TYPE NOTE: Rule 1 counts Rota-1 (Rotarix) and Rota-5 (RotaTeq) as
+//   equivalent to generic Rota for the first-dose check. This allows records
+//   entered with product-specific codes to satisfy the rule.
 // --------------------------------------------------------------------------
 rule "Rota 1"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 2 )
         eval( prev.getAgeInMonths() < 5 )
-        eval( prev.getNumberOfPreventionType("Rota") == 0 )
+        eval( prev.getNumberOfPreventionType("Rota")
+            + prev.getNumberOfPreventionType("Rota-1")
+            + prev.getNumberOfPreventionType("Rota-5")
+            == 0 )
         eval( !prev.isPreventionNever("Rota") )
     then
         System.out.println("Rota 1");
@@ -362,23 +363,21 @@ end
 // Rules 1-4: Standard infant series (2-12mo) + booster (15-24mo)
 // Rules 5-6: Catch-up schedule for 12-24mo (fewer doses if starting late)
 // Minimum intervals: 2 months between primary doses, 6 months before booster
-// MULTI-TYPE NOTE: Rules check "Pneu-C" only. Records typed as "Pneu-C-7",
-//   "Pneu-C-10", "Pneu-C-13", "Pneu-C-15" should all satisfy these rules.
-//   Consider extending conditions to count all conjugate valences:
-//   eval( prev.getNumberOfPreventionType("Pneu-C")
-//       + prev.getNumberOfPreventionType("Pneu-C-7")
-//       + prev.getNumberOfPreventionType("Pneu-C-10")
-//       + prev.getNumberOfPreventionType("Pneu-C-13")
-//       + prev.getNumberOfPreventionType("Pneu-C-15")
-//       == 0 )
-//   Note: Pneu-C-20 is adult formulation and should NOT count for infant series.
+// MULTI-TYPE NOTE: Rule 1 counts all pediatric conjugate valences (Pneu-C-7, -10, -13, -15)
+//   as equivalent to Pneu-C for the purpose of determining if a first dose has been given.
+//   Note: Pneu-C-20 is adult formulation and should NOT count for the infant series.
 // --------------------------------------------------------------------------
 rule "Pneu-C 1"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 2 )
         eval( prev.getAgeInMonths() < 12 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 0 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 0 )
     then
         prev.log("Pneu-C 1");
         prev.addWarning("Pneu-C", "Needs First Pneu-C");
@@ -1093,11 +1092,17 @@ end
 // LDCT: Low-Dose CT Lung Cancer Screening (2 rules)
 // Canadian guideline (CTFPHC 2016): Annual LDCT for adults aged 55-74 who are
 //   high-risk smokers (30+ pack-years or equivalent significant smoking history)
-// Rule 1: WARNING if no LDCT on record for patients aged 55-74 with smoking history
-// Rule 2: WARNING if LDCT is > 12 months old (annual screening required)
-// Precondition: Smoking assessment must be on record (getNumberOfPreventionType("Smoking") > 0)
-//   indicating a tobacco history assessment has been completed. Clinician determines
-//   if patient meets high-risk criteria (20-30+ pack-years per CT Canada criteria).
+// Rule 1: WARNING if no LDCT on record for patients aged 55-74 with positive smoking history
+// Rule 2: WARNING if LDCT count is 1 or 2 and it is > 12 months old (annual x3 years)
+//         LDCT 2 stops firing after 3rd annual screen (count >= 3).
+// Precondition (heavy smoker detection): Smoking assessment must be on record AND
+//   not marked as "never" (non-smoker). This uses the Prevention module's "Smoking" type.
+//   A Smoking record exists (getNumberOfPreventionType("Smoking") > 0) AND
+//   the record is NOT marked as never-smoked (!isPreventionNever("Smoking")).
+//   Note: Full heavy-smoker detection (pack-years, cigarettes/day) requires measurement
+//   values (NOSK > 23, POSK > 0, SKST = yes, SMK = yes, SmkS > 23) which are stored in
+//   the measurements table and are not accessible from the Prevention DRL fact object.
+//   Extending the Prevention class to support measurement queries would enable this.
 // --------------------------------------------------------------------------
 rule "LDCT 1"
     when
@@ -1105,6 +1110,7 @@ rule "LDCT 1"
         eval( prev.getAgeInYears() >= 55 )
         eval( prev.getAgeInYears() <= 74 )
         eval( prev.getNumberOfPreventionType("Smoking") > 0 )
+        eval( !prev.isPreventionNever("Smoking") )
         eval( prev.getHowManyMonthsSinceLast("LDCT") == -1 )
         eval( !prev.isPreventionNever("LDCT") )
         eval( !prev.isInelligible("LDCT") )
@@ -1119,11 +1125,14 @@ rule "LDCT 2"
         eval( prev.getAgeInYears() >= 55 )
         eval( prev.getAgeInYears() <= 74 )
         eval( prev.getNumberOfPreventionType("Smoking") > 0 )
+        eval( !prev.isPreventionNever("Smoking") )
+        eval( prev.getNumberOfPreventionType("LDCT") >= 1 )
+        eval( prev.getNumberOfPreventionType("LDCT") <= 2 )
         eval( prev.getHowManyMonthsSinceLast("LDCT") > 12 )
         eval( !prev.isPreventionNever("LDCT") )
         eval( !prev.isNextDateSet("LDCT") )
         eval( !prev.isInelligible("LDCT") )
     then
         prev.log("LDCT 2");
-        prev.addWarning("LDCT", "Annual LDCT lung cancer screening is overdue for this patient (high-risk smoker aged 55-74)");
+        prev.addWarning("LDCT", "LDCT lung cancer screening for older heavy smokers should be done annually for 3 years and is overdue");
 end
