@@ -56,7 +56,6 @@ UPDATE preventions SET prevention_type = 'HAHB' WHERE prevention_type = 'HepA+B'
 
 -- Rabies
 UPDATE preventions SET prevention_type = 'Rab' WHERE prevention_type = 'Rabies';
-UPDATE preventions SET prevention_type = 'Rab' WHERE prevention_type = 'Rab';
 
 -- Typhoid
 UPDATE preventions SET prevention_type = 'Typh-I' WHERE prevention_type = 'Typhoid';
@@ -74,7 +73,6 @@ UPDATE preventions SET prevention_type = 'Pneu-C' WHERE prevention_type = 'Pneu'
 
 -- Meningococcal C Conjugate (MenC-C was non-standard CARLOS name)
 UPDATE preventions SET prevention_type = 'Men-C-C' WHERE prevention_type = 'MenC-C';
-UPDATE preventions SET prevention_type = 'Men-C-C' WHERE prevention_type = 'Men-C-C';
 
 -- HPV (generic HPV vaccine)
 UPDATE preventions SET prevention_type = 'HPV' WHERE prevention_type = 'HPV Vaccine';

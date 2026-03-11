@@ -109,11 +109,11 @@ Varicella Immunoglobulin	VarIg
 		
 	<item
 		resultDesc=""
-		desc="Rota=Rotavirus Vaccine"
+		desc="Rota=Rotavirus Vaccine (given orally)"
 		name="Rota"
 		healthCanadaType="Rota"
         link="www.novaccine.com/pdffiles/Rotarix_new_package_insert.pdf"
-		layout="injection" atc="J07BH01" minAge="0" maxAge="2"
+		layout="oral" atc="J07BH01" minAge="0" maxAge="2"
 		showIfMinRecordNum="1" />
 
 	<item
@@ -212,7 +212,7 @@ Varicella Immunoglobulin	VarIg
 		desc="Tdap=Diphtheria, Tetanus and Acellular Pertussis adult/adolescent formulation"
 		name="Tdap" healthCanadaType="Tdap"
 		link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#dTap"
-		layout="injection" atc="J07AJ52" minAge="0" maxAge="6"
+		layout="injection" atc="J07AJ52" minAge="10"
 		showIfMinRecordNum="1" />
 
 	<item 
@@ -321,7 +321,7 @@ Varicella Immunoglobulin	VarIg
 		name="Tdap"
 		headingName="Immunizations"
 		healthCanadaType="Tdap"
-		layout="injection" atc="J07AJ52" minAge="0" maxAge="6"
+		layout="injection" atc="J07AJ52" minAge="10"
 		showIfMinRecordNum="1" />
 
 	<item
@@ -371,11 +371,11 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 		resultDesc=""
-		desc="Rota=Rotavirus Vaccine eg Rotarix"
+		desc="Rota=Rotavirus Vaccine eg Rotarix (given orally)"
 		name="Rota"
 		headingName="Immunizations"
 		healthCanadaType="Rota"
-		layout="injection" atc="J07BH01" minAge="0" maxAge="2"
+		layout="oral" atc="J07BH01" minAge="0" maxAge="2"
 		showIfMinRecordNum="1" />
 
 	<item
@@ -496,9 +496,9 @@ Varicella Immunoglobulin	VarIg
 		layout="injection" atc=""
 		showIfMinRecordNum="1" />
 
-	<item 
+	<item
 		resultDesc=""
-		desc="Dukoral" name="CHOLERA" link="" layout="injection" healthCanadaType="Chol-O"
+		desc="Chol-O=Cholera oral eg Dukoral (given orally)" name="Chol-O" displayName="Dukoral" link="" layout="oral" healthCanadaType="Chol-O"
 		atc="J07AE01" showIfMinRecordNum="1" />
         
 
@@ -513,13 +513,13 @@ Varicella Immunoglobulin	VarIg
 		atc="J07AP01" showIfMinRecordNum="1" />
 		
 		  		
-  	<item 
+  	<item
 		resultDesc=""
-  		desc="Typhoid - Oral"
+  		desc="Typh-O=Typhoid oral eg Vivotif (given orally)"
   		name="Typh-O"
   		healthCanadaType="Typh-O"
-  		layout="injection" atc="" 
-  		showIfMinRecordNum="1"/>	
+  		layout="oral" atc="J07AP"
+  		showIfMinRecordNum="1"/>
 
 	<item 
 		resultDesc=""
@@ -786,14 +786,14 @@ Varicella Immunoglobulin	VarIg
 		layout="PAPMAM"
 		showIfMinRecordNum="1" />
 
-	<item 
+	<item
 		resultDesc=""
-		desc="Hep A=Hepatitis A" name="HepA" link="" layout="injection" healthCanadaType="HA"
+		desc="HA=Hepatitis A" name="HA" displayName="HepA" link="" layout="injection" healthCanadaType="HA"
 		atc="J07BC02" showIfMinRecordNum="1" />
 
-	<item 
+	<item
 		resultDesc=""
-		desc="Hep B=Hepatitis B" name="HepB" healthCanadaType="HB"
+		desc="HB=Hepatitis B" name="HB" displayName="HepB" healthCanadaType="HB"
 		link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#HepB"
 		layout="injection" atc="J07BC01" minAge="0" maxAge="1"
 		showIfMinRecordNum="1" />
@@ -808,7 +808,7 @@ Varicella Immunoglobulin	VarIg
 	<item
 		resultDesc=""
 		desc="HepC screen = Hep C Ab serology in contacts of multiple sex partners, traumatic anal intercourse with infected person, IVDU"
-		name="Hep C screen"
+		name="HepC screen"
 		link="http://www.cdc.gov/std/treatment/"
 		layout="PAPMAM"
 		minAge="15"
@@ -866,8 +866,8 @@ Varicella Immunoglobulin	VarIg
 
 	<item 
 		resultDesc=""
-		desc="Women ages of 9 and 26 years are recommended to receive human papillomavirus vaccine" 
-		name="HPV Vaccine"
+		desc="HPV=Human Papillomavirus Vaccine"
+		name="HPV" displayName="HPV Vaccine"
 		healthCanadaType="HPV"
 		link="http://www.cdc.gov/std/treatment/" 
 		layout="injection" 

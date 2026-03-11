@@ -245,12 +245,12 @@
 
 	<item
 			resultDesc=""
-			desc="Rota=Rotavirus Vaccine (generic) eg Rotarix or RotaTeq"
+			desc="Rota=Rotavirus Vaccine (generic) eg Rotarix or RotaTeq (given orally)"
 			name="Rota"
 			headingName="Immunizations"
 			healthCanadaType="Rota"
 			link="www.novaccine.com/pdffiles/Rotarix_new_package_insert.pdf"
-			layout="injection"
+			layout="oral"
             atc="J07BH01" minAge="0" maxAge="2"
 			showIfMinRecordNum="1" />
 
@@ -513,7 +513,7 @@
             healthCanadaType="Tdap"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#dTap"
 			layout="injection"
-            atc="J07AJ52" minAge="0" maxAge="6"
+            atc="J07AJ52" minAge="10"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -573,12 +573,12 @@
 	<item
 			resultDesc=""
 			displayName="Dukoral"
-			desc="Chol-O=Cholera oral eg Dukoral"
+			desc="Chol-O=Cholera oral eg Dukoral (given orally)"
 			name="Chol-O"
 			headingName="Immunizations"
 			healthCanadaType="Chol-O"
 			link=""
-            layout="injection"
+            layout="oral"
             atc="J07AE01" showIfMinRecordNum="1" />
 
 	<item
@@ -615,11 +615,11 @@
 
 	<item
 			resultDesc=""
-			desc="Typh-O=Typhoid oral eg Vivotif"
+			desc="Typh-O=Typhoid oral eg Vivotif (given orally)"
 			name="Typh-O"
 			headingName="Immunizations"
 			healthCanadaType="Typh-O"
-			layout="injection" atc="J07AP"
+			layout="oral" atc="J07AP"
 			showIfMinRecordNum="1"/>
 
 	<item

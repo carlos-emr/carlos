@@ -268,7 +268,10 @@ rule "Rota 2"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 4 )
         eval( prev.getAgeInMonths() <= 6 )
-        eval( prev.getNumberOfPreventionType("Rota") == 1 )
+        eval( prev.getNumberOfPreventionType("Rota")
+            + prev.getNumberOfPreventionType("Rota-1")
+            + prev.getNumberOfPreventionType("Rota-5")
+            == 1 )
         eval( prev.getHowManyMonthsSinceLast("Rota") >= 1 )
         eval( !prev.isPreventionNever("Rota") )
         eval( prev.isNextDateSet("Rota") )
@@ -388,7 +391,12 @@ rule "Pneu-C 2"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 4 )
         eval( prev.getAgeInMonths() < 12 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 1 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 1 )
         eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
     then
         prev.log("Pneu-C 2");
@@ -400,7 +408,12 @@ rule "Pneu-C 3"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 6 )
         eval( prev.getAgeInMonths() < 12 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 2 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 2 )
         eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
     then
         prev.log("Pneu-C 3");
@@ -412,7 +425,12 @@ rule "Pneu-C 4"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 15 )
         eval( prev.getAgeInMonths() < 24 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 3 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 3 )
         eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 6 )
     then
         prev.log("Pneu-C 4");
@@ -424,7 +442,12 @@ rule "Pneu-C 5"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 12 )
         eval( prev.getAgeInMonths() < 24 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 0 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 0 )
     then
         prev.log("Pneu-C 5");
         prev.addWarning("Pneu-C", "Needs First Pneu-C");
@@ -435,7 +458,12 @@ rule "Pneu-C 6"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 14 )
         eval( prev.getAgeInMonths() < 24 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 1 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 1 )
         eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
     then
         prev.log("Pneu-C 6");
@@ -1124,8 +1152,6 @@ rule "LDCT 2"
         prev : Prevention()
         eval( prev.getAgeInYears() >= 55 )
         eval( prev.getAgeInYears() <= 74 )
-        eval( prev.getNumberOfPreventionType("Smoking") > 0 )
-        eval( !prev.isPreventionNever("Smoking") )
         eval( prev.getNumberOfPreventionType("LDCT") >= 1 )
         eval( prev.getNumberOfPreventionType("LDCT") <= 2 )
         eval( prev.getHowManyMonthsSinceLast("LDCT") > 12 )
