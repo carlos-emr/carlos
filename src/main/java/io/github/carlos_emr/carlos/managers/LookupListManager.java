@@ -54,10 +54,6 @@ public class LookupListManager {
         return lookupListDao.findAllActive();
     }
 
-    public LookupList findLookupListById(LoggedInInfo loggedInInfo, int id) {
-        return lookupListDao.find(id);
-    }
-
     public LookupList findLookupListByName(LoggedInInfo loggedInInfo, String name) {
         return lookupListDao.findByName(name);
     }
@@ -100,22 +96,6 @@ public class LookupListManager {
 
     public LookupListItem findLookupListItemByLookupListIdAndValue(LoggedInInfo loggedInInfo, int lookupListId, String value) {
         return lookupListItemDao.findByLookupListIdAndValue(lookupListId, value);
-    }
-
-
-    /**
-     * Retrieve all the active select list option items by the lookupList.name
-     */
-    public List<LookupListItem> findLookupListItemsByLookupListName(LoggedInInfo loggedInInfo, String lookupListName) {
-
-        LookupList lookupList = findLookupListByName(loggedInInfo, lookupListName);
-        List<LookupListItem> lookupListItems = null;
-
-        if (lookupList != null) {
-            lookupListItems = findLookupListItemsByLookupListId(loggedInInfo, lookupList.getId());
-        }
-
-        return lookupListItems;
     }
 
 
