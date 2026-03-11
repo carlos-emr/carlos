@@ -1191,9 +1191,38 @@
                 <span class="quick-nav noprint" style="margin-left: 10px;">
                     <input type="button" value="M-" class="quick-btn" onclick="getLocation('monthBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthBack"/>"/>
                     <input type="button" value="W-" class="quick-btn" onclick="getLocation('weekBackward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekBack"/>"/>
-                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"
-                           oninput="try{localStorage.setItem('dateMultiplier',this.value)}catch(e){}"/>
-                    <script>try{var sv=localStorage.getItem('dateMultiplier');if(sv){var dm=document.getElementById('dateMultiplier');var n=parseInt(sv,10);if(n>=1&&n<=99)dm.value=n;}}catch(e){}</script>
+                    <input type="number" id="dateMultiplier" value="1" min="1" max="99" class="multiplier-input" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.multiplier"/>"/>
+                    <script>
+                      (function() {
+                        'use strict';
+                        var multiplierInput = document.getElementById('dateMultiplier');
+                        if (!multiplierInput) {
+                          return;
+                        }
+
+                        // Load saved value from localStorage
+                        try {
+                          var savedValue = localStorage.getItem('dateMultiplier');
+                          if (savedValue) {
+                            var numericValue = parseInt(savedValue, 10);
+                            if (!isNaN(numericValue) && numericValue >= 1 && numericValue <= 99) {
+                              multiplierInput.value = numericValue;
+                            }
+                          }
+                        } catch (e) {
+                          console.warn('Could not load dateMultiplier from localStorage.', e);
+                        }
+
+                        // Save value to localStorage on change
+                        multiplierInput.addEventListener('input', function() {
+                          try {
+                            localStorage.setItem('dateMultiplier', this.value);
+                          } catch (e) {
+                            console.warn('Could not save dateMultiplier to localStorage.', e);
+                          }
+                        });
+                      })();
+                    </script>
                     <input type="button" value="W+" class="quick-btn" onclick="getLocation('weekForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.weekForward"/>"/>
                     <input type="button" value="M+" class="quick-btn" onclick="getLocation('monthForward', document.getElementById('dateMultiplier').value)" title="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.appointmentProviderAdminDay.monthForward"/>"/>
                     |
