@@ -132,7 +132,7 @@
                 }
             }
 
-            if (appNo != "") {
+            if (!appNo.isEmpty()) {
                 defaultSiteName = siteDao.getSiteNameByAppointmentNo(appNo);
             }
         }
@@ -206,7 +206,7 @@
             }
     %>
     <SCRIPT LANGUAGE="JavaScript">
-        alert('<%= errorMessage %>');
+        alert('<%= Encode.forJavaScript(errorMessage) %>');
     </SCRIPT>
     <%
         }
@@ -1501,7 +1501,6 @@ if (OscarProperties.getInstance().getBooleanProperty("consultation_program_lette
 		}
 	}
 } %>
-        console.log(providerData);
 
         function switchProvider(value) {
             if (value === -1) {
@@ -1814,7 +1813,7 @@ if (userAgent != null) {
                                 style="padding-left: 2px; padding-right: 2px; border-right: 2px solid #003399; text-align: left; font-size: 80%; font-weight: bold; width: 100%;"
                             >
                                 <h2>
-                                    <%=thisForm.getPatientName()%> <%=thisForm.getPatientSex()%> <%=thisForm.getPatientAge()%>
+                                    <%=Encode.forHtml(thisForm.getPatientName())%> <%=Encode.forHtml(thisForm.getPatientSex())%> <%=Encode.forHtml(thisForm.getPatientAge())%>
                                 </h2>
                             </td>
                             <% if ("ocean".equals(props.get("cme_js"))) { %>
@@ -1839,7 +1838,7 @@ if (userAgent != null) {
                                         <td class="stat" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgCreated"/></td>
                                     </tr>
                                     <tr>
-                                        <td class="stat" colspan="2"><%=thisForm.getProviderName()%>
+                                        <td class="stat" colspan="2"><%=Encode.forHtml(thisForm.getProviderName())%>
                                         </td>
                                     </tr>
                                 </table>
@@ -2215,7 +2214,7 @@ if (userAgent != null) {
                                         <td class="tite3">
                                             <% if (thisForm.iseReferral()) { %>
 
-                                            <%=thisForm.getProfessionalSpecialistName()%>
+                                            <%=Encode.forHtml(thisForm.getProfessionalSpecialistName())%>
 
                                             <% } else if (OscarProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) { %>
 
@@ -2428,7 +2427,7 @@ if (userAgent != null) {
                                         <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgPatient"/>
                                         </td>
                                         <td class="tite1"><a href="javascript:void(0);"
-                                                             onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=demo%>&displaymode=edit&dboperation=search_detail')"><%=thisForm.getPatientName()%>
+                                                             onClick="popupAttach(600,900,'<%=request.getContextPath()%>/demographic/demographiccontrol.jsp?demographic_no=<%=demo%>&displaymode=edit&dboperation=search_detail')"><%=Encode.forHtml(thisForm.getPatientName())%>
                                         </a></td>
                                     </tr>
                                     <tr>
@@ -2991,8 +2990,8 @@ if (userAgent != null) {
                                                     property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                     defaultVal="false">
                             <script type="text/javascript">
-                                const specialist = "${ consultUtil.specialist }";
-                                const servicevalue = "${ consultUtil.service }";
+                                const specialist = "${e:forJavaScript(consultUtil.specialist)}";
+                                const servicevalue = "${e:forJavaScript(consultUtil.service)}";
 
                                 document.EctConsultationFormRequest2Form.specialist.value = specialist;
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;
