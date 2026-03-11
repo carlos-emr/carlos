@@ -214,6 +214,28 @@ Ontario, Canada
                 width: 100%;
             }
 
+            body, html {
+                --color: #945;
+                --size: 2rem;
+                --border: calc(var(--size) * 0.125);
+                --borderRadius: calc(var(--size) * 0.5);
+                --labelSize: calc(var(--size) * 0.75);
+                --margin: calc(var(--size) * 0.25);
+                --marginLeft: calc(var(--size) + calc(var(--size) * 0.5));
+            }
+
+            .time {
+                background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><circle cx='20' cy='20' r='18.5' fill='none' stroke='%23222' stroke-width='3' /><path d='M20,4 20,8 M4,20 8,20 M36,20 32,20 M20,36 20,32' stroke='%23bbb' stroke-width='1' /><circle cx='20' cy='20' r='2' fill='%23222' stroke='%23222' stroke-width='2' /></svg>");
+                background-position: var(--margin) 50%;
+                background-repeat: no-repeat;
+                background-size: var(--size) var(--size);
+                border: var(--border);
+                border-radius: var(--borderRadius);
+                color: #222;
+                font-size: var(--size);
+                padding: var(--margin) var(--margin) var(--margin) var(--marginLeft);
+                transition: backgroundImage 0.25s;
+            }
         </style>
         <%
             // multisites start ==================
@@ -933,7 +955,7 @@ Ontario, Canada
 
         </script>
     </head>
-    <body onLoad="setfocus(); moveAppt(); locale();">
+    <body onLoad="setfocus(); moveAppt(); locale(); updateTime();">
     <div class="container">
         <% if (timeoutSecs > 0) { %>
         <div id="lock_notification">
@@ -1084,11 +1106,8 @@ Ontario, Canada
             <input type="hidden" name="fromAppt" value="1">
 
 
-            <div class="page-header-bar" id="header">
+            <div class="page-header-bar time" id="header">
                 <h4 class="page-header-title">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
-                        <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5M1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4z"/>
-                    </svg>
                     &nbsp;<% if (isMobileOptimized) { %><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgMainLabelMobile"/>
                     <% } else { %><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgMainLabel"/>
                     <% out.println("(" + Encode.forHtmlContent(pFirstname) + " " + Encode.forHtmlContent(pLastname) + ")"); %>
@@ -1112,7 +1131,7 @@ Ontario, Canada
                             <div class="col-sm-8">
                                 <input type="time" name="start_time" class="form-control form-control-sm"
                                        value='<%=Encode.forHtmlAttribute(request.getParameter("start_time") == null ? "" : request.getParameter("start_time"))%>'
-                                       onChange="checkTimeTypeIn(this);checkPageLock()">
+                                       onChange="checkTimeTypeIn(this);checkPageLock();updateTime()">
                             </div>
                         </div>
                         <div class="mb-2 row">
@@ -1189,12 +1208,12 @@ Ontario, Canada
                             <div class="col-sm-8">
                                 <% if (bMultisites) { %>
                                 <select tabindex="4" class="form-select form-select-sm" name="location"
-                                        style="background-color: <%=colo%>"
+                                        style="background-color: <%=Encode.forHtmlAttribute(colo)%>"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (Site s : sites) { %>
                                     <option value="<%=Encode.forHtmlAttribute(s.getName())%>"
-                                            class="<%=s.getShortName()%>"
-                                            style="background-color: <%=s.getBgColor()%>" <%=s.getName().equals(loc) ? "selected" : "" %>><%=Encode.forHtmlContent(s.getName())%>
+                                            class="<%=Encode.forHtmlAttribute(s.getShortName())%>"
+                                            style="background-color: <%=Encode.forHtmlAttribute(s.getBgColor())%>" <%=s.getName().equals(loc) ? "selected" : "" %>><%=Encode.forHtmlContent(s.getName())%>
                                     </option>
                                     <% } %>
                                 </select>
@@ -1245,12 +1264,12 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formStatus"/>:</label>
                             <div class="col-sm-8">
                                 <% if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
-                                <select class="form-select form-select-sm" name="status" style="background-color:<%=(allStatus.get(0)).getColor()%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+                                <select class="form-select form-select-sm" name="status" style="background-color:<%=Encode.forHtmlAttribute((allStatus.get(0)).getColor())%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (int i = 0; i < allStatus.size(); i++) { %>
-                                    <option class="<%=(allStatus.get(i)).getStatus()%>"
-                                            style="background-color:<%=(allStatus.get(i)).getColor()%>"
-                                            value="<%=(allStatus.get(i)).getStatus()%>"
-                                            <%=(allStatus.get(i)).getStatus().equals(request.getParameter("status")) ? "SELECTED" : ""%>><%=(allStatus.get(i)).getDescription()%>
+                                    <option class="<%=Encode.forHtmlAttribute((allStatus.get(i)).getStatus())%>"
+                                            style="background-color:<%=Encode.forHtmlAttribute((allStatus.get(i)).getColor())%>"
+                                            value="<%=Encode.forHtmlAttribute((allStatus.get(i)).getStatus())%>"
+                                            <%=(allStatus.get(i)).getStatus().equals(request.getParameter("status")) ? "SELECTED" : ""%>><%=Encode.forHtmlContent((allStatus.get(i)).getDescription())%>
                                     </option>
                                     <% } %>
                                 </select>
@@ -1285,7 +1304,7 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label" for="mrp"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formDoctor"/>:</label>
                             <div class="col-sm-8">
                                 <input type="text" id="mrp" class="form-control form-control-sm"
-                                       value="<%=bFirstDisp ? "" : StringEscapeUtils.escapeHtml4(providerBean.getProperty(curDoctor_no,""))%>" readonly="readonly">
+                                       value="<%=bFirstDisp ? "" : Encode.forHtmlAttribute(providerBean.getProperty(curDoctor_no,""))%>" readonly="readonly">
                             </div>
                         </div>
                         <div class="mb-2 row">
@@ -1420,7 +1439,8 @@ Ontario, Canada
                            onclick="onButRepeat()" <%=disabled%>>
                     <% } %>
                     <input type="button" id="backButton" class="btn btn-secondary"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>" onClick="cancelPageLock();window.close();">
+                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                           onClick="cancelPageLock(); if (window.opener) { window.close(); } else { window.history.back(); }">
 
                 </div>
             </div>
@@ -1434,10 +1454,10 @@ Ontario, Canada
                     <div class="card-header">
                         <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgDemgraphics"/>
                         <a title="Master File"
-                           onclick="popup(700,1000,'<%=request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=demoNo%>&amp;displaymode=edit&amp;dboperation=search_detail','master')"
+                           onclick="popup(700,1000,'<%=request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=Encode.forUriComponent(demoNo)%>&amp;displaymode=edit&amp;dboperation=search_detail','master')"
                            href="javascript: function myFunction() {return false; }"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnEdit"/></a>
-                        &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgSex"/>: <%=sex%>
-                        &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgDOB"/>: <%=dob%>
+                        &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgSex"/>: <%=Encode.forHtmlContent(sex)%>
+                        &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgDOB"/>: <%=Encode.forHtmlContent(dob)%>
                     </div>
                     <ul class="list-group list-group-flush">
                         <li class="list-group-item"><strong><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.msgHin"/>:</strong> <%=Encode.forHtmlContent(hin.replace("null", ""))%></li>

@@ -45,12 +45,16 @@
 %>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.jsp");
+    if (session.getAttribute("user") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.jsp");
+        return;
+    }
     boolean bEdit = request.getParameter("appointment_no") != null ? true : false;
 %>
 <%@ page import="java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*"
          errorPage="/errorpage.jsp" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
@@ -74,7 +78,12 @@
             String everyNum = request.getParameter("everyNum") != null ? request.getParameter("everyNum") : "0";
             String everyUnit = request.getParameter("everyUnit") != null ? request.getParameter("everyUnit") : "day";
             String endDate = request.getParameter("endDate") != null ? request.getParameter("endDate") : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
-            int delta = Integer.parseInt(everyNum);
+            int delta;
+            try {
+                delta = Integer.parseInt(everyNum);
+            } catch (NumberFormatException nfe) {
+                delta = 0;
+            }
             if (everyUnit.equals("week")) {
                 delta = delta * 7;
                 everyUnit = "day";
@@ -236,15 +245,18 @@
     <head>
         <%@ include file="/includes/global-head.jspf" %>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.title"/></title>
+        <fmt:setBundle basename="oscarResources"/>
+        <fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation" var="msgExitConfirmation"/>
+        <fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation" var="msgDeleteConfirmation"/>
         <script type="text/javascript">
-            function onCheck(a, b) {
-                document.getElementById("everyUnit").value = b;
-                document.getElementById("everyUnitLabel").textContent = b + '(s)';
+            function onCheck(a) {
+                document.getElementById("everyUnit").value = a.value;
+                document.getElementById("everyUnitLabel").textContent = a.dataset.label + '(s)';
             }
 
             function onExit() {
-                if (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgExitConfirmation"/>")) {
-                    window.close()
+                if (confirm('${e:forJavaScript(msgExitConfirmation)}')) {
+                    window.close();
                 }
             }
 
@@ -256,7 +268,7 @@
 
             function onSub() {
                 if (saveTemp == 1) {
-                    return (confirm("<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>"));
+                    return (confirm('${e:forJavaScript(msgDeleteConfirmation)}'));
                 }
             }
         </script>
@@ -284,21 +296,30 @@
                 <div class="mb-3">
                     <label class="form-label fw-bold"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.howoften"/></label>
                     <div class="ms-2">
+                        <fmt:setBundle basename="oscarResources"/>
+                        <fmt:message key="day" var="labelDay"/>
+                        <fmt:message key="week" var="labelWeek"/>
+                        <fmt:message key="month" var="labelMonth"/>
+                        <fmt:message key="year" var="labelYear"/>
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_day" value="day" checked onclick='onCheck(this, "day")'>
-                            <label class="form-check-label" for="dateUnit_day"><fmt:setBundle basename="oscarResources"/><fmt:message key="day"/></label>
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_day" value="day" checked
+                                   data-label="${e:forHtmlAttribute(labelDay)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_day">${e:forHtml(labelDay)}</label>
                         </div>
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_week" value="week" onclick='onCheck(this, "week")'>
-                            <label class="form-check-label" for="dateUnit_week"><fmt:setBundle basename="oscarResources"/><fmt:message key="week"/></label>
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_week" value="week"
+                                   data-label="${e:forHtmlAttribute(labelWeek)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_week">${e:forHtml(labelWeek)}</label>
                         </div>
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_month" value="month" onclick='onCheck(this, "month")'>
-                            <label class="form-check-label" for="dateUnit_month"><fmt:setBundle basename="oscarResources"/><fmt:message key="month"/></label>
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_month" value="month"
+                                   data-label="${e:forHtmlAttribute(labelMonth)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_month">${e:forHtml(labelMonth)}</label>
                         </div>
                         <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_year" value="year" onclick='onCheck(this, "year")'>
-                            <label class="form-check-label" for="dateUnit_year"><fmt:setBundle basename="oscarResources"/><fmt:message key="year"/></label>
+                            <input class="form-check-input" type="radio" name="dateUnit" id="dateUnit_year" value="year"
+                                   data-label="${e:forHtmlAttribute(labelYear)}" onclick='onCheck(this)'>
+                            <label class="form-check-label" for="dateUnit_year">${e:forHtml(labelYear)}</label>
                         </div>
                     </div>
                 </div>
@@ -315,7 +336,7 @@
                                 }
                             %>
                         </select>
-                        <span id="everyUnitLabel" class="text-muted">day(s)</span>
+                        <span id="everyUnitLabel" class="text-muted">${e:forHtml(labelDay)}(s)</span>
                     </div>
                 </div>
 
@@ -323,7 +344,7 @@
                     <label class="col-sm-3 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmenteditrepeatbooking.endon"/></label>
                     <div class="col-sm-9">
                         <input type="date" id="endDate" name="endDate" class="form-control form-control-sm" style="width: 170px;"
-                               value="<%=UtilDateUtilities.DateToString(new Date(),"yyyy-MM-dd")%>">
+                               value="<%=request.getParameter("appointment_date") != null ? Encode.forHtmlAttribute(request.getParameter("appointment_date")) : UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd")%>">
                     </div>
                 </div>
             </div>

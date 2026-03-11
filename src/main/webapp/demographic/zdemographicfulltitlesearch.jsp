@@ -349,9 +349,9 @@
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.All"/>">
 
                 <INPUT TYPE="button" class="btn btn-secondary"
-                       onclick="try{if(window.opener && !window.opener.closed)window.opener.location.reload();}catch(e){}window.close();"
+                       onclick="try{if(window.opener && !window.opener.closed){window.opener.location.reload();window.close();}else{window.history.back();}}catch(e){window.history.back();}"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
-                       TITLE="Close window">
+                       TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>">
 
                 <INPUT TYPE="button" class="btn btn-link"
                        onclick="document.titlesearch.keyword.value='';document.titlesearch.submit();"

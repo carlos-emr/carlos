@@ -30,7 +30,10 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
+    if (session.getAttribute("user") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
+        return;
+    }
 %>
 <%@ page import="java.util.*,java.sql.*"
          errorPage="/errorpage.jsp" %>
@@ -107,9 +110,12 @@
         </table>
 
         <div class="d-flex align-items-center mt-3">
+            <fmt:setBundle basename="oscarResources"/>
+            <fmt:message key="provider.providerdisplaymygroup.confirmDelete" var="confirmDeleteMsg"/>
+            <fmt:message key="provider.providerdisplaymygroup.btnDelete" var="btnDeleteLabel"/>
             <input type="submit" class="btn btn-danger btn-sm"
-                   value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnDelete"/>"
-                   onclick="if(!confirm('Are you sure you want to delete the selected group members?')){return false;} document.forms['UPDATEPRE'].submit_form.value='Delete';">
+                   value="${e:forHtmlAttribute(btnDeleteLabel)}"
+                   onclick="if(!confirm('${e:forJavaScript(confirmDeleteMsg)}')){return false;} document.forms['UPDATEPRE'].submit_form.value='Delete';">
             <input type="submit" class="btn btn-primary btn-sm ms-2"
                    value="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
                    onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">

@@ -480,7 +480,7 @@
 
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 temp = e.nextElement().toString();
-                if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no"))
+                if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals("CSRF-TOKEN"))
                     continue;
                 out.println("<input type=\"hidden\" name=\"" + Encode.forHtmlAttribute(temp) + "\" value=\"" + Encode.forHtmlAttribute(request.getParameter(temp) == null ? "" : request.getParameter(temp)) + "\">");
             }
@@ -488,17 +488,17 @@
 
         <div class="d-flex justify-content-between align-items-center bg-light border rounded p-2 mb-2">
             <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-secondary"><%=Encode.forHtml(request.getParameter("appointment_date"))%></span>
-                <span class="badge bg-info text-dark"><%=Encode.forHtml(request.getParameter("start_time"))%> - <%=Encode.forHtml(request.getParameter("end_time"))%></span>
-                <span class="fw-bold"><%=Encode.forHtml(UtilMisc.toUpperLowerCase(request.getParameter("keyword")))%></span>
+                <span class="badge bg-secondary"><%=Encode.forHtml(eApptDate == null ? "" : eApptDate)%></span>
+                <span class="badge bg-info text-dark"><%=Encode.forHtml(eStartTime == null ? "" : eStartTime)%> - <%=Encode.forHtml(eEndTime == null ? "" : eEndTime)%></span>
+                <span class="fw-bold"><%=Encode.forHtml(UtilMisc.toUpperLowerCase(eName == null ? "" : eName))%></span>
             </div>
-            <span class="badge bg-primary">Group: <%=Encode.forHtml(mygroupno)%></span>
+            <span class="badge bg-primary"><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.legendGroup"/> <%=Encode.forHtml(mygroupno)%></span>
         </div>
 
         <div class="d-flex gap-3 mb-2 small">
-            <span><span class="d-inline-block border rounded px-2 me-1 provider-current">&nbsp;</span> Current provider</span>
-            <span><span class="d-inline-block border rounded px-2 me-1 provider-available">&nbsp;</span> Available</span>
-            <span><span class="d-inline-block border rounded px-2 me-1 provider-unavailable">&nbsp;</span> Unavailable</span>
+            <span><span class="d-inline-block border rounded px-2 me-1 provider-current">&nbsp;</span> <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.legendCurrentProvider"/></span>
+            <span><span class="d-inline-block border rounded px-2 me-1 provider-available">&nbsp;</span> <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.legendAvailable"/></span>
+            <span><span class="d-inline-block border rounded px-2 me-1 provider-unavailable">&nbsp;</span> <fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.legendUnavailable"/></span>
         </div>
 
         <table class="table table-sm table-bordered mb-0">
@@ -568,12 +568,12 @@
             <tfoot>
             <tr class="table-light">
                 <td class="text-end" colspan="2">
-                    <a href="#" onClick='checkAll("one", "true", "two"); return false;'>Check All</a>
-                    | <a href="#" onClick='checkAll("one", "false", "two"); return false;'>Clear All</a>
+                    <a href="#" onClick='checkAll("one", "true", "two"); return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnCheckAll"/></a>
+                    | <a href="#" onClick='checkAll("one", "false", "two"); return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnClearAll"/></a>
                 </td>
                 <td colspan="2">
-                    <a href="#" onClick='checkAll("two", "true", "one"); return false;'>Check All</a>
-                    | <a href="#" onClick='checkAll("two", "false", "one"); return false;'>Clear All</a>
+                    <a href="#" onClick='checkAll("two", "true", "one"); return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnCheckAll"/></a>
+                    | <a href="#" onClick='checkAll("two", "false", "one"); return false;'><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnClearAll"/></a>
                 </td>
             </tr>
             </tfoot>
@@ -588,9 +588,12 @@
                 <input type="button" class="btn btn-secondary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Group Cancel'; document.forms['groupappt'].submit();"
                        value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupCancel"/>">
+                <fmt:setBundle basename="oscarResources"/>
+                <fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation" var="msgDeleteConfirmation"/>
+                <fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete" var="btnGroupDelete"/>
                 <input type="button" class="btn btn-danger btn-sm"
-                       onclick="if(!confirm('<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.msgDeleteConfirmation"/>')){return false;} document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
-                       value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.appointmentgrouprecords.btnGroupDelete"/>">
+                       onclick="if(!confirm('${e:forJavaScript(msgDeleteConfirmation)}')){return false;} document.forms['groupappt'].groupappt.value='Group Delete'; document.forms['groupappt'].submit();"
+                       value="${e:forHtmlAttribute(btnGroupDelete)}">
                 <% } else { %>
                 <input type="button" class="btn btn-primary btn-sm"
                        onclick="document.forms['groupappt'].groupappt.value='Add Group Appointment'; document.forms['groupappt'].submit();"

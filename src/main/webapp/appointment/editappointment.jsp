@@ -232,19 +232,10 @@
 <html>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.editappointment.title"/></title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-
-    <link href="${pageContext.request.contextPath}/library/bootstrap/5.0.2/css/bootstrap.min.css" rel="stylesheet" type="text/css">
-        <link href="${pageContext.request.contextPath}/css/fontawesome-all.min.css" rel="stylesheet">
-    <link href="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.css" rel="stylesheet">
-        <script src="${ pageContext.request.contextPath }/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="${ pageContext.request.contextPath }/library/jquery/jquery-ui-1.12.1.min.js"></script>
-    <script type="text/javascript" src="${pageContext.request.contextPath}/library/bootstrap/5.0.2/js/bootstrap.bundle.min.js" ></script>
-
-    <script src="<%= request.getContextPath() %>/js/global.js"></script>
-    <script src="<%= request.getContextPath() %>/js/checkDate.js"></script>
-    <script src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
+        <%@ include file="/includes/global-head.jspf" %>
+        <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.12.1.min.js"></script>
+        <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
 
         <style>
 
@@ -834,6 +825,27 @@
 <form name="EDITAPPT" METHOD="post" ACTION="appointmentcontrol.jsp" onSubmit="return(onSub())">
     <input type="hidden" name="displaymode" value="">
     <input type="hidden" name="buttoncancel" value="">
+    <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
+    <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
+        <span id="jsAlertText"></span>
+        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+    </div>
+    <%-- patientStatusBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
+    <%
+        String editRosterStatus = StringUtils.defaultString(rosterstatus);
+        boolean editShowStatus = !editRosterStatus.isEmpty() && !editRosterStatus.equalsIgnoreCase("RO");
+    %>
+    <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
+         data-roster-label="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>"
+         style="<%= editShowStatus ? "" : "display:none" %>" role="alert">
+        <span id="patientStatusText"><%=editShowStatus ? Encode.forHtmlContent(editRosterStatus) : ""%></span>
+        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+    </div>
+    <%-- patientAlertBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
+    <div id="patientAlertBanner" class="alert alert-warning alert-dismissible"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %> role="alert">
+        <span id="patientAlertText"><%=Encode.forHtmlContent(alert != null ? alert : "")%></span>
+        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
+    </div>
             <div class="header deep">
         <div class="time" id="header"><h4>
                     <!-- We display a shortened title for the mobile version -->
@@ -926,27 +938,6 @@
 		doctorNo = "";
     }
     %>
-    <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
-    <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
-        <span id="jsAlertText"></span>
-        <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
-    </div>
-   <%-- patientStatusBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
-   <%
-       String editRosterStatus = StringUtils.defaultString(rosterstatus);
-       boolean editShowStatus = !editRosterStatus.isEmpty() && !editRosterStatus.equalsIgnoreCase("RO");
-   %>
-   <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
-        data-roster-label="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>"
-        style="<%= editShowStatus ? "" : "display:none" %>" role="alert">
-       <span id="patientStatusText"><%=editShowStatus ? Encode.forHtmlContent(editRosterStatus) : ""%></span>
-       <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
-   </div>
-   <%-- patientAlertBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
-   <div id="patientAlertBanner" class="alert alert-warning alert-dismissible"<%= (alert == null || alert.isEmpty()) ? " style=\"display:none\"" : "" %> role="alert">
-       <span id="patientAlertText"><%=Encode.forHtmlContent(alert != null ? alert : "")%></span>
-       <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
-   </div>
 
     <div class="bg-light border rounded p-2">
         <div class="form-wrapper">
