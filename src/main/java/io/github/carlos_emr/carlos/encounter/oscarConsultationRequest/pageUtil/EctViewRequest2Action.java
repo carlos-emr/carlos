@@ -78,6 +78,7 @@ import ca.uhn.hl7v2.model.v26.segment.PRD;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 
 public class EctViewRequest2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -296,9 +297,9 @@ public class EctViewRequest2Action extends ActionSupport {
         Demographic demographic = DataTypeUtils.parsePid(pid);
 
         StringBuilder address = new StringBuilder();
-        if (demographic.getAddress() != null) address.append(demographic.getAddress()).append("<br />");
-        if (demographic.getCity() != null) address.append(demographic.getCity()).append(", ");
-        if (demographic.getProvince() != null) address.append(demographic.getProvince());
+        if (demographic.getAddress() != null) address.append(Encode.forHtml(demographic.getAddress())).append("<br />");
+        if (demographic.getCity() != null) address.append(Encode.forHtml(demographic.getCity())).append(", ");
+        if (demographic.getProvince() != null) address.append(Encode.forHtml(demographic.getProvince()));
         thisForm.setPatientAddress(address.toString());
 
         if (demographic.getBirthDay() != null) {
