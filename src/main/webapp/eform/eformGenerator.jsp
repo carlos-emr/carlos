@@ -1229,9 +1229,9 @@ and other liscences (MIT, LGPL etc) as indicated
 
             }
 
-            //</head>
+            // close head tag
             textTop += "&lt;/head&gt;\n\n"
-            //<body>
+            // open body tag
             textTop += "&lt;body"
             textTop += " onload=&quot;"
             //textTop += "reImg();"

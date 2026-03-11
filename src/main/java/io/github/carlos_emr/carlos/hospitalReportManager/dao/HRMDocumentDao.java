@@ -71,15 +71,6 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         return matches;
     }
 
-    public List<HRMDocument> findByNoTransactionInfoHash(String hash) {
-        String sql = "select x from " + this.modelClass.getName() + " x where x.reportLessTransactionInfoHash=?1";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, hash);
-        @SuppressWarnings("unchecked")
-        List<HRMDocument> matches = query.getResultList();
-        return matches;
-    }
-
     @SuppressWarnings("unchecked")
     public List<Integer> findAllWithSameNoDemographicInfoHash(String hash) {
         String sql = "select distinct parentReport from " + this.modelClass.getName() + " x where x.reportLessDemographicInfoHash=?1";
@@ -141,19 +132,6 @@ public class HRMDocumentDao extends AbstractDaoImpl<HRMDocument> {
         List<HRMDocument> documents = query.getResultList();
         return documents;
     }
-
-    public List<HRMDocument> findByKey(String sourceFacility, String sourceFacilityReportNo, String deliverToId) {
-        String sql = "select x from " + this.modelClass.getName() + " x where x.sourceFacility=?1 AND x.sourceFacilityReportNo = ?2 AND x.recipientId = ?3";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, sourceFacility);
-        query.setParameter(2, sourceFacilityReportNo);
-        query.setParameter(3, deliverToId);
-
-        @SuppressWarnings("unchecked")
-        List<HRMDocument> documents = query.getResultList();
-        return documents;
-    }
-
 
     public List<HRMDocument> query(String providerNo, boolean providerUnmatched, boolean noSignOff, boolean demographicUnmatched, int start, int length, String orderColumn, String orderDirection) {
 

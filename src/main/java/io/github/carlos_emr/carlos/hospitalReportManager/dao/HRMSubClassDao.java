@@ -30,15 +30,6 @@ public class HRMSubClassDao extends AbstractDaoImpl<HRMSubClass> {
         super(HRMSubClass.class);
     }
 
-    public List<HRMSubClass> findById(int id) {
-        String sql = "select x from " + this.modelClass.getName() + " x where x.id=?1";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, id);
-        @SuppressWarnings("unchecked")
-        List<HRMSubClass> documents = query.getResultList();
-        return documents;
-    }
-
     public List<HRMSubClass> listAll() {
         String sql = "select x from " + this.modelClass.getName() + " x ";
         Query query = entityManager.createQuery(sql);
@@ -46,30 +37,6 @@ public class HRMSubClassDao extends AbstractDaoImpl<HRMSubClass> {
         @SuppressWarnings("unchecked")
         List<HRMSubClass> subclasses = query.getResultList();
         return subclasses;
-    }
-
-    public boolean subClassMappingExists(String className, String subClassName) {
-        return subClassMappingExists(className, subClassName, "*");
-    }
-
-    public boolean subClassMappingExists(String className, String subClassName, String sendingFacilityId) {
-        return subClassMappingExists(className, subClassName, null, sendingFacilityId);
-    }
-
-    public boolean subClassMappingExists(String className, String subClassName, String subClassMnemonic, String sendingFacilityId) {
-        String sql = "select x from " + this.modelClass.getName() + " x where x.className=?1 and x.subClassName=?2  and x.subClassMnemonic=?3 and x.sendingFacilityId=?4";
-        sendingFacilityId = (sendingFacilityId == null) ? "*" : sendingFacilityId;
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, className);
-        query.setParameter(2, subClassName);
-        query.setParameter(3, subClassMnemonic);
-        query.setParameter(4, sendingFacilityId);
-
-        try {
-            return (query.getSingleResult() != null);
-        } catch (Exception e) {
-            return false;
-        }
     }
 
     public HRMSubClass findSubClassMapping(String className, String subClassName, String subClassMnemonic, String sendingFacilityId) {
