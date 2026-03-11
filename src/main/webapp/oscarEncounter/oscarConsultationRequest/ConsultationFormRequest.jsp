@@ -660,39 +660,6 @@
                 padding: 5px !important;
             }
 
-            /* ---- Layout: narrow the attachment/status left column ---- */
-            .MainTableLeftColumn {
-                width: 150px !important;
-                min-width: 120px;
-                max-width: 160px !important;
-                overflow: hidden;
-            }
-
-            /* ---- Layout: responsive 2-column form area ---- */
-            tr.consultDemographicData {
-                display: flex !important;
-                flex-wrap: wrap;
-                align-items: flex-start;
-            }
-
-            tr.consultDemographicData > td {
-                flex: 1 1 340px;
-                min-width: 280px;
-                box-sizing: border-box;
-                vertical-align: top;
-            }
-
-            /* Compact label column within each section */
-            tr.consultDemographicData td.tite4 {
-                width: 120px;
-                min-width: 100px;
-                white-space: nowrap;
-            }
-
-            tr.consultDemographicData td.tite3,
-            tr.consultDemographicData td.tite1 {
-                min-width: 120px;
-            }
 
         </style>
     </head>
