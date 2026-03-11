@@ -299,10 +299,10 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 		resultDesc=""
-		desc="MenC-C=Meningocococcal C Conjugate eg Menjugate"
-		name="MenC-C"
+		desc="Men-C-C=Meningococcal C Conjugate eg Menjugate, NeisVac-C"
+		name="Men-C-C"
 		headingName="Immunizations"
-		healthCanadaType="Men-C"
+		healthCanadaType="Men-C-C"
 		layout="injection" atc="J07AH07" minAge="0" maxAge="19"
 		showIfMinRecordNum="1" />
 
@@ -380,10 +380,10 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 		resultDesc=""
-		desc="RZV=Recombinant Herpes Zoster eg Shingrix"
+		desc="RZV=Recombinant Herpes Zoster (Subunit) Vaccine eg Shingrix (2 doses)"
 		name="RZV"
 		headingName="Immunizations"
-		healthCanadaType="HerpR"
+		healthCanadaType="RZV"
 		layout="injection" atc="J07BK03" minAge="50" maxAge="100"
 		showIfMinRecordNum="1" />
 
@@ -416,9 +416,32 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 		resultDesc=""
-		desc="Women from ages 25 to 69" name="HPV-CERVIX"
+		desc="HPV-CERVIX=HPV primary cervical cancer screening every 5 years - women ages 25 to 69"
+		name="HPV-CERVIX"
 		headingName="Screenings" link="" layout="PAPMAM" minAge="25"
 		maxAge="69" sex="F" showIfMinRecordNum="1" />
+
+	<item
+		resultDesc=""
+		desc="PAP=Cervical cytology (Pap smear) - women ages 25 to 70"
+		name="PAP"
+		headingName="Screenings" link="" layout="PAPMAM" minAge="25"
+		maxAge="70" sex="F" showIfMinRecordNum="1" />
+
+	<item
+		resultDesc=""
+		desc="COLONOSCOPY=Colonoscopy for colorectal cancer screening every 10 years"
+		name="COLONOSCOPY"
+		headingName="Screenings" link="" layout="PAPMAM"
+		showIfMinRecordNum="1" />
+
+	<item
+		resultDesc=""
+		displayName="LDCT Lung Cancer"
+		desc="LDCT=Low-Dose CT lung cancer screening - annual for high-risk smokers ages 55-74"
+		name="LDCT"
+		headingName="Screenings" link="" layout="PAPMAM" minAge="55" maxAge="74"
+		showIfMinRecordNum="1" />
 
 	<!-- Other -->
 

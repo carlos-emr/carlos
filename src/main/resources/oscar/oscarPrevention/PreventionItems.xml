@@ -2,27 +2,164 @@
 
 <!--
     Document   : PreventionItems.xml
-    Created on : October 26, 2005, 3:06 PM
-    Author     : Jay Gallagher
     Source     : src/main/resources/oscar/oscarPrevention/PreventionItems.xml
-    Updated on : Dec 31, 2020
     Description:
-        Xml configuration used in the Prevention Module to set up the types of preventions available.
+        XML configuration for the Prevention Module. Defines all prevention types
+        available for recording and clinical decision support.
 
+    NAMING CONVENTION (Health Canada / NACI Standard):
+        The "name" attribute is the canonical INTERNAL type code used in database storage,
+        DRL rules, and config sets. It MUST match Health Canada abbreviations exactly.
+        The "desc" attribute and optional "displayName" attribute provide user-friendly labels.
+        Example: name="Inf" with displayName="Flu" and desc="Flu=Influenza vaccine"
 
-*Passive Immunizing Agents* *Agents	Abbreviations*
-Botulism Antitoxin	BAtx
-Diphtheria Antitoxin	DAtx
-Immune Globulin	Ig
-Hepatitis B Immunoglobulin	HBIg
-Rabies Immunoglobulin	RabIg
-Respiratory Syncytial Virus Immunoglobulin	RSVIg
-Tetanus Immunoglobulin	TIg
-Varicella Immunoglobulin	VarIg
+    HEALTH CANADA IMMUNIZATION ABBREVIATIONS (Reference):
+    -------------------------------------------------------
+    Active Immunizing Agents (Vaccines):
+      Anth      Anthrax
+      BCG       Bacillus Calmette-Guérin
+      Chik      Chikungunya
+      Chol      Cholera (general)
+      Chol-Ecol-O Cholera-E.coli oral (Dukoral)
+      Chol-O    Cholera oral
+      COVID-19  COVID-19 vaccine
+      d         Diphtheria (low-dose, rarely used alone)
+      DT        Diphtheria-Tetanus pediatric
+      DT-IPV    Diphtheria-Tetanus-Polio pediatric
+      DTaP      Diphtheria-Tetanus-acellular Pertussis pediatric
+      DTaP-HB-IPV      DTaP-HepB-IPV
+      DTaP-HB-IPV-Hib  DTaP-HepB-IPV-Hib (eg Infanrix Hexa)
+      DTaP-Hib         DTaP-Hib
+      DTaP-IPV         DTaP-IPV (eg Infanrix IPV, Pediarix)
+      DTaP-IPV-Hib     DTaP-IPV-Hib (eg Pediacel)
+      DTaP-IPV-HB      DTaP-IPV-HepB
+      DTaP-IPV-Hib-HB  DTaP-IPV-Hib-HepB (eg Infanrix Hexa)
+      EV-A71    Enterovirus A71
+      EZV       Ebola Zaire Vaccine
+      fIPV      Fractional Inactivated Poliovirus
+      HA        Hepatitis A (eg Havrix, Avaxim)
+      HA-Typh-I Hepatitis A + Typhoid injectable (eg Vivaxim)
+      HAHB      Hepatitis A + B (eg Twinrix)
+      HB        Hepatitis B (eg Engerix-B, Recombivax HB)
+      HBIg      Hepatitis B Immunoglobulin (passive)
+      Hib       Haemophilus influenzae type b
+      Hib+HB    Hib + Hepatitis B
+      HPV       Human Papillomavirus (generic)
+      HPV-2     HPV bivalent (Cervarix)
+      HPV-4     HPV quadrivalent (Gardasil)
+      HPV-9     HPV 9-valent (Gardasil 9)
+      HZ        Herpes Zoster (generic)
+      Ig        Immune Globulin (passive)
+      Inf       Influenza (eg Fluzone, Flucelvax, FluBlok)
+      IPV       Inactivated Poliovirus Vaccine
+      JE        Japanese Encephalitis
+      LYM       Lyme disease
+      LZV       Live Zoster Vaccine (Zostavax - being phased out)
+      M         Measles (monovalent)
+      Men       Meningococcal (generic)
+      Men-A     Meningococcal A
+      Men-AC    Meningococcal AC conjugate
+      Men-ACYW-135  Meningococcal ACYW-135 polysaccharide
+      Men-B     Meningococcal B (generic)
+      Men-C     Meningococcal C (generic)
+      Men-C-A   Meningococcal C-A conjugate
+      Men-C-AC  Meningococcal C-AC conjugate
+      Men-C-ACYW     Meningococcal C-ACYW conjugate
+      Men-C-ACYW-135 Meningococcal C-ACYW-135 conjugate (eg Menactra, Menveo)
+      Men-C-C   Meningococcal C conjugate (eg Menjugate, NeisVac-C)
+      Men-C-CY  Meningococcal C-CY conjugate
+      Men-C-CY-Hib   Meningococcal C-CY + Hib
+      Men-P     Meningococcal polysaccharide (generic)
+      Men-P-A   Meningococcal A polysaccharide
+      Men-P-AC  Meningococcal AC polysaccharide
+      Men-P-ACYW-135 Meningococcal ACYW-135 polysaccharide (eg Menomune)
+      MMR       Measles-Mumps-Rubella (eg Priorix, M-M-R II)
+      MMR-Var   Measles-Mumps-Rubella-Varicella (eg Priorix-Tetra)
+      MR        Measles-Rubella
+      Mu        Mumps (monovalent)
+      Nirsevimab RSV monoclonal antibody (Beyfortus) - see RSVAb
+      OPV       Oral Poliovirus Vaccine (historical)
+      PF        Pfizer-BioNTech COVID-19 (brand specific, use COVID-19)
+      PLAG      Plague
+      Pneu      Pneumococcal (generic, unspecified)
+      Pneu-C    Pneumococcal conjugate (generic/7-valent)
+      Pneu-C-7  Pneumococcal 7-valent conjugate (Prevnar 7 - discontinued)
+      Pneu-C-10 Pneumococcal 10-valent conjugate (Synflorix)
+      Pneu-C-13 Pneumococcal 13-valent conjugate (Prevnar 13)
+      Pneu-C-15 Pneumococcal 15-valent conjugate (Vaxneuvance)
+      Pneu-C-20 Pneumococcal 20-valent conjugate (Prevnar 20)
+      Pneu-C-21 Pneumococcal 21-valent conjugate (Apexxnar)
+      Pneu-P    Pneumococcal polysaccharide (generic)
+      Pneu-P-23 Pneumococcal 23-valent polysaccharide (Pneumovax 23)
+      Rab       Rabies (eg Imovax Rabies, RabAvert)
+      RabIg     Rabies Immunoglobulin (passive)
+      Rota      Rotavirus (generic)
+      Rota-1    Rotavirus monovalent (Rotarix)
+      Rota-5    Rotavirus pentavalent (RotaTeq)
+      RSV       RSV protein subunit vaccine (eg Arexvy, Abrysvo)
+      RSVAb     RSV monoclonal antibody (Beyfortus/Nirsevimab) - pediatric
+      RSVIg     RSV Immunoglobulin (passive, historical)
+      Rubella   Rubella (monovalent, rare)
+      RZV       Recombinant Zoster Vaccine (Shingrix)
+      Sma       Smallpox (historical)
+      T         Tetanus (monovalent)
+      T-IPV     Tetanus + IPV
+      TBE       Tick-borne Encephalitis
+      Td        Tetanus-Diphtheria adult formulation (eg Td Adsorbed)
+      Td-IPV    Tetanus-Diphtheria-Polio adult
+      Tdap      Tetanus-Diphtheria-acellular Pertussis adult/adolescent (eg Adacel, Boostrix)
+      Tdap-IPV  Tdap + IPV (eg Adacel-Polio)
+      TIg       Tetanus Immunoglobulin (passive)
+      Typh      Typhoid (generic)
+      Typh-I    Typhoid injectable (eg Typhim Vi)
+      Typh-O    Typhoid oral (eg Vivotif)
+      Var       Varicella (Chickenpox) (eg Varivax III)
+      VarIg     Varicella Immunoglobulin (passive)
+      VIG       Vaccinia Immune Globulin (passive)
+      wP        Whole-cell Pertussis (historical)
+      YF        Yellow Fever (eg YF-VAX)
+      Zos       Zostavax (brand name, use LZV)
+
+    Passive Immunizing Agents (for reference, not active vaccines):
+      BAtx      Botulism Antitoxin
+      BIG-IV    Botulism Immune Globulin Intravenous
+      CMVIg     Cytomegalovirus Immunoglobulin
+      DAtx      Diphtheria Antitoxin
+      HBIg      Hepatitis B Immunoglobulin
+      Ig        Immune Globulin
+      RabIg     Rabies Immunoglobulin
+      RSVIg     Respiratory Syncytial Virus Immunoglobulin
+      TIg       Tetanus Immunoglobulin
+      VarIg     Varicella Immunoglobulin
+
+    Non-Vaccine Screenings (CARLOS internal codes):
+      AAA           Abdominal Aortic Aneurysm ultrasound
+      BMD           Bone Mineral Density
+      chlamydia     Chlamydia PCR
+      COLONOSCOPY   Colonoscopy
+      FOBT          Fecal Occult Blood / Fecal Immunochemical Test (FIT)
+      ghonorrhea PCR  Gonorrhea NAAT/PCR
+      HepB screen   Hepatitis B serology
+      HepC screen   Hepatitis C serology
+      HIV           HIV serology
+      HPV-CERVIX    HPV primary cervical screening
+      LDCT          Low-Dose CT (lung cancer screening)
+      MAM           Mammogram
+      PAP           Pap smear (cervical cytology)
+      PHV           Periodic Health Visit
+      PSA           Prostate Specific Antigen
+      Smoking       Smoking history assessment
+      Tuberculosis  Tuberculosis Mantoux
+      VDRL          VDRL syphilis serology
+
+    Updated: March 2026 - Aligned with Health Canada immunization abbreviation standard
+    Source: https://www.canada.ca/en/public-health/services/provincial-territorial-immunization-information.html
 -->
 
 <preventions>
-	<!-- Immunizations -->
+	<!-- ============================================================ -->
+	<!-- IMMUNIZATIONS                                                 -->
+	<!-- ============================================================ -->
 
 	<item
 			resultDesc=""
@@ -30,7 +167,7 @@ Varicella Immunoglobulin	VarIg
 			name="DTaP"
 			headingName="Immunizations"
 			healthCanadaType="DTaP"
-			layout="injection" 
+			layout="injection"
             atc=""
 			showIfMinRecordNum="1"/>
 
@@ -40,7 +177,7 @@ Varicella Immunoglobulin	VarIg
 			name="DTaP-IPV-Hib-HB"
 			headingName="Immunizations"
 			healthCanadaType="DTaP-IPV-Hib-HB"
-			layout="injection" 
+			layout="injection"
             atc=""
 			showIfMinRecordNum="1"/>
 
@@ -50,7 +187,7 @@ Varicella Immunoglobulin	VarIg
 			name="DTaP-IPV-HB"
 			headingName="Immunizations"
 			healthCanadaType="DTaP-IPV-HB"
-			layout="injection" 
+			layout="injection"
             atc=""
 			showIfMinRecordNum="1"/>
 
@@ -60,7 +197,7 @@ Varicella Immunoglobulin	VarIg
 			name="DT-IPV"
 			headingName="Immunizations"
 			healthCanadaType="DT-IPV"
-			layout="injection" 
+			layout="injection"
             atc=""
 			showIfMinRecordNum="1"/>
 
@@ -81,7 +218,7 @@ Varicella Immunoglobulin	VarIg
 			headingName="Immunizations"
 			healthCanadaType="DTaP-IPV-Hib"
 			link="http://www.phac-aspc.gc.ca/"
-			layout="injection" 
+			layout="injection"
             atc="J07CA06" minAge="0" maxAge="6"
 			showIfMinRecordNum="1" />
 
@@ -108,11 +245,31 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="Rota=Rotavirus Vaccine eg Rotarix"
+			desc="Rota=Rotavirus Vaccine (generic) eg Rotarix or RotaTeq"
 			name="Rota"
 			headingName="Immunizations"
 			healthCanadaType="Rota"
 			link="www.novaccine.com/pdffiles/Rotarix_new_package_insert.pdf"
+			layout="injection"
+            atc="J07BH01" minAge="0" maxAge="2"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Rota-1=Rotavirus monovalent vaccine eg Rotarix (2 doses)"
+			name="Rota-1"
+			headingName="Immunizations"
+			healthCanadaType="Rota-1"
+			layout="injection"
+            atc="J07BH01" minAge="0" maxAge="2"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Rota-5=Rotavirus pentavalent vaccine eg RotaTeq (3 doses)"
+			name="Rota-5"
+			headingName="Immunizations"
+			healthCanadaType="Rota-5"
 			layout="injection"
             atc="J07BH01" minAge="0" maxAge="2"
 			showIfMinRecordNum="1" />
@@ -124,29 +281,40 @@ Varicella Immunoglobulin	VarIg
 			headingName="Immunizations"
 			healthCanadaType="Hib"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#Hib"
-			layout="injection" 
+			layout="injection"
             atc="J07AG51" minAge="0" maxAge="6"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Pneumovax Pneumococcal-Polysaccharide - 23 valent eg Pneumovax"
-			name="Pneumovax"
-			headingName="Immunizations" 
-            link="" 
+			displayName="Pneumovax"
+			desc="Pneu-P-23=Pneumococcal Polysaccharide 23-valent eg Pneumovax 23"
+			name="Pneu-P-23"
+			headingName="Immunizations"
+            link=""
             layout="injection"
 			healthCanadaType="Pneu-P-23"
 			atc="J07AL01" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Pneu-C=Pneumococcal Multi Valent Conjugate eg Prevnar 13"
+			desc="Pneu-C=Pneumococcal Multi Valent Conjugate (generic/7-valent) eg Prevnar 7"
 			name="Pneu-C"
 			headingName="Immunizations"
 			healthCanadaType="Pneu-C-7"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#PneuC"
 			layout="injection"
             atc="J07AL02" minAge="0" maxAge="2"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Pneu-C-13=Pneumococcal 13-valent Conjugate eg Prevnar 13"
+			name="Pneu-C-13"
+			headingName="Immunizations"
+			healthCanadaType="Pneu-C-13"
+			layout="injection"
+            atc="J07AL02" minAge="0" maxAge="100"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -171,11 +339,11 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="Measles"
+			desc="Measles monovalent"
 			name="M"
 			headingName="Immunizations"
 			healthCanadaType="M"
-			layout="injection" 
+			layout="injection"
             atc=""
 			showIfMinRecordNum="1" />
 
@@ -195,7 +363,7 @@ Varicella Immunoglobulin	VarIg
 			headingName="Immunizations"
 			healthCanadaType="MMR"
 			link="http://www.phac-aspc.gc.ca/publicat/cig-gci/p04-meas-roug-eng.php"
-			layout="injection" 
+			layout="injection"
             atc="J07BD52" minAge="0" maxAge="9"
 			showIfMinRecordNum="1" />
 
@@ -212,50 +380,53 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="Meningococcal - Polysaccharide"
+			desc="Men-P-AC=Meningococcal AC Polysaccharide"
 			name="Men-P-AC"
 			headingName="Immunizations"
 			healthCanadaType="Men-P-AC"
-			layout="injection" 
+			layout="injection"
             atc="J07AH"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Meningococcal - Polysaccharide eg Menomune"
+			displayName="Menomune"
+			desc="Men-P-ACWY=Meningococcal ACWY Polysaccharide eg Menomune"
 			name="Men-P-ACWY"
 			headingName="Immunizations"
-			healthCanadaType="Men-P-ACWY"
-			layout="injection" 
+			healthCanadaType="Men-P-ACYW-135"
+			layout="injection"
             atc="J07AH"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Meningococcal Conjugate ACYW-135 eg Menactra"
+			desc="Men-C-ACYW-135=Meningococcal ACYW-135 Conjugate eg Menactra, Menveo"
 			name="Men-C-ACYW-135"
 			headingName="Immunizations"
 			healthCanadaType="Men-C-ACYW-135"
-			layout="injection" 
+			layout="injection"
             atc="J07AH"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="MenC-C=Meningocococcal C Conjugate eg Menjugate"
-			name="MenC-C"
+			desc="Men-C-C=Meningococcal C Conjugate eg Menjugate, NeisVac-C"
+			name="Men-C-C"
 			headingName="Immunizations"
-			healthCanadaType="Men-C"
+			healthCanadaType="Men-C-C"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#MenC"
-			layout="injection" 
+			layout="injection"
             atc="J07AH07" minAge="0" maxAge="19"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="rMenB=Meningocococcal B Recombinant Multicomponent eg Bexsero"
+			displayName="Bexsero"
+			desc="rMenB=Meningococcal B Recombinant Multicomponent eg Bexsero"
 			name="rMenB"
-			healthCanadaType="rMenB"
+			headingName="Immunizations"
+			healthCanadaType="Men-B"
 			link="http://www.hc-sc.gc.ca/dhp-mps/prodpharma/sbd-smd/drug-med/sbd_smd_2014_bexsero_147275-eng.php"
 			layout="injection"
 			atc="J07AH08"
@@ -265,7 +436,7 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="Var=Varicella Zoster eg Varivax III"
+			desc="Var=Varicella (Chickenpox) eg Varivax III"
 			name="Var"
 			headingName="Immunizations"
 			healthCanadaType="Var"
@@ -278,9 +449,11 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="HZV=Herpes Zoster Vaccine eg Zostavax"
-			name="HZV"
-			healthCanadaType="HZV"
+			displayName="Zostavax"
+			desc="LZV=Live Zoster Vaccine eg Zostavax (being replaced by Shingrix/RZV)"
+			name="LZV"
+			headingName="Immunizations"
+			healthCanadaType="LZV"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/hzv-vcz-eng.php"
 			layout="injection"
 			atc="J07BK02"
@@ -289,9 +462,10 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="RZV=herpes zoster recomb subunit vaccine eg Shingrix" 
-            name="RZV" 
-            healthCanadaType="HerpR"
+			desc="RZV=Recombinant Herpes Zoster (Subunit) Vaccine eg Shingrix (2 doses)"
+			name="RZV"
+			headingName="Immunizations"
+			healthCanadaType="RZV"
 			layout="injection"
 			atc="J07BK03"
 			minAge="50"
@@ -300,38 +474,40 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="Hep B=Hepatitis B" 
-            name="HepB"
-			headingName="Immunizations" 
-            healthCanadaType="HB"
+			displayName="HepB"
+			desc="HepB=Hepatitis B eg Engerix-B, Recombivax HB"
+			name="HB"
+			headingName="Immunizations"
+			healthCanadaType="HB"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#HepB"
-			layout="injection" 
+			layout="injection"
             atc="J07BC01" minAge="0" maxAge="1"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Tetanus"
+			displayName="Tetanus"
+			desc="T=Tetanus monovalent"
 			name="T"
 			headingName="Immunizations"
 			healthCanadaType="T"
-			layout="injection" 
+			layout="injection"
             atc="J07AM"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Tetanus, Diphtheria, Inactivated Polio - adult"
+			desc="Td-IPV=Tetanus, Diphtheria, Inactivated Polio - adult"
 			name="Td-IPV"
 			headingName="Immunizations"
 			healthCanadaType="Td-IPV"
-			layout="injection" 
+			layout="injection"
             atc=""
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Tdap=Diphtheria, Tetanus and Acellular Pertussis adult/adolescent formulation"
+			desc="Tdap=Diphtheria, Tetanus and Acellular Pertussis adult/adolescent formulation eg Adacel, Boostrix"
 			name="Tdap"
 			headingName="Immunizations"
             healthCanadaType="Tdap"
@@ -342,91 +518,104 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="Td=Tetanus and Diphtheria adult type formulation"
+			desc="Td=Tetanus and Diphtheria adult type formulation eg Td Adsorbed"
 			name="Td"
-			headingName="Immunizations" 
+			headingName="Immunizations"
             healthCanadaType="Td"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#dTap"
-			layout="injection" 
+			layout="injection"
             atc="J07CA01" minAge="0" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Inf=Influenza vaccine"
-            name="Inf"
+			displayName="Flu"
+			desc="Flu=Influenza vaccine eg Fluzone, Flucelvax, FluBlok"
+			name="Inf"
 			headingName="Immunizations"
-            healthCanadaType="Inf"
+			healthCanadaType="Inf"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html#Flu"
 			layout="injection"
             atc="J07BB01" minAge="0" />
 
 	<item
 			resultDesc=""
-			desc="Hepatitis A and Typhoid - Injection"
+			desc="HA-Typh-I=Hepatitis A and Typhoid Injectable eg Vivaxim"
 			name="HA-Typh-I"
 			headingName="Immunizations"
 			healthCanadaType="HA-Typh-I"
-			layout="injection" 
+			layout="injection"
             atc=""
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Hep A=Hepatitis A" 
-            name="HepA"
-			headingName="Immunizations" 
-            link="" 
-            layout="injection" 
+			displayName="HepA"
+			desc="HepA=Hepatitis A eg Havrix, Avaxim"
+			name="HA"
+			headingName="Immunizations"
+            link=""
+            layout="injection"
             healthCanadaType="HA"
 			atc="J07BC02" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Hep AB=Hepatitis AB" 
-            name="HepAB" link=""
-			headingName="Immunizations" 
-            layout="injection" 
+			displayName="HepAB"
+			desc="HepAB=Hepatitis A + B eg Twinrix"
+			name="HAHB"
+			headingName="Immunizations"
+            link=""
+			layout="injection"
             healthCanadaType="HAHB"
-			atc="J07BC20" 
+			atc="J07BC20"
             showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Cholera - E.coli - Oral"
+			displayName="Dukoral"
+			desc="Chol-O=Cholera oral eg Dukoral"
+			name="Chol-O"
+			headingName="Immunizations"
+			healthCanadaType="Chol-O"
+			link=""
+            layout="injection"
+            atc="J07AE01" showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="Chol-Ecol-O=Cholera-E.coli oral (includes ETEC)"
 			name="Chol-Ecol-O"
 			headingName="Immunizations"
 			healthCanadaType="Chol-Ecol-O"
-			layout="injection" 
+			layout="injection"
             atc=""
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Dukoral" 
-            name="CHOLERA"
-			headingName="Immunizations" link="" 
-            layout="injection" 
-            healthCanadaType="Chol-O"
-			atc="J07AE01" showIfMinRecordNum="1" />
-
-	<item
-			resultDesc=""
-			desc="Rabies=Rabies" name="Rabies" link=""
-			headingName="Immunizations" layout="injection" healthCanadaType="Rab"
+			displayName="Rabies"
+			desc="Rab=Rabies eg Imovax Rabies, RabAvert"
+			name="Rab"
+			headingName="Immunizations"
+			link=""
+			layout="injection"
+			healthCanadaType="Rab"
 			atc="J07BG01" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Typhoid=Typhoid" 
-            name="Typhoid" link=""
-			headingName="Immunizations" 
-            layout="injection" 
+			displayName="Typhoid"
+			desc="Typh-I=Typhoid injectable eg Typhim Vi"
+			name="Typh-I"
+			headingName="Immunizations"
+			link=""
+			layout="injection"
             healthCanadaType="Typh-I"
 			atc="J07AP01" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Typhoid - Oral"
+			desc="Typh-O=Typhoid oral eg Vivotif"
 			name="Typh-O"
 			headingName="Immunizations"
 			healthCanadaType="Typh-O"
@@ -435,15 +624,16 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="Women ages of 9 and 26 years are recommended to receive Human Papillomavirus Vaccine eg Gardasil, Cervarix"
-			name="HPV Vaccine"
+			displayName="HPV Vaccine"
+			desc="HPV=Human Papillomavirus Vaccine (generic) eg Gardasil, Cervarix"
+			name="HPV"
 			headingName="Immunizations"
 			healthCanadaType="HPV"
 			link="http://www.cdc.gov/std/treatment/"
 			layout="injection"
 			atc="J07BM"
 			minAge="9"
-			maxAge="26" sex = "F"
+			maxAge="45"
 			showIfMinRecordNum="1" />
 
 	<item
@@ -461,7 +651,7 @@ Varicella Immunoglobulin	VarIg
 	<item
 			resultDesc=""
 			desc="IPV=Inactivated Poliovirus Vaccine"
-            name="IPV"
+			name="IPV"
 			headingName="Immunizations"
 			healthCanadaType="IPV"
             link=""
@@ -475,43 +665,44 @@ Varicella Immunoglobulin	VarIg
 			name="BCG"
 			headingName="Immunizations"
 			healthCanadaType="BCG"
-			layout="injection" 
+			layout="injection"
             atc="J07AN"
 			showIfMinRecordNum="1"/>
 
 	<item
 			resultDesc=""
-			desc="Yellow Fever eg YF-VAX"
+			desc="YF=Yellow Fever eg YF-VAX"
 			name="YF"
 			headingName="Immunizations"
 			healthCanadaType="YF"
-			layout="injection" 
+			layout="injection"
             atc="J07BL"
 			showIfMinRecordNum="1"/>
 
 	<item
 			resultDesc=""
-			desc="Tickborne Encephalitis"
+			desc="TBE=Tickborne Encephalitis"
 			name="TBE"
 			headingName="Immunizations"
 			healthCanadaType="TBE"
-			layout="injection" 
+			layout="injection"
             atc="J07BA"
 			showIfMinRecordNum="1"/>
 
 	<item
 			resultDesc=""
-			desc="Japanese Encephalitis"
+			desc="JE=Japanese Encephalitis"
 			name="JE"
 			headingName="Immunizations"
 			healthCanadaType="JE"
-			layout="injection" 
+			layout="injection"
             atc="J07BA"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="H1N1 Vaccination"
+			displayName="H1N1 / Pandemic Flu"
+			desc="H1N1=Pandemic H1N1 Influenza Vaccination (classified as Inf per Health Canada)"
 			name="H1N1"
 			headingName="Immunizations"
 			healthCanadaType="Inf"
@@ -521,77 +712,142 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="COVID-19"
+			desc="COVID-19=COVID-19 vaccine eg Comirnaty, Spikevax, Nuvaxovid"
 			name="COVID-19"
             headingName="Immunizations"
 			healthCanadaType="COVID-19"
 			link="https://www.cdc.gov/vaccines/covid-19"
-			layout="injection" 
+			layout="injection"
             atc="J07BX03"
 			showIfMinRecordNum="1" />
 
-	<!--Screenings-->
+	<item
+			resultDesc=""
+			name="RSV"
+			desc="RSV=Recombinant PreF RSV Vaccine eg Arexvy, Abrysvo"
+			headingName="Immunizations"
+			healthCanadaType="RSV"
+			link="https://ca.gsk.com/media/6988/arexvy.pdf"
+			layout="injection"
+			minAge="60"
+			maxAge="100"
+            atc="J07BX05"
+			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="TB=Tuberculosis Mantoux " 
-            name="Tuberculosis"
-			headingName="Screenings" link="" 
-            layout="injection"
+			displayName="Beyfortus"
+			name="RSVAb"
+			desc="RSVAb=Monoclonal Antibody RSV Prophylaxis eg Beyfortus (Nirsevimab) - pediatric"
+			headingName="Immunizations"
+			healthCanadaType="RSVAb"
+			link="https://www.ema.europa.eu/en/medicines/human/EPAR/beyfortus#product-info"
+			layout="injection"
+			minAge="0"
+			maxAge="2"
+            atc="J06BD08"
+			showIfMinRecordNum="1" />
+
+	<!-- ============================================================ -->
+	<!-- SCREENINGS                                                    -->
+	<!-- ============================================================ -->
+
+	<item
+			resultDesc=""
+			desc="Tuberculosis=Tuberculosis Mantoux test"
+			name="Tuberculosis"
+			headingName="Screenings"
+			link=""
+			layout="injection"
 			atc="J07AN01" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Women from ages 25 to 60 are recommended to receive a PAP" name="PAP"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="25"
+			desc="PAP=Cervical cytology (Pap smear) - women ages 25 to 70"
+			name="PAP"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" minAge="25"
+			maxAge="70" sex="F" showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="HPV-CERVIX=HPV primary cervical cancer screening every 5 years - women ages 25 to 69"
+			name="HPV-CERVIX"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" minAge="25"
 			maxAge="69" sex="F" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Women from ages 25 to 69" name="HPV-CERVIX"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="25"
-			maxAge="69" sex="F" showIfMinRecordNum="1" />
-
-	<item
-			resultDesc=""
-			desc="Mammogram" name="MAM"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="40"
+			desc="MAM=Mammogram breast cancer screening every 2 years - women ages 40 to 74"
+			name="MAM"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" minAge="40"
 			maxAge="74" sex="F" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="PSA" name="PSA"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="50"
+			desc="PSA=Prostate Specific Antigen screening"
+			name="PSA"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" minAge="50"
 			maxAge="70" sex="M" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
 			displayName="FIT/FOBT"
-			desc="Fecal Occult Blood Test or Fecal Immunochemical Test" name="FOBT"
-			headingName="Screenings" link="" layout="PAPMAM"
+			desc="FOBT=Fecal Occult Blood Test / Fecal Immunochemical Test (FIT) every 2 years ages 50-74"
+			name="FOBT"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM"
 			minAge="50" maxAge="74" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Abdominal Aortic Aneurysm ultrasound screening" name="AAA"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="65"
+			desc="AAA=Abdominal Aortic Aneurysm ultrasound screening - once for men ages 65-80"
+			name="AAA"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" minAge="65"
 			maxAge="80" sex="M" showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Colonoscopy" name="COLONOSCOPY"
-			headingName="Screenings" link="" layout="PAPMAM"
+			desc="COLONOSCOPY=Colonoscopy for colorectal cancer screening every 10 years"
+			name="COLONOSCOPY"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="Bone Mineral Density" name="BMD"
-			headingName="Screenings" link="" layout="PAPMAM" minAge="65"
+			displayName="LDCT Lung Cancer"
+			desc="LDCT=Low-Dose Computed Tomography for lung cancer screening - annual for high-risk smokers ages 55-74 (Canada CTFPHC: 20+ pack-years)"
+			name="LDCT"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM"
+			minAge="55" maxAge="74"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="HIV = all pregnant women, opt out routine screening of all adults"
+			desc="BMD=Bone Mineral Density screening"
+			name="BMD"
+			headingName="Screenings"
+			link=""
+			layout="PAPMAM" minAge="65"
+			showIfMinRecordNum="1" />
+
+	<item
+			resultDesc=""
+			desc="HIV=HIV serology - all pregnant women, opt-out routine screening of all adults"
 			name="HIV"
 			headingName="Screenings"
 			link="http://www.cdc.gov/std/treatment/"
@@ -602,7 +858,7 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="HepB screen= Hepatitis B serology (hep B sAg + anti-HBc or anti-HBs) in those with multiple sex partners, MSM, and injection drug users"
+			desc="HepB screen=Hepatitis B serology (HBsAg + anti-HBc or anti-HBs) in those with multiple sex partners, MSM, and injection drug users"
 			name="HepB screen"
 			headingName="Screenings"
 			link="http://www.cdc.gov/std/treatment/"
@@ -613,18 +869,17 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="HepC screen = Hep C Ab serology in contacts of multiple sex partners, traumatic anal intercourse with infected person, IVDU"
+			desc="HepC screen=Hepatitis C Ab serology in those with multiple sex partners, traumatic anal intercourse with infected person, IVDU; also recommended for 1945-1975 birth cohort"
 			name="HepC screen"
 			headingName="Screenings"
 			link="http://www.cdc.gov/std/treatment/"
 			layout="PAPMAM"
 			minAge="15"
-			maxAge="24"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="VDRL = VDRL screening for syphillis; pregnant women at the first prenatal visit (and 3rd trimester and delivery high-risk groups), all sex workers, in correctional facilities, diagnosed with another STD, MSM with high-risk behaviors"
+			desc="VDRL=VDRL syphilis serology; pregnant women at first prenatal visit, all sex workers, correctional facilities, MSM with high-risk behaviors"
 			name="VDRL"
 			headingName="Screenings"
 			link="http://www.cdc.gov/std/treatment/"
@@ -635,7 +890,7 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="Chlamydia = chlamydia urine PCR; sexually active women age 25 years or younger (including pregnant women), women older than 25 years with: new sex partner in prior 60 days, more than one sex partner, inconsistent condom use, unmarried, or history of STD; men: asymptomatic screening may or may not benefit "
+			desc="chlamydia=Chlamydia urine PCR; sexually active women age 25 years or younger, women older than 25 with new sex partner or risk factors"
 			name="chlamydia"
 			headingName="Screenings"
 			link="http://www.cdc.gov/std/treatment/"
@@ -646,7 +901,7 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc= "ghonorrhea = ghonorrhea urine PCR in men with symptoms or asymptomatic women: Sexually active younger than 25 years, pregnancy, inconsistent condom use, multiple partners, partner with multiple contacts, sexual contact with partner with culture-proven STD, repeated episodes of STD, Sex work or drug use"
+			desc="ghonorrhea PCR=Gonorrhea NAAT/PCR in symptomatic men or asymptomatic women with risk factors"
 			name="ghonorrhea PCR"
 			headingName="Screenings"
 			link="http://www.cdc.gov/std/treatment/"
@@ -657,7 +912,7 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc= "Periodic Health Visit"
+			desc="PHV=Periodic Health Visit annual wellness check"
 			name="PHV"
 			headingName="Screenings"
 			layout="history"
@@ -665,19 +920,21 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc= "Smoking history"
+			desc="Smoking=Tobacco use history assessment"
 			name="Smoking"
 			layout="history"
 			headingName="Screenings"
 			minAge="13"
 			showIfMinRecordNum="1" />
 
-	<!-- Other -->
+	<!-- ============================================================ -->
+	<!-- OTHER                                                         -->
+	<!-- ============================================================ -->
 
 	<item
 			resultDesc=""
-			desc="Other Layout A" 
-            name="OtherA"
+			desc="OtherA=Other immunization or injection (catch-all for non-standard types)"
+			name="OtherA"
 			headingName="Other"
 			healthCanadaType=""
             link="" layout="injection"
@@ -685,62 +942,37 @@ Varicella Immunoglobulin	VarIg
 
 	<item
 			resultDesc=""
-			desc="Other Layout B" 
-            name="OtherB"
-			headingName="Other" 
+			desc="OtherB=Other screening or preventive procedure (catch-all for non-standard types)"
+			name="OtherB"
+			headingName="Other"
             link="" layout="PAPMAM"
 			showIfMinRecordNum="1" />
 
 	<item
 			resultDesc=""
-			desc="TdP-IPV-Hib=Diphtheria, Tetanus and Acellular Pertussis for children under 18 years of age; IPV=Inactivated Poliovirus; Haemophilus Influenzae type b for children under 5 years of age: combination given at 2, 4, 18 months and 4-6 years"
+			desc="TdP-IPV-Hib=Legacy combination vaccine (similar to DTaP-IPV-Hib); combination given at 2, 4, 18 months and 4-6 years"
 			name="TdP-IPV-Hib"
 			headingName="Other"
 			link="http://www.phac-aspc.gc.ca/naci-ccni/is-si/recimmsche-icy_e.html"
 			layout="injection" atc="J07CA06" minAge="0" maxAge="6"
 			showIfMinRecordNum="1" />
 
-
 	<item
 			resultDesc=""
 			desc="DTaP-Hib=Diphtheria, Tetanus, Acellular Pertussis, Haemophilus Influenzae type b - pediatric"
 			name="DTaP-Hib"
-			headingName="Other"
-			healthCanadaType="DTaP-IPV-HB"
+			headingName="Immunizations"
+			healthCanadaType="DTaP-Hib"
 			layout="injection" atc=""
 			showIfMinRecordNum="1"/>
 
 	<item
 			resultDesc=""
-			desc="Hepatitis B - Thimerosal free"
+			desc="HBTmf=Hepatitis B Thimerosal-free formulation"
 			name="HBTmf"
 			headingName="Other"
-			healthCanadaType="HBTmf"
+			healthCanadaType="HB"
 			layout="injection" atc="J07BC"
 			showIfMinRecordNum="1" />
-
-	<item
-			resultDesc=""
-			name="RSV"
-			desc="Recombinant PreF RSV Vaccine eg Arexvy"
-			healthCanadaType="RSV"
-			link="https://ca.gsk.com/media/6988/arexvy.pdf"
-			layout="injection"
-			minAge="60"
-			maxAge="100"
-            atc="J07BX05"
-   			showIfMinRecordNum="1" />
-			
-	<item
-			resultDesc=""
-			name="RSVAb"
-			desc="Monoclonal Antibody RSV Vaccine eg Beyfortus"
-			healthCanadaType="RSVAb"
-			link="https://www.ema.europa.eu/en/medicines/human/EPAR/beyfortus#product-info"
-			layout="injection"
-			minAge="0"
-			maxAge="2"
-            atc="J06BD08"
-   			showIfMinRecordNum="1" />
 
 </preventions>

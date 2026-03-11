@@ -68,7 +68,7 @@
 //   Childhood (2-18 months):  DTaP-IPV (5 doses), Hib (3-4 doses), Pneu-C (4 doses),
 //                              Rota (2 doses), MMR (2 doses), MMR-Var (1 dose), Var (1 dose)
 //   School-age (4-6 years):   DTaP-IPV booster, Tdap-IPV, Var catch-up
-//   Adolescent (12-18 years): MenC-C, HPV (3 doses)
+//   Adolescent (12-18 years): Men-C-C, HPV (3 doses)
 //   Adult:                    Tdap (10-year booster), Td (10-year repeat), Inf (annual 65+)
 //   Women's health:           HPV-CERVIX (5-year cycle, 25-69), PAP (3-year cycle, 25-69),
 //                              MAM (2-year cycle, 40-74)
@@ -81,7 +81,7 @@
 //   - "Rota 1"/"Rota 2" use System.out.println() instead of prev.log()
 //   - DTaP-IPV 4.1: Conditions duplicate DTaP-IPV 3.1 (checks count==2, not count==3)
 //   - DTaP-IPV 5/6: Warning says "Needs Third" but these are 5th/6th dose rules
-//   - MenC-C 1: Log message says "Pneu-C 4" (copy-paste artifact)
+//   - Men-C-C 1: Log message says "Pneu-C 4" (copy-paste artifact)
 //   - HPV-CERVIX 3: Typo in message "Neighter" should be "Neither"
 //   - "FOBT Inelligible": Misspelling of "Ineligible" in rule name and message
 //   - isInelligible(): Method name also misspelled (matches rule convention)
@@ -244,6 +244,11 @@ end
 // Strict upper age limits: dose 1 by 5mo, dose 2 by 6mo
 // QUIRK: Uses System.out.println() instead of prev.log() (original code)
 // Uses isNextDateSet() for dose 2 sequencing
+// MULTI-TYPE NOTE: Rules check "Rota" only. Records typed as "Rota-1" (Rotarix)
+//   or "Rota-5" (RotaTeq) will NOT satisfy these conditions. Consider migrating
+//   all Rota-1/Rota-5 records to "Rota" via SQL, or extend conditions like:
+//   eval( prev.getNumberOfPreventionType("Rota") + prev.getNumberOfPreventionType("Rota-1")
+//       + prev.getNumberOfPreventionType("Rota-5") == 0 )
 // --------------------------------------------------------------------------
 rule "Rota 1"
     when
@@ -357,6 +362,16 @@ end
 // Rules 1-4: Standard infant series (2-12mo) + booster (15-24mo)
 // Rules 5-6: Catch-up schedule for 12-24mo (fewer doses if starting late)
 // Minimum intervals: 2 months between primary doses, 6 months before booster
+// MULTI-TYPE NOTE: Rules check "Pneu-C" only. Records typed as "Pneu-C-7",
+//   "Pneu-C-10", "Pneu-C-13", "Pneu-C-15" should all satisfy these rules.
+//   Consider extending conditions to count all conjugate valences:
+//   eval( prev.getNumberOfPreventionType("Pneu-C")
+//       + prev.getNumberOfPreventionType("Pneu-C-7")
+//       + prev.getNumberOfPreventionType("Pneu-C-10")
+//       + prev.getNumberOfPreventionType("Pneu-C-13")
+//       + prev.getNumberOfPreventionType("Pneu-C-15")
+//       == 0 )
+//   Note: Pneu-C-20 is adult formulation and should NOT count for infant series.
 // --------------------------------------------------------------------------
 rule "Pneu-C 1"
     when
@@ -471,40 +486,41 @@ rule "MMR-Var 1"
 end
 
 // --------------------------------------------------------------------------
-// MenC-C: Meningococcal C Conjugate (3 rules)
+// Men-C-C: Meningococcal C Conjugate (3 rules)
 // NACI Schedule: Dose at 12mo, catch-up at 12yr for school programs
 // Rule 1: Primary dose at 12mo-24yr (broad catch-up window)
 // Rule 2: School-age catch-up at age 12-13yr
 // Rule 3: Adolescent catch-up at 15-19yr
 // QUIRK: Rule 1 log message says "Pneu-C 4" (copy-paste from Pneu-C section)
 // --------------------------------------------------------------------------
-rule "MenC-C 1"
+rule "Men-C-C 1"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 12 )
         eval( prev.getAgeInYears() < 24 )
-        eval( prev.getNumberOfPreventionType("MenC-C") == 0 )
+        eval( prev.getNumberOfPreventionType("Men-C-C") == 0 )
     then
         prev.log("Pneu-C 4");
-        prev.addWarning("MenC-C", "Needs MenC-C");
+        prev.addWarning("Men-C-C", "Needs Men-C-C");
 end
 
-rule "MenC-C 2"
+rule "Men-C-C 2"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >= 12 )
         eval( prev.getAgeInYears() < 13 )
-        eval( prev.getNumberOfPreventionType("MenC-C") == 0 )
+        eval( prev.getNumberOfPreventionType("Men-C-C") == 0 )
     then
-        prev.log("MenC-C 2");
-        prev.addWarning("MenC-C", "Needs MenC-C");
+        prev.log("Men-C-C 2");
+        prev.addWarning("Men-C-C", "Needs Men-C-C");
 end
 
 // --------------------------------------------------------------------------
 // HPV: Human Papillomavirus vaccine (1 rule)
 // NACI Schedule: 2-3 dose series at age 12-18 (school-based programs)
-// Checks three vaccine product names: [HPV-9], [HPV-4], and generic "HPV Vaccine"
-// Sums all three product counts to determine if any HPV dose has been given
+// Checks Health Canada standard type codes: HPV-9, HPV-4, HPV (generic), HPV-2
+// Also checks legacy names from O19 migration for backward compatibility
+// Sums all product counts to determine if any HPV dose has been given
 // Age range: 12-18 years
 // --------------------------------------------------------------------------
 rule "HPV 1"
@@ -512,21 +528,26 @@ rule "HPV 1"
         prev : Prevention()
         eval( prev.getAgeInYears() >= 12 )
         eval( prev.getAgeInYears() < 19 )
-        eval( prev.getNumberOfPreventionType("[HPV-9] Human Papillomavirus") + prev.getNumberOfPreventionType("[HPV-4] Human Papillomavirus")  + prev.getNumberOfPreventionType("HPV Vaccine") == 0 )
+        eval( prev.getNumberOfPreventionType("HPV-9")
+            + prev.getNumberOfPreventionType("HPV-4")
+            + prev.getNumberOfPreventionType("HPV-2")
+            + prev.getNumberOfPreventionType("HPV")
+            + prev.getNumberOfPreventionType("HPV Vaccine")
+            == 0 )
     then
         prev.log("HPV 1");
         prev.addWarning("HPV", "Needs HPV");
 end
 
-rule "MenC-C 3"
+rule "Men-C-C 3"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >= 15 )
         eval( prev.getAgeInYears() <= 19 )
-        eval( prev.getNumberOfPreventionType("MenC-C") == 0 )
+        eval( prev.getNumberOfPreventionType("Men-C-C") == 0 )
     then
-        prev.log("MenC-C 3");
-        prev.addWarning("MenC-C", "Needs MenC-C");
+        prev.log("Men-C-C 3");
+        prev.addWarning("Men-C-C", "Needs Men-C-C");
 end
 
 // --------------------------------------------------------------------------
@@ -1066,4 +1087,43 @@ rule "Obesity 2"
     then
         prev.log("Obesity 2 debug");
         prev.addWarning("Obesity", "Obesity check has not occurred in over 12 months");
+end
+
+// --------------------------------------------------------------------------
+// LDCT: Low-Dose CT Lung Cancer Screening (2 rules)
+// Canadian guideline (CTFPHC 2016): Annual LDCT for adults aged 55-74 who are
+//   high-risk smokers (30+ pack-years or equivalent significant smoking history)
+// Rule 1: WARNING if no LDCT on record for patients aged 55-74 with smoking history
+// Rule 2: WARNING if LDCT is > 12 months old (annual screening required)
+// Precondition: Smoking assessment must be on record (getNumberOfPreventionType("Smoking") > 0)
+//   indicating a tobacco history assessment has been completed. Clinician determines
+//   if patient meets high-risk criteria (20-30+ pack-years per CT Canada criteria).
+// --------------------------------------------------------------------------
+rule "LDCT 1"
+    when
+        prev : Prevention()
+        eval( prev.getAgeInYears() >= 55 )
+        eval( prev.getAgeInYears() <= 74 )
+        eval( prev.getNumberOfPreventionType("Smoking") > 0 )
+        eval( prev.getHowManyMonthsSinceLast("LDCT") == -1 )
+        eval( !prev.isPreventionNever("LDCT") )
+        eval( !prev.isInelligible("LDCT") )
+    then
+        prev.log("LDCT 1");
+        prev.addWarning("LDCT", "LDCT lung cancer screening recommended for high-risk smoker aged 55-74 (no prior LDCT on record)");
+end
+
+rule "LDCT 2"
+    when
+        prev : Prevention()
+        eval( prev.getAgeInYears() >= 55 )
+        eval( prev.getAgeInYears() <= 74 )
+        eval( prev.getNumberOfPreventionType("Smoking") > 0 )
+        eval( prev.getHowManyMonthsSinceLast("LDCT") > 12 )
+        eval( !prev.isPreventionNever("LDCT") )
+        eval( !prev.isNextDateSet("LDCT") )
+        eval( !prev.isInelligible("LDCT") )
+    then
+        prev.log("LDCT 2");
+        prev.addWarning("LDCT", "Annual LDCT lung cancer screening is overdue for this patient (high-risk smoker aged 55-74)");
 end

@@ -8,7 +8,7 @@
 
 <preventionConfig>
 	<set title="Childhood Immunization" effective="(June 2022)"
-       minAge="0" maxAge="19" prevList="DTaP-IPV,Hib,Pneu-C-15,RSVAb,MMR,MMR-Var,MenC-C,Var,HepB,Tdap,Tdap-IPV,Men-C-ACYW-135,HPV-9,Td,Inf,Rota" />
+       minAge="0" maxAge="19" prevList="DTaP-IPV,Hib,Pneu-C-15,RSVAb,MMR,MMR-Var,Men-C-C,Var,HB,Tdap,Tdap-IPV,Men-C-ACYW-135,HPV-9,Td,Inf,Rota" />
 
 	<set title="Women's Preventive Care" effective="" minAge="20"
 		maxAge="74" sex="F" prevList="PAP,HPV-CERVIX,MAM,Inf,Td,Tdap" />
@@ -28,5 +28,9 @@
 	<set title="Over 65 Preventive Care" effective="" minAge="65"
 		prevList="Inf,Td,Pneu-C-20,RSV" />
 
+	<set title="Lung Cancer Screening (LDCT)" effective="" minAge="55" maxAge="74"
+		prevList="LDCT,Smoking" />
+
 	<set title="Other" effective="" minAge="0" prevList="OtherA,OtherB" />
 </preventionConfig>
+
