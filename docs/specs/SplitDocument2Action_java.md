@@ -21,131 +21,180 @@
 > (alphabetical ordering, phase-based grouping, unordered sets for independent
 > operations) that do not mirror the structure of any prior implementation.
 >
+> **Standards applied:**
+> - Document structure adapted from IEEE 830-1998 / ISO/IEC/IEEE 29148:2011
+> - Clean room methodology per Chinese Wall technique
+>
 > **Methodology references:**
 > - [AI Could Be Your Next Team for Clean Room Development (Copyleft Currents)](https://heathermeeker.com/2025/03/28/ai-could-be-your-next-team-for-clean-room-development/)
 > - [Clean-room design (Wikipedia)](https://en.wikipedia.org/wiki/Clean-room_design)
 > - [How Clean Room Reverse Engineering Built the Modern Tech Industry (NTARI)](https://www.ntari.org/post/how-clean-room-reverse-engineering-built-the-modern-tech-industry)
-
-**Component name:** SplitDocument2Action
-**Layer:** Web action (HTTP request handler)
-**Framework pattern:** Struts 2 method-dispatch action (2Action convention)
-**Domain:** Electronic document management within an EMR system
+> - [IEEE 830-1998 SRS Structure (Rebus Press)](https://press.rebus.community/requirementsengineering/back-matter/appendix-c-ieee-830-template/)
+> - [Preventing an IP Infection: Clean Room Development Procedure (IPWatchdog)](https://ipwatchdog.com/2023/04/29/preventing-an-ip-infection-clean-room-development-procedure/id=160187/)
 
 ---
 
-## 1. Purpose
+## 1. Introduction
 
-This component provides four PDF manipulation operations accessible via HTTP:
+### 1.1 Purpose
 
-| Operation | Summary |
-|-----------|---------|
-| **Remove first page** | Delete the first page of a multi-page PDF in place |
-| **Rotate 180** | Rotate every page of an existing PDF by 180 degrees in place |
-| **Rotate 90** | Rotate every page of an existing PDF by 90 degrees clockwise in place |
-| **Split** | Extract user-selected pages (with optional per-page rotation) from an existing PDF, producing a new standalone document |
+This specification defines the externally observable behavior of a web action component named `SplitDocument2Action` within an electronic medical records (EMR) system. It serves as the sole input for a clean room reimplementation.
+
+### 1.2 Scope
+
+**In scope:**
+- Four PDF manipulation operations (remove first page, rotate 180, rotate 90, split) accessible via a single HTTP endpoint
+- HTTP request/response contracts for each operation
+- Database side effects (document creation, routing, page count updates)
+- Filesystem side effects (PDF file creation and modification)
+- Client integration expectations
+
+**Out of scope:**
+- The split page selection user interface (specified separately as a client-side concern)
+- PDF rendering and page thumbnail generation (handled by a separate document viewer component)
+- Document upload and initial creation (handled by a separate upload component)
+- Authentication and session management (provided by the surrounding framework)
+- The internal implementation approach — any architecture that produces the specified observable behavior is acceptable
+
+### 1.3 Document Conventions
+
+- The word **"shall"** indicates a mandatory requirement.
+- The word **"should"** indicates a recommended but optional behavior.
+- The phrase **"is observed to"** indicates documented behavior of the existing system that the reimplementation should replicate for compatibility, but which is not part of the formal functional contract.
+- All lists of independent items are **alphabetically ordered** to prevent structural mirroring.
+- Causally dependent steps are numbered sequentially; independent steps use unordered bullets.
+
+### 1.4 Definitions and Glossary
+
+| Term | Definition |
+|------|-----------|
+| **Control document record** | A metadata association that links a document to a module (e.g., "demographic") and a module-specific entity ID, with a status field. Used to track which part of the system "owns" the document. |
+| **Document metadata** | The database record describing a stored PDF, including fields such as filename, creator, status, page count, content type, and observation date. Distinct from the PDF file itself. |
+| **Document storage directory** | A server-side filesystem directory, configured at the application level, where all PDF files are stored as flat files. |
+| **Patient routing** | A database association linking a document to a patient (demographic) record, so the document appears in that patient's document history. |
+| **Provider** | An authenticated healthcare practitioner who uses the EMR system. Identified by a provider number. |
+| **Provider inbox routing** | A database association that causes a document to appear in a provider's inbox for review. Multiple providers can have routing for the same document. |
+| **Provider lab routing** | A database association that links a document to a provider through the laboratory routing subsystem, used for documents that require provider acknowledgment. |
+| **Queue** | A named organizational container for documents. Documents are assigned to queues for workflow management (e.g., triage, filing). Queue ID `1` is the default queue. |
+| **Rendered page cache** | A cache of pre-rendered page images (thumbnails or full-size) for PDF documents. When a PDF is modified, cached renderings become stale and must be invalidated. |
 
 ---
 
 ## 2. HTTP Interface
 
-### 2.1 URL
+### 2.1 Endpoint
 
-The action is mapped to a single URL endpoint under the document manager namespace. All four operations share this endpoint and are distinguished by a request parameter.
+The component shall be accessible at a single URL endpoint under the document manager namespace. All four operations shall share this endpoint.
 
 ### 2.2 HTTP Method
 
-POST (all operations mutate state).
+All requests shall use the POST method.
 
 ### 2.3 Method Dispatch
 
-A request parameter named `method` selects the operation:
+A request parameter named `method` shall select the operation:
 
 | `method` value | Operation invoked |
 |----------------|-------------------|
-| `removeFirstPage` | Remove first page operation |
-| `rotate180` | Rotate 180 operation |
-| `rotate90` | Rotate 90 operation |
-| `split` | Split operation |
-| *(missing or unrecognized)* | No-op; return default success |
+| `removeFirstPage` | Remove first page |
+| `rotate180` | Rotate 180 |
+| `rotate90` | Rotate 90 |
+| `split` | Split |
+| *(missing or unrecognized)* | No-op; the component shall return the default success view |
 
 ---
 
-## 3. Operation Specifications
+## 3. Functional Requirements
 
 ### 3.1 Remove First Page
 
-#### Inputs
+#### FR-RFP-1: Inputs
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `document` | String (numeric document ID) | Yes | Identifies the PDF to modify |
 
-#### Behavior
+#### FR-RFP-2: Guard condition
 
-1. **Source document lookup:** Retrieve the document metadata from the database.
-2. **PDF reading:** Open the PDF file from the configured document storage directory.
-3. **Guard:** If the PDF has only one page (or zero pages), take no action and return no named result (null).
-4. **Cache invalidation:** For every page in the document (before removal), invalidate any cached rendered version.
-5. **File permissions:** Make the file world-readable, world-writable, and world-executable.
-6. **Page removal:** Remove the first page (index 0) from the PDF.
-7. **Save:** Overwrite the original file with the modified PDF.
-8. **Page count update:** If the save succeeded, decrement the document's page count in the database by one.
-9. **Response:** Return no named result (null). No response body is written.
+The component shall take no action if the PDF has only one page or zero pages. The HTTP response shall have no body.
 
-#### Error handling
+#### FR-RFP-3: Page removal
 
-Exceptions propagate to the framework (declared as thrown).
+The component shall remove the first page from the PDF and overwrite the original file on disk with the modified PDF.
+
+#### FR-RFP-4: Cache invalidation
+
+The component shall invalidate cached rendered versions for all pages in the document.
+
+#### FR-RFP-5: Page count update
+
+If the file save succeeded, the component shall decrement the document's page count in the database by one.
+
+#### FR-RFP-6: Response
+
+The HTTP response shall have no body.
+
+#### FR-RFP-7: Error handling
+
+Errors shall propagate to the web framework's default error handling.
 
 ---
 
 ### 3.2 Rotate 180
 
-#### Inputs
+#### FR-R180-1: Inputs
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `document` | String (numeric document ID) | Yes | Identifies the PDF to rotate |
 
-#### Behavior
+#### FR-R180-2: Page transformation
 
-1. **Source document lookup:** Retrieve the document metadata from the database.
-2. **PDF reading:** Open the PDF file from the configured document storage directory.
-3. **Page transformation:** For every page in the PDF:
-   - Add 180 degrees to the page's current rotation value (modulo 360).
-   - Invalidate any cached rendered version of that page.
-4. **File permissions:** Make the file world-readable, world-writable, and world-executable before saving.
-5. **Save:** Overwrite the original file on disk with the modified PDF.
-6. **Response:** Return no named result (null). No response body is written. The client is expected to refresh independently.
+The component shall rotate every page in the PDF by 180 degrees and overwrite the original file on disk with the modified PDF.
 
-#### Error handling
+#### FR-R180-3: Cache invalidation
 
-Exceptions propagate to the framework (declared as thrown).
+The component shall invalidate cached rendered versions for all pages in the document.
+
+#### FR-R180-4: Response
+
+The HTTP response shall have no body. The client is expected to refresh independently.
+
+#### FR-R180-5: Error handling
+
+Errors shall propagate to the web framework's default error handling.
 
 ---
 
 ### 3.3 Rotate 90
 
-#### Inputs
+#### FR-R90-1: Inputs
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `document` | String (numeric document ID) | Yes | Identifies the PDF to rotate |
 
-#### Behavior
+#### FR-R90-2: Page transformation
 
-Identical to Rotate 180, except:
-- Each page's rotation is incremented by **90 degrees** (modulo 360) instead of 180.
-- File permissions are **not** explicitly set before modification (note: this is an observed behavioral asymmetry).
+The component shall rotate every page in the PDF by 90 degrees clockwise and overwrite the original file on disk with the modified PDF.
 
-#### Error handling
+#### FR-R90-3: Cache invalidation
 
-Exceptions propagate to the framework (declared as thrown).
+The component shall invalidate cached rendered versions for all pages in the document.
+
+#### FR-R90-4: Response
+
+The HTTP response shall have no body.
+
+#### FR-R90-5: Error handling
+
+Errors shall propagate to the web framework's default error handling.
 
 ---
 
 ### 3.4 Split
 
-#### Inputs
+#### FR-SPL-1: Inputs
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -153,71 +202,100 @@ Exceptions propagate to the framework (declared as thrown).
 | `page` (multi-valued) | String array, each entry formatted as `pageNumber,rotationDegrees` | Yes | Ordered list of pages to extract. Page numbers are 1-based. Rotation is in degrees (0, 90, 180, 270). |
 | `queueID` | String (numeric queue ID) | No | Document queue to assign the new document to. Defaults to `"1"` if absent or empty. |
 
-#### Behavior
+#### FR-SPL-2: Authentication
 
-**Phase 1 — Read source and build new PDF** (steps are causally ordered):
+The component shall obtain the currently authenticated provider from the HTTP session.
 
-1. **Authentication context:** Obtain the currently authenticated provider from the HTTP session.
-2. **Source document lookup:** Retrieve the source document's metadata record from the database using the provided document ID.
-3. **PDF reading:** Open the source PDF file from the configured document storage directory on the filesystem.
-4. **Page extraction:** For each entry in the page selection array (processed in array order):
-   - Parse the page number and rotation value from the comma-separated string.
-   - Retrieve the specified page from the source PDF (1-based index).
-   - Apply the specified rotation to that page.
-   - Append the page to a new PDF document.
-5. **Guard:** If no pages were added to the new document, skip all subsequent steps.
+#### FR-SPL-3: Source document
 
-**Phase 2 — Register new document** (steps are causally ordered):
+The component shall retrieve the source document's metadata record from the database using the provided document ID and open the corresponding PDF file from the document storage directory.
 
-6. **New document metadata creation:** Create a new document metadata record with the following fields (alphabetical):
-   - Content type: `application/pdf`
-   - Creator: the currently authenticated provider
-   - Description: empty
-   - Filename stem: same as the source document (the system prepends a timestamp automatically)
-   - HTML content: empty
-   - Module: `"demographic"`, module ID: `"-1"`
-   - Observation date: current date (formatted as `yyyy-MM-dd`)
-   - Page count: number of pages in the new PDF
-   - Responsible party: the source document's original creator
-   - Source: empty
-   - Status: active
-   - Type: empty
-   - Visibility: private (not public)
-7. **Persist new document:** Save the metadata record to the database. This generates a new document ID.
-8. **Write PDF to filesystem:** Save the new PDF to the document storage directory using the generated filename.
+#### FR-SPL-4: Page extraction
 
-**Phase 3 — Routing and linking** (the following tasks are independent of each other and may execute in any order):
+The component shall extract each specified page from the source PDF (in the order given in the page selection array), apply the specified rotation to each page, and assemble the extracted pages into a new PDF document.
 
-- **Control document cloning:** If the source document has a control document record (module assignment with status), create an equivalent control document record for the new document, preserving the module ID and status from the source.
-- **Patient routing:** If the source document is linked to a patient (demographic), create the same patient linkage for the new document.
-- **Provider inbox routing:** Copy all existing provider inbox routing entries from the source document to the new document. Additionally, add the currently authenticated provider to the new document's inbox routing.
-- **Provider lab routing:** If the source document has provider lab routing entries, route the new document to the first provider found in those entries.
-- **Queue assignment:** Link the new document to the specified queue (or queue `1` by default).
+#### FR-SPL-5: Guard condition
 
-**Phase 4 — Response:**
+If the page selection is empty or null, no new document shall be created. The HTTP response shall trigger the close-and-reload view.
 
-The response behavior depends on the routing state:
-- **If provider lab routing AND patient routing both existed:** Return a named result that triggers the close-and-reload view (the parent window reloads and the popup closes).
-- **If either routing was absent:** Write a JSON response directly to the HTTP output stream with content type `application/json`. The JSON object contains a single field `newDocNum` whose value is the string ID of the newly created document. Return no named result (null), which prevents the framework from rendering a view.
+#### FR-SPL-6: New document metadata
 
-#### Error handling
+The component shall create a new document metadata record with the following fields (alphabetical):
+- Content type: `application/pdf`
+- Creator: the currently authenticated provider
+- Description: empty
+- Filename stem: same as the source document (the system prepends a timestamp automatically)
+- HTML content: empty
+- Module: `"demographic"`, module ID: `"-1"`
+- Observation date: current date (formatted as `yyyy-MM-dd`)
+- Page count: number of pages in the new PDF
+- Responsible party: the source document's original creator
+- Source: empty
+- Status: active
+- Type: empty
+- Visibility: private (not public)
 
-On any exception during the split operation, log the error and return no named result (null). No error response is sent to the client.
+#### FR-SPL-7: Persist and save
+
+The component shall save the metadata record to the database (generating a new document ID) and save the new PDF file to the document storage directory using the generated filename.
+
+#### FR-SPL-8: Routing and linking
+
+The following routing tasks are independent of each other. The component shall perform all that apply:
+
+- **Control document cloning:** If the source document has a control document record, the component shall create an equivalent control document record for the new document, preserving the module ID and status from the source.
+- **Patient routing:** If the source document is linked to a patient, the component shall create the same patient linkage for the new document.
+- **Provider inbox routing:** The component shall copy all existing provider inbox routing entries from the source document to the new document. The component shall also add the currently authenticated provider to the new document's inbox routing.
+- **Provider lab routing:** If the source document has provider lab routing entries, the component shall route the new document to one of the providers found in those entries.
+- **Queue assignment:** The component shall link the new document to the specified queue (or queue `1` by default).
+
+#### FR-SPL-9: Response
+
+The response shall depend on the routing state:
+- **If provider lab routing AND patient routing both existed for the source document:** The HTTP response shall trigger the close-and-reload view (the parent window reloads and the popup closes).
+- **If either routing was absent:** The HTTP response body shall be JSON with content type `application/json`, containing a single field `newDocNum` with the string ID of the newly created document.
+
+#### FR-SPL-10: Error handling
+
+On any error, the HTTP response shall have no body and no error message shall be returned to the client.
 
 ---
 
-## 4. External Dependencies
+## 4. Non-Functional Requirements
+
+### 4.1 Security
+
+The following security behaviors are **required for any reimplementation** per CARLOS EMR standards:
+
+- **NFR-SEC-1:** The component shall verify the authenticated user has appropriate read/write privileges on the document security object before executing any operation. The component shall deny access with a security exception if unauthorized.
+- **NFR-SEC-2:** The component shall validate all filesystem paths constructed from document metadata to prevent path traversal attacks.
+- **NFR-SEC-3:** The component shall validate that the `document` parameter is a numeric value and that `page` parameter values conform to the expected format and bounds.
+- **NFR-SEC-4:** The component shall apply context-appropriate output encoding to any user-supplied values included in responses.
+
+### 4.2 Data Integrity
+
+- **NFR-DI-1:** The split operation shall not modify the source document or its PDF file.
+- **NFR-DI-2:** Rotate and remove operations shall overwrite the original PDF file in place. The document metadata record shall remain consistent with the file contents (e.g., page count after removal).
+
+### 4.3 Reliability
+
+- **NFR-REL-1:** If a PDF file save fails during a rotate or remove operation, the component should not update the database page count.
+- **NFR-REL-2:** PDF file handles shall be closed after use, even when errors occur.
+
+---
+
+## 5. External Dependencies
 
 The component requires the following capabilities from the surrounding system:
 
 | Capability | Purpose |
 |------------|---------|
 | **Cache service** | Invalidate cached page renderings for a given document and page number |
-| **Control document service** | Query and create control document records (module assignment metadata) |
+| **Control document service** | Query and create control document records |
 | **Document metadata store** | CRUD operations on document records (lookup by ID, persist new records, merge updates) |
-| **Document storage directory** | A filesystem directory configured at the application level where PDF files are stored |
+| **Document storage directory** | Filesystem directory where PDF files are stored |
 | **Document utility service** | Register new documents in the database (returns generated ID); update page counts; generate timestamped filenames |
-| **Patient lab routing service** | Query and create patient-demographic linkages for documents |
+| **Patient routing service** | Query and create patient-demographic linkages for documents |
 | **PDF processing library** | Read, create, modify, and save PDF documents; manipulate individual pages and their rotation |
 | **Provider inbox routing service** | Query which providers have routing for a given document; add new routing entries |
 | **Provider lab routing service** | Query and create provider-level lab routing entries for documents |
@@ -226,29 +304,19 @@ The component requires the following capabilities from the surrounding system:
 
 ---
 
-## 5. Response Summary
+## 6. Response Summary
 
-| Operation | Named result returned | Direct HTTP response body |
-|-----------|----------------------|---------------------------|
-| Remove first page | `null` | None |
-| Rotate 180 | `null` | None |
-| Rotate 90 | `null` | None |
-| Split (both routings exist) | `"success"` → close-and-reload view | None |
-| Split (either routing absent) | `null` (no view) | JSON: `{ "newDocNum": "<id>" }` |
-| Split (error) | `null` | None |
-| Split (no pages selected) | `"success"` → close-and-reload view | None |
-| Unknown/missing method | `"success"` → default | None |
-
----
-
-## 6. Security Requirements
-
-The following security behaviors are **required for any reimplementation** per CARLOS EMR standards (these are normative requirements, not observations of the existing implementation):
-
-1. **Authorization check:** Before executing any operation, verify the authenticated user has appropriate read/write privileges on the document security object (e.g., `_edoc` or `_doc`). Deny access with a security exception if unauthorized.
-2. **Input validation:** The `document` parameter must be validated as a numeric value. The `page` parameter values must be validated for correct format and bounds.
-3. **OWASP encoding:** Any user-supplied values included in responses must be properly encoded for the output context.
-4. **Path validation:** All filesystem paths constructed from document metadata must be validated using the application's path validation utility to prevent path traversal attacks.
+| Operation | HTTP Response |
+|-----------|--------------|
+| Remove first page | No body |
+| Remove first page (single-page guard) | No body |
+| Rotate 180 | No body |
+| Rotate 90 | No body |
+| Split (both routings exist) | Close-and-reload view |
+| Split (either routing absent) | JSON: `{ "newDocNum": "<id>" }` |
+| Split (error) | No body |
+| Split (no pages selected) | Close-and-reload view |
+| Unknown/missing method | Default success view |
 
 ---
 
@@ -256,7 +324,7 @@ The following security behaviors are **required for any reimplementation** per C
 
 ### 7.1 Rotate and Remove Operations
 
-These are invoked as AJAX calls from document queue management interfaces. The client refreshes the document view after the call completes. No response body is expected.
+These operations are invoked as AJAX calls from document queue management interfaces. The client shall refresh the document view after the call completes. No response body is expected.
 
 ### 7.2 Split UI Flow
 
@@ -268,15 +336,42 @@ These are invoked as AJAX calls from document queue management interfaces. The c
 
 ---
 
-## 8. Behavioral Notes
+## 8. Assumptions
 
-These notes document observable behavioral characteristics for completeness:
+- The document storage directory exists and is writable by the application server process.
+- All referenced document IDs correspond to existing PDF files in the document storage directory.
+- The authenticated provider session is valid and contains a provider number.
+- The PDF processing library can handle the PDF files stored in the system (standard PDF format, not encrypted or password-protected).
 
-- **Cache invalidation scope** — rotate and remove operations invalidate cached renderings for all pages in the document, not just affected pages.
-- **File permissions asymmetry** — the rotate-180 and remove-first-page operations set broad file permissions before modifying the file. The rotate-90 operation does not.
-- **Filename inheritance** — the new document created by split reuses the source document's original filename as a stem; the system prepends a date-time prefix to ensure uniqueness.
-- **In-place modification** — rotate and remove operations overwrite the original PDF file on disk. The source document is never modified by split.
-- **Queue default** — if no queue is specified, the new document is assigned to queue ID 1.
-- **Response path divergence** — the split operation returns different response types depending on whether the source document had both provider lab routing and patient routing. This determines whether the client receives JSON or a view redirect.
-- **Routing duplication** — split copies the source document's routing associations to the new document, ensuring the new document appears in the same inboxes and patient records.
-- **Single-page guard** — the remove-first-page operation silently does nothing if the document has only one page.
+---
+
+## 9. Verification Criteria
+
+An implementation shall be considered correct if it satisfies all of the following observable tests:
+
+| Test ID | Operation | Verification |
+|---------|-----------|-------------|
+| V-RFP-1 | Remove first page | A 3-page PDF becomes a 2-page PDF after the operation. The former second page is now the first page. The database page count reflects the new count. |
+| V-RFP-2 | Remove first page (guard) | A 1-page PDF is unchanged after the operation. |
+| V-R180-1 | Rotate 180 | All pages in the PDF are visually upside-down relative to their prior orientation. The file is modified in place. |
+| V-R90-1 | Rotate 90 | All pages in the PDF are rotated 90 degrees clockwise relative to their prior orientation. The file is modified in place. |
+| V-SPL-1 | Split (pages 2,3 from a 5-page doc) | A new document record is created with 2 pages. The new PDF contains only the selected pages in the specified order. The source document is unchanged. |
+| V-SPL-2 | Split (routing) | The new document appears in the same provider inboxes as the source document. The authenticated provider also has inbox routing. |
+| V-SPL-3 | Split (patient link) | If the source was linked to a patient, the new document is also linked to the same patient. |
+| V-SPL-4 | Split (queue) | The new document is assigned to the specified queue, or queue 1 if none specified. |
+| V-SPL-5 | Split (JSON response) | When either provider lab routing or patient routing is absent, the response is JSON containing `newDocNum`. |
+| V-SPL-6 | Split (view response) | When both provider lab routing and patient routing exist, the response triggers the close-and-reload view. |
+| V-CACHE-1 | All operations | After any rotate or remove operation, previously cached page renderings are invalidated. |
+
+---
+
+## 10. Observed Behaviors (Non-Normative)
+
+These notes document externally observable characteristics of the existing system. They are provided for compatibility reference but are not mandatory requirements. An implementer should replicate these behaviors unless there is a clear reason to improve upon them.
+
+- **Cache invalidation scope** — Rotate and remove operations are observed to invalidate cached renderings for all pages in the document, not just affected pages. This is observable as a brief delay when re-rendering unmodified pages.
+- **Filename inheritance** — The new document created by split is observed to reuse the source document's original filename as a stem, with a date-time prefix prepended for uniqueness. This is observable in the stored filename.
+- **Queue default** — When no queue is specified, the new document is observed to be assigned to queue ID 1. This is observable in the queue assignment database record.
+- **Response path divergence** — The split operation is observed to return different response types depending on whether the source document had both provider lab routing and patient routing. This is observable by the client through the HTTP response content type.
+- **Routing duplication** — Split is observed to copy all of the source document's routing associations to the new document. This is observable in the routing database tables.
+- **Single-page guard** — The remove-first-page operation is observed to silently do nothing if the document has only one page. This is observable by comparing the document before and after the request.
