@@ -617,7 +617,7 @@
                             <td class="consult-status-<%=Encode.forHtmlAttribute(status)%>">
                                 <%=Encode.forHtml(specialist)%>
                                 <% if (eReferral) { %>
-                                <span class="badge bg-info text-dark ms-1">OCEAN</span>
+                                <span class="badge bg-info text-dark ms-1"><fmt:message key="oscarEncounter.oscarConsultationRequest.ViewConsultationRequests.msgOceanBadge"/></span>
                                 <%} %>
                             </td>
                             <td class="consult-status-<%=Encode.forHtmlAttribute(status)%>">
