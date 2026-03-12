@@ -143,7 +143,9 @@ db_get carlos-emr/upgrade
 UPGRADE=$RET
 echo upgrade = ${UPGRADE}  >>$LOG_FILE
 
+CARLOS_PROPS_FOUND=false
 if [ -f "${C_HOME}${PROGRAM}.properties" ]; then
+	CARLOS_PROPS_FOUND=true
 	#first grep the password
 	echo "grep the password from the properties file" 1>> $LOG_FILE
 	db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
@@ -191,24 +193,32 @@ if [ -d /etc/apparmor.d/  ] ; then
     if [ -x /usr/local/bin/wkhtmltopdf ] ; then
         echo wkhtmltopdf executable in usr local bin exists >> $LOG_FILE
         if [ ! -f /etc/apparmor.d/usr.local.bin.wkhtmltopdf ] ; then
-	        ncecho " [x] Creating an apparmor profile for wkhtmltopdf " 
-	        cp "${SRC}usr.local.bin.wkhtmltopdf" /etc/apparmor.d/usr.local.bin.wkhtmltopdf 2>>$LOG_FILE
-	        service apparmor reload  2>>$LOG_FILE &
-	        pid=$!;progress $pid  
+	        if [ -f "${SRC}usr.local.bin.wkhtmltopdf" ] ; then
+	            ncecho " [x] Creating an apparmor profile for wkhtmltopdf "
+	            cp "${SRC}usr.local.bin.wkhtmltopdf" /etc/apparmor.d/usr.local.bin.wkhtmltopdf 2>>$LOG_FILE
+	            service apparmor reload  2>>$LOG_FILE &
+	            pid=$!;progress $pid
+	        else
+	            echo "WARNING: ${SRC}usr.local.bin.wkhtmltopdf not found; skipping AppArmor profile install" >> $LOG_FILE
+	        fi
 	else
-	        echo  /etc/apparmor.d/usr.local.wkhtmltopd exists >> $LOG_FILE        
+	        echo  /etc/apparmor.d/usr.local.wkhtmltopd exists >> $LOG_FILE
         fi
     fi
     ## its in the following location for 24.04
     if [ -x /usr/bin/wkhtmltopdf ] ; then  
         echo wkhtmltopdf executable exists in usr bin >> $LOG_FILE
         if [ ! -f /etc/apparmor.d/usr.bin.wkhtmltopdf ] ; then
-	        ncecho " [x] Creating an apparmor profile for wkhtmltopdf " 
-	        cp "${SRC}usr.bin.wkhtmltopdf" /etc/apparmor.d/usr.bin.wkhtmltopdf 2>>$LOG_FILE
-	        service apparmor reload  2>>$LOG_FILE &
-	        pid=$!;progress $pid  
+	        if [ -f "${SRC}usr.bin.wkhtmltopdf" ] ; then
+	            ncecho " [x] Creating an apparmor profile for wkhtmltopdf "
+	            cp "${SRC}usr.bin.wkhtmltopdf" /etc/apparmor.d/usr.bin.wkhtmltopdf 2>>$LOG_FILE
+	            service apparmor reload  2>>$LOG_FILE &
+	            pid=$!;progress $pid
+	        else
+	            echo "WARNING: ${SRC}usr.bin.wkhtmltopdf not found; skipping AppArmor profile install" >> $LOG_FILE
+	        fi
 	else
-	        echo  /etc/apparmor.d/usr.local.wkhtmltopd exists >> $LOG_FILE        
+	        echo  /etc/apparmor.d/usr.local.wkhtmltopd exists >> $LOG_FILE
         fi
     fi
 fi
@@ -236,9 +246,23 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
    
 
         
-    ncecho " [x] Patching database to latest schema "
-	$MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>>$LOG_FILE &
-	pid=$!;progress $pid
+    if [ "${CARLOS_PROPS_FOUND}" = "true" ] ; then
+        # CARLOS revision update: carlos.properties already exists, so this is not an
+        # OSCAR19->CARLOS migration. Run incremental update scripts only; do NOT re-run
+        # patch.sql (which is the one-time OSCAR19->CARLOS migration script).
+        ncecho " [x] Applying incremental schema updates "
+        echo "CARLOS revision update: skipping patch.sql, running incremental updates" >> $LOG_FILE
+        for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
+            echo "Applying incremental update ${_sql}" >> $LOG_FILE
+            $MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>>$LOG_FILE
+            echo "Applied ${_sql}" >> $LOG_FILE
+        done
+    else
+        # OSCAR 19 migration context (carlos.properties absent): apply the CARLOS migration patch.
+        ncecho " [x] Patching database to latest schema "
+        $MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>>$LOG_FILE &
+        pid=$!;progress $pid
+    fi
 	# lets first update the server.xml if necessary
 	if [ -f "${C_BASE}conf/server.xml" ]; then
                 if grep -Fq "relaxedQueryChars" ${C_BASE}conf/server.xml ; then	
@@ -472,19 +496,26 @@ echo  Created the Oscar database ${db_name} >>$LOG_FILE
 ### ============================================================
 if [ "${UPGRADE}" = "true" ] ; then
 
-	# OSCAR 19 to CARLOS migration: the OSCAR 19 schema (oscar_15) IS the CARLOS schema,
-	# so no table-rename or data migration is required.  Apply the CARLOS patch to bring
-	# the schema up to the current CARLOS baseline, then run any incremental update scripts.
+	# OSCAR 19 to CARLOS migration: applies patch.sql to the pre-existing oscar_15 schema
+	# to bring it to the current CARLOS baseline.  The OSCAR 19 schema (oscar_15) IS the
+	# CARLOS schema, so no table-rename or data migration is required beyond schema patching.
+	# If both carlos.properties and oscar.properties exist (prior CARLOS migration site),
+	# skip patch.sql and run incremental updates only.
 	ncecho " [x] Have new tables in ${db_name} default to utf8 "
 	$MYSQL -e "ALTER DATABASE \`$db_name\` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci"  2>>$LOG_FILE &
 
-	ncecho " [x] Patching database to latest schema "
-	$MYSQL ${db_name} < ${SRC}patch.sql >>${LOG_FILE} 2>&1 &
-	pid=$!;progress $pid
-	echo Patched ${db_name}>>$LOG_FILE
+	if [ "${CARLOS_PROPS_FOUND}" != "true" ] ; then
+		# Fresh OSCAR 19 to CARLOS migration: apply the migration patch to the new database.
+		ncecho " [x] Patching database to latest schema "
+		$MYSQL ${db_name} < ${SRC}patch.sql >>${LOG_FILE} 2>&1 &
+		pid=$!;progress $pid
+		echo Patched ${db_name}>>$LOG_FILE
+	else
+		echo "carlos.properties found alongside oscar.properties: skipping patch.sql, running incremental updates only" >> $LOG_FILE
+	fi
 
-	# Run incremental update scripts bundled with this package (dated 2026-03-01 and later)
-	for _sql in $(ls -1 "${SRC}"update-2026-0[3-9]-*.sql "${SRC}"update-2026-[1-9][0-9]-*.sql 2>/dev/null | sort); do
+	# Run incremental update scripts bundled with this package
+	for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
 		ncecho " [x] Applying incremental update $(basename ${_sql}) "
 		echo "Applying incremental update ${_sql}" >> $LOG_FILE
 		$MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>>$LOG_FILE
@@ -929,15 +960,19 @@ fi
 # Restore pre-existing configuration
 if [ -f "${C_BASE}/${PACKAGE}/ck.properties" ] ; then
         echo "Restoring any pre-existing clientKeystore.properties" >> $LOG_FILE
-        mv "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties" "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.default" 1>>$LOG_FILE \
-            || { echo "Install Aborted: failed to archive clientKeystore.properties" >>$LOG_FILE; fail; }
+        if [ -f "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties" ] ; then
+            mv "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties" "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.default" 1>>$LOG_FILE \
+                || { echo "Install Aborted: failed to archive clientKeystore.properties" >>$LOG_FILE; fail; }
+        fi
         mv "${C_BASE}/${PACKAGE}/ck.properties" "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties" 1>>$LOG_FILE \
             || { echo "Install Aborted: failed to restore ck.properties" >>$LOG_FILE; fail; }
 fi
 
 
 
-# Failures above exit via fail(); reaching here means all operations succeeded.
+# Critical long-running operations use progress() which calls fail() on non-zero exit.
+# File operations are guarded by existence checks; the keystore mv uses explicit || fail.
+# set -e is intentionally disabled to allow conditional logic; critical failures do abort.
 if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then
         # Tomcat 9 will look for the property files in some other locations
         # lets provide symbolic links to where we put them for lesser Tomcats       

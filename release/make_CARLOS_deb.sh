@@ -411,6 +411,18 @@ cp ./database/mysql/createdatabase_on.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/
 cp ./database/mysql/createdatabase_bc.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
 chmod 755 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/createdatabase_*.sh
 
+# Bundle incremental update scripts (update-2026-*.sql) for CARLOS revision upgrades.
+# The postinst script applies these after the WAR is deployed to bring the schema current.
+echo "bundling incremental database update scripts from database/mysql/updates/"
+_update_sql_count=0
+for _upd_sql in ./database/mysql/updates/update-2026-*.sql; do
+    if [ -f "${_upd_sql}" ]; then
+        cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
+        _update_sql_count=$((_update_sql_count + 1))
+    fi
+done
+echo "Bundled ${_update_sql_count} incremental update SQL files into package"
+
 echo "getting and loading wars"
 # The webapps directory was already created above during the Maven build section.
 # drugref.war: downloaded from upstream at package build time.
