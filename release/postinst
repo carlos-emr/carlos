@@ -40,7 +40,7 @@ if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
  fi
 C_HOME=/usr/share/${TOMCAT}/
 C_BASE=/var/lib/${TOMCAT}/
-SRC=/usr/share/${PACKAGE}/
+SRC=/var/lib/${PACKAGE}/
 priorschema=oscar_12
 db_password=CHANGEME
 DOCS=OscarDocument
@@ -202,11 +202,11 @@ if [ -d /etc/apparmor.d/  ] ; then
 	            echo "WARNING: ${SRC}usr.local.bin.wkhtmltopdf not found; skipping AppArmor profile install" >> $LOG_FILE
 	        fi
 	else
-	        echo  /etc/apparmor.d/usr.local.wkhtmltopd exists >> $LOG_FILE
+	        echo  /etc/apparmor.d/usr.local.bin.wkhtmltopdf exists >> $LOG_FILE
         fi
     fi
     ## its in the following location for 24.04
-    if [ -x /usr/bin/wkhtmltopdf ] ; then  
+    if [ -x /usr/bin/wkhtmltopdf ] ; then
         echo wkhtmltopdf executable exists in usr bin >> $LOG_FILE
         if [ ! -f /etc/apparmor.d/usr.bin.wkhtmltopdf ] ; then
 	        if [ -f "${SRC}usr.bin.wkhtmltopdf" ] ; then
@@ -218,7 +218,7 @@ if [ -d /etc/apparmor.d/  ] ; then
 	            echo "WARNING: ${SRC}usr.bin.wkhtmltopdf not found; skipping AppArmor profile install" >> $LOG_FILE
 	        fi
 	else
-	        echo  /etc/apparmor.d/usr.local.wkhtmltopd exists >> $LOG_FILE
+	        echo  /etc/apparmor.d/usr.bin.wkhtmltopdf exists >> $LOG_FILE
         fi
     fi
 fi
@@ -254,7 +254,10 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
         echo "CARLOS revision update: skipping patch.sql, running incremental updates" >> $LOG_FILE
         for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
             echo "Applying incremental update ${_sql}" >> $LOG_FILE
-            $MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>>$LOG_FILE
+            if ! $MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>&1; then
+                echo "ERROR: Failed to apply incremental update ${_sql}" >> $LOG_FILE
+                fail
+            fi
             echo "Applied ${_sql}" >> $LOG_FILE
         done
     else

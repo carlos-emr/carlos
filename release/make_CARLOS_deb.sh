@@ -128,7 +128,7 @@ mkdir -p "${RELEASE_DIR}/${DEBNAME}/DEBIAN/"
 cd "${REPO_ROOT}" || { echo "ERROR: Failed to cd to ${REPO_ROOT}" >&2; exit 1; }
 mvn -Dmaven.test.skip=true -Dcheckstyle.skip=true package
 mkdir -p "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/"
-cp "${REPO_ROOT}/target/carlos-0-SNAPSHOT.war" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/carlos.war"
+# WAR is copied generically below (after drugref download) using ${TARGET} and ${PROGRAM} variables.
 
 SHA1=$(sha1sum "${REPO_ROOT}/target/${TARGET}")
 echo The ${TARGET} SHA1=$SHA1
