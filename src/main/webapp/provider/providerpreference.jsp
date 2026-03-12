@@ -47,6 +47,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.OscarProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
@@ -1272,26 +1273,26 @@
     <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button"
                 data-bs-toggle="collapse" data-bs-target="#secSignatureStamp">
-            <i class="fas fa-signature section-icon"></i> Signature Stamp
+            <i class="fas fa-signature section-icon"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerpreference.signatureStamp.title"/>
         </button>
     </h2>
     <div id="secSignatureStamp" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
         <div class="accordion-body">
             <div class="section-note">
                 <i class="fas fa-info-circle"></i>
-                Your signature stamp is automatically placed on consultation requests, prescriptions, and eForms.
+                <fmt:message key="provider.providerpreference.signatureStamp.infoNote"/>
             </div>
 
             <%-- Current signature preview --%>
             <div class="mb-3">
-                <label class="pref-label">Current Signature</label>
+                <label class="pref-label"><fmt:message key="provider.providerpreference.signatureStamp.labelCurrentSig"/></label>
                 <div id="sigPreviewArea" style="border:1px solid var(--carlos-border); border-radius:4px; padding:10px; background:#fff; min-height:80px; display:flex; align-items:center; justify-content:center;">
                     <% if (hasConsultSignature) { %>
                         <img id="sigPreviewImg" src="<%=request.getContextPath()%>/eform/displayImage.do?imagefile=<%=Encode.forUriComponent(consultSigValue)%>"
-                             alt="Current signature" style="max-width:100%; max-height:120px;"/>
+                             alt="<fmt:message key="provider.providerpreference.signatureStamp.altCurrentSig"/>" style="max-width:100%; max-height:120px;"/>
                     <% } else { %>
-                        <span id="sigPlaceholder" style="color:#999; font-style:italic;">No signature stamp uploaded</span>
-                        <img id="sigPreviewImg" src="" alt="Current signature" style="max-width:100%; max-height:120px; display:none;"/>
+                        <span id="sigPlaceholder" style="color:#999; font-style:italic;"><fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded"/></span>
+                        <img id="sigPreviewImg" src="" alt="<fmt:message key="provider.providerpreference.signatureStamp.altCurrentSig"/>" style="max-width:100%; max-height:120px; display:none;"/>
                     <% } %>
                 </div>
             </div>
@@ -1300,30 +1301,30 @@
 
             <%-- Upload signature file --%>
             <div class="mb-3">
-                <label class="pref-label" for="sigFileInput">Upload Signature Image</label>
+                <label class="pref-label" for="sigFileInput"><fmt:message key="provider.providerpreference.signatureStamp.labelUpload"/></label>
                 <div class="d-flex align-items-center gap-2">
                     <input type="file" id="sigFileInput" accept="image/png,image/jpeg,image/gif"
                            class="form-control form-control-sm" style="max-width:300px;"/>
                     <button type="button" class="btn btn-sm btn-primary" onclick="uploadSignatureFile()">
-                        <i class="fas fa-upload"></i> Upload
+                        <i class="fas fa-upload"></i> <fmt:message key="provider.providerpreference.signatureStamp.btnUpload"/>
                     </button>
                 </div>
-                <small class="text-muted">PNG, JPEG, or GIF. Recommended: transparent background, ~500x150px.</small>
+                <small class="text-muted"><fmt:message key="provider.providerpreference.signatureStamp.uploadHint"/></small>
             </div>
 
             <%-- Draw signature --%>
             <div class="mb-3">
-                <label class="pref-label">Draw Signature</label>
+                <label class="pref-label"><fmt:message key="provider.providerpreference.signatureStamp.labelDraw"/></label>
                 <div style="border:1px solid var(--carlos-border); border-radius:4px; background:#fff; padding:4px; display:inline-block;">
                     <canvas id="sigCanvas" width="500" height="150"
                             style="cursor:crosshair; display:block; touch-action:none;"></canvas>
                 </div>
                 <div class="mt-2 d-flex gap-2">
                     <button type="button" class="btn btn-sm btn-primary" onclick="saveDrawnSignature()">
-                        <i class="fas fa-save"></i> Save Drawing
+                        <i class="fas fa-save"></i> <fmt:message key="provider.providerpreference.signatureStamp.btnSaveDrawing"/>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearCanvas()">
-                        <i class="fas fa-eraser"></i> Clear
+                        <i class="fas fa-eraser"></i> <fmt:message key="provider.providerpreference.signatureStamp.btnClear"/>
                     </button>
                 </div>
             </div>
@@ -1332,7 +1333,7 @@
             <% if (hasConsultSignature) { %>
             <div class="mb-0" id="sigDeleteSection">
                 <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSignature()">
-                    <i class="fas fa-trash-alt"></i> Delete Signature Stamp
+                    <i class="fas fa-trash-alt"></i> <fmt:message key="provider.providerpreference.signatureStamp.btnDelete"/>
                 </button>
             </div>
             <% } %>
@@ -1362,7 +1363,7 @@
                     <i class="fas fa-key"></i> Change Password
                 </a>
                 <a href="providerSignature.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-pen-nib"></i> Edit Text Signature
+                    <i class="fas fa-pen-nib"></i> <fmt:message key="provider.providerpreference.linkEditTextSig"/>
                 </a>
                 <a href="providerPrinter.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> Set Default Printer
@@ -1674,6 +1675,24 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
 (function() {
     var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp.do';
 
+    // ── Localized message strings (rendered server-side by JSP) ──
+    var _msg = {
+        selectFirst:    '<fmt:message key="provider.providerpreference.signatureStamp.msgSelectFirst"/>',
+        uploadSuccess:  '<fmt:message key="provider.providerpreference.signatureStamp.msgUploadSuccess"/>',
+        uploadFailed:   '<fmt:message key="provider.providerpreference.signatureStamp.msgUploadFailed"/>',
+        uploadError:    '<fmt:message key="provider.providerpreference.signatureStamp.msgUploadError"/>',
+        drawFirst:      '<fmt:message key="provider.providerpreference.signatureStamp.msgDrawFirst"/>',
+        saveSuccess:    '<fmt:message key="provider.providerpreference.signatureStamp.msgSaveSuccess"/>',
+        saveFailed:     '<fmt:message key="provider.providerpreference.signatureStamp.msgSaveFailed"/>',
+        saveError:      '<fmt:message key="provider.providerpreference.signatureStamp.msgSaveError"/>',
+        deleteConfirm:  '<fmt:message key="provider.providerpreference.signatureStamp.msgDeleteConfirm"/>',
+        deleteSuccess:  '<fmt:message key="provider.providerpreference.signatureStamp.msgDeleteSuccess"/>',
+        deleteFailed:   '<fmt:message key="provider.providerpreference.signatureStamp.msgDeleteFailed"/>',
+        deleteError:    '<fmt:message key="provider.providerpreference.signatureStamp.msgDeleteError"/>',
+        noSigUploaded:  '<fmt:message key="provider.providerpreference.signatureStamp.noSigUploaded"/>',
+        btnDelete:      '<fmt:message key="provider.providerpreference.signatureStamp.btnDelete"/>'
+    };
+
     // ── Canvas drawing ──
     var canvas = document.getElementById('sigCanvas');
     if (canvas) {
@@ -1767,7 +1786,7 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
             var icon = document.createElement('i');
             icon.className = 'fas fa-trash-alt';
             btn.appendChild(icon);
-            btn.appendChild(document.createTextNode(' Delete Signature Stamp'));
+            btn.appendChild(document.createTextNode(' ' + _msg.btnDelete));
             div.appendChild(btn);
             body.appendChild(div);
         }
@@ -1801,7 +1820,7 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
     window.uploadSignatureFile = function() {
         var fileInput = document.getElementById('sigFileInput');
         if (!fileInput.files || fileInput.files.length === 0) {
-            showStatus('Please select a file first.', 'warning');
+            showStatus(_msg.selectFirst, 'warning');
             return;
         }
         var formData = new FormData();
@@ -1811,18 +1830,18 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
         sigXhr(formData, function(data) {
             if (data.success) {
                 updatePreview(data.imageUrl);
-                showStatus('Signature stamp uploaded successfully.', 'success');
+                showStatus(_msg.uploadSuccess, 'success');
                 fileInput.value = '';
             } else {
-                showStatus(data.error || 'Upload failed.', 'danger');
+                showStatus(data.error || _msg.uploadFailed, 'danger');
             }
-        }, function() { showStatus('Upload failed. Please try again.', 'danger'); });
+        }, function() { showStatus(_msg.uploadError, 'danger'); });
     };
 
     // ── Save drawn signature ──
     window.saveDrawnSignature = function() {
         if (!hasDrawn) {
-            showStatus('Please draw a signature first.', 'warning');
+            showStatus(_msg.drawFirst, 'warning');
             return;
         }
         var dataUrl = canvas.toDataURL('image/png');
@@ -1831,13 +1850,13 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
         sigXhr(params, function(data) {
             if (data.success) {
                 updatePreview(data.imageUrl);
-                showStatus('Drawn signature saved successfully.', 'success');
+                showStatus(_msg.saveSuccess, 'success');
                 clearCanvas();
                 hasDrawn = false;
             } else {
-                showStatus(data.error || 'Save failed.', 'danger');
+                showStatus(data.error || _msg.saveFailed, 'danger');
             }
-        }, function() { showStatus('Save failed. Please try again.', 'danger'); });
+        }, function() { showStatus(_msg.saveError, 'danger'); });
     };
 
     // ── Clear canvas ──
@@ -1850,7 +1869,7 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
 
     // ── Delete signature ──
     window.deleteSignature = function() {
-        if (!confirm('Are you sure you want to delete your signature stamp?')) return;
+        if (!confirm(_msg.deleteConfirm)) return;
 
         var params = 'method=delete';
 
@@ -1864,17 +1883,17 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
                     placeholder = document.createElement('span');
                     placeholder.id = 'sigPlaceholder';
                     placeholder.style.cssText = 'color:#999;font-style:italic;';
-                    placeholder.textContent = 'No signature stamp uploaded';
+                    placeholder.textContent = _msg.noSigUploaded;
                     document.getElementById('sigPreviewArea').appendChild(placeholder);
                 }
                 placeholder.style.display = '';
                 var delSection = document.getElementById('sigDeleteSection');
                 if (delSection) delSection.remove();
-                showStatus('Signature stamp deleted.', 'success');
+                showStatus(_msg.deleteSuccess, 'success');
             } else {
-                showStatus(data.error || 'Delete failed.', 'danger');
+                showStatus(data.error || _msg.deleteFailed, 'danger');
             }
-        }, function() { showStatus('Delete failed. Please try again.', 'danger'); });
+        }, function() { showStatus(_msg.deleteError, 'danger'); });
     };
 })();
 </script>

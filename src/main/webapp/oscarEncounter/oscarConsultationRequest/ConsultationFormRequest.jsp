@@ -2904,7 +2904,7 @@ if (userAgent != null) {
                                 <% if (hasStampSignature) { %>
                                 <div id="signatureShow" style="display: block;">
                                     <img id="signatureImgTag" src="<%=request.getContextPath()%>/eform/displayImage.do?imagefile=<%=Encode.forUriComponent(consultSigProp.getValue())%>"
-                                         alt="Provider signature" style="max-height:120px;"/>
+                                         alt="<fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig"/>" style="max-height:120px;"/>
                                 </div>
                                 <div id="signatureFrame" style="display: none;">
                                     <iframe style="width:500px; height:132px;"
@@ -2912,7 +2912,7 @@ if (userAgent != null) {
                                 </div>
                                 <div style="margin-top:5px;">
                                     <a href="javascript:void(0)" onclick="document.getElementById('signatureShow').style.display='none';document.getElementById('signatureFrame').style.display='block';document.getElementById('newSignature').value='true';">
-                                        Re-sign manually
+                                        <fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.linkResignManually"/>
                                     </a>
                                 </div>
                                 <% } else { %>
