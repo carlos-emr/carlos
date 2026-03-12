@@ -45,18 +45,18 @@ This specification defines the externally observable behavior of a PDF document 
 ### 1.2 Scope
 
 **In scope:**
-- Four PDF manipulation operations (remove first page, rotate 180, rotate 90, split) accessible via a single HTTP endpoint
-- HTTP request/response contracts for each operation
+- Client integration expectations
 - Database side effects (document creation, routing, page count updates)
 - Filesystem side effects (PDF file creation and modification)
-- Client integration expectations
+- Four PDF manipulation operations (remove first page, rotate 180, rotate 90, split) accessible via a single HTTP endpoint
+- HTTP request/response contracts for each operation
 
 **Out of scope:**
-- The split page selection user interface (specified separately as a client-side concern)
-- PDF rendering and page thumbnail generation (handled by a separate document viewer component)
-- Document upload and initial creation (handled by a separate upload component)
 - Authentication and session management (provided by the surrounding framework)
+- Document upload and initial creation (handled by a separate upload component)
 - The internal implementation approach — any architecture that produces the specified observable behavior is acceptable
+- PDF rendering and page thumbnail generation (handled by a separate document viewer component)
+- The split page selection user interface (specified separately as a client-side concern)
 
 ### 1.3 Document Conventions
 
@@ -71,9 +71,9 @@ This specification defines the externally observable behavior of a PDF document 
 | Term | Definition |
 |------|-----------|
 | **Control document record** | A metadata association that links a document to a module (e.g., "demographic") and a module-specific entity ID, with a status field. Used to track which part of the system "owns" the document. |
-| **Document type identifier** | The string constant `"DOC"` used as a discriminator in routing tables to distinguish document items from other routable item types (e.g., lab results). All routing operations for documents use this value. |
 | **Document metadata** | The database record describing a stored PDF, including fields such as filename, creator, status, page count, content type, and observation date. Distinct from the PDF file itself. |
 | **Document storage directory** | A server-side filesystem directory, configured at the application level, where all PDF files are stored as flat files. |
+| **Document type identifier** | The string constant `"DOC"` used as a discriminator in routing tables to distinguish document items from other routable item types (e.g., lab results). All routing operations for documents use this value. |
 | **Patient routing** | A database association linking a document to a patient (demographic) record, so the document appears in that patient's document history. |
 | **Provider** | An authenticated healthcare practitioner who uses the EMR system. Identified by a provider number. |
 | **Provider inbox routing** | A database association that causes a document to appear in a provider's inbox for review. Multiple providers can have routing for the same document. |
@@ -330,16 +330,16 @@ The client sends a POST request and expects no response body. The client is resp
 ### 7.2 Split Operation
 
 The client sends a POST with `page` multi-value parameters (in `pageNumber,rotation` format), the source `document` ID, and optionally `queueID`. The client shall handle two response types:
-- **JSON response** (`application/json`): Extract the `newDocNum` field to obtain the new document's ID.
 - **Close-and-reload view**: The parent window reloads and the current view closes.
+- **JSON response** (`application/json`): Extract the `newDocNum` field to obtain the new document's ID.
 
 ---
 
 ## 8. Assumptions
 
-- The document storage directory exists and is writable by the application server process.
-- All referenced document IDs correspond to existing PDF files in the document storage directory.
 - The authenticated provider session is valid and contains a provider number.
+- All referenced document IDs correspond to existing PDF files in the document storage directory.
+- The document storage directory exists and is writable by the application server process.
 - The PDF processing library can handle the PDF files stored in the system (standard PDF format, not encrypted or password-protected).
 
 ---
@@ -350,10 +350,12 @@ An implementation shall be considered correct if it satisfies all of the followi
 
 | Test ID | Operation | Verification |
 |---------|-----------|-------------|
+| V-CACHE-1 | Rotate and remove | After any rotate or remove operation, previously cached page renderings are invalidated. |
+| V-R180-1 | Rotate 180 | All pages in the PDF are visually upside-down relative to their prior orientation. The file is modified in place. |
+| V-R180-2 | Rotate 180 (additive) | A page with existing rotation 90 becomes rotation 270 after the operation (90 + 180 = 270). |
+| V-R90-1 | Rotate 90 | All pages in the PDF are rotated 90 degrees clockwise relative to their prior orientation. The file is modified in place. |
 | V-RFP-1 | Remove first page | A 3-page PDF becomes a 2-page PDF after the operation. The former second page is now the first page. The database page count reflects the new count. |
 | V-RFP-2 | Remove first page (guard) | A 1-page PDF is unchanged after the operation. |
-| V-R180-1 | Rotate 180 | All pages in the PDF are visually upside-down relative to their prior orientation. The file is modified in place. |
-| V-R90-1 | Rotate 90 | All pages in the PDF are rotated 90 degrees clockwise relative to their prior orientation. The file is modified in place. |
 | V-SPL-1 | Split (pages 2,3 from a 5-page doc) | A new document record is created with 2 pages. The new PDF contains only the selected pages in the specified order. The source document is unchanged. |
 | V-SPL-2 | Split (routing) | The new document appears in the same provider inboxes as the source document. The authenticated provider also has inbox routing. |
 | V-SPL-3 | Split (control document) | If the source had a control document record, the new document has an equivalent record with the same module ID and status. |
@@ -362,8 +364,6 @@ An implementation shall be considered correct if it satisfies all of the followi
 | V-SPL-6 | Split (JSON response) | When either provider lab routing or patient routing is absent, the response is JSON containing `newDocNum`. |
 | V-SPL-7 | Split (view response) | When both provider lab routing and patient routing exist, the response triggers the close-and-reload view. |
 | V-SPL-8 | Split (with rotation) | When extracting a page with rotation value 90, the page in the new PDF has absolute rotation 90 regardless of the page's original rotation in the source PDF. |
-| V-R180-2 | Rotate 180 (additive) | A page with existing rotation 90 becomes rotation 270 after the operation (90 + 180 = 270). |
-| V-CACHE-1 | Rotate and remove | After any rotate or remove operation, previously cached page renderings are invalidated. |
 
 ---
 
