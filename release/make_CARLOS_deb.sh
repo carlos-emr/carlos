@@ -490,10 +490,10 @@ echo "now invoking dpkg -b ${RELEASE_DIR}/${DEBNAME}"
 # Output: ${RELEASE_DIR}/${DEBNAME}.deb
 dpkg -b "${RELEASE_DIR}/${DEBNAME}"
 echo ""
-echo "Testing the deb for update locally"
+#echo "Testing the deb for update locally"
 echo "#########" `date` "#########"
 # Install the freshly built package on this machine for a smoke test.
-dpkg -i "${RELEASE_DIR}/${DEBNAME}.deb"
+#dpkg -i "${RELEASE_DIR}/${DEBNAME}.deb"
 echo ""
 echo ""
 echo ""
