@@ -426,7 +426,7 @@ echo "getting and loading wars"
 # drugref.war: downloaded from upstream at package build time.
 # The drugref webapp creates its own schema on first startup — no drugref.sql is needed.
 DRUGREF_WAR="${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/drugref.war"
-curl -o "${DRUGREF_WAR}" https://bitbucket.org/oscaremr/drugref2/downloads/drugref2.48.war
+curl -L -o "${DRUGREF_WAR}" https://bitbucket.org/oscaremr/drugref2/downloads/drugref2.48.war
 # Verify SHA256 checksum of drugref.war (update DRUGREF_SHA256 when upgrading drugref version).
 # To obtain the hash after downloading: sha256sum "${DRUGREF_WAR}"
 # Then export DRUGREF_SHA256=<hash> before running this script.
