@@ -240,10 +240,13 @@ if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
 else
         # if tomcat8 then need to move the wars from the DEB installed directories to the tomcat8 directory
         if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-        echo "WARNING Tomcat 8 is deprecated" 
+        echo "WARNING Tomcat 8 is deprecated"
         echo "WARNING attempting to install on outdated Tomcat 8 !!"  >> $LOG_FILE
-                cp /var/lib/tomcat9/webapps/carlos.war /var/lib/tomcat8/webapps/carlos.war
-                cp /var/lib/tomcat9/webapps/drugref.war /var/lib/tomcat8/webapps/drugref.war
+                # Determine source webapps dir (use package-bundled location if available)
+                SRC_WEBAPPS="${SRC_WEBAPPS:-/var/lib/${PACKAGE}/webapps}"
+                [ ! -d "${SRC_WEBAPPS}" ] && SRC_WEBAPPS="/var/lib/tomcat9/webapps"
+                cp "${SRC_WEBAPPS}/carlos.war" /var/lib/tomcat8/webapps/carlos.war
+                cp "${SRC_WEBAPPS}/drugref.war" /var/lib/tomcat8/webapps/drugref.war
         else
 
                 # if tomcat 9 its a different move AND we need to add read write paths (tomcat 10 not supported)
@@ -554,6 +557,21 @@ if [ "${UPGRADE}" = "true" ] ; then
     -e 's/\(^phoneprefix =\)/#\1/' \
     -e 's/\(^billcenter =\)/#\1/' \
     ${SRC}${PROGRAM}.properties > ${PROGRAM}.tmp 2>>$LOG_FILE
+  # Set CARLOS default BASE_DOCUMENT_DIR so carlos.properties uses CARLOS paths,
+  # not any OSCAR 19 path that might remain in the bundled properties.
+  echo BASE_DOCUMENT_DIR=${BASE_DOCUMENT_DIR}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+  # For OSCAR 19 migration: read the OSCAR 19 BASE_DOCUMENT_DIR and create a
+  # symlink from the CARLOS default path so that OSCAR 19 files are accessible
+  # from both the existing OSCAR 19 path and the new CARLOS default path.
+  oscar_base_doc=$(sed '/^\#/d' "${C_HOME}oscar.properties" | grep '^BASE_DOCUMENT_DIR' | tail -n 1 | cut -d '=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+  echo "oscar_base_doc=${oscar_base_doc}" >> $LOG_FILE
+  if [ -n "${oscar_base_doc}" ] && [ "${oscar_base_doc}" != "${BASE_DOCUMENT_DIR}" ] && [ -d "${oscar_base_doc}" ] ; then
+    echo "Linking CARLOS document path ${BASE_DOCUMENT_DIR} -> ${oscar_base_doc} for OSCAR 19 migration" >> $LOG_FILE
+    ln -sf "${oscar_base_doc}" "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
+  else
+    mkdir -p "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
+    chown -R ${TOMCAT_USER}:${TOMCAT_USER} "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
+  fi
   fi
 else
 	db_set carlos-emr/upgrade false
