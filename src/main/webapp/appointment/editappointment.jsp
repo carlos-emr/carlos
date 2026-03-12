@@ -100,6 +100,7 @@
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
@@ -838,8 +839,10 @@
         String editPatientStatus = (patientStatus == null || patientStatus.isEmpty() || patientStatus.equalsIgnoreCase("AC")) ? "" : patientStatus;
         boolean editShowStatus = editDisplayRoster || !editPatientStatus.isEmpty();
     %>
+    <fmt:setBundle basename="oscarResources"/>
+    <fmt:message key="Appointment.msgRosterStatus" var="rosterStatusLabel"/>
     <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
-         data-roster-label="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.msgRosterStatus"/>"
+         data-roster-label="${e:forHtmlAttribute(rosterStatusLabel)}"
          style="<%= editShowStatus ? "" : "display:none" %>" role="alert">
         <span id="patientStatusText"><%=editShowStatus ? Encode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatus : "")) : ""%></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>

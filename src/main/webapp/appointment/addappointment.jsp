@@ -104,6 +104,7 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -1147,7 +1148,8 @@ Ontario, Canada
                         <div class="mb-2 row">
                             <label class="col-sm-4 col-form-label" for="keyword">
                                 Patient:
-                                <input type="button" value="(<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.doNotBook"/>)"
+                                <fmt:message key="Appointment.doNotBook" var="doNotBookMsg"/>
+                                <input type="button" value="(${e:forHtmlAttribute(doNotBookMsg)})"
                                    class="btn btn-link btn-sm p-0" onclick="onNotBook();">
                             </label>
                             <div class="col-sm-8">
@@ -1158,12 +1160,14 @@ Ontario, Canada
                                 %>
                                     <input type="hidden" name="demographic_no" id="demographic_no"
                                            value='<%=(bFirstDisp && !bFromWL) ? "" : Encode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>
+                                    <fmt:message key="Appointment.formNamePlaceholder" var="formNamePlaceholderMsg"/>
+                                    <fmt:message key="appointment.addappointment.btnSearch" var="btnSearchMsg"/>
                                     <input type="text" name="keyword" id="keyword" class="form-control form-control-sm"
                                         value="<%=Encode.forHtmlAttribute(name)%>"
-                                        placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNamePlaceholder"/>">
+                                        placeholder="${e:forHtmlAttribute(formNamePlaceholderMsg)}">
                                     <button type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary btn-sm"
                                            onclick="parseSearch(); document.forms['ADDAPPT'].displaymode.value='Search ';"
-                                           title="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnSearch"/>"><i class="fa-solid fa-magnifying-glass"></i></button>
+                                           title="${e:forHtmlAttribute(btnSearchMsg)}"><i class="fa-solid fa-magnifying-glass"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -1186,9 +1190,10 @@ Ontario, Canada
                                         </c:otherwise>
                                     </c:choose>
                                 </select>
+                                <fmt:message key="Appointment.formReason" var="formReasonMsg"/>
                                 <textarea id="reason" name="reason" class="form-control form-control-sm mt-1" tabindex="2" rows="2"
                                           style="resize:none;"
-                                          placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formReason"/>"
+                                          placeholder="${e:forHtmlAttribute(formReasonMsg)}"
                                           maxlength="80"><%=bFirstDisp ? "" : "".equals(request.getParameter("reason")) ? "" : Encode.forHtmlContent(request.getParameter("reason"))%></textarea>
                             </div>
                         </div>
@@ -1207,13 +1212,20 @@ Ontario, Canada
                             <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formLocation"/>:</label>
                             <div class="col-sm-8">
                                 <% if (bMultisites) { %>
+                                <%
+                                    // Validate CSS color values to prevent CSS injection: allow hex (#rgb or #rrggbb) or alpha-only named colors
+                                    java.util.regex.Pattern cssColorPattern = java.util.regex.Pattern.compile("^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$|^[a-zA-Z]+$");
+                                    String safeColoAttr = (colo != null && cssColorPattern.matcher(colo).matches()) ? Encode.forHtmlAttribute(colo) : "";
+                                %>
                                 <select tabindex="4" class="form-select form-select-sm" name="location"
-                                        style="background-color: <%=Encode.forHtmlAttribute(colo)%>"
+                                        style="background-color: <%=safeColoAttr%>"
                                         onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
-                                    <% for (Site s : sites) { %>
+                                    <% for (Site s : sites) {
+                                        String safeBgColorAttr = (s.getBgColor() != null && cssColorPattern.matcher(s.getBgColor()).matches()) ? Encode.forHtmlAttribute(s.getBgColor()) : "";
+                                    %>
                                     <option value="<%=Encode.forHtmlAttribute(s.getName())%>"
                                             class="<%=Encode.forHtmlAttribute(s.getShortName())%>"
-                                            style="background-color: <%=Encode.forHtmlAttribute(s.getBgColor())%>" <%=s.getName().equals(loc) ? "selected" : "" %>><%=Encode.forHtmlContent(s.getName())%>
+                                            style="background-color: <%=safeBgColorAttr%>" <%=s.getName().equals(loc) ? "selected" : "" %>><%=Encode.forHtmlContent(s.getName())%>
                                     </option>
                                     <% } %>
                                 </select>
@@ -1310,8 +1322,9 @@ Ontario, Canada
                         <div class="mb-2 row">
                             <label class="col-sm-4 col-form-label"><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>:</label>
                             <div class="col-sm-8">
+                                <fmt:message key="Appointment.formNotes" var="formNotesMsg"/>
                                 <textarea class="form-control form-control-sm" name="notes" tabindex="3" rows="2" style="resize:none;"
-                                          placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formNotes"/>"
+                                          placeholder="${e:forHtmlAttribute(formNotesMsg)}"
                                           maxlength="255"><%=bFirstDisp ? "" : Encode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
                             </div>
                         </div>
@@ -1434,12 +1447,14 @@ Ontario, Canada
                     <% }%>
 
                     <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
+                    <fmt:message key="appointment.addappointment.btnRepeat" var="btnRepeatMsg"/>
                     <input type="button" id="apptRepeatButton" class="btn btn-primary"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="appointment.addappointment.btnRepeat"/>"
+                           value="${e:forHtmlAttribute(btnRepeatMsg)}"
                            onclick="onButRepeat()" <%=disabled%>>
                     <% } %>
+                    <fmt:message key="global.btnBack" var="btnBackMsg"/>
                     <input type="button" id="backButton" class="btn btn-secondary"
-                           value="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                           value="${e:forHtmlAttribute(btnBackMsg)}"
                            onClick="cancelPageLock(); if (window.opener) { window.close(); } else { window.history.back(); }">
 
                 </div>
