@@ -130,7 +130,7 @@ mvn -Dmaven.test.skip=true -Dcheckstyle.skip=true package
 mkdir -p "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/"
 # WAR is copied generically below (after drugref download) using ${TARGET} and ${PROGRAM} variables.
 
-SHA1=$(sha1sum "${REPO_ROOT}/target/${TARGET}")
+SHA1=$(sha1sum "${REPO_ROOT}/target/${TARGET}" | awk '{print $1}')
 echo The ${TARGET} SHA1=$SHA1
 
 
@@ -438,7 +438,10 @@ if [ -z "${DRUGREF_SHA256:-}" ]; then
     exit 1
 fi
 echo "${DRUGREF_SHA256}  ${DRUGREF_WAR}" | sha256sum -c - || { echo "Checksum mismatch for drugref.war — aborting build"; exit 1; }
-cp "${REPO_ROOT}/target/${TARGET}" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/${PROGRAM}.war"
+[ -f "${REPO_ROOT}/target/${TARGET}" ] \
+  || { echo "ERROR: Missing ${REPO_ROOT}/target/${TARGET} — build may have failed" >&2; exit 1; }
+cp "${REPO_ROOT}/target/${TARGET}" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/${PROGRAM}.war" \
+  || { echo "ERROR: Failed to stage ${PROGRAM}.war into package" >&2; exit 1; }
 
 # --- OscarDocument directory skeleton ---
 # Copy any checked-in document templates and set up the inbox directory structure

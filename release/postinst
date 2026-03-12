@@ -246,10 +246,11 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
    
 
         
-    if [ "${CARLOS_PROPS_FOUND}" = "true" ] ; then
-        # CARLOS revision update: carlos.properties already exists, so this is not an
-        # OSCAR19->CARLOS migration. Run incremental update scripts only; do NOT re-run
-        # patch.sql (which is the one-time OSCAR19->CARLOS migration script).
+    if [ -n "${lastbuild}" ] ; then
+        # CARLOS revision update: carlos.properties exists WITH a build tag, so this is
+        # not an OSCAR19->CARLOS migration. Run incremental update scripts only; do NOT
+        # re-run patch.sql (which is the one-time OSCAR19->CARLOS migration script).
+        # Note: CARLOS_PROPS_FOUND=true but no build tag → treat as OSCAR19 migration.
         ncecho " [x] Applying incremental schema updates "
         echo "CARLOS revision update: skipping patch.sql, running incremental updates" >> $LOG_FILE
         for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
@@ -507,8 +508,8 @@ if [ "${UPGRADE}" = "true" ] ; then
 	ncecho " [x] Have new tables in ${db_name} default to utf8 "
 	$MYSQL -e "ALTER DATABASE \`$db_name\` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci"  2>>$LOG_FILE &
 
-	if [ "${CARLOS_PROPS_FOUND}" != "true" ] ; then
-		# Fresh OSCAR 19 to CARLOS migration: apply the migration patch to the new database.
+	if [ -z "${lastbuild}" ] ; then
+		# Fresh OSCAR 19 to CARLOS migration (no prior CARLOS build tag): apply the migration patch.
 		ncecho " [x] Patching database to latest schema "
 		$MYSQL ${db_name} < ${SRC}patch.sql >>${LOG_FILE} 2>&1 &
 		pid=$!;progress $pid
@@ -521,7 +522,10 @@ if [ "${UPGRADE}" = "true" ] ; then
 	for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
 		ncecho " [x] Applying incremental update $(basename ${_sql}) "
 		echo "Applying incremental update ${_sql}" >> $LOG_FILE
-		$MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>>$LOG_FILE
+		if ! $MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>&1; then
+			echo "ERROR: Failed to apply incremental update ${_sql}" >> $LOG_FILE
+			fail
+		fi
 		echo "Applied ${_sql}" >> $LOG_FILE
 	done
 
