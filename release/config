@@ -563,7 +563,7 @@ if [ "${UPGRADE}" = "true" ] ; then
   # For OSCAR 19 migration: read the OSCAR 19 BASE_DOCUMENT_DIR and create a
   # symlink from the CARLOS default path so that OSCAR 19 files are accessible
   # from both the existing OSCAR 19 path and the new CARLOS default path.
-  oscar_base_doc=$(sed '/^\#/d' "${C_HOME}oscar.properties" | grep '^BASE_DOCUMENT_DIR' | tail -n 1 | cut -d '=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+  oscar_base_doc=$(sed '/^\#/d' "${C_HOME}oscar.properties" | grep '^BASE_DOCUMENT_DIR' | tail -n 1 | cut -d '=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' 2>>$LOG_FILE)
   echo "oscar_base_doc=${oscar_base_doc}" >> $LOG_FILE
   if [ -n "${oscar_base_doc}" ] && [ "${oscar_base_doc}" != "${BASE_DOCUMENT_DIR}" ] && [ -d "${oscar_base_doc}" ] ; then
     echo "Linking CARLOS document path ${BASE_DOCUMENT_DIR} -> ${oscar_base_doc} for OSCAR 19 migration" >> $LOG_FILE
