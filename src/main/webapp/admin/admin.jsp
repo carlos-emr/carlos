@@ -431,11 +431,6 @@
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmGroups"/>
                 </a></li>
 
-                <% if (IsPropertiesOn.isIndivicaRichTextLetterEnable()) { %>
-                <li><a href="${pageContext.request.contextPath}/eform/efmformrtl_config.jsp">
-                    <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.richTextLetter"/>
-                </a></li>
-                <% } %>
 
                 <li><a href="${pageContext.request.contextPath}/eform/efmmanageindependent.jsp">
                     <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmIndependent"/>

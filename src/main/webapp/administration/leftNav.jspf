@@ -291,10 +291,6 @@ String curProvider_no = (String)session.getAttribute("user");
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmGroups"/>
 					</a></li>
 		
-					<% if (IsPropertiesOn.isIndivicaRichTextLetterEnable()) { %>
-					<li><a href="${ctx}/eform/efmformrtl_config.jsp" class="contentLink"><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.richTextLetter"/></a></li>
-					<% } %>
-		
 					<li><a href="${ctx}/eform/efmmanageindependent.jsp" class="contentLink">
 						<fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.frmIndependent"/>s
 					</a></li>
