@@ -291,16 +291,16 @@ The following security behaviors are **required for any reimplementation** per C
 
 The component requires the following capabilities from the surrounding system. How these are organized (one service, many services, direct database access, etc.) is an implementation choice.
 
-- Invalidate cached page renderings for a given document and page number
-- Query and create control document records
-- Look up, create, and update document metadata records
-- Read a configured filesystem directory path for document storage
-- Create new document records with system-assigned unique IDs; update page counts; produce unique filenames from a given stem
-- Query and create patient-demographic linkages for documents
-- Read, create, modify, and save PDF documents; manipulate individual pages and their rotation
-- Query which providers have routing for a given document; add new routing entries
-- Query and create provider-level lab routing entries for documents
 - Associate a document with a named queue
+- Create new document records with system-assigned unique IDs; update page counts; produce unique filenames from a given stem
+- Invalidate cached page renderings for a given document and page number
+- Look up, create, and update document metadata records
+- Query and create control document records
+- Query and create patient-demographic linkages for documents
+- Query and create provider-level lab routing entries for documents
+- Query which providers have routing for a given document; add new routing entries
+- Read a configured filesystem directory path for document storage
+- Read, create, modify, and save PDF documents; manipulate individual pages and their rotation
 - Retrieve the currently authenticated provider's identity from the HTTP session
 
 ---
@@ -356,11 +356,12 @@ An implementation shall be considered correct if it satisfies all of the followi
 | V-R90-1 | Rotate 90 | All pages in the PDF are rotated 90 degrees clockwise relative to their prior orientation. The file is modified in place. |
 | V-SPL-1 | Split (pages 2,3 from a 5-page doc) | A new document record is created with 2 pages. The new PDF contains only the selected pages in the specified order. The source document is unchanged. |
 | V-SPL-2 | Split (routing) | The new document appears in the same provider inboxes as the source document. The authenticated provider also has inbox routing. |
-| V-SPL-3 | Split (patient link) | If the source was linked to a patient, the new document is also linked to the same patient. |
-| V-SPL-4 | Split (queue) | The new document is assigned to the specified queue, or queue 1 if none specified. |
-| V-SPL-5 | Split (JSON response) | When either provider lab routing or patient routing is absent, the response is JSON containing `newDocNum`. |
-| V-SPL-6 | Split (view response) | When both provider lab routing and patient routing exist, the response triggers the close-and-reload view. |
-| V-SPL-7 | Split (with rotation) | When extracting a page with rotation value 90, the page in the new PDF has absolute rotation 90 regardless of the page's original rotation in the source PDF. |
+| V-SPL-3 | Split (control document) | If the source had a control document record, the new document has an equivalent record with the same module ID and status. |
+| V-SPL-4 | Split (patient link) | If the source was linked to a patient, the new document is also linked to the same patient. |
+| V-SPL-5 | Split (queue) | The new document is assigned to the specified queue, or queue 1 if none specified. |
+| V-SPL-6 | Split (JSON response) | When either provider lab routing or patient routing is absent, the response is JSON containing `newDocNum`. |
+| V-SPL-7 | Split (view response) | When both provider lab routing and patient routing exist, the response triggers the close-and-reload view. |
+| V-SPL-8 | Split (with rotation) | When extracting a page with rotation value 90, the page in the new PDF has absolute rotation 90 regardless of the page's original rotation in the source PDF. |
 | V-R180-2 | Rotate 180 (additive) | A page with existing rotation 90 becomes rotation 270 after the operation (90 + 180 = 270). |
 | V-CACHE-1 | Rotate and remove | After any rotate or remove operation, previously cached page renderings are invalidated. |
 
@@ -370,6 +371,5 @@ An implementation shall be considered correct if it satisfies all of the followi
 
 These notes document externally observable characteristics of the existing system that are not captured by the normative requirements above. They are provided for compatibility reference. An implementer should replicate these behaviors unless there is a clear reason to improve upon them.
 
-- **Cache invalidation scope** — Rotate and remove operations are observed to invalidate cached renderings for **all** pages in the document, not just the affected pages. This is observable as a brief delay when re-rendering unmodified pages.
 - **Filename inheritance** — The new document created by split is observed to reuse the source document's original filename as a stem, with a date-time prefix prepended for uniqueness. This is observable in the stored filename.
 - **Provider lab routing selection** — When the source document has multiple provider lab routing entries, the system is observed to route the new document to the first provider returned by the query. The query ordering is not guaranteed, so this selection is effectively arbitrary.
