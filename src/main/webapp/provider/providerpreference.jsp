@@ -186,6 +186,10 @@
     String apptCardPhone = props.getOrDefault("appointmentCardPhone", "");
     String apptCardFax = props.getOrDefault("appointmentCardFax", "");
 
+    // Signature stamp
+    String consultSigValue = props.getOrDefault(UserProperty.PROVIDER_CONSULT_SIGNATURE, "");
+    boolean hasConsultSignature = !consultSigValue.isEmpty();
+
     // Prevention warning preferences (use "true"/"false" unlike most prefs)
     boolean prevSSO = "true".equalsIgnoreCase(
             props.getOrDefault(UserProperty.PREVENTION_SSO_WARNING, "false"));
@@ -1261,9 +1265,84 @@
 </oscar:oscarPropertiesCheck>
 
 <%-- ═══════════════════════════════════════════════════════════════════════
-     SECTION 10: ACCOUNT & ADVANCED
-     External links for password, signature, printer, API clients, etc.
-     These truly require separate pages due to their complex UIs.
+     SECTION 10: SIGNATURE STAMP
+     Upload or draw a signature image used in consults, prescriptions, and eForms.
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<div class="accordion-item">
+    <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse" data-bs-target="#secSignatureStamp">
+            <i class="fas fa-signature section-icon"></i> Signature Stamp
+        </button>
+    </h2>
+    <div id="secSignatureStamp" class="accordion-collapse collapse" data-bs-parent="#prefAccordion">
+        <div class="accordion-body">
+            <div class="section-note">
+                <i class="fas fa-info-circle"></i>
+                Your signature stamp is automatically placed on consultation requests, prescriptions, and eForms.
+            </div>
+
+            <%-- Current signature preview --%>
+            <div class="mb-3">
+                <label class="pref-label">Current Signature</label>
+                <div id="sigPreviewArea" style="border:1px solid var(--carlos-border); border-radius:4px; padding:10px; background:#fff; min-height:80px; display:flex; align-items:center; justify-content:center;">
+                    <% if (hasConsultSignature) { %>
+                        <img id="sigPreviewImg" src="<%=request.getContextPath()%>/eform/displayImage.do?imagefile=<%=Encode.forUriComponent(consultSigValue)%>"
+                             alt="Current signature" style="max-width:100%; max-height:120px;"/>
+                    <% } else { %>
+                        <span id="sigPlaceholder" style="color:#999; font-style:italic;">No signature stamp uploaded</span>
+                        <img id="sigPreviewImg" src="" alt="Current signature" style="max-width:100%; max-height:120px; display:none;"/>
+                    <% } %>
+                </div>
+            </div>
+
+            <div id="sigStatusMsg" class="alert" style="display:none;" role="alert"></div>
+
+            <%-- Upload signature file --%>
+            <div class="mb-3">
+                <label class="pref-label" for="sigFileInput">Upload Signature Image</label>
+                <div class="d-flex align-items-center gap-2">
+                    <input type="file" id="sigFileInput" accept="image/png,image/jpeg,image/gif"
+                           class="form-control form-control-sm" style="max-width:300px;"/>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="uploadSignatureFile()">
+                        <i class="fas fa-upload"></i> Upload
+                    </button>
+                </div>
+                <small class="text-muted">PNG, JPEG, or GIF. Recommended: transparent background, ~500x150px.</small>
+            </div>
+
+            <%-- Draw signature --%>
+            <div class="mb-3">
+                <label class="pref-label">Draw Signature</label>
+                <div style="border:1px solid var(--carlos-border); border-radius:4px; background:#fff; padding:4px; display:inline-block;">
+                    <canvas id="sigCanvas" width="500" height="150"
+                            style="cursor:crosshair; display:block; touch-action:none;"></canvas>
+                </div>
+                <div class="mt-2 d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="saveDrawnSignature()">
+                        <i class="fas fa-save"></i> Save Drawing
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearCanvas()">
+                        <i class="fas fa-eraser"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <%-- Delete signature --%>
+            <% if (hasConsultSignature) { %>
+            <div class="mb-0" id="sigDeleteSection">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteSignature()">
+                    <i class="fas fa-trash-alt"></i> Delete Signature Stamp
+                </button>
+            </div>
+            <% } %>
+        </div>
+    </div>
+</div>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SECTION 11: ACCOUNT & ADVANCED
+     External links for password, printer, API clients, etc.
      ═══════════════════════════════════════════════════════════════════════ --%>
 <div class="accordion-item">
     <h2 class="accordion-header">
@@ -1283,7 +1362,7 @@
                     <i class="fas fa-key"></i> Change Password
                 </a>
                 <a href="providerSignature.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-signature"></i> Edit Signature
+                    <i class="fas fa-pen-nib"></i> Edit Text Signature
                 </a>
                 <a href="providerPrinter.jsp" class="pref-link" target="_blank" rel="noopener noreferrer">
                     <i class="fas fa-print"></i> Set Default Printer
@@ -1585,6 +1664,216 @@ document.getElementById('dxSearchModal').addEventListener('show.bs.modal', funct
 document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', function() {
     document.getElementById('dxSearchFrame').src = 'about:blank';
 });
+</script>
+
+<%-- ═══════════════════════════════════════════════════════════════════════
+     SIGNATURE STAMP - Canvas drawing and upload/delete AJAX handlers.
+     Operates independently from the main preferences form.
+     ═══════════════════════════════════════════════════════════════════════ --%>
+<script>
+(function() {
+    var sigStampUrl = '<%=request.getContextPath()%>/provider/providerSignatureStamp.do';
+
+    // ── Canvas drawing ──
+    var canvas = document.getElementById('sigCanvas');
+    if (canvas) {
+        var ctx = canvas.getContext('2d');
+        var drawing = false;
+        var hasDrawn = false;
+
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        function getPos(e) {
+            var rect = canvas.getBoundingClientRect();
+            var clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function startDraw(e) {
+            e.preventDefault();
+            drawing = true;
+            hasDrawn = true;
+            var pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            e.preventDefault();
+            var pos = getPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+
+        function stopDraw(e) {
+            if (drawing) {
+                e.preventDefault();
+                drawing = false;
+            }
+        }
+
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDraw);
+        canvas.addEventListener('mouseleave', stopDraw);
+        canvas.addEventListener('touchstart', startDraw);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', stopDraw);
+    }
+
+    // ── Status message helper ──
+    function showStatus(msg, type) {
+        var el = document.getElementById('sigStatusMsg');
+        el.className = 'alert alert-' + type;
+        el.textContent = msg;
+        el.style.display = 'block';
+        setTimeout(function() { el.style.display = 'none'; }, 4000);
+    }
+
+    function updatePreview(imageUrl) {
+        var img = document.getElementById('sigPreviewImg');
+        var placeholder = document.getElementById('sigPlaceholder');
+        img.src = imageUrl + '&t=' + Date.now();
+        img.style.display = '';
+        if (placeholder) placeholder.style.display = 'none';
+
+        // Show delete button if not already present
+        if (!document.getElementById('sigDeleteSection')) {
+            var body = document.querySelector('#secSignatureStamp .accordion-body');
+            var div = document.createElement('div');
+            div.className = 'mb-0';
+            div.id = 'sigDeleteSection';
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm btn-outline-danger';
+            btn.onclick = window.deleteSignature;
+            var icon = document.createElement('i');
+            icon.className = 'fas fa-trash-alt';
+            btn.appendChild(icon);
+            btn.appendChild(document.createTextNode(' Delete Signature Stamp'));
+            div.appendChild(btn);
+            body.appendChild(div);
+        }
+    }
+
+    // ── XHR helper (CSRFGuard 4.5 auto-injects CSRF token into XMLHttpRequest) ──
+    // Accepts FormData (multipart, for file uploads) or a plain params string (url-encoded).
+    function sigXhr(body, onSuccess, onError) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', sigStampUrl, true);
+        if (typeof body === 'string') {
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        }
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    onSuccess(data);
+                } catch (e) {
+                    onError();
+                }
+            } else {
+                onError();
+            }
+        };
+        xhr.onerror = onError;
+        xhr.send(body);
+    }
+
+    // ── Upload file ──
+    window.uploadSignatureFile = function() {
+        var fileInput = document.getElementById('sigFileInput');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showStatus('Please select a file first.', 'warning');
+            return;
+        }
+        var formData = new FormData();
+        formData.append('image', fileInput.files[0]);
+        formData.append('method', 'upload');
+
+        sigXhr(formData, function(data) {
+            if (data.success) {
+                updatePreview(data.imageUrl);
+                showStatus('Signature stamp uploaded successfully.', 'success');
+                fileInput.value = '';
+            } else {
+                showStatus(data.error || 'Upload failed.', 'danger');
+            }
+        }, function() { showStatus('Upload failed. Please try again.', 'danger'); });
+    };
+
+    // ── Save drawn signature ──
+    window.saveDrawnSignature = function() {
+        if (!hasDrawn) {
+            showStatus('Please draw a signature first.', 'warning');
+            return;
+        }
+        var dataUrl = canvas.toDataURL('image/png');
+        var params = 'method=saveDrawn&signatureData=' + encodeURIComponent(dataUrl);
+
+        sigXhr(params, function(data) {
+            if (data.success) {
+                updatePreview(data.imageUrl);
+                showStatus('Drawn signature saved successfully.', 'success');
+                clearCanvas();
+                hasDrawn = false;
+            } else {
+                showStatus(data.error || 'Save failed.', 'danger');
+            }
+        }, function() { showStatus('Save failed. Please try again.', 'danger'); });
+    };
+
+    // ── Clear canvas ──
+    window.clearCanvas = function() {
+        if (canvas) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            hasDrawn = false;
+        }
+    };
+
+    // ── Delete signature ──
+    window.deleteSignature = function() {
+        if (!confirm('Are you sure you want to delete your signature stamp?')) return;
+
+        var params = 'method=delete';
+
+        sigXhr(params, function(data) {
+            if (data.success) {
+                var img = document.getElementById('sigPreviewImg');
+                img.style.display = 'none';
+                img.src = '';
+                var placeholder = document.getElementById('sigPlaceholder');
+                if (!placeholder) {
+                    placeholder = document.createElement('span');
+                    placeholder.id = 'sigPlaceholder';
+                    placeholder.style.cssText = 'color:#999;font-style:italic;';
+                    placeholder.textContent = 'No signature stamp uploaded';
+                    document.getElementById('sigPreviewArea').appendChild(placeholder);
+                }
+                placeholder.style.display = '';
+                var delSection = document.getElementById('sigDeleteSection');
+                if (delSection) delSection.remove();
+                showStatus('Signature stamp deleted.', 'success');
+            } else {
+                showStatus(data.error || 'Delete failed.', 'danger');
+            }
+        }, function() { showStatus('Delete failed. Please try again.', 'danger'); });
+    };
+})();
 </script>
 </body>
 
