@@ -191,7 +191,8 @@ normative requirements. Must NOT contradict or duplicate §3. Use "is observed t
 
 ### Save the Spec
 
-Save to `docs/specs/<SourceFileName>.md` (e.g., `SomeAction.java` → `docs/specs/SomeAction_java.md`).
+Create the output directory if needed (`mkdir -p docs/specs/`), then save to
+`docs/specs/<SourceFileName>.md` (e.g., `SomeAction.java` → `docs/specs/SomeAction_java.md`).
 
 ---
 
@@ -222,7 +223,8 @@ Update the TodoWrite tracker as you complete each pass.
 
 **Goal**: Every observable behavior in the source is accurately captured.
 
-Read the spec from disk. Compare every requirement against the source code:
+Read the spec from disk using the Read tool. ALSO re-read the source file from Phase 1
+(context may have been compacted). Compare every requirement against the source code:
 
 - [ ] Every public entry point is specified
 - [ ] Every input parameter documented with correct type and format
@@ -337,6 +339,9 @@ Output a summary:
 - Pass 5 (Leakage Scan): X issues found, Y fixed
 - Total: X issues found across 5 passes
 ```
+
+If any pass found issues: "The spec has been revised through 5 review passes and is ready for use."
+If no passes found issues: "The spec passed all 5 review passes with no issues."
 
 ---
 
