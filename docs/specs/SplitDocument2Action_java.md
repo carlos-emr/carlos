@@ -215,7 +215,9 @@ The component shall retrieve the source document's metadata record from the data
 
 #### FR-SPL-4: Page extraction
 
-The component shall extract each specified page from the source PDF (in the order given in the page selection array), set each page's rotation to the specified absolute value (not additive — this differs from the rotate operations which add to the existing rotation), and assemble the extracted pages into a new PDF document.
+The component shall extract each specified page from the source PDF (in the order given in the page selection array), set each page's rotation to the specified absolute value, and assemble the extracted pages into a new PDF document.
+
+> **Note:** The rotation value is absolute (e.g., `90` means "set rotation to 90°"), not additive. This differs from the rotate operations in §3.2 and §3.3, which add to the existing rotation.
 
 #### FR-SPL-5: Guard condition
 
@@ -223,22 +225,18 @@ If the page selection is empty or null, no new document shall be created. The HT
 
 #### FR-SPL-6: New document metadata
 
-The component shall create a new document metadata record with the following fields (alphabetical):
+The component shall create a new document metadata record. Fields with meaningful values (alphabetical):
 - Content type: `application/pdf`
 - Creator: the currently authenticated provider
-- Description: empty
 - Filename stem: same as the source document (the system prepends a timestamp automatically)
-- HTML content: empty
 - Module: `"demographic"`, module ID: `"-1"`
-- Observation date: current date (formatted as `yyyy-MM-dd`)
+- Observation date: current date
 - Page count: number of pages in the new PDF
 - Responsible party: the source document's original creator
-- Review date/time: empty
-- Reviewer ID: empty
-- Source: empty
 - Status: active
-- Type: empty
 - Visibility: private (not public)
+
+All other metadata fields (description, HTML content, review date/time, reviewer ID, source, type) shall be empty/default.
 
 #### FR-SPL-7: Persist and save
 
@@ -329,15 +327,13 @@ The component requires the following capabilities from the surrounding system:
 
 ### 7.1 Rotate and Remove Operations
 
-These operations are invoked as AJAX calls from document queue management interfaces. The client shall refresh the document view after the call completes. No response body is expected.
+The client sends a POST request and expects no response body. The client is responsible for refreshing the document view after completion.
 
-### 7.2 Split UI Flow
+### 7.2 Split Operation
 
-1. The user opens a split interface that displays thumbnail images of each page in the source document.
-2. The user selects pages, reorders them via drag-and-drop, and optionally rotates individual pages.
-3. On save, the client sends an AJAX POST with the selected pages (as `page` multi-value parameters in `pageNumber,rotation` format), the source `document` ID, and the `queueID`.
-4. On success, if the response is JSON, the client extracts `newDocNum` and opens a document viewer for the newly created document.
-5. If the response triggers the close-and-reload view, the parent window reloads and the popup closes automatically.
+The client sends a POST with `page` multi-value parameters (in `pageNumber,rotation` format), the source `document` ID, and optionally `queueID`. The client shall handle two response types:
+- **JSON response** (`application/json`): Extract the `newDocNum` field to obtain the new document's ID.
+- **Close-and-reload view**: The parent window reloads and the current view closes.
 
 ---
 
