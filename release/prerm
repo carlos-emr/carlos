@@ -1,0 +1,122 @@
+#!/bin/sh
+# prerm
+# a script file for CARLOS that uninstalls and tweaks the necessary files
+#==================================================================
+# Copyright Peter Hutten-Czapski 2012-26 released under the GPL v2+
+# v 0.8
+#==================================================================
+
+set -e
+
+# Source debconf library.
+. /usr/share/debconf/confmodule
+
+# PROGRAM matches the war and properties name
+# Script Constants
+PROGRAM=carlos
+PACKAGE=carlos-emr
+VERSION=0.1
+PREVIOUS=19
+REVISION=1~1
+db_name=oscar_15
+
+if [ -f /usr/share/tomcat11/bin/version.sh ] ; then
+        TOMCAT=tomcat11
+        TOMCAT_USER=tomcat
+    else
+    if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+            TOMCAT=tomcat10
+            TOMCAT_USER=tomcat
+        else
+        if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
+                TOMCAT=tomcat9
+                TOMCAT_USER=tomcat
+            else
+            if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
+                    TOMCAT=tomcat8
+                    TOMCAT_USER=tomcat8
+                 else
+                 if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
+                        TOMCAT=tomcat7
+                        TOMCAT_USER=tomcat7
+                 fi
+             fi
+         fi
+     fi
+fi
+tomcat_path=/usr/share/${TOMCAT}/
+C_HOME=/usr/share/${TOMCAT}/
+C_BASE=/var/lib/${TOMCAT}/
+SRC=/var/lib/${PACKAGE}/
+db_password=
+DOCS=OscarDocument
+DOCS=${SRC}/OscarDocument/
+
+LOG_FILE=${SRC}CARLOS${VERSION}install.log
+LOG_ERR=${SRC}CARLOS.err
+
+# --- log the running of the script appending as necessary
+echo "#########" `date` "#########" 1>> $LOG_FILE
+echo Removal script triggered with $1>>$LOG_FILE
+echo VERSION=${VERSION}-${REVISION}>>$LOG_FILE
+
+# stop tomcat
+service ${TOMCAT} stop 2>>$LOG_FILE
+
+case "$1" in
+    remove)
+
+	if [ -f "${C_HOME}drugref2.properties" ]; then
+		echo "Removing ${C_HOME}drugref2.properties" 
+		rm -f ${C_HOME}drugref2.properties 2>>$LOG_FILE
+		echo "Removed ${C_HOME}drugref2.properties" >> ${LOG_FILE}
+
+	fi
+        
+        # Remove webapp if not modified
+        CARLOS=${C_BASE}webapps/${PROGRAM}.war
+	if [ -f "${CARLOS}" ]; then
+		echo "Removing ${PROGRAM}.war" >> ${LOG_FILE}
+		echo "Removing the ${PROGRAM} war file" 
+		rm ${CARLOS} 2>>$LOG_FILE
+		echo Removed ${CARLOS} >> ${LOG_FILE}
+	fi
+        # Remove drugref webapp
+	# its an appliance so we remove it without checking its build
+	if [ -f "${C_BASE}webapps/drugref.war" ]; then
+		echo "Removing drugref.war"
+		rm -f ${C_BASE}webapps/drugref.war 2>>$LOG_FILE
+		echo "Removed drugref.war" >> ${LOG_FILE}
+		#and its database
+	    # get the MySQL pwd
+	    if [ -f "${C_HOME}${PROGRAM}.properties" ]; then
+		    #first grep the password
+		    echo "grep the password from the properties file" 1>> $LOG_FILE
+		    db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+		    db_username=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_username'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+		    echo "Dropping drugref database"
+		    mysql -u ${db_username} -p${db_password} --execute="drop database if exists drugref;" 2>>$LOG_FILE
+		    echo "Removed drugref database" >> ${LOG_FILE}
+	    else
+		    echo "Oops can't remove the drugref database, will proceed anyway" >> ${LOG_ERR}
+	    fi
+	fi
+    # clear temporary storage of configuration variables
+    #db_clear   fails as this process is running
+
+    
+    ;;
+
+
+    purge|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+        # Nothing to do here
+    ;;
+
+    *)
+        echo "$0 called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
+esac
+
+exit 0
+
