@@ -1,4 +1,4 @@
-README.txt  (C) 2011-2025 Peter Hutten-Czapski, MD
+README.txt  (C) 2011-2026 Peter Hutten-Czapski, MD
 
 **********************************************************
 * Thanks for downloading CARLOS EMR - Technical Demonstration *
@@ -24,7 +24,7 @@ installation some short cuts were taken.
   1) Lab reports. While they can be manually uploaded as is, usually we
 	configure an encrypted channel to automatically load them (push labs)
 	into CARLOS as they come in.
-  2) CARLOS Fax, Kiosk, MyCARLOS, Integrator and any other connected systems
+  2) CARLOS Fax, Kiosk and any other connected systems
 	that give you additional functionality are optional and 
 	separately configured.
   3) The installation scripts have made a few assumptions about who you are 
@@ -33,7 +33,7 @@ installation some short cuts were taken.
 CARLOS system configuration CAN be done by the enterprising user.  However
 if you are a physician and you are intending to use CARLOS EMR
 every day in your practice it is FAR more efficient/safe and, in the end,
-cheaper, for you to hire a reputable CARLOS Service Provider (CSP) to configure
+cheaper, for you to hire a reputable Service Provider to configure
 it for you and train you and your staff.
  
  BACKUP
@@ -55,5 +55,6 @@ it for you and train you and your staff.
  
  MORE INFO
  =========
- Navigate to https://github.com/carlos-emr/carlos for help on using any of CARLOS's
+ Navigate to https://oscargalaxy.org for help on using any of CARLOS's
  functions, and (albeit geeky) tips on how to tweak the setup.
+

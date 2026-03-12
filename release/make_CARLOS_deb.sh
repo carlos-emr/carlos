@@ -128,9 +128,9 @@ mkdir -p "${RELEASE_DIR}/${DEBNAME}/DEBIAN/"
 cd "${REPO_ROOT}" || { echo "ERROR: Failed to cd to ${REPO_ROOT}" >&2; exit 1; }
 mvn -Dmaven.test.skip=true -Dcheckstyle.skip=true package
 mkdir -p "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/"
-cp "${REPO_ROOT}/target/carlos-0-SNAPSHOT.war" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/carlos.war"
+# WAR is copied generically below (after drugref download) using ${TARGET} and ${PROGRAM} variables.
 
-SHA1=$(sha1sum "${REPO_ROOT}/${TARGET}")
+SHA1=$(sha1sum "${REPO_ROOT}/target/${TARGET}" | awk '{print $1}')
 echo The ${TARGET} SHA1=$SHA1
 
 
@@ -411,6 +411,18 @@ cp ./database/mysql/createdatabase_on.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/
 cp ./database/mysql/createdatabase_bc.sh      ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/
 chmod 755 ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/schema/createdatabase_*.sh
 
+# Bundle incremental update scripts (update-2026-*.sql) for CARLOS revision upgrades.
+# The postinst script applies these after the WAR is deployed to bring the schema current.
+echo "bundling incremental database update scripts from database/mysql/updates/"
+_update_sql_count=0
+for _upd_sql in ./database/mysql/updates/update-2026-*.sql; do
+    if [ -f "${_upd_sql}" ]; then
+        cp "${_upd_sql}" "${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/"
+        _update_sql_count=$((_update_sql_count + 1))
+    fi
+done
+echo "Bundled ${_update_sql_count} incremental update SQL files into package"
+
 echo "getting and loading wars"
 # The webapps directory was already created above during the Maven build section.
 # drugref.war: downloaded from upstream at package build time.
@@ -426,7 +438,10 @@ if [ -z "${DRUGREF_SHA256:-}" ]; then
     exit 1
 fi
 echo "${DRUGREF_SHA256}  ${DRUGREF_WAR}" | sha256sum -c - || { echo "Checksum mismatch for drugref.war — aborting build"; exit 1; }
-cp "${REPO_ROOT}/${TARGET}" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/${PROGRAM}.war"
+[ -f "${REPO_ROOT}/target/${TARGET}" ] \
+  || { echo "ERROR: Missing ${REPO_ROOT}/target/${TARGET} — build may have failed" >&2; exit 1; }
+cp "${REPO_ROOT}/target/${TARGET}" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/${PROGRAM}.war" \
+  || { echo "ERROR: Failed to stage ${PROGRAM}.war into package" >&2; exit 1; }
 
 # --- OscarDocument directory skeleton ---
 # Copy any checked-in document templates and set up the inbox directory structure
