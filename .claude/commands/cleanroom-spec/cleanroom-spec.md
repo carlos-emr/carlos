@@ -1,125 +1,84 @@
 ---
 description: Write a clean room IEEE 830 functional specification from source code using Chinese Wall methodology
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, WebSearch, WebFetch
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, TodoWrite
 model: opus
 ---
 
 # /cleanroom-spec - Clean Room Functional Specification Generator
 
-Write a black-box IEEE 830 functional specification for a given source file or component. The specification describes **observable behavior only** and contains no source code, no internal implementation details, and no copyrightable expression from the original. It serves as the sole input for a clean room reimplementation per the Chinese Wall methodology.
+Write a black-box IEEE 830 functional specification for a given source file or component.
+The specification describes **observable behavior only** — no source code, no internal
+implementation details, no copyrightable expression from the original. It serves as the
+sole input for a clean room reimplementation per the Chinese Wall methodology.
+
+**User input:** `$ARGUMENTS`
+
+If `$ARGUMENTS` is empty, ask the user which source file or component to specify.
+Otherwise, resolve the argument as a file path, class name, or component description.
 
 ---
 
-## 0. Input
+## Execution Overview
 
-The user provides one of:
-- A file path to a Java source file (e.g., `src/main/java/.../SomeAction.java`)
-- A class name to locate (e.g., `SplitDocument2Action`)
-- A component description (e.g., "the document split action in documentManager")
+This skill has 3 phases. Use TodoWrite to track progress through each phase.
 
-If the user does not provide a target, ask which source file or component to specify.
-
----
-
-## 1. Legal and Methodological Foundation
-
-### 1.1 What Is Clean Room Design?
-
-Clean room design (also called "Chinese Wall" methodology) is a legal technique for reverse engineering and reimplementation that avoids copyright infringement. It separates the work into two teams:
-
-- **Dirty room team** (analyst): Reads the original source code and produces a functional specification describing only observable behavior — inputs, outputs, side effects, and external contracts.
-- **Clean room team** (implementer): Reads ONLY the specification and writes new code from scratch. They never see the original source.
-
-The specification document IS the Chinese Wall. It must contain zero copyrightable expression from the original.
-
-**Legal precedent:**
-- *Computer Associates v. Altai* (1992) — Established the Abstraction-Filtration-Comparison (AFC) test
-- *Whelan v. Jaslow* — Structure-Sequence-Organization (SSO) test
-- *Sega v. Accolade* (1992) — Clean room reimplementation is lawful
-- *Lotus v. Borland* (1995) — Functional elements (menus, command structures) not copyrightable
-
-### 1.2 What Is Copyrightable vs. Not
-
-**NOT copyrightable (safe to include in spec):**
-- Functional ideas, algorithms described at an abstract level
-- Externally-dictated interface contracts (HTTP parameters, JSON field names, wire protocol values)
-- Efficiency-driven sequences where only one reasonable way exists (merger doctrine)
-- Facts: database column semantics, business rules, observable behavior
-- Standard patterns dictated by frameworks or protocols
-
-**Copyrightable (MUST NOT appear in spec):**
-- Source code or pseudocode derived from the original's structure
-- Variable names, method names, class names (except as disclaimed traceability references)
-- The specific organizational structure of the original code
-- Creative architectural choices (how modules are composed internally)
-- Comments or documentation text from the original
-
-### 1.3 The AFC Test Applied
-
-For every element in the specification, apply this three-step filter:
-
-1. **Abstraction**: Identify the level of abstraction — is this an idea/function or specific expression?
-2. **Filtration**: Remove non-protectable elements:
-   - Ideas and functional requirements (not protectable)
-   - Elements dictated by external factors (framework requirements, wire protocols, hardware)
-   - Elements dictated by efficiency (only one reasonable way to do it — merger doctrine)
-   - Elements taken from the public domain (standard patterns, common algorithms)
-3. **Comparison**: What remains after filtration? If anything in the spec matches protectable expression from the original, remove or rewrite it.
+```
+Phase 1: RESEARCH  — Read source code, extract observable behavior
+Phase 2: WRITE     — Produce IEEE 830 spec, save to docs/specs/
+Phase 3: REVIEW    — 5 mandatory passes with file re-reads between each
+```
 
 ---
 
-## 2. Research Phase
-
-### 2.1 Read the Source Code
+## Phase 1: Research
 
 Read the target source file completely. Also read:
-- Any parent/base classes it extends
+- Parent/base classes it extends
 - Key interfaces it implements
 - Model/entity classes it uses (to understand data shapes)
 - Configuration files that affect its behavior (Struts XML, Spring config)
 - Related utility classes it calls (to understand side effects)
 
-### 2.2 Extract Observable Behavior
-
-For each public entry point (method, endpoint, action), document:
-
+For each public entry point, extract:
 - **Inputs**: HTTP parameters, method arguments, session state, configuration values
 - **Outputs**: HTTP responses (body, content type, status), return values, view names
 - **Side effects**: Database writes (creates, updates, deletes), filesystem changes, cache operations
 - **Guard conditions**: When the component takes no action or returns early
-- **Error behavior**: What happens on failure — error responses, exception propagation, silent handling
-- **External contracts**: Wire protocol values (parameter names, JSON fields, discriminator strings) that clients depend on
+- **Error behavior**: What happens on failure
+- **External contracts**: Wire protocol values that clients depend on
 
-### 2.3 Identify Wire Protocol Values
+### Wire Protocol vs. Internal Values
 
-Wire protocol values are exact strings that form the external contract between client and server. These MUST be preserved exactly in the specification because they are functional requirements, not implementation details:
+**Wire protocol values** are exact strings forming the external contract. Include them
+exactly in the spec — they are functional requirements:
+- HTTP parameter names and values that select behavior
+- JSON response field names
+- Database discriminator values used in routing tables across components
+- Content type strings, default values
 
-- HTTP parameter names (`method`, `document`, `page`, `queueID`)
-- HTTP parameter values that select behavior (`"split"`, `"rotate180"`)
-- JSON response field names (`"newDocNum"`)
-- Database discriminator values used in routing (`"DOC"`)
-- Content type strings (`"application/json"`)
-- Default values (`"1"` for default queue)
+**Internal values** must NOT appear as literals. Describe them semantically:
+- Status encodings → "active" (not `'A'`)
+- Visibility flags → "private" (not `"0"`)
+- Internal field encodings are implementation choices, not external contracts
 
-### 2.4 Identify Internal Implementation Details
+**Judgment call:** If a value appears in routing tables shared across multiple components,
+it IS an external contract. If it's an internal field encoding, describe it semantically.
 
-These MUST NOT appear in the specification:
+### What MUST NOT Appear in the Spec
 
 - Class names, method names, variable names from the source
 - DAO/service/manager class names or bean names
 - JPA/Hibernate/ORM terminology (persist, merge, flush, entity, session)
-- Specific framework classes (PDFParser, PDDocument, PDPage)
+- Specific framework library classes
 - Internal control flow (if/else structure, loop patterns, try/catch arrangement)
 - The number or organization of private helper methods
 - Import statements or dependency injection patterns
 
 ---
 
-## 3. Specification Writing Phase
+## Phase 2: Write the Specification
 
-### 3.1 Document Structure (IEEE 830)
-
-Use this structure, adapted from IEEE 830-1998 / ISO/IEC/IEEE 29148:2011:
+### Document Structure (IEEE 830)
 
 ```
 ## 1. Introduction
@@ -128,24 +87,12 @@ Use this structure, adapted from IEEE 830-1998 / ISO/IEC/IEEE 29148:2011:
 ### 1.3 Document Conventions
 ### 1.4 Definitions and Glossary
 
-## 2. HTTP Interface (or External Interface)
-### 2.1 Endpoint
-### 2.2 HTTP Method
-### 2.3 Method Dispatch (if applicable)
+## 2. External Interface (HTTP Interface, CLI, etc.)
 
 ## 3. Functional Requirements
-### 3.N <Operation Name> (one subsection per operation, alphabetical by operation name)
-#### FR-XXX-N: Inputs
-#### FR-XXX-N: Guard conditions (if any)
-#### FR-XXX-N: <Core behavior>
-#### FR-XXX-N: Side effects
-#### FR-XXX-N: Response
-#### FR-XXX-N: Error handling
+### 3.N <Operation Name> (one subsection per operation, alphabetical)
 
 ## 4. Non-Functional Requirements
-### 4.1 Security
-### 4.2 Data Integrity
-### 4.3 Reliability
 
 ## 5. External Dependencies
 
@@ -160,9 +107,9 @@ Use this structure, adapted from IEEE 830-1998 / ISO/IEC/IEEE 29148:2011:
 ## 10. Observed Behaviors (Non-Normative)
 ```
 
-### 3.2 Header Block
+### Header Block
 
-Every specification MUST begin with this header block immediately after the title:
+Every specification MUST begin with this block immediately after the title:
 
 ```markdown
 > **Clean Room Specification**
@@ -198,257 +145,188 @@ Every specification MUST begin with this header block immediately after the titl
 > - [Preventing an IP Infection: Clean Room Development Procedure (IPWatchdog)](https://ipwatchdog.com/2023/04/29/preventing-an-ip-infection-clean-room-development-procedure/id=160187/)
 ```
 
-### 3.3 Writing Conventions
+### Writing Rules
 
 **Language precision:**
 - **"shall"** = mandatory requirement
 - **"should"** = recommended but optional
-- **"is observed to"** = documented behavior of existing system (non-normative, §10 only)
+- **"is observed to"** = existing system behavior (non-normative, §10 only)
 
 **Ordering principle (CRITICAL):**
-- ALL lists of independent items MUST be alphabetically ordered
-- This includes: glossary terms, scope lists, capability lists, routing tasks, metadata fields, verification criteria, assumptions, response summary rows, observed behaviors
-- Causally dependent steps (where B depends on A's output) use numbered sequential ordering
-- Independent steps within a numbered sequence use unordered bullets
-- This prevents accidental structural mirroring of the original source code's ordering
+- ALL independent lists MUST be alphabetically ordered (glossary, scope, capabilities,
+  metadata fields, routing tasks, verification criteria, assumptions, response rows,
+  observed behaviors)
+- Causally dependent steps (B depends on A's output) use numbered sequential ordering
+- This prevents accidental structural mirroring of the source code's ordering
 
-**Traceability notes:**
-- The §1.1 Purpose section SHOULD include a traceability note linking to the original source component name
-- This note MUST disclaim that the name is for traceability only and does not prescribe naming:
+**Traceability:** §1.1 SHOULD include a traceability note with a disclaimer:
 
 ```markdown
 **Traceability note:** This spec corresponds to the component identified as
 `OriginalClassName` in the existing codebase. This name is provided solely for
-traceability between the specification and the original system; it does not
-prescribe a class name, method name, or any internal naming convention for
-the reimplementation.
+traceability; it does not prescribe any naming convention for the reimplementation.
 ```
 
-### 3.4 Describing Side Effects Without Implying Architecture
+**Side effects — describe capabilities, not architecture:**
 
-When describing database operations and other side effects:
+| DO (functional) | DO NOT (leaks implementation) |
+|---|---|
+| "shall create a new document record" | "shall call DocumentDao.persist()" |
+| "shall link the document to the queue" | "shall merge the entity into the persistence context" |
+| "shall invalidate cached versions" | "shall use the QueueDocumentLinkDao" |
 
-**DO (functional capability):**
-- "The component shall create a new document metadata record"
-- "The component shall link the new document to the specified queue"
-- "The component shall invalidate cached rendered versions"
+**§5 External Dependencies:** Flat alphabetical capability list. Describe WHAT is needed,
+not HOW organized. Include: "How these are organized (one service, many services, direct
+database access, etc.) is an implementation choice." No service/DAO/bean names. No JPA terms.
 
-**DO NOT (implied architecture):**
-- "The component shall call DocumentDao.persist()" — leaks class/method names
-- "The component shall merge the entity into the persistence context" — JPA jargon
-- "The DocumentService shall save the record" — prescribes service name
-- "The component shall use the QueueDocumentLinkDao to create the association" — prescribes DAO name
+**Transformation semantics:** When operations transform data, be precise:
+- **Absolute**: "set value TO X" (regardless of current state)
+- **Additive**: "change value BY X from current" (relative to current state)
 
-**External Dependencies section (§5):**
-- List capabilities as a flat, alphabetically-ordered list
-- Describe WHAT is needed, not HOW it is organized
-- Explicitly state: "How these are organized (one service, many services, direct database access, etc.) is an implementation choice."
-- No service names, no DAO names, no bean names
-- No JPA/ORM terminology (persist, merge, flush, session, entity manager)
+**§9 Verification Criteria:** Every FR-xxx needs at least one V-xxx test. Sort by Test ID.
+Tests describe observable outcomes, not implementation steps.
 
-### 3.5 Wire Protocol vs. Internal Values
+**§10 Observed Behaviors:** Captures behaviors that ARE observable but are NOT covered by
+normative requirements. Must NOT contradict or duplicate §3. Use "is observed to" language.
 
-**Include exact values when they are wire protocol / external contract:**
-- Parameter name `"method"` with value `"split"` — clients send this
-- JSON field `"newDocNum"` — clients parse this
-- Content type `"application/json"` — HTTP standard
-- Database discriminator `"DOC"` — used across routing tables as a type identifier
+### Save the Spec
 
-**Use semantic descriptions for internal values:**
-- Status: "active" (not `'A'` — that's an implementation encoding choice)
-- Visibility: "private (not public)" (not `"0"` — that's an implementation encoding choice)
-- Module: describe functionally, e.g., `"demographic"` if it is a well-known domain concept
-
-**Judgment call:** If a value appears in database routing tables shared across multiple components, it IS an external contract (like `"DOC"`). If it's an internal field encoding (like `'A'` for active), describe it semantically.
-
-### 3.6 Rotation and Transformation Semantics
-
-When specifying transformation operations, be precise about whether values are:
-- **Absolute**: "set rotation TO 90 degrees" (regardless of current state)
-- **Additive**: "rotate BY 90 degrees from current orientation"
-
-This distinction is a functional requirement — different behavior, different results. Always clarify which semantic applies and add a Note if both appear in the same component.
-
-### 3.7 Verification Criteria
-
-Write testable verification criteria for every functional requirement. Each criterion describes an observable test:
-
-```markdown
-| Test ID | Operation | Verification |
-|---------|-----------|-------------|
-| V-XXX-1 | Operation | Observable test description |
-```
-
-- Test IDs use a prefix derived from the operation (alphabetical within operations)
-- Within each operation prefix, number sequentially
-- Sort all rows by Test ID (which achieves alphabetical by operation, then numeric within)
-- Every FR-xxx requirement should have at least one corresponding V-xxx test
-- Tests describe observable outcomes, not implementation steps
-
-### 3.8 Observed Behaviors (Non-Normative)
-
-Section 10 captures behaviors that:
-- ARE observable in the existing system
-- Are NOT captured by the normative requirements above
-- An implementer SHOULD replicate for compatibility unless there is reason to improve
-
-**Rules for §10:**
-- Must NOT contradict or duplicate normative requirements in §3
-- Must NOT describe behavior already fully specified by a shall/should requirement
-- Use "is observed to" language
-- These are compatibility notes, not requirements
+Save to `docs/specs/<SourceFileName>.md` (e.g., `SomeAction.java` → `docs/specs/SomeAction_java.md`).
 
 ---
 
-## 4. Review Phase (Iterative — 5 Mandatory Passes)
+## Phase 3: Review (5 Mandatory Passes)
 
-**CRITICAL EXECUTION PROTOCOL**: The review phase consists of 5 separate passes. Each pass is
-a distinct operation with mandatory file I/O between passes. You MUST NOT combine passes or
-skip the re-read step. The purpose is to review the ACTUAL FILE STATE, not your memory of
-what you wrote.
+**CRITICAL EXECUTION PROTOCOL**: Each pass is a distinct operation. You MUST re-read the
+spec file from disk between passes. The purpose is to review the ACTUAL FILE STATE after
+edits, not your memory of what you wrote.
 
-**Why this matters:** In practice, edits during one pass can introduce new problems visible
-only to a fresh read. Reviewing from memory misses these regressions. Each pass operates on
-the file as it exists on disk after the previous pass's edits.
+**Why:** Edits during one pass can introduce new problems only visible to a fresh read.
 
-### Execution Protocol for Each Pass
-
-Every pass follows this exact sequence:
+**Protocol for EVERY pass:**
 
 ```
-1. SAVE    — Write/Edit all pending changes from the previous pass to disk
-2. READ    — Use the Read tool to re-read the ENTIRE spec file from disk
-3. REVIEW  — Apply the pass checklist against the file content you just read
-4. EDIT    — Fix every issue found (use Edit tool, not memory)
-5. REPORT  — Output a brief summary: "Pass N complete. Found X issues, fixed Y."
-             List each fix made. If no issues found, state "Pass N complete. No issues."
-6. PROCEED — Move to the next pass (go back to step 1)
+1. READ    — Use the Read tool to read the ENTIRE spec file from disk
+2. REVIEW  — Apply the pass checklist against the content you just read
+3. EDIT    — Fix every issue found using the Edit tool
+4. REPORT  — Output: "Pass N (Name) complete. Found X issues, fixed Y." List each fix.
 ```
 
-**DO NOT** skip the Read step. **DO NOT** review from memory. **DO NOT** combine two passes
-into one. The entire point is that each pass is a fresh, focused review of a single concern.
+**DO NOT** skip the Read step. **DO NOT** review from memory. **DO NOT** combine passes.
+
+Update the TodoWrite tracker as you complete each pass.
 
 ---
 
-### Pass 1: Correctness Review
+### Pass 1: Correctness
 
-**Goal**: Every observable behavior in the source code is accurately captured in the spec.
+**Goal**: Every observable behavior in the source is accurately captured.
 
-**STEP 1** — Read the spec file from disk using the Read tool.
-**STEP 2** — With the spec open, compare every requirement against the source code. Check:
+Read the spec from disk. Compare every requirement against the source code:
 
 - [ ] Every public entry point is specified
-- [ ] Every input parameter is documented with correct type and format
-- [ ] Every output/response is documented
-- [ ] Every side effect (DB write, file change, cache operation) is captured
-- [ ] Every guard condition is captured
-- [ ] Every error handling path is captured
+- [ ] Every input parameter documented with correct type and format
+- [ ] Every output/response documented
+- [ ] Every side effect captured (DB write, file change, cache op)
+- [ ] Every guard condition captured
+- [ ] Every error handling path captured
 - [ ] Default values match the source
-- [ ] Wire protocol values (parameter names, JSON fields) are exact
-- [ ] Conditional logic (if/else branches) is captured as behavioral requirements, not as control flow
-- [ ] Rotation/transformation semantics are correct (absolute vs. additive)
+- [ ] Wire protocol values are exact
+- [ ] Conditional logic captured as behavioral requirements, not control flow
+- [ ] Transformation semantics are correct (absolute vs. additive, if applicable)
 - [ ] Verification criteria (§9) cover every FR-xxx requirement
 
-**STEP 3** — Fix every issue found using the Edit tool.
-**STEP 4** — Report: "Pass 1 (Correctness) complete. Found N issues, fixed M." List each fix.
+Fix issues. Report.
 
 ---
 
 ### Pass 2: Clean Room Compliance
 
-**Goal**: Zero copyrightable expression from the original source appears in the spec.
+**Goal**: Zero copyrightable expression from the source.
 
-**STEP 1** — Read the spec file from disk using the Read tool. (Do NOT rely on memory from Pass 1.)
-**STEP 2** — Scan every line of the spec for leakage. Check:
+Read the spec from disk. Scan every line for leakage:
 
-- [ ] No source class names appear without a disclaimed traceability note
-- [ ] No method names from the source appear (e.g., `addDocumentSQL`, `getCtrlDocument`)
-- [ ] No variable names from the source appear
-- [ ] No DAO, service, manager, or bean names appear
+- [ ] No source class names without a disclaimed traceability note
+- [ ] No method names from the source
+- [ ] No variable names from the source
+- [ ] No DAO, service, manager, or bean names
 - [ ] No JPA/ORM terminology (persist, merge, flush, entity, session, EntityManager)
-- [ ] No framework class names (PDDocument, PDFParser, PDPage, EDoc, ActionSupport)
-- [ ] No pseudocode that mirrors the source's control flow
-- [ ] The structural organization (section order, requirement grouping) does NOT mirror the source code's method order or class structure
-- [ ] Internal encoding values are described semantically (not as literal characters or numbers)
+- [ ] No framework library class names
+- [ ] No pseudocode mirroring the source's control flow
+- [ ] Structural organization does NOT mirror source method order or class structure
+- [ ] Internal encoding values described semantically, not as literal chars/numbers
 
-**STEP 3** — Fix every issue found using the Edit tool. Replace leaked names with functional descriptions.
-**STEP 4** — Report: "Pass 2 (Clean Room Compliance) complete. Found N issues, fixed M." List each fix.
+Fix issues — replace leaked names with functional descriptions. Report.
 
 ---
 
-### Pass 3: Over-Specification Review
+### Pass 3: Over-Specification
 
-**Goal**: The spec prescribes only observable behavior, never internal architecture or implementation choices.
+**Goal**: Spec prescribes only observable behavior, never architecture or implementation.
 
-**STEP 1** — Read the spec file from disk using the Read tool. (Do NOT rely on memory from Pass 2.)
-**STEP 2** — Review every section for unnecessary prescription. Check:
+Read the spec from disk. Check:
 
-- [ ] Metadata field lists: are all empty/default fields individually listed? Collapse to summary line
-- [ ] §5 External Dependencies: are capabilities listed as named services? Use flat capability list
-- [ ] §7 Client Integration: does it describe UI behavior (thumbnails, drag-and-drop, popups)? Strip to wire format only
-- [ ] Does any requirement prescribe HOW IDs are generated? Describe postcondition instead ("shall have a unique ID")
-- [ ] Are there architecture-prescribing statements ("the service layer shall...", "using dependency injection...")?
-- [ ] Does the spec dictate the number of classes, methods, or modules?
-- [ ] Does §5 use JPA/ORM terminology? (persist, merge, flush — use "create", "update", "save" instead)
-- [ ] Does §5 organize capabilities into named service groups that mirror the source's DAO/manager structure?
-- [ ] Does §5 include the disclaimer: "How these are organized... is an implementation choice"?
+- [ ] Empty/default metadata fields collapsed to summary line (not individually listed)
+- [ ] §5 uses flat capability list, not named services
+- [ ] §7 describes wire format only, no UI behavior (thumbnails, drag-and-drop, popups)
+- [ ] No requirement prescribes HOW IDs are generated (use postcondition: "shall have a unique ID")
+- [ ] No architecture-prescribing statements ("the service layer shall...", "using DI...")
+- [ ] Spec does not dictate number of classes, methods, or modules
+- [ ] §5 has no JPA/ORM terminology
+- [ ] §5 does not organize capabilities into groups that mirror source DAO/manager structure
+- [ ] §5 includes the implementation-choice disclaimer
 
-**STEP 3** — Fix every issue found using the Edit tool.
-**STEP 4** — Report: "Pass 3 (Over-Specification) complete. Found N issues, fixed M." List each fix.
+Fix issues. Report.
 
 ---
 
 ### Pass 4: Ordering Compliance
 
-**Goal**: Every list of independent items follows alphabetical ordering to prevent structural mirroring.
+**Goal**: Every independent list is alphabetically ordered.
 
-**STEP 1** — Read the spec file from disk using the Read tool. (Do NOT rely on memory from Pass 3.)
-**STEP 2** — Check EVERY list, table, and enumeration in the document:
+Read the spec from disk. Check EVERY list, table, and enumeration:
 
-- [ ] §1.2 Scope: in-scope and out-of-scope lists alphabetical
-- [ ] §1.4 Glossary: terms alphabetical
-- [ ] §2.3 Method dispatch table: alphabetical by method value
-- [ ] §3 Operations: subsections alphabetical by operation name
-- [ ] §3.x Metadata fields: alphabetical by field name (within each operation)
-- [ ] §3.x Routing tasks: alphabetical by task name (if independent)
-- [ ] §5 External Dependencies: capabilities alphabetical
-- [ ] §6 Response Summary: rows alphabetical by operation name
-- [ ] §7 Client Integration: response types alphabetical (if independent)
-- [ ] §8 Assumptions: alphabetical by key concept
-- [ ] §9 Verification Criteria: rows sorted by Test ID
-- [ ] §10 Observed Behaviors: alphabetical by behavior name/title
+- [ ] §1.2 Scope lists alphabetical
+- [ ] §1.4 Glossary alphabetical
+- [ ] §2 dispatch/routing tables alphabetical
+- [ ] §3 operation subsections alphabetical by name
+- [ ] §3.x metadata fields alphabetical within each operation
+- [ ] §3.x independent routing/linking tasks alphabetical
+- [ ] §5 capabilities alphabetical
+- [ ] §6 response summary rows alphabetical by operation
+- [ ] §7 response types alphabetical (if independent)
+- [ ] §8 assumptions alphabetical by key concept
+- [ ] §9 verification rows sorted by Test ID
+- [ ] §10 observed behaviors alphabetical
 
-**How to check**: For each list, extract the sort keys and verify they are in A→Z order. If a list has 2+ items and is NOT alphabetical, reorder it. Causally dependent sequences (where step B depends on step A's output) are the ONLY exception.
+For each list: extract sort keys, verify A→Z. Only exception: causally dependent sequences.
 
-**STEP 3** — Fix every ordering violation using the Edit tool.
-**STEP 4** — Report: "Pass 4 (Ordering) complete. Found N violations, fixed M." List each reordering.
+Fix violations. Report.
 
 ---
 
 ### Pass 5: Final Leakage Scan
 
-**Goal**: One last sweep for subtle leakage that earlier passes may have missed or introduced.
+**Goal**: Catch subtle leakage that earlier passes may have missed or introduced.
 
-**STEP 1** — Read the spec file from disk using the Read tool. (Do NOT rely on memory from Pass 4.)
-**STEP 2** — Perform a final scan with fresh eyes:
+Read the spec from disk. Fresh-eyes scan:
 
-- [ ] §10 Observed Behaviors: does any item describe behavior already captured normatively in §3? Remove it — §10's qualifier is "not captured by normative requirements"
-- [ ] Are operations listed in the same order as methods in the source file? (Should be alphabetical, not source order)
-- [ ] Do FR-xxx requirement IDs accidentally mirror the source method ordering?
-- [ ] Are there any implied service boundaries that mirror the original's DAO/manager structure?
-- [ ] Does the spec mention specific exception types from the source?
-- [ ] Read §5 one more time: does it feel like a DAO inventory, or a capability list? If the former, rewrite
-- [ ] Does any "Note" blockquote reference source code behavior by method name?
-- [ ] Are there any terms that a clean room implementer wouldn't understand without reading the source?
+- [ ] §10 items do not duplicate normative requirements from §3
+- [ ] Operations are NOT in source method order (should be alphabetical)
+- [ ] FR-xxx IDs do not accidentally mirror source method ordering
+- [ ] No implied service boundaries mirror the source's DAO/manager structure
+- [ ] No source exception types mentioned
+- [ ] §5 reads as a capability list, not a DAO inventory
+- [ ] No "Note" blockquotes reference source method names
+- [ ] Every term is understandable without reading the source
 
-**STEP 3** — Fix every issue found using the Edit tool.
-**STEP 4** — Report: "Pass 5 (Final Leakage Scan) complete. Found N issues, fixed M." List each fix.
+Fix issues. Report.
 
 ---
 
-### Post-Review Summary
+### Post-Review
 
-After all 5 passes are complete, output a summary:
+Output a summary:
 
 ```
 ## Review Summary
@@ -460,23 +338,11 @@ After all 5 passes are complete, output a summary:
 - Total: X issues found across 5 passes
 ```
 
-If any pass found issues, state: "The spec has been revised through 5 review passes and is ready for use."
-If no passes found issues, state: "The spec passed all 5 review passes with no issues."
-
 ---
 
-## 5. Output
+## Output
 
-### 5.1 File Location
-
-Save the specification to:
-```
-docs/specs/<SourceFileName>.md
-```
-
-For example: `SplitDocument2Action.java` → `docs/specs/SplitDocument2Action_java.md`
-
-### 5.2 Commit Message
+### Commit Message
 
 ```
 docs: add clean room functional specification for <ComponentName>
@@ -485,26 +351,49 @@ IEEE 830 black-box specification describing observable behavior only.
 Serves as clean room reimplementation input per Chinese Wall methodology.
 ```
 
----
+### Reference Example
 
-## 6. Reference: Existing Specification Example
-
-For a complete example of a finished clean room specification, see:
-`docs/specs/SplitDocument2Action_java.md`
-
-This specification covers a PDF document manipulation action with four operations (remove first page, rotate 180, rotate 90, split) and demonstrates all conventions described in this skill.
+For a complete finished specification, see `docs/specs/SplitDocument2Action_java.md`.
 
 ---
 
-## 7. Common Mistakes to Avoid
+## Clean Room Legal Background
 
-1. **Listing DAO/service names in §5** — Use capability descriptions instead
-2. **Using JPA terminology** — Say "create a record" not "persist an entity"
-3. **Prescribing ID generation** — Say "shall have a unique ID" not "the database generates an auto-increment ID"
-4. **Mirroring source method order** — Use alphabetical ordering for operations
-5. **Including UI behavior in §7** — Only describe wire format and response handling
-6. **Forgetting the traceability disclaimer** — Every source name mention needs one
+This section provides legal context. It is reference material — not execution instructions.
+
+**Clean room design** (Chinese Wall methodology) separates work into two teams:
+- **Dirty room** (analyst): Reads source, produces functional spec with observable behavior only
+- **Clean room** (implementer): Reads ONLY the spec, writes new code from scratch
+
+The spec IS the Chinese Wall. Zero copyrightable expression may cross it.
+
+**Key legal tests:**
+- **AFC test** (*Computer Associates v. Altai*, 1992): Abstraction → Filtration → Comparison.
+  Filter out non-protectable elements (ideas, externally-dictated interfaces, efficiency-driven
+  sequences, public domain patterns). Only what remains after filtration is protectable.
+- **SSO test** (*Whelan v. Jaslow*): Structure-Sequence-Organization can be protectable
+- **Merger doctrine**: When only one reasonable way to express a function exists, the expression
+  merges with the idea and is not protectable
+- *Sega v. Accolade* (1992): Clean room reimplementation is lawful
+- *Lotus v. Borland* (1995): Functional elements not copyrightable
+
+**Not copyrightable** (safe in spec): functional ideas, external interface contracts,
+efficiency-driven sequences, facts (business rules, observable behavior), framework-dictated patterns.
+
+**Copyrightable** (MUST NOT appear): source code, variable/method/class names (except disclaimed
+traceability), organizational structure of the original, creative architectural choices, original comments/docs.
+
+---
+
+## Common Mistakes
+
+1. **Listing DAO/service names in §5** — Use capability descriptions
+2. **JPA terminology** — "create a record" not "persist an entity"
+3. **Prescribing ID generation** — "shall have a unique ID" not "database auto-increment"
+4. **Mirroring source method order** — Alphabetical ordering for operations
+5. **UI behavior in §7** — Wire format and response handling only
+6. **Missing traceability disclaimer** — Every source name needs one
 7. **Listing empty fields individually** — Collapse to "all other fields shall be empty/default"
-8. **Mixing normative and observed** — §10 must not duplicate §3 requirements
-9. **Using `'A'` for active status** — Describe semantically: "active"
-10. **Ambiguous rotation semantics** — Always specify absolute vs. additive
+8. **Mixing normative and observed** — §10 must not duplicate §3
+9. **Literal internal encodings** — Describe semantically: "active" not `'A'`
+10. **Ambiguous transformation semantics** — Specify absolute vs. additive
