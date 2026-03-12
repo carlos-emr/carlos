@@ -38,7 +38,9 @@
 
 ### 1.1 Purpose
 
-This specification defines the externally observable behavior of a web action component named `SplitDocument2Action` within an electronic medical records (EMR) system. It serves as the sole input for a clean room reimplementation.
+This specification defines the externally observable behavior of a PDF document manipulation action within an electronic medical records (EMR) system. It serves as the sole input for a clean room reimplementation.
+
+**Traceability note:** This spec corresponds to the component identified as `SplitDocument2Action` in the existing codebase. This name is provided solely for traceability between the specification and the original system; it does not prescribe a class name, method name, or any internal naming convention for the reimplementation.
 
 ### 1.2 Scope
 
@@ -69,6 +71,7 @@ This specification defines the externally observable behavior of a web action co
 | Term | Definition |
 |------|-----------|
 | **Control document record** | A metadata association that links a document to a module (e.g., "demographic") and a module-specific entity ID, with a status field. Used to track which part of the system "owns" the document. |
+| **Document type identifier** | The string constant `"DOC"` used as a discriminator in routing tables to distinguish document items from other routable item types (e.g., lab results). All routing operations for documents use this value. |
 | **Document metadata** | The database record describing a stored PDF, including fields such as filename, creator, status, page count, content type, and observation date. Distinct from the PDF file itself. |
 | **Document storage directory** | A server-side filesystem directory, configured at the application level, where all PDF files are stored as flat files. |
 | **Patient routing** | A database association linking a document to a patient (demographic) record, so the document appears in that patient's document history. |
@@ -246,9 +249,9 @@ The component shall save the metadata record to the database (generating a new d
 The following routing tasks are independent of each other. The component shall perform all that apply:
 
 - **Control document cloning:** If the source document has a control document record, the component shall create an equivalent control document record for the new document, preserving the module ID and status from the source.
-- **Patient routing:** If the source document is linked to a patient, the component shall create the same patient linkage for the new document.
-- **Provider inbox routing:** The component shall copy all existing provider inbox routing entries from the source document to the new document. The component shall also add the currently authenticated provider to the new document's inbox routing.
-- **Provider lab routing:** If the source document has provider lab routing entries, the component shall route the new document to one of the providers found in those entries.
+- **Patient routing:** If the source document is linked to a patient, the component shall create the same patient linkage for the new document, using the document type identifier `"DOC"`.
+- **Provider inbox routing:** The component shall copy all existing provider inbox routing entries (identified by document type `"DOC"`) from the source document to the new document. The component shall also add the currently authenticated provider to the new document's inbox routing.
+- **Provider lab routing:** If the source document has provider lab routing entries, the component shall route the new document (as type `"DOC"`) to one of the providers found in those entries.
 - **Queue assignment:** The component shall link the new document to the specified queue (or queue `1` by default).
 
 #### FR-SPL-9: Response
@@ -375,3 +378,4 @@ These notes document externally observable characteristics of the existing syste
 
 - **Cache invalidation scope** — Rotate and remove operations are observed to invalidate cached renderings for **all** pages in the document, not just the affected pages. This is observable as a brief delay when re-rendering unmodified pages.
 - **Filename inheritance** — The new document created by split is observed to reuse the source document's original filename as a stem, with a date-time prefix prepended for uniqueness. This is observable in the stored filename.
+- **Provider lab routing selection** — When the source document has multiple provider lab routing entries, the system is observed to route the new document to the first provider returned by the query. The query ordering is not guaranteed, so this selection is effectively arbitrary.
