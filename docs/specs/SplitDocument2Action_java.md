@@ -240,7 +240,7 @@ All other metadata fields (description, HTML content, review date/time, reviewer
 
 #### FR-SPL-7: Persist and save
 
-The component shall save the metadata record to the database (generating a new document ID) and save the new PDF file to the document storage directory using the generated filename.
+The component shall save the metadata record to the database and save the new PDF file to the document storage directory. After saving, the new document shall have a unique ID and a unique filename.
 
 #### FR-SPL-8: Routing and linking
 
@@ -289,21 +289,19 @@ The following security behaviors are **required for any reimplementation** per C
 
 ## 5. External Dependencies
 
-The component requires the following capabilities from the surrounding system:
+The component requires the following capabilities from the surrounding system. How these are organized (one service, many services, direct database access, etc.) is an implementation choice.
 
-| Capability | Purpose |
-|------------|---------|
-| **Cache service** | Invalidate cached page renderings for a given document and page number |
-| **Control document service** | Query and create control document records |
-| **Document metadata store** | CRUD operations on document records (lookup by ID, persist new records, merge updates) |
-| **Document storage directory** | Filesystem directory where PDF files are stored |
-| **Document utility service** | Register new documents in the database (returns generated ID); update page counts; generate timestamped filenames |
-| **Patient routing service** | Query and create patient-demographic linkages for documents |
-| **PDF processing library** | Read, create, modify, and save PDF documents; manipulate individual pages and their rotation |
-| **Provider inbox routing service** | Query which providers have routing for a given document; add new routing entries |
-| **Provider lab routing service** | Query and create provider-level lab routing entries for documents |
-| **Queue-document linking service** | Associate a document with a named queue |
-| **Session/authentication service** | Retrieve the currently authenticated provider's identity from the HTTP session |
+- Invalidate cached page renderings for a given document and page number
+- Query and create control document records
+- Look up, create, and update document metadata records
+- Read a configured filesystem directory path for document storage
+- Create new document records with system-assigned unique IDs; update page counts; produce unique filenames from a given stem
+- Query and create patient-demographic linkages for documents
+- Read, create, modify, and save PDF documents; manipulate individual pages and their rotation
+- Query which providers have routing for a given document; add new routing entries
+- Query and create provider-level lab routing entries for documents
+- Associate a document with a named queue
+- Retrieve the currently authenticated provider's identity from the HTTP session
 
 ---
 
