@@ -342,8 +342,6 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     }
 
     /**
-     * Finds form data for the specified demographic record and form name
-    /**
      * Retrieves active form data for a specified demographic record and form name.
      *
      * @param demographicNo Demographic number to find the form data for
@@ -362,6 +360,9 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
     @Override
     /**
      * Retrieves a list of EFormData by demographic ID and form ID.
+     */
+    /**
+     * Retrieves a list of EFormData based on the specified demographic ID and form ID.
      */
     public List<EFormData> findByDemographicIdAndFormId(Integer demographicNo, Integer fid) {
         String queryString = "FROM EFormData e WHERE e.demographicId = ?1 AND e.formId = ?2 and e.current = true ORDER BY e.formDate DESC, e.formTime DESC";
