@@ -321,8 +321,6 @@ elif [ -f "release/patch19.sql" ]; then
 else
     echo "WARNING: neither release/019toCARLOS.sql nor release/patch19.sql found; patch.sql will be absent"
 fi
-# OpenO_compatibility.sql: optional compatibility shim for legacy OpenO installations.
-[ -f "release/OpenO_compatibility.sql" ] && cp release/OpenO_compatibility.sql ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/ || echo "WARNING: release/OpenO_compatibility.sql not found, skipping"
 
 # --- Pull carlos.properties from source ---
 # For new installs and OSCAR 19 migrations the postinst config step will substitute
@@ -432,6 +430,7 @@ curl -o "${DRUGREF_WAR}" https://bitbucket.org/oscaremr/drugref2/downloads/drugr
 # Verify SHA256 checksum of drugref.war (update DRUGREF_SHA256 when upgrading drugref version).
 # To obtain the hash after downloading: sha256sum "${DRUGREF_WAR}"
 # Then export DRUGREF_SHA256=<hash> before running this script.
+DRUGREF_SHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 if [ -z "${DRUGREF_SHA256:-}" ]; then
     echo "ERROR: DRUGREF_SHA256 environment variable must be set to the expected SHA256 of drugref2.48.war." >&2
     echo "  Run: sha256sum ${DRUGREF_WAR}  to get the value, verify it against a trusted source, then re-run." >&2
@@ -447,8 +446,8 @@ cp "${REPO_ROOT}/target/${TARGET}" "${RELEASE_DIR}/${DEBNAME}${C_BASE}webapps/${
 # Copy any checked-in document templates and set up the inbox directory structure
 # expected by CARLOS at runtime.
 mkdir -p ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/${PROGRAM}/
-if [ -d "release/Document/oscar/" ]; then
-    cp -r release/Document/oscar/ ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/
+if [ -d "release/Document/carlos/" ]; then
+    cp -r release/Document/carlos/ ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/
 else
     echo "WARNING: release/Document/oscar/ not found, skipping document templates"
 fi
