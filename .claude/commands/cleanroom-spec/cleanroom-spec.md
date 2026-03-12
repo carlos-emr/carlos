@@ -91,6 +91,12 @@ it IS an external contract. If it's an internal field encoding, describe it sema
 
 ## 3. Functional Requirements
 ### 3.N <Operation Name> (one subsection per operation, alphabetical)
+#### FR-XXX-1: Inputs
+#### FR-XXX-2: Guard conditions (if any)
+#### FR-XXX-3: <Core behavior steps>
+#### FR-XXX-N: Side effects
+#### FR-XXX-N: Response
+#### FR-XXX-N: Error handling
 
 ## 4. Non-Functional Requirements
 
