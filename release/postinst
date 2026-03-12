@@ -192,7 +192,7 @@ if [ -d /etc/apparmor.d/  ] ; then
         echo wkhtmltopdf executable in usr local bin exists >> $LOG_FILE
         if [ ! -f /etc/apparmor.d/usr.local.bin.wkhtmltopdf ] ; then
 	        ncecho " [x] Creating an apparmor profile for wkhtmltopdf " 
-	        cp /usr/share/carlos-emr/usr.local.bin.wkhtmltopdf /etc/apparmor.d/usr.local.bin.wkhtmltopdf 2>>$LOG_FILE
+	        cp "${SRC}usr.local.bin.wkhtmltopdf" /etc/apparmor.d/usr.local.bin.wkhtmltopdf 2>>$LOG_FILE
 	        service apparmor reload  2>>$LOG_FILE &
 	        pid=$!;progress $pid  
 	else
@@ -204,7 +204,7 @@ if [ -d /etc/apparmor.d/  ] ; then
         echo wkhtmltopdf executable exists in usr bin >> $LOG_FILE
         if [ ! -f /etc/apparmor.d/usr.bin.wkhtmltopdf ] ; then
 	        ncecho " [x] Creating an apparmor profile for wkhtmltopdf " 
-	        cp /usr/share/carlos-emr/usr.bin.wkhtmltopdf /etc/apparmor.d/usr.bin.wkhtmltopdf 2>>$LOG_FILE
+	        cp "${SRC}usr.bin.wkhtmltopdf" /etc/apparmor.d/usr.bin.wkhtmltopdf 2>>$LOG_FILE
 	        service apparmor reload  2>>$LOG_FILE &
 	        pid=$!;progress $pid  
 	else
@@ -236,13 +236,7 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
    
 
         
-    if [ $lastdeb \< 18.911 ] ; then
-    	ncecho " [x] Converting OSCAR 15 data to OSCAR 19 "
-	    echo "Converting from OSCAR 15 to OSCAR 19 structure" >> $LOG_FILE
-    	$MYSQL ${db_name} < ${SRC}oscar_15_to_oscar_19.sql >>$LOG_FILE 2>>$LOG_FILE
-    else
-	    ncecho " [x] Patching database to latest schema "
-    fi
+    ncecho " [x] Patching database to latest schema "
 	$MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>>$LOG_FILE &
 	pid=$!;progress $pid
 	# lets first update the server.xml if necessary
@@ -280,6 +274,11 @@ if [ "$lastbuild" != "${VERSION}.${REVISION}" ] ; then
 
     GEOIP2=$(curl --silent -f --connect-timeout 5 --max-time 10 http://ip-api.com/csv/ | tr -d '"') || true
     STATE=$(echo "$GEOIP2" | awk -F "," '{print $4;}')
+    # Validate STATE is non-empty and alphabetic; default to empty on bad payload
+    if ! echo "$STATE" | grep -qE '^[A-Za-z]+$'; then
+        echo "GEOIP2 STATE invalid or empty ('${STATE}'); defaulting to empty" >> $LOG_FILE
+        STATE=""
+    fi
 
     echo STATE=${STATE} >>$LOG_FILE
 
@@ -381,6 +380,11 @@ IP=$(echo $GEOIP2 | awk -F "," '{print $14;}')
 COUNTRY=$(echo $GEOIP2 | awk -F "," '{print $3;}')
 STATE=$(echo $GEOIP2 | awk -F "," '{print $4;}')
 LOCALITY=$(echo $GEOIP2 | awk -F "," '{print $6;}')
+# Validate STATE is non-empty and alphabetic; default to empty on bad payload
+if ! echo "$STATE" | grep -qE '^[A-Za-z]+$'; then
+    echo "GEOIP2 STATE invalid or empty ('${STATE}'); defaulting to empty" >> $LOG_FILE
+    STATE=""
+fi
 
 
 sleep 2 &
@@ -468,17 +472,24 @@ echo  Created the Oscar database ${db_name} >>$LOG_FILE
 ### ============================================================
 if [ "${UPGRADE}" = "true" ] ; then
 
-	# OSCAR 19 to CARLOS migration: apply the 019toCARLOS.sql patch to bring the
-	# existing oscar_15 schema up to the CARLOS baseline.  The priorschema table-rename
-	# and multi-step oscar_12/10 upgrade chains have been removed; the 019toCARLOS patch
-	# is the only supported migration path.
+	# OSCAR 19 to CARLOS migration: the OSCAR 19 schema (oscar_15) IS the CARLOS schema,
+	# so no table-rename or data migration is required.  Apply the CARLOS patch to bring
+	# the schema up to the current CARLOS baseline, then run any incremental update scripts.
 	ncecho " [x] Have new tables in ${db_name} default to utf8 "
 	$MYSQL -e "ALTER DATABASE \`$db_name\` DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci"  2>>$LOG_FILE &
 
 	ncecho " [x] Patching database to latest schema "
 	$MYSQL ${db_name} < ${SRC}patch.sql >>$LOG_FILE 2>&1 >$LOG_FILE &
 	pid=$!;progress $pid
-	echo Upgraded ${priorschema} to ${db_name}>>$LOG_FILE
+	echo Patched ${db_name}>>$LOG_FILE
+
+	# Run incremental update scripts bundled with this package (dated 2026-03-01 and later)
+	for _sql in $(ls -1 "${SRC}"update-2026-0[3-9]-*.sql "${SRC}"update-2026-[1-9][0-9]-*.sql 2>/dev/null | sort); do
+		ncecho " [x] Applying incremental update $(basename ${_sql}) "
+		echo "Applying incremental update ${_sql}" >> $LOG_FILE
+		$MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>>$LOG_FILE
+		echo "Applied ${_sql}" >> $LOG_FILE
+	done
 
 else
 	### ============================================================
@@ -918,17 +929,16 @@ fi
 # Restore pre-existing configuration
 if [ -f "${C_BASE}/${PACKAGE}/ck.properties" ] ; then
         echo "Restoring any pre-existing clientKeystore.properties" >> $LOG_FILE
-        mv ${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties ${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.default
-        mv ${C_BASE}/${PACKAGE}/ck.properties ${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties  1>> $LOG_FILE
+        mv "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties" "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.default" 1>>$LOG_FILE \
+            || { echo "Install Aborted: failed to archive clientKeystore.properties" >>$LOG_FILE; fail; }
+        mv "${C_BASE}/${PACKAGE}/ck.properties" "${C_BASE}/${PACKAGE}/WEB-INF/classes/clientKeystore.properties" 1>>$LOG_FILE \
+            || { echo "Install Aborted: failed to restore ck.properties" >>$LOG_FILE; fail; }
 fi
 
 
 
-if [ "$?" -ne 0 ] ; then
-	echo "Install Aborted."  >>$LOG_FILE
-	fail
-else
-	if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then 
+# Failures above exit via fail(); reaching here means all operations succeeded.
+if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then
         # Tomcat 9 will look for the property files in some other locations
         # lets provide symbolic links to where we put them for lesser Tomcats       
         if [ ! -e /drugref2.properties ] ; then
@@ -967,7 +977,6 @@ else
 			cecho "IMPORTANT: Store these credentials securely now - they will not be shown again."
 		fi
 	fi
-fi
 
 echo "#########" `date` "#########"  >>$LOG_FILE
 
