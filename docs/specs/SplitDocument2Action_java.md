@@ -212,7 +212,7 @@ The component shall retrieve the source document's metadata record from the data
 
 #### FR-SPL-4: Page extraction
 
-The component shall extract each specified page from the source PDF (in the order given in the page selection array), apply the specified rotation to each page, and assemble the extracted pages into a new PDF document.
+The component shall extract each specified page from the source PDF (in the order given in the page selection array), set each page's rotation to the specified absolute value (not additive — this differs from the rotate operations which add to the existing rotation), and assemble the extracted pages into a new PDF document.
 
 #### FR-SPL-5: Guard condition
 
@@ -230,6 +230,8 @@ The component shall create a new document metadata record with the following fie
 - Observation date: current date (formatted as `yyyy-MM-dd`)
 - Page count: number of pages in the new PDF
 - Responsible party: the source document's original creator
+- Review date/time: empty
+- Reviewer ID: empty
 - Source: empty
 - Status: active
 - Type: empty
@@ -361,17 +363,15 @@ An implementation shall be considered correct if it satisfies all of the followi
 | V-SPL-4 | Split (queue) | The new document is assigned to the specified queue, or queue 1 if none specified. |
 | V-SPL-5 | Split (JSON response) | When either provider lab routing or patient routing is absent, the response is JSON containing `newDocNum`. |
 | V-SPL-6 | Split (view response) | When both provider lab routing and patient routing exist, the response triggers the close-and-reload view. |
-| V-CACHE-1 | All operations | After any rotate or remove operation, previously cached page renderings are invalidated. |
+| V-SPL-7 | Split (with rotation) | When extracting a page with rotation value 90, the page in the new PDF has absolute rotation 90 regardless of the page's original rotation in the source PDF. |
+| V-R180-2 | Rotate 180 (additive) | A page with existing rotation 90 becomes rotation 270 after the operation (90 + 180 = 270). |
+| V-CACHE-1 | Rotate and remove | After any rotate or remove operation, previously cached page renderings are invalidated. |
 
 ---
 
 ## 10. Observed Behaviors (Non-Normative)
 
-These notes document externally observable characteristics of the existing system. They are provided for compatibility reference but are not mandatory requirements. An implementer should replicate these behaviors unless there is a clear reason to improve upon them.
+These notes document externally observable characteristics of the existing system that are not captured by the normative requirements above. They are provided for compatibility reference. An implementer should replicate these behaviors unless there is a clear reason to improve upon them.
 
-- **Cache invalidation scope** — Rotate and remove operations are observed to invalidate cached renderings for all pages in the document, not just affected pages. This is observable as a brief delay when re-rendering unmodified pages.
+- **Cache invalidation scope** — Rotate and remove operations are observed to invalidate cached renderings for **all** pages in the document, not just the affected pages. This is observable as a brief delay when re-rendering unmodified pages.
 - **Filename inheritance** — The new document created by split is observed to reuse the source document's original filename as a stem, with a date-time prefix prepended for uniqueness. This is observable in the stored filename.
-- **Queue default** — When no queue is specified, the new document is observed to be assigned to queue ID 1. This is observable in the queue assignment database record.
-- **Response path divergence** — The split operation is observed to return different response types depending on whether the source document had both provider lab routing and patient routing. This is observable by the client through the HTTP response content type.
-- **Routing duplication** — Split is observed to copy all of the source document's routing associations to the new document. This is observable in the routing database tables.
-- **Single-page guard** — The remove-first-page operation is observed to silently do nothing if the document has only one page. This is observable by comparing the document before and after the request.
