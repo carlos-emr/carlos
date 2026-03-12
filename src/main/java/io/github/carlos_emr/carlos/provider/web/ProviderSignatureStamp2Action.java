@@ -65,17 +65,23 @@ import java.util.Base64;
  */
 public class ProviderSignatureStamp2Action extends ActionSupport {
 
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
-
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private final UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
 
     private static final int MAX_DRAWN_SIGNATURE_BYTES = 512 * 1024;
     private static final String SIGNATURE_PREFIX = "consult_sig_";
 
+    @Override
     public String execute() {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            writeJson(response, "{\"success\":false,\"error\":\"Session expired\"}");
+            return NONE;
+        }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_pref", "w", null)) {
             throw new SecurityException("missing required sec object (_pref)");
         }
@@ -98,20 +104,20 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
 
         switch (method) {
             case "upload":
-                return handleUpload(providerNo);
+                return handleUpload(request, response, providerNo);
             case "saveDrawn":
-                return handleSaveDrawn(providerNo);
+                return handleSaveDrawn(request, response, providerNo);
             case "delete":
-                return handleDelete(providerNo);
+                return handleDelete(response, providerNo);
             case "check":
-                return handleCheck(providerNo);
+                return handleCheck(request, response, providerNo);
             default:
                 writeJson(response, "{\"success\":false,\"error\":\"Unknown method\"}");
                 return NONE;
         }
     }
 
-    private String handleUpload(String providerNo) {
+    private String handleUpload(HttpServletRequest request, HttpServletResponse response, String providerNo) {
         if (image == null || imageFileName == null || imageFileName.isEmpty()) {
             writeJson(response, "{\"success\":false,\"error\":\"No file selected\"}");
             return NONE;
@@ -144,7 +150,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
         return NONE;
     }
 
-    private String handleSaveDrawn(String providerNo) {
+    private String handleSaveDrawn(HttpServletRequest request, HttpServletResponse response, String providerNo) {
         String signatureData = request.getParameter("signatureData");
         if (signatureData == null || signatureData.isEmpty()) {
             writeJson(response, "{\"success\":false,\"error\":\"No signature data\"}");
@@ -192,21 +198,23 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
         return NONE;
     }
 
-    private String handleDelete(String providerNo) {
+    private String handleDelete(HttpServletResponse response, String providerNo) {
         try {
             UserProperty prop = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
             if (prop != null) {
-                // Delete the file
-                String fileName = prop.getValue();
-                if (fileName != null && !fileName.isEmpty()) {
-                    File imageFolder = getImageFolder();
-                    File sigFile = new File(imageFolder, fileName);
-                    try {
-                        PathValidationUtils.validateExistingPath(sigFile, imageFolder);
-                        sigFile.delete();
-                    } catch (SecurityException e) {
-                        MiscUtils.getLogger().warn("Suspicious signature path for provider {}: {}", providerNo, e.getMessage());
+                // Use the expected deterministic filename rather than trusting the stored value
+                String expectedName = SIGNATURE_PREFIX + providerNo + ".png";
+                File imageFolder = getImageFolder();
+                File sigFile = new File(imageFolder, expectedName);
+                try {
+                    PathValidationUtils.validateExistingPath(sigFile, imageFolder);
+                    if (sigFile.exists() && !sigFile.delete()) {
+                        MiscUtils.getLogger().warn("Could not delete signature file for provider {}: {}", providerNo, sigFile.getAbsolutePath());
                     }
+                } catch (SecurityException e) {
+                    MiscUtils.getLogger().warn("Suspicious signature path for provider {}: {}", providerNo, e.getMessage());
+                    writeJson(response, "{\"success\":false,\"error\":\"Delete failed\"}");
+                    return NONE;
                 }
                 userPropertyDAO.delete(prop);
             }
@@ -218,24 +226,26 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
         return NONE;
     }
 
-    private String handleCheck(String providerNo) {
+    private String handleCheck(HttpServletRequest request, HttpServletResponse response, String providerNo) {
         try {
             UserProperty prop = userPropertyDAO.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
             boolean exists = false;
             String imageUrl = "";
 
             if (prop != null && prop.getValue() != null && !prop.getValue().trim().isEmpty()) {
+                // Use the expected deterministic filename rather than trusting the stored value
+                String expectedName = SIGNATURE_PREFIX + providerNo + ".png";
                 File imageFolder = getImageFolder();
-                File sigFile = new File(imageFolder, prop.getValue());
+                File sigFile = new File(imageFolder, expectedName);
                 try {
                     PathValidationUtils.validateExistingPath(sigFile, imageFolder);
                     if (sigFile.exists()) {
                         exists = true;
                         imageUrl = request.getContextPath() + "/eform/displayImage.do?imagefile="
-                                + Encode.forUriComponent(prop.getValue());
+                                + Encode.forUriComponent(expectedName);
                     }
-                } catch (SecurityException ignored) {
-                    // File outside allowed directory
+                } catch (SecurityException e) {
+                    MiscUtils.getLogger().debug("Suspicious signature path during check for provider {}: {}", providerNo, e.getMessage());
                 }
             }
 
@@ -280,6 +290,10 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
     private String imageFileContentType;
 
     public File getImage() { return image; }
+
+    public String getImageFileName() { return imageFileName; }
+
+    public String getImageFileContentType() { return imageFileContentType; }
 
     @StrutsParameter
     public void setImage(File image) { this.image = image; }

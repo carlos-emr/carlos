@@ -1738,6 +1738,9 @@ document.getElementById('dxSearchModal').addEventListener('hidden.bs.modal', fun
     // ── Status message helper ──
     function showStatus(msg, type) {
         var el = document.getElementById('sigStatusMsg');
+        if (!el) {
+            return;
+        }
         el.className = 'alert alert-' + type;
         el.textContent = msg;
         el.style.display = 'block';

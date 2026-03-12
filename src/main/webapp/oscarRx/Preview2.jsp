@@ -550,14 +550,14 @@
                                     startimageUrl = request.getContextPath() + "/images/1x1.gif";
                                     statusUrl = request.getContextPath() + "/PMmodule/ClientManager/check_signature_status.jsp?" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
 
-                                    // Check for provider signature stamp
-                                    UserPropertyDAO rxSigPropDao = SpringUtils.getBean(UserPropertyDAO.class);
-                                    UserProperty rxSigProp = rxSigPropDao.getProp(providerNo, UserProperty.PROVIDER_CONSULT_SIGNATURE);
+                                    // Check for provider signature stamp using the signing provider (not the current session user)
+                                    UserProperty rxSigProp = userPropertyDAO.getProp(signingProvider, UserProperty.PROVIDER_CONSULT_SIGNATURE);
                                     boolean hasRxStampSignature = (rxSigProp != null && rxSigProp.getValue() != null && !rxSigProp.getValue().trim().isEmpty());
 
                                     if (bean.getStashSize() > 0 && Objects.nonNull(bean.getStashItem(0).getDigitalSignatureId())) {
                                         startimageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=" + bean.getStashItem(0).getDigitalSignatureId();
-                                    } else if (hasRxStampSignature) {
+                                    } else if (!"true".equalsIgnoreCase(rePrint) && hasRxStampSignature) {
+                                        // Only apply the stamp on new prescriptions; reprints use the stored digital signature only
                                         startimageUrl = request.getContextPath() + "/eform/displayImage.do?imagefile=" + Encode.forUriComponent(rxSigProp.getValue());
                                     }
                                 %>
