@@ -2439,37 +2439,37 @@ if (userAgent != null) {
                                     <tr>
                                         <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgPhone"/>
                                         </td>
-                                        <td class="tite1"><%=thisForm.getPatientPhone()%>
+                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientPhone())%>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgWPhone"/>
                                         </td>
-                                        <td class="tite1"><%=thisForm.getPatientWPhone()%>
+                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientWPhone())%>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgCellPhone"/>
                                         </td>
-                                        <td class="tite1"><%=thisForm.getPatientCellPhone()%>
+                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientCellPhone())%>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgEmail"/>
                                         </td>
-                                        <td class="tite1"><%=thisForm.getPatientEmail()%>
+                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientEmail())%>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgBirthDate"/>
                                         </td>
-                                        <td class="tite1"><%=thisForm.getPatientDOB()%>
+                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientDOB())%>
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="tite4"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.msgSex"/>
                                         </td>
-                                        <td class="tite1"><%=thisForm.getPatientSex()%>
+                                        <td class="tite1"><%=Encode.forHtml(thisForm.getPatientSex())%>
                                         </td>
                                     </tr>
                                     <tr>
