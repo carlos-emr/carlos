@@ -66,10 +66,10 @@
 //
 // SCHEDULE REFERENCE (based on NACI Canadian Immunization Schedule):
 //   Childhood (2-18 months):  DTaP-IPV (5 doses), Hib (3-4 doses), Pneu-C (4 doses),
-//                              Rot (2 doses), MMR (2 doses), MMRV (1 dose), VZ (1 dose)
-//   School-age (4-6 years):   DTaP-IPV booster, Tdap-IPV, VZ catch-up
-//   Adolescent (12-18 years): MenC-C, HPV (3 doses)
-//   Adult:                    dTap (10-year booster), Td (10-year repeat), Flu (annual 65+)
+//                              Rota (2 doses), MMR (2 doses), MMR-Var (1 dose), Var (1 dose)
+//   School-age (4-6 years):   DTaP-IPV booster, Tdap-IPV, Var catch-up
+//   Adolescent (12-18 years): Men-C-C, HPV (3 doses)
+//   Adult:                    Tdap (10-year booster), Td (10-year repeat), Inf (annual 65+)
 //   Women's health:           HPV-CERVIX (5-year cycle, 25-69), PAP (3-year cycle, 25-69),
 //                              MAM (2-year cycle, 40-74)
 //   Colorectal screening:     FOBT/FIT (2-year cycle, 50-74), Colonoscopy (10-year)
@@ -77,11 +77,11 @@
 //                              Annual Physical (annual), Obesity screening (annual)
 //
 // KNOWN QUIRKS:
-//   - Flu 1: Hardcoded 2005-2006 flu season date range (historical, not updated)
-//   - "Rot 1"/"Rot 2" use System.out.println() instead of prev.log()
+//   - Inf 1: Hardcoded 2005-2006 flu season date range (historical, not updated)
+//   - "Rota 1"/"Rota 2" use System.out.println() instead of prev.log()
 //   - DTaP-IPV 4.1: Conditions duplicate DTaP-IPV 3.1 (checks count==2, not count==3)
 //   - DTaP-IPV 5/6: Warning says "Needs Third" but these are 5th/6th dose rules
-//   - MenC-C 1: Log message says "Pneu-C 4" (copy-paste artifact)
+//   - Men-C-C 1: Log message says "Pneu-C 4" (copy-paste artifact)
 //   - HPV-CERVIX 3: Typo in message "Neighter" should be "Neither"
 //   - "FOBT Inelligible": Misspelling of "Ineligible" in rule name and message
 //   - isInelligible(): Method name also misspelled (matches rule convention)
@@ -239,36 +239,45 @@ rule "Tdap-IPV 1"
 end
 
 // --------------------------------------------------------------------------
-// Rot: Rotavirus vaccine (2 rules)
+// Rota: Rotavirus vaccine (2 rules)
 // NACI Schedule: 2 doses at 2mo and 4mo (must complete by 8 months of age)
 // Strict upper age limits: dose 1 by 5mo, dose 2 by 6mo
 // QUIRK: Uses System.out.println() instead of prev.log() (original code)
 // Uses isNextDateSet() for dose 2 sequencing
+// MULTI-TYPE NOTE: Rule 1 counts Rota-1 (Rotarix) and Rota-5 (RotaTeq) as
+//   equivalent to generic Rota for the first-dose check. This allows records
+//   entered with product-specific codes to satisfy the rule.
 // --------------------------------------------------------------------------
-rule "Rot 1"
+rule "Rota 1"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 2 )
         eval( prev.getAgeInMonths() < 5 )
-        eval( prev.getNumberOfPreventionType("Rot") == 0 )
-        eval( !prev.isPreventionNever("Rot") )
+        eval( prev.getNumberOfPreventionType("Rota")
+            + prev.getNumberOfPreventionType("Rota-1")
+            + prev.getNumberOfPreventionType("Rota-5")
+            == 0 )
+        eval( !prev.isPreventionNever("Rota") )
     then
-        System.out.println("Rot 1");
-        prev.addWarning("Rot", "Needs First Rot-1 vaccine");
+        System.out.println("Rota 1");
+        prev.addWarning("Rota", "Needs First Rota vaccine");
 end
 
-rule "Rot 2"
+rule "Rota 2"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 4 )
         eval( prev.getAgeInMonths() <= 6 )
-        eval( prev.getNumberOfPreventionType("Rot") == 1 )
-        eval( prev.getHowManyMonthsSinceLast("Rot") >= 1 )
-        eval( !prev.isPreventionNever("Rot") )
-        eval( prev.isNextDateSet("Rot") )
+        eval( prev.getNumberOfPreventionType("Rota")
+            + prev.getNumberOfPreventionType("Rota-1")
+            + prev.getNumberOfPreventionType("Rota-5")
+            == 1 )
+        eval( prev.getHowManyMonthsSinceLast("Rota") >= 1 )
+        eval( !prev.isPreventionNever("Rota") )
+        eval( prev.isNextDateSet("Rota") )
     then
-        System.out.println("Rot 2");
-        prev.addWarning("Rot", "Needs Second Rot-1 vaccine");
+        System.out.println("Rota 2");
+        prev.addWarning("Rota", "Needs Second Rota vaccine");
 end
 
 // --------------------------------------------------------------------------
@@ -357,13 +366,21 @@ end
 // Rules 1-4: Standard infant series (2-12mo) + booster (15-24mo)
 // Rules 5-6: Catch-up schedule for 12-24mo (fewer doses if starting late)
 // Minimum intervals: 2 months between primary doses, 6 months before booster
+// MULTI-TYPE NOTE: Rule 1 counts all pediatric conjugate valences (Pneu-C-7, -10, -13, -15)
+//   as equivalent to Pneu-C for the purpose of determining if a first dose has been given.
+//   Note: Pneu-C-20 is adult formulation and should NOT count for the infant series.
 // --------------------------------------------------------------------------
 rule "Pneu-C 1"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 2 )
         eval( prev.getAgeInMonths() < 12 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 0 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 0 )
     then
         prev.log("Pneu-C 1");
         prev.addWarning("Pneu-C", "Needs First Pneu-C");
@@ -374,7 +391,12 @@ rule "Pneu-C 2"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 4 )
         eval( prev.getAgeInMonths() < 12 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 1 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 1 )
         eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
     then
         prev.log("Pneu-C 2");
@@ -386,7 +408,12 @@ rule "Pneu-C 3"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 6 )
         eval( prev.getAgeInMonths() < 12 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 2 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 2 )
         eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
     then
         prev.log("Pneu-C 3");
@@ -398,7 +425,12 @@ rule "Pneu-C 4"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 15 )
         eval( prev.getAgeInMonths() < 24 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 3 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 3 )
         eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 6 )
     then
         prev.log("Pneu-C 4");
@@ -410,7 +442,12 @@ rule "Pneu-C 5"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 12 )
         eval( prev.getAgeInMonths() < 24 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 0 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 0 )
     then
         prev.log("Pneu-C 5");
         prev.addWarning("Pneu-C", "Needs First Pneu-C");
@@ -421,7 +458,12 @@ rule "Pneu-C 6"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 14 )
         eval( prev.getAgeInMonths() < 24 )
-        eval( prev.getNumberOfPreventionType("Pneu-C") == 1 )
+        eval( prev.getNumberOfPreventionType("Pneu-C")
+            + prev.getNumberOfPreventionType("Pneu-C-7")
+            + prev.getNumberOfPreventionType("Pneu-C-10")
+            + prev.getNumberOfPreventionType("Pneu-C-13")
+            + prev.getNumberOfPreventionType("Pneu-C-15")
+            == 1 )
         eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
     then
         prev.log("Pneu-C 6");
@@ -429,11 +471,17 @@ rule "Pneu-C 6"
 end
 
 // --------------------------------------------------------------------------
-// MMR / MMRV: Measles-Mumps-Rubella (2 rules) + Varicella combo (1 rule)
-// NACI Schedule: Dose 1 at 12mo, Dose 2 at 4-6yr (or as MMRV)
-// MMR 1: First dose, checks both MMR and MMRV counts (either satisfies)
-// MMR 2: Second dose at 48mo+, only checks MMR count (not MMRV)
-// MMRV 1: Second dose for those who got MMRV as first dose
+// MMR / MMR-Var: Measles-Mumps-Rubella (2 rules) + Varicella combo (1 rule)
+// NACI Schedule: Dose 1 at 12mo, Dose 2 at 4-6yr (or as MMR-Var)
+// MMR 1: First dose, checks both MMR and MMR-Var counts (either satisfies)
+// MMR 2: Second MMR-component dose at 48mo+; uses total component count
+//        (MMR + MMR-Var) to avoid false positives when MMR-Var was given
+// MMR-Var 1: Comprehensive 2-dose coverage check at 48mo for BOTH MMR and
+//   Var components. MMR-Var counts toward both component totals:
+//     MMR component total = count(MMR) + count(MMR-Var)
+//     Var component total = count(Var) + count(MMR-Var)
+//   Typical schedule: MMR@12mo + Var@15mo + MMR-Var@48mo → fully covered
+//   Warning specifies exactly which component(s) are still needed.
 // Age range: 12 months to 10 years
 // --------------------------------------------------------------------------
 rule "MMR 1"
@@ -442,10 +490,10 @@ rule "MMR 1"
         eval( prev.getAgeInMonths() >= 12 )
         eval( prev.getAgeInYears() < 10 )
         eval( prev.getNumberOfPreventionType("MMR") == 0 )
-        eval( prev.getNumberOfPreventionType("MMRV") == 0 )
+        eval( prev.getNumberOfPreventionType("MMR-Var") == 0 )
     then
         prev.log("MMR 1");
-        prev.addWarning("MMR", "Needs First MMR or MMRV");
+        prev.addWarning("MMR", "Needs First MMR or MMR-Var");
 end
 
 rule "MMR 2"
@@ -453,58 +501,77 @@ rule "MMR 2"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 48 )
         eval( prev.getAgeInYears() < 10 )
-        eval( prev.getNumberOfPreventionType("MMR") == 1 )
+        // Use total MMR component count (MMR + MMR-Var) to avoid false
+        // positives when a combined MMR-Var dose has already been given
+        eval( prev.getNumberOfPreventionType("MMR") + prev.getNumberOfPreventionType("MMR-Var") == 1 )
+        eval( prev.getNumberOfPreventionType("MMR-Var") == 0 )
     then
         prev.log("MMR 2");
-        prev.addWarning("MMR", "Needs Second MMR or MMRV");
+        prev.addWarning("MMR", "Needs Second MMR or MMR-Var");
 end
 
-rule "MMRV 1"
+// MMR-Var 1: At 48mo, check full 2-dose coverage for both MMR and Var
+// components. Any combination that totals 2 doses per component is valid:
+//   - 2x MMR + 2x Var (all separate)
+//   - 1x MMR + 1x Var + 1x MMR-Var (typical schedule — no warning)
+//   - 2x MMR-Var
+//   - etc.
+rule "MMR-Var 1"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 48 )
         eval( prev.getAgeInYears() < 10 )
-        eval( prev.getNumberOfPreventionType("MMRV") == 1 )
+        eval( (prev.getNumberOfPreventionType("MMR") + prev.getNumberOfPreventionType("MMR-Var") < 2)
+           || (prev.getNumberOfPreventionType("Var") + prev.getNumberOfPreventionType("MMR-Var") < 2) )
     then
-        prev.log("MMRV 1");
-        prev.addWarning("MMRV", "Needs Second MMR or MMRV");
+        prev.log("MMR-Var 1");
+        int mmrTotal = prev.getNumberOfPreventionType("MMR") + prev.getNumberOfPreventionType("MMR-Var");
+        int varTotal = prev.getNumberOfPreventionType("Var") + prev.getNumberOfPreventionType("MMR-Var");
+        if (mmrTotal < 2 && varTotal < 2) {
+            prev.addWarning("MMR-Var", "Needs MMR and Var immunization to complete series");
+        } else if (mmrTotal < 2) {
+            prev.addWarning("MMR-Var", "Needs MMR immunization to complete series");
+        } else {
+            prev.addWarning("MMR-Var", "Needs Var immunization to complete series");
+        }
 end
 
 // --------------------------------------------------------------------------
-// MenC-C: Meningococcal C Conjugate (3 rules)
+// Men-C-C: Meningococcal C Conjugate (3 rules)
 // NACI Schedule: Dose at 12mo, catch-up at 12yr for school programs
 // Rule 1: Primary dose at 12mo-24yr (broad catch-up window)
 // Rule 2: School-age catch-up at age 12-13yr
 // Rule 3: Adolescent catch-up at 15-19yr
 // QUIRK: Rule 1 log message says "Pneu-C 4" (copy-paste from Pneu-C section)
 // --------------------------------------------------------------------------
-rule "MenC-C 1"
+rule "Men-C-C 1"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 12 )
         eval( prev.getAgeInYears() < 24 )
-        eval( prev.getNumberOfPreventionType("MenC-C") == 0 )
+        eval( prev.getNumberOfPreventionType("Men-C-C") == 0 )
     then
         prev.log("Pneu-C 4");
-        prev.addWarning("MenC-C", "Needs MenC-C");
+        prev.addWarning("Men-C-C", "Needs Men-C-C");
 end
 
-rule "MenC-C 2"
+rule "Men-C-C 2"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >= 12 )
         eval( prev.getAgeInYears() < 13 )
-        eval( prev.getNumberOfPreventionType("MenC-C") == 0 )
+        eval( prev.getNumberOfPreventionType("Men-C-C") == 0 )
     then
-        prev.log("MenC-C 2");
-        prev.addWarning("MenC-C", "Needs MenC-C");
+        prev.log("Men-C-C 2");
+        prev.addWarning("Men-C-C", "Needs Men-C-C");
 end
 
 // --------------------------------------------------------------------------
 // HPV: Human Papillomavirus vaccine (1 rule)
 // NACI Schedule: 2-3 dose series at age 12-18 (school-based programs)
-// Checks three vaccine product names: [HPV-9], [HPV-4], and generic "HPV Vaccine"
-// Sums all three product counts to determine if any HPV dose has been given
+// Checks Health Canada standard type codes: HPV-9, HPV-4, HPV (generic), HPV-2
+// Also checks legacy names from O19 migration for backward compatibility
+// Sums all product counts to determine if any HPV dose has been given
 // Age range: 12-18 years
 // --------------------------------------------------------------------------
 rule "HPV 1"
@@ -512,25 +579,30 @@ rule "HPV 1"
         prev : Prevention()
         eval( prev.getAgeInYears() >= 12 )
         eval( prev.getAgeInYears() < 19 )
-        eval( prev.getNumberOfPreventionType("[HPV-9] Human Papillomavirus") + prev.getNumberOfPreventionType("[HPV-4] Human Papillomavirus")  + prev.getNumberOfPreventionType("HPV Vaccine") == 0 )
+        eval( prev.getNumberOfPreventionType("HPV-9")
+            + prev.getNumberOfPreventionType("HPV-4")
+            + prev.getNumberOfPreventionType("HPV-2")
+            + prev.getNumberOfPreventionType("HPV")
+            + prev.getNumberOfPreventionType("HPV Vaccine")
+            == 0 )
     then
         prev.log("HPV 1");
         prev.addWarning("HPV", "Needs HPV");
 end
 
-rule "MenC-C 3"
+rule "Men-C-C 3"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >= 15 )
         eval( prev.getAgeInYears() <= 19 )
-        eval( prev.getNumberOfPreventionType("MenC-C") == 0 )
+        eval( prev.getNumberOfPreventionType("Men-C-C") == 0 )
     then
-        prev.log("MenC-C 3");
-        prev.addWarning("MenC-C", "Needs MenC-C");
+        prev.log("Men-C-C 3");
+        prev.addWarning("Men-C-C", "Needs Men-C-C");
 end
 
 // --------------------------------------------------------------------------
-// VZ: Varicella (Chickenpox) vaccine (4 rules)
+// Var: Varicella (Chickenpox) vaccine (4 rules)
 // NACI Schedule: Dose 1 at 15mo, catch-up at 4-6yr
 // Rules 1-2: First dose at 15-24mo, requiring 28+ days since last MMR
 //   Rule 1: Normal case (>=28 days since MMR - safe to give live vaccine)
@@ -538,78 +610,78 @@ end
 // Rules 3-4: Catch-up at 4-6 years with same MMR spacing logic
 // Live vaccine interval: Must wait 28 days after MMR (both are live vaccines)
 // --------------------------------------------------------------------------
-rule "VZ 1"
+rule "Var 1"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 15 )
         eval( prev.getAgeInMonths() <= 24 )
-        eval( prev.getNumberOfPreventionType("VZ") == 0 )
+        eval( prev.getNumberOfPreventionType("Var") == 0 )
         eval( prev.getHowManyDaysSinceLast("MMR") >= 28 )
     then
-        prev.log("VZ 1");
-        prev.addWarning("VZ", "Needs VZ");
+        prev.log("Var 1");
+        prev.addWarning("Var", "Needs Var");
 end
 
-rule "VZ 2"
+rule "Var 2"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 15 )
         eval( prev.getAgeInMonths() <= 24 )
-        eval( prev.getNumberOfPreventionType("VZ") == 0 )
+        eval( prev.getNumberOfPreventionType("Var") == 0 )
         eval( prev.getHowManyDaysSinceLast("MMR") == 0 )
     then
-        prev.log("VZ 2");
-        prev.addWarning("VZ", "Needs VZ");
+        prev.log("Var 2");
+        prev.addWarning("Var", "Needs Var");
 end
 
-rule "VZ 3"
+rule "Var 3"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >= 4 )
         eval( prev.getAgeInYears() <= 6 )
-        eval( prev.getNumberOfPreventionType("VZ") == 0 )
+        eval( prev.getNumberOfPreventionType("Var") == 0 )
         eval( prev.getHowManyDaysSinceLast("MMR") >= 28 )
     then
-        prev.log("VZ 3");
-        prev.addWarning("VZ", "Needs VZ");
+        prev.log("Var 3");
+        prev.addWarning("Var", "Needs Var");
 end
 
-rule "VZ 4"
+rule "Var 4"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >= 4 )
         eval( prev.getAgeInYears() <= 6 )
-        eval( prev.getNumberOfPreventionType("VZ") == 0 )
+        eval( prev.getNumberOfPreventionType("Var") == 0 )
         eval( prev.getHowManyDaysSinceLast("MMR") == 0 )
     then
-        prev.log("VZ 4");
-        prev.addWarning("VZ", "Needs VZ");
+        prev.log("Var 4");
+        prev.addWarning("Var", "Needs Var");
 end
 
 // --------------------------------------------------------------------------
-// dTap / Td: Adult Tetanus-Diphtheria boosters (3 rules)
-// NACI Schedule: dTap once in adulthood, then Td every 10 years
-// dTap 1: First adult acellular pertussis booster, >=120mo (10yr) since last DTaP-IPV
-// Td 1: First tetanus-diphtheria booster, >=120mo since last dTaP
+// Tdap / Td: Adult Tetanus-Diphtheria boosters (3 rules)
+// NACI Schedule: Tdap once in adulthood, then Td every 10 years
+// Tdap 1: First adult acellular pertussis booster, >=120mo (10yr) since last DTaP-IPV
+// Td 1: First tetanus-diphtheria booster, >=120mo since last Tdap
 // Td 2: Repeat Td booster every 10 years; checks ALL tetanus-containing vaccines:
-//   dTaP, Td, Td-IPV, TdP-IPV-Hib, Tdap-IPV (any resets the 10-year clock)
+//   Tdap, Td, Td-IPV, TdP-IPV-Hib, Tdap-IPV (any resets the 10-year clock)
 // NOTE: No age restrictions on adult boosters - applies to all ages
 // --------------------------------------------------------------------------
-rule "dTap 1"
+rule "Tdap 1"
     when
         prev : Prevention()
-        eval( prev.getNumberOfPreventionType("dTap") == 0 )
+        eval( prev.getNumberOfPreventionType("Tdap") == 0 )
         eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 120 )
     then
-        prev.log("dTap 1");
-        prev.addWarning("dTap", "Needs dTap");
+        prev.log("Tdap 1");
+        prev.addWarning("Tdap", "Needs Tdap");
 end
 
 rule "Td 1"
     when
         prev : Prevention()
         eval( prev.getNumberOfPreventionType("Td") == 0 )
-        eval( prev.getHowManyMonthsSinceLast("dTaP") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
     then
         prev.log("Td 1");
         prev.addWarning("Td", "Needs Td");
@@ -620,7 +692,7 @@ rule "Td 2"
         prev : Prevention()
         eval( prev.getNumberOfPreventionType("Td") >= 1 )
         eval( prev.getHowManyMonthsSinceLast("Td") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("dTaP") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
@@ -630,54 +702,57 @@ rule "Td 2"
 end
 
 // --------------------------------------------------------------------------
-// Flu: Influenza vaccine (4 rules)
+// Inf: Influenza vaccine (4 rules)
 // NACI Schedule: Annual vaccination, especially for 65+ and high-risk groups
-// Rule "Flu 1": HARDCODED 2005-2006 flu season (historical, not dynamically updated)
+// Rule "Inf 1": HARDCODED 2005-2006 flu season (historical, not dynamically updated)
 //   Uses isTodayinDateRange/isLastPreventionWithinRange for season-specific check
-// Rules "Flu 2"/"Flu 3": Age 65+ annual check (12-month interval)
-//   Flu 2: Has previous flu shot but >12 months ago
-//   Flu 3: Never had a flu shot (months since last == -1, meaning no record)
-// "Flu Set Date": Generic next-date-passed catch-all for any age
-// QUIRK: Flu 1 date range is never updated; effectively dead code after 2006
+// Rules "Inf 2"/"Inf 3": Age 65+ annual check (12-month interval)
+//   Inf 2: Has previous flu shot but >12 months ago
+//   Inf 3: Never had a flu shot (months since last == -1, meaning no record)
+// "Inf Set Date": Generic next-date-passed catch-all for any age
+// QUIRK: Inf 1 date range is never updated; effectively dead code after 2006
+// Also checks legacy "Flu" type for backward compatibility with pre-migration records
 // --------------------------------------------------------------------------
-rule "Flu 1"
+rule "Inf 1"
     when
         prev : Prevention()
         eval( prev.isTodayinDateRange("2005-10-01","2006-01-29") )
-        eval( !prev.isLastPreventionWithinRange("Flu","2005-10-01","2006-01-29") )
+        eval( !prev.isLastPreventionWithinRange("Inf","2005-10-01","2006-01-29") )
     then
-        prev.log("Flu 1");
-        prev.addWarning("Flu", "Needs Flu Shot ");
+        prev.log("Inf 1");
+        prev.addWarning("Inf", "Needs Flu Shot ");
 end
 
-rule "Flu 2"
+rule "Inf 2"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >=65 )
+        eval( prev.getHowManyMonthsSinceLast("Inf") >= 12 )
         eval( prev.getHowManyMonthsSinceLast("Flu") >= 12 )
     then
-        prev.log("Flu 2");
-        prev.addWarning("Flu", "Needs Flu Shot ");
+        prev.log("Inf 2");
+        prev.addWarning("Inf", "Needs Flu Shot ");
 end
 
-rule "Flu 3"
+rule "Inf 3"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >=65 )
+        eval( prev.getHowManyMonthsSinceLast("Inf") == -1 )
         eval( prev.getHowManyMonthsSinceLast("Flu") == -1 )
     then
-        prev.log("Flu 3");
-        prev.addWarning("Flu", "Needs Flu Shot ");
+        prev.log("Inf 3");
+        prev.addWarning("Inf", "Needs Flu Shot ");
 end
 
-rule "Flu Set Date"
+rule "Inf Set Date"
     when
         prev : Prevention()
-        eval( prev.isNextDateSet("Flu") )
-        eval( prev.isPassedNextDate("Flu") )
+        eval( prev.isNextDateSet("Inf") )
+        eval( prev.isPassedNextDate("Inf") )
     then
-        prev.log("Flu 1");
-        prev.addWarning("Flu", "Needs Flu Shot ");
+        prev.log("Inf 1");
+        prev.addWarning("Inf", "Needs Flu Shot ");
 end
 
 // --------------------------------------------------------------------------
@@ -887,6 +962,24 @@ rule "MAM debug"
 end
 
 // --------------------------------------------------------------------------
+// AAA: Screening for AAA by u/s (1 rule)
+// Canadian guideline: one time screening for Men ages 65-80
+// Ontario guideline: one time screening for either gender ages 65-80
+// Rule 1: WARNING - AAA screen overdue no AAA screen on record
+// --------------------------------------------------------------------------
+rule "AAA 1"
+    when
+        prev : Prevention()
+        eval( prev.getAgeInYears() >= 65 )
+        eval( prev.getAgeInYears() <= 80 )
+        eval( prev.isMale() )
+        eval( prev.getHowManyMonthsSinceLast("AAA") == -1 )
+    then
+        prev.log("AAA 1 debug");
+        prev.addWarning("AAA", "AAA is overdue for this patient");
+end
+
+// --------------------------------------------------------------------------
 // FOBT / Colonoscopy: Colorectal cancer screening (4 rules)
 // Canadian guideline: FIT/FOBT every 2 years ages 50-74; colonoscopy every 10 years
 // Rule 1: WARNING - FIT overdue (>24mo since FOBT) AND no colonoscopy on record
@@ -1045,4 +1138,51 @@ rule "Obesity 2"
     then
         prev.log("Obesity 2 debug");
         prev.addWarning("Obesity", "Obesity check has not occurred in over 12 months");
+end
+
+// --------------------------------------------------------------------------
+// LDCT: Low-Dose CT Lung Cancer Screening (2 rules)
+// Canadian guideline (CTFPHC 2016): Annual LDCT for adults aged 55-74 who are
+//   high-risk smokers (30+ pack-years or equivalent significant smoking history)
+// Rule 1: WARNING if no LDCT on record for patients aged 55-74 with positive smoking history
+// Rule 2: WARNING if LDCT count is 1 or 2 and it is > 12 months old (annual x3 years)
+//         LDCT 2 stops firing after 3rd annual screen (count >= 3).
+// Precondition (heavy smoker detection): Smoking assessment must be on record AND
+//   not marked as "never" (non-smoker). This uses the Prevention module's "Smoking" type.
+//   A Smoking record exists (getNumberOfPreventionType("Smoking") > 0) AND
+//   the record is NOT marked as never-smoked (!isPreventionNever("Smoking")).
+//   Note: Full heavy-smoker detection (pack-years, cigarettes/day) requires measurement
+//   values (NOSK > 23, POSK > 0, SKST = yes, SMK = yes, SmkS > 23) which are stored in
+//   the measurements table and are not accessible from the Prevention DRL fact object.
+//   Extending the Prevention class to support measurement queries would enable this.
+// --------------------------------------------------------------------------
+rule "LDCT 1"
+    when
+        prev : Prevention()
+        eval( prev.getAgeInYears() >= 55 )
+        eval( prev.getAgeInYears() <= 74 )
+        eval( prev.getNumberOfPreventionType("Smoking") > 0 )
+        eval( !prev.isPreventionNever("Smoking") )
+        eval( prev.getHowManyMonthsSinceLast("LDCT") == -1 )
+        eval( !prev.isPreventionNever("LDCT") )
+        eval( !prev.isInelligible("LDCT") )
+    then
+        prev.log("LDCT 1");
+        prev.addWarning("LDCT", "LDCT lung cancer screening recommended for high-risk smoker aged 55-74 (no prior LDCT on record)");
+end
+
+rule "LDCT 2"
+    when
+        prev : Prevention()
+        eval( prev.getAgeInYears() >= 55 )
+        eval( prev.getAgeInYears() <= 74 )
+        eval( prev.getNumberOfPreventionType("LDCT") >= 1 )
+        eval( prev.getNumberOfPreventionType("LDCT") <= 2 )
+        eval( prev.getHowManyMonthsSinceLast("LDCT") > 12 )
+        eval( !prev.isPreventionNever("LDCT") )
+        eval( !prev.isNextDateSet("LDCT") )
+        eval( !prev.isInelligible("LDCT") )
+    then
+        prev.log("LDCT 2");
+        prev.addWarning("LDCT", "LDCT lung cancer screening for older heavy smokers should be done annually for 3 years and is overdue");
 end
