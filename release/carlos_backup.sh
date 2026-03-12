@@ -122,7 +122,7 @@ REMOTE_UPLOAD_FLAG=0
 #EMAIL=valid.admin.email@server.org
 
 # NOTE review or change the code execution as some options will trump others
-while getopts ":c:u:p:d:b:t:f:n:r" optionName; do
+while getopts ":cu:p:d:b:t:f:nr" optionName; do
 case "$optionName" in
   f) PROPFILE="$OPTARG";;
   n) NO_GZIP_MYSQLDUMP_FLAG=1;;
@@ -138,7 +138,7 @@ done
 
 DATABASE="${DATABASE:-$(sed '/^\#/d' $PROPFILE | grep 'db_name'  | tail -n 1 | cut -d "=" -f2- | cut -d "?" -f1 - | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')}"
 BACKUPDIR=$(sed '/^\#/d' $PROPFILE | grep 'backup_path'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-BACKUPSERVERS=$(grep BACKUPSERVERS $PROPFILE | sed -e "s/.*[=:][[:space:]]*//" -e "s/#.*//")
+IFS=' ' read -ra BACKUPSERVERS <<< "$(grep BACKUPSERVERS $PROPFILE | sed -e 's/.*[=:][[:space:]]*//' -e 's/#.*//')"
 COMMON_BACKUPSERVER_PORT=$(grep COMMON_BACKUPSERVER_PORT $PROPFILE | sed -e "s/.*[=:][[:space:]]*//" -e "s/#.*//")
 db_username="${db_username:-$(sed '/^\#/d' $PROPFILE | grep 'db_username'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')}"
 db_password="${db_password:-$(sed '/^\#/d' $PROPFILE | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')}"

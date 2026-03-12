@@ -78,6 +78,7 @@ import ca.uhn.hl7v2.model.v26.segment.PRD;
 import com.opensymphony.xwork2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.owasp.encoder.Encode;
 
 public class EctViewRequest2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -177,7 +178,12 @@ public class EctViewRequest2Action extends ActionSupport {
         if (demographicExt != null) {
             demographicCellPhone = demographicExt.getValue();
         }
-        thisForm.setPatientAddress(demo.getAddress());
+        StringBuilder demoAddress = new StringBuilder();
+        if (demo.getAddress() != null) demoAddress.append(Encode.forHtml(demo.getAddress())).append("<br />");
+        if (demo.getCity() != null) demoAddress.append(Encode.forHtml(demo.getCity())).append(", ");
+        if (demo.getProvince() != null) demoAddress.append(Encode.forHtml(demo.getProvince()));
+        if (demo.getPostal() != null) demoAddress.append("<br />").append(Encode.forHtml(demo.getPostal()));
+        thisForm.setPatientAddress(demoAddress.toString());
         thisForm.setPatientDOB(demo.getFormattedDob());
         thisForm.setPatientHealthNum(demo.getHin());
         thisForm.setPatientHealthCardVersionCode(demo.getVer());
@@ -296,9 +302,10 @@ public class EctViewRequest2Action extends ActionSupport {
         Demographic demographic = DataTypeUtils.parsePid(pid);
 
         StringBuilder address = new StringBuilder();
-        if (demographic.getAddress() != null) address.append(demographic.getAddress()).append("<br />");
-        if (demographic.getCity() != null) address.append(demographic.getCity()).append(", ");
-        if (demographic.getProvince() != null) address.append(demographic.getProvince());
+        if (demographic.getAddress() != null) address.append(Encode.forHtml(demographic.getAddress())).append("<br />");
+        if (demographic.getCity() != null) address.append(Encode.forHtml(demographic.getCity())).append(", ");
+        if (demographic.getProvince() != null) address.append(Encode.forHtml(demographic.getProvince()));
+        if (demographic.getPostal() != null) address.append("<br />").append(Encode.forHtml(demographic.getPostal()));
         thisForm.setPatientAddress(address.toString());
 
         if (demographic.getBirthDay() != null) {

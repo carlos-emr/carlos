@@ -1226,14 +1226,6 @@
     "integrity" : "sha512:ogY/Af1Q+Wz9h2XEmTUkmnffR5Zf8K43W7Hx5H483rXoLq8LDjIYPlgcAYIUmfnUxXQZ6QNSp6qWuXhQlQ6GUg=="
   }, {
     "groupId" : "org.apache.commons",
-    "artifactId" : "commons-exec",
-    "version" : "1.5.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:3i0EIyu2rKacXxsd7Sry39i1fONBJ25bhhAGFfCRmc2KWw6/5CGmU93IK8TpT7ST3OrE72Ls93RzrI4O2h+Suw=="
-  }, {
-    "groupId" : "org.apache.commons",
     "artifactId" : "commons-lang3",
     "version" : "3.18.0",
     "scope" : "compile",

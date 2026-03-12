@@ -48,46 +48,6 @@ public class RelationshipsDaoTest extends DaoTestFixtures {
         SchemaUtils.restoreTable("relationships");
     }
 
-    @Test
-    public void testFindAll() throws Exception {
-
-        int demographicNo1 = 300;
-        int demographicNo2 = 100;
-        int demographicNo3 = 200;
-
-        Relationships relationships1 = new Relationships();
-        EntityDataGenerator.generateTestDataForModelClass(relationships1);
-        relationships1.setDemographicNo(demographicNo1);
-        dao.persist(relationships1);
-
-        Relationships relationships2 = new Relationships();
-        EntityDataGenerator.generateTestDataForModelClass(relationships2);
-        relationships2.setDemographicNo(demographicNo2);
-        dao.persist(relationships2);
-
-        Relationships relationships3 = new Relationships();
-        EntityDataGenerator.generateTestDataForModelClass(relationships3);
-        relationships3.setDemographicNo(demographicNo3);
-        dao.persist(relationships3);
-
-        List<Relationships> expectedResult = new ArrayList<Relationships>(Arrays.asList(relationships2, relationships3, relationships1));
-        List<Relationships> result = dao.findAll();
-
-		Logger logger = MiscUtils.getLogger();
-		
-		if (result.size() != expectedResult.size()) {
-			logger.warn("Array sizes do not match.");
-			fail("Array sizes do not match.");
-		}
-		for (int i = 0; i < expectedResult.size(); i++) {
-			if (!expectedResult.get(i).equals(result.get(i))){
-				logger.warn("Items  do not match.");
-				fail("Items  do not match.");
-			}
-		}
-		assertTrue(true);	
-	}
-	
 	@Test
 	public void testFindActive() throws Exception {
 		

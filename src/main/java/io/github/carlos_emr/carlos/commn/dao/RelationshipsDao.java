@@ -36,8 +36,6 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Relationships;
 
 public interface RelationshipsDao extends AbstractDao<Relationships> {
-    List<Relationships> findAll();
-
     Relationships findActive(Integer id);
 
     List<Relationships> findByDemographicNumber(Integer demographicNumber);

@@ -547,13 +547,6 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
-    public void activateTickler(LoggedInInfo loggedInInfo, Integer tickler_id, String provider) {
-        checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
-
-        updateStatus(loggedInInfo, tickler_id, provider, Tickler.STATUS.A);
-    }
-
-    @Override
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,
                                            String remString) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
@@ -730,47 +723,6 @@ public class TicklerManagerImpl implements TicklerManager {
     @Override
     public List<TicklerTextSuggest> getActiveTextSuggestions(LoggedInInfo loggedInInfo) {
         return this.ticklerTextSuggestDao.getActiveTicklerTextSuggests();
-    }
-
-    @Override
-    public List<TicklerTextSuggest> getAllTextSuggestions(LoggedInInfo loggedInInfo, int offset, int itemsToReturn) {
-        return this.ticklerTextSuggestDao.findAll(offset, itemsToReturn);
-    }
-
-    @Override
-    public List<Tickler> sortTicklerList(Boolean isSortAscending, String sortColumn, List<Tickler> ticklers) {
-
-        if (isSortAscending) {
-            if (sortColumn.equals(DEMOGRAPHIC_NAME)) {
-                Collections.sort(ticklers, Tickler.DemographicNameAscComparator);
-            } else if (sortColumn.equals(CREATOR)) {
-                Collections.sort(ticklers, Tickler.CreatorAscComparator);
-            } else if (sortColumn.equals(SERVICE_DATE)) {
-                Collections.sort(ticklers, Tickler.ServiceDateAscComparator);
-            } else if (sortColumn.equals(CREATION_DATE)) {
-                Collections.sort(ticklers, Tickler.CreationDateAscComparator);
-            } else if (sortColumn.equals(PRIORITY)) {
-                Collections.sort(ticklers, Tickler.PriorityAscComparator);
-            } else if (sortColumn.equals(TASK_ASSIGNED_TO)) {
-                Collections.sort(ticklers, Tickler.TaskAssignedToAscComparator);
-            }
-        } else {
-            if (sortColumn.equals(DEMOGRAPHIC_NAME)) {
-                Collections.sort(ticklers, Tickler.DemographicNameDescComparator);
-            } else if (sortColumn.equals(CREATOR)) {
-                Collections.sort(ticklers, Tickler.CreatorDescComparator);
-            } else if (sortColumn.equals(SERVICE_DATE)) {
-                Collections.sort(ticklers, Tickler.ServiceDateDescComparator);
-            } else if (sortColumn.equals(CREATION_DATE)) {
-                Collections.sort(ticklers, Tickler.CreationDateDescComparator);
-            } else if (sortColumn.equals(PRIORITY)) {
-                Collections.sort(ticklers, Tickler.PriorityDescComparator);
-            } else if (sortColumn.equals(TASK_ASSIGNED_TO)) {
-                Collections.sort(ticklers, Tickler.TaskAssignedToDescComparator);
-            }
-        }
-
-        return ticklers;
     }
 
     /**
