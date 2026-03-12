@@ -300,13 +300,42 @@ Section 10 captures behaviors that:
 
 ---
 
-## 4. Review Phase (Iterative)
+## 4. Review Phase (Iterative — 5 Mandatory Passes)
 
-After writing the initial specification, perform these review passes IN ORDER. Each pass may require edits. Re-read the spec after each pass before proceeding to the next.
+**CRITICAL EXECUTION PROTOCOL**: The review phase consists of 5 separate passes. Each pass is
+a distinct operation with mandatory file I/O between passes. You MUST NOT combine passes or
+skip the re-read step. The purpose is to review the ACTUAL FILE STATE, not your memory of
+what you wrote.
+
+**Why this matters:** In practice, edits during one pass can introduce new problems visible
+only to a fresh read. Reviewing from memory misses these regressions. Each pass operates on
+the file as it exists on disk after the previous pass's edits.
+
+### Execution Protocol for Each Pass
+
+Every pass follows this exact sequence:
+
+```
+1. SAVE    — Write/Edit all pending changes from the previous pass to disk
+2. READ    — Use the Read tool to re-read the ENTIRE spec file from disk
+3. REVIEW  — Apply the pass checklist against the file content you just read
+4. EDIT    — Fix every issue found (use Edit tool, not memory)
+5. REPORT  — Output a brief summary: "Pass N complete. Found X issues, fixed Y."
+             List each fix made. If no issues found, state "Pass N complete. No issues."
+6. PROCEED — Move to the next pass (go back to step 1)
+```
+
+**DO NOT** skip the Read step. **DO NOT** review from memory. **DO NOT** combine two passes
+into one. The entire point is that each pass is a fresh, focused review of a single concern.
+
+---
 
 ### Pass 1: Correctness Review
 
-Compare every requirement against the source code:
+**Goal**: Every observable behavior in the source code is accurately captured in the spec.
+
+**STEP 1** — Read the spec file from disk using the Read tool.
+**STEP 2** — With the spec open, compare every requirement against the source code. Check:
 
 - [ ] Every public entry point is specified
 - [ ] Every input parameter is documented with correct type and format
@@ -318,10 +347,19 @@ Compare every requirement against the source code:
 - [ ] Wire protocol values (parameter names, JSON fields) are exact
 - [ ] Conditional logic (if/else branches) is captured as behavioral requirements, not as control flow
 - [ ] Rotation/transformation semantics are correct (absolute vs. additive)
+- [ ] Verification criteria (§9) cover every FR-xxx requirement
+
+**STEP 3** — Fix every issue found using the Edit tool.
+**STEP 4** — Report: "Pass 1 (Correctness) complete. Found N issues, fixed M." List each fix.
+
+---
 
 ### Pass 2: Clean Room Compliance
 
-Check for copyrightable expression leakage:
+**Goal**: Zero copyrightable expression from the original source appears in the spec.
+
+**STEP 1** — Read the spec file from disk using the Read tool. (Do NOT rely on memory from Pass 1.)
+**STEP 2** — Scan every line of the spec for leakage. Check:
 
 - [ ] No source class names appear without a disclaimed traceability note
 - [ ] No method names from the source appear (e.g., `addDocumentSQL`, `getCtrlDocument`)
@@ -333,43 +371,97 @@ Check for copyrightable expression leakage:
 - [ ] The structural organization (section order, requirement grouping) does NOT mirror the source code's method order or class structure
 - [ ] Internal encoding values are described semantically (not as literal characters or numbers)
 
+**STEP 3** — Fix every issue found using the Edit tool. Replace leaked names with functional descriptions.
+**STEP 4** — Report: "Pass 2 (Clean Room Compliance) complete. Found N issues, fixed M." List each fix.
+
+---
+
 ### Pass 3: Over-Specification Review
 
-Check for unnecessary implementation prescription:
+**Goal**: The spec prescribes only observable behavior, never internal architecture or implementation choices.
+
+**STEP 1** — Read the spec file from disk using the Read tool. (Do NOT rely on memory from Pass 2.)
+**STEP 2** — Review every section for unnecessary prescription. Check:
 
 - [ ] Metadata field lists: are all empty/default fields individually listed? Collapse to summary line
 - [ ] §5 External Dependencies: are capabilities listed as named services? Use flat capability list
 - [ ] §7 Client Integration: does it describe UI behavior (thumbnails, drag-and-drop, popups)? Strip to wire format only
-- [ ] FR-SPL-7 or equivalent: does it prescribe how IDs are generated? Describe postcondition instead
+- [ ] Does any requirement prescribe HOW IDs are generated? Describe postcondition instead ("shall have a unique ID")
 - [ ] Are there architecture-prescribing statements ("the service layer shall...", "using dependency injection...")?
 - [ ] Does the spec dictate the number of classes, methods, or modules?
+- [ ] Does §5 use JPA/ORM terminology? (persist, merge, flush — use "create", "update", "save" instead)
+- [ ] Does §5 organize capabilities into named service groups that mirror the source's DAO/manager structure?
+- [ ] Does §5 include the disclaimer: "How these are organized... is an implementation choice"?
+
+**STEP 3** — Fix every issue found using the Edit tool.
+**STEP 4** — Report: "Pass 3 (Over-Specification) complete. Found N issues, fixed M." List each fix.
+
+---
 
 ### Pass 4: Ordering Compliance
 
-Verify the alphabetical ordering principle throughout:
+**Goal**: Every list of independent items follows alphabetical ordering to prevent structural mirroring.
+
+**STEP 1** — Read the spec file from disk using the Read tool. (Do NOT rely on memory from Pass 3.)
+**STEP 2** — Check EVERY list, table, and enumeration in the document:
 
 - [ ] §1.2 Scope: in-scope and out-of-scope lists alphabetical
 - [ ] §1.4 Glossary: terms alphabetical
 - [ ] §2.3 Method dispatch table: alphabetical by method value
 - [ ] §3 Operations: subsections alphabetical by operation name
-- [ ] §3.x Metadata fields: alphabetical by field name
+- [ ] §3.x Metadata fields: alphabetical by field name (within each operation)
 - [ ] §3.x Routing tasks: alphabetical by task name (if independent)
 - [ ] §5 External Dependencies: capabilities alphabetical
 - [ ] §6 Response Summary: rows alphabetical by operation name
 - [ ] §7 Client Integration: response types alphabetical (if independent)
 - [ ] §8 Assumptions: alphabetical by key concept
-- [ ] §9 Verification Criteria: sorted by Test ID
-- [ ] §10 Observed Behaviors: alphabetical by behavior name
+- [ ] §9 Verification Criteria: rows sorted by Test ID
+- [ ] §10 Observed Behaviors: alphabetical by behavior name/title
+
+**How to check**: For each list, extract the sort keys and verify they are in A→Z order. If a list has 2+ items and is NOT alphabetical, reorder it. Causally dependent sequences (where step B depends on step A's output) are the ONLY exception.
+
+**STEP 3** — Fix every ordering violation using the Edit tool.
+**STEP 4** — Report: "Pass 4 (Ordering) complete. Found N violations, fixed M." List each reordering.
+
+---
 
 ### Pass 5: Final Leakage Scan
 
-One last pass looking for subtle leakage:
+**Goal**: One last sweep for subtle leakage that earlier passes may have missed or introduced.
 
-- [ ] §10 Observed Behaviors: does any item describe behavior already captured normatively? Remove it — §10 says "not captured by normative requirements"
-- [ ] Are there any source-derived ordering patterns? (e.g., listing operations in the same order as methods in the source file)
-- [ ] Do requirement IDs accidentally mirror source method ordering?
+**STEP 1** — Read the spec file from disk using the Read tool. (Do NOT rely on memory from Pass 4.)
+**STEP 2** — Perform a final scan with fresh eyes:
+
+- [ ] §10 Observed Behaviors: does any item describe behavior already captured normatively in §3? Remove it — §10's qualifier is "not captured by normative requirements"
+- [ ] Are operations listed in the same order as methods in the source file? (Should be alphabetical, not source order)
+- [ ] Do FR-xxx requirement IDs accidentally mirror the source method ordering?
 - [ ] Are there any implied service boundaries that mirror the original's DAO/manager structure?
 - [ ] Does the spec mention specific exception types from the source?
+- [ ] Read §5 one more time: does it feel like a DAO inventory, or a capability list? If the former, rewrite
+- [ ] Does any "Note" blockquote reference source code behavior by method name?
+- [ ] Are there any terms that a clean room implementer wouldn't understand without reading the source?
+
+**STEP 3** — Fix every issue found using the Edit tool.
+**STEP 4** — Report: "Pass 5 (Final Leakage Scan) complete. Found N issues, fixed M." List each fix.
+
+---
+
+### Post-Review Summary
+
+After all 5 passes are complete, output a summary:
+
+```
+## Review Summary
+- Pass 1 (Correctness): X issues found, Y fixed
+- Pass 2 (Clean Room): X issues found, Y fixed
+- Pass 3 (Over-Specification): X issues found, Y fixed
+- Pass 4 (Ordering): X issues found, Y fixed
+- Pass 5 (Leakage Scan): X issues found, Y fixed
+- Total: X issues found across 5 passes
+```
+
+If any pass found issues, state: "The spec has been revised through 5 review passes and is ready for use."
+If no passes found issues, state: "The spec passed all 5 review passes with no issues."
 
 ---
 
