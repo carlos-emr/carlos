@@ -840,26 +840,6 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /**
-     * Previously handled CDS (Clinical Document Sharing) downloads. The Sharing Center
-     * functionality has been removed; this method now returns a 503 Service Unavailable.
-     *
-     * @return String null (response is sent directly)
-     * @throws Exception if response writing fails
-     * @throws SecurityException if the user lacks _edoc read privilege
-     */
-    public String downloadCDS() throws Exception {
-
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
-            throw new SecurityException("missing required sec object (_edoc)");
-        }
-
-        // Sharing Center functionality has been removed
-        log.warn("CDS download no longer available - Sharing Center has been removed");
-        response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "CDS download functionality is no longer available");
-        return null;
-    }
-
-    /**
      * Displays a document by writing its binary content to the HTTP response with
      * the appropriate content type. Supports both file-system-stored documents and
      * legacy HTML documents stored in the docxml database field.

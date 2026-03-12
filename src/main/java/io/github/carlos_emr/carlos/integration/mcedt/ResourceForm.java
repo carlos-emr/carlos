@@ -29,13 +29,11 @@
 package io.github.carlos_emr.carlos.integration.mcedt;
 
 import ca.ontario.health.edt.Detail;
-import ca.ontario.health.edt.DetailData;
 import ca.ontario.health.edt.ResourceStatus;
 import ca.ontario.health.edt.TypeListResult;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 public class ResourceForm {
@@ -64,21 +62,6 @@ public class ResourceForm {
 
     public void setDetail(Detail detail) {
         this.detail = detail;
-    }
-
-    public void removeResource(BigInteger resourceId) {
-        if (resourceId == null) {
-            return;
-        }
-
-        Iterator<DetailData> it = getDetail().getData().iterator();
-        while (it.hasNext()) {
-            DetailData d = it.next();
-
-            if (resourceId.equals(d.getResourceID())) {
-                it.remove();
-            }
-        }
     }
 
     public String getResourceType() {
