@@ -228,7 +228,6 @@ public class FacilityManager2Action extends ActionSupport {
             facility.setEnableAnonymous(WebUtils.isChecked(request, "facility.enableAnonymous"));
             facility.setEnablePhoneEncounter(WebUtils.isChecked(request, "facility.enablePhoneEncounter"));
             facility.setEnableGroupNotes(WebUtils.isChecked(request, "facility.enableGroupNotes"));
-            facility.setEnableOcanForms(WebUtils.isChecked(request, "facility.enableOcanForms"));
             facility.setEnableEncounterTime(WebUtils.isChecked(request, "facility.enableEncounterTime"));
             facility.setEnableEncounterTransportationTime(WebUtils.isChecked(request, "facility.enableEncounterTransportationTime"));
             if (facility.getRegistrationIntake() != null && facility.getRegistrationIntake() < 0)
