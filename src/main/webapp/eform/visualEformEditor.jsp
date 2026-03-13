@@ -38,8 +38,6 @@
 		return;
 	}
 %>
-<%@ page import="oscar.OscarProperties"%>
-
 <!DOCTYPE html>
 <html>
 <!-- Eform Generator 0.2.080 -->
