@@ -46,7 +46,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageTeleplan"/></title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
         <style type="text/css">
             input[type="submit"] {

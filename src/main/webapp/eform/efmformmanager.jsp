@@ -45,7 +45,7 @@
     <head>
     <title>E-Form Manager</title>
         <link rel="stylesheet" href="<%= request.getContextPath() %>/css/fontawesome-all.min.css">
-        <script type="text/javascript" src="<%= request.getContextPath() %>/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
 
 
@@ -116,7 +116,7 @@
         }
 
         $(function () {
-            $("[rel=popover]").popover();
+            $('[data-bs-toggle="popover"]').popover();
         });
 
     </script>

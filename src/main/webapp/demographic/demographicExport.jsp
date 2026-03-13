@@ -91,7 +91,7 @@
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicexport.title"/></title>
 
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
         <SCRIPT LANGUAGE="JavaScript">
 
@@ -521,7 +521,7 @@
     <%}%>
 
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     </body>
 </html>

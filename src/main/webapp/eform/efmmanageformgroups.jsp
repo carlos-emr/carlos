@@ -195,7 +195,7 @@
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curForm = eForms.get(i);
                 %>
-                <tr rel="popover" data-bs-html="true" data-title="<%=curForm.get("formName")%>"
+                <tr data-bs-toggle="popover" data-bs-html="true" data-bs-title="<%=curForm.get("formName")%>"
                     data-bs-content="<strong><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnSubject"/>:</strong><br> <%=curForm.get("formSubject")%> <br> <small><fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.btnFile"/>: <%=curForm.get("formFileName")%></small>"
                     data-bs-trigger="hover" data-bs-placement="bottom">
 
@@ -290,7 +290,7 @@
 
 
             $(function () {
-                $("[rel=popover]").popover({});
+                $('[data-bs-toggle="popover"]').popover({});
             });
 
             $(document).ready(function () {

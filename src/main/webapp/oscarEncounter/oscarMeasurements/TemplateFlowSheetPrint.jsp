@@ -182,7 +182,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
         <meta name="viewport" content="width=device-width, user-scalable=false;">
 
-        <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
 
         <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
@@ -1004,7 +1004,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
     <script src="<%=request.getContextPath() %>/share/javascript/Oscar.js"></script>
-    <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 
     <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
 

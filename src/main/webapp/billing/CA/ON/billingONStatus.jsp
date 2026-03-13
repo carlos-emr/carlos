@@ -223,12 +223,11 @@
             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.invoiceRpts"/>
         </title>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
-        <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+        <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
         <script src="<%=request.getContextPath() %>/js/excellentexport.min.js"></script>
         <script src="${pageContext.request.contextPath}/library/DataTables/datatables.min.js"></script><!-- 1.13.4 -->
-        <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
-        <link href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" rel="stylesheet">
+        <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
         <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet">
         <link href="${pageContext.request.contextPath}/library/DataTables-1.10.12/media/css/jquery.dataTables.min.css"
               rel="stylesheet">

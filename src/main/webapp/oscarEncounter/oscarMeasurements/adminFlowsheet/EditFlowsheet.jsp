@@ -257,7 +257,7 @@
 <head>
     <title>Edit Flowsheet</title><!--I18n-->
 
-    <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Fav and touch icons -->
     <link rel="apple-touch-icon-precomposed" sizes="144x144" href="ico/apple-touch-icon-144-precomposed.png">
@@ -787,14 +787,14 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
         </textarea><!-- flowsheet xml output END-->
 </div>
     <script src="<%=request.getContextPath() %>/js/jquery-1.9.1.min.js"></script>
-    <script src="<%=request.getContextPath() %>/js/bootstrap.min.js"></script>
+    <script src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.dataTables.js"></script>
     <script type="text/javascript" src="<%=request.getContextPath() %>/js/DT_bootstrap.js"></script>
     <script src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
 
     <script>
         $(function () {
-            $("[rel=popover]").popover({});
+            $('[data-bs-toggle="popover"]').popover({});
         });
 
 

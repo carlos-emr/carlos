@@ -63,9 +63,8 @@
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
         <script src="<%=request.getContextPath()%>/js/global.js"></script>
         <title>OSCAR Products</title>
-        <link href="<%=request.getContextPath()%>/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="<%=request.getContextPath()%>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <link href="<%=request.getContextPath()%>/css/datepicker.css" rel="stylesheet" type="text/css">
-        <link href="<%=request.getContextPath()%>/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
 
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.6.4.min.js"></script>
 
@@ -73,7 +72,7 @@
         <link rel="stylesheet" href="<%=request.getContextPath() %>/library/jquery/jquery-ui.theme-1.12.1.min.css">
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-ui-1.12.1.min.js"></script>
 
-        <script src="<%=request.getContextPath()%>/js/bootstrap.js"></script>
+        <script src="<%=request.getContextPath()%>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
         <script src="<%=request.getContextPath()%>/js/bootstrap-datepicker.js"></script>
         <script src="<%=request.getContextPath()%>/js/jquery.validate.js"></script>
 

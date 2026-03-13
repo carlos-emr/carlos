@@ -75,7 +75,7 @@
 <html>
     <head>
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographiclabelprintsetting.title"/></title>
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet" type="text/css">
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
         <!-- Bootstrap 2.3.1 -->
 
         <script src="<%= request.getContextPath() %>/js/global.js"></script>

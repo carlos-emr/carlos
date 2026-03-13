@@ -52,7 +52,7 @@
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageCodeStyles"/></title>
     <meta charset="UTF-8">
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
     <script src="<c:out value="${ctx}"/>/share/javascript/prototype.js" type="text/javascript"></script>
     <script src="<c:out value="${ctx}"/>/share/javascript/scriptaculous.js" type="text/javascript"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/picker.js"></script>

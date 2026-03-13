@@ -79,10 +79,9 @@
 
 <head>
     <title><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.page.title"/></title>
-    <link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/css/datepicker.css" rel="stylesheet" type="text/css">
     <link href="<%=request.getContextPath() %>/css/DT_bootstrap.css" rel="stylesheet" type="text/css">
-    <link href="<%=request.getContextPath() %>/css/bootstrap-responsive.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 
 
@@ -435,7 +434,7 @@
 </div>
 
 <!-- jquery-1.9.1.js - in nonPatientContextHeader.jspf -->
-<script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap.js"></script>
+<script type="text/javascript" src="<%=request.getContextPath() %>/library/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/js/bootstrap-datepicker.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.validate.js"></script>
 <script type="text/javascript" src="<%=request.getContextPath() %>/js/jquery.dataTables.js"></script>
@@ -590,7 +589,7 @@
 
 
         // initialiaze toolstips
-        $('[rel=tooltip]').tooltip();
+        $('[data-bs-toggle="tooltip"]').tooltip();
     });
 
     function popupPage(vheight, vwidth, varpage) {

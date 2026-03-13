@@ -101,7 +101,7 @@
                 document.getElementById("popupDisplay").style.display = 'none';
                 document.getElementById("panelDisplay").style.display = 'inline';
             } else {
-                document.write('<link href="<%=request.getContextPath() %>/css/bootstrap.css" rel="stylesheet" type="text/css">');
+                document.write('<link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet" type="text/css">');
             }
 
             <% if ((request.getAttribute("success") != null) && (errors.size() == 0)) { %>

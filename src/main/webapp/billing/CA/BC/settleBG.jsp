@@ -30,7 +30,7 @@
 <html>
 <head>
     <title>Automate Internal Adjustments</title>
-    <link href="<%=request.getContextPath() %>/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.settlePaidClaims"/></h3>

@@ -53,7 +53,7 @@
         <title><%=bundle.getString(providertitle)%></title>
         <script src="<c:out value="${ctx}"/>/share/javascript/provider_form_validations.js"></script>
         <script src="<%= request.getContextPath() %>/js/global.js"></script>
-        <link href="${pageContext.request.contextPath}/css/bootstrap.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
+        <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap 2.3.1 -->
     </head>
     <body class="BodyStyle">
 
