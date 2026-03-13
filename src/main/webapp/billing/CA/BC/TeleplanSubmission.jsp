@@ -158,7 +158,7 @@
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.genTeleplanFile2"/></h3>
 
-<div class="container-fluid well">
+<div class="container-fluid card card-body bg-body-tertiary">
     <div id="Layer2"
          style="position: absolute; left: 76px; top: 190px; width: 129px; height: 123px; z-index: 2; border: 1px none #000000; visibility: hidden;">
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:white">

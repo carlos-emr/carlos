@@ -385,7 +385,7 @@
     } else {
     %>
 
-    <div class="container-fluid well" style="position: relative;">
+    <div class="container-fluid card card-body bg-body-tertiary" style="position: relative;">
         <!-- Loading overlay shown during export -->
         <div id="exportLoadingOverlay">
             <div id="exportLoadingContent">

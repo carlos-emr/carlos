@@ -324,7 +324,7 @@
     </div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
 
-<div class="top-controls hidden-print">
+<div class="top-controls d-print-none">
     <div class="center-container wcag-container row">
 
         <div class="col-10 text-end">

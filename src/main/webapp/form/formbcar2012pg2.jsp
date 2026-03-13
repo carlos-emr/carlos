@@ -3516,7 +3516,7 @@
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS6" value="2"
                                                                 onclick="calcEPDSscore()"/>
-                        Yes, sometimes I haven't been coping as well as usual
+                        Yes, sometimes I haven't been coping as card card-body bg-body-tertiary as usual
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS6" value="1"
                                                                 onclick="calcEPDSscore()"/>
@@ -3524,7 +3524,7 @@
                         </span><br/>
                                 <span class="epdsAnswer"><input type="radio" name="ar2_EPDS6" value="0"
                                                                 onclick="calcEPDSscore()"/>
-                        No, I have been coping as well as ever
+                        No, I have been coping as card card-body bg-body-tertiary as ever
                         </span>
                             </td>
                         </tr>

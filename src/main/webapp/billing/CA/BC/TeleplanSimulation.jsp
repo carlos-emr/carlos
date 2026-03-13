@@ -145,7 +145,7 @@
 
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.simulateSubFile2"/></h3>
-<div class="container-fluid well noprint">
+<div class="container-fluid card card-body bg-body-tertiary noprint">
 
     <h4>Simulate Teleplan Report - <%=thisyear%>
     </h4>

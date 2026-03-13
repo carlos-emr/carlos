@@ -103,7 +103,7 @@
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnINRBatchBilling"/></h3>
 
-<div class="container-fluid well">
+<div class="container-fluid card card-body bg-body-tertiary">
     <button class="btn" type='button' name='print' value='Print' onClick='window.print()'><i
             class="fa-solid fa-print"></i> Print
     </button>

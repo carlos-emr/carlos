@@ -90,7 +90,7 @@
 
     List<Provider> providers = providerDao.getActiveProviders();
 %>
-<form class="card card-body bg-body-tertiary form-horizontal" action="${ctx}/admin/UsageReport.jsp"
+<form class="card card-body bg-body-tertiary" action="${ctx}/admin/UsageReport.jsp"
       id="usageForm">
     <fieldset>
         <h4>

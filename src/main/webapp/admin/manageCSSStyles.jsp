@@ -277,7 +277,7 @@
     <form action="${pageContext.request.contextPath}/admin/manageCSSStyles.do" method="post" accept-charset="UTF-8">
         <input type="hidden" id="method" name="method" value="save"/>
 
-        <div class="row well"><!--select existing styles-->
+        <div class="row card card-body bg-body-tertiary"><!--select existing styles-->
 
             <fmt:setBundle basename="oscarResources"/><fmt:message key="admin.manageCodeStyles.CurrentStyles"/><br/>
 

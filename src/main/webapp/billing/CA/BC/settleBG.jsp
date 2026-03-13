@@ -35,7 +35,7 @@
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.settlePaidClaims"/></h3>
 
-<div class="container-fluid well">
+<div class="container-fluid card card-body bg-body-tertiary">
     <%
         if ("true".equals(request.getParameter("settled"))) {
     %>

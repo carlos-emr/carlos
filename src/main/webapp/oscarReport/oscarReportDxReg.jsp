@@ -155,7 +155,7 @@
             </div>
         </div>
 
-        <div class="card card-body bg-body-tertiary well-small">
+        <div class="card card-body bg-body-tertiary">
             <form action="${pageContext.request.contextPath}/report/DxresearchReport.do?method=addSearchCode" method="post" accept-charset="UTF-8">
                 <div class="row">
                     <input type="hidden" name="action" value="NA"/>

@@ -112,7 +112,7 @@
 
     <body>
 
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
         <h3>Audit Log Purge Tool</h3>
 
         <div class="col-md-2">

@@ -2069,7 +2069,7 @@
                             <td colspan="1" align="left" valign="top" class="style76"><br>
                                 <br>
                                 <ul>
-                                    <li>Client wishing to maintain abstinence may not do well in
+                                    <li>Client wishing to maintain abstinence may not do card card-body bg-body-tertiary in
                                         this environment
                                     </li>
                                 </ul>

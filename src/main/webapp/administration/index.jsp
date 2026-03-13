@@ -297,7 +297,7 @@
                 display: inherit !important;
             }
 
-            .hidden-print {
+            .d-print-none {
                 display: none !important;
             }
 
@@ -315,7 +315,7 @@
 
 <body>
 <div class="container-fluid">
-    <div class="row hidden-print" style="text-align:right">
+    <div class="row d-print-none" style="text-align:right">
         <i class=" fa-solid fa-circle-question"></i>
         <%if (resourcehelpHtml == "") { %>
         <a href="#" ONCLICK="popupPage(600,750,'<%=resourcebaseurl%>');return false;" title=""

@@ -132,7 +132,7 @@
 <body>
 <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnBillingReconciliation"/></h3>
 
-<div class="container-fluid well">
+<div class="container-fluid card card-body bg-body-tertiary">
     <button class="btn btn-primary float-end" type='button' name='print' value='Print'
             onClick='window.print(); return false;'><i class="fa-solid fa-print"></i> Print
     </button>

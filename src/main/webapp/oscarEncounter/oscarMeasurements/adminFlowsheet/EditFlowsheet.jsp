@@ -650,7 +650,7 @@ Flowsheet: <span style="font-weight:normal"><c:out value="${requestScope.display
                                 </tbody>
                             </table><!-- Custom List END-->
                             <%} %>
-                        </div><!-- well -->
+                        </div><!-- card card-body bg-body-tertiary -->
 
                     </div><!-- col-md-4 -->
 

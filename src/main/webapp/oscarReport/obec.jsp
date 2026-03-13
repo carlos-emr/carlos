@@ -104,7 +104,7 @@
 </div>
 
 
-<form action="${ctx}/oscarReport/obec.do" class="card card-body bg-body-tertiary form-horizontal"
+<form action="${ctx}/oscarReport/obec.do" class="card card-body bg-body-tertiary"
       id="obecForm">
     <fieldset>
         <h4>

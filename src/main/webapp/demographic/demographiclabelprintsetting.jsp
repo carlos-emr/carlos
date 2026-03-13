@@ -155,7 +155,7 @@
         phone2 = (phone2 == null || phone2.equals("")) ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" : (phone2 + "&nbsp;");
     %>
 
-    <form method="post" class="form-horizontal" name="labelprint" action="demographicprintdemographic.jsp">
+    <form method="post" class="" name="labelprint" action="demographicprintdemographic.jsp">
         <div class="card card-body bg-body-tertiary">
             <table style="width:100%">
                 <tr style="text-align:center">

@@ -50,7 +50,7 @@
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.PrivateBillingStatement"/></h3>
 
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
 
         <h4>Total Private Patient Bills: ${bills.size()}</h4>
 

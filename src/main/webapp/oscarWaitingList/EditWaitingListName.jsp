@@ -96,7 +96,7 @@
         <%
             }
         %>
-        <div class="container-fluid  form-horizontal col-md-12" id="editWrapper">
+        <div class="container-fluid  col-md-12" id="editWrapper">
             <div class="row">
                 <div class="col-md-6">
                     <fieldset>

@@ -59,7 +59,7 @@
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageTeleplan"/></h3>
 
-    <div class="container-fluid well well-small">
+    <div class="container-fluid card card-body bg-body-tertiary">
 
         <div class="alert alert-info">
             Teleplan

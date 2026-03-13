@@ -215,7 +215,7 @@
                 display: inherit !important;
             }
 
-            .hidden-print {
+            .d-print-none {
                 display: none !important;
             }
 
@@ -235,9 +235,9 @@
 
     <div id="Layer1" style="position: absolute; left: 90px; top: 35px; width: 0px; height: 12px; z-index: 1"></div>
 
-    <div class="row well hidden-print">
+    <div class="row card card-body bg-body-tertiary d-print-none">
 
-        <button type='button' name='print' value='Print' class="btn hidden-print" onClick='window.print()'
+        <button type='button' name='print' value='Print' class="btn d-print-none" onClick='window.print()'
                 style="position:absolute;top:20px;right:20px;"><i class="fa-solid fa-print"></i> Print
         </button>
 
@@ -407,7 +407,7 @@
                     href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%=oFile%>"
                     target="_blank"><%=oFile%>
             </a></font></td>
-            <td width="3%"><input type="button" value="R" class="btn hidden-print"
+            <td width="3%"><input type="button" value="R" class="btn d-print-none"
                                   onclick="recreate(<%=obj.getId() %>)"/></td>
             <td><font size="2"> <a
                     href="<%= request.getContextPath() %>/servlet/OscarDownload?homepath=ohipdownload&filename=<%=hFile%>"

@@ -254,7 +254,7 @@
                                     <tr>
                                         <td colspan="4">This survey asks for your views about your
                                             health. This information will be summarized in your medical
-                                            record and will help keep track of how you feel and how well you
+                                            record and will help keep track of how you feel and how card card-body bg-body-tertiary you
                                             are able to do your usual activities.
                                         </td>
                                     </tr>

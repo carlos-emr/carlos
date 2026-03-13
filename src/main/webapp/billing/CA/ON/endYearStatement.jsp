@@ -109,7 +109,7 @@
 
 <div class="container-fluid">
 
-    <div class="row well">
+    <div class="row card card-body bg-body-tertiary">
         <form action="${pageContext.request.contextPath}/billing/CA/ON/endYearStatement.do" method="post">
             <input type="hidden" name="demographicNoParam" id="demographicNoParam"/>
 

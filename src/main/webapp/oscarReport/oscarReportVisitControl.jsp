@@ -109,7 +109,7 @@
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
 </head>
 <body>
-<div class="hidden-print" style="float:right;">
+<div class="d-print-none" style="float:right;">
     <a style="font-size:10px" href="#"
        onclick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=visitreport')">Manage Visit Report
         Providers</a>
@@ -119,7 +119,7 @@
     <h3>
         <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.title"/>
         <div class="float-end">
-            <button name="print" onclick="window.print()" class="btn hidden-print">
+            <button name="print" onclick="window.print()" class="btn d-print-none">
                 <i class="fa-solid fa-print"></i>
                 <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnPrint"/>
             </button>
@@ -128,7 +128,7 @@
 </div>
 
 <form action="${ctx}/oscarReport/oscarReportVisitControl.jsp"
-      class="card card-body bg-body-tertiary form-horizontal hidden-print" id="visitForm">
+      class="card card-body bg-body-tertiary d-print-none" id="visitForm">
     <fieldset>
         <h4>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportVisitControl.title"/>

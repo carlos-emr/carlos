@@ -221,7 +221,7 @@
 
         @media print {
 
-            .hidden-print {
+            .d-print-none {
                 display: none !important;
             }
 
@@ -239,7 +239,7 @@
 <div class="container">
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.editInvoices"/></h3>
 
-    <div class="row well hidden-print">
+    <div class="row card card-body bg-body-tertiary d-print-none">
 
         <div style="text-align: right;"><a href="javascript: function myFunction() {return false; }"
                                            onClick="popupPage(700,720,'<%= request.getContextPath() %>/oscarReport/manageProvider.jsp?action=billingreport')">
@@ -665,7 +665,7 @@
             <button id="settleButton" type="submit" class="btn btn-primary" onclick="setOperation('Settle Bill')">
                 Settle
             </button>
-            <input class="btn hidden-print" type='button' name='print' value='Print' onClick='window.print()'>
+            <input class="btn d-print-none" type='button' name='print' value='Print' onClick='window.print()'>
         </div>
     </form>
 

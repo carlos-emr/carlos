@@ -74,7 +74,7 @@
     <h4>CDS Reports</h4>
 </div>
 
-<form class="card card-body bg-body-tertiary form-horizontal" action="cds_4_report_results.jsp"
+<form class="card card-body bg-body-tertiary" action="cds_4_report_results.jsp"
       id="cdsForm">
     <fieldset>
 

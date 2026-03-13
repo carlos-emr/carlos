@@ -73,7 +73,7 @@
     <h4><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.clinicAdmin"/></h4></h4>
     <div class="card card-body bg-body-tertiary">
 
-        <form action="<%=request.getContextPath() %>/admin/ManageClinic.do" method="post" class="form-horizontal">
+        <form action="<%=request.getContextPath() %>/admin/ManageClinic.do" method="post" class="">
             <input type="hidden" name="clinic.id" id="clinic.id" value="<%=clinic.getId() != null ? clinic.getId() : ""%>"/>
             <input type="hidden" name="clinic.status" id="clinic.status" value="A"/>
             <input type="hidden" name="method" id="method" value="update"/>

@@ -260,7 +260,7 @@
         </a>
     </div>
 
-    <div id="addDocDiv" class="addDocDiv well form-inline" style="display: none; padding:5px;">
+    <div id="addDocDiv" class="addDocDiv card card-body bg-body-tertiary form-inline" style="display: none; padding:5px;">
         <form action="${pageContext.request.contextPath}/documentManager/addEditDocument.do" method="POST" enctype="multipart/form-data"
                    class="forms" onsubmit="return submitUpload(this)">
 
@@ -369,7 +369,7 @@
         </form>
     </div>
 
-    <div id="addLinkDiv" class="addDocDiv form-inline well" style="display: none;">
+    <div id="addLinkDiv" class="addDocDiv form-inline card card-body bg-body-tertiary" style="display: none;">
 
         <form action="${pageContext.request.contextPath}/documentManager/addLink.do" method="POST" class="forms"
                    onsubmit="return submitUploadLink(this)">

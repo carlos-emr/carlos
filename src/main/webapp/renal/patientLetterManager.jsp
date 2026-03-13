@@ -103,7 +103,7 @@
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.renal.managePatientLetter"/></h3>
 
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
         Use this section to customize the patient letter generated from the screening report.
         <br/>
         <form action="patientLetterManager.jsp" method="post">

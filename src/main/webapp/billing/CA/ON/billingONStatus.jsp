@@ -421,7 +421,7 @@
             }
 
             @media print {
-                .hidden-print {
+                .d-print-none {
                     display: none !important;
                 }
             }
@@ -439,7 +439,7 @@
               onsubmit="ShowSpin(true);">
             <input type="hidden" id="sortName" name="sortName" value="<%=sortName%>">
             <input type="hidden" id="sortOrder" name="sortOrder" value="<%=sortOrder%>">
-            <div class="row well hidden-print">
+            <div class="row card card-body bg-body-tertiary d-print-none">
                 <%
                     String tmpStrBillType = Arrays.toString(strBillType);
                 %>
@@ -715,7 +715,7 @@
                     <!-- row -->
                 </div>
             </div>
-            <!-- end well -->
+            <!-- end card card-body bg-body-tertiary -->
         </form>
         <form name="invoiceForm" action="<%=request.getContextPath()%>/BillingInvoice.do">
             <input type="hidden" name="method" value="">
@@ -741,7 +741,7 @@
                     <th>Exp.</th>
                     <th>Code Error</th>
                     <th>
-                        <button class="btn-link hidden-print" type="button" title="Show/Hide Checked"
+                        <button class="btn-link d-print-none" type="button" title="Show/Hide Checked"
                                 onClick="filterChecked()">Status
                         </button>
                     </th>
@@ -840,7 +840,7 @@
                             DATE</a></th>
                         <th><a href="javascript:void(0);"
                                onClick="updateSort('DemographicNo');return false;">PATIENT</a></th>
-                        <th class="<%=hideName?"hidden-print":""%>">PATIENT NAME</th>
+                        <th class="<%=hideName?"d-print-none":""%>">PATIENT NAME</th>
                         <th><a href="javascript:void(0);"
                                onClick="updateSort('VisitLocation');return false;">LOCATION</a></th>
                         <th title="Status">STAT</th>
@@ -861,7 +861,7 @@
                         <% if (bMultisites) {%>
                         <th>SITE</th>
                         <% }%>
-                        <th class="hidden-print">
+                        <th class="d-print-none">
                             <a href="#" onClick="checkAll(document.invoiceForm.invoiceAction)">
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingStatus.action"/>
                             </a>
@@ -978,7 +978,7 @@
                         <td style="text-align:center"><%=ch1Obj.getDemographic_no()%>
                         </td>
                         <!--PATIENT-->
-                        <td style="text-align:center" class="<%=hideName?"hidden-print":""%>"><a href=#
+                        <td style="text-align:center" class="<%=hideName?"d-print-none":""%>"><a href=#
                                                                                                  onclick="popupPage(800,740,'<%= request.getContextPath() %>/demographic/demographiccontrol.jsp?demographic_no=<%=ch1Obj.getDemographic_no()%>&displaymode=edit&dboperation=search_detail');return false;"><%= Encode.forHtml(ch1Obj.getDemographic_name())%>
                         </a></td>
                         <td style="text-align:center"><%=ch1Obj.getFacilty_num() != null ? ch1Obj.getFacilty_num() : "" %>
@@ -1029,7 +1029,7 @@
                         </td>
                         <!--SITE-->
                         <% }%>
-                        <td style="text-align:center" class="hidden-print">
+                        <td style="text-align:center" class="d-print-none">
                             <% if (newInvoice && b3rdParty) { %>
                             <input type="checkbox" name="invoiceAction" id="invoiceAction<%=invoiceNo%>"
                                    value="<%=invoiceNo%>"/>
@@ -1055,7 +1055,7 @@
                         <td>Count:</td>
                         <td style="text-align:center"><%=patientCount%>
                         </td>
-                        <td style="text-align:center" class="<%=hideName?"hidden-print":""%>">&nbsp;</td>
+                        <td style="text-align:center" class="<%=hideName?"d-print-none":""%>">&nbsp;</td>
                         <td>&nbsp;</td>
                         <!--LOCATION-->
                         <td>&nbsp;</td>
@@ -1091,7 +1091,7 @@
                         <td>&nbsp;</td>
                         <!--SITE-->
                         <% }%>
-                        <td style="text-align:center" class="hidden-print">
+                        <td style="text-align:center" class="d-print-none">
                             <a href="#" onClick="submitForm('print')">
                                 <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingStatus.print"/>
                             </a>

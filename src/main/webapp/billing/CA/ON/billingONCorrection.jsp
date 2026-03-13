@@ -673,7 +673,7 @@
         </div>
         <%} %>
 
-        <div class="row well well-small">
+        <div class="row card card-body bg-body-tertiary">
             <%if (createTimestamp != null) {%>
             <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgLastUpdate"/>: <%=nullToEmpty(createTimestamp)%>
             <%}%>
@@ -747,7 +747,7 @@
             <input type="hidden" name="demoNo" value="<%=DemoNo%>"/>
             <input type="hidden" name="oldStatus" value="<%=thirdParty ? "thirdParty" : "" %>"/>
 
-            <div class="row well well-small">
+            <div class="row card card-body bg-body-tertiary">
                 <div class="col-md-10">
                     <table>
                         <tr>
@@ -790,7 +790,7 @@
                 </div><!--span-->
             </div>
 
-            <div class="row well well-small">
+            <div class="row card card-body bg-body-tertiary">
                 <div class="col-md-10">
 
                     <strong><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgAditInfo"/></strong><br>
@@ -886,7 +886,7 @@
                 </div><!--span-->
             </div>
 
-            <div class="row well well-small">
+            <div class="row card card-body bg-body-tertiary">
 
                 <div class="col-md-10">
                     <b><fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.msgBillingInf"/></b><br>
@@ -1113,7 +1113,7 @@
             <!--well-->
 
 
-            <div class="row well well-small">
+            <div class="row card card-body bg-body-tertiary">
 
                 <table class="table table-striped table-hover">
                     <thead>
@@ -1215,7 +1215,7 @@
             </div>
 
 
-            <div class="row well well-small">
+            <div class="row card card-body bg-body-tertiary">
                 <div class="col-md-10">
 
                     <b> <fmt:setBundle basename="oscarResources"/><fmt:message key="billing.billingCorrection.formDiagnosticCode"/></b>
@@ -1232,7 +1232,7 @@
                 </div>
             </div>
 
-            <div class="row well well-small">
+            <div class="row card card-body bg-body-tertiary">
                 <div class="col-md-10">
 
                     <%

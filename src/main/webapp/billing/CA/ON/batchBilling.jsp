@@ -160,7 +160,7 @@
                 display: inherit !important;
             }
 
-            .hidden-print {
+            .d-print-none {
                 display: none !important;
             }
         }
@@ -172,7 +172,7 @@
 
 <div class="container-fluid">
 
-    <div class="row well well-condensed hidden-print">
+    <div class="row card card-body bg-body-tertiary d-print-none">
 
         <%
             ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);

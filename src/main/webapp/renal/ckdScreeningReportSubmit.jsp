@@ -86,7 +86,7 @@
 <body>
 <h3>CKD Screening Report</h3>
 
-<div class="container-fluid well">
+<div class="container-fluid card card-body bg-body-tertiary">
     <br/>
     <p>Welcome to the ORN CKD Screening Report page. This page will show you all reports previously run, and allow you
         to submit new reports.</p>

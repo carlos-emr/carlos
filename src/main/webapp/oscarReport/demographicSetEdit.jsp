@@ -148,7 +148,7 @@
             <% } %>
             <div class="row">
                 <div class="col-md-12">
-                    <form class="form-horizontal well form-search" method="post" action="${pageContext.request.contextPath}/report/DemographicSetEdit.do">
+                    <form class="card card-body bg-body-tertiary form-search" method="post" action="${pageContext.request.contextPath}/report/DemographicSetEdit.do">
                     <div><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgPatientSet"/>: <select
                             name="patientSet">
                         <option value="-1"><fmt:setBundle basename="oscarResources"/><fmt:message key="oscarReport.oscarReportDemoSetEdit.msgOptionSet"/></option>

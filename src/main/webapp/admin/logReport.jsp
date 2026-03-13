@@ -146,7 +146,7 @@
 
     </head>
     <body>
-    <form name="myform" class="card card-body bg-body-tertiary form-horizontal" action="logReport.jsp" method="POST" onSubmit="return(onSub());">
+    <form name="myform" class="card card-body bg-body-tertiary" action="logReport.jsp" method="POST" onSubmit="return(onSub());">
         <fieldset>
             <h3>Log Admin Report <small>Please select the provider, start and end dates.</small></h3>
 

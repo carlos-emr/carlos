@@ -32,7 +32,7 @@
     <h4>Patient List</h4>
 </div>
 
-<form id="plForm" action="<%=request.getContextPath() %>/patientlistbyappt" class="card card-body bg-body-tertiary form-horizontal">
+<form id="plForm" action="<%=request.getContextPath() %>/patientlistbyappt" class="card card-body bg-body-tertiary">
 
     <fieldset>
         <h4>

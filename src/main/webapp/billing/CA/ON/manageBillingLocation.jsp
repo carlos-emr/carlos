@@ -116,7 +116,7 @@
 
     <body>
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.btnAddBillingLocation"/></h3>
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
         <table>
             <tr>
                 <td width="3%"></td>

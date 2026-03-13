@@ -209,7 +209,7 @@
 <div class="container-fluid">
     <span class="float-end"><%=today%></span>
 
-    <div class="row well">
+    <div class="row card card-body bg-body-tertiary">
         <%=errorMsg%>
 
         <form name="billingPaymentForm" method="get" action="billingONPayment.jsp">

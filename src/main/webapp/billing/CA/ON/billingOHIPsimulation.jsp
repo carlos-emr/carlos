@@ -306,7 +306,7 @@
 
     <form name="serviceform" id="serviceform"
           action="<%=request.getContextPath() %>/billing/CA/ON/billingOHIPsimulation.jsp">
-        <div class="row well well-small hidden-print">
+        <div class="row card card-body bg-body-tertiary d-print-none">
 
             <input type="hidden" name="submit" value="Create Report">
 

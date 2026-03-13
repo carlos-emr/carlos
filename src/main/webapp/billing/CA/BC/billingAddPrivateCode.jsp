@@ -83,7 +83,7 @@
 
     <body>
     <h3>Add Private Billing Code</h3>
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
 
         <form action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode.do" method="post" onsubmit="return checkUnits();">
             <%

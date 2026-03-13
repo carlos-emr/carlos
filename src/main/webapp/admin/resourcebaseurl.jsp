@@ -147,7 +147,7 @@
     <%}%>
 
     <!-- Help Link - Website -->
-    <div class="row well" id="websiteDiv" style="background-color:">
+    <div class="row card card-body bg-body-tertiary" id="websiteDiv" style="background-color:">
         <div class="col-md-1" style="background-color:">
             <input type="radio" name="helpOption" class="helpOption" value="website" <%=checkedWebsite%>>
         </div><!-- col-md-2 -->
@@ -172,7 +172,7 @@
     <h4 class="muted text-center"><em>~ or ~</em></h4>
 
     <!-- Help Link - Details -->
-    <div class="row well" id="detailsDiv">
+    <div class="row card card-body bg-body-tertiary" id="detailsDiv">
         <div class="col-md-1" style="background-color:">
             <input type="radio" name="helpOption" class="helpOption" value="details" <%=checkedDetails%>>
         </div><!-- col-md-2 -->

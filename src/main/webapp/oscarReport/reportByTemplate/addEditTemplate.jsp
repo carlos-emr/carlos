@@ -135,7 +135,7 @@
         </c:choose>
     </c:if>
     <c:if test="${ empty opentext and empty param.opentext }">
-        <!-- <form class="form-horizontal" action="<%=request.getContextPath() %>/oscarReport/reportByTemplate/uploadTemplates.do"
+        <!-- <form class="" action="<%=request.getContextPath() %>/oscarReport/reportByTemplate/uploadTemplates.do"
                         enctype="multipart/form-data">
         <div class="row">
         <div class="card card-body bg-body-tertiary">
@@ -157,7 +157,7 @@
         </div>
         </div>
     </form> -->
-        <form class="form-horizontal" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/uploadTemplates.do"
+        <form class="" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/uploadTemplates.do"
                    method="post" enctype="multipart/form-data" onsubmit="return validateFileUpload()">
             <div class="row">
                 <div class="card card-body bg-body-tertiary">

@@ -70,7 +70,7 @@
 </div>
 
 <form action="${ctx}/oscarReport/provider_service_report_export.jsp"
-      class="card card-body bg-body-tertiary form-horizontal" id="psrForm">
+      class="card card-body bg-body-tertiary" id="psrForm">
 
     <fieldset>
         <h4>

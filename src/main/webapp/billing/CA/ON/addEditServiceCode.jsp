@@ -457,7 +457,7 @@
     <h3><fmt:setBundle basename="oscarResources"/><fmt:message key="admin.admin.manageBillingServiceCode"/></h3>
 
 
-    <div class="container-fluid well">
+    <div class="container-fluid card card-body bg-body-tertiary">
 
         <div class="alert alert-<%=alert%>">
             <%=msg%>
