@@ -119,7 +119,7 @@ FOR STAND ALONE USE
             if ( !message )
                 message = 'No Message to Display.';
 
-            $('<div></div>').html( message ).dialog({
+            $('<div></div>').text( message ).dialog({
                 title: title,
                 resizable: true,
                 modal: true,
@@ -249,7 +249,7 @@ FOR STAND ALONE USE
             }
             if (M[1] === 'Chrome') {
                 tem = ua.match(/\b(OPR|Edge)\/(\d+)/);
-                if (tem != null) return tem.slice(1).join(' ').replace('OPR', 'Opera');
+                if (tem != null) return tem.slice(1).join(' ').replace(/OPR/g, 'Opera');
             }
             M = M[2] ? [M[1], M[2]] : [navigator.appName, navigator.appVersion, '-?'];
             if ((tem = ua.match(/version\/(\d+)/i)) != null) M.splice(1, 1, tem[1]);
@@ -2201,7 +2201,7 @@ FOR STAND ALONE USE
                 id: menuId
             });
             for (var i = 0; i < optionsArr.length; i++) {
-                $option = $("<option>").html(optionsArr[i]);
+                $option = $("<option>").text(optionsArr[i]);
                 if (valuesArr) {
                     $option.attr('value', valuesArr[i])
                 }
@@ -4591,25 +4591,25 @@ FOR STAND ALONE USE
             if (strLoc.indexOf("https") == -1) {
                 if (document.getElementById("gen_backgroundImage1")) {
                     var src1 = document.getElementById("gen_backgroundImage1").src;
-                    document.getElementById("gen_backgroundImage1").src = src1.replace("$%7Boscar_image_path%7D", "");
+                    document.getElementById("gen_backgroundImage1").src = src1.replace(/\$%7Boscar_image_path%7D/g, "");
                 }
 				if (document.getElementById("BGImage1")) {
                     var src1 = document.getElementById("BGImage1").src;
-                    document.getElementById("BGImage1").src = src1.replace("$%7Boscar_image_path%7D", "");
+                    document.getElementById("BGImage1").src = src1.replace(/\$%7Boscar_image_path%7D/g, "");
                 }
 				if (document.getElementById("signature")) {
                     var src1 = document.getElementById("signature").src;
-                    document.getElementById("signature").src = src1.replace("$%7Boscar_image_path%7D", "");
+                    document.getElementById("signature").src = src1.replace(/\$%7Boscar_image_path%7D/g, "");
                 }
 				var els = document.getElementsByClassName( "stamp" );
 				if (els.length > 0) {
 					Array.prototype.forEach.call(els, function(el) {
-						el.src = el.src.replace("$%7Boscar_image_path%7D", "");
+						el.src = el.src.replace(/\$%7Boscar_image_path%7D/g, "");
 					});
 				}
                 if (document.getElementById("mySidenavGen2")) {
                     var src2 = document.getElementById("mySidenavGen2").src;
-                    document.getElementById("mySidenavGen2").src = src2.replace("$%7Boscar_image_path%7D", "");
+                    document.getElementById("mySidenavGen2").src = src2.replace(/\$%7Boscar_image_path%7D/g, "");
                 }
             }
         }

@@ -127,7 +127,7 @@ for (var theOption of theOptions)
 }
 
 var x = window.opener.document.getElementsByClassName("ui-selectmenu-text");
-for (i=0;i<x.length;i++){
+for (var i=0;i<x.length;i++){
 //alert(x[i].innerHTML)
 }
 
@@ -136,10 +136,10 @@ alert("Reserved for later use")
 }
 else{
 if(x.length<3){
-x[1].innerHTML = theDefault
+x[1].textContent = theDefault
 }
 else{
-x[3].innerHTML = theDefault
+x[3].textContent = theDefault
 }
 var z = window.opener.document.getElementById('toggleGOscarDbCheckbox')
 //alert(z.checked)
