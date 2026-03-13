@@ -109,6 +109,7 @@ public class ProviderSignatureImage2Action extends ActionSupport {
         }
 
         response.setContentType("image/png");
+        response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
         response.setHeader("Pragma", "no-cache");
         response.setDateHeader("Expires", 0);

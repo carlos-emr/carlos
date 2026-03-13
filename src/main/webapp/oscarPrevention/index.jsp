@@ -98,8 +98,13 @@
     DHIRSubmissionManager submissionManager = SpringUtils.getBean(DHIRSubmissionManager.class);
     UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
 
-    //int demographic_no = Integer.parseInt(request.getParameter("demographic_no"));
     String demographic_no = request.getParameter("demographic_no");
+    try {
+        Integer.parseInt(demographic_no);
+    } catch (NumberFormatException e) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographic number");
+        return;
+    }
     DemographicData demoData = new DemographicData();
     String nameAge = demoData.getNameAgeString(loggedInInfo, demographic_no);
     Demographic demo = demoData.getDemographic(loggedInInfo, demographic_no);
@@ -496,6 +501,8 @@
                         if (response.ok) {
                             document.getElementById('ssoWarning').style.display = 'none';
                         }
+                    }).catch(function() {
+                        console.warn('Could not save SSO warning preference');
                     });
                 }
             }
@@ -510,6 +517,8 @@
                         if (response.ok) {
                             document.getElementById('ispaWarning').style.display = 'none';
                         }
+                    }).catch(function() {
+                        console.warn('Could not save ISPA warning preference');
                     });
                 }
             }
@@ -524,6 +533,8 @@
                         if (response.ok) {
                             document.getElementById('nonIspaWarning').style.display = 'none';
                         }
+                    }).catch(function() {
+                        console.warn('Could not save non-ISPA warning preference');
                     });
                 }
             }
@@ -650,7 +661,10 @@
                     tags = VACCINE_BRANDS_DEFAULT;
                 }
             })
-            .catch(function() { tags = VACCINE_BRANDS_DEFAULT; });
+            .catch(function() {
+                console.warn('Could not load custom vaccine-brands.json, using default catalogue');
+                tags = VACCINE_BRANDS_DEFAULT;
+            });
 
         </script>
     </head>
@@ -1450,26 +1464,16 @@
                     input.value = '';
                     var vPath = '<%=request.getContextPath()%>';
                     var demographicNo = '<%=demographic_no%>';
-                    var newWindow = window.open(
-                        vPath + '/oscarPrevention/AddPreventionData.jsp?1=1&prevention=' + encodeURIComponent(item.name) + '&demographic_no=' + demographicNo,
-                        'AddPreventionWindow',
-                        'width=1000,height=700'
-                    );
-                    newWindow.addEventListener('load', function() {
-                        var doc = newWindow.document;
-                        var nameEl = doc.getElementById('name');
-                        if (nameEl) nameEl.value = item.value || '';
-                        var dinEl = doc.getElementById('din');
-                        if (dinEl) dinEl.value = item.din || '';
-                        var doseEls = doc.getElementsByName('dose');
-                        if (doseEls.length) doseEls[0].value = item.dose || '';
-                        var routeEl = doc.getElementById('route');
-                        if (routeEl) routeEl.value = item.route || '';
-                        var doseUnitEls = doc.getElementsByName('doseUnit');
-                        if (doseUnitEls.length) doseUnitEls[0].value = item.units || '';
-                        var manufactureEls = doc.getElementsByName('manufacture');
-                        if (manufactureEls.length) manufactureEls[0].value = item.manufacture || '';
-                    });
+                    var url = vPath + '/oscarPrevention/AddPreventionData.jsp?1=1'
+                        + '&prevention=' + encodeURIComponent(item.name)
+                        + '&demographic_no=' + demographicNo
+                        + '&brandName=' + encodeURIComponent(item.value || '')
+                        + '&din=' + encodeURIComponent(item.din || '')
+                        + '&dose=' + encodeURIComponent(item.dose || '')
+                        + '&route=' + encodeURIComponent(item.route || '')
+                        + '&doseUnit=' + encodeURIComponent(item.units || '')
+                        + '&manufacture=' + encodeURIComponent(item.manufacture || '');
+                    popup(600, 900, url, 'AddPreventionWindow');
                 },
                 2
             );
@@ -1514,13 +1518,17 @@
                         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                         body: encodeURIComponent(q)
                     })
-                    .then(function(r) { return r.json(); })
+                    .then(function(r) {
+                        if (!r.ok) return Promise.reject('CVC query returned HTTP ' + r.status);
+                        return r.json();
+                    })
                     .then(function(data) {
                         if (seq !== requestSeq) return;
                         cachedResults = data.results || [];
                         callback(cachedResults);
                     })
-                    .catch(function() {
+                    .catch(function(err) {
+                        console.error('CVC lot number lookup failed:', err);
                         if (seq !== requestSeq) return;
                         callback([]);
                     });

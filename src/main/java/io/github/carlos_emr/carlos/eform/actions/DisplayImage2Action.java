@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.eform.actions;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -73,9 +74,6 @@ public class DisplayImage2Action extends ActionSupport {
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private record StreamData(InputStream stream, String contentType) {}
 
-    /**
-     * Creates a new instance of DisplayImage2Action
-     */
     public DisplayImage2Action() {
     }
 
@@ -99,7 +97,8 @@ public class DisplayImage2Action extends ActionSupport {
             OutputStream outputStream = response.getOutputStream();
             IOUtils.copy(stream, outputStream);
             return NONE;
-        } catch (Exception e) {
+        } catch (IOException e) {
+            MiscUtils.getLogger().error("Error streaming eform image to response", e);
             return NONE;
         } finally {
             if (stream != null) {

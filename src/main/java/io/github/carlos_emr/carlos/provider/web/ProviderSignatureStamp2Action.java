@@ -309,7 +309,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
                     imageUrl = request.getContextPath() + "/provider/providerSignatureImage.do";
                 }
             } catch (SecurityException e) {
-                MiscUtils.getLogger().debug("Suspicious signature path during check for provider {}: {}", providerNo, e.getMessage());
+                MiscUtils.getLogger().warn("Suspicious signature path during check for provider {}: {}", providerNo, e.getMessage());
             } catch (IOException e) {
                 MiscUtils.getLogger().error("Signature stamp check: I/O error for provider {}", providerNo, e);
                 writeJson(response, "{\"error\":\"Could not check signature status\",\"exists\":false,\"imageUrl\":\"\"}");
@@ -376,6 +376,7 @@ public class ProviderSignatureStamp2Action extends ActionSupport {
     private void writeJson(HttpServletResponse resp, String json) {
         resp.setContentType("application/json");
         resp.setCharacterEncoding("UTF-8");
+        resp.setHeader("X-Content-Type-Options", "nosniff");
         try {
             PrintWriter writer = resp.getWriter();
             writer.write(json);
