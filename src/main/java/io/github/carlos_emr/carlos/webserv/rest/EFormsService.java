@@ -100,7 +100,7 @@ public class EFormsService extends AbstractServiceImpl
 			EFormLoader loader = EFormLoader.getInstance();
 			dbTagList = loader.getNames();
 		}
-		catch(RuntimeException e)
+		catch (RuntimeException e)
 		{
 			logger.error("DB tag Error: ", e);
 			return RestResponse.errorResponse("Error retrieving database tag list");

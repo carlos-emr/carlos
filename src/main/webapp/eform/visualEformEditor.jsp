@@ -304,7 +304,7 @@ FOR STAND ALONE USE
         input5.setAttribute('style', 'font-size:14px;position:fixed;top:30px;left:550px;');
 
         function showAlert5() {
-            for (q = 0; q < Rad.length; q++) {
+            for (var q = 0; q < Rad.length; q++) {
                 qq = document.getElementById(RadMain[q])
                 qq.style.backgroundColor = "aquamarine";
                 $(qq).removeClass("all-no")
@@ -1944,7 +1944,7 @@ FOR STAND ALONE USE
             }
             // not loaded so not using the canvas, show signature as an image instead.
             else {
-                $img.show(); alert("shown");
+                $img.show();
             }
         }
 

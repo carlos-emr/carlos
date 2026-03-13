@@ -67,7 +67,7 @@ public class EFormService extends AbstractServiceImpl {
 
 		EForm eform = eFormDao.findById(id);
 
-		if(eform == null) {
+		if (eform == null) {
 			return RestResponse.errorResponse("Failed to find EForm");
 		}
 		EFormTo1 transferObj = new EFormConverter(false).getAsTransferObject(getLoggedInInfo(), eform);
@@ -87,12 +87,12 @@ public class EFormService extends AbstractServiceImpl {
 		EForm eForm = new EFormConverter(false).getAsDomainObject(getLoggedInInfo(), eformTo1);
 
 		EForm nameMatch = eFormDao.findByName(eForm.getFormName());
-		if(nameMatch != null) {
+		if (nameMatch != null) {
 			logger.warn("EForm Name Already in Use. Save Aborted");
 			return RestResponse.errorResponse("EForm Name Already in Use");
 		}
 
-		if(isValidEformData(eForm)) {
+		if (isValidEformData(eForm)) {
 			eFormDao.persist(eForm);
 			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
 					LogConst.ACTION_ADD, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
@@ -134,7 +134,7 @@ public class EFormService extends AbstractServiceImpl {
 
 
 		EForm nameMatch = eFormDao.findByName(formName);
-		if(nameMatch != null) {
+		if (nameMatch != null) {
 			logger.warn("EForm Name Already in Use. Save Aborted");
 			return RestResponse.errorResponse("EForm Name Already in Use");
 		}
@@ -152,7 +152,7 @@ public class EFormService extends AbstractServiceImpl {
 
 		eForm.setRoleType(roleType);
 
-		if(isValidEformData(eForm)) {
+		if (isValidEformData(eForm)) {
 			eFormDao.persist(eForm);
 			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
 					LogConst.ACTION_ADD, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
@@ -176,7 +176,7 @@ public class EFormService extends AbstractServiceImpl {
 
 		EForm eForm = new EFormConverter(false).getAsDomainObject(getLoggedInInfo(), eformTo1);
 
-		if(isValidEformData(eForm)) {
+		if (isValidEformData(eForm)) {
 			eFormDao.merge(eForm);
 			LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
 					LogConst.ACTION_UPDATE, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
@@ -212,7 +212,7 @@ public class EFormService extends AbstractServiceImpl {
 
 		EForm eForm = eFormDao.findById(fid);
 
-		if(eForm != null && eForm.getId() > 0) {
+		if (eForm != null && eForm.getId() > 0) {
 
 			// only update optional parameters if they are given
 			String formSubject = jsonObject.has("formSubject") ? jsonObject.get("formSubject").asText() : eForm.getSubject();
@@ -232,7 +232,7 @@ public class EFormService extends AbstractServiceImpl {
 
 			eForm.setRoleType(roleType);
 
-			if(isValidEformData(eForm)) {
+			if (isValidEformData(eForm)) {
 				eFormDao.merge(eForm);
 				LogAction.addLogEntry(getLoggedInInfo().getLoggedInProviderNo(), null,
 						LogConst.ACTION_UPDATE, LogConst.CON_EFORM_TEMPLATE, LogConst.STATUS_SUCCESS,
@@ -250,11 +250,11 @@ public class EFormService extends AbstractServiceImpl {
 	 * @return true if data is valid, false otherwise
 	 */
 	private boolean isValidEformData(EForm eForm) {
-		if(eForm == null)
+		if (eForm == null)
 			return false;
-		if(eForm.getFormHtml() == null || eForm.getFormHtml().trim().isEmpty())
+		if (eForm.getFormHtml() == null || eForm.getFormHtml().trim().isEmpty())
 			return false;
-		if(eForm.getFormName() == null || eForm.getFormName().trim().isEmpty())
+		if (eForm.getFormName() == null || eForm.getFormName().trim().isEmpty())
 			return false;
 		return true;
 	}
