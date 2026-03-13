@@ -530,7 +530,7 @@
 	var VACCINE_BRANDS_DEFAULT = [
 {name:"OtherA", value:"IXCHIQ not less than 3.0 log10 TCID50 per 0.5 milliliter powder for solution for injection", manufacture:"Valneva Austria GmbH", dose:"0.5", units:"mL", route:"IM", din:"2548984"},
 {name:"Chol-Ecol-O", value:"DUKORAL oral suspension", manufacture:"Valneva Sweden AB", dose:"", units:"DOSE", route:"PO", din:"2247208"},
-{name:"CHOLERA", value:"VAXCHORA 400000000 to 2000000000 colony forming units per sachet powder for oral suspension", manufacture:"Bavarian Nordic AS", dose:"", units:"DOSE", route:"PO", din:"2538164"},
+{name:"Chol-O", value:"VAXCHORA 400000000 to 2000000000 colony forming units per sachet powder for oral suspension", manufacture:"Bavarian Nordic AS", dose:"", units:"DOSE", route:"PO", din:"2538164"},
 {name:"OtherA", value:"Cytogam 50 milligrams per milliliter solution for infusion", manufacture:"KI BioPharma LLC", dose:"50", units:"mL", route:"IV", din:"2231962"},
 {name:"OtherA", value:"Cytogam 50 milligrams per milliliter solution for infusion", manufacture:"Saol Therapeutics Research Limited", dose:"50", units:"mL", route:"IV", din:"2231962"},
 {name:"COVID-19", value:"COMIRNATY messenger ribonucleic acid 10 micrograms per 0.3 milliliter suspension for injection", manufacture:"BioNTech Manufacturing GmbH", dose:"0.3", units:"mL", route:"IM", din:"2541858"},
@@ -539,32 +539,32 @@
 {name:"COVID-19", value:"COMIRNATY Omicron XBB.1.5 messenger ribonucleic acid 30 micrograms per 0.3 milliliter suspension for injection", manufacture:"BioNTech Manufacturing GmbH", dose:"0.3", units:"mL", route:"IM", din:"2541823"},
 {name:"COVID-19", value:"SPIKEVAX messenger ribonucleic acid 0.10 milligrams per 1 milliliter dispersion for injection", manufacture:"Moderna Biopharma Canada Corporation", dose:"", units:"mL", route:"IM", din:"2541270"},
 {name:"COVID-19", value:"SPIKEVAX XBB.1.5 messenger ribonucleic acid 0.10 milligrams per 1 milliliter dispersion for injection", manufacture:"Moderna Biopharma Canada Corporation", dose:"", units:"mL", route:"IM", din:"2541270"},
-{name:"DTaP-HBV-IPV-Hib", value:"INFANRIX hexa suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2253852"},
-{name:"HepA", value:"AVAXIM 160 units per 0.5 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2237792"},
-{name:"HepA", value:"Havrix 1440 ELISA units per milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"mL", route:"IM", din:"2187078"},
-{name:"HepA", value:"Havrix 720 ELISA units per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2231056"},
-{name:"HepA", value:"VAQTA 25 units per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2229702"},
-{name:"HepA", value:"VAQTA 50 units per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2229702"},
-{name:"HepAB", value:"Twinrix 360 ELISA units HAV and 10 micrograms HBV per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2237548"},
-{name:"HepAB", value:"Twinrix 720 ELISA units HAV and 20 micrograms HBV per milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"1", units:"mL", route:"IM", din:"2230578"},
-{name:"HepB", value:"RECOMBIVAX HB 10 micrograms per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2243676"},
-{name:"HepB", value:"RECOMBIVAX HB 40 micrograms per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2245977"},
-{name:"HepB", value:"RECOMBIVAX HB 5 micrograms per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2243676"},
+{name:"DTaP-HB-IPV-Hib", value:"INFANRIX hexa suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2253852"},
+{name:"HA",value:"AVAXIM 160 units per 0.5 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2237792"},
+{name:"HA",value:"Havrix 1440 ELISA units per milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"mL", route:"IM", din:"2187078"},
+{name:"HA",value:"Havrix 720 ELISA units per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2231056"},
+{name:"HA",value:"VAQTA 25 units per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2229702"},
+{name:"HA",value:"VAQTA 50 units per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2229702"},
+{name:"HAHB",value:"Twinrix 360 ELISA units HAV and 10 micrograms HBV per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2237548"},
+{name:"HAHB",value:"Twinrix 720 ELISA units HAV and 20 micrograms HBV per milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"1", units:"mL", route:"IM", din:"2230578"},
+{name:"HB",value:"RECOMBIVAX HB 10 micrograms per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2243676"},
+{name:"HB",value:"RECOMBIVAX HB 40 micrograms per milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2245977"},
+{name:"HB",value:"RECOMBIVAX HB 5 micrograms per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"", units:"mL", route:"IM", din:"2243676"},
 {name:"OtherA", value:"HepaGam B 312 international units per milliliter liquid for injection", manufacture:"KI BioPharma LLC", dose:"", units:"mL", route:"IM", din:"2290979"},
 {name:"OtherA", value:"HepaGam B 312 international units per milliliter liquid for injection", manufacture:"Saol Therapeutic Research Limited", dose:"", units:"mL", route:"IM", din:"2290979"},
 {name:"OtherA", value:"HyperHEP B 110 international units per 0.5 milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"0.5", units:"mL", route:"IM", din:"2520125"},
 {name:"OtherA", value:"HyperHEP B 220 international units per milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"mL", route:"IM", din:"2520001"},
 {name:"Hib", value:"Act-HIB 10 micrograms per 0.5 milliliter powder and diluent for solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"1959034"},
-{name:"HPV Vaccine", value:"CERVARIX 40 micrograms per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2342227"},
-{name:"HPV Vaccine", value:"GARDASIL 9 270 micrograms per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"IM", din:"2437058"},
+{name:"HPV", value:"CERVARIX 40 micrograms per 0.5 milliliter suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2342227"},
+{name:"HPV-9", value:"GARDASIL 9 270 micrograms per 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"IM", din:"2437058"},
 {name:"OtherA", value:"GamaSTAN 15 to 18 percent solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"", route:"IM", din:"2486598"},
-{name:"Flu", value:"AREPANRIX H5N1 3.75 micrograms per 0.5 milliliter suspension and emulsion for injection", manufacture:"ID Biomedical Corporation of Quebec", dose:"0.5", units:"mL", route:"IM", din:"2401886"},
-{name:"Flu", value:"FLUAD 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"Seqirus UK Limited", dose:"0.5", units:"mL", route:"IM", din:"2362384"},
-{name:"Flu", value:"FLULAVAL TETRA 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"ID Biomedical Corporation of Quebec", dose:"0.5", units:"mL", route:"IM", din:"2420783"},
-{name:"Flu", value:"FLUMIST QUADRIVALENT 0.2 milliliter intranasal spray", manufacture:"AstraZeneca Canada Inc.", dose:"0.2", units:"mL", route:"Intranasal", din:"2426544"},
-{name:"Flu", value:"FLUZONE High-Dose Quadrivalent 60 micrograms per 0.7 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.7", units:"mL", route:"IM", din:"2500523"},
-{name:"Flu", value:"FLUZONE Quadrivalent 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2432730"},
-{name:"Flu", value:"INFLUVAC TETRA 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"BGP Pharma ULC", dose:"0.5", units:"mL", route:"IM", din:"2484854"},
+{name:"Inf",value:"AREPANRIX H5N1 3.75 micrograms per 0.5 milliliter suspension and emulsion for injection", manufacture:"ID Biomedical Corporation of Quebec", dose:"0.5", units:"mL", route:"IM", din:"2401886"},
+{name:"Inf",value:"FLUAD 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"Seqirus UK Limited", dose:"0.5", units:"mL", route:"IM", din:"2362384"},
+{name:"Inf",value:"FLULAVAL TETRA 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"ID Biomedical Corporation of Quebec", dose:"0.5", units:"mL", route:"IM", din:"2420783"},
+{name:"Inf",value:"FLUMIST QUADRIVALENT 0.2 milliliter intranasal spray", manufacture:"AstraZeneca Canada Inc.", dose:"0.2", units:"mL", route:"Intranasal", din:"2426544"},
+{name:"Inf",value:"FLUZONE High-Dose Quadrivalent 60 micrograms per 0.7 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.7", units:"mL", route:"IM", din:"2500523"},
+{name:"Inf",value:"FLUZONE Quadrivalent 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2432730"},
+{name:"Inf",value:"INFLUVAC TETRA 15 micrograms per 0.5 milliliter suspension for injection", manufacture:"BGP Pharma ULC", dose:"0.5", units:"mL", route:"IM", din:"2484854"},
 {name:"IPV", value:"IMOVAX Polio 80 units per 0.5 milliliter solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"SQ", din:"1959042"},
 {name:"JE", value:"IXIARO 6 micrograms per 0.5 milliliter suspension for injection", manufacture:"Valneva Austria GmbH", dose:"0.5", units:"mL", route:"IM", din:"2333279"},
 {name:"rMenB", value:"BEXSERO suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2417030"},
@@ -574,22 +574,22 @@
 {name:"Men-C-ACYW-135", value:"Menveo powder and solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2347393"},
 {name:"Men-C-ACYW-135", value:"NIMENRIX powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2402904"},
 {name:"Men-C-ACYW-135", value:"NIMENRIX powder and diluent for solution for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2402904"},
-{name:"MenC-C", value:"MENJUGATE Liquid 10 micrograms suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2440709"},
-{name:"MenC-C", value:"NeisVac-C 10 micrograms per 0.5 milliliter suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2245057"},
+{name:"Men-C-C",value:"MENJUGATE Liquid 10 micrograms suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2440709"},
+{name:"Men-C-C",value:"NeisVac-C 10 micrograms per 0.5 milliliter suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2245057"},
 {name:"MMR", value:"M-M-R II powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"", din:"466085"},
 {name:"MMR", value:"PRIORIX powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"", route:"", din:"2239208"},
-{name:"MMRV", value:"PRIORIX-TETRA powder and solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"", din:"2297884"},
-{name:"MMRV", value:"ProQuad powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"", route:"SQ", din:"2399229"},
+{name:"MMR-Var",value:"PRIORIX-TETRA powder and solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"", din:"2297884"},
+{name:"MMR-Var",value:"ProQuad powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"", route:"SQ", din:"2399229"},
 {name:"Pneu-C", value:"Prevnar 13 suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2335204"},
 {name:"Pneu-C", value:"VAXNEUVANCE 0.5 milliliter suspension for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"IM", din:"2522403"},
 {name:"Pneu-C", value:"PREVNAR 20 0.5 milliliter suspension for injection", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2527049"},
 {name:"Pneu-C", value:"CAPVAXIVE 0.5 milliliter solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"IM", din:"2549891"},
-{name:"Rabies", value:"Imovax Rabies 2.5 international units per milliliter powder for solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"", units:"VIAL", route:"IM", din:"1908286"},
-{name:"Rabies", value:"RABAVERT 2.5 international units per milliliter powder for solution for injection", manufacture:"Bavarian Nordic AS", dose:"", units:"DOSE", route:"IM", din:"2267667"},
+{name:"Rab",value:"Imovax Rabies 2.5 international units per milliliter powder for solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"", units:"VIAL", route:"IM", din:"1908286"},
+{name:"Rab",value:"RABAVERT 2.5 international units per milliliter powder for solution for injection", manufacture:"Bavarian Nordic AS", dose:"", units:"DOSE", route:"IM", din:"2267667"},
 {name:"OtherA", value:"HyperRAB 300 international units per milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"mL", route:"IM", din:"2486571"},
 {name:"OtherA", value:"KamRAB 150 international units per milliliter solution for injection", manufacture:"Kamada Ltd", dose:"", units:"mL", route:"IM", din:"2482436"},
-{name:"Rot", value:"ROTARIX 1000000 units per 1.5 milliliter oral suspension", manufacture:"GlaxoSmithKline Inc.", dose:"1.5", units:"mL", route:"PO", din:"2300591"},
-{name:"Rot", value:"RotaTeq 115000000 units per 2 milliliter oral solution", manufacture:"Merck Canada Inc.", dose:"", units:"DOSE", route:"PO", din:"2284413"},
+{name:"Rota",value:"ROTARIX 1000000 units per 1.5 milliliter oral suspension", manufacture:"GlaxoSmithKline Inc.", dose:"1.5", units:"mL", route:"PO", din:"2300591"},
+{name:"Rota",value:"RotaTeq 115000000 units per 2 milliliter oral solution", manufacture:"Merck Canada Inc.", dose:"", units:"DOSE", route:"PO", din:"2284413"},
 {name:"RSV", value:"ABRYSVO 120 micrograms per 0.5 milliliter powder for suspension", manufacture:"Pfizer Canada ULC", dose:"0.5", units:"mL", route:"IM", din:"2544040"},
 {name:"RSV", value:"AREXVY 120 micrograms per 0.5 milliliter powder and suspension for suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2540207"},
 {name:"RSVAb", value:"BEYFORTUS 100 milligrams per 1 milliliter solution for injection syringe", manufacture:"Sanofi Pasteur Limited", dose:"1", units:"mL", route:"IM", din:"2537214"},
@@ -598,15 +598,15 @@
 {name:"RSVAb", value:"SYNAGIS 100 milligrams per milliliter solution for injection", manufacture:"AstraZeneca Canada Inc.", dose:"", units:"mL", route:"IM", din:"2438364"},
 {name:"RZV", value:"SHINGRIX 50 micrograms per 0.5 milliliter powder and suspension for suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2468425"},
 {name:"Td", value:"Td ADSORBED 5 limit of flocculation units and 2 limit of flocculation units per 0.5 milliliter without preservative suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2528401"},
-{name:"dTap", value:"ADACEL suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2240255"},
-{name:"dTap", value:"BOOSTRIX suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2247600"},
+{name:"Tdap",value:"ADACEL suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2240255"},
+{name:"Tdap",value:"BOOSTRIX suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2247600"},
 {name:"Tdap-IPV", value:"ADACEL-POLIO suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2352044"},
 {name:"Tdap-IPV", value:"BOOSTRIX-POLIO suspension for injection", manufacture:"GlaxoSmithKline Inc.", dose:"0.5", units:"mL", route:"IM", din:"2312557"},
 {name:"OtherA", value:"HyperTET 250 antitoxin units per milliliter solution for injection", manufacture:"Grifols Therapeutics Inc.", dose:"", units:"mL", route:"IM", din:"2520087"},
-{name:"Typhoid", value:"TYPHIM Vi 25 micrograms per 0.5 milliliter solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2130955"},
+{name:"Typh-I", value:"TYPHIM Vi 25 micrograms per 0.5 milliliter solution for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"IM", din:"2130955"},
 {name:"Typh-O", value:"Vivotif 10 billion units enteric coated capsule", manufacture:"Bavarian Nordic AS", dose:"", units:"", route:"PO", din:"885975"},
-{name:"VZ", value:"VARILRIX not less than 1995 plaque forming units per 0.5 milliliter powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"", route:"SQ", din:"2241047"},
-{name:"VZ", value:"VARIVAX III 1350 plaque forming units powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"SQ", din:"2246081"},
+{name:"Var",value:"VARILRIX not less than 1995 plaque forming units per 0.5 milliliter powder and diluent for solution for injection", manufacture:"GlaxoSmithKline Inc.", dose:"", units:"", route:"SQ", din:"2241047"},
+{name:"Var",value:"VARIVAX III 1350 plaque forming units powder and diluent for solution for injection", manufacture:"Merck Canada Inc.", dose:"0.5", units:"mL", route:"SQ", din:"2246081"},
 {name:"OtherA", value:"VariZIG 125 international units per 1.2 milliliter solution for injection", manufacture:"KI BioPharma LLC", dose:"", units:"VIAL", route:"IM", din:"2442183"},
 {name:"OtherA", value:"VariZIG 125 international units per 1.2 milliliter solution for injection", manufacture:"Saol Therapeutics Research Limited", dose:"", units:"VIAL", route:"IM", din:"2442183"},
 {name:"YF", value:"YF-VAX 109648 plaque forming units per 0.5 milliliter powder and diluent for suspension for injection", manufacture:"Sanofi Pasteur Limited", dose:"0.5", units:"mL", route:"SQ", din:"428833"},
@@ -1479,15 +1479,31 @@
 
         /* ---- CVC lot-number autocomplete on #lotNumberToAdd2 ----
          * Fetches suggestions from the server (cvc.do?method=query).
+         * Mirrors ARIA combobox/listbox pattern from initAutocomplete().
          */
         (function() {
             var input = document.getElementById('lotNumberToAdd2');
             var dropdown = document.getElementById('lotNumberToAdd2_choices');
             if (!input || !dropdown) return;
 
+            /* ARIA: wire up combobox/listbox roles */
+            var dropdownId = dropdown.id || 'lotNumberToAdd2_choices';
+            dropdown.id = dropdownId;
+            input.setAttribute('role', 'combobox');
+            input.setAttribute('aria-expanded', 'false');
+            input.setAttribute('aria-controls', dropdownId);
+            input.setAttribute('aria-autocomplete', 'list');
+            dropdown.setAttribute('role', 'listbox');
+            dropdown.setAttribute('aria-hidden', 'true');
+
+            var activeIdx = -1;
             var debounceTimer;
             var requestSeq = 0;
             var cachedResults = [];
+
+            function clearActive(items) {
+                items.forEach(function(el) { el.classList.remove('active'); el.setAttribute('aria-selected', 'false'); });
+            }
 
             function fetchResults(q, callback) {
                 clearTimeout(debounceTimer);
@@ -1516,19 +1532,37 @@
                 var q = this.value.trim();
                 if (q.length < 3) {
                     dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
+                    activeIdx = -1;
                     return;
                 }
                 fetchResults(q, function(results) {
                     dropdown.innerHTML = '';
-                    if (!results.length) { dropdown.style.display = 'none'; return; }
-                    results.slice(0, 25).forEach(function(item) {
+                    activeIdx = -1;
+                    if (!results.length) {
+                        dropdown.style.display = 'none';
+                        input.setAttribute('aria-expanded', 'false');
+                        dropdown.setAttribute('aria-hidden', 'true');
+                        input.removeAttribute('aria-activedescendant');
+                        return;
+                    }
+                    results.slice(0, 25).forEach(function(item, idx) {
                         var div = document.createElement('div');
                         div.className = 'ac-item';
+                        div.id = dropdownId + '-opt-' + idx;
+                        div.setAttribute('role', 'option');
+                        div.setAttribute('aria-selected', 'false');
                         div.innerHTML = item.generic ? escHtml(item.name) : '<strong>' + escHtml(item.name) + '</strong>';
                         div.addEventListener('mousedown', function(e) {
                             e.preventDefault();
                             input.value = '';
                             dropdown.style.display = 'none';
+                            input.setAttribute('aria-expanded', 'false');
+                            dropdown.setAttribute('aria-hidden', 'true');
+                            input.removeAttribute('aria-activedescendant');
+                            activeIdx = -1;
                             var lotNum = item.lotNumber || '';
                             if (lotNum.length > 0) {
                                 popup(465, 635, 'AddPreventionData.jsp?demographic_no=<%=demographic_no%>&lotNumber=' + encodeURIComponent(lotNum), 'addPreventionData' + Math.floor(Math.random() * 10000 + 1));
@@ -1538,6 +1572,8 @@
                         });
                         dropdown.appendChild(div);
                     });
+                    input.setAttribute('aria-expanded', 'true');
+                    dropdown.setAttribute('aria-hidden', 'false');
                     dropdown.style.display = 'block';
                 });
             });
@@ -1546,28 +1582,41 @@
             input.addEventListener('keydown', function(e) {
                 var items = dropdown.querySelectorAll('.ac-item');
                 if (!items.length) return;
-                var activeIdx = Array.prototype.indexOf.call(items, dropdown.querySelector('.ac-item.active'));
                 if (e.key === 'ArrowDown') {
                     e.preventDefault();
-                    var next = Math.min(activeIdx + 1, items.length - 1);
-                    items.forEach(function(el) { el.classList.remove('active'); });
-                    items[next].classList.add('active');
+                    activeIdx = Math.min(activeIdx + 1, items.length - 1);
+                    clearActive(items);
+                    items[activeIdx].classList.add('active');
+                    items.forEach(function(el) { el.setAttribute('aria-selected', 'false'); });
+                    items[activeIdx].setAttribute('aria-selected', 'true');
+                    input.setAttribute('aria-activedescendant', items[activeIdx].id);
                 } else if (e.key === 'ArrowUp') {
                     e.preventDefault();
-                    var prev = Math.max(activeIdx - 1, 0);
-                    items.forEach(function(el) { el.classList.remove('active'); });
-                    items[prev].classList.add('active');
+                    activeIdx = Math.max(activeIdx - 1, 0);
+                    clearActive(items);
+                    items[activeIdx].classList.add('active');
+                    items.forEach(function(el) { el.setAttribute('aria-selected', 'false'); });
+                    items[activeIdx].setAttribute('aria-selected', 'true');
+                    input.setAttribute('aria-activedescendant', items[activeIdx].id);
                 } else if (e.key === 'Enter' && activeIdx >= 0) {
                     e.preventDefault();
                     items[activeIdx].dispatchEvent(new MouseEvent('mousedown'));
                 } else if (e.key === 'Escape') {
                     dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
+                    activeIdx = -1;
                 }
             });
 
             document.addEventListener('click', function(e) {
                 if (!input.contains(e.target) && !dropdown.contains(e.target)) {
                     dropdown.style.display = 'none';
+                    input.setAttribute('aria-expanded', 'false');
+                    dropdown.setAttribute('aria-hidden', 'true');
+                    input.removeAttribute('aria-activedescendant');
+                    activeIdx = -1;
                 }
             });
         })();
