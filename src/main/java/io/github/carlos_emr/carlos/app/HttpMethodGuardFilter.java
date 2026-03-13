@@ -217,6 +217,24 @@ public class HttpMethodGuardFilter implements Filter {
             "formsaveandexit.jsp",
             // Waiting list mutators
             "add2waitinglist.jsp",
+            "removefromwaitinglist.jsp",
+            // Pharmacy mutators
+            "managepharmacy.jsp",
+            // Tickler mutators (JSP-based)
+            "dbtickleradd.jsp",
+            // Demographic set mutators
+            "adddemotopatientset.jsp",
+            // Provider preference mutators
+            "providerpreferencequicklinksaction.jsp",
+            // Billing form management mutators
+            "dbmanagebillingform_add.jsp",
+            "billingsettings.jsp",
+            // Teleplan mutators
+            "genteplangroupreport.jsp",
+            // Document mutators
+            "uploadmultidocument.jsp",
+            // Antenatal mutators
+            "antenatalplanner.jsp",
             // Provider availability (mutator when method=save)
             "setprovideravailability.jsp"
     );
