@@ -64,9 +64,7 @@ public class EConsult2Action extends ActionSupport {
     private final String backendEconsultUrl = oscarProperties.getProperty("backendEconsultUrl");
 
     public String execute() {
-        if ("backend".equals(request.getParameter("method"))) {
-            return backend();
-        } else if ("login".equals(request.getParameter("method"))) {
+        if ("login".equals(request.getParameter("method"))) {
             return login();
         }
         return frontend();
@@ -122,32 +120,6 @@ public class EConsult2Action extends ActionSupport {
         } catch (IOException e) {
             MiscUtils.getLogger().error("There was a problem with the redirect of " + stringBuilder.toString(), e);
         }
-
-        return null;
-    }
-
-    public String backend() {
-
-        // no token, no fun.
-        String oneIdToken = (String) request.getSession().getAttribute("oneid_token");
-        if (oneIdToken == null || oneIdToken.isEmpty()) {
-            return login();
-        }
-
-//		String backendEconsultUrl = oscarProperties.getProperty("backendEconsultUrl");
-
-//        //Creates an HttpGet with the url to get eConsults and sets a header for the oneIdEmail
-//        HttpGet httpGet = new HttpGet(url);
-//        httpGet.addHeader("x-oneid-email", URLEncoder.encode(oneIdEmail, StandardCharsets.UTF_8.toString()));
-//        httpGet.addHeader("x-access-token", oneIdToken);
-//        
-//        //Gets an HttpClient that will ignore SSL validation
-//        HttpClient httpClient = getHttpClient2();
-//        //Executes the GET request and stores the response
-//        HttpResponse httpResponse = httpClient.execute(httpGet);
-//        //Gets the entity from the response and stores it as a JSONObject
-//        String entity = EntityUtils.toString(httpResponse.getEntity());
-//        JSONObject object = objectMapper.createObjectNode();
 
         return null;
     }

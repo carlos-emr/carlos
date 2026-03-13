@@ -1,0 +1,809 @@
+#!/bin/sh
+#==================================================================
+# Copyright Peter Hutten-Czapski 2012-26 released under the GPL v2+
+# v 0.1
+#==================================================================
+
+set -e
+
+# Source debconf library.
+. /usr/share/debconf/confmodule
+
+# Script Constants
+PROGRAM=carlos
+PACKAGE=carlos-emr
+VERSION=0.1
+PREVIOUS=19
+REVISION=1~1
+if [ -f /usr/share/tomcat11/bin/version.sh ] ; then
+        TOMCAT=tomcat11
+        TOMCAT_USER=tomcat
+    else
+    if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+            TOMCAT=tomcat10
+            TOMCAT_USER=tomcat
+        else
+        if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
+                TOMCAT=tomcat9
+                TOMCAT_USER=tomcat
+            else
+            if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
+                    TOMCAT=tomcat8
+                    TOMCAT_USER=tomcat8
+                 else
+                 if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
+                        TOMCAT=tomcat7
+                        TOMCAT_USER=tomcat7
+                 fi
+             fi
+         fi
+     fi
+fi
+tomcat_path=/usr/share/${TOMCAT}/
+C_HOME=/usr/share/${TOMCAT}/
+C_BASE=/var/lib/${TOMCAT}/
+SRC=/var/lib/${PACKAGE}/
+triumvirate=true
+COUNTRY=Unknown
+DEMO=false
+UPGRADE=false
+TMPTY=false
+LOG_FILE=${SRC}CARLOS${VERSION}install.log
+LOG_ERR=${SRC}CARLOS.err
+INSTALL_BACKUP=true
+
+# Property file default settings
+db_name=oscar_15
+db_switch='?characterEncoding=UTF-8&zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true&jdbcCompliantTruncation=false'
+priorschema=none
+db_password=
+login_local_ip=192.168
+DOCS=OscarDocument
+billregion=ON
+billcenter=G
+signature_tablet=no
+ENABLE_EDIT_APPT_STATUS=yes
+appt_intake_form=off
+new_flowsheet_enabled=true
+NEW_CONTACTS_UI=true
+enableFax=false
+buildDateTime="May 21, 2019 4:31:35 PM"
+logintext="CARLOS EMR"
+faxEnable=false
+rx_fax_enabled=false
+consultation_fax_enabled=false
+eform_fax_enabled=false
+eform_generator_indivica_fax_enabled=false
+consultation_dynamic_labelling_enabled=false
+rx_enhance=false
+rx_signature_enabled=true
+consultation_signature_enabled=true
+consultation_indivica_attachment_enabled=true
+moh_file_management_enabled=true
+ONEDT_INBOX=${SRC}${DOCS}/${PROGRAM}/onEDTDocs/inbox/
+ONEDT_OUTBOX=${SRC}${DOCS}/${PROGRAM}/onEDTDocs/outbox/
+ONEDT_SENT=${SRC}${DOCS}/${PROGRAM}/onEDTDocs/sent/
+ONEDT_ARCHIVE=${SRC}${DOCS}/${PROGRAM}/onEDTDocs/archive/
+BASE_DOCUMENT_DIR=${SRC}${DOCS}
+workflow_enhance=true
+indivica_hc_read_enabled=true
+eform_signature_enabled=true
+eform_generator_indivica_signature_enabled=true
+eform_generator_indivica_print_enabled=true
+indivica_rich_text_letter_enabled=true
+
+HL7_COMPLETED_DIR=${SRC}${DOCS}/${PROGRAM}/document/
+backup_path=${SRC}backup/
+tickler_warn_period=1
+seconds_till_considered_stale=-1
+enable_wait_list_email_notifications=false
+wait_list_email_notification_period=86400000
+wait_list_email_notification_program_ids=10016
+tickler_edit_enabled=true
+tickler_email_enabled=false
+tickler_email_from_address=test@clinic.com
+tickler_email_subject=TicklerTest
+drugref_url=http://localhost:8080/drugref/DrugrefService
+#loginlogo=""
+logintitle="CARLOS EMR ${VERSION}"
+
+resource_base_url=https://carlos-emr.com/
+moh_file_management_enabled=false
+ONEDT_INBOX=${SRC}${DOCS}/${PROGRAM}/onEDTDocs/inbox/
+ONEDT_OUTBOX=${SRC}${DOCS}/${PROGRAM}/onEDTDocs/outbox/
+ONEDT_SENT=${SRC}${DOCS}/${PROGRAM}/onEDTDocs/sent/
+ONEDT_ARCHIVE=${SRC}${DOCS}/${PROGRAM}/onEDTDocs/archive/
+
+ModuleNames=REST
+onare_labreqver=10
+born_env=T
+born_sftp_host=127.0.0.1
+born_sftp_port=22
+born_sftp_username=test
+born_sftp_password=test
+born_sftp_remote_dir=/
+born18m_env=T
+born18m_orgcode=mcmaster
+born18m_sftp_host=127.0.0.1
+born18m_sftp_port=22
+born18m_sftp_username=test
+born18m_sftp_password=test
+born18m_sftp_remote_dir=/
+born18m_eform_rourke="Rourke Baby Record"
+born18m_eform_ndds="Nipissing District Developmental Screen"
+born18m_eform_report18m="Summary Report: 18-month Well Baby Visit"
+born18m_upload_hour=01
+showRxChartNo=false
+redirectstudysite_default_baseURL=http://competeii.mcmaster.ca/PDSsecurity/login.asp
+redirectstudysite_default_username=yilee18
+redirectstudysite_default_password=
+web_service_client_connection_timeout_ms=1500
+web_service_client_received_timeout_ms=3000
+default_bill_center=
+default_search_mode=search_name
+mrp_model=yes
+appointment_locking_timeout=0
+prevention_show_comments=false
+invoice_due_date=30
+form_intake_program_access_service_id=10016
+form_intake_program_access_fid=1
+form_intake_program_cash_service_id=10016
+form_intake_program_cash_fid=1
+warnOnDeleteBill=false
+lab_req_include_chartno=true
+use_lab_clientreference=true
+useDemoClinicInfoOnInvoice=true
+INVOICE_DIR=${SRC}${DOCS}/${PROGRAM}/billing/invoices
+NEW_CONTACTS_UI_EXTERNAL_CONTACT=true
+ckd_notification_scheme=tickler
+ORN_PILOT=no
+onare_labreqver=10
+orn_labreqver=10
+health_tracker=true
+wl_default_issue=false
+encounter_hide_invoices=false
+INCOMINGDOCUMENT_DIR=${SRC}${DOCS}/${PROGRAM}/incomingdocs
+INCOMINGDOCUMENT_RECYCLEBIN=true
+ALLOW_UPDATE_DOCUMENT_CONTENT=true
+displayNotesOnScheduleScreen=true
+displayAlertsOnScheduleScreen=true
+privateConsentEnabled=true
+useProgramLocation=false
+mandatory_password_reset=true
+CBI_JOB_INTERVAL=43200000
+CBI_WS_URL=https://ws.cbiproject.ca:8443/CBIService/cbitest?wsdl
+CBI_WS_USERNAME=
+CBI_WS_PASSWORD=
+CBI_WS_CLIENT_QNAME=CBIServiceImplService
+CBI_WS_CLIENT_QNAME_URL=http://ws.cbi.com/
+CBI_REMINDER_WINDOW=no
+CBI_REMIND_ON_UPDATE_DEMOGRAPHIC=false
+sharingcenter_enabled=false
+TOMCAT_KEYSTORE_FILE=/home/carlos/ihe/ihe.keystore.jks
+TOMCAT_KEYSTORE_PASSWORD=changeit
+TOMCAT_TRUSTSTORE_FILE=/home/carlos/ihe/ihe.truststore.jks
+TOMCAT_TRUSTSTORE_PASSWORD=changeit
+mcedt_enabled=false
+mcedt_logging_skip=false
+mcedt_keystore_user=test
+mcedt_keystore_pass=password
+mcedt_service_user=user
+mcedt_service_pass=servicepass
+mcedt_service_url=url
+mcedt_service_conformanceKey=key
+mcedt_service_id=id
+showSexualHealthLabel=false
+
+MDS_LABS=yes
+CML_LABS=yes
+HL7TEXT_LABS=yes
+
+# Only cleanup the passwords on error because we may need the passwords
+# in the post install script. The post install must handle the cleanup
+# for all error conditions and successful exit.
+#trap cleanupOnError HUP TERM ABRT KILL INT QUIT 
+#cleanupOnError()
+#{
+#	echo "Cleaning up sensitive data"
+#	db_get carlos-emr/password
+#}
+
+# --- log the running of the script appending as necessary
+echo "#########" `date` "#########" 1>> $LOG_FILE
+echo Configuration of VERSION=${VERSION}-${REVISION}>>$LOG_FILE
+
+
+# dpkg -l |grep " tomcat"
+#/usr/share/tomcat7/bin/version.sh
+
+# log versions for troubleshooting
+/usr/share/${TOMCAT}/bin/version.sh >> $LOG_FILE
+mysql -V  >> $LOG_FILE
+echo "" >>$LOG_FILE
+
+service ${TOMCAT} stop 2>>$LOG_FILE
+
+if [ -f "${C_BASE}${PACKAGE}/WEB-INF/classes/clientKeystore.properties" ] ; then
+        echo "retrieve existing clientKeystore.properties" >> $LOG_FILE
+        cp ${C_BASE}${PACKAGE}/WEB-INF/classes/clientKeystore.properties ${C_BASE}${PACKAGE}/ck.properties 1>> $LOG_FILE
+fi
+
+
+if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
+        echo "WARNING Tomcat 7 is deprecated"
+        echo "WARNING attempting to install on outdated Tomcat 7 !!"  >> $LOG_FILE
+                # Determine source webapps dir (use package-bundled location if available)
+                SRC_WEBAPPS="${SRC_WEBAPPS:-/var/lib/${PACKAGE}/webapps}"
+                [ ! -d "${SRC_WEBAPPS}" ] && SRC_WEBAPPS="/var/lib/tomcat9/webapps"
+                cp "${SRC_WEBAPPS}/carlos.war" /var/lib/tomcat7/webapps/carlos.war
+                cp "${SRC_WEBAPPS}/drugref.war" /var/lib/tomcat7/webapps/drugref.war
+else
+        # if tomcat8 then need to move the wars from the DEB installed directories to the tomcat8 directory
+        if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
+        echo "WARNING Tomcat 8 is deprecated"
+        echo "WARNING attempting to install on outdated Tomcat 8 !!"  >> $LOG_FILE
+                # Determine source webapps dir (use package-bundled location if available)
+                SRC_WEBAPPS="${SRC_WEBAPPS:-/var/lib/${PACKAGE}/webapps}"
+                [ ! -d "${SRC_WEBAPPS}" ] && SRC_WEBAPPS="/var/lib/tomcat9/webapps"
+                cp "${SRC_WEBAPPS}/carlos.war" /var/lib/tomcat8/webapps/carlos.war
+                cp "${SRC_WEBAPPS}/drugref.war" /var/lib/tomcat8/webapps/drugref.war
+        else
+
+                # if tomcat 9 its a different move AND we need to add read write paths (tomcat 10 not supported)
+                if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
+                        
+                        # add carlos directory structure to the paths that tomcat9 can read and write to
+                        # DO NOT ADD read write to non existing paths or Tomcat will fail to start
+                        if [ -d "/etc/systemd/system/tomcat9.service.d" ] ; then
+                                if [ ! -f /etc/systemd/system/tomcat9.service.d/override.conf ] ; then
+                                        touch /etc/systemd/system/tomcat9.service.d/override.conf
+                                        echo "[Service]" >> /etc/systemd/system/tomcat9.service.d/override.conf
+                                        echo "ReadWritePaths=/var/lib/OscarDocument/" >> /etc/systemd/system/tomcat9.service.d/override.conf
+                                        echo "ReadWritePaths=/tmp/" >> /etc/systemd/system/tomcat9.service.d/override.conf
+                                        echo "Created /etc/systemd/system/tomcat9.service.d/override.conf so that tomcat9 read and write on /usr/share/carlos-emr " >>$LOG_FILE
+                                        echo "Allowing tomcat9 read and write on /var/lib/OscarDocument/ and /tmp/ by override"
+                                        systemctl daemon-reload
+                                else
+                               #test to see if the ReadWritePaths entry is already present
+                                        if grep -Fq "ReadWritePaths=/var/lib/OscarDocument/" /etc/systemd/system/tomcat9.service.d/override.conf ; then
+                                                echo "Tomcat already has an override set, not modified"
+                                        else
+                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/var/lib/OscarDocument/' /etc/systemd/system/tomcat9.service.d/override.conf
+                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/tmp/' /etc/systemd/system/tomcat9.service.d/override.conf
+                                                echo "Edited override to allow Tomcat read write on /var/lib/OscarDocument and /tmp"
+                                                echo "Added Tomcat read and write on /var/lib/OscarDocument/ and /tmp/ to existing override /etc/systemd/system/tomcat9.service.d/override.conf"  >>$LOG_FILE
+                                                systemctl daemon-reload
+                                        fi                
+                                fi
+                        fi
+                        if [ ! -d "/etc/systemd/system/tomcat9.service.d" ] ; then
+                                if [ -f /lib/systemd/system/tomcat9.service ] ; then
+                                #test to see if entry present already
+                                        if grep -Fq "/var/lib/OscarDocument/" /lib/systemd/system/tomcat9.service ; then
+                                                echo "Tomcat already has read write on /var/lib/OscarDocument/"
+                                        else
+                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/var/lib/OscarDocument/' /lib/systemd/system/tomcat9.service
+                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/tmp/' /lib/systemd/system/tomcat9.service
+                                                echo "Edited tomcat9.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp/"
+                                                echo "Edited /lib/systemd/system/tomcat9.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp/" >>$LOG_FILE 
+                                                systemctl daemon-reload
+                                        fi
+                                fi
+                        fi
+                        if [ -f /etc/systemd/system/multi-user.target.wants/tomcat9.service ] ; then
+                                #test to see if entry present already
+                                        if grep -Fq "/var/lib/OscarDocument/" /etc/systemd/system/multi-user.target.wants/tomcat9.service ; then
+                                                # in Ubuntu this file is actually a link to tomcatX.service
+                                                echo "Tomcat already has read write on /var/lib/OscarDocument/ with an entry in tomcatX.service" >>$LOG_FILE 
+                                        else
+                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/var/lib/OscarDocument/' /etc/systemd/system/multi-user.target.wants/tomcat9.service 
+                                                sed -i '/ReadWritePaths=\/var\/log\/tomcat9\//a ReadWritePaths=/tmp/' /etc/systemd/system/multi-user.target.wants/tomcat9.service        
+                                                echo "Edited tomcatX.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp"
+                                                echo "Edited /etc/systemd/system/multi-user.target.wants/tomcatX.service to allow Tomcat read write on /var/lib/OscarDocument/ and /tmp" >>$LOG_FILE 
+                                                systemctl daemon-reload 
+                                        fi        
+                        fi      
+                        
+                        
+                fi
+        fi
+fi
+
+#GEOIP=$(curl --silent -f http://freegeoip.net/csv/ |  tr -d '"')
+#echo GEOIP=$GEOIP >>$LOG_FILE
+#IP=$(echo $GEOIP | awk -F "," '{print $1;}')
+#COUNTRY=$(echo $GEOIP | awk -F "," '{print $2;}')
+#STATE=$(echo $GEOIP | awk -F "," '{print $4;}')
+#LOCALITY=$(echo $GEOIP | awk -F "," '{print $6;}')
+
+
+
+GEOIP2=$(curl --silent -f --connect-timeout 5 --max-time 10 http://ip-api.com/csv/ | tr -d '"' | tr ' ' '+') || true
+#success,Canada,CA,ON,Ontario,"Temiskaming Shores",P0J,47.5776,-80.2036,America/Toronto,Parolink.net,Parolink.net,...
+echo GEOIP2=$GEOIP2 >>$LOG_FILE
+# Only parse geo fields when the lookup returned a non-empty response
+if [ -n "${GEOIP2}" ] ; then
+  IP=$(echo $GEOIP2 | awk -F "," '{print $14;}')
+  COUNTRY=$(echo $GEOIP2 | awk -F "," '{print $3;}')
+  STATE=$(echo $GEOIP2 | awk -F "," '{print $4;}')
+  LOCALITY=$(echo $GEOIP2 | awk -F "," '{print $6;}')
+fi
+echo State=${STATE} >>$LOG_FILE
+
+#if [ "${STATE}" = "QC" ]; then
+#	util_erx_clinic_locale="1"
+#fi
+#if [ "${COUNTRY}" = "US" ]; then
+#	util_erx_enabled=true
+#	util_erx_clinic_locale="3"
+#fi
+
+
+echo "Determined prefered locale" >>$LOG_FILE
+db_input high carlos-emr/billregion || true
+db_go ||true
+db_get carlos-emr/billregion
+STATE=$RET
+echo "Chosen region =${STATE}" 1>> $LOG_FILE
+
+
+### ============================================================
+### UPGRADE DETECTION: Check for a prior OSCAR 19 installation
+### Test: oscar.properties exists in Tomcat home directory
+### If found: UPGRADE=true, which triggers the OSCAR→CARLOS migration path
+###           in postinst (tables are copied from the old schema).
+### If NOT found: UPGRADE=false, new install path proceeds below.
+### ============================================================
+echo "Checking for OSCAR to CARLOS Upgrade possibility" >>$LOG_FILE
+if [ -f "/usr/share/${TOMCAT}/oscar.properties" ] ; then
+	echo "Previous OSCAR Installation Detected" >> $LOG_FILE
+	UPGRADE=true
+	echo "UPGRADE=${UPGRADE}" 1>> $LOG_FILE
+fi
+
+
+### ============================================================
+### SECTION: NEW INSTALL
+### Triggered when: No prior oscar.properties found (UPGRADE=false).
+### Prompts the installer for database password, billing region,
+### demo data preference, and other first-time installation options.
+### ============================================================
+if [ "${UPGRADE}" = "false" ] ; then
+echo "For a new install from console so probe for some settings" >>$LOG_FILE
+	db_set carlos-emr/upgrade false
+	db_input high carlos-emr/password || true
+	db_go || true
+	db_get carlos-emr/password
+	db_password=$RET
+
+	#echo ${db_password} >>$LOG_FILE
+	## db_reset carlos-emr/billregion || true
+	# use probed state and configure for BC if required
+	if [ "${STATE}" = "BC" ]; then
+		billregion="BC"
+	fi
+	echo "billregion=${billregion}" 1>> $LOG_FILE
+	##db_set carlos-emr/billregion $billregion || true
+	db_reset carlos-emr/phoneprefix || true
+	# probe for local area code
+	phoneprefix=$(curl --silent -f --connect-timeout 5 --max-time 10 "https://www.zip-codes.com/canadian/city.asp?city=${LOCALITY}&province=${STATE}" | grep '<a href="/canadian/area-code.asp?areacode='| sed "s/.*areacode=\([0-9]*\).*/\1/;s/^[[:space:]]*//;s/[[:space:]]*$//") || true
+## curl --silent -f 'https://www.zip-codes.com/canadian/city.asp?city=Timmins&province=ON' |  grep '<a href="/canadian/area-code.asp?areacode='| sed "s/.*areacode=\([0-9]*\).*/\1/;s/^[[:space:]]*//;s/[[:space:]]*$//"
+	echo "area code aka phone prefix=*${phoneprefix}*" 1>> $LOG_FILE
+
+	# the area code may hint the billingcenter
+	if [ "$phoneprefix" = "705" ]; then
+		billcenter="R"
+		default_bill_center="R"
+		echo "billcenter set to R Sudbury" 1>> $LOG_FILE
+	fi
+	if [ "${phoneprefix}" = "807" ]; then
+		billcenter="U"
+		default_bill_center="U"
+		echo "billcenter set to U Thunder Bay" 1>> $LOG_FILE
+	fi
+	if [ "${phoneprefix}" = "416" ]; then
+		billcenter="N" 
+		default_bill_center="N"
+		echo "billcenter set to N Toronto" 1>> $LOG_FILE
+	fi
+	if [ "${phoneprefix}" = "613" ]; then
+		billcenter="D" 
+		default_bill_center="D"
+		echo "billcenter set to D Ottawa but could be J Kingston" 1>> $LOG_FILE
+	fi
+	echo "Setting initial defaults for areacode ${phoneprefix} in ${STATE}"
+	db_reset carlos-emr/triumvirate || true
+	db_set carlos-emr/triumvirate  true  || true
+		
+	db_input high carlos-emr/demo || true
+
+	db_reset carlos-emr/eyeform || true
+	db_set carlos-emr/eyeform false || true
+	eyeform=false
+	db_set carlos-emr/appt_intake_form true || true
+	appt_intake_form="on"
+
+	db_go || true
+
+	db_get carlos-emr/eyeform
+	eyeform=$RET
+	echo "eyeform=${eyeform}" 1>> $LOG_FILE
+fi
+
+
+if [ "${triumvirate}" = "true" ] ; then
+	echo "set properties for signatures, fax and pdf printing" >>$LOG_FILE
+	rx_enhance=false
+	workflow_enhance=true
+
+	# Consult: fax and signature capability for consultation requests requires flags:
+	# faxEnable=yes,consultation_fax_enabled=true,consultation_signature_enabled=true
+	enableFax=true
+	faxEnable=yes
+	consultation_fax_enabled=true
+	consultation_signature_enabled=true
+	consultation_dynamic_labelling_enabled=true
+	consultation_indivica_attachment_enabled=true
+
+	# Rx: fax functionality For rx requires flags: 
+	#rx_signature_enabled=true,rx_fax_enabled=true
+	rx_signature_enabled=true
+	rx_fax_enabled=true
+
+	# eForm: 
+	eform_signature_enabled=true
+	indivica_rich_text_letter_enabled=true
+	eform_fax_enabled=true
+	eform_generator_indivica_signature_enabled=true
+	eform_generator_indivica_print_enabled=true
+	eform_generator_indivica_fax_enabled=true
+	
+
+fi
+MIGRATE="false"
+### ============================================================
+### SECTION: UPGRADE PATH (UPGRADE=true — oscar.properties was found)
+### Three possible sub-cases handled here:
+###
+###   (a) PRIOR CARLOS UPDATE — carlos.properties EXISTS:
+###       Test: /usr/share/tomcatX/carlos.properties exists
+###       Action: Read existing DB credentials, verify schema is current, exit.
+###       The postinst will handle minor patches if the build tag has changed.
+###
+###   (b) OSCAR 19 TO CARLOS MIGRATION — oscar.properties EXISTS, carlos.properties does NOT:
+###       Test: oscar.properties exists; carlos.properties does not
+###       Action: Set MIGRATE=true; read DB credentials from oscar.properties.
+###       The postinst will copy the OSCAR database tables into the new schema.
+###
+###   (c) ERROR STATE — Neither found:
+###       Config cannot determine the installation state; exit with error.
+### ============================================================
+if [ "${UPGRADE}" = "true" ] ; then
+	db_set carlos-emr/upgrade true  || true
+
+	echo "check to see if minor upgrade of the CARLOS war is all that is necessary" >>$LOG_FILE
+	if [ -f "${C_HOME}${PROGRAM}.properties" ] ; then
+    # (a) PRIOR CARLOS UPDATE: just updating an existing CARLOS war
+		echo "grep the password from the properties file" >> $LOG_FILE
+		db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+		echo "grep the previous db_name from the properties file" >> $LOG_FILE
+		## you want oscar_15=oscar_15 but trim off the switches that we might be sending
+		existing=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_name'  | tail -n 1 | cut -d "=" -f2 | cut -d "?" -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+		if [ "${db_name}" = "${existing}" ] ; then
+
+            # UPDATE late breaking property key values here, we will support back to the first 15 deb
+            # grep the key, tail backwards to the last entry and cut the key itself to test that it is present
+	       # echo "adding new properties file key values"  >>$LOG_FILE
+
+# PHC test and add newer properties here
+
+			echo "${PROGRAM}.war file updated so exiting config normally" >> $LOG_FILE
+			exit 0
+		else
+      if [ -f "${C_HOME}oscar.properties" ] ; then
+        # (b) OSCAR 19 TO CARLOS MIGRATION: carlos.properties exists but db_name differs —
+        # treat as OSCAR migration to allow postinst to rename tables.
+        MIGRATE="true"
+      else
+        # (c) ERROR STATE: neither carlos.properties nor oscar.properties found.
+        echo "The installer can neither find a deb installed OSCAR_19 nor CARLOS and cannot be deb updated so exiting config" 1>> $LOG_FILE
+  			exit 1
+      fi
+		fi
+	else
+    # carlos.properties is absent — check if oscar.properties exists for OSCAR 19 migration
+    if [ -f "${C_HOME}oscar.properties" ] ; then
+      # (b) OSCAR 19 TO CARLOS MIGRATION: oscar.properties exists but carlos.properties does not.
+      # Set MIGRATE=true so postinst knows to copy tables from the OSCAR database schema.
+      MIGRATE="true"
+      echo "carlos.properties not found but oscar.properties present — setting MIGRATE=true for OSCAR 19 migration" >> $LOG_FILE
+    else
+      # (c) ERROR STATE: neither carlos.properties nor oscar.properties found.
+      echo "The installer can neither find a deb installed OSCAR_19 nor CARLOS and cannot be deb updated so exiting config" 1>> $LOG_FILE
+      exit 1
+    fi
+	fi
+# PHC ensure that oscar.properties carlos.properties and carlos.tmp are aligned
+  if [ "${MIGRATE}" = "true" ] ; then
+  	# drop lines that start with a comment, then grep the property, just take the last instance of that, cut on the = delimiter, and trim whitespace
+		    db_password=$(sed '/^\#/d' ${C_HOME}oscar.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+		    echo "grep the previous db_name from the OSCAR properties file" >> $LOG_FILE
+        db_name=$(sed '/^\#/d' ${C_HOME}oscar.properties | grep 'db_name'  | tail -n 1 | cut -d "=" -f2 | cut -d "?" -f1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+  	echo "grep the province from the properties file" >> $LOG_FILE
+  	billregion=$(sed '/^\#/d' ${C_HOME}oscar.properties | grep 'billregion'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+  	echo "billregion=${billregion}" 1>> $LOG_FILE
+  	echo "grep the phone prefix from the properties file" >> $LOG_FILE
+  	phoneprefix=$(sed '/^\#/d' ${C_HOME}oscar.properties | grep 'phoneprefix'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
+  	echo "phoneprefix=${phoneprefix}" >> $LOG_FILE
+  	db_set carlos-emr/phoneprefix ${phoneprefix}
+  	echo "priorschema=${db_name}" >> $LOG_FILE
+  	db_set carlos-emr/priorschema $db_name
+    # Initialize ${PROGRAM}.tmp from the bundled source carlos.properties so that the
+    # subsequent property-append block (below) has a valid base file to work from.
+    # The Tomcat path and commented-out properties are adjusted the same way as a new install.
+    echo "Initializing ${PROGRAM}.tmp from bundled source properties for OSCAR migration" >> $LOG_FILE
+    sed \
+    -e "s/\/var\/lib\/tomcat/\/var\/lib\/${TOMCAT}/" \
+    -e 's/\(^project_home\)/#\1/' \
+    -e 's/\(^tomcat_path\)/#\1/' \
+    -e 's/\(^login_local_ip\)/#\1/' \
+    -e 's/\(^buildDateTime\)/#\1/' \
+    -e 's/\(^buildtag\)/#\1/' \
+    -e 's/\(^drugref_url\)/#\1/' \
+    -e 's/\(^db_name =\)/#\1/' \
+    -e 's/\(^db_password =\)/#\1/' \
+    -e 's/\(^hibernate.dialect\)/#\1/' \
+    -e 's/\(^billregion=\)/#\1/' \
+    -e 's/\(^phoneprefix =\)/#\1/' \
+    -e 's/\(^billcenter =\)/#\1/' \
+    ${SRC}${PROGRAM}.properties > ${PROGRAM}.tmp 2>>$LOG_FILE
+  # Set CARLOS default BASE_DOCUMENT_DIR so carlos.properties uses CARLOS paths,
+  # not any OSCAR 19 path that might remain in the bundled properties.
+  echo BASE_DOCUMENT_DIR=${BASE_DOCUMENT_DIR}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+  # For OSCAR 19 migration: read the OSCAR 19 BASE_DOCUMENT_DIR and create a
+  # symlink from the CARLOS default path so that OSCAR 19 files are accessible
+  # from both the existing OSCAR 19 path and the new CARLOS default path.
+  oscar_base_doc=$(sed '/^\#/d' "${C_HOME}oscar.properties" | grep '^BASE_DOCUMENT_DIR' | tail -n 1 | cut -d '=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' 2>>$LOG_FILE)
+  echo "oscar_base_doc=${oscar_base_doc}" >> $LOG_FILE
+  if [ -n "${oscar_base_doc}" ] && [ "${oscar_base_doc}" != "${BASE_DOCUMENT_DIR}" ] && [ -d "${oscar_base_doc}" ] ; then
+    echo "Linking CARLOS document path ${BASE_DOCUMENT_DIR} -> ${oscar_base_doc} for OSCAR 19 migration" >> $LOG_FILE
+    ln -sf "${oscar_base_doc}" "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
+  else
+    mkdir -p "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
+    chown -R ${TOMCAT_USER}:${TOMCAT_USER} "${BASE_DOCUMENT_DIR}" 2>>$LOG_FILE
+  fi
+  fi
+else
+	db_set carlos-emr/upgrade false
+	echo "use the supplied default properties file" >>$LOG_FILE
+	echo "adjust the paths from a dev build to a deb build" >>$LOG_FILE
+	echo "and comment out all of the properties that will be set below" >>$LOG_FILE
+	#-e 's/\(^backup_path\)/#\1/' \  ## the backup moves to the new spot
+	sed \
+	-e "s/\/var\/lib\/tomcat/\/var\/lib\/${TOMCAT}/" \
+	-e 's/\(^project_home\)/#\1/' \
+	-e 's/\(^tomcat_path\)/#\1/' \
+	-e 's/\(^login_local_ip\)/#\1/' \
+	-e 's/\(^buildDateTime\)/#\1/' \
+	-e 's/\(^buildtag\)/#\1/' \
+	-e 's/\(^drugref_url\)/#\1/' \
+	-e 's/\(^db_name =\)/#\1/' \
+	-e 's/\(^db_password =\)/#\1/' \
+	-e 's/\(^hibernate.dialect\)/#\1/' \
+	-e 's/\(^billregion=\)/#\1/' \
+	-e 's/\(^phoneprefix =\)/#\1/' \
+	-e 's/\(^billcenter =\)/#\1/' \
+	-e 's/\(^SINGLE_PAGE_CHART\)/#\1/' \
+	-e 's/\(^signature_tablet\)/#\1/' \
+	-e 's/\(^appt_intake_form\)/#\1/' \
+	-e 's/\(^new_flowsheet_enabled\)/#\1/' \
+	-e 's/\(^enableFax\)/#\1/' \
+	-e 's/\(^HL7_COMPLETED_DIR\)/#\1/' \
+	-e 's/\(^ENABLE_EDIT_APPT_STATUS\)/#\1/' \
+	-e 's/\(^rx_enhance\)/#\1/' \
+	-e 's/\(^rx_signature_enabled\)/#\1/' \
+	-e 's/\(^consultation_signature_enabled\)/#\1/' \
+	-e 's/\(^moh_file_management_enabled\)/#\1/' \
+	-e 's/\(^ONEDT_INBOX\)/#\1/' \
+	-e 's/\(^ONEDT_OUTBOX\)/#\1/' \
+	-e 's/\(^ONEDT_SENT\)/#\1/' \
+	-e 's/\(^ONEDT_ARCHIVE\)/#\1/' \
+	-e 's/\(^workflow_enhance\)/#\1/' \
+	-e 's/\(^indivica_hc_read_enable\)/#\1/' \
+	-e 's/\(^eform_fax_enabled\)/#\1/' \
+	-e 's/\(^eform_signature_enabled\)/#\1/' \
+	-e 's/\(^eform_generator_indivica_fax_enabled\)/#\1/' \
+	-e 's/\(^eform_generator_indivica_signature_enabled\)/#\1/' \
+	-e 's/\(^eform_generator_indivica_print_enabled\)/#\1/' \
+	-e 's/\(^indivica_rich_text_letter_enabled\)/#\1/' \
+	-e 's/\(^tickler_warn_period\)/#\1/' \
+	-e 's/\(^seconds_till_considered_stale\)/#\1/' \
+	-e 's/\(^enable_wait_list_email_notifications\)/#\1/' \
+	-e 's/\(^wait_list_email_notification_period\)/#\1/' \
+	-e 's/\(^wait_list_email_notification_program_ids\)/#\1/' \
+	-e 's/\(^tickler_edit_enabled\)/#\1/' \
+	-e 's/\(^tickler_email_enabled\)/#\1/' \
+	-e 's/\(^tickler_email_from_address\)/#\1/' \
+	-e 's/\(^tickler_email_subject\)/#\1/' \
+	-e 's/\(^faxEnable\)/#\1/' \
+	-e 's/\(^rx_fax_enabled\)/#\1/' \
+	-e 's/\(^consultation_fax_enabled\)/#\1/' \
+	-e 's/\(^consultation_indivica_attachment_enabled\)/#\1/' \
+	-e 's/\(^consultation_dynamic_labelling_enabled\)/#\1/' \
+	-e 's/\(^WKHTMLTOPDF_COMMAND\)/#\1/' \
+	-e 's/\(^carlos_port\)/#\1/' \
+	-e 's/\(^logintitle\)/#\1/' \
+	-e 's/\(^logintext\)/#\1/' \
+	-e 's/\(^loginlogo\)/#\1/' \
+	-e 's/\(^onare_labreqver\)/#\1/' \
+	-e 's/\(^health_tracker\)/#\1/' \
+	-e 's/\(^HL7TEXT_LABS\)/#\1/' \
+	${SRC}${PROGRAM}.properties > ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo "">> ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo "## ------------------------------------------------------------------------------- ##">> ${PROGRAM}.tmp 2>>$LOG_FILE	
+	echo "## | The following values generated by ${PROGRAM}.deb will override any set above | ##">> ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo "## ------------------------------------------------------------------------------- ##">> ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo "">> ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo logintext=${logintext}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo loginlogo=${loginlogo}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo drugref_url=${drugref_url}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo project_home=${PROGRAM}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo tomcat_path=${tomcat_path}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo backup_path=${backup_path}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+	echo billcenter=${billcenter}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+
+	# probe for the local ip and set it
+
+        #ifconfig is deprecated in newer systems 
+        #login_local_ip=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`;
+        # eth1 may not be the connection
+	#login_local_ip=`ip -f inet addr show dev eth1 | sed -n 's/^ *inet *\([.0-9/]*\)\..*/\1/p'`;
+        #Another option is hostname but it doesn't work on all systems, can give a series of answers or just 127.0.0.1
+        #login_local_ip=$(hostname -I);  
+        #so just find the route to Google's DNS  and extract the IP      
+        login_local_ip=$(ip route get 8.8.8.8 | awk 'NR==1 {print $NF}') ;
+
+	echo login_local_ip=${login_local_ip}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+
+	echo hibernate.dialect=org.oscarehr.util.persistence.OscarMySQL5Dialect>> ${PROGRAM}.tmp 2>>$LOG_FILE
+	# The following directories are set to their defaults by BASE_DOCUMENT_DIR
+	# If this property is set it replaces all of the other properties with absolute file paths to the CARLOSDocument directory.
+	# The needed directories will be created from this directory
+	# ie. for BASE_DOCUMENT_DIR=/usr/share/carlos-emr/CARLOSDocument
+	#
+	# DOCUMENT_DIR will be create as /usr/share/carlos-emr/CARLOSDocument/<Context>/document
+	# with context for carlos.war being carlos
+
+	# "HOME_DIR", "/billing/download/"
+	# "DOCUMENT_DIR", "/document/" 
+	# "eform_image", "/eform/images/" 
+	# "oscarMeasurement_css_upload_path", "/oscarEncounter/oscarMeasurements/styles/"
+	# "TMP_DIR", "/export/"
+	# "form_record_path", "/form/records/"
+	# "OMD_hrm","/hrm/"
+	# "OMD_directory" , "/hrm/OMD/"
+	# "OMD_log_directory" , "/hrm/logs/"
+	# "OMD_stored", "/hrm/stored/"
+	# "OMD_downloads","/hrm/sftp_downloads/"
+
+	echo BASE_DOCUMENT_DIR=${BASE_DOCUMENT_DIR}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+	#echo "eform_image=${SRC}${DOCS}/${PROGRAM}/eform/images/">> ${PROGRAM}.tmp 2>>$LOG_FILE
+	#echo "TMP_DIR: ${SRC}${DOCS}/${PROGRAM}/export/">> ${PROGRAM}.tmp 2>>$LOG_FILE
+	chown -R ${TOMCAT_USER}:${TOMCAT_USER} ${SRC}${DOCS}
+
+fi
+
+echo "add the required changes to the property file" >>$LOG_FILE
+echo "# Creating  Custom ${PROGRAM} Property file" >> $LOG_FILE
+
+echo buildDateTime=$buildDateTime>> ${PROGRAM}.tmp 2>>$LOG_FILE
+echo buildtag="${VERSION}.${REVISION}">> ${PROGRAM}.tmp 2>>$LOG_FILE
+echo debInstall=true >> ${PROGRAM}.tmp 2>>$LOG_FILE
+	
+echo logintitle=${logintitle}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+
+if [ -f /usr/local/bin/wkhtmltopdf ]; then
+	echo "pointing to wkhtmltopdf in /usr/local/bin " >>$LOG_FILE
+	echo WKHTMLTOPDF_COMMAND=/usr/local/bin/wkhtmltopdf>> ${PROGRAM}.tmp 2>>$LOG_FILE
+else
+    if [ ! -f /usr/bin/wkhtmltopdf ]; then
+	    echo "wkhtmltopdf NOT FOUND in either usr/local/bin/ nor /usr/bin/" >>$LOG_FILE
+    fi
+	echo "pointing wkhtmltopdf to default location in /usr/bin" >>$LOG_FILE    
+    echo WKHTMLTOPDF_COMMAND=wkhtmltopdf>> ${PROGRAM}.tmp 2>>$LOG_FILE
+fi
+
+# Letter page size, margins as indicated, use print media stylesheet
+echo WKHTMLTOPDF_ARGS=-s Letter -T 10mm -L 8mm -R 8mm --print-media-type --zoom 1.2 >> ${PROGRAM}.tmp 2>>$LOG_FILE
+# This deb will install a server.xml in postinst that directs Tomcat for port 8443 for https connections
+echo oscar_port=8443>> ${PROGRAM}.tmp 2>>$LOG_FILE
+
+echo priorschema=${priorschema}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+echo db_name=${db_name}${db_switch}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+echo db_password=${db_password}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+echo billregion=${billregion}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+echo phoneprefix=${phoneprefix}>> ${PROGRAM}.tmp 2>>$LOG_FILE
+
+
+# Move the assembled properties file to its final location
+mv ${PROGRAM}.tmp ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
+echo  ${C_HOME}${PROGRAM}.properties created >>$LOG_FILE
+
+echo "the CARLOS properties file contains a plaintext password..." >>$LOG_FILE
+echo "so let only tomcat read it" >>$LOG_FILE
+chown -R ${TOMCAT_USER}:${TOMCAT_USER} ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
+chmod 640 ${C_HOME}${PROGRAM}.properties 2>>$LOG_FILE
+
+
+
+    if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
+        # some look for /var/lib/tomcat8/carlos.properties but we are using /usr/share/tomcat8
+        # so create a symlink for that in C_BASE, overwrite if necessary
+        ln -sf ${C_HOME}${PROGRAM}.properties ${C_BASE}${PROGRAM}.properties
+        chown -R ${TOMCAT_USER}:${TOMCAT_USER} ${C_BASE}${PROGRAM}.properties 2>>$LOG_FILE
+    fi
+    if [ -f /usr/share/tomcat9/bin/version.sh ] || [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+        # -e tests for existance of the file or linked file, -L tests for existance of the Link broken or not
+        if [ ! -e /var/lib/tomcat ] ; then
+            ln -s /var/lib/${TOMCAT} /var/lib/tomcat 2>>$LOG_FILE
+            # some look for /var/lib/tomcat/carlos.properties but we are using /usr/share/tomcatX
+            # so create a symlink for that, overwrite if necessary
+            if [ ! -e "/var/lib/tomcat/${PROGRAM}.properties" ] ; then
+                ln -sf ${C_HOME}${PROGRAM}.properties /var/lib/tomcat/${PROGRAM}.properties 2>>$LOG_FILE
+            fi
+        fi
+    fi
+
+echo "configure crontab" >>$LOG_FILE
+
+chmod 711 ${SRC}carlos_backup.sh  2>>$LOG_FILE
+chmod 711 ${SRC}recarlos.sh  2>>$LOG_FILE
+chmod 711 ${SRC}gateway.sh  2>>$LOG_FILE
+
+if [ -f /var/spool/cron/crontabs/root ] ; then
+	# "checking existing crontab" >>$LOG_FILE
+	echo "write out current crontab" >>$LOG_FILE
+	crontab -l > c.temp 2>>$LOG_FILE
+else
+	touch c.temp 2>>$LOG_FILE
+fi
+
+# Now without changing any settings ensure that there are some
+
+if grep -Fq "${SRC}carlos_backup.sh" c.temp ; then
+    	echo "entry for carlos_backup already present" >>$LOG_FILE
+else
+	echo "append the backup job to a new cron file" >>$LOG_FILE
+    	echo "01 23 * * * ${SRC}carlos_backup.sh" >> c.temp 2>>$LOG_FILE
+fi 
+if grep -Fq "${SRC}recarlos.sh" c.temp ; then
+    	echo "entry for recarlos already present" >>$LOG_FILE
+else
+	echo "append the recarlos job to a new cron file" >>$LOG_FILE
+    	echo "* * * * * ${SRC}recarlos.sh" >> c.temp 2>>$LOG_FILE
+fi 
+if grep -Fq "${SRC}gateway.sh" c.temp ; then
+    	echo "entry for gateway fax already present" >>$LOG_FILE
+else
+	echo "append the gateway fax job to a new cron file" >>$LOG_FILE
+    	echo "* * * * * ${SRC}gateway.sh" >> c.temp 2>>$LOG_FILE
+fi
+if grep -Fq "${SRC}2FA.sh" c.temp ; then
+    	echo "entry for 2FA already present" >>$LOG_FILE
+else
+	echo "append an entry for the 2FA job to a new cron file" >>$LOG_FILE
+    	echo "* * * * * ${SRC}2FA.sh" >> c.temp 2>>$LOG_FILE
+fi
+#if grep -Fq "00 23 * * Fri touch /tmp/${TOMCAT}-${TOMCAT}-tmp/restartcarlos.action" c.temp ; then
+#    	echo "entry for restart carlos weekly already present" >>$LOG_FILE
+#else
+#	echo "append restart carlos weekly job to a new cron file" >>$LOG_FILE
+#    	echo "00 23 * * Fri touch /tmp/${TOMCAT}-${TOMCAT}-tmp/restartcarlos.action" >> c.temp 2>>$LOG_FILE
+#fi
+#	echo "Commenting out previous carlos backup jobs" >>$LOG_FILE
+#	sed -e 's/\(^[^#].*carlos_backup\)/#\1/' c.temp > tempcron 2>>$LOG_FILE
+
+
+echo "install new cron file" >>$LOG_FILE
+crontab c.temp 2>>$LOG_FILE
+rm c.temp 2>>$LOG_FILE

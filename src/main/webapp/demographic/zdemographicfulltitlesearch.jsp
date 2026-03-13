@@ -317,8 +317,10 @@
                 </oscar:oscarPropertiesCheck>
             </select>
 
-            <input class="wideInput form-control" type="search" placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.placeholder"/>" NAME="keyword" ID="keyword"
-                   aria-label="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.placeholder"/>"
+            <input class="wideInput form-control" type="search"
+                   placeholder="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
+                   NAME="keyword" ID="keyword"
+                   aria-label="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.msgSearch"/>"
                    VALUE="<%=Encode.forHtmlAttribute(keyWord)%>" SIZE="17" MAXLENGTH="100"
                    oninput="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);"
                    onkeyup="if(document.titlesearch.search_mode.value === 'search_dob') formatDateInput(this);">
@@ -346,15 +348,15 @@
                        TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.zdemographicfulltitlesearch.tooltips.searchAll"/>"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.search.All"/>">
 
+                <INPUT TYPE="button" class="btn btn-secondary"
+                       onclick="try{if(window.opener && !window.opener.closed){window.opener.location.reload();window.close();}else{window.history.back();}}catch(e){window.history.back();}"
+                       VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>"
+                       TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnBack"/>">
+
                 <INPUT TYPE="button" class="btn btn-link"
                        onclick="document.titlesearch.keyword.value='';document.titlesearch.submit();"
                        VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.msgMostRecentPatients"/>"
-                       TITLE="Show most recently viewed patients">
-
-                <INPUT TYPE="button" class="btn btn-link"
-                       onclick="try{if(window.opener && !window.opener.closed)window.opener.location.reload();}catch(e){}window.close();"
-                       VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnCancel"/>"
-                       TITLE="Close window">
+                       TITLE="<fmt:setBundle basename="oscarResources"/><fmt:message key="demographic.demographicsearchresults.msgMostRecentPatients"/>">
             </div>
 
             <security:oscarSec roleName="<%=roleName%>" objectName="_search.outofdomain" rights="r">

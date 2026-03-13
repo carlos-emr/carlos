@@ -30,18 +30,24 @@
 --%>
 
 <%
-    if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logout.htm");
+    if (session.getAttribute("user") == null) {
+        response.sendRedirect(request.getContextPath() + "/logout.htm");
+        return;
+    }
 %>
 <%@ page import="java.util.*,java.sql.*"
          errorPage="/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <%
     MyGroupDao dao = SpringUtils.getBean(MyGroupDao.class);
 %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
+<%@ taglib uri="https://www.owasp.org/index.php/OWASP_Java_Encoder_Project" prefix="e" %>
 
 
 <html>
@@ -50,78 +56,78 @@
         <title><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.title"/></title>
     </head>
 
-    <body onLoad="setfocus()" topmargin="0" leftmargin="0" rightmargin="0">
-    <FORM NAME="UPDATEPRE" METHOD="post" ACTION="providercontrol.jsp">
+    <body onLoad="setfocus()">
+    <div class="container-fluid p-3">
 
-        <div id="topMenuDiv" style="position:fixed;width:100%">
-            <div style="background-color:#486ebd;text-align:center;font-family:Helvetica,sans-serif;color:#ffffff;font-weight:bold;padding:1px">
-                <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgTitle"/>
-            </div>
-            <div style="background-color:#486ebd;text-align:center;border-top:solid white 1px;padding:1px">
-                <input type="hidden" name="submit_form" value="">
-                <INPUT TYPE="submit" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnDelete"/>"
-                       onclick="document.forms['UPDATEPRE'].submit_form.value='Delete'; document.forms['UPDATEPRE'].submit();">
-                <INPUT TYPE="submit" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnNew"/>"
-                       onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member'; document.forms['UPDATEPRE'].submit();">
-                <INPUT TYPE="RESET" VALUE="<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.btnClose"/>"
-                       onClick="window.close();">
-            </div>
+        <div class="page-header-bar">
+            <h4 class="page-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" class="page-header-icon">
+                    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
+                </svg>
+                &nbsp;<fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgTitle"/>
+            </h4>
         </div>
-        <br/>
-            <%-- This DIV and following javascript spaces out the content properly below the fixed position menu  --%>
-        <div id="topMenuSpacerDiv" style="height:3em">&nbsp;</div>
-        <script type="text/javascript">
-            document.getElementById('topMenuSpacerDiv').style.height = document.getElementById('topMenuDiv').offsetHeight + 'px';
-        </script>
 
-        <center>
-            <table border="0" cellpadding="0" cellspacing="0" width="80%">
-                <tr>
-                    <td width="100%">
+    <form name="UPDATEPRE" method="post" action="providercontrol.jsp">
+        <input type="hidden" name="submit_form" value="">
+        <input type="hidden" name="displaymode" value="newgroup">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
 
-                        <table BORDER="0" CELLPADDING="0" CELLSPACING="1" WIDTH="100%"
-                               BGCOLOR="#C0C0C0">
-                            <tr BGCOLOR="#CCFFFF">
-                                <td ALIGN="center" colspan="2"><font face="arial"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgGroupNo"/></font></td>
-                                <td ALIGN="center"><font face="arial"> <fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgProvider"/></font></td>
-                            </tr>
-                            <%
-                                boolean bNewNo = false;
-                                String oldNo = "";
-                                List<MyGroup> myGroups = dao.findAll();
-                                Collections.sort(myGroups, MyGroup.MyGroupNoComparator);
-                                for (MyGroup myGroup : myGroups) {
+        <table class="table table-sm table-bordered mb-0">
+            <thead class="table-light">
+            <tr>
+                <th style="width:10%" class="text-center" colspan="2"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgGroupNo"/></th>
+                <th class="text-center"><fmt:setBundle basename="oscarResources"/><fmt:message key="provider.providerdisplaymygroup.msgProvider"/></th>
+            </tr>
+            </thead>
+            <tbody>
+            <%
+                boolean bNewNo = false;
+                String oldNo = "";
+                List<MyGroup> myGroups = dao.findAll();
+                Collections.sort(myGroups, MyGroup.MyGroupNoComparator);
+                for (MyGroup myGroup : myGroups) {
 
-                                    String groupNo = myGroup.getId().getMyGroupNo();
-                                    if (!(groupNo.equals(oldNo))) {
-                                        bNewNo = bNewNo ? false : true;
-                                        oldNo = groupNo;
-                                    }
-                            %>
-                            <tr BGCOLOR="<%=bNewNo?"white":"ivory"%>">
-                                <td width="10%" align="center"><input type="checkbox"
-                                                                      name="<%=groupNo+myGroup.getId().getProviderNo()%>"
-                                                                      value="<%=groupNo%>"></td>
-                                <td ALIGN="center"><font face="arial"><%=groupNo%>
-                                </font></td>
-                                <td ALIGN="center"><font
-                                        face="arial"><%=myGroup.getLastName() + ", " + myGroup.getFirstName()%>
-                                </font>
-                                </td>
-                            </tr>
-                            <%
-                                }
-                            %>
-                            <INPUT TYPE="hidden" NAME="displaymode" VALUE='newgroup'>
+                    String groupNo = myGroup.getId().getMyGroupNo();
+                    if (!(groupNo.equals(oldNo))) {
+                        bNewNo = bNewNo ? false : true;
+                        oldNo = groupNo;
+                    }
+            %>
+            <tr class="<%=bNewNo?"":"table-light"%>">
+                <td style="width:10%" class="text-center">
+                    <input type="checkbox" class="form-check-input"
+                           name="<%=Encode.forHtmlAttribute(groupNo+myGroup.getId().getProviderNo())%>"
+                           value="<%=Encode.forHtmlAttribute(groupNo)%>">
+                </td>
+                <td class="text-center"><%=Encode.forHtml(groupNo)%></td>
+                <td class="text-center"><%=Encode.forHtml(myGroup.getLastName() + ", " + myGroup.getFirstName())%></td>
+            </tr>
+            <%
+                }
+            %>
+            </tbody>
+        </table>
 
-                        </table>
+        <div class="d-flex align-items-center mt-3">
+            <fmt:setBundle basename="oscarResources"/>
+            <fmt:message key="provider.providerdisplaymygroup.confirmDelete" var="confirmDeleteMsg"/>
+            <fmt:message key="provider.providerdisplaymygroup.btnDelete" var="btnDeleteLabel"/>
+            <fmt:message key="provider.providerdisplaymygroup.btnNew" var="btnNewLabel"/>
+            <fmt:message key="global.btnBack" var="btnBackLabel"/>
+            <input type="submit" class="btn btn-danger btn-sm"
+                   value="${e:forHtmlAttribute(btnDeleteLabel)}"
+                   onclick="if(!confirm('${e:forJavaScript(confirmDeleteMsg)}')){return false;} document.forms['UPDATEPRE'].submit_form.value='Delete';">
+            <input type="submit" class="btn btn-primary btn-sm ms-2"
+                   value="${e:forHtmlAttribute(btnNewLabel)}"
+                   onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">
+            <input type="button" class="btn btn-secondary btn-sm ms-2"
+                   value="${e:forHtmlAttribute(btnBackLabel)}"
+                   onClick="if (window.opener) { window.close(); } else { window.history.back(); }">
+        </div>
 
-                    </td>
-                </tr>
-            </table>
-        </center>
-
-    </FORM>
+    </form>
+    </div>
 
     </body>
 </html>
