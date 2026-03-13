@@ -430,7 +430,7 @@ curl -L -o "${DRUGREF_WAR}" https://bitbucket.org/oscaremr/drugref2/downloads/dr
 # Verify SHA256 checksum of drugref.war (update DRUGREF_SHA256 when upgrading drugref version).
 # To obtain the hash after downloading: sha256sum "${DRUGREF_WAR}"
 # Then export DRUGREF_SHA256=<hash> before running this script.
-DRUGREF_SHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+DRUGREF_SHA256=${DRUGREF_SHA256:-2d55e5494e543dd9fd2f287e8fea12695ba26108e0e51552dfe552406ddb15d9}
 if [ -z "${DRUGREF_SHA256:-}" ]; then
     echo "ERROR: DRUGREF_SHA256 environment variable must be set to the expected SHA256 of drugref2.48.war." >&2
     echo "  Run: sha256sum ${DRUGREF_WAR}  to get the value, verify it against a trusted source, then re-run." >&2
@@ -449,7 +449,7 @@ mkdir -p ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/${PROGRAM}/
 if [ -d "release/Document/carlos/" ]; then
     cp -r release/Document/carlos/ ${RELEASE_DIR}/${DEBNAME}/var/lib/${PACKAGE}/OscarDocument/
 else
-    echo "WARNING: release/Document/oscar/ not found, skipping document templates"
+    echo "WARNING: release/Document/carlos/ not found, skipping document templates"
 fi
 
 echo "now adding in default inbox directories"

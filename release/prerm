@@ -21,28 +21,26 @@ REVISION=1~1
 db_name=oscar_15
 
 if [ -f /usr/share/tomcat11/bin/version.sh ] ; then
-        TOMCAT=tomcat11
-        TOMCAT_USER=tomcat
-    else
-    if [ -f /usr/share/tomcat10/bin/version.sh ] ; then
-            TOMCAT=tomcat10
-            TOMCAT_USER=tomcat
-        else
-        if [ -f /usr/share/tomcat9/bin/version.sh ] ; then
-                TOMCAT=tomcat9
-                TOMCAT_USER=tomcat
-            else
-            if [ -f /usr/share/tomcat8/bin/version.sh ] ; then
-                    TOMCAT=tomcat8
-                    TOMCAT_USER=tomcat8
-                 else
-                 if [ -f /usr/share/tomcat7/bin/version.sh ] ; then
-                        TOMCAT=tomcat7
-                        TOMCAT_USER=tomcat7
-                 fi
-             fi
-         fi
-     fi
+    TOMCAT=tomcat11
+    TOMCAT_USER=tomcat
+elif [ -f /usr/share/tomcat10/bin/version.sh ] ; then
+    TOMCAT=tomcat10
+    TOMCAT_USER=tomcat
+elif [ -f /usr/share/tomcat9/bin/version.sh ] ; then
+    TOMCAT=tomcat9
+    TOMCAT_USER=tomcat
+elif [ -f /usr/share/tomcat8/bin/version.sh ] ; then
+    TOMCAT=tomcat8
+    TOMCAT_USER=tomcat8
+elif [ -f /usr/share/tomcat7/bin/version.sh ] ; then
+    TOMCAT=tomcat7
+    TOMCAT_USER=tomcat7
+fi
+
+if [ -z "${TOMCAT:-}" ]; then
+    echo "WARNING: No supported Tomcat installation found, skipping Tomcat stop" >> ${LOG_FILE:-/tmp/prerm.log}
+    TOMCAT=tomcat9
+    TOMCAT_USER=tomcat
 fi
 tomcat_path=/usr/share/${TOMCAT}/
 C_HOME=/usr/share/${TOMCAT}/
@@ -60,8 +58,8 @@ echo "#########" `date` "#########" 1>> $LOG_FILE
 echo Removal script triggered with $1>>$LOG_FILE
 echo VERSION=${VERSION}-${REVISION}>>$LOG_FILE
 
-# stop tomcat
-service ${TOMCAT} stop 2>>$LOG_FILE
+# stop tomcat (|| true prevents set -e from aborting if Tomcat is already stopped)
+service ${TOMCAT} stop 2>>$LOG_FILE || true
 
 case "$1" in
     remove)
@@ -95,7 +93,7 @@ case "$1" in
 		    db_password=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_password'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
 		    db_username=$(sed '/^\#/d' ${C_HOME}${PROGRAM}.properties | grep 'db_username'  | tail -n 1 | cut -d "=" -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//') 2>>$LOG_FILE
 		    echo "Dropping drugref database"
-		    mysql -u ${db_username} -p${db_password} --execute="drop database if exists drugref;" 2>>$LOG_FILE
+		    (export MYSQL_PWD="${db_password}"; mysql -u "${db_username}" --execute="drop database if exists drugref;" 2>>$LOG_FILE)
 		    echo "Removed drugref database" >> ${LOG_FILE}
 	    else
 		    echo "Oops can't remove the drugref database, will proceed anyway" >> ${LOG_ERR}
