@@ -105,7 +105,9 @@ public class HttpMethodGuardFilter implements Filter {
             "setupaddmeasurementgroup",      // EctSetupAddMeasurementGroup2Action
             "setupaddmeasurementtype",       // EctSetupAddMeasurementType2Action
             "setupaddmeasuringinstruction",  // EctSetupAddMeasuringInstruction2Action
-            "rbtaddtogroup"           // RBTAddToGroup2Action (starts with "rbt", not "add")
+            "rbtaddtogroup",          // RBTAddToGroup2Action (starts with "rbt", not "add")
+            "reportreassign",         // ReportReassign2Action (reassigns lab reports to other providers)
+            "forward"                 // ReportReassign2Action (lab/MDS forwarding — same mutator class, 4 URLs)
     );
 
     /**
@@ -212,7 +214,11 @@ public class HttpMethodGuardFilter implements Filter {
             "providerrole.jsp",
             "providertemplate.jsp",
             "providersavedemographicaccessory.jsp",
-            "formsaveandexit.jsp"
+            "formsaveandexit.jsp",
+            // Waiting list mutators
+            "add2waitinglist.jsp",
+            // Provider availability (mutator when method=save)
+            "setprovideravailability.jsp"
     );
 
     private Set<String> allowList = Collections.emptySet();
@@ -354,6 +360,11 @@ public class HttpMethodGuardFilter implements Filter {
             if ("preventionmanager.jsp".equals(jspNameLower) || "preventionlistmanager.jsp".equals(jspNameLower)) {
                 String formAction = request.getParameter("formAction");
                 return formAction != null && ("update".equalsIgnoreCase(formAction) || "custom".equalsIgnoreCase(formAction));
+            }
+            // Special case: setProviderAvailability.jsp is only a mutator when method=save
+            if ("setprovideravailability.jsp".equals(jspNameLower)) {
+                String methodParam = request.getParameter("method");
+                return "save".equalsIgnoreCase(methodParam);
             }
             return true;
         }

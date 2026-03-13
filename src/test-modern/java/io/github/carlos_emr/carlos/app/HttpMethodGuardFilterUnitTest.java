@@ -428,6 +428,44 @@ class HttpMethodGuardFilterUnitTest {
             verify(response).sendError(anyInt(), anyString());
             verify(chain, never()).doFilter(request, response);
         }
+
+        @Test
+        @DisplayName("should block GET to Add2WaitingList.jsp (unconditional mutator)")
+        void shouldBlock_forGetToAdd2WaitingListJsp() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarWaitingList/Add2WaitingList.jsp");
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET to setProviderAvailability.jsp with method=save")
+        void shouldBlock_forGetToSetProviderAvailabilityWithSave() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/hamiltonPublicHealth/setProviderAvailability.jsp");
+            when(request.getParameter("method")).thenReturn("save");
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should pass through GET to setProviderAvailability.jsp without method=save")
+        void shouldPassThrough_forGetToSetProviderAvailabilityWithoutSave() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/admin/hamiltonPublicHealth/setProviderAvailability.jsp");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
     }
 
     @Nested
@@ -465,6 +503,32 @@ class HttpMethodGuardFilterUnitTest {
         void shouldBlock_forGetToRbtAddToGroup() throws Exception {
             when(request.getMethod()).thenReturn("GET");
             when(request.getRequestURI()).thenReturn("/carlos/oscarReport/reportByTemplate/actions/rbtAddToGroup.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET to ReportReassign (ReportReassign2Action)")
+        void shouldBlock_forGetToReportReassign() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarMDS/ReportReassign.do");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(response).sendError(anyInt(), anyString());
+            verify(chain, never()).doFilter(request, response);
+        }
+
+        @Test
+        @DisplayName("should block GET to Forward (ReportReassign2Action lab forwarding)")
+        void shouldBlock_forGetToForward() throws Exception {
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/lab/CA/ALL/Forward.do");
             when(request.getParameter("method")).thenReturn(null);
 
             filter.doFilter(request, response, chain);
