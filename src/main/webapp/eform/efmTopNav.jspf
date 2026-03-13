@@ -43,8 +43,9 @@
 		<b class="caret"></b>
 		</a>
 		<ul class="dropdown-menu">
-		<li><a href='<%= request.getContextPath() %>/eform/efmformmanageredit.jsp' class="contentLink">Create In Editor</a></li>
+		<li><a href='<%= request.getContextPath() %>/eform/visualEformEditor.jsp' target="_blank" rel="noreferrer noopener">Visual eForm Editor</a></li>
 		<li><a href="#" onclick="newWindow('<%= request.getContextPath() %>/eform/eformGenerator.jsp', 'createGenerator'); return false;">eForm Generator</a></li>
+		<li><a href='<%= request.getContextPath() %>/eform/efmformmanageredit.jsp' class="contentLink">Create In Editor</a></li>
 		</ul>
 	</li>
 
