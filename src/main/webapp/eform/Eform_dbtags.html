@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html class=" js flexbox canvas canvastext webgl no-touch geolocation postmessage no-websqldatabase indexeddb hashchange history draganddrop websockets rgba hsla multiplebgs backgroundsize borderimage borderradius boxshadow textshadow opacity cssanimations csscolumns cssgradients no-cssreflections csstransforms csstransforms3d csstransitions fontface generatedcontent video audio localstorage sessionstorage webworkers no-applicationcache svg inlinesvg smil svgclippaths" lang="en-us" xml:lang="en-us" xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
+<meta content="Plone - http://plone.org" name="generator">
+<!-- base href="http://oscarmanual.org/15/classic/eform-magic" --><!--[if lt IE 7]>
+</base>
+<![endif]-->
+<meta content="Advanced techniques for making eForms in Oscar 15
+Including  Database pulls - simple, measurements, enhanced and extended as well as Templates to paste into ...
+" name="description">
+<link data-kss-base-url="kss-base-url" href="http://oscarmanual.org/15/classic/eform-magic/" rel="alternate">
+<style media="screen" type="text/css">
+body {
+font: 69% "Lucida Grande", Verdana, Lucida, Helvetica, Arial, sans-serif;
+background-color: White;
+color: Black;
+margin: 0;
+padding: 0;
+}
+table {
+font-size: 100%;
+}
+a {
+color: #436976;
+background-color: transparent;
+}
+img {
+border: none;
+vertical-align: middle;
+}
+p {
+margin: 0 0 0.75em 0;
+line-height: 1.5em;
+}
+p img {
+border: none;
+margin: 0;
+}
+hr {
+border: 0;
+height: 1px;
+color: #8cacbb;
+background-color: #8cacbb;
+margin: 0.5em 0 1em 0;
+}
+h1, h2, h3, h4, h5, h6 {
+color: Black;
+font-family: "Lucida Grande", Verdana, Lucida, Helvetica, Arial, sans-serif;
+margin: 0.75em 0 0.25em 0;
+}
+h1 a,
+h2 a,
+h3 a,
+h4 a,
+h5 a,
+h6 a {
+color: Black ! important;
+text-decoration: none;
+}
+h1 {
+font-size: 160%;
+}
+code, tt {
+font-family: Monaco, "Courier New", Courier, monospace;
+font-size: 120%;
+color: Black;
+background-color: #dee7ec;
+padding: 0 0.1em;
+}
+pre {
+font-family: Monaco, "Courier New", Courier, monospace;
+font-size: 100%;
+padding: 1em;
+border: 1px solid #8cacbb;
+color: Black;
+background-color: #dee7ec;
+overflow: auto;
+}
+table.listing,
+.stx table {
+/* */
+border-collapse: collapse;
+border-spacing: 0;
+border-left: 1px solid #8cacbb;
+border-bottom: 1px solid #8cacbb;
+font-size: 90%;
+margin: 1em 0em 1em 0em;
+}
+table.listing th,
+.stx table th {
+background: #dee7ec;
+border-top: 1px solid #8cacbb;
+border-bottom: 1px solid #8cacbb;
+border-right: 1px solid #8cacbb;
+font-weight: normal;
+padding: 0.25em 0.5em;
+text-transform: none;
+}
+</style>
+<title>eForm Magic Standard Tags</title>
+    <script src="../library/jquery/jquery-3.6.4.min.js"></script>
+    <script>
+        if (!window.jQuery){
+			document.write("\x3cscript src='https://code.jquery.com/jquery-3.6.4.min.js' integrity='sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=' crossorigin='anonymous'\x3e\x3c\/script\x3e");
+        }
+    </script>
+</head>
+
+<script>
+function updateMain(myelement){
+var q = window.opener.document.getElementById('oscarDbTagSelect')
+
+var theDefault= myelement;
+var theOptions = q.options;
+
+for (var theOption of theOptions)
+{for (var i=0; i<3; i++) {}
+	if(typeof(theOption)=='object'){
+		if(theOption.text==theDefault){
+			theOption.selected=true;
+            q.dispatchEvent(new Event('change'));
+			break;
+		}
+	}
+}
+
+var x = window.opener.document.getElementsByClassName("ui-selectmenu-text");
+for (i=0;i<x.length;i++){
+//alert(x[i].innerHTML)
+}
+
+if(theDefault.indexOf("#")>-1){
+alert("Reserved for later use")
+}
+else{
+if(x.length<3){
+x[1].innerHTML = theDefault
+}
+else{
+x[3].innerHTML = theDefault
+}
+var z = window.opener.document.getElementById('toggleGOscarDbCheckbox')
+//alert(z.checked)
+z.click()
+//alert(z.checked)
+z.click()
+//alert(z.checked)
+}
+}
+
+var cellcolor
+
+$(document).ready(function () {
+
+  var table = document.getElementsByClassName('listing') [0] //(list.length)
+  var rows = table.getElementsByTagName('tr');
+  for (i = 0; i < rows.length; i++) {
+    var currentRow = table.rows[i];
+    if (Number.isInteger(i / 2)) {
+      $(currentRow).css('background-color', 'lightblue')
+    }
+    var createClickHandler = function (row) {
+      return function () {
+        var cell = row.getElementsByTagName('td') [0];
+        var id = cell.innerHTML;
+        id = id.replace('#','');
+        id = id.replace('*','');
+        id = id.replace(' (u)','');
+        //alert(id);
+		updateMain(id)
+      };
+    };
+	    var createMouseHandler = function (row) {
+      return function () {
+        var cell = row.getElementsByTagName('td') [0];
+		cellcolor = this.style.backgroundColor;
+		//alert(cellcolor)
+         $(cell).css('background-color', 'yellow')
+      };
+    };
+	   var createMouseLeave = function (row) {
+      return function () {
+	  //alert(cellcolor)
+        var cell = row.getElementsByTagName('td') [0];
+        $(cell).css('background-color', cellcolor)
+
+      };
+    };
+    currentRow.onclick = createClickHandler(currentRow);
+	currentRow.onmouseover = createMouseHandler(currentRow);
+	currentRow.onmouseleave = createMouseLeave(currentRow);
+  }
+
+});
+
+
+
+  </script>
+<body class="template-document_view portaltype-document site-oscarmanual section-15 kssActive" dir="ltr" onload="init();">
+
+<div id="visual-portal-wrapper">
+	<div id="portal-top">
+
+	</div>
+	<div id="clear-space-before-wrapper-table" class="visualClear">
+		<!-- --></div>
+	<table id="portal-columns">
+		<tr>
+			<td id="portal-column-content">
+			<div class="">
+				<span id="contentTopLeft"></span><span id="contentTopRight">
+				</span>
+				<dl id="kssPortalMessage" class="portalMessage info" style="display: none">
+					<dt>Info</dt>
+					<dd></dd>
+				</dl>
+				<div id="content">
+					<h1 id="parent-fieldname-title" class="documentFirstHeading">
+					eForm Magic - Standard Tags - Reference</h1>
+					<div id="content-core">
+						<div id="parent-fieldname-text-f965cd8657ad4e63bc97f9b6b27ae118" class="">
+							<pre>&lt;input type="text" name="pname" id="pname" <strong>oscarDB="patient_name"</strong>&gt;</pre>
+							<p>The following is a reference list of all the standard database
+							tags available. Click on any tag to use it in the Visual Eform Editor.</p>
+							<p>Tags are read (display) only except those marked
+							as (u) tags which the eform can also
+							update the database based on user input.</p>
+							<p>* marked tags have been added to OSCAR_15 since June
+							2016</p>
+							<p># marked tags have been added to OSCAR_15 since July
+							2018 (build 803)</p>
+							<table class="listing">
+								<tr>
+									<th><strong>oscarDB tag</strong></th>
+									<th><strong>Description</strong></th>
+									<th><strong>Example</strong></th>
+								</tr>
+								<tr>
+									<td>time</td>
+									<td>system time in this time zone<br></td>
+									<td>12:34:23<br></td>
+								</tr>
+								<tr>
+									<td>today</td>
+									<td>system date<br></td>
+									<td>2016-01-29<br></td>
+								</tr>
+								<tr>
+									<td>appt_date</td>
+									<td>appointment date<br></td>
+									<td>2015-12-11<br></td>
+								</tr>
+								<tr>
+									<td>current_form_id</td>
+									<td>fid of current eform<br></td>
+									<td>number<br></td>
+								</tr>
+								<tr>
+									<td>current_form_data_id</td>
+									<td>fdid of current eform<br></td>
+									<td>number<br></td>
+								</tr>
+								<tr>
+									<td>current_user</td>
+									<td>logged in user<br></td>
+									<td>Hutten-Czapski, Peter<br></td>
+								</tr>
+								<tr>
+									<td>current_user_fname_lname</td>
+									<td>logged in user<br></td>
+									<td>Peter Hutten-Czapski<br></td>
+								</tr>
+								<tr>
+									<td>current_user_ohip_no<br></td>
+									<td>OHIP provider No<br></td>
+									<td>150692<br></td>
+								</tr>
+								<tr>
+									<td>current_user_specialty_code</td>
+									<td>OHIP specialty<br></td>
+									<td>00</td>
+								</tr>
+								<tr>
+									<td>#current_user_specialty</td>
+									<td>Specialty<br></td>
+									<td>GP</td>
+								</tr>
+								<tr>
+									<td>current_user_cpsid</td>
+									<td>College Registration<br></td>
+									<td>54345<br></td>
+								</tr>
+								<tr>
+									<td>current_user_id</td>
+									<td>Oscar User No<br></td>
+									<td>121</td>
+								</tr>
+								<tr>
+									<td>#current_user_address<br></td>
+									<td>&nbsp;from the provider table<br></td>
+									<td>2913 Meridian<br></td>
+								</tr>
+								<tr>
+									<td>#current_user_work_phone<br></td>
+									<td>&nbsp;from the provider table<br></td>
+									<td>705-672-1111</td>
+								</tr>
+								<tr>
+									<td>#current_user_email<br></td>
+									<td>&nbsp;from the provider table<br></td>
+									<td>phc@oscarcanada.org<br></td>
+								</tr>
+								<tr>
+									<td>#current_user_fax<br></td>
+									<td>&nbsp;from the provider table<br></td>
+									<td>705-672-2222</td>
+								</tr>
+								<tr>
+									<td>current_user_signature</td>
+									<td>Oscar User Signature<br></td>
+									<td>MD (entered from Pref, Edit your Signature)</td>
+								</tr>
+								<tr>
+									<td>patient_name</td>
+									<td>Upper Case Name<br></td>
+									<td>MACDONALD, JOHN A<br></td>
+								</tr>
+								<tr>
+									<td>first_last_name</td>
+									<td>Mixed Case Name<br></td>
+									<td>John a Macdonald<br></td>
+								</tr>
+								<tr>
+									<td>patient_nameL (u)</td>
+									<td>Last Name<br></td>
+									<td>MACDONALD<br></td>
+								</tr>
+								<tr>
+									<td>patient_nameF (u)</td>
+									<td>First Name<br></td>
+									<td>JOHN A<br></td>
+								</tr>
+								<tr>
+									<td>patient_alias (u)</td>
+									<td>Patient Alias as per demographic<br>
+									</td>
+									<td>Old Chieftain<br></td>
+								</tr>
+								<tr>
+									<td>#patient_title<br></td>
+									<td>Patients title if listed in demographic<br>
+									</td>
+									<td>MR<br></td>
+								</tr>
+								<tr>
+									<td>patient_id</td>
+									<td>Oscar Generated Demographic No<br></td>
+									<td>3781<br></td>
+								</tr>
+								<tr>
+									<td>label</td>
+									<td>SURNAME, PROPER<br>Address line<br>Telephones
+									<br>DOB HIC<br></td>
+									<td>MACDONALD, JOHN A<br>Box 815, 16 Whitewood
+									Ave., New Liskeard, ON P0J 1P0<br>Tel:705-647-4399(H)&nbsp;
+									(W)<br>03/06/1938(F)&nbsp; HIN:7999962999CR<br>
+									</td>
+								</tr>
+								<tr>
+									<td>address</td>
+									<td>Address<br>City Postal<br></td>
+									<td>Box 815, 16 Whitewood Ave.<br>New Liskeard,
+									ON P0J 1P0</td>
+								</tr>
+								<tr>
+									<td>addressline</td>
+									<td>one line address<br></td>
+									<td>Box 815, 16 Whitewood Ave., New Liskeard,
+									ON P0J 1P0</td>
+								</tr>
+								<tr>
+									<td>address_street_number_and_name</td>
+									<td>street and number<br></td>
+									<td>Box 815, 16 Whitewood Ave.</td>
+								</tr>
+								<tr>
+									<td>province</td>
+									<td>2 digit province<br></td>
+									<td>ON</td>
+								</tr>
+								<tr>
+									<td>city</td>
+									<td>City<br></td>
+									<td>New Liskeard<br></td>
+								</tr>
+								<tr>
+									<td>postal</td>
+									<td>Postal Code<br></td>
+									<td>P0J 1P0<br></td>
+								</tr>
+								<tr>
+									<td>dob<br></td>
+									<td>dd/mm/yyyy (d/m/y)<br></td>
+									<td>13/06/1938 (d/m/y)<br></td>
+								</tr>
+								<tr>
+									<td>dobc</td>
+									<td>dd/mm/yyyy<br></td>
+									<td>13/06/1938<br></td>
+								</tr>
+								<tr>
+									<td>dobc2</td>
+									<td>yyyy/mm/dd<br></td>
+									<td>1938/06/13<br></td>
+								</tr>
+								<tr>
+									<td>*dobc3</td>
+									<td>mm/dd/yyyy</td>
+									<td>06/13/1938</td>
+								</tr>
+								<tr>
+									<td>#dob_MONTH-dd-yyyy<br></td>
+									<td>MONTH-dd-yyyy</td>
+									<td>Jun-13-1938<br></td>
+								</tr>
+								<tr>
+									<td>dob_year</td>
+									<td>yyyy<br></td>
+									<td>1938<br></td>
+								</tr>
+								<tr>
+									<td>dob_month</td>
+									<td>mm<br></td>
+									<td>06<br></td>
+								</tr>
+								<tr>
+									<td>dob_day</td>
+									<td>dd<br></td>
+									<td>03<br></td>
+								</tr>
+								<tr>
+									<td>NameAddress</td>
+									<td>Name<br>Address<br></td>
+									<td>MACDONALD, JOHN A<br>Box 815, 16 Whitewood
+									Ave., New Liskeard, ON P0J 1P0</td>
+								</tr>
+								<tr>
+									<td>hin</td>
+									<td>HIN and Version<br></td>
+									<td>7999962999 CR</td>
+								</tr>
+								<tr>
+									<td>hinc</td>
+									<td>HIN<br></td>
+									<td>7999962999</td>
+								</tr>
+								<tr>
+									<td>hinversion</td>
+									<td>Version Code<br></td>
+									<td>CR<br></td>
+								</tr>
+								<tr>
+									<td>#hc_type</td>
+									<td>Insurance province/state<br></td>
+									<td>ON<br></td>
+								</tr>
+								<tr>
+									<td>hc_renew_date</td>
+									<td>Health Card Renewal<br></td>
+									<td>2006-01-23<br></td>
+								</tr>
+								<tr>
+									<td>chartno</td>
+									<td>User provided Chart No <br>eg the paper
+									chart #<br></td>
+									<td>29973<br></td>
+								</tr>
+								<tr>
+									<td>phone</td>
+									<td>home phone<br></td>
+									<td>705-647-4399</td>
+								</tr>
+								<tr>
+									<td>phone2</td>
+									<td>work phone<br></td>
+									<td>705-647-4399</td>
+								</tr>
+								<tr>
+									<td>cell</td>
+									<td>cell phone<br></td>
+									<td>705-647-4399</td>
+								</tr>
+								<tr>
+									<td>phone_extension</td>
+									<td>extension<br></td>
+									<td>23<br></td>
+								</tr>
+								<tr>
+									<td>phone2_extension</td>
+									<td>extension<br></td>
+									<td>23<br></td>
+								</tr>
+								<tr>
+									<td>age</td>
+									<td>Current age in years<br></td>
+									<td>74<br></td>
+								</tr>
+								<tr>
+									<td>age_in_months</td>
+									<td>Current age in months<br></td>
+									<td>14<br></td>
+								</tr>
+								<tr>
+									<td>ageComplex</td>
+									<td>Age expressed in days weeks or months for
+									infants and toddlers and years&nbsp; for older
+									children or adults<br></td>
+									<td>3 day old<br>4 week old<br>6 month old<br>
+									74 year old<br></td>
+								</tr>
+								<tr>
+									<td>#ageComplex2<br></td>
+									<td>Years and Months of age<br></td>
+									<td>74 years&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp; &nbsp;7
+									Months</td>
+								</tr>
+								<tr>
+									<td>sex</td>
+									<td>gender<br></td>
+									<td>M<br></td>
+								</tr>
+								<tr>
+									<td>#She_He<br></td>
+									<td>She or He based on gender<br></td>
+									<td>He<br></td>
+								</tr>
+								<tr>
+									<td>#him_her<br></td>
+									<td>him or her based on gender <br></td>
+									<td>him<br></td>
+								</tr>
+								<tr>
+									<td>#his_her <br></td>
+									<td>his_her based on gender<br></td>
+									<td>his <br></td>
+								</tr>
+								<tr>
+									<td>sin<br></td>
+									<td>Social Security Number<br></td>
+									<td>111-222-333<br></td>
+								</tr>
+								<tr>
+									<td>#partner_nameL<br></td>
+									<td>Partners last name from relationships<br>
+									</td>
+									<td>MACDONALD <br></td>
+								</tr>
+								<tr>
+									<td>#partner_nameF<br></td>
+									<td>Partners first name<br></td>
+									<td>AGNES</td>
+								</tr>
+								<tr>
+									<td>#partner_dob<br></td>
+									<td>dd/mm/yyyy (d/m/y) <br></td>
+									<td>13/06/1938 (d/m/y) <br></td>
+								</tr>
+								<tr>
+									<td>#partner_dob2<br></td>
+									<td>yyyy/mm/dd</td>
+									<td>1938/06/13<br></td>
+								</tr>
+								<tr>
+									<td>#partner_hin <br></td>
+									<td>Partners health number and version<br>
+									</td>
+									<td>7999962999 CR <br></td>
+								</tr>
+								<tr>
+									<td>#partner_phone <br></td>
+									<td>Partners phone<br></td>
+									<td>705-647-4399</td>
+								</tr>
+								<tr>
+									<td>medical_history</td>
+									<td>history<br></td>
+									<td>1984 ANTEROLATERAL MYOCARDIAL INFARCT<br>
+									2000 COPD <br>2001 ATYPICAL PNEUMONIA<br>2007
+									OSTEOPENIA<br>2009 CATARACT REMOVAL &amp; IOL
+									IMPLANT(Right)<br>2016 CVA (CEREBROVASCULAR)(Right)
+									<br></td>
+								</tr>
+								<tr>
+									<td>#medical_history_ext</td>
+									<td>&nbsp;&lt;br&gt; delineated history<br>
+									</td>
+									<td>1984 ANTEROLATERAL MYOCARDIAL INFARCT&lt;br&gt;2000
+									COPD &lt;br&gt;2001 ATYPICAL PNEUMONIA&lt;br&gt;2007
+									OSTEOPENIA<br></td>
+								</tr>
+								<tr>
+									<td>other_medications_history</td>
+									<td>Comma delineated list of family history
+									and other meds<br></td>
+									<td>dad renal failure 76 IHD, mom AMI 75 NIDDM<br>
+									</td>
+								</tr>
+								<tr>
+									<td>#other_medications_history_ext</td>
+									<td>&nbsp;&lt;br&gt; delineated list of family
+									history and other meds</td>
+									<td>dad renal failure 76 IHD<br>mom AMI 75 NIDDM</td>
+								</tr>
+								<tr>
+									<td>social_family_history</td>
+									<td>Comma delineated social history<br></td>
+									<td>Lives with son James, Retired Prime Minister<br>
+									</td>
+								</tr>
+								<tr>
+									<td>#social_family_history_ext</td>
+									<td>&lt;br&gt; delineated list of social history<br>
+									</td>
+									<td>Lives with son James<br>Retired Prime Minister
+									<br></td>
+								</tr>
+								<tr>
+									<td>ongoingconcerns</td>
+									<td>Comma delineated list of ongoing concerns<br>
+									</td>
+									<td>Limited finances<br></td>
+								</tr>
+								<tr>
+									<td>#ongoingconcerns_ext<br></td>
+									<td>&lt;br&gt; delineated list of ongoing concerns</td>
+									<td>Limited finances</td>
+								</tr>
+								<tr>
+									<td>#riskfactors<br></td>
+									<td>Comma delineated list of ongoing concerns</td>
+									<td>&nbsp;</td>
+								</tr>
+								<tr>
+									<td>#riskfactors_ext</td>
+									<td>&lt;br&gt; delineated list of ongoing concerns</td>
+									<td>&nbsp;</td>
+								</tr>
+								<tr>
+									<td>reminders</td>
+									<td>Comma delineated list of reminders<br>
+									</td>
+									<td>Findlay's, If unable to reach patient at
+									home tel #, contact Mike (caretaker) at 705-676-7995(cell).<br>
+									</td>
+								</tr>
+								<tr>
+									<td>#reminders_ext <br></td>
+									<td>&lt;br&gt; delineated list of reminders</td>
+									<td>&nbsp;</td>
+								</tr>
+								<tr>
+									<td>risk_factors_json</td>
+									<td>Risk Factors from CPP</td>
+									<td>[{"note":"risky gambling"}]<br></td>
+								</tr>
+								<tr>
+									<td>&nbsp;</td>
+									<td>&nbsp;</td>
+									<td>&nbsp;</td>
+								</tr>
+								<tr>
+									<td>family_history_json</td>
+									<td>Family History from CPP</td>
+									<td>[{"note":"Father cardiomyopathy 32 passed
+									out\nuncle died of brain tumour 1.5yo"}]<br>
+									</td>
+								</tr>
+								<tr>
+									<td>dxregistry</td>
+									<td>Comma delineated disease registry items<br>
+									</td>
+									<td>ESSENTIAL HYPERTENSION*, CHRONIC BRONCHITIS*</td>
+								</tr>
+								<tr>
+									<td>OHIPdxCode</td>
+									<td>Comma delimited OHIP diagnosis codes billed<br>
+									</td>
+									<td>715,919,300,366,896,401,610,381,799,380,493,388,491,454,386,691,780<br>
+									</td>
+								</tr>
+								<tr>
+									<td>allergies_des</td>
+									<td>Comma delineated allergies and<br>archived
+									(deleted)<br></td>
+									<td>PENICILLIN<br>archived allergies: AMOXIL<br>
+									</td>
+								</tr>
+								<tr>
+									<td>allergies_des_no_archived</td>
+									<td>Comma delineated current allergies<br>
+									</td>
+									<td>PENICILLIN<br></td>
+								</tr>
+								<tr>
+									<td>recent_rx</td>
+									<td>recent Rx<br></td>
+									<td>2015-11-12 AGGRENOX Take 1 Tabs PO BID for
+									90 Days LU Code: 349 Qty:180 Repeats:3<br>2015-11-08
+									MUCOMYST INJ 200MG/ML 2 ml by nebuliser TID
+									for 30 days Qty:90 ml Repeats:4<br>2015-10-31
+									PULMICORT NEBUAMP 0.5 MG/ML inhale contents
+									of 1 nebule BID for 60 days LU Code: 264 Qty:120
+									Repeats:0<br>SALBUTAMOL&nbsp; 1MG LIQUID Take
+									1 neb qid for 90 days Qty:360 Repeats:3<br>IPRATROPIUM
+									BROMIDE .25MG SOLUTION 1 neb Q6H for 90 days
+									Qty:360 Repeats:3<br>SALBUTAMOL&nbsp; 100MCG
+									METERED-DOSE AEROSOL 1-2puff QID INH PRN for
+									30 days Qty:2 Repeats:12<br></td>
+								</tr>
+								<tr>
+									<td>today_rx</td>
+									<td>todays Rx<br></td>
+									<td>2015-11-12 AGGRENOX Take 1 Tabs PO BID for
+									90 Days LU Code: 349 Qty:180 Repeats:3</td>
+								</tr>
+								<tr>
+									<td>#current_rx<br></td>
+									<td>current Rx<br></td>
+									<td>&nbsp;Darco healing shoe With custom insole
+									Qty:1 Repeats:0SITAGLIPTIN&nbsp; 25MG TABLET
+									Take 1 po od Qty:0 Repeats:0METFORMIN 500MG
+									Take 1 po bid Qty:0 Repeats:0TOBRAMYCIN FOR
+									INJECTION 1.2G 150 mg iv q 12h for 19 days 1.5mg/kg
+									= 150mg eGFR 45 Qty:5700 Repeats:0VENOFER 20MG
+									300mg for iv infusion please fill today Qty:1
+									Repeats:0CYANOCOBALAMIN INJECTION, USP 1000MCG
+									Aminister 1ml IM or sc monthly Qty:10 Repeats:0CIPROFLOXACIN
+									500MG Take 1 po bid for 14 days LU 332 Qty:28
+									Repeats:0WARFARIN 4MG Take 1 po od or as directed
+									for 30 days Qty:30 Repeats:2FUROSEMIDE 40MG
+									Take 2 Tabs PO OD for 60 Days Qty:120 Repeats:3WARFARIN
+									2MG take as directed Qty:90 Repeats:0CLOXACILLIN
+									500MG Take 2 capsules (1 g) PO QID for two months
+									Qty:480 Repeats:0PERCOCET 325MG/5MG Take 1-2
+									tabs PO QID PRN (Max 8 tabs per day) Qty:112
+									Repeats:0LYRICA 75MG take BID PO Qty:60 Repeats:0CLOXACILLIN&nbsp;
+									250MG CAPSULE Take 1 po qid for 14 days Qty:56
+									Repeats:0WARFARIN 1MG PO OD as directed Qty:90
+									Repeats:0FELODIPINE 2.5MG TABLET (EXTENDED-RELEAS</td>
+								</tr>
+								<tr>
+									<td>#current_rx_lt<br></td>
+									<td>current drugs marked as long term<br>
+									</td>
+									<td>&nbsp;CYANOCOBALAMIN INJECTION, USP 1000MCG
+									Aminister 1ml IM or sc monthly Qty:10 Repeats:0WARFARIN
+									4MG Take 1 po od or as directed for 30 days
+									Qty:30 Repeats:2FUROSEMIDE 40MG Take 2 Tabs
+									PO OD for 60 Days Qty:120 Repeats:3WARFARIN
+									2MG take as directed Qty:90 Repeats:0CLOXACILLIN
+									500MG Take 2 capsules (1 g) PO QID for two months
+									Qty:480 Repeats:0SITAGLIPTIN&nbsp; 100MG TABLET
+									Take 1 po od for 90 days Qty:90 Repeats:0COUMADIN
+									5MG Take 1 po od for 90 days Qty:90 Repeats:0BISOPROLOL
+									5MG Take 1 po od for 90 days Qty:90 Repeats:3ATORVASTATIN&nbsp;
+									20MG TABLET Take 1 po od for 90 days Qty:90
+									Repeats:3FELODIPINE 5MG Take 1 Tabs PO OD for
+									90 days Qty:90 Repeats:3METFORMIN 500MG Take
+									1 tab at breakfast, 1 tab at luch and 2 tabs
+									at supper. Qty:360 Repeats:3RAMIPRIL 10MG Take
+									2 tabs OD Qty:180 Repeats:3Glucometer Strips
+									and Lancets 1 QID prn Qty:100 Repeats:99SILDENAFIL
+									100MG Take 1/2 Tabs PO OD for PRN 30Days Qty:4&nbsp;
+									Repeats:0FUROSEMIDE 40MG Take 1 Tabs PO OD for
+									90Days Qty:90&nbsp; Repeats:3 FELODIPINE 5 MG
+									Take 1 Ta</td>
+								</tr>
+								<tr>
+									<td>druglist_generic</td>
+									<td>Generic drug list one per line<br></td>
+									<td>ACETYLSALICYLIC ACID 25.0 MG DIPYRIDAMOLE
+									200.0 MG 1 BID<br>ACETYLCYSTEINE 0 TID<br>SALBUTAMOL
+									(SALBUTAMOL SULFATE) 0 QID prn<br>IPRATROPIUM
+									BROMIDE 0 Q6H<br>SALBUTAMOL (SALBUTAMOL SULFATE)
+									1 qid<br>BETAHISTINE HYDROCHLORIDE 16.0 MG 1
+									TID<br>FUROSEMIDE 20.0 MG 1 OD<br></td>
+								</tr>
+								<tr>
+									<td>druglist_trade</td>
+									<td>Trade drug list one per line<br></td>
+									<td>AGGRENOX 1 BID<br>MUCOMYST INJ 200MG/ML
+									0 TID<br>VENTOLIN&nbsp; 100MCG METERED-DOSE
+									AEROSOL 0 QID prn<br>ATROVENT .25MG SOLUTION
+									0 Q6H<br>VENTOLIN&nbsp; 1MG LIQUID 1 qid<br>
+									NOVO-BETAHISTINE 16MG 1 TID<br>LASIX 20 TAB
+									1 OD<br></td>
+								</tr>
+								<tr>
+									<td>druglist_line</td>
+									<td>the shortest druglist mixed case comma delineated<br>
+									</td>
+									<td>Aggrenox 1 BID, Mucomyst inj 200mg/ml 0
+									TID, Salbutamol&nbsp; 100mcg metered-dose aerosol
+									0 QID prn, Ipratropium bromide .25mg solution
+									0 Q6H, Salbutamol&nbsp; 1mg liquid 1 qid, Novo-betahistine
+									16mg 1 TID, Furosemide 20 tab 1 OD<br></td>
+								</tr>
+								<tr>
+									<td><br></td>
+									<td><br></td>
+									<td><br></td>
+								</tr>
+								<tr>
+									<td>#latest_echart_note<br></td>
+									<td>&nbsp;</td>
+									<td>&nbsp;[04-Jul-2018 .: inpatient 2/7 post
+									pacemaker][8:18]<br>## Subjective:<br>Doing
+									well, some knee pain<br>## Objective:<br>BP
+									123-146 systolic HR 60<br>minimal oedema<br>
+									painful rt knee on rom<br>no effusion<br>ligaments
+									intact clinically<br>rt heel necrotic patch
+									basically unchanged apprx loonie sized<br>##
+									Analysis:<br>1) Knee OA limited response post
+									steroid injection<br>2) Heart block controlled
+									with pacer<br>3) Vascular impairment rt foot<br>
+									## Plan:<br>physio and rehab<br>d/w vascular
+									sx<br>[Signed on 04-Jul-2018 8:26 by Dr. P Hutten-Czapski
+									57283]</td>
+								</tr>
+								<tr>
+									<td>#todays_notes<br></td>
+									<td>&nbsp;</td>
+									<td>&nbsp;</td>
+								</tr>
+								<tr>
+									<td>#todays_notes_ext<br></td>
+									<td>&nbsp;</td>
+									<td>&nbsp;</td>
+								</tr>
+								<tr>
+									<td>#document_list<br></td>
+									<td>&nbsp;list of ids and documents<br></td>
+									<td>&nbsp;4865,Ultrasound Doppler Venous Lower
+									Rt;7774,1-Pap 2010 recall;7993,4-Flu 2010 recall;32342,1-Pap
+									2010 recall;44341,CCAC- Initial;44411,CCAC -
+									Client Services Plan;48232,Dr. Lewis;49679,Dr.
+									Lewis;50303,Appt for Sudbury vascular;52410,Referral
+									to Dr. Rosoph;54042,ECHO;54259,CCAC- Initial;54610,CCAC-
+									Initial;54852,CCAC- Client's Service Plan;57078,CCAC
+									Plan;58927,Request for labs-TDP;62883,Physiotherapy
+									Service- Client Summary;63709,CCAC- Client Discharge;64594,Dr.Fenton-
+									Sudbury Vascular;64886,Dr.Fenton- Sudbury Vascular;105412,Dr.
+									Willoughby- Sudbury Vascular;107376,Request
+									for labs-TDP;107564,NEJAC Surgical Appointment;116315,Dr.
+									Saidi-Orthopaedic Oncology + Arthroplasty Specialist;118988,Request
+									for labs-TDP;120775,Sudbury Vascular- Lower
+									Extremity Arterial Duplex Scan;120776,Sudbury
+									Vascular;123049,Dr. Saidi- Orthopaedic Oncol;128788,Sudbury
+									Vascular;129623,Request for LU Code;133551,Request
+									for labs-TDP;133828,Request for labs-TDP;136108,Sudbury
+									Vascular- Lower Extremity Arterial Duplex Scan;142993,Transt</td>
+								</tr>
+								<tr>
+									<td>onGTPAL</td>
+									<td>Ontario Antenatal Record GTPAL code</td>
+									<td>&nbsp;GxTxPxAxLx</td>
+								</tr>
+								<tr>
+									<td>onEDB <br></td>
+									<td>Ontario Antenatal Record EDB<br></td>
+									<td>2016-12-31<br></td>
+								</tr>
+								<tr>
+									<td>bcGTPAL <br></td>
+									<td>British Columbia Antenatal Record GTPAL
+									code<br></td>
+									<td>GxTxPxAxLx<br></td>
+								</tr>
+								<tr>
+									<td>bcEDD</td>
+									<td>British Columbia Antenatal Record EDD<br>
+									</td>
+									<td>2016-12-31<br></td>
+								</tr>
+								<tr>
+									<td>doctor</td>
+									<td>Last, First of doctor listed by Oscar in
+									demographics<br></td>
+									<td>Hutten-Czapski, Peter<br></td>
+								</tr>
+								<tr>
+									<td>doctor_provider_no</td>
+									<td>Provider number<br></td>
+									<td>1007<br></td>
+								</tr>
+								<tr>
+									<td>doctor_ohip_no</td>
+									<td>Their billing number<br></td>
+									<td>150692</td>
+								</tr>
+								<tr>
+									<td>doctor_specialty_code</td>
+									<td>Their specialty<br></td>
+									<td>00<br></td>
+								</tr>
+								<tr>
+									<td>doctor_cpsid</td>
+									<td>Their CPSID<br></td>
+									<td>54345</td>
+								</tr>
+								<tr>
+									<td>doctor_title</td>
+									<td>Their Title<br></td>
+									<td>MD (this column is in the database but not
+									editable)</td>
+								</tr>
+								<tr>
+									<td>provider_name</td>
+									<td>Last, First<br></td>
+									<td>Hutten-Czapski, Peter<br></td>
+								</tr>
+								<tr>
+									<td>provider_name_first_init</td>
+									<td>Name<br></td>
+									<td>P. Hutten-Czapski<br></td>
+								</tr>
+								<tr>
+									<td>doctor_work_phone</td>
+									<td>work no from the provider table<br></td>
+									<td>705-672-1111<br></td>
+								</tr>
+								<tr>
+									<td>doctor_signature</td>
+									<td>Their signature from provider preferences<br>
+									</td>
+									<td>MD<br></td>
+								</tr>
+								<tr>
+									<td>appt_provider_name</td>
+									<td>The provider listed for the appointment<br>
+									</td>
+									<td>Hutten-Czapski, Peter<br></td>
+								</tr>
+								<tr>
+									<td>appt_provider_id</td>
+									<td>The provider's id listed for the appointment<br>
+									</td>
+									<td>121<br></td>
+								</tr>
+								<tr>
+									<td>appt_no</td>
+									<td>The appointment no<br></td>
+									<td>353104<br></td>
+								</tr>
+								<tr>
+									<td>#appt_date<br></td>
+									<td>yyyy-mm-dd<br></td>
+									<td>2018-07-05<br></td>
+								</tr>
+								<tr>
+									<td>#appt_time<br></td>
+									<td>hh:mm:ss<br></td>
+									<td>13:45:00 <br></td>
+								</tr>
+								<tr>
+									<td>#appt_end_time<br></td>
+									<td>hh:mm:ss</td>
+									<td>14:14:00<br></td>
+								</tr>
+								<tr>
+									<td>#appt_provider_ohip_no<br></td>
+									<td>providers OHIP<br></td>
+									<td>150692</td>
+								</tr>
+								<tr>
+									<td>#appt_provider_cpsid<br></td>
+									<td>providers College id <br></td>
+									<td>54345 <br></td>
+								</tr>
+								<tr>
+									<td>#next_appt_provider_id<br></td>
+									<td>OSCAR provider id<br></td>
+									<td>121<br></td>
+								</tr>
+								<tr>
+									<td>#next_appt_provider_name<br></td>
+									<td>Provider name<br></td>
+									<td>Hutten-Czapski, Peter</td>
+								</tr>
+								<tr>
+									<td>#next_appt_date<br></td>
+									<td>Date and time<br></td>
+									<td>2018-07-05, 13:45:00 <br></td>
+								</tr>
+								<tr>
+									<td>#next_appt_time<br></td>
+									<td>hh:mm<br></td>
+									<td>13:45 <br></td>
+								</tr>
+								<tr>
+									<td>#nextf_appt_date<br></td>
+									<td>yyyy-MONTH-dd<br></td>
+									<td>2018-Jul-05<br></td>
+								</tr>
+								<tr>
+									<td>referral_name</td>
+									<td>Last, First<br></td>
+									<td>Spade, Sam<br>(These come from the ProfessionalSpecialists
+									table using the ReferralNo)</td>
+								</tr>
+								<tr>
+									<td>#referral_Last_name<br></td>
+									<td>Last</td>
+									<td>Spade</td>
+								</tr>
+								<tr>
+									<td>#referral_first_name<br></td>
+									<td>First<br></td>
+									<td>Sam<br></td>
+								</tr>
+								<tr>
+									<td>referral_address</td>
+									<td>Multiline address<br></td>
+									<td>431 Whitewood Ave<br>New Liskeard ON P0J
+									1P0<br></td>
+								</tr>
+								<tr>
+									<td>#dr_referral_name<br></td>
+									<td>Dr.First Last<br></td>
+									<td>Dr.Sam Spade<br></td>
+								</tr>
+								<tr>
+									<td>#referral_no<br></td>
+									<td>OHIP Provider Number of the referral<br>
+									</td>
+									<td>150692</td>
+								</tr>
+								<tr>
+									<td>referral_phone</td>
+									<td>Referral phone<br></td>
+									<td>(705) 647-1112 Ext 5422<br></td>
+								</tr>
+								<tr>
+									<td>referral_fax</td>
+									<td>Fax no<br></td>
+									<td>705-647-1234<br></td>
+								</tr>
+								<tr>
+									<td>bc_referral_name <br></td>
+									<td>Last, First<br></td>
+									<td>SPADE, SAM<br>(These come from the billingreferral
+									table using the ReferralNo)</td>
+								</tr>
+								<tr>
+									<td>bc_referral_address</td>
+									<td>Multiline address<br></td>
+									<td>431 Whitewood Ave<br>New Liskeard ON P0J
+									1P0<br></td>
+								</tr>
+								<tr>
+									<td>bc_referral_phone</td>
+									<td>Referral phone<br></td>
+									<td>(604) 647-1112 Ext 5422<br></td>
+								</tr>
+								<tr>
+									<td>bc_referral_fax <br></td>
+									<td>Fax no<br></td>
+									<td>604-647-1234<br></td>
+								</tr>
+								<tr>
+									<td>bc_referral_no</td>
+									<td>Referring MD no<br></td>
+									<td>666666<br></td>
+								</tr>
+								<tr>
+									<td>clinic_name</td>
+									<td>name<br></td>
+									<td>Haileybury Family Health Team<br></td>
+								</tr>
+								<tr>
+									<td>clinic_phone</td>
+									<td>As per admin<br></td>
+									<td>705-672-1111<br></td>
+								</tr>
+								<tr>
+									<td>clinic_fax</td>
+									<td>As per admin<br></td>
+									<td>705-672-2222<br></td>
+								</tr>
+								<tr>
+									<td>clinic_label</td>
+									<td>Multiline name and address<br></td>
+									<td>Haileybury Family Health Team<br>2913 Meridian<br>
+									Haileybury,Ontario,P0J 1P0<br>Tel:672-1111Fax:705-672-2222<br>
+									</td>
+								</tr>
+								<tr>
+									<td>clinic_addressLine</td>
+									<td>Street<br></td>
+									<td>2913 Meridian<br></td>
+								</tr>
+								<tr>
+									<td>clinic_addressLineFull</td>
+									<td>Street, City, Province, Postal<br></td>
+									<td>2913 Meridian, Haileybury, Ontario, P0J
+									1K0<br></td>
+								</tr>
+								<tr>
+									<td>clinic_address</td>
+									<td>Multiline <br>Note bug in where the P0J
+									1K0 goes<br></td>
+									<td>2913 Meridian<br>Haileybury,P0J 1P0<br>Ontario,Canada</td>
+								</tr>
+								<tr>
+									<td>clinic_city</td>
+									<td>city</td>
+									<td>Haileybury</td>
+								</tr>
+								<tr>
+									<td>clinic_province</td>
+									<td>province<br></td>
+									<td>Ontario<br></td>
+								</tr>
+								<tr>
+									<td>clinic_postal</td>
+									<td>postal<br></td>
+									<td>P0J 1K0<br></td>
+								</tr>
+								<tr>
+									<td>dtap_immunization_date</td>
+									<td>DTaP date<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>flu_immunization_date</td>
+									<td>flu shot date<br></td>
+									<td>2017-11-06<br></td>
+								</tr>
+								<tr>
+									<td>#bcg_immunization_date</td>
+									<td>BCG date<br></td>
+									<td>1997-04-11<br></td>
+								</tr>
+								<tr>
+									<td>#rmenb_immunization_date</td>
+									<td>BEXSERO or rMenB</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#cholera_immunization_date</td>
+									<td>CHOLERA date</td>
+									<td>1997-04-11 <br></td>
+								</tr>
+								<tr>
+									<td>#chol_ecol_o_immunization_date</td>
+									<td>Chol-Ecol-Oral date</td>
+									<td>1997-04-11<br></td>
+								</tr>
+								<tr>
+									<td>#dpt_polio_immunization_date</td>
+									<td>DPT POLIO date</td>
+									<td>DEPRECIATED prevention type use DTaP-IPV
+									instead<br></td>
+								</tr>
+								<tr>
+									<td>#dptp_hib_immunization_date</td>
+									<td>DPTP-Hib date</td>
+									<td>DEPRECIATED prevention type use TdP-IPV-Hib
+									instead<br></td>
+								</tr>
+								<tr>
+									<td>#dt_ipv_immunization_date</td>
+									<td>DT-IPV date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#dtap_hbv_ipv_hib_immunization_date</td>
+									<td>DTaP-HBV-IPV-Hib<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#dtap_hib_immunization_date</td>
+									<td>DTaP-Hib date</td>
+									<td>1997-04-11 <br></td>
+								</tr>
+								<tr>
+									<td>#dtap_ipv_immunization_date</td>
+									<td>DTaP-IPV date</td>
+									<td>1997-04-11 <br></td>
+								</tr>
+								<tr>
+									<td>#dtap_ipv_hb_immunization_date</td>
+									<td>DTaP-IPV-HB date</td>
+									<td>1997-04-11<br></td>
+								</tr>
+								<tr>
+									<td>#dtap_ipv_hib_immunization_date</td>
+									<td>DTaP-IPV-Hib date</td>
+									<td>1997-04-11 <br></td>
+								</tr>
+								<tr>
+									<td>#h1n1_immunization_date</td>
+									<td>H1N1 date</td>
+									<td>1997-04-11<br></td>
+								</tr>
+								<tr>
+									<td>#hbtmf_immunization_date</td>
+									<td>HBTmf date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#hpv_vaccine_immunization_date</td>
+									<td>HPV date <br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#hpv_vaccine_9_immunization_date</td>
+									<td>HPV Vaccine 9 date <br></td>
+									<td>DEPRECIATED prevention type use HPV instead
+									<br></td>
+								</tr>
+								<tr>
+									<td>#hepa_immunization_date</td>
+									<td>HepA date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#hepab_immunization_date</td>
+									<td>HepAB date</td>
+									<td>1997-04-11 <br></td>
+								</tr>
+								<tr>
+									<td>#hepb_immunization_date</td>
+									<td>HepB date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#hib_immunization_date</td>
+									<td>Hib date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#ipv_immunization_date</td>
+									<td>IPV date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#je_immunization_date</td>
+									<td>JE date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#men_con_acwy_immunization_date</td>
+									<td>MEN-CONJ-ACWY or Men-C-ACYW-135</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#mmr_immunization_date</td>
+									<td>MMR date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#mmrv_immunization_date</td>
+									<td>MMRV date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#mr_immunization_date</td>
+									<td>MR date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#mantoux_immunization_date</td>
+									<td>Mantoux date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#measles_immunization_date</td>
+									<td>Measles date</td>
+									<td>1997-04-11 <br></td>
+								</tr>
+								<tr>
+									<td>#men_p_ac_immunization_date</td>
+									<td>Men-P-AC date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#men_p_acwy_immunization_date</td>
+									<td>Men-P-ACWY date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#menb_b_immunization_date</td>
+									<td>MenB-B date</td>
+									<td>DEPRECIATED prevention type use rMenB instead
+									<br></td>
+								</tr>
+								<tr>
+									<td>#menc_c_immunization_date</td>
+									<td>MenC-C date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#mumps_immunization_date</td>
+									<td>Mumps date</td>
+									<td>This apconfig.xml entry is currently broken
+									<br></td>
+								</tr>
+								<tr>
+									<td>#opv_immunization_date</td>
+									<td>OPV date</td>
+									<td>No matching prevention currently<br>
+									</td>
+								</tr>
+								<tr>
+									<td>#otherA_immunization_date</td>
+									<td>OtherA date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#pediacel_immunization_date<br></td>
+									<td>pediacel date<br></td>
+									<td>DEPRECIATED prevention type use
+									<span class="st">DTaP-IPV-Hib</span> instead</td>
+								</tr>
+								<tr>
+									<td>#pneu_c_immunization_date</td>
+									<td>Pneu-C or prevnar <br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#pneumovax_immunization_date</td>
+									<td>Pneumovax date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#prolia_immunization_date</td>
+									<td>prolia date</td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#RABIES_immunization_date</td>
+									<td>RABIES date</td>
+									<td>DEPRECIATED prevention type use Rabies instead<br>
+									</td>
+								</tr>
+								<tr>
+									<td>#rabies_immunization_date</td>
+									<td>Rabies date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#rot_immunization_date</td>
+									<td>Rot date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#rubella_immunization_date</td>
+									<td>Rubella date</td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#shingles_immunization_date</td>
+									<td>SHINGLES or HZV or RZV<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#t_immunization_date</td>
+									<td>T date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#tbe_immunization_date</td>
+									<td>TBE date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#td_immunization_date</td>
+									<td>Td date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#td_ipv_immunization_date</td>
+									<td>Td-IPV (adult) date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#tdp_immunization_date</td>
+									<td>TdP date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#tdp_ipv_hib_immunization_date</td>
+									<td>TdP-IPV-Hib date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#tdap_ipv_immunization_date</td>
+									<td>Tdap-IPV date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#tuberculosis_immunization_date</td>
+									<td>Tuberculosis date</td>
+									<td>DEPRECIATED prevention type use BCG instead</td>
+								</tr>
+								<tr>
+									<td>#typh-o_immunization_date</td>
+									<td>Typh-O(ral) date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#typhoid_immunization_date</td>
+									<td>Thyphoid date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#vz_immunization_date <br></td>
+									<td>Varicella V date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#varicella_immunization_date</td>
+									<td>Varicella date</td>
+									<td>DEPRECIATED prevention type use VZ instead</td>
+								</tr>
+								<tr>
+									<td>#yf_immunization_date</td>
+									<td>Yellow Fever date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#bmd_immunization_date</td>
+									<td>BMD date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#bmd_immunization_last_value<br></td>
+									<td>BMD Value<br></td>
+									<td>abnormal<br></td>
+								</tr>
+								<tr>
+									<td>#colonoscopy_immunization_date</td>
+									<td>COLONOSCOPY date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#colonoscopy_immunization_last_value <br>
+									</td>
+									<td>COLONOSCOPY Value</td>
+									<td>normal</td>
+								</tr>
+								<tr>
+									<td>fobt_immunization_date</td>
+									<td>FOBT date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#fobt_immunization_last_value</td>
+									<td>FOBT Value<br></td>
+									<td>pending</td>
+								</tr>
+								<tr>
+									<td>#bmd_immunization_date</td>
+									<td>&nbsp;date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#pft_immunization_date<br></td>
+									<td>PFT date<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#mam_immunization_date<br></td>
+									<td>MAM date</td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#mam_immunization_data<br></td>
+									<td>all MAM result<br></td>
+									<td>pending normal normal<br></td>
+								</tr>
+								<tr>
+									<td>#mam_immunization_last_value<br></td>
+									<td>MAM Value<br></td>
+									<td>normal<br></td>
+								</tr>
+								<tr>
+									<td>#pap_immunization_date</td>
+									<td>PAP Date<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#pap_immunization_last_value</td>
+									<td>PAP Value<br></td>
+									<td>normal</td>
+								</tr>
+								<tr>
+									<td>#psa_immunization_date</td>
+									<td>PSA Date<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#psa_immunization_last_value</td>
+									<td>PSA Value<br></td>
+									<td>normal</td>
+								</tr>
+								<tr>
+									<td>#abdo_immunization_date<br></td>
+									<td>Abdo U/S for AAA<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#bone_scan_immunization_date<br></td>
+									<td>BONE SCAN date<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#cpx_immunization_date<br></td>
+									<td>CPX date<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#ct_scan_immunization_date<br></td>
+									<td>CT Scan date <br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#cxr_immunization_date<br></td>
+									<td>CXR<br></td>
+									<td>DEPRECIATED prevention type <br></td>
+								</tr>
+								<tr>
+									<td>#chlamydia_immunization_date<br></td>
+									<td>chlamydia test date<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#ecg_immunization_date<br></td>
+									<td>ECG<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#eeg_immunization_date<br></td>
+									<td>EEG<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#ekg_immunization_date<br></td>
+									<td>EKG<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#emg_immunization_date</td>
+									<td>EMG<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#ekg_immunization_date</td>
+									<td>EKG<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#endoscopy_immunization_date</td>
+									<td>ENDOSCOPY</td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#echo_immunization_date</td>
+									<td>Echo<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>fobt_immunization_date</td>
+									<td>fobt date<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#gonorrhea_pcr_immunization_date<br>
+									</td>
+									<td>Gonorrhea PCR<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#hiv_immunization_date<br></td>
+									<td>HIV test date<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#hepa_immunization_date</td>
+									<td>HepA screen<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#hepb_immunization_date</td>
+									<td>HepB screen<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#hepc_immunization_date</td>
+									<td>HepC screen<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#mammogram_immunization_date</td>
+									<td>mammo date<br></td>
+									<td>DEPRECATED see mam tags<br></td>
+								</tr>
+								<tr>
+									<td>pap_immunization_date</td>
+									<td>pap date<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#mmse_immunization_date <br></td>
+									<td>MMSE<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#mri_immunization_date</td>
+									<td>MRI<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#moca_immunization_date</td>
+									<td>MoCA<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#moca_immunization_date</td>
+									<td>OtherB date<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#pet_scan_immunization_date</td>
+									<td>PET SCAN<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#sleep_study_immunization_date</td>
+									<td>Sleep Study<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#stress_test_immunization_date</td>
+									<td>Stress Test<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#ultrasound_immunization_date</td>
+									<td>Ultrasound<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#vdrl_immunization_date</td>
+									<td>VDRL date<br></td>
+									<td>1997-04-11</td>
+								</tr>
+								<tr>
+									<td>#virtual_colonscopy_immunization_date</td>
+									<td>VIRTUAL COLONOSCOPY<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>#xrays_immunization_date</td>
+									<td>XRays<br></td>
+									<td>DEPRECIATED prevention type</td>
+								</tr>
+								<tr>
+									<td>&nbsp;</td>
+									<td>&nbsp;</td>
+									<td>&nbsp;</td>
+								</tr>
+								<tr>
+									<td>cytology_no <br></td>
+									<td>cytology number<br></td>
+									<td>number (from demographicExt table where
+									key = 'cytolNum')</td>
+								</tr>
+								<tr>
+									<td>guardian_label</td>
+									<td>from new relationships tables<br>first last<br>
+									address<br>city province<br>postal<br><br>
+									</td>
+									<td>MIKE MACDONALD<br>431 Whitewood Ave<br>New
+									Liskeard ON<br>P0J 1P0</td>
+								</tr>
+								<tr>
+									<td>guardian_label2</td>
+									<td>Substitute Decision Maker<br>first last<br>
+									address<br>city province<br>postal<br></td>
+									<td>MIKE MACDONALD<br>431 Whitewood Ave<br>New
+									Liskeard ON<br>P0J 1P0<br></td>
+								</tr>
+								<tr>
+									<td>email</td>
+									<td>patient email<br></td>
+									<td>my.name@oscarcanada.org</td>
+								</tr>
+								<tr>
+									<td>urine_tox_test_json</td>
+									<td>Measurements OPID MAMP BZD CANB Uetc<br>
+									</td>
+									<td>[{"type":"BZD","dataField":"pos","comments":"","dateObserved":"2016-04-04
+									00:00:00.0","dateEntered":"2016-04-04 12:34:46.0"},{"type":"MAMP","dataField":"neg","comments":"","dateObserved":"2016-04-04
+									00:00:00.0","dateEntered":"2016-04-04 12:34:46.0"}]</td>
+								</tr>
+								<tr>
+									<td>methadone_induction_assessment_json</td>
+									<td>Measurements RHU ORDU MDD GWS<br></td>
+									<td>[{"type":"RHU","dataField":"Yes","comments":"","dateObserved":"2016-04-04
+									00:00:00.0","dateEntered":"2016-04-04 12:34:46.0"}]</td>
+								</tr>
+							</table>
+
+Copyright &copy; 2012-2026 by Peter Hutten-Czapski.
+A portion of this work was previously published on OscarManual.org
+</body>
+
+</html>
