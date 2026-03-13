@@ -503,7 +503,7 @@
                             String user = (String) session.getAttribute("user");
                             UserProperty up = pref.getProp(user, UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
                             String timeperiod = null;
-                            int countback;
+                            int countback = 0;
 
                             if (up != null && up.getValue() != null && !up.getValue().trim().equals("")) {
                                 timeperiod = up.getValue();
