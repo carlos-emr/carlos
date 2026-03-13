@@ -19,9 +19,13 @@
  * CloudPractice Inc.
  * Victoria, British Columbia
  * Canada
+ *
+ * Now maintained by the CARLOS EMR Project (2026+).
+ * https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-package org.oscarehr.ws.rest.response;
+package io.github.carlos_emr.carlos.webserv.rest.to;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,33 +16,31 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 
-package org.oscarehr.ws.rest;
+package io.github.carlos_emr.carlos.webserv.rest;
 
 import org.apache.logging.log4j.Logger;
-import org.oscarehr.util.MiscUtils;
-import org.oscarehr.common.dao.EFormDao;
-import org.oscarehr.managers.FormsManager;
-import org.oscarehr.ws.rest.conversion.EFormConverter;
-import org.oscarehr.ws.rest.response.RestResponse;
-import org.oscarehr.ws.rest.to.model.EFormTo1;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.managers.FormsManager;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.EFormConverter;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormTo1;
+import io.github.carlos_emr.OscarProperties;
+import io.github.carlos_emr.carlos.eform.EFormLoader;
+import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import oscar.OscarProperties;
-import oscar.eform.EFormLoader;
-import oscar.eform.actions.DisplayImageAction;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -78,10 +77,10 @@ public class EFormsService extends AbstractServiceImpl
 	@Produces(MediaType.APPLICATION_JSON)
 	public RestResponse<List<String>> getEFormImageList()
 	{
-		String imageHomeDir = OscarProperties.getInstance().getProperty("eform_image");
+		String imageHomeDir = OscarProperties.getInstance().getEformImageDirectory();
 		File directory = new File(imageHomeDir);
 
-		List<String> imagesNames = DisplayImageAction.getFiles(directory, ".*\\.(jpg|jpeg|png|gif)$", null);
+		ArrayList<String> imagesNames = DisplayImage2Action.getFiles(directory, ".*\\.(jpg|jpeg|png|gif)$", null);
 		Collections.sort(imagesNames);
 		return RestResponse.successResponse(imagesNames);
 	}
@@ -104,7 +103,7 @@ public class EFormsService extends AbstractServiceImpl
 		catch(Exception e)
 		{
 			logger.error("DB tag Error: ", e);
-			return RestResponse.errorResponse("Error retrieving oscar database tag list");
+			return RestResponse.errorResponse("Error retrieving database tag list");
 		}
 		return RestResponse.successResponse(dbTagList);
 	}

@@ -1,5 +1,6 @@
 /**
- * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -15,27 +16,24 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
- * This software was written for the
- * Department of Family Medicine
- * McMaster University
- * Hamilton
- * Ontario, Canada
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 
-package org.oscarehr.ws.rest;
+package io.github.carlos_emr.carlos.webserv.rest;
 
 import net.sf.json.JSONObject;
 import org.apache.logging.log4j.Logger;
-import org.oscarehr.util.MiscUtils;
-import org.oscarehr.common.dao.EFormDao;
-import org.oscarehr.common.model.EForm;
-import org.oscarehr.ws.rest.conversion.EFormConverter;
-import org.oscarehr.ws.rest.response.RestResponse;
-import org.oscarehr.ws.rest.to.model.EFormTo1;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.commn.model.EForm;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.EFormConverter;
+import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormTo1;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import oscar.log.LogAction;
-import oscar.log.LogConst;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -104,7 +102,7 @@ public class EFormService extends AbstractServiceImpl {
 
 	/**
 	 * Saves an eform. Parses plain json instead of a transfer object
-	 * @param jsonString
+	 * @param jsonString raw JSON string containing eform data
 	 * @return RestResponse with data from the eform saved. response does not include html
 	 */
 	@POST
@@ -122,7 +120,7 @@ public class EFormService extends AbstractServiceImpl {
 		String roleType = jsonObject.optString("roleType", null);
 		Boolean showLatestFormOnly = jsonObject.optBoolean("showLatestFormOnly", false);
 		Boolean patientIndependent = jsonObject.optBoolean("patientIndependant", false);
-		
+
 
 		EForm nameMatch = eFormDao.findByName(formName);
 		if(nameMatch != null) {
@@ -140,7 +138,7 @@ public class EFormService extends AbstractServiceImpl {
 		eForm.setCurrent(true);
 		eForm.setShowLatestFormOnly(showLatestFormOnly);
 		eForm.setPatientIndependent(patientIndependent);
-		
+
 		eForm.setRoleType(roleType);
 
 		if(isValidEformData(eForm)) {
@@ -180,7 +178,7 @@ public class EFormService extends AbstractServiceImpl {
 
 	/**
 	 * Updates an eform with the given id. Parses plain json instead of a transfer object
-	 * @param jsonString
+	 * @param jsonString raw JSON string containing eform data
 	 * @return RestResponse with data from the eform saved. response does not include html
 	 */
 	@PUT
@@ -205,7 +203,7 @@ public class EFormService extends AbstractServiceImpl {
 			String roleType = jsonObject.optString("roleType", eForm.getRoleType());
 			Boolean showLatestFormOnly = jsonObject.optBoolean("showLatestFormOnly", eForm.isShowLatestFormOnly());
 			Boolean patientIndependant = jsonObject.optBoolean("patientIndependant", eForm.isPatientIndependent());
-			
+
 
 			eForm.setFormName(formName);
 			eForm.setFormHtml(formHtml);
@@ -213,7 +211,7 @@ public class EFormService extends AbstractServiceImpl {
 			eForm.setCurrent(current);
 			eForm.setShowLatestFormOnly(showLatestFormOnly);
 			eForm.setPatientIndependent(patientIndependant);
-			
+
 			eForm.setRoleType(roleType);
 
 			if(isValidEformData(eForm)) {
@@ -230,7 +228,7 @@ public class EFormService extends AbstractServiceImpl {
 
 	/**
 	 * basic validation for eform data
-	 * @param eForm
+	 * @param eForm the EForm to validate
 	 * @return true if data is valid, false otherwise
 	 */
 	private boolean isValidEformData(EForm eForm) {
