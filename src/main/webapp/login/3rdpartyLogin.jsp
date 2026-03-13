@@ -112,7 +112,7 @@
             box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
         }
         .form-signin .form-signin-heading,
-        .form-signin .checkbox {
+        .form-signin .form-check {
             margin-bottom: 10px;
         }
         .form-signin input[type="text"],
@@ -232,15 +232,15 @@
             <div id="login_div" class="form-container">
                 <form class="form-signin">
                     <h2 class="form-signin-heading">Please sign in</h2>
-                    <input class="input-block-level" placeholder="Username"
+                    <input class="form-control mb-2" placeholder="Username"
                            type="text" id="username">
-                    <input class="input-block-level" placeholder="Password"
+                    <input class="form-control mb-2" placeholder="Password"
                            type="password" id="password">
-                    <input class="input-block-level" placeholder="Pin"
+                    <input class="form-control mb-2" placeholder="Pin"
                            type="password" id="pin">
 
-                    <div id="login_error" class="help-block" style="display:none;">
-                        <span class="text-error">
+                    <div id="login_error" class="form-text" style="display:none;">
+                        <span class="text-danger">
                             <strong>Login Failed: </strong><span></span>
                         </span>
                     </div>
@@ -280,9 +280,9 @@
                     <form id="scopeForm" method="post"
                         action="${e:forHtmlAttribute(oauthData.replyTo)};jsessionid=${pageContext.session.id}">
                         <c:forEach var="perm" items="${oauthData.permissions}">
-                            <div class="control group">
-                            <div class="controls">
-                                <label class="checkbox">
+                            <div class="mb-3">
+                            <div>
+                                <label class="form-check">
                                 <input type="checkbox" checked="checked" disabled="disabled">
                                 <e:forHtmlContent value='${perm}' />
                                 <c:if test="${empty fn:trim(perm)}">

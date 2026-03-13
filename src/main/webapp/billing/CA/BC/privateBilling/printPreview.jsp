@@ -191,7 +191,7 @@
     </div>
 
     <div class="btn-group mr-2" role="group" arial-label="Button group 2">
-        <div class="checkbox">
+        <div class="form-check">
             <label>
                 <input type="checkbox" id="cbBillToClinic" style="margin-top:0px;" onclick="handleClickBillToClinic()"
                        <c:if test="${billToClinic}">checked</c:if>

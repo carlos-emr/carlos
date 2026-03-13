@@ -214,13 +214,13 @@ label.error {
           <a href="http://oscarmcmaster.org/" target="_blank" title="OSCAR EMR"><img src="<%=request.getContextPath()%>/images/oscar_logo_small.png" border="0" style="float:left"></a>
           
 			<div class="dropdown navbar-text float-end" style="display:inline">
-					<fmt:setBundle basename="oscarResources"/><fmt:message key="global.loggedIn"/>  <a class="navbar-link dropdown-toggle" data-bs-toggle="dropdown" id="dLabel" role="button" href="#username" style="color:#000;"><%=userfirstname%> <%=userlastname%> <b class="caret" id="caret-loggedIn"></b></a>
+					<fmt:setBundle basename="oscarResources"/><fmt:message key="global.loggedIn"/>  <a class="navbar-link dropdown-toggle" data-bs-toggle="dropdown" id="dLabel" role="button" href="#username" style="color:#000;"><%=userfirstname%> <%=userlastname%></a>
 					 <ul class="dropdown-menu">
 					 				<li>	
 									<!-- <a href=# onClick ="popupPage2('<%=resourcebaseurl%>')"><fmt:setBundle basename="oscarResources"/><fmt:message key="global.help"/></a>-->
 									<a href=# onClick ="popupPage2('<%=request.getContextPath()%>/oscarEncounter/About.jsp')">About</a>
 									</li>
-									<li class="divider"></li>
+									<li class="dropdown-divider"></li>
 								
 										<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc" rights="r">
 										 <!--  <li id="admin">
@@ -244,7 +244,7 @@ label.error {
 									
 							        <li><a href="#" onclick='window.open("<%=request.getContextPath()%>/provider/providerchangepassword.jsp","changePassword","resizable=yes,scrollbars=yes,width=700,height=300");'><i class="icon-lock"></i> Change Password</a></li>
 							        <li><a href="javascript: function myFunction() {return false; }" onClick="popupPage2('<%=request.getContextPath()%>/scratch/index.jsp','scratch')" style="padding-right:10px;"><i class="icon-pencil"></i> Scratch Pad</a></li>
-							        <li class="divider"></li>
+							        <li class="dropdown-divider"></li>
 							        <li><a href="<%=request.getContextPath()%>/logout.jsp"><i class="icon-off"></i> <fmt:setBundle basename="oscarResources"/><fmt:message key="global.btnLogout"/></a></li>
 							    </ul>
 			</div>

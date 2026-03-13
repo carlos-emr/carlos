@@ -133,7 +133,7 @@
                         }
                     %>
                 </select>
-                <label class="checkbox">
+                <label class="form-check">
                     <input type="checkbox" name="reportProgramsIndividually"> Report Programs Separately
                 </label>
 

@@ -271,19 +271,19 @@
             <div class="row">
                 <div class="col-lg-12">
                     <div class="form-group">
-                        <label class="checkbox-inline">
+                        <label class="form-check form-check-inline">
                             <input type="checkbox" id="showMSP" name="showMSP"
                                    value="show"  <%=showMSP ? "checked" : ""%>/>
                             <a onclick="billTypeOnly('showMSP')">MSP</a></label>
-                        <label class="checkbox-inline">
+                        <label class="form-check form-check-inline">
                             <input type="checkbox" name="showWCB" value="show"  <%=showWCB ? "checked" : ""%>/><a
                                 onclick="billTypeOnly('showWCB')">WCB</a>
                         </label>
-                        <label class="checkbox-inline">
+                        <label class="form-check form-check-inline">
                             <input type="checkbox" name="showPRIV" value="show" <%=showPRIV ? "checked" : ""%>/><a
                                 onClick="billTypeOnly('showPRIV')">Private</a>
                         </label>
-                        <label class="checkbox-inline">
+                        <label class="form-check form-check-inline">
                             <input type="checkbox" name="showICBC" value="show" <%=showICBC ? "checked" : ""%>/><a
                                 onClick="billTypeOnly('showICBC')">ICBC</a>
                         </label>
@@ -368,93 +368,93 @@
                             }
 
                         %>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="<%=MSPReconcile.REJECTED%>"     <%=billTypes.equals(MSPReconcile.REJECTED) ? "checked" : ""%>/>
                             Rejected
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="<%=MSPReconcile.NOTSUBMITTED%>" <%=billTypes.equals(MSPReconcile.NOTSUBMITTED) ? "checked" : ""%>/>
                             Not Submitted
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="<%=MSPReconcile.SUBMITTED%>"    <%=billTypes.equals(MSPReconcile.SUBMITTED) ? "checked" : ""%>/>
                             Submitted
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="<%=MSPReconcile.SETTLED%>"      <%=billTypes.equals(MSPReconcile.SETTLED) ? "checked" : ""%>/>
                             Settled
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="<%=MSPReconcile.DELETED%>"      <%=billTypes.equals(MSPReconcile.DELETED) ? "checked" : ""%>/>
                             Deleted
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="<%=MSPReconcile.HELD%>"         <%=billTypes.equals(MSPReconcile.HELD) ? "checked" : ""%>/>
                             Held
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes" value="<%=MSPReconcile.DATACENTERCHANGED%>"
                                    title="Data Center Changed" <%=billTypes.equals(MSPReconcile.DATACENTERCHANGED) ? "checked" : ""%>/>
                             DCC
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes" value="<%=MSPReconcile.PAIDWITHEXP%>"
                                    title="Paid with Explanation"     <%=billTypes.equals(MSPReconcile.PAIDWITHEXP) ? "checked" : ""%>/>
                             PwE
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="<%=MSPReconcile.BADDEBT%>"      <%=billTypes.equals(MSPReconcile.BADDEBT) ? "checked" : ""%>/>
                             Bad Debt
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="<%=MSPReconcile.REFUSED%>"      <%=billTypes.equals(MSPReconcile.REFUSED) ? "checked" : ""%>/>
                             Refused
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <!--<input type="radio" name="billTypes" value="<%=MSPReconcile.WCB%>"          <%=billTypes.equals(MSPReconcile.WCB)?"checked":""%>/> WCB-->
                             <input type="radio" name="billTypes" value="<%=MSPReconcile.CAPITATED%>"
                                    title="Capitated"   <%=billTypes.equals(MSPReconcile.CAPITATED) ? "checked" : ""%>/>
                             Cap
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes" value="<%=MSPReconcile.DONOTBILL%>"
                                    title="Do Not Bill"    <%=billTypes.equals(MSPReconcile.DONOTBILL) ? "checked" : ""%>/>
                             DNBill
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="<%=MSPReconcile.BILLPATIENT%>"  <%=billTypes.equals(MSPReconcile.BILLPATIENT) ? "checked" : ""%>/>
                             Bill Patient
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes" value="<%=MSPReconcile.PAIDPRIVATE%>"
                                    title="Paid Private"  <%=billTypes.equals(MSPReconcile.PAIDPRIVATE) ? "checked" : ""%>/>
                             Private
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes" value="<%=MSPReconcile.COLLECTION%>"
                                    title="Transfered to Collection"<%=billTypes.equals(MSPReconcile.COLLECTION) ? "checked" : ""%>/>
                             Collection
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="%"                              <%=billTypes.equals("%") ? "checked" : ""%>/>
                             All
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="?"                              <%=billTypes.equals("?") ? "checked" : ""%>/>
                             Fixable Receivables
                         </label>
-                        <label class="radio-inline">
+                        <label class="form-check form-check-inline">
                             <input type="radio" name="billTypes"
                                    value="$"                              <%=billTypes.equals("$") ? "checked" : ""%>/>
                             Paid Bills
@@ -481,7 +481,7 @@
         <table class="table table-striped table-sm sortable" id="resultsTable">
             <thead>
 
-            <th class="no-sort"><label for="checkAll" class="checkbox-inline">
+            <th class="no-sort"><label for="checkAll" class="form-check form-check-inline">
                 <input type="checkbox" id="checkAll" name="checkAll">Select All</label></th>
             <th title="INVOICE #">INVOICE #</th>
             <th title="LINE #">SEQ #</th>

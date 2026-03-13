@@ -149,7 +149,7 @@
                     <div class="input-group">
                         <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown"
                                 aria-haspopup="true" aria-expanded="false">
-                            <span class="caret"></span>
+
                         </button>
                         <ul class="dropdown-menu" style="height:300px;overflow-y:scroll;">
                             <c:forEach items="${ textSuggestions }" var="textSuggestion">

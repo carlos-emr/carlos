@@ -408,10 +408,10 @@
 
     <form name="serviceform" method="post" action="billingONReport.jsp">
         <div class="form-inline" style="margin-bottom:10px;">
-            <label class="radio-inline">
+            <label class="form-check form-check-inline">
                 <input type="radio" name="reportAction" value="unbilled" <%="unbilled".equals(action)? "checked" : "" %>> Unbilled
             </label>
-            <label class="radio-inline">
+            <label class="form-check form-check-inline">
                 <input type="radio" name="reportAction" value="billed" <%="billed".equals(action)? "checked" : "" %>> Billed
             </label>
 

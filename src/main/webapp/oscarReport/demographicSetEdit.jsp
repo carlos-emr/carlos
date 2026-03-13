@@ -196,7 +196,7 @@
                             %>
                             <tr>
                                 <td><input type="checkbox" name="demoNo"
-                                           value="<%=h.get("demographic_no")%>" class="checkbox"></td>
+                                           value="<%=h.get("demographic_no")%>" class="form-check-input"></td>
                                 <td><%=h.get("demographic_no")%>
                                 </td>
                                 <td><%=demo.getLastName()%>, <%=demo.getFirstName()%>

@@ -287,7 +287,7 @@
                         <div class="tab-pane active" id="local-contacts">
                             <c:forEach items="${ localContacts }" var="contact" varStatus="count">
                                 <div class="row contact-entry">
-                                    <label class="checkbox">
+                                    <label class="form-check">
                                         <input type="checkbox" value="${ contact.id.compositeId }"
                                             ${ contact.member ? 'checked="checked"' : '' } />
                                         <span id="${ contact.id.compositeId }" class="provider-name">
@@ -327,7 +327,7 @@
                                 <div id="group-member-list-${ group.key.id }">
                                     <c:forEach items="${ group.value }" var="member">
                                         <div class="row contact-entry">
-                                            <label class="checkbox">
+                                            <label class="form-check">
                                                 <i class="fa-solid fa-trash group-member"
                                                    onclick="removeGroupMember('${ member.id.compositeId }', '${ group.key.id }')"
                                                    title="Remove Contact"

@@ -265,14 +265,14 @@
 
              <div class="form-group">
                 <label for="destinationDrop"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.destination" />:</label>
-                    <select onchange="javascript:setDestination(this);"  id="destinationDrop"  name="destinationDrop" class="form-control input-block-level">
+                    <select onchange="javascript:setDestination(this);"  id="destinationDrop"  name="destinationDrop" class="form-control">
                         <option value="pendingDocs" <%=( destination.equals("pendingDocs") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.pendingDocs" /></option>
                         <option value="incomingDocs" <%=( destination.equals("incomingDocs") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="inboxmanager.document.incomingDocs" /></option>
                     </select>
              </div>
              <div class="form-group" id="providerDropDiv">
                 <label for="providerDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.sendToProvider" />:</label>
-				<select onchange="javascript:setProvider(this);" id="providerDrop" name="providerDrop" class="form-control input-block-level">
+				<select onchange="javascript:setProvider(this);" id="providerDrop" name="providerDrop" class="form-control">
 					<option value="0" <%=("0".equals(provider) ? " selected" : "")%>><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.none" /></option>
 					<%
 					for (int i = 0; i < providers.size(); i++) {
@@ -286,7 +286,7 @@
              </div>
              <div class="form-group">
 				<label for="queueDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.queue" />:</label>
-				<select onchange="javascript:setQueue(this);" id="queueDrop" name="queueDrop" class="form-control input-block-level">
+				<select onchange="javascript:setQueue(this);" id="queueDrop" name="queueDrop" class="form-control">
 					<%
 					for (Map.Entry<Integer,String> entry : queues.entrySet()) {
 					    int key = entry.getKey();
@@ -301,7 +301,7 @@
              </div>
              <div class="form-group" id="destFolderDiv">
                 <label for="destFolderDrop" class="fields"><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.documentUploader.folder" />:</label>
-                    <select onchange="javascript:setDestFolder(this);"  id="destFolderDrop"  name="destFolderDrop" class="form-control input-block-level">
+                    <select onchange="javascript:setDestFolder(this);"  id="destFolderDrop"  name="destFolderDrop" class="form-control">
                         <option value="Fax" <%=( destFolder.equals("Fax") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.fax" /></option>
                         <option value="Mail" <%=( destFolder.equals("Mail") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.mail" /></option>
                         <option value="File" <%=( destFolder.equals("File") ? " selected" : "")%> ><fmt:setBundle basename="oscarResources"/><fmt:message key="dms.incomingDocs.file" /></option>

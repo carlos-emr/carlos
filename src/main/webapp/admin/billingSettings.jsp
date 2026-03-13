@@ -244,7 +244,7 @@
                 <tr>
                     <td>Set clinic information to display on all private invoices:</td>
                     <td>
-                        <label for="invoice_use_custom_clinic_info" class="checkbox">
+                        <label for="invoice_use_custom_clinic_info" class="form-check">
                             <input type="checkbox" id="invoice_use_custom_clinic_info"
                                    name="invoice_use_custom_clinic_info"
                                    onclick="setClinicInfo()" ${ "on" eq dataBean["invoice_use_custom_clinic_info"] ? "checked" : ""} />

@@ -2188,7 +2188,7 @@
                                     <td style="height:100%;vertical-align: bottom;">
                                         <div class="row float-end ">
                                             <div id="ignoreWarningsButton">
-                                                <label class="checkbox" for="ignoreWarn"
+                                                <label class="form-check" for="ignoreWarn"
                                                        title="Check to ignore validation warnings">
                                                     <input type="checkbox" name="ignoreWarn" id="ignoreWarn"/>
                                                     Ignore Warnings
@@ -2247,7 +2247,7 @@
                                             <tr>
                                                 <%String svcCall = "addSvcCode('" + billlist1[i].getServiceCode() + "')"; %>
                                                 <td width="25%" valign="middle">
-                                                    <label class="checkbox">
+                                                    <label class="form-check">
                                                         <input type="checkbox" name="service" value="<%=billlist1[i].getServiceCode()%>" onclick="<%=svcCall%>" />
                                                         <%=billlist1[i].getServiceCode()%>
                                                     </label>
@@ -2286,7 +2286,7 @@
                                             <tr>
                                                 <%String svcCall = "addSvcCode('" + billlist2[i].getServiceCode() + "')"; %>
                                                 <td width="25%">
-                                                    <label class="checkbox">
+                                                    <label class="form-check">
                                                         <input type="checkbox" name="service" value="<%=billlist2[i].getServiceCode()%>" onclick="<%=svcCall%>"/>
                                                         <%=billlist2[i].getServiceCode()%>
                                                     </label>
@@ -2322,7 +2322,7 @@
                                             <tr>
                                                 <%String svcCall = "addSvcCode('" + billlist3[i].getServiceCode() + "')"; %>
                                                 <td width="25%">
-                                                    <label class="checkbox">
+                                                    <label class="form-check">
                                                         <input type="checkbox" name="service" value="<%=billlist3[i].getServiceCode()%>"/>
                                                         <%=billlist3[i].getServiceCode()%>
                                                     </label>

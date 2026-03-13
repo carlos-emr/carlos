@@ -260,11 +260,11 @@
 							</div>
 							<div class="row">
 							
-								<label class="radio-inline" for="overridefaxyes">
+								<label class="form-check form-check-inline" for="overridefaxyes">
 									<input type="radio" name="isOverrideFaxNumber" id="overridefaxyes" value="true" 
 										onchange="document.getElementById('overridefax_container').style.display = 'block';" />Yes
 								</label>
-								<label class="radio-inline" for="overridefaxno">
+								<label class="form-check form-check-inline" for="overridefaxno">
 									<input type="radio" checked="checked" name="isOverrideFaxNumber" id="overridefaxno" 
 										value="false" onchange="document.getElementById('overridefax_container').style.display = 'none';" />No
 								</label>
@@ -378,11 +378,11 @@
                         <div class="container">
                             <div class="row">
                                 <div class="col-sm-12">
-                                    <label class="radio-inline" for="coverpageyes">
+                                    <label class="form-check form-check-inline" for="coverpageyes">
                                         <input type="radio" name="coverpage" id="coverpageyes" value="true"
                                                onchange="document.getElementById('comments_container').style.display = 'block';"/>Yes
                                     </label>
-                                    <label class="radio-inline" for="coverpageno">
+                                    <label class="form-check form-check-inline" for="coverpageno">
                                         <input type="radio" checked="checked" name="coverpage" id="coverpageno"
                                                value="false"
                                                onchange="document.getElementById('comments_container').style.display = 'none';"/>No

@@ -92,7 +92,7 @@
 <% } %>
         <ul>
             <%for (String importError : importErrors) {%>
-            <li class="text-error"><%=importError%>
+            <li class="text-danger"><%=importError%>
             </li>
             <%}%>
         </ul>

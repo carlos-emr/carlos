@@ -40,7 +40,7 @@
 	<li class="dropdown">
 		<a href="javascript:void(0);" class="dropdown-toggle" data-bs-toggle="dropdown">
 		Create eForm
-		<b class="caret"></b>
+
 		</a>
 		<ul class="dropdown-menu">
 		<li><a href='<%= request.getContextPath() %>/eform/efmformmanageredit.jsp' class="contentLink">Create In Editor</a></li>

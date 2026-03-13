@@ -1348,7 +1348,7 @@
                                 }
                             }
                         %>
-            	<input type="checkbox" class="checkbox-inline" name="urgency" id="urgency" value="critical" <%=urgencyChecked%> >
+            	<input type="checkbox" class="form-check-input" name="urgency" id="urgency" value="critical" <%=urgencyChecked%> >
                     </td>
                 </tr>
                 <% String emailReminder = pros.getProperty("emailApptReminder");
@@ -1358,7 +1358,7 @@
                         <label><fmt:setBundle basename="oscarResources"/><fmt:message key="Appointment.formEmailReminder"/>:</label>
                     </td>
                     <td>
-                <input type="checkbox" class="checkbox-inline" name="emailPt" value="email reminder">
+                <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
                     </td>
                 </tr>
                 <% } else { %>

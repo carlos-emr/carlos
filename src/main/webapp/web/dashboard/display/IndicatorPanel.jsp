@@ -54,7 +54,7 @@
 
             <a href="javascript:void(0)" class="dropdown-toggle" data-bs-toggle="dropdown" role="button"
                aria-haspopup="true" aria-expanded="false">
-                options <span class="caret"></span>
+                options
             </a>
 
             <ul class="dropdown-menu float-end text-start">

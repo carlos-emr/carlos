@@ -1427,7 +1427,7 @@
                                         title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif" alt="Calendar" border="0"/></a>
                                 </div>
                                 <div>
-                                    <label for="neverWarn" class="checkbox">Never Remind:</label><input type="checkbox"
+                                    <label for="neverWarn" class="form-check-label">Never Remind:</label><input type="checkbox"
                                                                                                         name="neverWarn"
                                                                                                         id="neverWarn"
                                                                                                         value="neverRemind"

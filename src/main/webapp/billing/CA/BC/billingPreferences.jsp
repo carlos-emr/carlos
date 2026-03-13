@@ -98,7 +98,7 @@
                         }
                     %>
                     <td class="MainTableRightColumn">
-                        <label for="autoPopulateRefer" class="checkbox-inline">
+                        <label for="autoPopulateRefer" class="form-check form-check-inline">
                             <input type="checkbox" id="autoPopulateRefer" name="autoPopulateRefer" disabled="<%=globalAutoPopulateRefer%>"/>
                             Auto-populate Referring Physician on Billing Form</label>
                         <% if (globalAutoPopulateRefer) { %>
@@ -157,7 +157,7 @@
                 </tr>
                 <tr>
                     <td class="MainTableRightColumn">
-                        <label for="invoicePayeeDisplayClinicInfo" class="checkbox-inline">
+                        <label for="invoicePayeeDisplayClinicInfo" class="form-check form-check-inline">
                             <checkbox id="invoicePayeeDisplayClinicInfo" name="invoicePayeeDisplayClinicInfo"></checkbox>
                             Display Clinic Information Under Payee</label>
                     </td>

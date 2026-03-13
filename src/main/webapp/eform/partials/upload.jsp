@@ -89,7 +89,7 @@
 <% } %></div>
 
         <div class='uploadEformTitle'>
-            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formName"/> <span class="text-error textExists" style='display:none;'>Name already exists</span><br>
+            <fmt:setBundle basename="oscarResources"/><fmt:message key="eform.uploadhtml.formName"/> <span class="text-danger textExists" style='display:none;'>Name already exists</span><br>
             <input type="text" name="formName" size="30" class="check" required>
         </div>
 

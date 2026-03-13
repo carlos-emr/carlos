@@ -216,25 +216,19 @@
         <form id="jobTypeForm">
             <input type="hidden" name="jobType.id" id="jobTypeId" value="0"/>
             <fieldset>
-                <div class="control-group">
+                <div class="mb-3">
                     <label class="form-label" for="jobTypeName">Name:*</label>
-                    <div class="controls">
-                        <input class="input-block-level" type="text" name="jobType.name" id="jobTypeName" value=""/>
-                    </div>
+                    <input class="form-control" type="text" name="jobType.name" id="jobTypeName" value=""/>
                 </div>
-                <div class="control-group">
+                <div class="mb-3">
                     <label class="form-label" for="jobTypeDescription">Description:</label>
-                    <div class="controls">
-                        <textarea class="input-block-level" rows="5" name="jobType.description"
-                                  id="jobTypeDescription"></textarea>
-                    </div>
+                    <textarea class="form-control" rows="5" name="jobType.description"
+                              id="jobTypeDescription"></textarea>
                 </div>
-                <div class="control-group">
+                <div class="mb-3">
                     <label class="form-label" for="jobTypeClassName">JAVA Class Name:</label>
-                    <div class="controls">
-                        <input class="input-block-level" type="text" name="jobType.className" id="jobTypeClassName"
-                               value=""/>
-                    </div>
+                    <input class="form-control" type="text" name="jobType.className" id="jobTypeClassName"
+                           value=""/>
                 </div>
                 <div class="control-group">
                     <label class="form-label" for="jobTypeEnabled">Enabled: <input type="checkbox"

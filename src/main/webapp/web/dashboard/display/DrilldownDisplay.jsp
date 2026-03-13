@@ -180,7 +180,6 @@
                            aria-haspopup="true" aria-expanded="false" id="actionMenuLink">
                             <span class="fa-solid fa-check"></span>
                             Actions
-                            <span class="caret"></span>
                         </a>
 
                         <ul class="dropdown-menu" aria-labelledby="actionMenuLink">
@@ -196,7 +195,7 @@
                                     Select None
                                 </a>
                             </li>
-                            <li role="separator" class="divider"></li>
+                            <li role="separator" class="dropdown-divider"></li>
                             <li>
                                 <a href="${ pageContext.request.contextPath }/web/dashboard/display/AssignTickler.do" class="dropdown-item"
                                    title="Assign Tickler to Checked Rows." id="assignTicklerChecked">

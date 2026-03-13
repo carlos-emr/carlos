@@ -113,19 +113,19 @@
 
     <form name="serviceform" method="post" action="billingReportControl.jsp">
         <div class="form-inline" style="margin-bottom:10px;">
-            <label class="radio-inline">
+            <label class="form-check form-check-inline">
                 <input type="radio" name="reportAction" value="unbilled" checked> Unbilled
             </label>
-            <label class="radio-inline">
+            <label class="form-check form-check-inline">
                 <input type="radio" name="reportAction" value="billed"> Billed
             </label>
-            <label class="radio-inline">
+            <label class="form-check form-check-inline">
                 <input type="radio" name="reportAction" value="unsettled"> Unsettled
             </label>
-            <label class="radio-inline">
+            <label class="form-check form-check-inline">
                 <input type="radio" name="reportAction" value="billob"> OB
             </label>
-            <label class="radio-inline">
+            <label class="form-check form-check-inline">
                 <input type="radio" name="reportAction" value="flu"> FLU
             </label>
 
