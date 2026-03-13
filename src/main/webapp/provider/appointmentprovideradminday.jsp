@@ -141,8 +141,10 @@
 %>
 <%
     LookupList reasonCodes = lookupListManager.findLookupListByName(loggedInInfo1, "reasonCode");
-    for (LookupListItem lli : reasonCodes.getItems()) {
-        reasonCodesMap.put(lli.getId(), lli);
+    if (reasonCodes != null && reasonCodes.getItems() != null) {
+        for (LookupListItem lli : reasonCodes.getItems()) {
+            reasonCodesMap.put(lli.getId(), lli);
+        }
     }
 
     // are prevention stop sign icons being loaded? This needs to be known when loading the schedule

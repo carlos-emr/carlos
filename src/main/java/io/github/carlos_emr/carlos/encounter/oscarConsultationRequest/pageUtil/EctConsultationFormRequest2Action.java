@@ -187,10 +187,30 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         if (submission.startsWith("Submit")) {
 
             try {
+                int demographicId;
+                try {
+                    demographicId = Integer.parseInt(demographicNo);
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().error("Invalid demographic number for new consultation: {}", demographicNo);
+                    addActionError("Invalid demographic number");
+                    return INPUT;
+                }
+
                 if (newSignature) {
-		   DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
-                   if (signature != null) {
+                    // Manual signature from tablet/signature pad
+                    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, demographicId, ModuleType.CONSULTATION);
+                    if (signature != null) {
                         signatureId = "" + signature.getId();
+                    }
+                } else {
+                    // Stamp signature — attempt to create immutable copy from provider's stamp file
+                    // (returns null if digital signatures are disabled, stamp file is missing, or an error occurs)
+                    DigitalSignature signature = digitalSignatureManager.saveStampSignature(
+                            loggedInInfo, loggedInInfo.getLoggedInProviderNo(), demographicId, ModuleType.CONSULTATION);
+                    if (signature != null) {
+                        signatureId = "" + signature.getId();
+                    } else {
+                        MiscUtils.getLogger().debug("Stamp signature could not be applied for provider {} on new consultation", loggedInInfo.getLoggedInProviderNo());
                     }
                 }
 
@@ -323,15 +343,35 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             consultationManager.archiveConsultationRequest(Integer.parseInt(requestId));
 
             try {
+                int demographicId;
+                try {
+                    demographicId = Integer.parseInt(demographicNo);
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().error("Invalid demographic number for consultation update: {}", demographicNo);
+                    addActionError("Invalid demographic number");
+                    return INPUT;
+                }
+
                 if (newSignature) {
-		    DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-		    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, Integer.parseInt(demographicNo), ModuleType.CONSULTATION);
+                    // Manual re-sign from tablet/signature pad
+                    DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, signatureImg, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
                     } else {
                         signatureId = null;
                     }
+                } else if (signatureImg == null || signatureImg.isEmpty()) {
+                    // Stamp signature with no existing DigitalSignature — attempt to create immutable copy
+                    // (returns null if digital signatures are disabled, stamp file is missing, or an error occurs)
+                    DigitalSignature signature = digitalSignatureManager.saveStampSignature(
+                            loggedInInfo, loggedInInfo.getLoggedInProviderNo(), demographicId, ModuleType.CONSULTATION);
+                    if (signature != null) {
+                        signatureId = "" + signature.getId();
+                    } else {
+                        MiscUtils.getLogger().debug("Stamp signature could not be applied for provider {} on consultation update (requestId={})", loggedInInfo.getLoggedInProviderNo(), requestId);
+                    }
                 } else {
+                    // Already has a DigitalSignature ID — keep it
                     signatureId = signatureImg;
                 }
 

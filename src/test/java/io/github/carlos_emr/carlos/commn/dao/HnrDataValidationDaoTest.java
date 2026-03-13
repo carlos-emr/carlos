@@ -59,7 +59,6 @@ public class HnrDataValidationDaoTest extends DaoTestFixtures {
         f.setDescription("test");
         f.setDisabled(false);
         f.setName("test");
-        f.setOcanServiceOrgNumber("0");
         f.setOrgId(0);
         f.setSectorId(0);
         facilityDao.persist(f);

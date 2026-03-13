@@ -29,7 +29,9 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.OscarProperties;
 import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -38,8 +40,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.Date;
@@ -149,6 +153,48 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             logger.warn("Blocked unsafe file access attempt.", e);
         } catch (Exception e) {
             logger.error("Unexpected error processing digital signature.", e);
+        }
+
+        return null;
+    }
+
+    @Override
+    public DigitalSignature saveStampSignature(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo, ModuleType moduleType) {
+        if (!loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
+            logger.debug("Digital signatures disabled for facility — stamp not saved");
+            return null;
+        }
+
+        // Prevent provider impersonation: the stamp must belong to the logged-in user
+        String loggedInProvider = loggedInInfo.getLoggedInProviderNo();
+        if (!loggedInProvider.equals(providerNo)) {
+            logger.warn("Provider {} attempted to use stamp signature of provider {} — denied",
+                    loggedInProvider, providerNo);
+            return null;
+        }
+
+        String stampFilename = UserProperty.CONSULT_SIGNATURE_PREFIX + providerNo + ".png";
+        File imageFolder = new File(OscarProperties.getInstance().getEformImageDirectory());
+
+        try {
+            File stampFile = PathValidationUtils.validatePath(stampFilename, imageFolder);
+
+            if (!stampFile.exists()) {
+                logger.debug("Stamp signature file not found: {}", stampFilename);
+                return null;
+            }
+
+            byte[] imageData = Files.readAllBytes(stampFile.toPath());
+            return this.saveDigitalSignature(
+                    loggedInInfo.getCurrentFacility().getId(),
+                    providerNo, demographicNo, imageData, moduleType
+            );
+        } catch (SecurityException e) {
+            logger.warn("Blocked unsafe file access attempt for stamp signature.", e);
+        } catch (IOException e) {
+            logger.error("Error reading stamp signature file: {}", stampFilename, e);
+        } catch (RuntimeException e) {
+            logger.error("Error persisting stamp signature for provider {}: {}", providerNo, e.getMessage(), e);
         }
 
         return null;

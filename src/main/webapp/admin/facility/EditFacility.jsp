@@ -76,9 +76,6 @@
         <input type="hidden" name="method" value="save"/>
         <input type="hidden" name="orgId" id="orgId"/>
         <input type="hidden" name="sectorId" id="sectorId"/>
-        <!-- Ronnie
-        < :hidden property="facility.ocanServiceOrgNumber" />
-        -->
         <table width="100%" border="1" cellspacing="2" cellpadding="3">
             <tr class="b">
                 <td>Facility Id:</td>
