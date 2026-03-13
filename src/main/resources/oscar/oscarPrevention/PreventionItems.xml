@@ -3,6 +3,7 @@
 <!--
     Document   : PreventionItems.xml
     Source     : src/main/resources/oscar/oscarPrevention/PreventionItems.xml
+    Updated on : Mar 8, 2026
     Description:
         XML configuration for the Prevention Module. Defines all prevention types
         available for recording and clinical decision support.
@@ -162,7 +163,7 @@
 	<!-- ============================================================ -->
 
 	<item
-			resultDesc=""
+			resultDesc="DTaP=Diphtheria, Tetanus, Pertussis"
 			desc="DTaP=Diphtheria, Tetanus, Acellular Pertussis - pediatric"
 			name="DTaP"
 			headingName="Immunizations"
@@ -172,7 +173,7 @@
 			showIfMinRecordNum="1"/>
 
 	<item
-			resultDesc=""
+			resultDesc="DTaP-IPV-Hib-HB=Diphtheria, Tetanus, Pertussis, Polio, Hib, Hepatitis B"
 			desc="DTaP-IPV-Hib-HB=Diphtheria, Tetanus, Acellular Pertussis, Inactivated Polio, Haemophilus Influenzae type b, Hepatitis B - pediatric eg Infanrix Hexa"
 			name="DTaP-IPV-Hib-HB"
 			headingName="Immunizations"
@@ -182,7 +183,7 @@
 			showIfMinRecordNum="1"/>
 
 	<item
-			resultDesc=""
+			resultDesc="DTaP-IPV-HB=Diphtheria, Tetanus, Pertussis, Polio, Hepatitis B"
 			desc="DTaP-IPV-HB=Diphtheria, Tetanus, Acellular Pertussis, Inactivated Polio, Hepatitis B - pediatric"
 			name="DTaP-IPV-HB"
 			headingName="Immunizations"
@@ -192,7 +193,7 @@
 			showIfMinRecordNum="1"/>
 
 	<item
-			resultDesc=""
+			resultDesc="DT-IPV=Diphtheria, Tetanus, Polio"
 			desc="DT-IPV=Diphtheria, Tetanus, Polio - pediatric"
 			name="DT-IPV"
 			headingName="Immunizations"
@@ -202,7 +203,7 @@
 			showIfMinRecordNum="1"/>
 
 	<item
-			resultDesc=""
+			resultDesc="Tdap-IPV=Tetanus, Diphtheria, Pertussis, Polio"
 			desc="Tdap-IPV=Diphtheria, Tetanus and Acellular Pertussis for children 4 - 6 years of age; IPV=Inactivated Poliovirus; eg Adacel-IPV"
 			name="Tdap-IPV"
 			headingName="Immunizations"
@@ -212,7 +213,7 @@
 			showIfMinRecordNum="1" />
 
 	<item
-			resultDesc=""
+			resultDesc="DTaP-IPV-Hib=Diphtheria, Tetanus, Pertussis, Polio, Hib"
 			desc="DTaP-IPV-Hib=Diphtheria, Tetanus, Acellular Pertussis, Inactivated Polio, Haemophilus Influenzae type b for children 6weeks to 4 years of age. Given at 2mth,4mth,6mth and 18mths, eg Pediacel"
 			name="DTaP-IPV-Hib"
 			headingName="Immunizations"
@@ -234,7 +235,7 @@
 			showIfMinRecordNum="1" />
 
 	<item
-			resultDesc=""
+			resultDesc="DTaP-IPV=Diphtheria, Tetanus, Pertussis, Polio"
 			desc="DTaP=Diphtheria, Tetanus and Acellular Pertussis for children under 18 years of age; IPV=Inactivated Poliovirus"
 			name="DTaP-IPV"
 			headingName="Immunizations"
@@ -275,7 +276,7 @@
 			showIfMinRecordNum="1" />
 
 	<item
-			resultDesc=""
+			resultDesc="Hib=Haemophilus Influenzae type b"
 			desc="Hib=Haemophilus Influenzae type b for children under 5 years of age"
 			name="Hib"
 			headingName="Immunizations"
@@ -348,7 +349,7 @@
 			showIfMinRecordNum="1" />
 
 	<item
-			resultDesc=""
+			resultDesc="MR=Measles, Rubella"
 			desc="MR=Measles, Rubella"
 			name="MR"
 			headingName="Immunizations"
@@ -357,7 +358,7 @@
 			showIfMinRecordNum="1" />
 
 	<item
-			resultDesc=""
+			resultDesc="MMR=Measles, Mumps, Rubella"
 			desc="MMR=Measles, Mumps and Rubella eg Priorix"
 			name="MMR"
 			headingName="Immunizations"
@@ -660,7 +661,7 @@
 			showIfMinRecordNum="1" />
 
 	<item
-			resultDesc=""
+			resultDesc="BCG=Bacillus Calmette-Guerin"
 			desc="BCG=Bacillus Calmette-Guérin"
 			name="BCG"
 			headingName="Immunizations"
@@ -798,7 +799,7 @@
 			maxAge="70" sex="M" showIfMinRecordNum="1" />
 
 	<item
-			resultDesc=""
+			resultDesc="FOBT=Fecal Occult Blood Test"
 			displayName="FIT/FOBT"
 			desc="FOBT=Fecal Occult Blood Test / Fecal Immunochemical Test (FIT) every 2 years ages 50-74"
 			name="FOBT"
@@ -958,7 +959,7 @@
 			showIfMinRecordNum="1" />
 
 	<item
-			resultDesc=""
+			resultDesc="DTaP-Hib=Diphtheria, Tetanus, Pertussis, Hib"
 			desc="DTaP-Hib=Diphtheria, Tetanus, Acellular Pertussis, Haemophilus Influenzae type b - pediatric"
 			name="DTaP-Hib"
 			headingName="Immunizations"

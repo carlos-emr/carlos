@@ -42,25 +42,30 @@ public interface DigitalSignatureManager extends OscarManagerBase {
      * it and update the database for future access.
      *
      * @param id The ID of the digital signature to retrieve.
-     * @return The retrieved `DigitalSignature` object, or `null` if no such entity exists or if an error occurs during
- *   * decrypting/encrypting the SignatureImage.
+     * @return The retrieved {@code DigitalSignature} object with decrypted image data, or {@code null}
+     *         if no entity exists with the given ID, or if decryption and re-encryption both fail.
      */
     DigitalSignature getDigitalSignature(int id);
 
     /**
      * Saves a digital signature to the database.
      * <p>
-     * This method saves a new digital signature to the database. The provided `imageData` is encrypted
-     * before being stored. The digital signature is associated with the specified `facilityId`, `providerNo`,
-     * and `demographicNo`.
+     * This is a low-level persistence method that does <strong>not</strong> check whether digital
+     * signatures are enabled or verify provider identity. Callers are responsible for performing
+     * those checks before invoking this method. Prefer {@link #processAndSaveDigitalSignature} or
+     * {@link #saveStampSignature} which enforce facility-enabled and provider identity checks.
+     * <p>
+     * The provided {@code imageData} is encrypted before being stored. The digital signature is
+     * associated with the specified {@code facilityId}, {@code providerNo}, and {@code demographicNo}.
      *
      * @param facilityId    The ID of the facility associated with the signature.
-     * @param providerNo    The providers's number associated with the signature.
+     * @param providerNo    The provider's number associated with the signature.
      * @param demographicNo The ID of the demographic entity associated with the signature.
      * @param imageData     The byte array representing the signature image.
      * @param moduleType    {@link ModuleType} The module from which the signature originated.
-     * @return The saved `DigitalSignature` object, including the generated ID.
-     * <p>Note, Encrypted imageData will be populated in the object returned.
+     * @return The saved {@code DigitalSignature} object, including the generated ID.
+     *         The returned object's {@code signatureImage} field contains the encrypted form,
+     *         not the original plaintext bytes.
      * @throws RuntimeException If an error occurs during encryption or saving the signature.
      */
     DigitalSignature saveDigitalSignature(Integer facilityId, String providerNo, Integer demographicNo, byte[] imageData, ModuleType moduleType);
@@ -71,7 +76,7 @@ public interface DigitalSignatureManager extends OscarManagerBase {
      * <p>
      * This method retrieves a digital signature image from a temporary file, encrypts it,
      * and saves it to the database. The signature is associated with the logged-in user's
-     * facility and providers number, as well as the specified `demographicNo`.
+     * facility and provider number, as well as the specified `demographicNo`.
      * <p>
      * The `signatureRequestId` is used to locate the temporary signature file.  The method
      * checks if digital signatures are enabled for the current facility before proceeding.
@@ -79,7 +84,7 @@ public interface DigitalSignatureManager extends OscarManagerBase {
      * temporary signature file is not found, logging a debug message and returning `null`.
      *
      * @param loggedInInfo          Information about the currently logged-in user, used to
-     *                              determine facility and providers details.
+     *                              determine facility and provider details.
      * @param signatureRequestId    The ID used to locate the temporary signature image file.
      * @param demographicNo         The ID of the demographic entity associated with the signature.
      * @param moduleType            {@link ModuleType} The module from which the signature originated.
@@ -87,6 +92,29 @@ public interface DigitalSignatureManager extends OscarManagerBase {
      *         disabled, the file is not found, or an error occurs during processing.
      */
     DigitalSignature processAndSaveDigitalSignature(LoggedInInfo loggedInInfo, String signatureRequestId, Integer demographicNo, ModuleType moduleType);
+
+    /**
+     * Creates a point-in-time {@link DigitalSignature} from the provider's stamp signature file on disk.
+     *
+     * <p>Reads the stamp PNG ({@code consult_sig_<providerNo>.png}) from the eForm image directory,
+     * encrypts and persists it via {@link #saveDigitalSignature} as a new {@link DigitalSignature}
+     * record. This ensures that historical consultations retain the signature that was active at the
+     * time of signing, even if the provider later updates or deletes their stamp file.</p>
+     *
+     * <p><strong>Authorization:</strong> {@code providerNo} must match the logged-in provider.
+     * Attempts to use another provider's stamp are rejected and logged.</p>
+     *
+     * @param loggedInInfo  Information about the currently logged-in user, used to determine
+     *                      facility, verify provider identity, and check if digital signatures
+     *                      are enabled.
+     * @param providerNo    The provider number whose stamp file to read (must match logged-in user).
+     * @param demographicNo The ID of the patient associated with the consultation.
+     * @param moduleType    {@link ModuleType} The module from which the signature originated.
+     * @return The saved {@link DigitalSignature} object, or {@code null} if digital signatures
+     *         are disabled, the provider numbers do not match, the stamp file does not exist,
+     *         or an error occurs during processing.
+     */
+    DigitalSignature saveStampSignature(LoggedInInfo loggedInInfo, String providerNo, Integer demographicNo, ModuleType moduleType);
 
 }
 

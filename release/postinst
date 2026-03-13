@@ -526,8 +526,10 @@ if [ "${UPGRADE}" = "true" ] ; then
 	for _sql in $(ls -1 "${SRC}"update-2026-*.sql 2>/dev/null | sort); do
 		ncecho " [x] Applying incremental update $(basename ${_sql}) "
 		echo "Applying incremental update ${_sql}" >> $LOG_FILE
-		$MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>&1 &
-		pid=$!;progress $pid
+		if ! $MYSQL ${db_name} < "${_sql}" >>$LOG_FILE 2>&1; then
+			echo "FAILED: ${_sql}" >> $LOG_FILE
+			fail "SQL update $(basename ${_sql}) failed — check $LOG_FILE for details"
+		fi
 		echo "Applied ${_sql}" >> $LOG_FILE
 	done
 
