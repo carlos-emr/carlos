@@ -483,7 +483,7 @@
 
                 } else {
                     form.service.value = "";
-                    for (var i = 0; consultationServices.length; i++) {
+                    for (var i = 0; i < consultationServices.length; i++) {
                         var specialistService = consultationServices[i];
                         if (specialistService.description === service) {
                             form.service.value = specialistService.id;
@@ -505,10 +505,10 @@
         <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
         <script>
             var ctx = '<%=request.getContextPath()%>';
-            var requestId = '<%=requestId%>';
-            var demographicNo = '<%=demo%>';
-            var demoNo = '<%=demo%>';
-            var appointmentNo = '<%=appNo%>';
+            var requestId = '<%=Encode.forJavaScript(requestId)%>';
+            var demographicNo = '<%=Encode.forJavaScript(demo)%>';
+            var demoNo = '<%=Encode.forJavaScript(demo)%>';
+            var appointmentNo = '<%=Encode.forJavaScript(appNo)%>';
         </script>
 
         <script type="text/javascript"
@@ -1566,26 +1566,26 @@
 
         const providerData = {};
 
-        providerData['<%=Encode.forHtmlContent(clinic.getClinicName())%>'] = {};
+        providerData['<%=Encode.forJavaScript(clinic.getClinicName())%>'] = {};
 
         let addr, ph, fx;
 
         <% if (consultUtil.letterheadAddress != null) { %>
-        addr = '<%= Encode.forHtmlContent(consultUtil.letterheadAddress).replaceAll("\\n", " ") %>';
+        addr = '<%= Encode.forJavaScript(consultUtil.letterheadAddress.replace('\n', ' ')) %>';
         <%} else {%>
-        addr = '<%=Encode.forHtmlContent(clinic.getClinicAddress()) + " " + Encode.forHtmlContent(clinic.getClinicCity()) + " " + Encode.forHtmlContent(clinic.getClinicProvince()) + " " + Encode.forHtmlContent(clinic.getClinicPostal()) %>';
+        addr = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
         <%}%>
 
         <% if(consultUtil.letterheadPhone != null) { %>
-        ph = '<%=Encode.forHtmlContent(consultUtil.letterheadPhone).replaceAll("\\n", " ")%>';
+        ph = '<%=Encode.forJavaScript(consultUtil.letterheadPhone.replace('\n', ' '))%>';
         <%} else { %>
-        ph = '<%=Encode.forHtmlContent(clinic.getClinicPhone())%>';
+        ph = '<%=Encode.forJavaScript(clinic.getClinicPhone())%>';
         <% }%>
 
         <%if(consultUtil.letterheadFax != null) { %>
-        fx = '<%=Encode.forHtmlContent(consultUtil.letterheadFax)%>';
+        fx = '<%=Encode.forJavaScript(consultUtil.letterheadFax)%>';
         <% } else {%>
-        fx = '<%=Encode.forHtmlContent(clinic.getClinicFax())%>';
+        fx = '<%=Encode.forJavaScript(clinic.getClinicFax())%>';
         <% } %>
 
         providerData['<%=Encode.forJavaScript(clinic.getClinicName())%>'].address = addr;
@@ -1601,9 +1601,9 @@ for (Provider providerItem: prList) {
 		%>
         providerData['<%=prov_no%>'] = {};
 
-        providerData['<%=prov_no%>'].address = "<%=Encode.forHtmlContent(providerItem.getFullAddress())%>";
-        providerData['<%=prov_no%>'].phone = "<%=Encode.forHtmlContent(providerItem.getClinicPhone())%>";
-        providerData['<%=prov_no%>'].fax = "<%=Encode.forHtmlContent(providerItem.getClinicFax())%>";
+        providerData['<%=prov_no%>'].address = "<%=Encode.forJavaScript(providerItem.getFullAddress())%>";
+        providerData['<%=prov_no%>'].phone = "<%=Encode.forJavaScript(providerItem.getClinicPhone())%>";
+        providerData['<%=prov_no%>'].fax = "<%=Encode.forJavaScript(providerItem.getClinicFax())%>";
 
         <%	}
 }
@@ -1617,9 +1617,9 @@ if (OscarProperties.getInstance().getBooleanProperty("consultation_program_lette
 			String progNo = "prog_" + program.getId();
 %>
         providerData['<%=progNo %>'] = {};
-        providerData['<%=progNo %>'].address = '<%=(program.getAddress() != null && !program.getAddress().trim().isEmpty()) ? Encode.forHtmlContent(program.getAddress()) : (Encode.forHtmlContent(clinic.getClinicAddress()) + " " + Encode.forHtmlContent(clinic.getClinicCity()) + " " + Encode.forHtmlContent(clinic.getClinicProvince()) + " " + Encode.forHtmlContent(clinic.getClinicPostal())) %>';
-        providerData['<%=progNo %>'].phone = '<%=(program.getPhone() != null && !program.getPhone().trim().isEmpty()) ? Encode.forHtmlContent(program.getPhone()) : Encode.forHtmlContent(clinic.getClinicPhone()) %>';
-        providerData['<%=progNo %>'].fax = '<%=(program.getFax() != null && !program.getFax().trim().isEmpty()) ? Encode.forHtmlContent(program.getFax()) : Encode.forHtmlContent(clinic.getClinicFax()) %>';
+        providerData['<%=progNo %>'].address = '<%=(program.getAddress() != null && !program.getAddress().trim().isEmpty()) ? Encode.forJavaScript(program.getAddress()) : (Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal())) %>';
+        providerData['<%=progNo %>'].phone = '<%=(program.getPhone() != null && !program.getPhone().trim().isEmpty()) ? Encode.forJavaScript(program.getPhone()) : Encode.forJavaScript(clinic.getClinicPhone()) %>';
+        providerData['<%=progNo %>'].fax = '<%=(program.getFax() != null && !program.getFax().trim().isEmpty()) ? Encode.forJavaScript(program.getFax()) : Encode.forJavaScript(clinic.getClinicFax()) %>';
         <%
 		}
 	}
@@ -1628,21 +1628,21 @@ if (OscarProperties.getInstance().getBooleanProperty("consultation_program_lette
         function switchProvider(value) {
             if (value === -1) {
                 document.getElementById("letterheadName").value = value;
-                document.getElementById("letterheadAddress").value = '<%=Encode.forHtmlAttribute(clinic.getClinicAddress()) + " " + Encode.forHtmlAttribute(clinic.getClinicCity()) + " " + Encode.forHtmlAttribute(clinic.getClinicProvince()) + " " + Encode.forHtmlAttribute(clinic.getClinicPostal()) %>';
-                document.getElementById("letterheadAddressSpan").textContent = '<%=Encode.forHtmlContent(clinic.getClinicAddress()) + " " + Encode.forHtmlContent(clinic.getClinicCity()) + " " + Encode.forHtmlContent(clinic.getClinicProvince()) + " " + Encode.forHtmlContent(clinic.getClinicPostal()) %>';
-                document.getElementById("letterheadPhone").value = "<%=Encode.forHtmlAttribute(clinic.getClinicPhone()) %>";
-                document.getElementById("letterheadPhoneSpan").textContent = "<%=Encode.forHtmlContent(clinic.getClinicPhone()) %>";
-                document.getElementById("letterheadFax").value = "<%=Encode.forHtmlAttribute(clinic.getClinicFax()) %>";
+                document.getElementById("letterheadAddress").value = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
+                document.getElementById("letterheadAddressSpan").textContent = '<%=Encode.forJavaScript(clinic.getClinicAddress()) + " " + Encode.forJavaScript(clinic.getClinicCity()) + " " + Encode.forJavaScript(clinic.getClinicProvince()) + " " + Encode.forJavaScript(clinic.getClinicPostal()) %>';
+                document.getElementById("letterheadPhone").value = "<%=Encode.forJavaScript(clinic.getClinicPhone()) %>";
+                document.getElementById("letterheadPhoneSpan").textContent = "<%=Encode.forJavaScript(clinic.getClinicPhone()) %>";
+                document.getElementById("letterheadFax").value = "<%=Encode.forJavaScript(clinic.getClinicFax()) %>";
 
-                document.getElementById("letterheadFaxSpan").textContent = "<%=Encode.forHtmlAttribute(clinic.getClinicFax()) %>";
+                document.getElementById("letterheadFaxSpan").textContent = "<%=Encode.forJavaScript(clinic.getClinicFax()) %>";
 
                 let faxAccountOptions = document.getElementById("faxAccount");
                 if (faxAccountOptions) {
-                    faxAccountOptions.value = "<%=Encode.forHtmlAttribute(clinic.getClinicFax()) %>".replace(/[^0-9.]/g, '');
+                    faxAccountOptions.value = "<%=Encode.forJavaScript(clinic.getClinicFax()) %>".replace(/[^0-9.]/g, '');
                     for(let i = 0; i < faxAccountOptions.options.length; i++) {
                         let option = faxAccountOptions.options[i];
-                        if(option.value === "<%=clinic.getClinicFax() %>".replace(/[^0-9.]/g, '')) {
-                            faxAccountOptions.value = "<%=clinic.getClinicFax()%>".replace(/[^0-9.]/g, '');
+                        if(option.value === "<%=Encode.forJavaScript(clinic.getClinicFax()) %>".replace(/[^0-9.]/g, '')) {
+                            faxAccountOptions.value = "<%=Encode.forJavaScript(clinic.getClinicFax())%>".replace(/[^0-9.]/g, '');
                             break;
                         }
                     }
@@ -2297,7 +2297,7 @@ if (userAgent != null) {
                                             </td>
                                             <td class="consult-form-value">
                                                 <% if (thisForm.iseReferral() && !thisForm.geteReferralService().isEmpty()) { %>
-                                                <%= thisForm.geteReferralService() %>
+                                                <%=Encode.forHtml(thisForm.geteReferralService())%>
                                                 <% } else { %>
                                                 <select id="service" name="service" class="form-select form-select-sm"
                                                              onchange="fillSpecialistSelect(this);"></select>
@@ -2381,7 +2381,7 @@ if (userAgent != null) {
                                             <fmt:setBundle basename="oscarResources"/><fmt:message key="oscarEncounter.oscarConsultationRequest.ConsultationFormRequest.formPhone"/>
                                         </td>
                                         <td class="consult-form-value"><input readonly type="text" name="phone" class="form-control form-control-sm"
-                                                                 value="<%=thisForm.getProfessionalSpecialistPhone()%>"/>
+                                                                 value="<%=Encode.forHtmlAttribute(thisForm.getProfessionalSpecialistPhone())%>"/>
                                         </td>
                                     </tr>
                                     <tr>
@@ -2403,7 +2403,7 @@ if (userAgent != null) {
                                         </td>
                                         <td class="consult-form-value">
                                             <textarea readonly name="address" class="form-control form-control-sm"
-                                                      rows="5"><%=thisForm.getProfessionalSpecialistAddress()%></textarea>
+                                                      rows="5"><%=Encode.forHtml(thisForm.getProfessionalSpecialistAddress())%></textarea>
                                         </td>
                                     </tr>
 
@@ -2869,9 +2869,9 @@ if (userAgent != null) {
                                 // Load services first, then initialize consultation with saved data
                                 loadServicesFromServer(function() {
                                     initializeConsultation(
-                                        '<%=consultUtil.service%>',
+                                        '<%=Encode.forJavaScript(String.valueOf(consultUtil.service))%>',
                                         '<%=((consultUtil.service==null)?"":Encode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
-                                        '<%=consultUtil.specialist%>',
+                                        '<%=Encode.forJavaScript(String.valueOf(consultUtil.specialist))%>',
                                         '<%=((consultUtil.specialist==null)?"":Encode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
                                         '<%=Encode.forJavaScript(consultUtil.specPhone)%>',
                                         '<%=Encode.forJavaScript(consultUtil.specFax)%>',

@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %>
@@ -107,9 +108,9 @@
             }, 1000);
 
             // Print consultation request form
-            const consultPDFName = '<%=request.getAttribute("consultPDFName")%>';
-            const consultPDF = '<%=request.getAttribute("consultPDF")%>';
-            const isPreviewReady = '<%=request.getAttribute("isPreviewReady")%>';
+            const consultPDFName = '<%=Encode.forJavaScript(String.valueOf(request.getAttribute("consultPDFName")))%>';
+            const consultPDF = '<%=Encode.forJavaScript(String.valueOf(request.getAttribute("consultPDF")))%>';
+            const isPreviewReady = '<%=Encode.forJavaScript(String.valueOf(request.getAttribute("isPreviewReady")))%>';
             if (consultPDF !== 'null' && consultPDFName !== 'null' && isPreviewReady === 'true') {
                 downloadConsultForm(consultPDFName, consultPDF, function () {
                     setTimeout("window.close()", secs * 1000);
